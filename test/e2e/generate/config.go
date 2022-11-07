@@ -175,9 +175,9 @@ var generateSynchronizeFlagTests = []testCase{
 		TestName:        "test-generate-policy-for-namespace-with-label",
 		ClusterPolicy:   clusterPolicy(genNetworkPolicyYaml),
 		TriggerResource: namespace(namespaceWithLabelYaml),
-		ExpectedResources: expectations(
-			expectation(idNetworkPolicy("test", "allow-dns")),
-		),
+		// expectation is resource should no longer exists once deleted
+		// if sync is set to false
+
 		Steps: []testCaseStep{
 			stepBy("When synchronize flag is set to true in the policy and someone deletes the generated resource, kyverno generates back the resource"),
 			stepDeleteResource(npGVR, "test", "allow-dns"),

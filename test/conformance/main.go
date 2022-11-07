@@ -53,7 +53,13 @@ type KubectlTest struct {
 func (kt KubectlTest) Run(name string) error {
 	stdout, stderr, err := runCommand("kubectl", kt.Args...)
 	if kt.Expect != nil {
-		return kt.Expect.Verify(stdout, stderr, err)
+		if err := kt.Expect.Verify(stdout, stderr, err); err != nil {
+			log.Println("--- STDERR ---")
+			log.Println(string(stderr))
+			log.Println("--- STDOUT ---")
+			log.Println(string(stdout))
+			return err
+		}
 	}
 	return nil
 }
@@ -151,7 +157,7 @@ func main() {
 			}
 			var errs []error
 			for _, test := range tests {
-				log.Println("Running test ", test.Description, " ...")
+				log.Println("Running test", test.Description, "...")
 				if err := test.Run(name); err != nil {
 					log.Println("FAILED: ", err)
 					errs = append(errs, err)

@@ -228,9 +228,6 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 
 func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
 	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
-		if v.Action != kyvernov1.Enforce && v.Action != kyvernov1.Audit {
-			continue
-		}
 		for _, ns := range v.Namespaces {
 			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
 				return v.Action

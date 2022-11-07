@@ -105,5 +105,5 @@ func Test_invalid_onUpdatePolicyPolicy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	err = ValidateOnPolicyUpdate(&policy, true)
-	assert.ErrorContains(t, err, "only select variables are allowed in on policy update. Set spec.mutateExistingOnPolicyUpdate=false to disable update policy mode for this policy rule: variable \"{{request.userInfo.username}} is not allowed ")
+	assert.ErrorContains(t, err, "only select variables are allowed in on policy update. Set spec.mutateExistingOnPolicyUpdate=false to disable update policy mode for this policy rule: variable {{request.userInfo.username}} is not allowed ")
 }

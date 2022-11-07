@@ -110,6 +110,10 @@ jobs:
     needs:
       - create-release
     steps:
+      - name: Set version
+        id: version
+        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
+
       - name: Checkout
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2.4.0
         with:
@@ -140,27 +144,32 @@ jobs:
           file: config/.release/install.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
-      
+
+      - name: Login to GHCR
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v2.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Push manifests to GHCR with Flux
         env:
           CR_PAT_ARTIFACTS:  ${{ secrets.CR_PAT_ARTIFACTS }}
         run: |
-            set -e
-            cd config/.release/ && \
-            flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:$(git rev-parse --short HEAD) \
-              --path="." \
-              --source="$(git config --get remote.origin.url)" \
-              --revision="$(git tag --points-at HEAD)/$(git rev-parse HEAD)"
-              --creds flux:${CR_PAT_ARTIFACTS}
-      
+          set -e
+          mkdir -p config/.release-manifests
+          cp config/.release/install.yaml config/.release-manifests/install.yaml
+          cd config/.release-manifests/ && \
+          flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }} \
+            --path="." \
+            --source="$(git config --get remote.origin.url)" \
+            --revision="${{ steps.version.outputs.version }}/$(git rev-parse HEAD)"
+
       - name: Sign manifests in GHCR with Cosign
         env:
           COSIGN_EXPERIMENTAL: 1
-          CR_PAT_ARTIFACTS:  ${{ secrets.CR_PAT_ARTIFACTS }}
         run: |
-            set -e
-            cosign login --username ${GITHUB_ACTOR} --password ${CR_PAT_ARTIFACTS} ghcr.io
-            cosign sign ghcr.io/${{ github.repository_owner }}/manifests/kyverno:$(git rev-parse --short HEAD)
+          cosign sign ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }}
 
   release-cli-via-krew:
     runs-on: ubuntu-latest

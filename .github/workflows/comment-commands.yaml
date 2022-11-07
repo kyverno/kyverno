@@ -1,0 +1,22 @@
+name: "Issue and PR comment commands"
+on:
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: jpmcb/prow-github-actions@f4d01dd4b13f289014c23fe5a19878a2479cb35b
+        with:
+          prow-commands: '/assign 
+            /unassign
+            /lgtm 
+            /milestone
+            /approve'
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          

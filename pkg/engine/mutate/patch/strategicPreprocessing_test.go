@@ -18,6 +18,126 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 	}{
 		{
 			rawPolicy: []byte(`{
+			 "spec": {
+      "containers": [
+        {
+          "(name)": "*",
+          "securityContext": {
+              "+(allowPrivilegeEscalation)": false,
+              "+(capabilities)": {
+                  "drop": [
+                      "NET_CAP"
+                  ]
+              },
+              "+(privileged)": false
+          }
+        }
+      ],
+      "initContainers": [
+        {
+          "(name)": "*",
+          "securityContext": {
+              "+(allowPrivilegeEscalation)": false,
+              "+(capabilities)": {
+                  "drop": [
+                      "NET_ADMIN"
+                  ]
+              },
+              "+(privileged)": false
+          }
+        }
+      ]
+    }
+			}`),
+			rawResource: []byte(`{
+    "apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+				  "name": "mutation-debug",
+      "namespace": "amritapuri"
+				},
+				"spec": {
+     "containers": [
+       {
+        "name": "sleepy-container-1",
+        "image": "docker.io/library/ubuntu"
+       },
+       {
+        "name": "sleepy-container-2",
+        "image": "docker.io/library/ubuntu"
+       }
+     ],
+     "initContainers": [
+       {
+        "name": "init-container-1",
+        "image": "docker.io/library/ubuntu"
+       },
+       {
+        "name": "init-container-2",
+        "image": "docker.io/library/ubuntu"
+       }
+     ]
+				}
+			}`),
+			expectedPatch: []byte(`{
+				"spec": {
+				  "containers": [
+        {
+          "name": "sleepy-container-1",
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": [
+                "NET_CAP"
+              ]
+            },
+            "privileged": false
+          }
+        },
+        {
+         "name": "sleepy-container-2",
+         "securityContext": {
+           "allowPrivilegeEscalation": false,
+           "capabilities": {
+             "drop": [
+               "NET_CAP"
+             ]
+           },
+           "privileged": false
+         }
+       }
+      ],
+      "initContainers": [
+        {
+          "name": "init-container-1",
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": [
+                "NET_ADMIN"
+              ]
+            },
+            "privileged": false
+          }
+        },
+        {
+         "name": "init-container-2",
+         "securityContext": {
+           "allowPrivilegeEscalation": false,
+           "capabilities": {
+             "drop": [
+               "NET_ADMIN"
+             ]
+           },
+           "privileged": false
+         }
+       }
+      ]
+				}
+			  }`),
+		},
+		{
+			rawPolicy: []byte(`{
 				"metadata": {
 				  "annotations": {
 					"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"

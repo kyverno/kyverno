@@ -436,7 +436,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 	} else if len(rule.Generation.CloneList.Kinds) != 0 {
 		rdatas = manageCloneList(logger, genNamespace, policy.GetName(), rule.Generation, client)
 	} else {
-		dresp, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, rule.Generation.RawData, client)
+		dresp, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, rule.Generation.RawData, rule.Generation.Synchronize, ur, client)
 		rdatas = append(rdatas, GenerateResponse{
 			Data:          dresp,
 			Action:        mode,
@@ -586,7 +586,7 @@ func newGenResource(genAPIVersion, genKind, genNamespace, genName string) kyvern
 	return newGenResource
 }
 
-func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data interface{}, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
+func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data interface{}, synchronize bool, ur kyvernov1beta1.UpdateRequest, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
 	resource, err := kyvernoutils.ToMap(data)
 	if err != nil {
 		return nil, Skip, err
@@ -594,6 +594,10 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 
 	obj, err := client.GetResource(apiVersion, kind, namespace, name)
 	if err != nil {
+		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !synchronize {
+			log.V(4).Info("synchronize is disable - skip re-create", "resource", obj)
+			return nil, Skip, nil
+		}
 		if apierrors.IsNotFound(err) {
 			return resource, Create, nil
 		}

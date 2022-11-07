@@ -32,7 +32,7 @@ func Update(client versioned.Interface, urLister kyvernov1beta1listers.UpdateReq
 	if err != nil {
 		logging.Error(err, "failed to update update request", "name", name)
 	} else {
-		logging.V(3).Info("updated update request", "name", name, "status")
+		logging.V(3).Info("updated update request", "name", name)
 	}
 	return ur, err
 }

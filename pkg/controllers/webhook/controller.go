@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
@@ -45,13 +44,14 @@ const (
 	ControllerName            = "webhook-controller"
 	DefaultWebhookTimeout     = 10
 	AnnotationLastRequestTime = "kyverno.io/last-request-time"
-	IdleDeadline              = tickerInterval * 5
+	IdleDeadline              = tickerInterval * 10
 	maxRetries                = 10
 	managedByLabel            = "webhook.kyverno.io/managed-by"
-	tickerInterval            = 30 * time.Second
+	tickerInterval            = 10 * time.Second
 )
 
 var (
+	none         = admissionregistrationv1.SideEffectClassNone
 	noneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
 	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
 	ignore       = admissionregistrationv1.Ignore
@@ -74,7 +74,7 @@ type controller struct {
 	secretClient    controllerutils.GetClient[*corev1.Secret]
 	mwcClient       controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration]
 	vwcClient       controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
-	leaseClient     controllerutils.UpdateClient[*coordinationv1.Lease]
+	leaseClient     controllerutils.ObjectClient[*coordinationv1.Lease]
 	kyvernoClient   versioned.Interface
 
 	// listers
@@ -93,6 +93,7 @@ type controller struct {
 	server             string
 	defaultTimeout     int32
 	autoUpdateWebhooks bool
+	admissionReports   bool
 	runtime            runtimeutils.Runtime
 
 	// state
@@ -105,7 +106,7 @@ func NewController(
 	secretClient controllerutils.GetClient[*corev1.Secret],
 	mwcClient controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration],
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
-	leaseClient controllerutils.UpdateClient[*coordinationv1.Lease],
+	leaseClient controllerutils.ObjectClient[*coordinationv1.Lease],
 	kyvernoClient versioned.Interface,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
@@ -117,6 +118,7 @@ func NewController(
 	server string,
 	defaultTimeout int32,
 	autoUpdateWebhooks bool,
+	admissionReports bool,
 	runtime runtimeutils.Runtime,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -138,6 +140,7 @@ func NewController(
 		server:             server,
 		defaultTimeout:     defaultTimeout,
 		autoUpdateWebhooks: autoUpdateWebhooks,
+		admissionReports:   admissionReports,
 		runtime:            runtime,
 		policyState: map[string]sets.String{
 			config.MutatingWebhookConfigurationName:   sets.NewString(),
@@ -213,24 +216,32 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 		case <-ticker.C:
 			lease, err := c.getLease()
 			if err != nil {
-				logger.Error(err, "failed to get lease")
+				if apierrors.IsNotFound(err) {
+					_, err = c.leaseClient.Create(ctx, &coordinationv1.Lease{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "kyverno-health",
+							Namespace: config.KyvernoNamespace(),
+							Labels: map[string]string{
+								"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+							},
+							Annotations: map[string]string{
+								AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
+							},
+						},
+					}, metav1.CreateOptions{})
+					if err != nil {
+						logger.Error(err, "failed to create lease")
+					}
+				} else {
+					logger.Error(err, "failed to get lease")
+				}
 			} else {
-				if _, err := controllerutils.Update(
-					ctx,
-					lease,
-					c.leaseClient,
-					func(lease *coordinationv1.Lease) error {
-						if lease.Annotations == nil {
-							lease.Annotations = map[string]string{}
-						}
-						lease.Annotations[AnnotationLastRequestTime] = time.Now().Format(time.RFC3339)
-						if lease.Labels == nil {
-							lease.Labels = map[string]string{}
-						}
-						lease.Labels["app.kubernetes.io/name"] = kyvernov1.ValueKyvernoApp
-						return nil
-					},
-				); err != nil {
+				lease := lease.DeepCopy()
+				lease.Labels = map[string]string{
+					"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+				}
+				_, err = c.leaseClient.Update(ctx, lease, metav1.UpdateOptions{})
+				if err != nil {
 					logger.Error(err, "failed to update lease")
 				}
 			}
@@ -427,11 +438,11 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		status := policy.GetStatus()
 		status.SetReady(ready)
 		status.Autogen.Rules = nil
-		if toggle.AutogenInternals.Enabled() {
-			for _, rule := range autogen.ComputeRules(policy) {
-				if strings.HasPrefix(rule.Name, "autogen-") {
-					status.Autogen.Rules = append(status.Autogen.Rules, rule)
-				}
+		rules := autogen.ComputeRules(policy)
+		setRuleCount(rules, status)
+		for _, rule := range rules {
+			if strings.HasPrefix(rule.Name, "autogen-") {
+				status.Autogen.Rules = append(status.Autogen.Rules, rule)
 			}
 		}
 		return nil
@@ -562,7 +573,7 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(caBundle []byte) 
 					},
 				}},
 				FailurePolicy:           &ignore,
-				SideEffects:             &noneOnDryRun,
+				SideEffects:             &none,
 				AdmissionReviewVersions: []string{"v1beta1"},
 			}},
 		},
@@ -676,6 +687,10 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 }
 
 func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+	sideEffects := &none
+	if c.admissionReports {
+		sideEffects = &noneOnDryRun
+	}
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
@@ -695,7 +710,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(caBundle
 					},
 				}},
 				FailurePolicy:           &ignore,
-				SideEffects:             &noneOnDryRun,
+				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1beta1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 			}},
@@ -738,6 +753,10 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 		if len(webhookCfgs) > 0 {
 			webhookCfg = webhookCfgs[0]
 		}
+		sideEffects := &none
+		if c.admissionReports {
+			sideEffects = &noneOnDryRun
+		}
 		if !ignore.isEmpty() {
 			result.Webhooks = append(
 				result.Webhooks,
@@ -748,7 +767,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 						ignore.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 					},
 					FailurePolicy:           &ignore.failurePolicy,
-					SideEffects:             &noneOnDryRun,
+					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1beta1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
@@ -766,7 +785,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 						fail.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 					},
 					FailurePolicy:           &fail.failurePolicy,
-					SideEffects:             &noneOnDryRun,
+					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1beta1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
@@ -800,7 +819,7 @@ func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
 }
 
 func (c *controller) getLease() (*coordinationv1.Lease, error) {
-	return c.leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno")
+	return c.leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno-health")
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule

@@ -95,6 +95,7 @@ var (
 	reportsChunkSize           int
 	backgroundScanWorkers      int
 	logFormat                  string
+	dumpPayload                bool
 	// DEPRECATED: remove in 1.9
 	splitPolicyReport bool
 )
@@ -102,6 +103,7 @@ var (
 func parseFlags() error {
 	logging.Init(nil)
 	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+	flag.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -121,10 +123,10 @@ func parseFlags() error {
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
-	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternals.Parse)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flag.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
+	flag.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flag.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flag.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flag.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
@@ -293,6 +295,10 @@ func showWarnings(logger logr.Logger) {
 	// DEPRECATED: remove in 1.9
 	if splitPolicyReport {
 		logger.Info("The splitPolicyReport flag is deprecated and will be removed in v1.9. It has no effect and should be removed.")
+	}
+	// log if `forceFailurePolicyIgnore` flag has been set or not
+	if toggle.ForceFailurePolicyIgnore.Enabled() {
+		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
 	}
 }
 
@@ -482,6 +488,7 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout),
 		autoUpdateWebhooks,
+		admissionReports,
 		runtime,
 	)
 	return append(
@@ -614,7 +621,6 @@ func main() {
 	runtime := runtimeutils.NewRuntime(
 		logger.WithName("runtime-checks"),
 		serverIP,
-		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		certRenewer,
 	)
@@ -654,9 +660,6 @@ func main() {
 		config.KyvernoPodName(),
 		func(ctx context.Context) {
 			logger := logger.WithName("leader")
-			// when losing the lead we just terminate the pod
-			// TODO: remove when we run the leader election loop continuously
-			defer signalCancel()
 			// validate config
 			// if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
 			// 	logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
@@ -716,7 +719,14 @@ func main() {
 		controller.run(signalCtx, logger.WithName("controllers"), &wg)
 	}
 	// start leader election
-	go le.Run(signalCtx)
+	go func() {
+		select {
+		case <-signalCtx.Done():
+			return
+		default:
+			le.Run(signalCtx)
+		}
+	}()
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
 		kyvernoClient,
@@ -746,6 +756,9 @@ func main() {
 		policyHandlers,
 		resourceHandlers,
 		configuration,
+		webhooks.DebugModeOptions{
+			DumpPayload: dumpPayload,
+		},
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
 			if err != nil {

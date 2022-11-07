@@ -26,6 +26,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: AdmissionReport
     listKind: AdmissionReportList
     plural: admissionreports
@@ -367,6 +370,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: BackgroundScanReport
     listKind: BackgroundScanReportList
     plural: backgroundscanreports
@@ -672,6 +678,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterAdmissionReport
     listKind: ClusterAdmissionReportList
     plural: clusteradmissionreports
@@ -1014,6 +1023,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterBackgroundScanReport
     listKind: ClusterBackgroundScanReportList
     plural: clusterbackgroundscanreports
@@ -1319,6 +1331,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterPolicy
     listKind: ClusterPolicyList
     plural: clusterpolicies
@@ -1341,6 +1356,25 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v1
     schema:
       openAPIV3Schema:
@@ -1383,8 +1417,9 @@ spec:
               failurePolicy:
                 description: FailurePolicy defines how unexpected policy errors and
                   webhook response timeout errors are handled. Rules within the same
-                  policy share the same failure behavior. Allowed values are Ignore
-                  or Fail. Defaults to Fail.
+                  policy share the same failure behavior. This field should not be
+                  accessed directly, instead `GetFailurePolicy()` should be used.
+                  Allowed values are Ignore or Fail. Defaults to Fail.
                 enum:
                 - Ignore
                 - Fail
@@ -3611,11 +3646,13 @@ spec:
                                                 that contains a public key
                                               properties:
                                                 name:
-                                                  description: name of the secret
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
                                                   type: string
                                                 namespace:
-                                                  description: namespace name in which
-                                                    secret is created
+                                                  description: Namespace name where
+                                                    the Secret exists.
                                                   type: string
                                               required:
                                               - name
@@ -4072,11 +4109,13 @@ spec:
                                               that contains a public key
                                             properties:
                                               name:
-                                                description: name of the secret
+                                                description: Name of the secret. The
+                                                  provided secret must contain a key
+                                                  named cosign.pub.
                                                 type: string
                                               namespace:
-                                                description: namespace name in which
-                                                  secret is created
+                                                description: Namespace name where
+                                                  the Secret exists.
                                                 type: string
                                             required:
                                             - name
@@ -4165,9 +4204,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -4179,6 +4218,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy
@@ -6521,11 +6562,13 @@ spec:
                                                     key
                                                   properties:
                                                     name:
-                                                      description: name of the secret
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
                                                       type: string
                                                     namespace:
-                                                      description: namespace name
-                                                        in which secret is created
+                                                      description: Namespace name
+                                                        where the Secret exists.
                                                       type: string
                                                   required:
                                                   - name
@@ -6995,11 +7038,13 @@ spec:
                                                   key
                                                 properties:
                                                   name:
-                                                    description: name of the secret
+                                                    description: Name of the secret.
+                                                      The provided secret must contain
+                                                      a key named cosign.pub.
                                                     type: string
                                                   namespace:
-                                                    description: namespace name in
-                                                      which secret is created
+                                                    description: Namespace name where
+                                                      the Secret exists.
                                                     type: string
                                                 required:
                                                 - name
@@ -7164,6 +7209,27 @@ spec:
                 description: Ready indicates if the policy is ready to serve the admission
                   request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -7188,6 +7254,25 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -9230,11 +9315,13 @@ spec:
                                                 that contains a public key
                                               properties:
                                                 name:
-                                                  description: name of the secret
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
                                                   type: string
                                                 namespace:
-                                                  description: namespace name in which
-                                                    secret is created
+                                                  description: Namespace name where
+                                                    the Secret exists.
                                                   type: string
                                               required:
                                               - name
@@ -9676,11 +9763,13 @@ spec:
                                               that contains a public key
                                             properties:
                                               name:
-                                                description: name of the secret
+                                                description: Name of the secret. The
+                                                  provided secret must contain a key
+                                                  named cosign.pub.
                                                 type: string
                                               namespace:
-                                                description: namespace name in which
-                                                  secret is created
+                                                description: Namespace name where
+                                                  the Secret exists.
                                                 type: string
                                             required:
                                             - name
@@ -9744,9 +9833,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -9758,6 +9847,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy
@@ -12100,11 +12191,13 @@ spec:
                                                     key
                                                   properties:
                                                     name:
-                                                      description: name of the secret
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
                                                       type: string
                                                     namespace:
-                                                      description: namespace name
-                                                        in which secret is created
+                                                      description: Namespace name
+                                                        where the Secret exists.
                                                       type: string
                                                   required:
                                                   - name
@@ -12574,11 +12667,13 @@ spec:
                                                   key
                                                 properties:
                                                   name:
-                                                    description: name of the secret
+                                                    description: Name of the secret.
+                                                      The provided secret must contain
+                                                      a key named cosign.pub.
                                                     type: string
                                                   namespace:
-                                                    description: namespace name in
-                                                      which secret is created
+                                                    description: Namespace name where
+                                                      the Secret exists.
                                                     type: string
                                                 required:
                                                 - name
@@ -12743,6 +12838,27 @@ spec:
                 description: Ready indicates if the policy is ready to serve the admission
                   request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -13329,6 +13445,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: Policy
     listKind: PolicyList
     plural: policies
@@ -13351,6 +13470,25 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v1
     schema:
       openAPIV3Schema:
@@ -13394,8 +13532,9 @@ spec:
               failurePolicy:
                 description: FailurePolicy defines how unexpected policy errors and
                   webhook response timeout errors are handled. Rules within the same
-                  policy share the same failure behavior. Allowed values are Ignore
-                  or Fail. Defaults to Fail.
+                  policy share the same failure behavior. This field should not be
+                  accessed directly, instead `GetFailurePolicy()` should be used.
+                  Allowed values are Ignore or Fail. Defaults to Fail.
                 enum:
                 - Ignore
                 - Fail
@@ -15622,11 +15761,13 @@ spec:
                                                 that contains a public key
                                               properties:
                                                 name:
-                                                  description: name of the secret
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
                                                   type: string
                                                 namespace:
-                                                  description: namespace name in which
-                                                    secret is created
+                                                  description: Namespace name where
+                                                    the Secret exists.
                                                   type: string
                                               required:
                                               - name
@@ -16083,11 +16224,13 @@ spec:
                                               that contains a public key
                                             properties:
                                               name:
-                                                description: name of the secret
+                                                description: Name of the secret. The
+                                                  provided secret must contain a key
+                                                  named cosign.pub.
                                                 type: string
                                               namespace:
-                                                description: namespace name in which
-                                                  secret is created
+                                                description: Namespace name where
+                                                  the Secret exists.
                                                 type: string
                                             required:
                                             - name
@@ -16176,9 +16319,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -16190,6 +16333,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy
@@ -18533,11 +18678,13 @@ spec:
                                                     key
                                                   properties:
                                                     name:
-                                                      description: name of the secret
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
                                                       type: string
                                                     namespace:
-                                                      description: namespace name
-                                                        in which secret is created
+                                                      description: Namespace name
+                                                        where the Secret exists.
                                                       type: string
                                                   required:
                                                   - name
@@ -19007,11 +19154,13 @@ spec:
                                                   key
                                                 properties:
                                                   name:
-                                                    description: name of the secret
+                                                    description: Name of the secret.
+                                                      The provided secret must contain
+                                                      a key named cosign.pub.
                                                     type: string
                                                   namespace:
-                                                    description: namespace name in
-                                                      which secret is created
+                                                    description: Namespace name where
+                                                      the Secret exists.
                                                     type: string
                                                 required:
                                                 - name
@@ -19176,6 +19325,27 @@ spec:
                 description: Ready indicates if the policy is ready to serve the admission
                   request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -19200,6 +19370,25 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -21243,11 +21432,13 @@ spec:
                                                 that contains a public key
                                               properties:
                                                 name:
-                                                  description: name of the secret
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
                                                   type: string
                                                 namespace:
-                                                  description: namespace name in which
-                                                    secret is created
+                                                  description: Namespace name where
+                                                    the Secret exists.
                                                   type: string
                                               required:
                                               - name
@@ -21689,11 +21880,13 @@ spec:
                                               that contains a public key
                                             properties:
                                               name:
-                                                description: name of the secret
+                                                description: Name of the secret. The
+                                                  provided secret must contain a key
+                                                  named cosign.pub.
                                                 type: string
                                               namespace:
-                                                description: namespace name in which
-                                                  secret is created
+                                                description: Namespace name where
+                                                  the Secret exists.
                                                 type: string
                                             required:
                                             - name
@@ -21757,9 +21950,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -21771,6 +21964,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy
@@ -24113,11 +24308,13 @@ spec:
                                                     key
                                                   properties:
                                                     name:
-                                                      description: name of the secret
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
                                                       type: string
                                                     namespace:
-                                                      description: namespace name
-                                                        in which secret is created
+                                                      description: Namespace name
+                                                        where the Secret exists.
                                                       type: string
                                                   required:
                                                   - name
@@ -24587,11 +24784,13 @@ spec:
                                                   key
                                                 properties:
                                                   name:
-                                                    description: name of the secret
+                                                    description: Name of the secret.
+                                                      The provided secret must contain
+                                                      a key named cosign.pub.
                                                     type: string
                                                   namespace:
-                                                    description: namespace name in
-                                                      which secret is created
+                                                    description: Namespace name where
+                                                      the Secret exists.
                                                     type: string
                                                 required:
                                                 - name
@@ -24756,6 +24955,27 @@ spec:
                 description: Ready indicates if the policy is ready to serve the admission
                   request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -25151,6 +25371,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: UpdateRequest
     listKind: UpdateRequestList
     plural: updaterequests
@@ -26083,7 +26306,6 @@ spec:
       containers:
       - args:
         - -v=2
-        - --autogenInternals=true
         env:
         - name: INIT_CONFIG
           value: kyverno

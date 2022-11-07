@@ -1,3 +1,10 @@
+## v1.9.0-rc.1
+
+### Note
+
+- Flag `autogenInternals` was removed, policy mutation has been removed.
+- Support upper case `Audit` and `Enforce` in `.spec.validationFailureAction` of the Kyverno policy, failure actions `audit` and `enforce` are deprecated and will be removed in `v1.11.0`.
+
 ## v1.8.1-rc3
 
 ### Note

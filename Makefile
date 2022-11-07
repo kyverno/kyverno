@@ -427,11 +427,12 @@ codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Genera
 .PHONY: codegen-api-docs
 codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
 	@echo Generate api docs... >&2
-	@rm -rf docs/crd && mkdir -p docs/crd
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v2beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v2beta1/index.html
+	@rm -rf docs/user/crd && mkdir -p docs/user/crd
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+			-api-dir github.com/kyverno/kyverno/api \
+			-config docs/user/config.json \
+			-template-dir docs/user/template \
+			-out-file docs/user/crd/index.html
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
@@ -446,7 +447,7 @@ codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
 	@VERSION='"{{.Chart.AppVersion}}"' TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.helm/labels.yaml
 	@VERSION=dummy TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.helm/kustomization.yaml
 	@echo Generate helm crds... >&2
-	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
+	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' -e '/^  creationTimestamp: null/i \ \ \ \ {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}' > ./charts/kyverno/templates/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
@@ -517,10 +518,10 @@ verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
 
 .PHONY: verify-api-docs
 verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
-	@git --no-pager diff docs
+	@git --no-pager diff docs/user
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-api-docs".' >&2
 	@echo 'To correct this, locally run "make codegen-api-docs", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code docs
+	@git diff --quiet --exit-code docs/user
 
 .PHONY: verify-helm
 verify-helm: codegen-helm-all ## Check Helm charts are up to date
@@ -559,6 +560,20 @@ code-cov-report: test-clean ## Generate code coverage report
 	@GO111MODULE=on go test -v -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
+
+#####################
+# CONFORMANCE TESTS #
+#####################
+
+.PHONY: test-conformance
+test-conformance: ## Run conformance tests
+	@echo Running conformance tests... >&2
+	@go run ./test/conformance
+
+.PHONY: kind-test-conformance
+kind-test-conformance: kind-deploy-kyverno ## Run conformance tests on a local cluster
+	@echo Running conformance tests... >&2
+	@go run ./test/conformance --create-cluster=false
 
 #############
 # CLI TESTS #
@@ -731,8 +746,7 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set initContainer.extraArgs={--loggingFormat=text} \
-		--set replicaCount=3 \
-		--set "extraArgs={--autogenInternals=true,--loggingFormat=text}"
+		--set "extraArgs={--loggingFormat=text}"
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno kyverno
 

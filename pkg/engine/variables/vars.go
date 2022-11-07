@@ -17,7 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
-var RegexVariables = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}|[^\\]\{\{(\{[^{}]*\}|[^{}])*\}\}`)
+var RegexVariables = regexp.MustCompile(`(?:^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
 
 var RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
