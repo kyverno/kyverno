@@ -17,10 +17,10 @@ func (h AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 	if !enabled {
 		return h
 	}
-	return Protect(h)
+	return withProtection(h)
 }
 
-func Protect(inner AdmissionHandler) AdmissionHandler {
+func withProtection(inner AdmissionHandler) AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		newResource, oldResource, err := utils.ExtractResources(nil, request)
 		if err != nil {

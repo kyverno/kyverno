@@ -9,10 +9,10 @@ import (
 )
 
 func (h AdmissionHandler) WithFilter(configuration config.Configuration) AdmissionHandler {
-	return Filter(configuration, h)
+	return withFilter(configuration, h)
 }
 
-func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
+func withFilter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			return nil

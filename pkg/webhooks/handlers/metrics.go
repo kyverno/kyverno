@@ -11,10 +11,10 @@ import (
 )
 
 func (h AdmissionHandler) WithMetrics(metricsConfig *metrics.MetricsConfig) AdmissionHandler {
-	return Metrics(metricsConfig, h)
+	return withMetrics(metricsConfig, h)
 }
 
-func Metrics(metricsConfig *metrics.MetricsConfig, inner AdmissionHandler) AdmissionHandler {
+func withMetrics(metricsConfig *metrics.MetricsConfig, inner AdmissionHandler) AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		defer admissionReviewDuration.Process(metricsConfig, request, int64(time.Since(startTime)))
 		admissionRequests.Process(metricsConfig, request)
