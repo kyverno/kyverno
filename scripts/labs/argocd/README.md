@@ -9,8 +9,7 @@ This lab sets up the following components:
 - ArgoCD application to deploy [policy-reporter](https://kyverno.github.io/policy-reporter)
 - ArgoCD application to deploy [metrics-server](https://github.com/kubernetes-sigs/metrics-server)
 - ArgoCD application to deploy [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
-
-> **Note**: Unfortunately kube-prometheus-stack fails to sync the first time it is deployed hence we need to make it pass by hand.
+- ArgoCD application to deploy [loki-stack](https://github.com/grafana/helm-charts/tree/main/charts/loki-stack)
 
 ## Install
 
