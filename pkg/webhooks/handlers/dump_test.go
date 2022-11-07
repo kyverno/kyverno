@@ -1,4 +1,4 @@
-package webhooks
+package handlers
 
 import (
 	"encoding/json"
