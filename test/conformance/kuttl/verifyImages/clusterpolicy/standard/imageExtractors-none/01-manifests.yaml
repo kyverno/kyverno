@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tekton-test
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: tasks.tekton.dev
+spec:
+  group: tekton.dev
+  preserveUnknownFields: false
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+    subresources:
+      status: {}
+  names:
+    kind: Task
+    plural: tasks
+    categories:
+    - tekton
+    - tekton-pipelines
+  scope: Namespaced
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: tasks-no-extractor
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: verify-images
+    match:
+      any:
+      - resources:
+          kinds:
+          - tekton.dev/v1beta1/Task
+    preconditions:
+    - key: "{{request.operation}}"
+      operator: NotEquals
+      value: DELETE
+    verifyImages:
+    - image: "*"
+      key: |-
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+        5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+        -----END PUBLIC KEY----- 
