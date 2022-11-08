@@ -6,7 +6,6 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func UnmarshalPolicy(kind string, raw []byte) (kyvernov1.PolicyInterface, error) {
@@ -42,84 +41,10 @@ func GetPolicies(request *admissionv1.AdmissionRequest) (kyvernov1.PolicyInterfa
 	return policy, nil, nil
 }
 
-func Response(allowed bool) *admissionv1.AdmissionResponse {
-	r := &admissionv1.AdmissionResponse{
-		Allowed: allowed,
-	}
-	return r
-}
-
-func ResponseWithMessage(allowed bool, msg string) *admissionv1.AdmissionResponse {
-	r := Response(allowed)
-	r.Result = &metav1.Status{
-		Message: msg,
-	}
-	return r
-}
-
-func ResponseWithMessageAndPatch(allowed bool, msg string, patch []byte) *admissionv1.AdmissionResponse {
-	r := ResponseWithMessage(allowed, msg)
-	r.Patch = patch
-	return r
-}
-
-func ResponseStatus(allowed bool, status, msg string) *admissionv1.AdmissionResponse {
-	r := Response(allowed)
-	r.Result = &metav1.Status{
-		Status:  status,
-		Message: msg,
-	}
-	return r
-}
-
-func ResponseFailure(msg string) *admissionv1.AdmissionResponse {
-	return ResponseStatus(false, metav1.StatusFailure, msg)
-}
-
-func ResponseSuccess() *admissionv1.AdmissionResponse {
-	return Response(true)
-}
-
-func ResponseSuccessWithWarnings(warnings []string) *admissionv1.AdmissionResponse {
-	r := Response(true)
-	r.Warnings = warnings
-	return r
-}
-
-func ResponseSuccessWithPatch(patch []byte) *admissionv1.AdmissionResponse {
-	r := Response(true)
-	if len(patch) > 0 {
-		r.Patch = patch
-	}
-	return r
-}
-
-func ResponseSuccessWithPatchAndWarnings(patch []byte, warnings []string) *admissionv1.AdmissionResponse {
-	r := Response(true)
-	if len(patch) > 0 {
-		r.Patch = patch
-	}
-
-	r.Warnings = warnings
-	return r
-}
-
 func GetResourceName(request *admissionv1.AdmissionRequest) string {
 	resourceName := request.Kind.Kind + "/" + request.Name
 	if request.Namespace != "" {
 		resourceName = request.Namespace + "/" + resourceName
 	}
 	return resourceName
-}
-
-func ValidationResponse(err error, warnings ...string) *admissionv1.AdmissionResponse {
-	response := Response(err == nil)
-	if err != nil {
-		response.Result = &metav1.Status{
-			Status:  metav1.StatusFailure,
-			Message: err.Error(),
-		}
-	}
-	response.Warnings = warnings
-	return response
 }
