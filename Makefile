@@ -372,7 +372,7 @@ image-build-all: $(BUILD_WITH)-build-all
 GOPATH_SHIM        := ${PWD}/.gopath
 PACKAGE_SHIM       := $(GOPATH_SHIM)/src/$(PACKAGE)
 OUT_PACKAGE        := $(PACKAGE)/pkg/client
-INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/policyreport/v1alpha2
+INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1alpha1,$(PACKAGE)/api/policyreport/v1alpha2
 CLIENTSET_PACKAGE  := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
