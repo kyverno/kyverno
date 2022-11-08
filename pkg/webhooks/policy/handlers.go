@@ -37,15 +37,12 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(err)
 	}
-	response, err := policyvalidate.Validate(policy, h.client, false, h.openApiManager)
+	warnings, err := policyvalidate.Validate(policy, h.client, false, h.openApiManager)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
-		return admissionutils.Response(err)
+		return admissionutils.Response(err, warnings...)
 	}
-	if response != nil && len(response.Warnings) != 0 {
-		return response
-	}
-	return admissionutils.ResponseSuccess()
+	return admissionutils.ResponseSuccess(warnings...)
 }
 
 func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
