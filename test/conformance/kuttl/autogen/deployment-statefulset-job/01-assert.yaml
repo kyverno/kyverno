@@ -38,8 +38,8 @@ status:
         resources:
           kinds:
           - Deployment
-          - Job
           - StatefulSet
+          - Job
       name: autogen-require-image-tag
       validate:
         message: An image tag is required.
@@ -53,8 +53,8 @@ status:
         resources:
           kinds:
           - Deployment
-          - Job
           - StatefulSet
+          - Job
       name: autogen-validate-image-tag
       validate:
         message: Using a mutable image tag e.g. 'latest' is not allowed.
