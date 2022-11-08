@@ -2,7 +2,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
 testDirs:
   # Autogen tests
-- ./test/conformance/kuttl/autogen/should-autogen
+- ./test/conformance/kuttl/autogen
   # Generate tests
 # - ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/nosync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/sync
