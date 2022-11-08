@@ -1,3 +1,7 @@
-# Title
+## Description
 
-Basic autogen test to check that a policy contains autogen rules in its status.
+The policy should contain all autogen rules.
+
+## Expected Behavior
+
+The policy gets created and contains all autogen rules in the status.
