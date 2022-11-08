@@ -1,22 +1,23 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
 testDirs:
-  # Generate tests
+# Generate tests
 # - ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/nosync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/sync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/sync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/nosync
 - ./test/conformance/kuttl/generate/clusterpolicy/cornercases
-  # Mutate tests
+# Mutate tests
 - ./test/conformance/kuttl/mutate/clusterpolicy/standard
 - ./test/conformance/kuttl/mutate/clusterpolicy/standard/existing
-  # Validate tests
+- ./test/conformance/kuttl/mutate/clusterpolicy/cornercases
+# Validate tests
 - ./test/conformance/kuttl/validate/clusterpolicy/standard/audit
 - ./test/conformance/kuttl/validate/clusterpolicy/standard/enforce
 - ./test/conformance/kuttl/validate/clusterpolicy/cornercases
-  # verifyImages tests
+# Verify image tests
 - ./test/conformance/kuttl/verifyImages/clusterpolicy/standard
-  # Report tests
+# Report tests
 - ./test/conformance/kuttl/reports/admission
 - ./test/conformance/kuttl/reports/background
 startKIND: false
