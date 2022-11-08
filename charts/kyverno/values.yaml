@@ -465,5 +465,14 @@ webhooksCleanup:
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
 
-# -- A writable volume to use for the TUF root initialization
+# -- A writable volume to use for the TUF root initialization.
 tufRootMountPath: /.sigstore
+
+grafana:
+  # -- Enable grafana dashboard creation.
+  enabled: false
+  # -- Namespace to create the grafana dashboard configmap.
+  # If not set, it will be created in the same namespace where the chart is deployed.
+  namespace:
+  # -- Grafana dashboard configmap annotations.
+  annotations: {}

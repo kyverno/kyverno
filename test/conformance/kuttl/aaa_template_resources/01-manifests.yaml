@@ -1,0 +1,20 @@
+# A file with no reserved name "assert" or "errors" will be created with the below contents. Can be multiple YAML docs in the same file.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-labels
+spec:
+  rules:
+  - name: add-labels
+    match:
+      resources:
+        kinds:
+        - Pod
+        - Service
+        - ConfigMap
+        - Secret
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            foo: bar
