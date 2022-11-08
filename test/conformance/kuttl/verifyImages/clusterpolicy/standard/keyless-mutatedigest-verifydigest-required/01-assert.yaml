@@ -1,0 +1,6 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: keyless-mutatedigest-verifydigest-required
+status:
+  ready: true
