@@ -10,17 +10,16 @@ testDirs:
 # Mutate tests
 - ./test/conformance/kuttl/mutate/clusterpolicy/standard
 - ./test/conformance/kuttl/mutate/clusterpolicy/standard/existing
+- ./test/conformance/kuttl/mutate/clusterpolicy/cornercases
 # Validate tests
 - ./test/conformance/kuttl/validate/clusterpolicy/standard/audit
 - ./test/conformance/kuttl/validate/clusterpolicy/standard/enforce
 - ./test/conformance/kuttl/validate/clusterpolicy/cornercases
-# verifyImages tests
+# Verify image tests
 - ./test/conformance/kuttl/verifyImages/clusterpolicy/standard
 # Report tests
 - ./test/conformance/kuttl/reports/admission
 - ./test/conformance/kuttl/reports/background
-# issues
-- ./test/conformance/kuttl/issues
 startKIND: false
 # timeout: 15
 parallel: 1
