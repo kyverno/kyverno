@@ -19,6 +19,10 @@ import (
 // +kubebuilder:printcolumn:name="Failure Policy",type=string,JSONPath=".spec.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="Ready",type=boolean,JSONPath=`.status.ready`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Validate",type=integer,JSONPath=`.status.rulecount.validate`,priority=1
+// +kubebuilder:printcolumn:name="Mutate",type=integer,JSONPath=`.status.rulecount.mutate`,priority=1
+// +kubebuilder:printcolumn:name="Generate",type=integer,JSONPath=`.status.rulecount.generate`,priority=1
+// +kubebuilder:printcolumn:name="Verifyimages",type=integer,JSONPath=`.status.rulecount.verifyimages`,priority=1
 // +kubebuilder:storageversion
 
 // ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
@@ -97,6 +101,10 @@ func (p *ClusterPolicy) IsNamespaced() bool {
 // IsReady indicates if the policy is ready to serve the admission request
 func (p *ClusterPolicy) IsReady() bool {
 	return p.Status.IsReady()
+}
+
+func (p *ClusterPolicy) ValidateSchema() bool {
+	return p.Spec.ValidateSchema()
 }
 
 // Validate implements programmatic validation

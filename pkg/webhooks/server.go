@@ -3,107 +3,28 @@ package webhooks
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/kyverno/pkg/utils"
-	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // DebugModeOptions holds the options to configure debug mode
 type DebugModeOptions struct {
 	// DumpPayload is used to activate/deactivate debug mode.
 	DumpPayload bool
-}
-
-// AdmissionRequestPayload holds a copy of the AdmissionRequest payload
-type AdmissionRequestPayload struct {
-	UID                types.UID                    `json:"uid"`
-	Kind               metav1.GroupVersionKind      `json:"kind"`
-	Resource           metav1.GroupVersionResource  `json:"resource"`
-	SubResource        string                       `json:"subResource,omitempty"`
-	RequestKind        *metav1.GroupVersionKind     `json:"requestKind,omitempty"`
-	RequestResource    *metav1.GroupVersionResource `json:"requestResource,omitempty"`
-	RequestSubResource string                       `json:"requestSubResource,omitempty"`
-	Name               string                       `json:"name,omitempty"`
-	Namespace          string                       `json:"namespace,omitempty"`
-	Operation          string                       `json:"operation"`
-	UserInfo           authenticationv1.UserInfo    `json:"userInfo"`
-	Object             unstructured.Unstructured    `json:"object,omitempty"`
-	OldObject          unstructured.Unstructured    `json:"oldObject,omitempty"`
-	DryRun             *bool                        `json:"dryRun,omitempty"`
-	Options            unstructured.Unstructured    `json:"options,omitempty"`
-}
-
-func newAdmissionRequestPayload(rq *admissionv1.AdmissionRequest) (*AdmissionRequestPayload, error) {
-	newResource, oldResource, err := utils.ExtractResources(nil, rq)
-	if err != nil {
-		return nil, err
-	}
-	options := new(unstructured.Unstructured)
-	if rq.Options.Raw != nil {
-		options, err = engineutils.ConvertToUnstructured(rq.Options.Raw)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return redactPayload(&AdmissionRequestPayload{
-		UID:                rq.UID,
-		Kind:               rq.Kind,
-		Resource:           rq.Resource,
-		SubResource:        rq.SubResource,
-		RequestKind:        rq.RequestKind,
-		RequestResource:    rq.RequestResource,
-		RequestSubResource: rq.RequestSubResource,
-		Name:               rq.Name,
-		Namespace:          rq.Namespace,
-		Operation:          string(rq.Operation),
-		UserInfo:           rq.UserInfo,
-		Object:             newResource,
-		OldObject:          oldResource,
-		DryRun:             rq.DryRun,
-		Options:            *options,
-	})
-}
-
-func redactPayload(payload *AdmissionRequestPayload) (*AdmissionRequestPayload, error) {
-	if strings.EqualFold(payload.Kind.Kind, "Secret") {
-		if payload.Object.Object != nil {
-			obj, err := utils.RedactSecret(&payload.Object)
-			if err != nil {
-				return nil, err
-			}
-			payload.Object = obj
-		}
-		if payload.OldObject.Object != nil {
-			oldObj, err := utils.RedactSecret(&payload.OldObject)
-			if err != nil {
-				return nil, err
-			}
-			payload.OldObject = oldObj
-		}
-	}
-	return payload, nil
 }
 
 type Server interface {
@@ -239,6 +160,7 @@ func (s *server) cleanup(ctx context.Context) {
 			}
 		}
 		deleteLease("kyvernopre-lock")
+		deleteLease("kyverno-health")
 		deleteVwc(config.ValidatingWebhookConfigurationName)
 		deleteVwc(config.PolicyValidatingWebhookConfigurationName)
 		deleteMwc(config.MutatingWebhookConfigurationName)
@@ -248,48 +170,19 @@ func (s *server) cleanup(ctx context.Context) {
 	close(s.cleanUp)
 }
 
-func dumpPayload(logger logr.Logger, request *admissionv1.AdmissionRequest, response *admissionv1.AdmissionResponse) {
-	reqPayload, err := newAdmissionRequestPayload(request)
-	if err != nil {
-		logger.Error(err, "Failed to extract resources")
-	} else {
-		logger.Info("Logging admission request and response payload ", "AdmissionRequest", reqPayload, "AdmissionResponse", response)
-	}
-}
-
 func dump(inner handlers.AdmissionHandler, debugModeOpts DebugModeOptions) handlers.AdmissionHandler {
 	// debug mode not enabled, no need to add debug middleware
 	if !debugModeOpts.DumpPayload {
 		return inner
 	}
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		response := inner(logger, request, startTime)
-		dumpPayload(logger, request, response)
-		return response
-	}
+	return handlers.Dump(inner)
 }
 
 func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 	if !toggle.ProtectManagedResources.Enabled() {
 		return inner
 	}
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		newResource, oldResource, err := utils.ExtractResources(nil, request)
-		if err != nil {
-			logger.Error(err, "Failed to extract resources")
-			return admissionutils.ResponseFailure(err.Error())
-		}
-		for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
-			resLabels := resource.GetLabels()
-			if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
-				if request.UserInfo.Username != fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName()) {
-					logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
-					return admissionutils.ResponseFailure("A kyverno managed resource can only be modified by kyverno")
-				}
-			}
-		}
-		return inner(logger, request, startTime)
-	}
+	return handlers.Protect(inner)
 }
 
 func filter(configuration config.Configuration, inner handlers.AdmissionHandler) handlers.AdmissionHandler {

@@ -8,9 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"go.opentelemetry.io/otel/attribute"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -35,7 +33,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 		}
 		contentType := request.Header.Get("Content-Type")
 		if contentType != "application/json" {
-			logger.Info("invalid Content-Type", "contextType", contentType)
+			logger.Info("invalid Content-Type", "contentType", contentType)
 			http.Error(writer, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
 			return
 		}
@@ -87,20 +85,5 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 		} else {
 			logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
 		}
-	}
-}
-
-func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			return nil
-		}
-		return inner(logger, request, startTime)
-	}
-}
-
-func Verify() AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		return admissionutils.Response(true)
 	}
 }

@@ -9,14 +9,10 @@ import (
 )
 
 func ParsePolicyValidationMode(validationFailureAction kyvernov1.ValidationFailureAction) (PolicyValidationMode, error) {
-	switch validationFailureAction {
-	case kyvernov1.Enforce:
+	if validationFailureAction.Enforce() {
 		return Enforce, nil
-	case kyvernov1.Audit:
-		return Audit, nil
-	default:
-		return "", fmt.Errorf("wrong validation failure action found %s. Allowed: '%s', '%s'", validationFailureAction, "enforce", "audit")
 	}
+	return Audit, nil
 }
 
 func ParsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroundMode {
@@ -76,6 +72,6 @@ func GetPolicyInfos(policy kyvernov1.PolicyInterface) (string, string, PolicyTyp
 		policyType = Namespaced
 	}
 	backgroundMode := ParsePolicyBackgroundMode(policy)
-	validationMode, err := ParsePolicyValidationMode(policy.GetSpec().GetValidationFailureAction())
+	validationMode, err := ParsePolicyValidationMode(policy.GetSpec().ValidationFailureAction)
 	return name, namespace, policyType, backgroundMode, validationMode, err
 }
