@@ -146,7 +146,7 @@ func (h *mutationHandler) applyMutation(request *admissionv1.AdmissionRequest, p
 	engineResponse := engine.Mutate(policyContext)
 	policyPatches := engineResponse.GetPatches()
 
-	if !engineResponse.IsSuccessful() && len(engineResponse.GetFailedRules()) > 0 {
+	if !engineResponse.IsSuccessful() {
 		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy.GetName(), engineResponse.GetFailedRules())
 	}
 
