@@ -251,16 +251,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 		}
 
-		if rule.HasVerifyImages() {
-			verifyImagePath := rulePath.Child("verifyImages")
-			for index, i := range rule.VerifyImages {
-				errs = append(errs, i.Validate(verifyImagePath.Index(index))...)
-			}
-			if len(errs) != 0 {
-				return warnings, errs.ToAggregate()
-			}
-		}
-
 		podOnlyMap := make(map[string]bool) // Validate that Kind is only Pod
 		podOnlyMap["Pod"] = true
 		if reflect.DeepEqual(common.GetKindsFromRule(rule), podOnlyMap) && podControllerAutoGenExclusion(policy) {
