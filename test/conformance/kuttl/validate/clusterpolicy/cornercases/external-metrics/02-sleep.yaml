@@ -1,0 +1,5 @@
+# Need to wait for the KEDA images to be pulled, Pods run, and external metrics API group to be properly registered and served.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: sleep 20

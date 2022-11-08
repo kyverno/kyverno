@@ -4,8 +4,10 @@ kind: Kustomization
 resources:
 - ./kyverno.io_admissionreports.yaml
 - ./kyverno.io_backgroundscanreports.yaml
+- ./kyverno.io_cleanuppolicies.yaml
 - ./kyverno.io_clusteradmissionreports.yaml
 - ./kyverno.io_clusterbackgroundscanreports.yaml
+- ./kyverno.io_clustercleanuppolicies.yaml
 - ./kyverno.io_clusterpolicies.yaml
 - ./kyverno.io_generaterequests.yaml
 - ./kyverno.io_policies.yaml

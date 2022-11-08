@@ -1436,7 +1436,7 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	  }
 	},
 	"spec": {
-	  "validationFailureAction": "enforce",
+	  "validationFailureAction": "Enforce",
 	  "background": false,
 	  "rules": [
 		{
@@ -1493,7 +1493,7 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	  }
 	},
 	"spec": {
-	  "validationFailureAction": "enforce",
+	  "validationFailureAction": "Enforce",
 	  "background": false,
 	  "rules": [
 		{
@@ -1550,7 +1550,7 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	  }
 	},
 	"spec": {
-	  "validationFailureAction": "enforce",
+	  "validationFailureAction": "Enforce",
 	  "background": false,
 	  "rules": [
 		{
