@@ -1,6 +1,8 @@
 package resource
 
 import (
+	"errors"
+
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -18,7 +20,7 @@ type updateRequestResponse struct {
 
 func errorResponse(logger logr.Logger, err error, message string) *admissionv1.AdmissionResponse {
 	logger.Error(err, message)
-	return admissionutils.ResponseFailure(message + ": " + err.Error())
+	return admissionutils.Response(errors.New(message + ": " + err.Error()))
 }
 
 func patchRequest(patches []byte, request *admissionv1.AdmissionRequest, logger logr.Logger) *admissionv1.AdmissionRequest {
