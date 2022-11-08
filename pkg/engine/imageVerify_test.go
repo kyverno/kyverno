@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	client "github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -305,6 +306,68 @@ var testSampleMultipleKeyPolicy = `
 }
 `
 
+var testConfigMapMissing = `{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "annotations": {
+            "pod-policies.kyverno.io/autogen-controllers": "none"
+        },
+        "name": "image-verify-polset"
+    },
+    "spec": {
+        "background": false,
+        "failurePolicy": "Fail",
+        "rules": [
+            {
+                "context": [
+                    {
+                        "configMap": {
+                            "name": "myconfigmap",
+                            "namespace": "mynamespace"
+                        },
+                        "name": "myconfigmap"
+                    }
+                ],
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Pod"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "name": "image-verify-pol1",
+                "verifyImages": [
+                    {
+                        "imageReferences": [
+                            "ghcr.io/*"
+                        ],
+                        "mutateDigest": false,
+                        "verifyDigest": false,
+                        "attestors": [
+                            {
+                                "entries": [
+                                    {
+                                        "keys": {
+                                            "publicKeys": "{{myconfigmap.data.configmapkey}}"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "validationFailureAction": "Audit",
+        "webhookTimeoutSeconds": 30
+    }
+}`
+
 var testSampleResource = `{
   "apiVersion": "v1",
   "kind": "Pod",
@@ -319,8 +382,46 @@ var testSampleResource = `{
   }
 }`
 
+var testConfigMapMissingResource = `{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "labels": {
+            "run": "test"
+        },
+        "name": "test"
+    },
+    "spec": {
+        "containers": [
+            {
+                "image": "nginx:latest",
+                "name": "test",
+                "resources": {}
+            }
+        ]
+    }
+}`
+
 var testVerifyImageKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----\n`
 var testOtherKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpNlOGZ323zMlhs4bcKSpAKQvbcWi5ZLRmijm6SqXDy0Fp0z0Eal+BekFnLzs8rUXUaXlhZ3hNudlgFJH+nFNMw==\n-----END PUBLIC KEY-----\n`
+
+func Test_ConfigMapMissingSuccess(t *testing.T) {
+	policyContext := buildContext(t, testConfigMapMissing, testConfigMapMissingResource, "")
+	cosign.ClearMock()
+	err, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
+	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusSkip, err.PolicyResponse.Rules[0].Message)
+}
+
+func Test_ConfigMapMissingFailure(t *testing.T) {
+	ghcrImage := strings.Replace(testConfigMapMissingResource, "nginx:latest", "ghcr.io/kyverno/test-verify-image:signed", -1)
+	policyContext := buildContext(t, testConfigMapMissing, ghcrImage, "")
+	policyContext.Client = client.NewEmptyFakeClient()
+	cosign.ClearMock()
+	err, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
+	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusError, err.PolicyResponse.Rules[0].Message)
+}
 
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
