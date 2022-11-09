@@ -96,6 +96,7 @@ var (
 	backgroundScanWorkers      int
 	logFormat                  string
 	dumpPayload                bool
+	leaderElectionRetryPeriod  time.Duration
 	// DEPRECATED: remove in 1.9
 	splitPolicyReport bool
 )
@@ -130,6 +131,7 @@ func parseFlags() error {
 	flag.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flag.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flag.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
+	flag.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	// DEPRECATED: remove in 1.9
 	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
 	if err := flag.Set("v", "2"); err != nil {
@@ -658,6 +660,7 @@ func main() {
 		config.KyvernoNamespace(),
 		kubeClientLeaderElection,
 		config.KyvernoPodName(),
+		leaderElectionRetryPeriod,
 		func(ctx context.Context) {
 			logger := logger.WithName("leader")
 			// validate config
