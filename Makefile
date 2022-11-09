@@ -120,7 +120,14 @@ $(KO):
 
 $(KUTTL):
 	@echo Install kuttl... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/kudobuilder/kuttl/cmd/kubectl-kuttl@$(KUTTL_VERSION)
+	# @GOBIN=$(TOOLS_DIR) go install github.com/kudobuilder/kuttl/cmd/kubectl-kuttl@$(KUTTL_VERSION)
+	TMP_DIR=$$(mktemp -d) && \
+	cd $$TMP_DIR && \
+	rm -rf * && \
+	go mod init tmp && \
+	go mod edit -replace=github.com/kudobuilder/kuttl=github.com/eddycharly/kuttl@v0.0.0-20221108225245-42c52bfa68c3 && \
+	go get github.com/kudobuilder/kuttl/cmd/kubectl-kuttl && \
+	GOBIN=$(TOOLS_DIR) go install github.com/kudobuilder/kuttl/cmd/kubectl-kuttl
 
 .PHONY: install-tools
 install-tools: $(TOOLS) ## Install tools
