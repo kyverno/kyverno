@@ -4,4 +4,7 @@ metadata:
     name: external-metrics-policy-default
     namespace: default
 status:
-  ready: true
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
