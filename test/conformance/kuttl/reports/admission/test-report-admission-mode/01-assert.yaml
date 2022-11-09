@@ -3,4 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: require-owner
 status:
-  ready: true
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
