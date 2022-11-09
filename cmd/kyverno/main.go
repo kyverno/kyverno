@@ -759,6 +759,7 @@ func main() {
 		policyHandlers,
 		resourceHandlers,
 		configuration,
+		metricsConfig,
 		webhooks.DebugModeOptions{
 			DumpPayload: dumpPayload,
 		},
