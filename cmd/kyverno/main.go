@@ -10,6 +10,7 @@ import (
 	_ "net/http/pprof" // #nosec
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -511,7 +512,12 @@ func main() {
 		os.Exit(1)
 	}
 	// setup logger
-	if err := logging.Setup(logFormat); err != nil {
+	logLevel, err := strconv.Atoi(flag.Lookup("v").Value.String())
+	if err != nil {
+		fmt.Println("failed to setup logger", err)
+		os.Exit(1)
+	}
+	if err := logging.Setup(logFormat, logLevel); err != nil {
 		fmt.Println("failed to setup logger", err)
 		os.Exit(1)
 	}
