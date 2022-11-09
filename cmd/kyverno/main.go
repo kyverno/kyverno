@@ -746,6 +746,7 @@ func main() {
 		policyHandlers,
 		resourceHandlers,
 		configuration,
+		metricsConfig,
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
