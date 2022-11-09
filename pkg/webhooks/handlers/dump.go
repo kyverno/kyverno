@@ -93,7 +93,14 @@ func redactPayload(payload *admissionRequestPayload) (*admissionRequestPayload, 
 	return payload, nil
 }
 
-func Dump(inner AdmissionHandler) AdmissionHandler {
+func (h AdmissionHandler) WithDump(enabled bool) AdmissionHandler {
+	if !enabled {
+		return h
+	}
+	return withDump(h)
+}
+
+func withDump(inner AdmissionHandler) AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		response := inner(logger, request, startTime)
 		dumpPayload(logger, request, response)

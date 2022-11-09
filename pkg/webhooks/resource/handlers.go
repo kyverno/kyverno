@@ -134,13 +134,13 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	ok, msg, warnings := vh.HandleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
 	if !ok {
 		logger.Info("admission request denied")
-		return admissionutils.Response(errors.New(msg))
+		return admissionutils.Response(errors.New(msg), warnings...)
 	}
 
 	defer h.handleDelete(logger, request)
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 
-	return admissionutils.Response(nil, warnings...)
+	return admissionutils.ResponseSuccess(warnings...)
 }
 
 func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
