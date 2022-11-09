@@ -638,12 +638,18 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 	// check if the resource as reference in clone exists?
 	obj, err := client.GetResource(apiVersion, kind, rNamespace, rName)
 	if err != nil {
-		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !synchronize {
-			log.V(4).Info("synchronize is disable - skip re-create", "resource", obj)
-			return nil, Skip, nil
-		}
 		return nil, Skip, fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName, err)
 	}
+
+	// check if cloned resource exists
+	cobj, err := client.GetResource(apiVersion, kind, namespace, name)
+	if err != nil {
+		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !synchronize {
+			log.V(4).Info("synchronization is disabled, recreation will be skipped", "resource", cobj)
+			return nil, Skip, nil
+		}
+	}
+
 	// remove ownerReferences when cloning resources to other namespace
 	if rNamespace != namespace && obj.GetOwnerReferences() != nil {
 		obj.SetOwnerReferences(nil)
@@ -708,15 +714,6 @@ func manageCloneList(log logr.Logger, namespace, policy string, synchronize bool
 			// check if the resource as reference in clone exists?
 			obj, err := client.GetResource(apiVersion, kind, rNamespace, rName.GetName())
 			if err != nil {
-				if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !synchronize {
-					log.V(4).Info("synchronization is disabled, recreation will be skipped", "resource", obj)
-					response = append(response, GenerateResponse{
-						Data:   nil,
-						Action: Skip,
-						Error:  nil,
-					})
-				}
-
 				log.Error(err, "failed to get resoruce", apiVersion, "apiVersion", kind, "kind", rNamespace, "rNamespace", rName.GetName(), "name")
 				response = append(response, GenerateResponse{
 					Data:   nil,
@@ -724,6 +721,17 @@ func manageCloneList(log logr.Logger, namespace, policy string, synchronize bool
 					Error:  fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName.GetName(), err),
 				})
 				return response
+			}
+
+			// check if cloned resource exists
+			cobj, err := client.GetResource(apiVersion, kind, namespace, rName.GetName())
+			if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !synchronize {
+				log.V(4).Info("synchronization is disabled, recreation will be skipped", "resource", cobj)
+				response = append(response, GenerateResponse{
+					Data:   nil,
+					Action: Skip,
+					Error:  nil,
+				})
 			}
 
 			// remove ownerReferences when cloning resources to other namespace
