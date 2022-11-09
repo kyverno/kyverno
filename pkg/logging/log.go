@@ -57,9 +57,9 @@ func Setup(logFormat string, level int) error {
 		if err != nil {
 			return err
 		}
-		klog.SetLogger(zapr.NewLogger(zapLog))
-		// in json mode we use FormatKlog format
-		globalLog = klog.NewKlogr()
+		globalLog = zapr.NewLogger(zapLog)
+		// in json mode we configure klog and global logger to use zapr
+		klog.SetLogger(globalLog.WithName("klog"))
 	default:
 		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}

@@ -20,6 +20,7 @@ package scheme
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -37,6 +38,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	kyvernov1.AddToScheme,
 	kyvernov1beta1.AddToScheme,
 	kyvernov1alpha2.AddToScheme,
+	kyvernov1alpha1.AddToScheme,
 	wgpolicyk8sv1alpha2.AddToScheme,
 }
 

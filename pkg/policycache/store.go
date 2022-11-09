@@ -74,11 +74,11 @@ func computeKind(gvk string) string {
 }
 
 func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
-	if spec.GetValidationFailureAction() == kyvernov1.Enforce {
+	if spec.ValidationFailureAction.Enforce() {
 		return true
 	}
 	for _, k := range spec.ValidationFailureActionOverrides {
-		if k.Action == kyvernov1.Enforce {
+		if k.Action.Enforce() {
 			return true
 		}
 	}
