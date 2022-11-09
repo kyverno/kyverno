@@ -1,7 +1,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-expectFailure: true
 apply:
-- task.yaml
-errors:
-- task.yaml
+- crd.yaml
+assert:
+- crd.yaml
