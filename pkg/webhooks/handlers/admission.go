@@ -15,7 +15,11 @@ import (
 
 type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 
-func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
+func (h AdmissionHandler) WithAdmission(logger logr.Logger) http.HandlerFunc {
+	return withAdmission(logger, h)
+}
+
+func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		ctx := request.Context()
 		startTime := time.Now()
