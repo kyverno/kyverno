@@ -3,3 +3,9 @@ kind: Secret
 metadata:
   name: image-secret
   namespace: prod
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bootstap-config
+  namespace: prod

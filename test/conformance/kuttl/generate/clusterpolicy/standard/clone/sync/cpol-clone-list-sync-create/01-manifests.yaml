@@ -37,7 +37,7 @@ metadata:
   name: bootstap-config
   namespace: default
   labels:
-    "allowedToBeCloned":  "true"
+    allowedToBeCloned:  "true"
 data:
   initial_lives: "15"
 ---
@@ -47,7 +47,7 @@ metadata:
   name: image-secret
   namespace: default
   labels:
-    "allowedToBeCloned":  "true"
+    allowedToBeCloned:  "true"
 type: kubernetes.io/basic-auth
 stringData:
   username: admin
