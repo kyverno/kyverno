@@ -37,7 +37,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	warnings, err := policyvalidate.Validate(policy, h.client, false, h.openApiManager)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
-		return admissionutils.Response(err)
+		return admissionutils.Response(err, warnings...)
 	}
 	return admissionutils.Response(err, warnings...)
 }
