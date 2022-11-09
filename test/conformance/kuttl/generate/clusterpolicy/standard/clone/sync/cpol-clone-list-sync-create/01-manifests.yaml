@@ -19,12 +19,11 @@ spec:
           - default
           - kube-public
           - kyverno
-          - stagging
     generate:
       namespace: "{{request.object.metadata.name}}"
       synchronize : true
       cloneList:
-        namespace: stagging
+        namespace: default
         kinds:
           - v1/Secret
           - v1/ConfigMap
@@ -36,7 +35,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: bootstap-config
-  namespace: stagging
+  namespace: default
   labels:
     "allowedToBeCloned":  "true"
 data:
@@ -46,7 +45,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: image-secret
-  namespace: stagging
+  namespace: default
   labels:
     "allowedToBeCloned":  "true"
 type: kubernetes.io/basic-auth

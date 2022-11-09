@@ -4,7 +4,7 @@ This test ensures that creation of a multiple target resource created by a Clust
 
 ## Expected Behavior
 
-The cloned Secret and ConfigMap from the stagging namespace should exists in newly created namespace.
+The cloned Secret and ConfigMap from the default namespace should exists in newly created namespace.
 
 ## Reference Issue(s)
 
