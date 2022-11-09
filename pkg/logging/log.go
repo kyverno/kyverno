@@ -53,7 +53,6 @@ func Setup(logFormat string, level int) error {
 		zc := zap.NewProductionConfig()
 		// Zap's levels get more and less verbose as the number gets smaller and higher respectively (DebugLevel is -1, InfoLevel is 0, WarnLevel is 1, and so on).
 		zc.Level = zap.NewAtomicLevelAt(zapcore.Level(-1 * level))
-		zc.EncoderConfig.NameKey = "name"
 		zapLog, err := zc.Build()
 		if err != nil {
 			return err
