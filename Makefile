@@ -700,15 +700,23 @@ test-perf: $(PACKAGE_SHIM)
 		--provider=kind \
 		--kubeconfig=${HOME}/.kube/config \
 		--nodes=3 \
-		--enable-prometheus-server=true \	
+		--enable-prometheus-server=true \
+		--tear-down-prometheus-server=true \
 		--prometheus-apiserver-scrape-port=6443 \
+		--prometheus-scrape-kubelets=true \
+		--prometheus-scrape-master-kubelets=true \
+		--prometheus-scrape-etcd=true \
+		--prometheus-scrape-kube-proxy=true \
+		--prometheus-scrape-node-exporter=false \
+		--prometheus-scrape-kube-state-metrics=true \
+		--prometheus-scrape-metrics-server=true \
 		--prometheus-storage-class-provisioner=rancher.io/local-path \
 		--prometheus-storage-class-volume-type=standard \
 		--v=2 \
 		--report-dir=.
 
-# kubectl port-forward -n monitoring service/prometheus-operated  8000:9090
-# kubectl port-forward -n monitoring service/grafana  3000:3000
+# kubectl port-forward -n monitoring service/prometheus-operated 8000:9090
+# kubectl port-forward -n monitoring service/grafana 3000:3000
 
 ########
 # KIND #
