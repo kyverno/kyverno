@@ -327,7 +327,7 @@ func Test_Any(t *testing.T) {
 		t.Log(errs)
 	}
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-validate-hostPath","match":{"any":[{"resources":{"kinds":["CronJob"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}}}`),
 	}
 
@@ -366,7 +366,7 @@ func Test_All(t *testing.T) {
 	}
 
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"all":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"all":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-validate-hostPath","match":{"all":[{"resources":{"kinds":["CronJob"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}}}`),
 	}
 
@@ -399,7 +399,7 @@ func Test_Exclude(t *testing.T) {
 	}
 
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-validate-hostPath","match":{"resources":{"kinds":["CronJob"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}}}`),
 	}
 
@@ -463,7 +463,7 @@ func Test_ForEachPod(t *testing.T) {
 	}
 
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-resolve-image-containers","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"preconditions":{"all":[{"key":"{{request.operation}}","operator":"In","value":["CREATE","UPDATE"]}]},"mutate":{"foreach":[{"list":"request.object.spec.template.spec.containers","context":[{"name":"dictionary","configMap":{"name":"some-config-map","namespace":"some-namespace"}}],"patchStrategicMerge":{"spec":{"template":{"spec":{"containers":[{"image":"{{ dictionary.data.image }}","name":"{{ element.name }}"}]}}}}}]}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-resolve-image-containers","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"preconditions":{"all":[{"key":"{{request.operation}}","operator":"In","value":["CREATE","UPDATE"]}]},"mutate":{"foreach":[{"list":"request.object.spec.template.spec.containers","context":[{"name":"dictionary","configMap":{"name":"some-config-map","namespace":"some-namespace"}}],"patchStrategicMerge":{"spec":{"template":{"spec":{"containers":[{"image":"{{ dictionary.data.image }}","name":"{{ element.name }}"}]}}}}}]}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-resolve-image-containers","match":{"resources":{"kinds":["CronJob"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"preconditions":{"all":[{"key":"{{request.operation}}","operator":"In","value":["CREATE","UPDATE"]}]},"mutate":{"foreach":[{"list":"request.object.spec.jobTemplate.spec.template.spec.containers","context":[{"name":"dictionary","configMap":{"name":"some-config-map","namespace":"some-namespace"}}],"patchStrategicMerge":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"image":"{{ dictionary.data.image }}","name":"{{ element.name }}"}]}}}}}}}]}}}`),
 	}
 
@@ -563,7 +563,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 		t.Log(errs)
 	}
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-select-secrets-from-volumes","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"context":[{"name":"volsecret","apiCall":{"urlPath":"/api/v1/namespaces/{{request.object.spec.template.metadata.namespace}}/secrets/{{request.object.spec.template.spec.volumes[0].secret.secretName}}","jmesPath":"metadata.labels.foo"}}],"preconditions":[{"key":"{{ request.operation }}","operator":"Equals","value":"CREATE"}],"validate":{"message":"The Secret named {{request.object.spec.template.spec.volumes[0].secret.secretName}} is restricted and may not be used.","pattern":{"spec":{"template":{"spec":{"containers":[{"image":"registry.domain.com/*"}]}}}}}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-select-secrets-from-volumes","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}},"context":[{"name":"volsecret","apiCall":{"urlPath":"/api/v1/namespaces/{{request.object.spec.template.metadata.namespace}}/secrets/{{request.object.spec.template.spec.volumes[0].secret.secretName}}","jmesPath":"metadata.labels.foo"}}],"preconditions":[{"key":"{{ request.operation }}","operator":"Equals","value":"CREATE"}],"validate":{"message":"The Secret named {{request.object.spec.template.spec.volumes[0].secret.secretName}} is restricted and may not be used.","pattern":{"spec":{"template":{"spec":{"containers":[{"image":"registry.domain.com/*"}]}}}}}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-select-secrets-from-volumes","match":{"resources":{"kinds":["CronJob"]}},"context":[{"name":"volsecret","apiCall":{"urlPath":"/api/v1/namespaces/{{request.object.spec.template.metadata.namespace}}/secrets/{{request.object.spec.jobTemplate.spec.template.spec.volumes[0].secret.secretName}}","jmesPath":"metadata.labels.foo"}}],"preconditions":[{"key":"{{ request.operation }}","operator":"Equals","value":"CREATE"}],"validate":{"message":"The Secret named {{request.object.spec.jobTemplate.spec.template.spec.volumes[0].secret.secretName}} is restricted and may not be used.","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"image":"registry.domain.com/*"}]}}}}}}}}}`),
 	}
 
@@ -601,7 +601,7 @@ func Test_Deny(t *testing.T) {
 		t.Log(errs)
 	}
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["CronJob"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.jobTemplate.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
 	}
 
