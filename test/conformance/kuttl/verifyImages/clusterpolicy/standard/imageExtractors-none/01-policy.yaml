@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 apply:
-- task.yaml
+- policy.yaml
 assert:
-- task.yaml
+- policy-ready.yaml
