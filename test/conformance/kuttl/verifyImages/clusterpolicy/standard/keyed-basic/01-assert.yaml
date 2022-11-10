@@ -3,4 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: keyed-basic-policy
 status:
-  ready: true
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
