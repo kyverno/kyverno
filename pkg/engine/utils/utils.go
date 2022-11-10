@@ -1,10 +1,6 @@
 package utils
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
-
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -71,29 +67,4 @@ func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	}
 
 	return result
-}
-
-func JsonPointerToJMESPath(jsonPointer string) string {
-	var sb strings.Builder
-	tokens := strings.Split(jsonPointer, "/")
-	i := 0
-	for _, t := range tokens {
-		if t == "" {
-			continue
-		}
-
-		if _, err := strconv.Atoi(t); err == nil {
-			sb.WriteString(fmt.Sprintf("[%s]", t))
-			continue
-		}
-
-		if i > 0 {
-			sb.WriteString(".")
-		}
-
-		sb.WriteString(t)
-		i++
-	}
-
-	return sb.String()
 }

@@ -197,12 +197,16 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			}
 		}
 	}
-	// shutdown remaining watcher
-	for gvr, watcher := range c.dynamicWatchers {
-		watcher.watcher.Stop()
-		delete(c.dynamicWatchers, gvr)
-	}
+	oldDynamicWatcher := c.dynamicWatchers
 	c.dynamicWatchers = dynamicWatchers
+	// shutdown remaining watcher
+	for gvr, watcher := range oldDynamicWatcher {
+		watcher.watcher.Stop()
+		delete(oldDynamicWatcher, gvr)
+		for uid, resource := range watcher.hashes {
+			c.notify(uid, watcher.gvk, resource)
+		}
+	}
 	return nil
 }
 
