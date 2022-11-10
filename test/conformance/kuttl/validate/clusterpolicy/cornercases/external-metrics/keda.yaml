@@ -12,7 +12,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.9.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/part-of: keda-operator
     app.kubernetes.io/version: 2.8.0
@@ -411,7 +410,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   labels:
     app.kubernetes.io/name: keda-operator
     app.kubernetes.io/part-of: keda-operator

@@ -1,6 +1,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 apply:
-- task.yaml
+- keda.yaml
 assert:
-- task.yaml
+- keda-ready.yaml

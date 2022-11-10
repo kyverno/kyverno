@@ -4,7 +4,7 @@ testDirs:
 # Autogen tests
 - ./test/conformance/kuttl/autogen
 # Generate tests
-# - ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/nosync
+- ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/nosync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/sync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/sync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/nosync
