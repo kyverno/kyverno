@@ -129,9 +129,9 @@ spec:
               path: /health/liveness
               port: 9443
               scheme: HTTPS
-            failureThreshold: 12
-            initialDelaySeconds: 30
-            periodSeconds: 10
+            failureThreshold: 20
+            initialDelaySeconds: 2
+            periodSeconds: 6
           livenessProbe:
             httpGet:
               path: /health/liveness
