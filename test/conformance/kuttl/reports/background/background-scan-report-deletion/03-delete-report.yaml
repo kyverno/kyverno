@@ -5,4 +5,4 @@ delete:
   kind: ClusterPolicy
   name: podsecurity-subrule-restricted
 error:
-- background-scan-report-ready.yaml
+- background-scan-report-error.yaml
