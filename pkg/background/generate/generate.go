@@ -423,7 +423,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 
 	if rule.Generation.Clone.Name != "" {
-		cresp, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), rule.Generation.Synchronize, ur, rule.Generation, client)
+		cresp, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), ur, rule.Generation, client)
 		rdatas = append(rdatas, GenerateResponse{
 			Data:          cresp,
 			Action:        mode,
@@ -434,7 +434,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 			Error:         err,
 		})
 	} else if len(rule.Generation.CloneList.Kinds) != 0 {
-		rdatas = manageCloneList(logger, genNamespace, policy.GetName(), rule.Generation.Synchronize, ur, rule.Generation, client)
+		rdatas = manageCloneList(logger, genNamespace, policy.GetName(), ur, rule.Generation, client)
 	} else {
 		dresp, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, rule.Generation.RawData, rule.Generation.Synchronize, ur, client)
 		rdatas = append(rdatas, GenerateResponse{
@@ -618,7 +618,7 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 	return updateObj.UnstructuredContent(), Update, nil
 }
 
-func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, synchronize bool, ur kyvernov1beta1.UpdateRequest, clone kyvernov1.Generation, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
+func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, ur kyvernov1beta1.UpdateRequest, clone kyvernov1.Generation, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
 	// resource namespace can be nil in case of clusters scope resource
 	rNamespace := clone.Clone.Namespace
 	if rNamespace == "" {
@@ -644,7 +644,7 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 	// check if cloned resource exists
 	cobj, err := client.GetResource(apiVersion, kind, namespace, name)
 	if err != nil {
-		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !synchronize {
+		if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !clone.Synchronize {
 			log.V(4).Info("synchronization is disabled, recreation will be skipped", "resource", cobj)
 			return nil, Skip, nil
 		}
@@ -673,7 +673,7 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 	return obj.UnstructuredContent(), Create, nil
 }
 
-func manageCloneList(log logr.Logger, namespace, policy string, synchronize bool, ur kyvernov1beta1.UpdateRequest, clone kyvernov1.Generation, client dclient.Interface) []GenerateResponse {
+func manageCloneList(log logr.Logger, namespace, policy string, ur kyvernov1beta1.UpdateRequest, clone kyvernov1.Generation, client dclient.Interface) []GenerateResponse {
 	var response []GenerateResponse
 
 	rNamespace := clone.CloneList.Namespace
@@ -725,7 +725,7 @@ func manageCloneList(log logr.Logger, namespace, policy string, synchronize bool
 
 			// check if cloned resource exists
 			cobj, err := client.GetResource(apiVersion, kind, namespace, rName.GetName())
-			if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !synchronize {
+			if apierrors.IsNotFound(err) && len(ur.Status.GeneratedResources) != 0 && !clone.Synchronize {
 				log.V(4).Info("synchronization is disabled, recreation will be skipped", "resource", cobj)
 				response = append(response, GenerateResponse{
 					Data:   nil,
