@@ -35,7 +35,7 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 	}
 
 	if !preconditionsPassed {
-		if ctx.Policy.GetSpec().ValidationFailureAction == kyvernov1.Audit {
+		if ctx.Policy.GetSpec().ValidationFailureAction.Audit() {
 			return nil
 		}
 

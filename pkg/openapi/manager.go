@@ -124,6 +124,16 @@ func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error
 			for _, kind := range rule.MatchResources.Kinds {
 				kindToRules[kind] = append(kindToRules[kind], rule)
 			}
+			for _, resourceFilter := range rule.MatchResources.Any {
+				for _, kind := range resourceFilter.Kinds {
+					kindToRules[kind] = append(kindToRules[kind], rule)
+				}
+			}
+			for _, resourceFilter := range rule.MatchResources.All {
+				for _, kind := range resourceFilter.Kinds {
+					kindToRules[kind] = append(kindToRules[kind], rule)
+				}
+			}
 		}
 	}
 

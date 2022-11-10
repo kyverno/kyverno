@@ -46,7 +46,7 @@ In the process of submitting your PRs, please read and abide by the template pro
 
 1. Provide Proof Manifests allowing the maintainers and other contributors to verify your changes without requiring they understand the nuances of all your code.
 2. For new or changed functionality, this typically requires documentation and so raise a corresponding issue (or, better yet, raise a separate PR) on the [documentation repository](https://github.com/kyverno/website).
-3. Test your change with the [Kyverno CLI](https://kyverno.io/docs/kyverno-cli/) and provide a test manifest in the proper format. If your feature/fix does not work with the CLI, a separate issue requesting CLI support must be made.
+3. Test your change with the [Kyverno CLI](https://kyverno.io/docs/kyverno-cli/) and provide a test manifest in the proper format. If your feature/fix does not work with the CLI, a separate issue requesting CLI support must be made. For changes which can be tested as an end user, we require conformance/e2e tests by using the `kuttl` tool. See [here](https://github.com/kyverno/kyverno/tree/main/test/conformance/kuttl/README.md) for a specific guide on how and when to write these tests.
 4. Indicate which release this PR is triaged for (maintainers). This step is important especially for the documentation maintainers in order to understand when and where the necessary changes should be made.
 
 #### How to Create a PR

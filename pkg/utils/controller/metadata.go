@@ -15,6 +15,14 @@ func SetLabel(obj metav1.Object, key, value string) map[string]string {
 	return labels
 }
 
+func CheckLabel(obj metav1.Object, key, value string) bool {
+	labels := obj.GetLabels()
+	if labels == nil {
+		return false
+	}
+	return labels[key] == value
+}
+
 func SetAnnotation(obj metav1.Object, key, value string) {
 	annotations := obj.GetAnnotations()
 	if annotations == nil {
