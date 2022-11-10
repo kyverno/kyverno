@@ -1,3 +1,5 @@
+## v1.8.2-rc1
+- Multiple `imagePullSecrets` is not supported, only the first secret will be used if multiple secrets are specified via the `--imagePullSecrets` container flag.
 ## v1.8.1-rc3
 
 ### Note
