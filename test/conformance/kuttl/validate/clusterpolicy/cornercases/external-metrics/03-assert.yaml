@@ -1,9 +1,0 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: keda-metrics-apiserver
-  namespace: keda
-status:
-  availableReplicas: 1
-  readyReplicas: 1
-  replicas: 1
