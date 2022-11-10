@@ -38,9 +38,6 @@ type GenerationHandler interface {
 		[]kyvernov1.PolicyInterface,
 		*engine.PolicyContext,
 		time.Time,
-		*chan int64,
-		*chan []*response.EngineResponse,
-		*chan []*response.EngineResponse,
 	)
 }
 
@@ -84,9 +81,6 @@ func (h *generationHandler) Handle(
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	admissionRequestTimestamp time.Time,
-	latencySender *chan int64,
-	generateEngineResponsesSenderForAdmissionReviewDurationMetric *chan []*response.EngineResponse,
-	generateEngineResponsesSenderForAdmissionRequestsCountMetric *chan []*response.EngineResponse,
 ) {
 	h.log.V(6).Info("update request")
 
@@ -132,12 +126,6 @@ func (h *generationHandler) Handle(
 	if request.Operation == admissionv1.Update {
 		h.HandleUpdatesForGenerateRules(request, policies)
 	}
-
-	// sending the admission request latency to other goroutine (reporting the metrics) over the channel
-	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
-	*latencySender <- admissionReviewLatencyDuration
-	*generateEngineResponsesSenderForAdmissionReviewDurationMetric <- engineResponses
-	*generateEngineResponsesSenderForAdmissionRequestsCountMetric <- engineResponses
 }
 
 // HandleUpdatesForGenerateRules handles admission-requests for update

@@ -10,6 +10,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
@@ -66,6 +67,7 @@ func NewServer(
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
 	configuration config.Configuration,
+	metricsConfig *metrics.MetricsConfig,
 	debugModeOpts DebugModeOptions,
 	tlsProvider TlsProvider,
 	mwcClient controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration],
@@ -77,11 +79,32 @@ func NewServer(
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	verifyLogger := logger.WithName("verify")
-	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, configuration, resourceHandlers.Mutate, debugModeOpts)
-	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, configuration, resourceHandlers.Validate, debugModeOpts)
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), filter(configuration, policyHandlers.Mutate), debugModeOpts))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), filter(configuration, policyHandlers.Validate), debugModeOpts))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), handlers.Verify(), DebugModeOptions{}))
+	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, configuration, metricsConfig, resourceHandlers.Mutate, debugModeOpts)
+	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, configuration, metricsConfig, resourceHandlers.Validate, debugModeOpts)
+	mux.HandlerFunc(
+		"POST",
+		config.PolicyMutatingWebhookServicePath,
+		handlers.AdmissionHandler(policyHandlers.Mutate).
+			WithFilter(configuration).
+			WithDump(debugModeOpts.DumpPayload).
+			WithMetrics(metricsConfig).
+			WithAdmission(policyLogger.WithName("mutate")),
+	)
+	mux.HandlerFunc(
+		"POST",
+		config.PolicyValidatingWebhookServicePath,
+		handlers.AdmissionHandler(policyHandlers.Validate).
+			WithFilter(configuration).
+			WithDump(debugModeOpts.DumpPayload).
+			WithMetrics(metricsConfig).
+			WithAdmission(policyLogger.WithName("validate")),
+	)
+	mux.HandlerFunc(
+		"POST",
+		config.VerifyMutatingWebhookServicePath,
+		handlers.Verify().
+			WithAdmission(verifyLogger.WithName("mutate")),
+	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
@@ -170,53 +193,49 @@ func (s *server) cleanup(ctx context.Context) {
 	close(s.cleanUp)
 }
 
-func dump(inner handlers.AdmissionHandler, debugModeOpts DebugModeOptions) handlers.AdmissionHandler {
-	// debug mode not enabled, no need to add debug middleware
-	if !debugModeOpts.DumpPayload {
-		return inner
-	}
-	return handlers.Dump(inner)
-}
-
-func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
-	if !toggle.ProtectManagedResources.Enabled() {
-		return inner
-	}
-	return handlers.Protect(inner)
-}
-
-func filter(configuration config.Configuration, inner handlers.AdmissionHandler) handlers.AdmissionHandler {
-	return handlers.Filter(configuration, inner)
-}
-
-func admission(logger logr.Logger, inner handlers.AdmissionHandler, debugModeOpts DebugModeOptions) http.HandlerFunc {
-	return handlers.Admission(logger, dump(protect(inner), debugModeOpts))
-}
-
 func registerWebhookHandlers(
 	logger logr.Logger,
 	mux *httprouter.Router,
 	basePath string,
 	configuration config.Configuration,
+	metricsConfig *metrics.MetricsConfig,
 	handlerFunc func(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
 	debugModeOpts DebugModeOptions,
 ) {
-	mux.HandlerFunc("POST", basePath, admission(logger, filter(
-		configuration,
-		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	mux.HandlerFunc(
+		"POST",
+		basePath,
+		handlers.AdmissionHandler(func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "all", startTime)
-		}), debugModeOpts),
+		}).
+			WithFilter(configuration).
+			WithProtection(toggle.ProtectManagedResources.Enabled()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithMetrics(metricsConfig).
+			WithAdmission(logger),
 	)
-	mux.HandlerFunc("POST", basePath+"/fail", admission(logger, filter(
-		configuration,
-		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	mux.HandlerFunc(
+		"POST",
+		basePath+"/fail",
+		handlers.AdmissionHandler(func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "fail", startTime)
-		}), debugModeOpts),
+		}).
+			WithFilter(configuration).
+			WithProtection(toggle.ProtectManagedResources.Enabled()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithMetrics(metricsConfig).
+			WithAdmission(logger),
 	)
-	mux.HandlerFunc("POST", basePath+"/ignore", admission(logger, filter(
-		configuration,
-		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	mux.HandlerFunc(
+		"POST",
+		basePath+"/ignore",
+		handlers.AdmissionHandler(func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "ignore", startTime)
-		}), debugModeOpts),
+		}).
+			WithFilter(configuration).
+			WithProtection(toggle.ProtectManagedResources.Enabled()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithMetrics(metricsConfig).
+			WithAdmission(logger),
 	)
 }
