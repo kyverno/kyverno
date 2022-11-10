@@ -14,11 +14,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -170,8 +170,8 @@ func (iv *imageVerifier) verify(imageVerify kyvernov1.ImageVerification, images 
 				continue
 			}
 
-			jmespath := engineUtils.JsonPointerToJMESPath(imageInfo.Pointer)
-			changed, err := iv.policyContext.JSONContext.HasChanged(jmespath)
+			pointer := jsonpointer.ParsePath(imageInfo.Pointer).JMESPath()
+			changed, err := iv.policyContext.JSONContext.HasChanged(pointer)
 			if err == nil && !changed {
 				iv.logger.V(4).Info("no change in image, skipping check", "image", image)
 				continue
