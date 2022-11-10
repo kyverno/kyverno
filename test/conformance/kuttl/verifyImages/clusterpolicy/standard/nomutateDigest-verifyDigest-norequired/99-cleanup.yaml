@@ -1,4 +1,0 @@
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl delete -f 01-manifests.yaml,02-goodpod.yaml --force --wait=true --ignore-not-found=true
