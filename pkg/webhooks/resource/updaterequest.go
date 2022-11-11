@@ -37,7 +37,7 @@ func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1
 		if !policy.GetSpec().IsMutateExisting() {
 			continue
 		}
-		logger.V(4).Info("update request mutateExisting")
+		logger.V(4).Info("update request for mutateExisting policy")
 
 		var rules []response.RuleResponse
 		policyContext.Policy = policy
