@@ -108,6 +108,19 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 	return nil
 }
 
+func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
+	msg := "Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead."
+	if spec.ValidationFailureAction == "enforce" || spec.ValidationFailureAction == "audit" {
+		return []string{msg}
+	}
+	for _, override := range spec.ValidationFailureActionOverrides {
+		if override.Action == "enforce" || override.Action == "audit" {
+			return []string{msg}
+		}
+	}
+	return nil
+}
+
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) ([]string, error) {
 	var warnings []string
@@ -119,6 +132,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
 	}
 
+	warnings = append(warnings, checkValidationFailureAction(spec)...)
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
 
@@ -140,7 +154,14 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		// Get all the cluster type kind supported by cluster
 		res, err := discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
 		if err != nil {
-			return warnings, err
+			if discovery.IsGroupDiscoveryFailedError(err) {
+				err := err.(*discovery.ErrGroupDiscoveryFailed)
+				for gv, err := range err.Groups {
+					logging.Error(err, "failed to list api resources", "group", gv)
+				}
+			} else {
+				return warnings, err
+			}
 		}
 		for _, resList := range res {
 			for _, r := range resList.APIResources {
