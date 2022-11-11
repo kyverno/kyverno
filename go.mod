@@ -34,6 +34,7 @@ require (
 	github.com/onsi/gomega v1.22.1
 	github.com/orcaman/concurrent-map/v2 v2.0.0
 	github.com/pkg/errors v0.9.1
+	github.com/robfig/cron v1.2.0
 	github.com/sigstore/cosign v1.13.0
 	github.com/sigstore/k8s-manifest-sigstore v0.4.2
 	github.com/sigstore/sigstore v1.4.4
