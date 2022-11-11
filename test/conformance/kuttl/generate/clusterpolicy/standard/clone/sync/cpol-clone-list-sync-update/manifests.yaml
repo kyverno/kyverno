@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: bootstap-config
+  name: bootstrap-config
   namespace: default
   labels:
     allowedToBeCloned:  "true"
