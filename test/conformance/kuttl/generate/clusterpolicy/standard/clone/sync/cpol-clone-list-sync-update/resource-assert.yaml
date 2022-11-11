@@ -1,21 +1,38 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: bootstrap-config
-  namespace: prod
-  labels:
-    allowedToBeCloned:  "true"
-data:
-  initial_lives: "15"
 ---
 apiVersion: v1
+data:
+  password: dDBwLVNlY3JldC1zdXBlcg==
+  username: YWRtaW4=
 kind: Secret
 metadata:
+  labels:
+    allowedToBeCloned: "true"
+    app.kubernetes.io/managed-by: kyverno
+    generate.kyverno.io/clone-policy-name: sync-secret-with-multi-clone
+    kyverno.io/background-gen-rule: sync-secret
+    kyverno.io/generated-by-kind: Namespace
+    kyverno.io/generated-by-name: prod
+    kyverno.io/generated-by-namespace: ""
+    policy.kyverno.io/policy-name: sync-secret-with-multi-clone
+    policy.kyverno.io/synchronize: enable
   name: image-secret
   namespace: prod
-  labels:
-    allowedToBeCloned:  "true"
 type: kubernetes.io/basic-auth
-stringData:
-  username: admin
-  password: t0p-Secret-super
+---
+apiVersion: v1
+data:
+  initial_lives: "15"
+kind: ConfigMap
+metadata:
+  labels:
+    allowedToBeCloned: "true"
+    app.kubernetes.io/managed-by: kyverno
+    generate.kyverno.io/clone-policy-name: sync-secret-with-multi-clone
+    kyverno.io/background-gen-rule: sync-secret
+    kyverno.io/generated-by-kind: Namespace
+    kyverno.io/generated-by-name: prod
+    kyverno.io/generated-by-namespace: ""
+    policy.kyverno.io/policy-name: sync-secret-with-multi-clone
+    policy.kyverno.io/synchronize: enable
+  name: bootstrap-config
+  namespace: prod
