@@ -27,6 +27,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -382,40 +383,36 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 				continue
 			}
-
-			updateSource := true
-			label := obj.GetLabels()
-
-			if len(label) == 0 {
-				label = make(map[string]string)
-				label["generate.kyverno.io/clone-policy-name"] = policy.GetName()
-			} else {
-				if label["generate.kyverno.io/clone-policy-name"] != "" {
-					policyNames := label["generate.kyverno.io/clone-policy-name"]
-					if !strings.Contains(policyNames, policy.GetName()) {
-						policyNames = policyNames + "," + policy.GetName()
-						label["generate.kyverno.io/clone-policy-name"] = policyNames
-					} else {
-						updateSource = false
-					}
-				} else {
-					label["generate.kyverno.io/clone-policy-name"] = policy.GetName()
-				}
+			err = UpdateSourceResource(client, rule.Generation.Kind, rule.Generation.Clone.Namespace, policy, obj)
+			if err != nil {
+				logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+				continue
 			}
-
-			if updateSource {
-				logging.V(4).Info("updating existing clone source")
-				obj.SetLabels(label)
-				_, err = client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
+			logging.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+		}
+		if !mock && len(rule.Generation.CloneList.Kinds) != 0 {
+			for _, kind := range rule.Generation.CloneList.Kinds {
+				apiVersion, kind := kubeutils.GetKindFromGVK(kind)
+				resources, err := client.ListResource(apiVersion, kind, rule.Generation.CloneList.Namespace, rule.Generation.CloneList.Selector)
 				if err != nil {
-					logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+					logging.Error(err, fmt.Sprintf("failed to list resources %s/%s.", kind, rule.Generation.CloneList.Namespace))
 					continue
 				}
-				logging.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+				for _, rName := range resources.Items {
+					obj, err := client.GetResource(apiVersion, kind, rule.Generation.CloneList.Namespace, rName.GetName())
+					if err != nil {
+						logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+						continue
+					}
+					err = UpdateSourceResource(client, kind, rule.Generation.CloneList.Namespace, policy, obj)
+					if err != nil {
+						logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+						continue
+					}
+				}
 			}
 		}
 	}
-
 	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
 		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
 			return warnings, err
@@ -423,6 +420,39 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	}
 
 	return warnings, nil
+}
+
+func UpdateSourceResource(client dclient.Interface, kind, namespace string, policy kyvernov1.PolicyInterface, obj *unstructured.Unstructured) error {
+	updateSource := true
+	label := obj.GetLabels()
+
+	if len(label) == 0 {
+		label = make(map[string]string)
+		label["generate.kyverno.io/clone-policy-name"] = policy.GetName()
+	} else {
+		if label["generate.kyverno.io/clone-policy-name"] != "" {
+			policyNames := label["generate.kyverno.io/clone-policy-name"]
+			if !strings.Contains(policyNames, policy.GetName()) {
+				policyNames = policyNames + "," + policy.GetName()
+				label["generate.kyverno.io/clone-policy-name"] = policyNames
+			} else {
+				updateSource = false
+			}
+		} else {
+			label["generate.kyverno.io/clone-policy-name"] = policy.GetName()
+		}
+	}
+
+	if updateSource {
+		logging.V(4).Info("updating existing clone source labels")
+		obj.SetLabels(label)
+		_, err := client.UpdateResource(obj.GetAPIVersion(), kind, namespace, obj, false)
+		if err != nil {
+			logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+		}
+		logging.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+	}
+	return nil
 }
 
 func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
