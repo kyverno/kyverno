@@ -110,7 +110,14 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		// Get all the cluster type kind supported by cluster
 		res, err := discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
 		if err != nil {
-			return warnings, err
+			if discovery.IsGroupDiscoveryFailedError(err) {
+				err := err.(*discovery.ErrGroupDiscoveryFailed)
+				for gv, err := range err.Groups {
+					logging.Error(err, "failed to list api resources", "group", gv)
+				}
+			} else {
+				return warnings, err
+			}
 		}
 		for _, resList := range res {
 			for _, r := range resList.APIResources {
