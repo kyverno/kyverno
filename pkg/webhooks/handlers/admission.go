@@ -8,16 +8,18 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"go.opentelemetry.io/otel/attribute"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
 type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 
-func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
+func (h AdmissionHandler) WithAdmission(logger logr.Logger) http.HandlerFunc {
+	return withAdmission(logger, h)
+}
+
+func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		ctx := request.Context()
 		startTime := time.Now()
@@ -87,20 +89,5 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 		} else {
 			logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
 		}
-	}
-}
-
-func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			return nil
-		}
-		return inner(logger, request, startTime)
-	}
-}
-
-func Verify() AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		return admissionutils.Response(true)
 	}
 }

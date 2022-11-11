@@ -1,0 +1,8 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: example-task-name
+spec:
+  steps:
+    - name: cosign
+      image: ghcr.io/sigstore/cosign/cosign@sha256:33a6a55d2f1354bc989b791974cf4ee00a900ab9e4e54b393962321758eee3c6

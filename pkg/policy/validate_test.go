@@ -1436,7 +1436,7 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	  }
 	},
 	"spec": {
-	  "validationFailureAction": "enforce",
+	  "validationFailureAction": "Enforce",
 	  "background": false,
 	  "rules": [
 		{
@@ -1493,7 +1493,7 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	  }
 	},
 	"spec": {
-	  "validationFailureAction": "enforce",
+	  "validationFailureAction": "Enforce",
 	  "background": false,
 	  "rules": [
 		{
@@ -1533,10 +1533,8 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager()
-	res, err := Validate(policy, nil, true, openApiManager)
-	if res != nil {
-		assert.Assert(t, res.Warnings != nil)
-	}
+	warnings, err := Validate(policy, nil, true, openApiManager)
+	assert.Assert(t, warnings != nil)
 	assert.NilError(t, err)
 }
 
@@ -1552,7 +1550,7 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	  }
 	},
 	"spec": {
-	  "validationFailureAction": "enforce",
+	  "validationFailureAction": "Enforce",
 	  "background": false,
 	  "rules": [
 		{
@@ -1592,10 +1590,8 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager()
-	res, err := Validate(policy, nil, true, openApiManager)
-	if res != nil {
-		assert.Assert(t, res.Warnings != nil)
-	}
+	warnings, err := Validate(policy, nil, true, openApiManager)
+	assert.Assert(t, warnings == nil)
 	assert.NilError(t, err)
 }
 
