@@ -450,7 +450,7 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 		logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 
 		if fe.Clone.Name != "" {
-			cresp, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), rule.Generation, fe, client)
+			cresp, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), ur, rule.Generation, fe, client)
 			rdatas = append(rdatas, GenerateResponse{
 				Data:          cresp,
 				Action:        mode,
@@ -461,7 +461,7 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 				Error:         err,
 			})
 		} else if len(fe.CloneList.Kinds) != 0 {
-			rdatas = manageCloneList(logger, genNamespace, policy.GetName(), rule.Generation, fe, client)
+			rdatas = manageCloneList(logger, genNamespace, policy.GetName(), ur, rule.Generation, fe, client)
 		} else {
 			dresp, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, fe.RawData, fe.Synchronize, ur, client)
 			rdatas = append(rdatas, GenerateResponse{
@@ -632,7 +632,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 
 	if rule.Generation.Clone.Name != "" {
-		cresp, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), rule.Generation, noForEachGenerationResource, client)
+		cresp, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), ur, rule.Generation, noForEachGenerationResource, client)
 		rdatas = append(rdatas, GenerateResponse{
 			Data:          cresp,
 			Action:        mode,
@@ -643,7 +643,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 			Error:         err,
 		})
 	} else if len(rule.Generation.CloneList.Kinds) != 0 {
-		rdatas = manageCloneList(logger, genNamespace, policy.GetName(), rule.Generation, noForEachGenerationResource, client)
+		rdatas = manageCloneList(logger, genNamespace, policy.GetName(), ur, rule.Generation, noForEachGenerationResource, client)
 	} else {
 		dresp, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, rule.Generation.RawData, rule.Generation.Synchronize, ur, client)
 		rdatas = append(rdatas, GenerateResponse{
@@ -827,7 +827,7 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 	return updateObj.UnstructuredContent(), Update, nil
 }
 
-func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, clone kyvernov1.Generation, fe kyvernov1.ForEachGeneration, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
+func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, ur kyvernov1beta1.UpdateRequest, clone kyvernov1.Generation, fe kyvernov1.ForEachGeneration, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
 	var rNamespace string
 	var rName string
 	// resource namespace can be nil in case of clusters scope resource
@@ -890,7 +890,7 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 	return obj.UnstructuredContent(), Create, nil
 }
 
-func manageCloneList(log logr.Logger, namespace, policy string, clone kyvernov1.Generation, fe kyvernov1.ForEachGeneration, client dclient.Interface) []GenerateResponse {
+func manageCloneList(log logr.Logger, namespace, policy string, ur kyvernov1beta1.UpdateRequest, clone kyvernov1.Generation, fe kyvernov1.ForEachGeneration, client dclient.Interface) []GenerateResponse {
 	var response []GenerateResponse
 	var rNamespace string
 	var kinds []string
