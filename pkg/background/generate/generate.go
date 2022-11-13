@@ -358,6 +358,9 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
+			if len(rule.Generation.ForEachGeneration) > 0 && (rule.Generation.Kind != "" || rule.Generation.Name != "" || rule.Generation.Namespace != "") {
+				log.Error(err, "Generate rule cannot be written individually when foreach specified in Generate block, All the Generate rules must be specified inside the foreach block")
+			}
 			if len(rule.Generation.ForEachGeneration) > 0 {
 				genResource, err = applyForEachGenerateRules(log, c.client, rule, resource, jsonContext, policy, ur)
 			} else {
