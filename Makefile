@@ -25,9 +25,11 @@ BUILD_WITH           ?= ko
 KYVERNOPRE_IMAGE     := kyvernopre
 KYVERNO_IMAGE        := kyverno
 CLI_IMAGE            := kyverno-cli
+CLEANUP_IMAGE        := cleanup-controller
 REPO_KYVERNOPRE      := $(REGISTRY)/$(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO         := $(REGISTRY)/$(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI             := $(REGISTRY)/$(REPO)/$(CLI_IMAGE)
+REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(KYVERNO_CLEANUP)
 
 #########
 # TOOLS #
@@ -138,9 +140,11 @@ CMD_DIR        := ./cmd
 KYVERNO_DIR    := $(CMD_DIR)/kyverno
 KYVERNOPRE_DIR := $(CMD_DIR)/initContainer
 CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
+CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
 KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
 KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
 CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
+CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0 
 LD_FLAGS        = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
@@ -175,6 +179,10 @@ $(CLI_BIN): fmt vet
 	@echo Build cli binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLI_BIN) -ldflags=$(LD_FLAGS) $(CLI_DIR)
 
+$(CLEANUP_BIN): fmt vet
+	@echo Build cleanup controller binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLEANUP_BIN) -ldflags=$(LD_FLAGS) $(CLEANUP_DIR)
+
 .PHONY: build-kyvernopre
 build-kyvernopre: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
 
@@ -184,7 +192,10 @@ build-kyverno: $(KYVERNO_BIN) ## Build kyverno binary
 .PHONY: build-cli
 build-cli: $(CLI_BIN) ## Build cli binary
 
-build-all: build-kyvernopre build-kyverno build-cli ## Build all binaries
+.PHONY: build-cleanup-controller
+build-cleanup-controller: $(CLEANUP_BIN) ## Build cleanup controller binary
+
+build-all: build-kyvernopre build-kyverno build-cli build-cleanup-controller ## Build all binaries
 
 ##############
 # BUILD (KO) #
@@ -210,8 +221,13 @@ ko-build-cli: $(KO) ## Build cli local image (with ko)
 	@echo Build cli local image with ko... >&2
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
+.PHONY: ko-build-cleanup-controller
+ko-build-cleanup-controller: $(KO) ## Build cleanup controller local image (with ko)
+	@echo Build cleanup controller local image with ko... >&2
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ## Build all local images (with ko)
+ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ko-build-cleanup-controller ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
