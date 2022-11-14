@@ -1,0 +1,30 @@
+{{- if .Values.cleanupController.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+  namespace: {{ template "kyverno.namespace" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kyverno.cleanup-controller.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kyverno.cleanup-controller.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: controller
+          image: {{ include "kyverno.cleanup-controller.image" (dict "image" .Values.cleanupController.image "defaultTag" .Chart.AppVersion) | quote }}
+          ports:
+          - containerPort: 9443
+            name: https
+            protocol: TCP
+          - containerPort: 8000
+            name: metrics
+            protocol: TCP
+          env: []
+{{- end -}}
