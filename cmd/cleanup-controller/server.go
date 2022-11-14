@@ -6,7 +6,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/pkg/logging"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 type Server interface {
@@ -22,35 +27,21 @@ type server struct {
 
 type TlsProvider func() ([]byte, []byte, error)
 
+func TODO(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse {
+	return admissionutils.ResponseSuccess()
+}
+
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
 	tlsProvider TlsProvider,
 ) Server {
 	mux := httprouter.New()
-	// mux.HandlerFunc(
-	// 	"POST",
-	// 	config.PolicyMutatingWebhookServicePath,
-	// 	handlers.AdmissionHandler(policyHandlers.Mutate).
-	// 		WithFilter(configuration).
-	// 		WithDump(debugModeOpts.DumpPayload).
-	// 		WithMetrics(metricsConfig).
-	// 		WithAdmission(policyLogger.WithName("mutate")),
-	// )
-	// mux.HandlerFunc(
-	// 	"POST",
-	// 	config.PolicyValidatingWebhookServicePath,
-	// 	handlers.AdmissionHandler(policyHandlers.Validate).
-	// 		WithFilter(configuration).
-	// 		WithDump(debugModeOpts.DumpPayload).
-	// 		WithMetrics(metricsConfig).
-	// 		WithAdmission(policyLogger.WithName("validate")),
-	// )
-	// mux.HandlerFunc(
-	// 	"POST",
-	// 	config.VerifyMutatingWebhookServicePath,
-	// 	handlers.Verify().
-	// 		WithAdmission(verifyLogger.WithName("mutate")),
-	// )
+	mux.HandlerFunc(
+		"POST",
+		"/todo",
+		handlers.AdmissionHandler(TODO).
+			WithAdmission(logging.WithName("todo")),
+	)
 	return &server{
 		server: &http.Server{
 			Addr: ":9443",
