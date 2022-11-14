@@ -6,6 +6,7 @@ coverage.txt
 .idea
 cmd/initContainer/kyvernopre
 cmd/kyverno/kyverno
+cmd/cleanup-controller/cleanup-controller
 /release
 .DS_Store
 .tools
