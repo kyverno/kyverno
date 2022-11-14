@@ -23,8 +23,6 @@ func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1
 }
 
 func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp time.Time) {
-	logger.V(4).Info("update request")
-
 	if request.Operation == admissionv1.Delete {
 		policyContext.NewResource = policyContext.OldResource
 	}
@@ -39,6 +37,7 @@ func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1
 		if !policy.GetSpec().IsMutateExisting() {
 			continue
 		}
+		logger.V(4).Info("update request for mutateExisting policy")
 
 		var rules []response.RuleResponse
 		policyContext.Policy = policy

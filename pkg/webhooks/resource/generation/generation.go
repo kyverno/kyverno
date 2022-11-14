@@ -82,7 +82,7 @@ func (h *generationHandler) Handle(
 	policyContext *engine.PolicyContext,
 	admissionRequestTimestamp time.Time,
 ) {
-	h.log.V(6).Info("update request")
+	h.log.V(6).Info("update request for generate policy")
 
 	var engineResponses []*response.EngineResponse
 	if (request.Operation == admissionv1.Create || request.Operation == admissionv1.Update) && len(policies) != 0 {
