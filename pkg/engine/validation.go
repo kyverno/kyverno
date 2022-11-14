@@ -456,7 +456,7 @@ func (v *validator) getDenyMessage(deny bool) string {
 func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
 	kind := v.ctx.NewResource.GetKind()
 
-	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" {
+	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
 		var deployment appsv1.Deployment
 
 		resourceBytes, err := v.ctx.NewResource.MarshalJSON()
