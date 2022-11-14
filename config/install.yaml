@@ -29640,13 +29640,13 @@ spec:
           seccompProfile:
             type: RuntimeDefault
         startupProbe:
-          failureThreshold: 12
+          failureThreshold: 20
           httpGet:
             path: /health/liveness
             port: 9443
             scheme: HTTPS
-          initialDelaySeconds: 30
-          periodSeconds: 10
+          initialDelaySeconds: 2
+          periodSeconds: 6
         volumeMounts:
         - mountPath: /.sigstore
           name: sigstore

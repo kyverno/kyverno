@@ -1677,3 +1677,369 @@ func Test_RuleSelectorMutate(t *testing.T) {
 		t.Error("rule 1 patches dont match")
 	}
 }
+
+func Test_SpecialCharacters(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		policyRaw   []byte
+		documentRaw []byte
+		want        [][]byte
+	}{
+		{
+			name: "regex_replace",
+			policyRaw: []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "regex-replace-all-demo"
+  },
+  "spec": {
+    "background": false,
+    "rules": [
+      {
+        "name": "retention-adjust",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Deployment"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "retention": "{{ regex_replace_all('([0-9])([0-9])', '{{ @ }}', '${1}0') }}"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`),
+			documentRaw: []byte(`{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "busybox",
+    "labels": {
+      "app": "busybox",
+      "retention": "days_37"
+    }
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": {
+      "matchLabels": {
+        "app": "busybox"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "busybox"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "busybox:1.28",
+            "name": "busybox",
+            "command": [
+              "sleep",
+              "9999"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}`),
+			want: [][]byte{
+				[]byte(`{"op":"replace","path":"/metadata/labels/retention","value":"days_30"}`),
+			},
+		},
+		{
+			name: "regex_replace_with_slash",
+			policyRaw: []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "regex-replace-all-demo"
+  },
+  "spec": {
+    "background": false,
+    "rules": [
+      {
+        "name": "retention-adjust",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Deployment"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "corp.com/retention": "{{ regex_replace_all('([0-9])([0-9])', '{{ @ }}', '${1}0') }}"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`),
+			documentRaw: []byte(`{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "busybox",
+    "labels": {
+      "app": "busybox",
+      "corp.com/retention": "days_37"
+    }
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": {
+      "matchLabels": {
+        "app": "busybox"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "busybox"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "busybox:1.28",
+            "name": "busybox",
+            "command": [
+              "sleep",
+              "9999"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}`),
+			want: [][]byte{
+				[]byte(`{"op":"replace","path":"/metadata/labels/corp.com~1retention","value":"days_30"}`),
+			},
+		},
+		{
+			name: "regex_replace_with_hyphen",
+			policyRaw: []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "regex-replace-all-demo"
+  },
+  "spec": {
+    "background": false,
+    "rules": [
+      {
+        "name": "retention-adjust",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Deployment"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "corp-retention": "{{ regex_replace_all('([0-9])([0-9])', '{{ @ }}', '${1}0') }}"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`),
+			documentRaw: []byte(`{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "busybox",
+    "labels": {
+      "app": "busybox",
+      "corp-retention": "days_37"
+    }
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": {
+      "matchLabels": {
+        "app": "busybox"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "busybox"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "busybox:1.28",
+            "name": "busybox",
+            "command": [
+              "sleep",
+              "9999"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}`),
+			want: [][]byte{
+				[]byte(`{"op":"replace","path":"/metadata/labels/corp-retention","value":"days_30"}`),
+			},
+		},
+		{
+			name: "to_upper_with_hyphen",
+			policyRaw: []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "to-upper-demo"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "format-deploy-zone",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Deployment"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "deploy-zone": "{{ to_upper('{{@}}') }}"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`),
+			documentRaw: []byte(`{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "busybox",
+    "labels": {
+      "app": "busybox",
+      "deploy-zone": "eu-central-1"
+    }
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": {
+      "matchLabels": {
+        "app": "busybox"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "busybox"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "busybox:1.28",
+            "name": "busybox",
+            "command": [
+              "sleep",
+              "9999"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}`),
+			want: [][]byte{
+				[]byte(`{"op":"replace","path":"/metadata/labels/deploy-zone","value":"EU-CENTRAL-1"}`),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Parse policy document.
+			var policy kyverno.ClusterPolicy
+			if err := json.Unmarshal(tt.policyRaw, &policy); err != nil {
+				t.Error(err)
+			}
+
+			// Parse resource document.
+			resource, err := utils.ConvertToUnstructured(tt.documentRaw)
+			if err != nil {
+				t.Fatalf("ConvertToUnstructured() error = %v", err)
+			}
+
+			// Create JSON context and add the resource.
+			ctx := context.NewContext()
+			err = ctx.AddResource(resource.Object)
+			if err != nil {
+				t.Fatalf("ctx.AddResource() error = %v", err)
+			}
+
+			// Create policy context.
+			policyContext := &PolicyContext{
+				Policy:      &policy,
+				JSONContext: ctx,
+				NewResource: *resource,
+			}
+
+			// Mutate and make sure that we got the expected amount of rules.
+			patches := Mutate(policyContext).GetPatches()
+			if !reflect.DeepEqual(patches, tt.want) {
+				t.Errorf("Mutate() got patches %s, expected %s", patches, tt.want)
+			}
+		})
+	}
+}
