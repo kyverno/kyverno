@@ -776,7 +776,7 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set initContainer.extraArgs={--loggingFormat=text} \
 		--set "extraArgs={--loggingFormat=text}"
 	@echo Restart kyverno pods... >&2
-	@kubectl rollout restart deployment -n kyverno kyverno
+	@kubectl rollout restart deployment -n kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
