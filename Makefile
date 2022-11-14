@@ -236,6 +236,7 @@ ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ko-build-cleanup
 REGISTRY_USERNAME   ?= dummy
 KO_KYVERNOPRE_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/initcontainer
 KO_KYVERNO_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/kyverno
+KO_CLEANUP_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/cleanup-controller
 
 .PHONY: ko-login
 ko-login: $(KO)
@@ -253,6 +254,10 @@ ko-publish-kyverno: ko-login ## Build and publish kyverno image (with ko)
 ko-publish-cli: ko-login ## Build and publish cli image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
+.PHONY: ko-publish-cleanup-controller
+ko-publish-cleanup-controller: ko-login ## Build and publish cleanup controller image (with ko)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) $(KO) build $(CLEANUP_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+
 .PHONY: ko-publish-kyvernopre-dev
 ko-publish-kyvernopre-dev: ko-login ## Build and publish kyvernopre dev image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
@@ -265,11 +270,15 @@ ko-publish-kyverno-dev: ko-login ## Build and publish kyverno dev image (with ko
 ko-publish-cli-dev: ko-login ## Build and publish cli dev image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
+.PHONY: ko-publish-cleanup-controller-dev
+ko-publish-cleanup-controller-dev: ko-login ## Build and publish cleanup controller dev image (with ko)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) $(KO) build $(CLEANUP_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-kyvernopre ko-publish-kyverno ko-publish-cli ## Build and publish all images (with ko)
+ko-publish-all: ko-publish-kyvernopre ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ## Build and publish all images (with ko)
 
 .PHONY: ko-publish-all-dev
-ko-publish-all-dev: ko-publish-kyvernopre-dev ko-publish-kyverno-dev ko-publish-cli-dev ## Build and publish all dev images (with ko)
+ko-publish-all-dev: ko-publish-kyvernopre-dev ko-publish-kyverno-dev ko-publish-cli-dev ko-publish-cleanup-controller-dev ## Build and publish all dev images (with ko)
 
 #################
 # BUILD (IMAGE) #
@@ -277,6 +286,7 @@ ko-publish-all-dev: ko-publish-kyvernopre-dev ko-publish-kyverno-dev ko-publish-
 
 LOCAL_KYVERNOPRE_IMAGE := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_KYVERNOPRE_IMAGE)
 LOCAL_KYVERNO_IMAGE    := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_KYVERNO_IMAGE)
+LOCAL_CLEANUP_IMAGE    := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_CLEANUP_IMAGE)
 
 .PHONY: image-build-kyvernopre
 image-build-kyvernopre: $(BUILD_WITH)-build-kyvernopre
@@ -286,6 +296,9 @@ image-build-kyverno: $(BUILD_WITH)-build-kyverno
 
 .PHONY: image-build-cli
 image-build-cli: $(BUILD_WITH)-build-cli
+
+.PHONY: image-build-cleanup-controller
+image-build-cleanup-controller: $(BUILD_WITH)-build-cleanup-controller
 
 .PHONY: image-build-all
 image-build-all: $(BUILD_WITH)-build-all
@@ -651,13 +664,20 @@ kind-load-kyverno: $(KIND) image-build-kyverno ## Build kyverno image and load i
 	@echo Load kyverno image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
 
+.PHONY: kind-load-cleanup-controller
+kind-load-cleanup-controller: $(KIND) image-build-cleanup-controller ## Build cleanup controller image and load it in kind cluster
+	@echo Load cleanup controller image... >&2
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_CLEANUP_IMAGE):$(IMAGE_TAG_DEV)
+
 .PHONY: kind-load-all
-kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load them in kind cluster
+kind-load-all: kind-load-kyvernopre kind-load-kyverno kind-load-cleanup-controller ## Build images and load them in kind cluster
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
+		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
+		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
@@ -665,7 +685,7 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set initContainer.extraArgs={--loggingFormat=text} \
 		--set "extraArgs={--loggingFormat=text}"
 	@echo Restart kyverno pods... >&2
-	@kubectl rollout restart deployment -n kyverno kyverno
+	@kubectl rollout restart deployment -n kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
