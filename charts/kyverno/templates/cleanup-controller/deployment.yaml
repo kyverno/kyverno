@@ -16,6 +16,7 @@ spec:
       labels:
         {{- include "kyverno.cleanup-controller.labels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ template "kyverno.cleanup-controller.deploymentName" . }}
       containers:
         - name: controller
           image: {{ include "kyverno.cleanup-controller.image" (dict "image" .Values.cleanupController.image "defaultTag" .Chart.AppVersion) | quote }}

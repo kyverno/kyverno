@@ -16,7 +16,7 @@ webhooks:
       port: 443
   failurePolicy: Fail
   matchPolicy: Equivalent
-  name: validate-cleanup-policies
+  name: {{ printf "%s.%s.svc" (include "kyverno.cleanup-controller.deploymentName" .) (include "kyverno.namespace" .) }}
   rules:
   - apiGroups:
     - kyverno.io
