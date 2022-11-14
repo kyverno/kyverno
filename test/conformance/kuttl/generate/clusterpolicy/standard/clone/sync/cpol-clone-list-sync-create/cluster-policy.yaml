@@ -1,9 +1,9 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: sync-secret-with-multi-clone
+  name: sync-with-multi-clone
 spec:
-  generateExistingOnPolicyUpdate: true
+  generateExistingOnPolicyUpdate: false
   rules:
   - name: sync-secret
     match:
