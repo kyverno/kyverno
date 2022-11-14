@@ -71,7 +71,9 @@ func NewServer(
 
 func (s *server) Run(stopCh <-chan struct{}) {
 	go func() {
-		s.server.ListenAndServeTLS("", "")
+		if err := s.server.ListenAndServeTLS("", ""); err != nil {
+			logging.Error(err, "failed to start server")
+		}
 	}()
 }
 
@@ -80,6 +82,7 @@ func (s *server) Stop(ctx context.Context) {
 	if err != nil {
 		err = s.server.Close()
 		if err != nil {
+			logging.Error(err, "failed to start server")
 		}
 	}
 }

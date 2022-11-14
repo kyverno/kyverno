@@ -31,14 +31,6 @@ func waitForCacheSync(ctx context.Context, informers ...informer) bool {
 	return ret
 }
 
-func checkCacheSync[T comparable](status map[T]bool) bool {
-	ret := true
-	for _, s := range status {
-		ret = ret && s
-	}
-	return ret
-}
-
 func startInformersAndWaitForCacheSync(ctx context.Context, informers ...informer) bool {
 	startInformers(ctx, informers...)
 	return waitForCacheSync(ctx, informers...)
