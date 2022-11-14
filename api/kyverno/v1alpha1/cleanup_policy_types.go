@@ -18,14 +18,9 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 
-	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/robfig/cron"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,6 +46,25 @@ type CleanupPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status CleanupPolicyStatus `json:"status,omitempty"`
+}
+
+// GetSpec returns the policy spec
+func (p *CleanupPolicy) GetSpec() *CleanupPolicySpec {
+	return &p.Spec
+}
+
+// GetStatus returns the policy status
+func (p *CleanupPolicy) GetStatus() *CleanupPolicyStatus {
+	return &p.Status
+}
+
+// GetSchedule returns the schedule from the policy spec
+func (p *CleanupPolicy) GetSchedule() string {
+	return p.Spec.Schedule
+}
+
+func (p *CleanupPolicy) GetKind() string {
+	return p.Kind
 }
 
 // Validate implements programmatic validation
@@ -89,6 +103,25 @@ type ClusterCleanupPolicy struct {
 	// Status contains policy runtime data.
 	// +optional
 	Status CleanupPolicyStatus `json:"status,omitempty"`
+}
+
+// GetSpec returns the policy spec
+func (p *ClusterCleanupPolicy) GetSpec() *CleanupPolicySpec {
+	return &p.Spec
+}
+
+// GetStatus returns the policy status
+func (p *ClusterCleanupPolicy) GetStatus() *CleanupPolicyStatus {
+	return &p.Status
+}
+
+// GetSchedule returns the schedule from the policy spec
+func (p *ClusterCleanupPolicy) GetSchedule() string {
+	return p.Spec.Schedule
+}
+
+func (p *ClusterCleanupPolicy) GetKind() string {
+	return p.Kind
 }
 
 // Validate implements programmatic validation
@@ -316,46 +349,4 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 		return errs
 	}
 	return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))
-}
-
-// Cleanup provides implementation to validate permission for using DELETE operation by CleanupPolicy
-type Cleanup struct {
-	// rule to hold CleanupPolicy specifications
-	spec CleanupPolicySpec
-	// authCheck to check access for operations
-	authCheck generate.Operations
-	// logger
-	log logr.Logger
-}
-
-// NewCleanup returns a new instance of Cleanup validation checker
-func NewCleanup(client dclient.Interface, cleanup CleanupPolicySpec, log logr.Logger) *Cleanup {
-	c := Cleanup{
-		spec:      cleanup,
-		authCheck: generate.NewAuth(client, log),
-		log:       log,
-	}
-
-	return &c
-}
-
-// canIDelete returns a error if kyverno cannot perform operations
-func (c *Cleanup) CanIDelete(kind, namespace string) error {
-	// Skip if there is variable defined
-	authCheck := c.authCheck
-	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
-		// DELETE
-		ok, err := authCheck.CanIDelete(kind, namespace)
-		if err != nil {
-			// machinery error
-			return err
-		}
-		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Update permissions in ClusterRole", kind, namespace)
-		}
-	} else {
-		c.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
-	}
-
-	return nil
 }
