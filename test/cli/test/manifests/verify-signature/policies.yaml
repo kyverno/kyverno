@@ -10,10 +10,11 @@ spec:
   rules:
     - name: validate-yaml
       match:
-        resources:
-          kinds:
+        any:
+        - resources:
+            kinds:
             - Service
-          name: test*
+            name: test*
       validate:
         manifests:
           attestors:
@@ -36,10 +37,11 @@ spec:
                     -----END PUBLIC KEY-----
     - name: validate-yaml-multi-sig
       match:
-        resources:
-          kinds:
+        any:
+        - resources:
+            kinds:
             - Service
-          name: test*
+            name: test*
       validate:
         manifests:
           attestors:
