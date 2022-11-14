@@ -4,6 +4,7 @@ gh-pages/public
 _output
 coverage.txt
 .idea
+cmd/cli/kubectl-kyverno/kubectl-kyverno
 cmd/initContainer/kyvernopre
 cmd/kyverno/kyverno
 cmd/cleanup-controller/cleanup-controller
