@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
-	"github.com/kyverno/kyverno/cmd/cleanup/logger"
+	"github.com/kyverno/kyverno/cmd/cleanup-controller/logger"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
