@@ -1,0 +1,34 @@
+{{- if .Values.cleanupController.enabled -}}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+      namespace: {{ template "kyverno.namespace" . }}
+      path: /todo
+      port: 443
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: validate-cleanup-policies
+  rules:
+  - apiGroups:
+    - kyverno.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clustercleanuppolicies/*
+    - cleanuppolicies/*
+    scope: '*'
+  sideEffects: None
+  timeoutSeconds: 10
+{{- end -}}
