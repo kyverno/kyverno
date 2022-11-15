@@ -123,21 +123,13 @@ func (v *validationHandler) HandleValidation(
 
 	if blocked {
 		logger.V(4).Info("admission request blocked")
-		v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil
 	}
 
-	v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
 	go v.handleAudit(policyContext.NewResource, request, namespaceLabels, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings
-}
-
-func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionRequest, admissionRequestTimestamp time.Time, engineResponses []*response.EngineResponse, metricsConfig *metrics.MetricsConfig, logger logr.Logger) {
-	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
-	go webhookutils.RegisterAdmissionReviewDurationMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-	go webhookutils.RegisterAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)
 }
 
 func (v *validationHandler) buildAuditResponses(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, namespaceLabels map[string]string) ([]*response.EngineResponse, error) {

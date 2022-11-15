@@ -1,5 +1,0 @@
-FROM golang@sha256:992d5fea982526ce265a0631a391e3c94694f4d15190fd170f35d91b2e6cb0ba
-ADD kyverno /kyverno
-RUN apk add --no-cache ca-certificates
-USER 10001
-ENTRYPOINT ["/kyverno"]

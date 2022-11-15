@@ -3,4 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: keyless-nomutatedigest-noverifydigest-required
 status:
-  ready: true
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

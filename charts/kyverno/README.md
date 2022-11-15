@@ -214,6 +214,22 @@ The command removes all the Kubernetes components associated with the chart and 
 | grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
+| cleanupController.enabled | bool | `false` | Enable cleanup controller. |
+| cleanupController.image.registry | string | `nil` | Image registry |
+| cleanupController.image.repository | string | `"ghcr.io/kyverno/cleanup-controller"` | Image repository |
+| cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| cleanupController.image.pullSecrets | list | `[]` | Image pull secrets |
+| cleanupController.service.port | int | `443` | Service port. |
+| cleanupController.service.type | string | `"ClusterIP"` | Service type. |
+| cleanupController.service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
+| cleanupController.service.annotations | object | `{}` | Service annotations. |
+| cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| cleanupController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| cleanupController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| cleanupController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| cleanupController.tolerations | list | `[]` | List of node taints to tolerate |
+| cleanupController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
 
 ## TLS Configuration
 

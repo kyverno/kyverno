@@ -1177,15 +1177,3 @@ func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 
 	assert.Equal(t, fmt.Sprintf("%v", pattern), "{{request.object.metadata.annotations.target}}")
 }
-
-func Test_getJMESPath(t *testing.T) {
-	assert.Equal(t, "spec.containers[0]", getJMESPath("/validate/pattern/spec/containers/0"))
-	assert.Equal(t, "spec.containers[0].volumes[1]", getJMESPath("/validate/pattern/spec/containers/0/volumes/1"))
-	assert.Equal(t, "[0]", getJMESPath("/mutate/overlay/0"))
-}
-
-func Test_getJMESPathForForeach(t *testing.T) {
-	assert.Equal(t, "spec.containers[0]", getJMESPath("/validate/foreach/0/pattern/spec/containers/0"))
-	assert.Equal(t, "spec.containers[0].volumes[1]", getJMESPath("/validate/foreach/0/pattern/spec/containers/0/volumes/1"))
-	assert.Equal(t, "[0]", getJMESPath("/mutate/foreach/0/overlay/0"))
-}
