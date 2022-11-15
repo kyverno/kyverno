@@ -52,3 +52,5 @@ annotations:
       description: Support extra CRD annotations
     - kind: added
       description: Grafana dashboard.
+    - kind: added
+      description: Cleanup controller.
