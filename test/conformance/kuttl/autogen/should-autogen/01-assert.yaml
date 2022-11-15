@@ -41,6 +41,8 @@ status:
           - Deployment
           - Job
           - StatefulSet
+          - ReplicaSet
+          - ReplicationController
       name: autogen-require-image-tag
       validate:
         message: An image tag is required.
@@ -72,6 +74,8 @@ status:
           - Deployment
           - Job
           - StatefulSet
+          - ReplicaSet
+          - ReplicationController
       name: autogen-validate-image-tag
       validate:
         message: Using a mutable image tag e.g. 'latest' is not allowed.
