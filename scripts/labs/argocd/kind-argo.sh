@@ -258,6 +258,11 @@ spec:
       values: |
         serviceMonitor:
           enabled: true
+        initContainer:
+          extraArgs:
+            - --loggingFormat=json
+        extraArgs:
+          - --loggingFormat=json
   syncPolicy:
     automated:
       prune: true
