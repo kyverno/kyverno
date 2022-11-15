@@ -644,7 +644,8 @@ gh-pin-actions: gh-install-pin-github-action
 # PERF TEST #
 #############
 
-PERF_TEST_NODE_COUNT	?= 3
+PERF_TEST_NODE_COUNT		?= 3
+PERF_TEST_MEMORY_REQUEST	?= "1Gi"
 
 .PHONY: test-perf
 test-perf: $(PACKAGE_SHIM)
@@ -655,6 +656,7 @@ test-perf: $(PACKAGE_SHIM)
 		--provider=kind \
 		--kubeconfig=${HOME}/.kube/config \
 		--nodes=$(PERF_TEST_NODE_COUNT) \
+		--prometheus-memory-request=$(PERF_TEST_MEMORY_REQUEST) \
 		--enable-prometheus-server=true \
 		--tear-down-prometheus-server=true \
 		--prometheus-apiserver-scrape-port=6443 \
