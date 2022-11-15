@@ -691,6 +691,8 @@ gh-pin-actions: gh-install-pin-github-action
 # PERF TEST #
 #############
 
+PERF_TEST_NODE_COUNT	?= 3
+
 .PHONY: test-perf
 test-perf: $(PACKAGE_SHIM)
 	GO111MODULE=off GOPATH=$(GOPATH_SHIM) go get k8s.io/perf-tests || true
@@ -699,7 +701,7 @@ test-perf: $(PACKAGE_SHIM)
 		--testconfig=./testing/load/config.yaml \
 		--provider=kind \
 		--kubeconfig=${HOME}/.kube/config \
-		--nodes=3 \
+		--nodes=$(PERF_TEST_NODE_COUNT) \
 		--enable-prometheus-server=true \
 		--tear-down-prometheus-server=true \
 		--prometheus-apiserver-scrape-port=6443 \
