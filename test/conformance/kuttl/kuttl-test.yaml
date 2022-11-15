@@ -22,6 +22,10 @@ testDirs:
 # Report tests
 - ./test/conformance/kuttl/reports/admission
 - ./test/conformance/kuttl/reports/background
+# RBAC
+- ./test/conformance/kuttl/rbac
+# Webhooks
+- ./test/conformance/kuttl/webhooks
 startKIND: false
 # timeout: 15
 parallel: 1

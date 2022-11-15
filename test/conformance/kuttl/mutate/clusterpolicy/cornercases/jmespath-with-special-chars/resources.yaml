@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+  labels:
+    deploy-zone: frankfurt
+    corp.com/retention: days_37
+spec:
+  containers:
+    - name: busybox
+      image: busybox:stable
+      command: ["sleep", "600"]

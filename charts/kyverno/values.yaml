@@ -475,3 +475,62 @@ grafana:
   namespace:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
+
+cleanupController:
+  # -- Enable cleanup controller.
+  enabled: false
+
+  image:
+    # -- Image registry
+    registry:
+    # If you want to manage the registry you should remove it from the repository
+    # registry: ghcr.io
+    # repository: kyverno/kyverno
+    # -- Image repository
+    repository: ghcr.io/kyverno/cleanup-controller  # kyverno: replaced in e2e tests
+    # -- Image tag
+    # Defaults to appVersion in Chart.yaml if omitted
+    tag:  # replaced in e2e tests
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+    # -- Image pull secrets
+    pullSecrets: []
+    # - secretName
+
+  service:
+    # -- Service port.
+    port: 443
+    # -- Service type.
+    type: ClusterIP
+    # -- Service node port.
+    # Only used if `service.type` is `NodePort`.
+    nodePort:
+    # -- Service annotations.
+    annotations: {}
+
+  # -- Startup probe.
+  # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  startupProbe: {}
+
+  # -- Liveness probe.
+  # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  livenessProbe: {}
+
+  # -- Readiness Probe.
+  # The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  readinessProbe: {}
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Topology spread constraints.
+  topologySpreadConstraints: []

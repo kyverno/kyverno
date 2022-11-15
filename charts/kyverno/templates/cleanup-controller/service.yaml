@@ -1,0 +1,21 @@
+{{- if .Values.cleanupController.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+  namespace: {{ template "kyverno.namespace" . }}
+spec:
+  ports:
+  - port: {{ .Values.cleanupController.service.port }}
+    targetPort: https
+    protocol: TCP
+    name: https
+    {{- if and (eq .Values.cleanupController.service.type "NodePort") (not (empty .Values.cleanupController.service.nodePort)) }}
+    nodePort: {{ .Values.cleanupController.service.nodePort }}
+    {{- end }}
+  selector:
+    {{- include "kyverno.cleanup-controller.matchLabels" . | nindent 4 }}
+  type: {{ .Values.cleanupController.service.type }}
+{{- end -}}

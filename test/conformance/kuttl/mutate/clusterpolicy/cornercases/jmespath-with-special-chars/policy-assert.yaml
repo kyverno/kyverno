@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: sync-secret-with-multi-clone
+  name: jmespath-with-special-chars-demo
 status:
   conditions:
   - reason: Succeeded

@@ -67,7 +67,7 @@ applying 1 policy to 2 resources...
 kyverno test .
 
 Executing limit-containers-per-pod...
-applying 1 policy to 4 resources... 
+applying 1 policy to 4 resources...
 
 │───│──────────────────────────│──────────────────────────────────────│─────────────────────────────│────────│
 │ # │ POLICY                   │ RULE                                 │ RESOURCE                    │ RESULT │
@@ -84,7 +84,7 @@ Test Summary: 4 tests passed and 0 tests failed
 kyverno test . --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
 
 Executing test-simple...
-applying 1 policy to 1 resource... 
+applying 1 policy to 1 resource...
 
 │───│─────────────────────│───────────────────│─────────────────────────────────────────│────────│
 │ # │ POLICY              │ RULE              │ RESOURCE                                │ RESULT │
@@ -787,9 +787,7 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 	if err != nil {
 		log.Log.V(3).Info(resourceType+" mismatch", "error", err.Error())
 		status = "fail"
-	}
-
-	if matched == "" {
+	} else if matched == "" {
 		status = "pass"
 	}
 	return status
