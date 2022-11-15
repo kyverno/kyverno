@@ -141,10 +141,12 @@ KYVERNO_DIR    := $(CMD_DIR)/kyverno
 KYVERNOPRE_DIR := $(CMD_DIR)/initContainer
 CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
 CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
+REPORTS_DIR    := $(CMD_DIR)/reports-controller
 KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
 KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
 CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
 CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
+REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0 
 LD_FLAGS        = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
@@ -183,6 +185,10 @@ $(CLEANUP_BIN): fmt vet
 	@echo Build cleanup controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLEANUP_BIN) -ldflags=$(LD_FLAGS) $(CLEANUP_DIR)
 
+$(REPORTS_BIN): fmt vet
+	@echo Build reports controller binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(REPORTS_BIN) -ldflags=$(LD_FLAGS) $(REPORTS_DIR)
+
 .PHONY: build-kyvernopre
 build-kyvernopre: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
 
@@ -195,7 +201,10 @@ build-cli: $(CLI_BIN) ## Build cli binary
 .PHONY: build-cleanup-controller
 build-cleanup-controller: $(CLEANUP_BIN) ## Build cleanup controller binary
 
-build-all: build-kyvernopre build-kyverno build-cli build-cleanup-controller ## Build all binaries
+.PHONY: build-reports-controller
+build-reports-controller: $(REPORTS_BIN) ## Build reports controller binary
+
+build-all: build-kyvernopre build-kyverno build-cli build-cleanup-controller build-reports-controller ## Build all binaries
 
 ##############
 # BUILD (KO) #
