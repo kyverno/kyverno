@@ -9,11 +9,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/cmd/cleanup-controller/logger"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
 )
+
+// ValidatingWebhookServicePath is the path for validation webhook
+const ValidatingWebhookServicePath = "/validate"
 
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
@@ -41,7 +43,7 @@ func NewServer(
 	mux := httprouter.New()
 	mux.HandlerFunc(
 		"POST",
-		config.PolicyValidatingWebhookServicePath,
+		ValidatingWebhookServicePath,
 		handlers.AdmissionHandler(policyHandlers.Validate).
 			WithAdmission(logger.Logger.WithName("validate")),
 	)
