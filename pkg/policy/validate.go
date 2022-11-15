@@ -153,7 +153,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	clusterResources := sets.NewString()
 	if !mock && namespaced {
 		// Get all the cluster type kind supported by cluster
-		res, err := discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
+		res, err = discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
 		if err != nil {
 			if discovery.IsGroupDiscoveryFailedError(err) {
 				err := err.(*discovery.ErrGroupDiscoveryFailed)
@@ -236,11 +236,10 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				return warnings, validateMatchKindHelper(rule)
 			}
 		}
-
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
 		if namespaced {
-			return warnings, checkClusterResourceInMatchAndExclude(rule, clusterResources, mock, res)
+			return warnings, checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res)
 		}
 
 		// validate rule actions
@@ -1090,7 +1089,7 @@ func validateMatchedResourceDescription(rd kyvernov1.ResourceDescription) (strin
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
 // Match and Exclude block
-func checkClusterResourceInMatchAndExclude(rule kyvernov1.Rule, clusterResources sets.String, mock bool, res []*metav1.APIResourceList) error {
+func checkClusterResourceInMatchAndExclude(rule kyvernov1.Rule, clusterResources sets.String, policyNamespace string, mock bool, res []*metav1.APIResourceList) error {
 	if !mock {
 		// Check for generate policy
 		// - if resource to be generated is namespaced resource then the namespace field
@@ -1099,17 +1098,40 @@ func checkClusterResourceInMatchAndExclude(rule kyvernov1.Rule, clusterResources
 		// should not be mentioned
 		if rule.HasGenerate() {
 			generateResourceKind := rule.Generation.Kind
-			generateResourceAPIVersion := rule.Generation.APIVersion
 			for _, resList := range res {
 				for _, r := range resList.APIResources {
-					if r.Kind == generateResourceKind && (len(generateResourceAPIVersion) == 0 || r.Version == generateResourceAPIVersion) {
+					if r.Kind == generateResourceKind {
 						if r.Namespaced {
 							if rule.Generation.Namespace == "" {
 								return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)
 							}
+							if rule.Generation.Namespace != policyNamespace {
+								return fmt.Errorf("path: spec.rules[%v]: namespace policy allowed to generate resource where the policy exists", rule.Name)
+							}
+							if rule.Generation.Clone.Namespace != policyNamespace {
+								return fmt.Errorf("path: spec.rules[%v]: namespace policy not allowed to clone resource outside the policy namespace", rule.Name)
+							}
 						} else {
 							if rule.Generation.Namespace != "" {
 								return fmt.Errorf("path: spec.rules[%v]: do not mention the namespace to generate a non namespaced resource", rule.Name)
+							}
+							if policyNamespace != "" {
+								return fmt.Errorf("path: spec.rules[%v]: namespace policy not allowed to generate a cluster scoped resource", rule.Name)
+							}
+						}
+					} else if len(rule.Generation.CloneList.Kinds) != 0 {
+						for _, kind := range rule.Generation.CloneList.Kinds {
+							_, splitkind := kubeutils.GetKindFromGVK(kind)
+							if r.Kind == splitkind {
+								if r.Namespaced {
+									if rule.Generation.CloneList.Namespace != policyNamespace {
+										return fmt.Errorf("path: spec.rules[%v]: namespace policy not allowed to clone resource outside the policy namespace", rule.Name)
+									}
+								} else {
+									if policyNamespace != "" {
+										return fmt.Errorf("path: spec.rules[%v]: namespace policy not allowed to generate a cluster scoped resource", rule.Name)
+									}
+								}
 							}
 						}
 					}
