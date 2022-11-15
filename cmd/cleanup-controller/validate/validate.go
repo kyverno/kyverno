@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -59,7 +58,7 @@ func (c *Cleanup) CanIDelete(kind, namespace string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) error {
+func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface, client dclient.Interface, mock bool) error {
 	namespace := cleanuppolicy.GetNamespace()
 	var res []*metav1.APIResourceList
 	clusterResources := sets.NewString()

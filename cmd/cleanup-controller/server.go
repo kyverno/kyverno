@@ -8,8 +8,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/cmd/cleanup-controller/logger"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
-	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -21,26 +22,28 @@ type Server interface {
 	Stop(context.Context)
 }
 
+type CleanupPolicyHandlers interface {
+	// Validate performs the validation check on policy resources
+	Validate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+}
+
 type server struct {
 	server *http.Server
 }
 
 type TlsProvider func() ([]byte, []byte, error)
 
-func TODO(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse {
-	return admissionutils.ResponseSuccess()
-}
-
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
+	policyHandlers CleanupPolicyHandlers,
 	tlsProvider TlsProvider,
 ) Server {
 	mux := httprouter.New()
 	mux.HandlerFunc(
 		"POST",
-		"/todo",
-		handlers.AdmissionHandler(TODO).
-			WithAdmission(logging.WithName("todo")),
+		config.PolicyValidatingWebhookServicePath,
+		handlers.AdmissionHandler(policyHandlers.Validate).
+			WithAdmission(logger.Logger.WithName("validate")),
 	)
 	return &server{
 		server: &http.Server{
