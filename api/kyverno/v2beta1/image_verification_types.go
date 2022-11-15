@@ -20,11 +20,6 @@ type ImageVerification struct {
 	// +kubebuilder:validation:Optional
 	Attestors []kyvernov1.AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
 
-	// Attestations are optional checks for signed in-toto Statements used to verify the image.
-	// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
-	// OCI registry and decodes them into a list of Statement declarations.
-	Attestations []kyvernov1.Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
-
 	// Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule.
 	// If specified Repository will override the default OCI image repository configured for the installation.
 	// The repository can also be overridden per Attestor or Attestation.
@@ -56,7 +51,7 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 	}
 
 	hasAttestors := len(copy.Attestors) > 0
-	hasAttestations := len(copy.Attestations) > 0
+	hasAttestations := iv.HasAttestations()
 
 	if hasAttestations && !hasAttestors {
 		errs = append(errs, field.Invalid(path, iv, "An attestor is required"))
@@ -69,4 +64,16 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 	}
 
 	return errs
+}
+
+func (iv *ImageVerification) HasAttestations() bool {
+	hasAttestations := false
+	for i := range iv.Attestors {
+		if len(iv.Attestors[i].Attestations) > 0 {
+			hasAttestations = true
+			break
+		}
+	}
+
+	return hasAttestations
 }

@@ -111,9 +111,13 @@ func Test_ImageVerification(t *testing.T) {
 			name: "valid keyless attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestations: []kyvernov1.Attestation{
+				Attestors: []kyvernov1.AttestorSet{
 					{
-						PredicateType: "foo",
+						Attestations: []kyvernov1.Attestation{
+							{
+								PredicateType: "foo",
+							},
+						},
 					},
 				},
 			},

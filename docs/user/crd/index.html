@@ -783,8 +783,7 @@ Here, all of the conditions need to pass</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
-<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
+<a href="#kyverno.io/v1.AttestorSet">AttestorSet</a>)
 </p>
 <p>
 <p>Attestation are checks for signed in-toto Statements that are used to verify the image.
@@ -968,6 +967,21 @@ value N, then N must be less than or equal to the size of entries, and at least 
 <td>
 <p>Entries contains the available attestors. An attestor can be a static key,
 attributes for keyless verification, or a nested attestor declaration.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>attestations</code><br/>
+<em>
+<a href="#kyverno.io/v1.Attestation">
+[]Attestation
+</a>
+</em>
+</td>
+<td>
+<p>Attestations are optional checks for signed in-toto Statements used to verify the image.
+See <a href="https://github.com/in-toto/attestation">https://github.com/in-toto/attestation</a>. Kyverno fetches signed attestations from the
+OCI registry and decodes them into a list of Statement declarations.</p>
 </td>
 </tr>
 </tbody>
@@ -2149,21 +2163,6 @@ Deprecated.</p>
 </td>
 <td>
 <p>Attestors specified the required attestors (i.e. authorities)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>attestations</code><br/>
-<em>
-<a href="#kyverno.io/v1.Attestation">
-[]Attestation
-</a>
-</em>
-</td>
-<td>
-<p>Attestations are optional checks for signed in-toto Statements used to verify the image.
-See <a href="https://github.com/in-toto/attestation">https://github.com/in-toto/attestation</a>. Kyverno fetches signed attestations from the
-OCI registry and decodes them into a list of Statement declarations.</p>
 </td>
 </tr>
 <tr>
@@ -5989,21 +5988,6 @@ Wildcards (&lsquo;*&rsquo; and &lsquo;?&rsquo;) are allowed. See: <a href="https
 </td>
 <td>
 <p>Attestors specified the required attestors (i.e. authorities)</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>attestations</code><br/>
-<em>
-<a href="#kyverno.io/v1.Attestation">
-[]Attestation
-</a>
-</em>
-</td>
-<td>
-<p>Attestations are optional checks for signed in-toto Statements used to verify the image.
-See <a href="https://github.com/in-toto/attestation">https://github.com/in-toto/attestation</a>. Kyverno fetches signed attestations from the
-OCI registry and decodes them into a list of Statement declarations.</p>
 </td>
 </tr>
 <tr>

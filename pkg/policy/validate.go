@@ -481,8 +481,10 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 
 		// skip variable checks on verifyImages.attestations, as variables in attestations are dynamic
 		for i, vi := range ruleCopy.VerifyImages {
-			for j := range vi.Attestations {
-				ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
+			for j, attestor := range vi.Attestors {
+				for k := range attestor.Attestations {
+					ruleCopy.VerifyImages[i].Attestors[j].Attestations[k].Conditions = nil
+				}
 			}
 		}
 

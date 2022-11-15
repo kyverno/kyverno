@@ -49,11 +49,6 @@ type ImageVerification struct {
 	// +kubebuilder:validation:Optional
 	Attestors []AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
 
-	// Attestations are optional checks for signed in-toto Statements used to verify the image.
-	// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
-	// OCI registry and decodes them into a list of Statement declarations.
-	Attestations []Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
-
 	// Annotations are used for image verification.
 	// Every specified key-value pair must exist and match in the verified payload.
 	// The payload may contain other key-value pairs.
@@ -94,6 +89,12 @@ type AttestorSet struct {
 	// attributes for keyless verification, or a nested attestor declaration.
 	// +kubebuilder:validation:Optional
 	Entries []Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
+
+	// Attestations are optional checks for signed in-toto Statements used to verify the image.
+	// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
+	// OCI registry and decodes them into a list of Statement declarations.
+	// +kubebuilder:validation:Optional
+	Attestations []Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
 }
 
 type Attestor struct {
@@ -228,7 +229,7 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 	}
 
 	hasAttestors := len(copy.Attestors) > 0
-	hasAttestations := len(copy.Attestations) > 0
+	hasAttestations := iv.HasAttestations()
 
 	if hasAttestations && !hasAttestors {
 		errs = append(errs, field.Invalid(path, iv, "An attestor is required"))
@@ -387,6 +388,17 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		copy.Attestors = append(copy.Attestors, attestorSet)
 	}
 
-	copy.Attestations = iv.Attestations
 	return copy
+}
+
+func (iv *ImageVerification) HasAttestations() bool {
+	hasAttestations := false
+	for i := range iv.Attestors {
+		if len(iv.Attestors[i].Attestations) > 0 {
+			hasAttestations = true
+			break
+		}
+	}
+
+	return hasAttestations
 }

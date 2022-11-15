@@ -120,8 +120,10 @@ func appendError(resp *response.EngineResponse, rule *kyvernov1.Rule, msg string
 func substituteVariables(rule *kyvernov1.Rule, ctx context.EvalInterface, logger logr.Logger) (*kyvernov1.Rule, error) {
 	// remove attestations as variables are not substituted in them
 	ruleCopy := *rule.DeepCopy()
-	for i := range ruleCopy.VerifyImages {
-		ruleCopy.VerifyImages[i].Attestations = nil
+	for i, vi := range ruleCopy.VerifyImages {
+		for j := range vi.Attestors {
+			ruleCopy.VerifyImages[i].Attestors[j].Attestations = nil
+		}
 	}
 
 	var err error
@@ -131,8 +133,10 @@ func substituteVariables(rule *kyvernov1.Rule, ctx context.EvalInterface, logger
 	}
 
 	// replace attestations
-	for i := range rule.VerifyImages {
-		ruleCopy.VerifyImages[i].Attestations = rule.VerifyImages[i].Attestations
+	for i, vi := range rule.VerifyImages {
+		for j := range vi.Attestors {
+			ruleCopy.VerifyImages[i].Attestors[j].Attestations = rule.VerifyImages[i].Attestors[j].Attestations
+		}
 	}
 
 	return &ruleCopy, nil
@@ -201,7 +205,7 @@ func (iv *imageVerifier) verify(imageVerify kyvernov1.ImageVerification, images 
 			}
 
 			if ruleResp != nil {
-				if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
+				if len(imageVerify.Attestors) > 0 || imageVerify.HasAttestations() {
 					verified := ruleResp.Status == response.RuleStatusPass
 					iv.ivm.add(image, verified)
 				}
@@ -270,7 +274,7 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 
 	image := imageInfo.String()
 	iv.logger.V(2).Info("verifying image signatures", "image", image,
-		"attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
+		"attestors", len(imageVerify.Attestors), "attestations", imageVerify.HasAttestations())
 
 	if err := iv.policyContext.JSONContext.AddImageInfo(imageInfo); err != nil {
 		iv.logger.Error(err, "failed to add image to context")
@@ -419,9 +423,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 		opts.Roots = imageVerify.Roots
 	}
 
-	if len(imageVerify.Attestations) > 0 {
-		opts.FetchAttestations = true
-	}
+	opts.FetchAttestations = imageVerify.HasAttestations()
 
 	if attestor.Keys != nil {
 		path = path + ".keys"
@@ -480,23 +482,25 @@ func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{},
 	statementsByPredicate, types := buildStatementMap(statements)
 	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
 
-	for _, ac := range imageVerify.Attestations {
-		statements := statementsByPredicate[ac.PredicateType]
-		if statements == nil {
-			iv.logger.Info("attestation predicate type not found", "type", ac.PredicateType, "predicates", types, "image", imageInfo.String())
-			return fmt.Errorf("predicate type %s not found", ac.PredicateType)
-		}
-
-		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
-
-		for _, s := range statements {
-			val, err := iv.checkAttestations(ac, s)
-			if err != nil {
-				return errors.Wrap(err, "failed to check attestations")
+	for _, attestor := range imageVerify.Attestors {
+		for _, ac := range attestor.Attestations {
+			statements := statementsByPredicate[ac.PredicateType]
+			if statements == nil {
+				iv.logger.Info("attestation predicate type not found", "type", ac.PredicateType, "predicates", types, "image", imageInfo.String())
+				return fmt.Errorf("predicate type %s not found", ac.PredicateType)
 			}
 
-			if !val {
-				return fmt.Errorf("attestation checks failed for %s and predicate %s", imageInfo.String(), ac.PredicateType)
+			iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
+
+			for _, s := range statements {
+				val, err := iv.checkAttestations(ac, s)
+				if err != nil {
+					return errors.Wrap(err, "failed to check attestations")
+				}
+
+				if !val {
+					return fmt.Errorf("attestation checks failed for %s and predicate %s", imageInfo.String(), ac.PredicateType)
+				}
 			}
 		}
 	}
