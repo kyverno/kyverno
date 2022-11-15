@@ -3,6 +3,7 @@ package main
 // We currently accept the risk of exposing pprof and rely on users to protect the endpoint.
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -45,37 +47,25 @@ const (
 )
 
 var (
-	// TODO: this has been added to backward support command line arguments
-	// will be removed in future and the configuration will be set only via configmaps
-	kubeconfig                 string
-	serverIP                   string
-	profilePort                string
-	metricsPort                string
-	webhookTimeout             int
-	genWorkers                 int
-	maxQueuedEvents            int
-	profile                    bool
-	disableMetricsExport       bool
-	enableTracing              bool
-	otel                       string
-	otelCollector              string
-	transportCreds             string
-	autoUpdateWebhooks         bool
-	imagePullSecrets           string
-	imageSignatureRepository   string
-	allowInsecureRegistry      bool
-	clientRateLimitQPS         float64
-	clientRateLimitBurst       int
-	webhookRegistrationTimeout time.Duration
-	backgroundScan             bool
-	admissionReports           bool
-	reportsChunkSize           int
-	backgroundScanWorkers      int
-	logFormat                  string
-	dumpPayload                bool
-	leaderElectionRetryPeriod  time.Duration
-	// DEPRECATED: remove in 1.9
-	splitPolicyReport bool
+	kubeconfig               string
+	profilePort              string
+	metricsPort              string
+	profile                  bool
+	disableMetricsExport     bool
+	enableTracing            bool
+	otel                     string
+	otelCollector            string
+	transportCreds           string
+	imagePullSecrets         string
+	imageSignatureRepository string
+	allowInsecureRegistry    bool
+	clientRateLimitQPS       float64
+	clientRateLimitBurst     int
+	backgroundScan           bool
+	admissionReports         bool
+	reportsChunkSize         int
+	backgroundScanWorkers    int
+	logFormat                string
 )
 
 func parseFlags() error {
@@ -357,7 +347,7 @@ func main() {
 	// start profiling
 	startProfiling(logger)
 	// create client config and kube clients
-	clientConfig, kubeClient, _, err := createKubeClients(logger)
+	clientConfig, kubeClient, metadataClient, err := createKubeClients(logger)
 	if err != nil {
 		logger.Error(err, "failed to create kubernetes clients")
 		os.Exit(1)
@@ -389,7 +379,7 @@ func main() {
 	signalCtx, signalCancel := setupSignals()
 	defer signalCancel()
 	// create instrumented clients
-	_, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, kubeClient, metricsConfig)
+	kyvernoClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, kubeClient, metricsConfig)
 	if err != nil {
 		logger.Error(err, "failed to create instrument clients")
 		os.Exit(1)
@@ -399,10 +389,35 @@ func main() {
 		logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
-	// // informer factories
-	// kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
-	// kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	// kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	// informer factories
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
+	// create controllers
+	controllers := createReportControllers(
+		backgroundScan,
+		admissionReports,
+		dynamicClient,
+		kyvernoClient,
+		metadataInformer,
+		kubeInformer,
+		kyvernoInformer,
+	)
+	// start informers and wait for cache sync
+	if !startInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer) {
+		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		os.Exit(1)
+	}
+	startInformers(signalCtx, metadataInformer)
+	if !checkCacheSync(metadataInformer.WaitForCacheSync(signalCtx.Done())) {
+		// TODO: shall we just exit ?
+		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+	}
+	// start non leader controllers
+	var wg sync.WaitGroup
+	for _, controller := range controllers {
+		controller.run(signalCtx, logger.WithName("controllers"), &wg)
+	}
 	// // setup leader election
 	// le, err := leaderelection.New(
 	// 	logger.WithName("leader-election"),
@@ -512,8 +527,8 @@ func main() {
 	// }
 	// wait for termination signal
 	<-signalCtx.Done()
-	// wg.Wait()
+	wg.Wait()
 	// wait for server cleanup
 	// say goodbye...
-	logger.V(2).Info("Kyverno shutdown successful")
+	logger.V(2).Info("Kyverno reports controller shutdown successful")
 }
