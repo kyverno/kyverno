@@ -8,7 +8,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cleanup-controller/logger"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -59,7 +58,7 @@ func (c *Cleanup) CanIDelete(kind, namespace string) error {
 
 // Validate checks the policy and rules declarations for required configurations
 func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface, client dclient.Interface, mock bool) error {
-	namespace := cleanuppolicy.GetNamespace()
+	// namespace := cleanuppolicy.GetNamespace()
 	var res []*metav1.APIResourceList
 	clusterResources := sets.NewString()
 
@@ -87,11 +86,11 @@ func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface,
 		return errs.ToAggregate()
 	}
 
-	for kind := range clusterResources {
-		checker := NewCleanup(client, *cleanuppolicy.GetSpec(), logging.GlobalLogger())
-		if err := checker.CanIDelete(kind, namespace); err != nil {
-			return fmt.Errorf("cannot delete kind %s in namespace %s", kind, namespace)
-		}
-	}
+	// for kind := range clusterResources {
+	// 	checker := NewCleanup(client, *cleanuppolicy.GetSpec(), logging.GlobalLogger())
+	// 	if err := checker.CanIDelete(kind, namespace); err != nil {
+	// 		return fmt.Errorf("cannot delete kind %s in namespace %s", kind, namespace)
+	// 	}
+	// }
 	return nil
 }

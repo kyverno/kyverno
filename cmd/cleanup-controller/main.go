@@ -173,6 +173,11 @@ func main() {
 		dynamicClient,
 	)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
+	// start informers and wait for cache sync
+	// we need to call start again because we potentially registered new informers
+	if !startInformersAndWaitForCacheSync(signalCtx, kubeKyvernoInformer) {
+		os.Exit(1)
+	}
 	server := NewServer(
 		policyHandlers,
 		func() ([]byte, []byte, error) {
@@ -183,11 +188,6 @@ func main() {
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
 	)
-	// start informers and wait for cache sync
-	// we need to call start again because we potentially registered new informers
-	if !startInformersAndWaitForCacheSync(signalCtx, kubeKyvernoInformer) {
-		os.Exit(1)
-	}
 	// start webhooks server
 	server.Run(signalCtx.Done())
 	// wait for termination signal

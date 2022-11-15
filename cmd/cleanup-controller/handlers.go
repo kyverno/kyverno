@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/cmd/cleanup-controller/utils"
 	"github.com/kyverno/kyverno/cmd/cleanup-controller/validate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -26,7 +25,7 @@ func (h *cleanupPolicyHandlers) Validate(logger logr.Logger, request *admissionv
 		logger.V(4).Info("skip policy validation on status update")
 		return admissionutils.ResponseSuccess()
 	}
-	policy, _, err := utils.GetCleanupPolicies(request)
+	policy, _, err := admissionutils.GetCleanupPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(err)
