@@ -710,8 +710,7 @@ test-perf: $(PACKAGE_SHIM)
 		--prometheus-scrape-node-exporter=false \
 		--prometheus-scrape-kube-state-metrics=true \
 		--prometheus-scrape-metrics-server=true \
-		--prometheus-storage-class-provisioner=rancher.io/local-path \
-		--prometheus-storage-class-volume-type=standard \
+		--prometheus-pvc-storage-class=standard \
 		--v=2 \
 		--report-dir=.
 
