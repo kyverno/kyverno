@@ -18,7 +18,7 @@ const (
 	// PodControllerCronJob represent CronJob string
 	PodControllerCronJob = "CronJob"
 	// PodControllers stores the list of Pod-controllers in csv string
-	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
+	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,ReplicaSet,ReplicationController,CronJob"
 )
 
 var podControllersKindsSet = sets.NewString(append(strings.Split(PodControllers, ","), "Pod")...)
