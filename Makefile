@@ -662,6 +662,7 @@ test-perf: $(PACKAGE_SHIM)
 		--prometheus-scrape-master-kubelets=true \
 		--prometheus-scrape-etcd=true \
 		--prometheus-scrape-kube-proxy=true \
+		--prometheus-kube-proxy-selector-key=k8s-app \
 		--prometheus-scrape-node-exporter=false \
 		--prometheus-scrape-kube-state-metrics=true \
 		--prometheus-scrape-metrics-server=true \
