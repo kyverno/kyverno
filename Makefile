@@ -670,9 +670,6 @@ test-perf: $(PACKAGE_SHIM)
 		--v=2 \
 		--report-dir=.
 
-# kubectl port-forward -n monitoring service/prometheus-operated 8000:9090
-# kubectl port-forward -n monitoring service/grafana 3000:3000
-
 ########
 # KIND #
 ########
