@@ -16,6 +16,18 @@ spec:
       labels:
         {{- include "kyverno.cleanup-controller.labels" . | nindent 8 }}
     spec:
+      {{- with .Values.cleanupController.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cleanupController.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cleanupController.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
       serviceAccountName: {{ template "kyverno.cleanup-controller.deploymentName" . }}
       containers:
         - name: controller
@@ -27,5 +39,21 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
-          env: []
+          env:
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{- with .Values.cleanupController.startupProbe }}
+          startupProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupController.livenessProbe }}
+          livenessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.cleanupController.readinessProbe }}
+          readinessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
 {{- end -}}
