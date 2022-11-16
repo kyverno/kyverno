@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -20,7 +21,7 @@ import (
 	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -139,10 +140,13 @@ func NewOTLPGRPCConfig(
 		log.Error(err, "Failed to create the collector exporter")
 		return nil, err
 	}
-
-	res, err := resource.New(context.Background(),
-		resource.WithAttributes(semconv.ServiceNameKey.String("kyverno_metrics")),
-		resource.WithSchemaURL(semconv.SchemaURL),
+	res, err := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("kyverno"),
+			semconv.ServiceVersionKey.String(version.BuildVersion),
+		),
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
@@ -157,18 +161,6 @@ func NewOTLPGRPCConfig(
 		metric.WithReader(reader),
 		metric.WithResource(res),
 	)
-
-	// pusher := controller.New(
-	// 	processor.NewFactory(
-	// 		simple.NewWithHistogramDistribution(),
-	// 		aggregation.CumulativeTemporalitySelector(),
-	// 		processor.WithMemory(true),
-	// 	),
-	// 	// controller.WithExporter(exporter),
-	// 	// controller.WithResource(res),
-	// 	// controller.WithCollectPeriod(2*time.Second),
-	// )
-
 	global.SetMeterProvider(provider)
 
 	return provider, nil
@@ -177,27 +169,19 @@ func NewOTLPGRPCConfig(
 func NewPrometheusConfig(
 	log logr.Logger,
 ) (*http.ServeMux, error) {
-	ctx := context.TODO()
-	res, err := resource.New(
-		ctx,
-		resource.WithAttributes(semconv.ServiceNameKey.String("kyverno-svc-metrics")),
-		resource.WithAttributes(semconv.ServiceNamespaceKey.String(kconfig.KyvernoNamespace())),
-		resource.WithSchemaURL(semconv.SchemaURL),
+	res, err := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("kyverno-svc-metrics"),
+			semconv.ServiceNamespaceKey.String(kconfig.KyvernoNamespace()),
+			semconv.ServiceVersionKey.String(version.BuildVersion),
+		),
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
 		return nil, err
 	}
-
-	// c := controller.New(
-	// 	processor.NewFactory(
-	// 		simple.NewWithHistogramDistribution(),
-	// 		aggregation.CumulativeTemporalitySelector(),
-	// 		processor.WithMemory(true),
-	// 	),
-	// 	controller.WithResource(res),
-	// 	controller.WithCollectPeriod(10*time.Second),
-	// )
 
 	exporter, err := prometheus.New()
 	if err != nil {
