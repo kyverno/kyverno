@@ -69,6 +69,15 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s" (default (printf "%s-metrics" (include "kyverno.fullname" .)) .Values.config.existingMetricsConfig) -}}
 {{- end -}}
 
+{{/* Get the pull secret list. */}}
+{{- define "kyverno.pullsecretlist" -}}
+{{- $pullsecrets := list -}}
+{{- range .Values.existingImagePullSecrets -}}
+{{-   $pullsecrets = .name | append $pullsecrets -}}
+{{- end }}
+{{- join "," (concat (keys .Values.imagePullSecrets) $pullsecrets) -}}
+{{- end -}}
+
 {{/* Get the namespace name. */}}
 {{- define "kyverno.namespace" -}}
 {{- if .Values.namespace -}}
