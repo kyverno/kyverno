@@ -8,9 +8,9 @@ import (
 	"github.com/go-logr/logr"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric/global"
@@ -18,10 +18,7 @@ import (
 	"go.opentelemetry.io/otel/metric/instrument/asyncfloat64"
 	"go.opentelemetry.io/otel/metric/instrument/syncfloat64"
 	"go.opentelemetry.io/otel/metric/instrument/syncint64"
-	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
-	"go.opentelemetry.io/otel/sdk/metric/export/aggregation"
-	processor "go.opentelemetry.io/otel/sdk/metric/processor/basic"
-	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"k8s.io/client-go/kubernetes"
@@ -106,10 +103,10 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 	return m, nil
 }
 
-func ShutDownController(ctx context.Context, pusher *controller.Controller) {
+func ShutDownController(ctx context.Context, pusher *metric.MeterProvider) {
 	if pusher != nil {
 		// pushes any last exports to the receiver
-		if err := pusher.Stop(ctx); err != nil {
+		if err := pusher.Shutdown(ctx); err != nil {
 			otel.Handle(err)
 		}
 	}
@@ -120,9 +117,9 @@ func NewOTLPGRPCConfig(
 	certs string,
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
-) (*controller.Controller, error) {
-	ctx := context.Background()
-	var client otlpmetric.Client
+) (*metric.MeterProvider, error) {
+	ctx := context.TODO()
+	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint)}
 
 	if certs != "" {
 		// here the certificates are stored as configmaps
@@ -131,20 +128,13 @@ func NewOTLPGRPCConfig(
 			log.Error(err, "Error fetching certificate from secret")
 			return nil, err
 		}
-
-		client = otlpmetricgrpc.NewClient(
-			otlpmetricgrpc.WithEndpoint(endpoint),
-			otlpmetricgrpc.WithTLSCredentials(transportCreds),
-		)
+		options = append(options, otlpmetricgrpc.WithTLSCredentials(transportCreds))
 	} else {
-		client = otlpmetricgrpc.NewClient(
-			otlpmetricgrpc.WithEndpoint(endpoint),
-			otlpmetricgrpc.WithInsecure(),
-		)
+		options = append(options, otlpmetricgrpc.WithInsecure())
 	}
 
-	// create New Exporter for exporting metrics
-	metricExp, err := otlpmetric.New(ctx, client)
+	// create new exporter for exporting metrics
+	exporter, err := otlpmetricgrpc.New(ctx, options...)
 	if err != nil {
 		log.Error(err, "Failed to create the collector exporter")
 		return nil, err
@@ -158,33 +148,38 @@ func NewOTLPGRPCConfig(
 		log.Error(err, "failed creating resource")
 		return nil, err
 	}
-
-	// create controller and bind the exporter with it
-	pusher := controller.New(
-		processor.NewFactory(
-			simple.NewWithHistogramDistribution(),
-			aggregation.CumulativeTemporalitySelector(),
-			processor.WithMemory(true),
-		),
-		controller.WithExporter(metricExp),
-		controller.WithResource(res),
-		controller.WithCollectPeriod(2*time.Second),
+	reader := metric.NewPeriodicReader(
+		exporter,
+		metric.WithInterval(2*time.Second),
 	)
-	global.SetMeterProvider(pusher)
+	// create controller and bind the exporter with it
+	provider := metric.NewMeterProvider(
+		metric.WithReader(reader),
+		metric.WithResource(res),
+	)
 
-	if err := pusher.Start(ctx); err != nil {
-		log.Error(err, "could not start metric exporter")
-		return nil, err
-	}
+	// pusher := controller.New(
+	// 	processor.NewFactory(
+	// 		simple.NewWithHistogramDistribution(),
+	// 		aggregation.CumulativeTemporalitySelector(),
+	// 		processor.WithMemory(true),
+	// 	),
+	// 	// controller.WithExporter(exporter),
+	// 	// controller.WithResource(res),
+	// 	// controller.WithCollectPeriod(2*time.Second),
+	// )
 
-	return pusher, nil
+	global.SetMeterProvider(provider)
+
+	return provider, nil
 }
 
 func NewPrometheusConfig(
 	log logr.Logger,
 ) (*http.ServeMux, error) {
-	config := prometheus.Config{}
-	res, err := resource.New(context.Background(),
+	ctx := context.TODO()
+	res, err := resource.New(
+		ctx,
 		resource.WithAttributes(semconv.ServiceNameKey.String("kyverno-svc-metrics")),
 		resource.WithAttributes(semconv.ServiceNamespaceKey.String(kconfig.KyvernoNamespace())),
 		resource.WithSchemaURL(semconv.SchemaURL),
@@ -194,26 +189,31 @@ func NewPrometheusConfig(
 		return nil, err
 	}
 
-	c := controller.New(
-		processor.NewFactory(
-			simple.NewWithHistogramDistribution(),
-			aggregation.CumulativeTemporalitySelector(),
-			processor.WithMemory(true),
-		),
-		controller.WithResource(res),
-		controller.WithCollectPeriod(10*time.Second),
-	)
+	// c := controller.New(
+	// 	processor.NewFactory(
+	// 		simple.NewWithHistogramDistribution(),
+	// 		aggregation.CumulativeTemporalitySelector(),
+	// 		processor.WithMemory(true),
+	// 	),
+	// 	controller.WithResource(res),
+	// 	controller.WithCollectPeriod(10*time.Second),
+	// )
 
-	exporter, err := prometheus.New(config, c)
+	exporter, err := prometheus.New()
 	if err != nil {
 		log.Error(err, "failed to initialize prometheus exporter")
 		return nil, err
 	}
 
-	global.SetMeterProvider(exporter.MeterProvider())
+	provider := metric.NewMeterProvider(
+		metric.WithReader(exporter),
+		metric.WithResource(res),
+	)
+
+	global.SetMeterProvider(provider)
 
 	metricsServerMux := http.NewServeMux()
-	metricsServerMux.HandleFunc("/metrics", exporter.ServeHTTP)
+	metricsServerMux.Handle("/metrics", promhttp.Handler())
 
 	return metricsServerMux, nil
 }

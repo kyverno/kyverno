@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
-	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -18,10 +18,10 @@ func InitMetrics(
 	transportCreds string,
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
-) (*MetricsConfig, *http.ServeMux, *controller.Controller, error) {
+) (*MetricsConfig, *http.ServeMux, *metric.MeterProvider, error) {
 	var err error
 	var metricsServerMux *http.ServeMux
-	var pusher *controller.Controller
+	var pusher *metric.MeterProvider
 
 	metricsConfig := new(MetricsConfig)
 	metricsConfig.Log = log
