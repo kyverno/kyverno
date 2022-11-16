@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	kubeclient "github.com/kyverno/kyverno/pkg/clients/wrappers/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
@@ -168,41 +169,45 @@ func startProfiling(logger logr.Logger) {
 	}
 }
 
-func createKubeClients(logger logr.Logger) (*rest.Config, *kubernetes.Clientset, metadataclient.Interface, kubernetes.Interface, error) {
+func createKubeClients(logger logr.Logger) (*rest.Config, kubernetes.Interface, metadataclient.Interface, error) {
 	logger = logger.WithName("kube-clients")
 	logger.Info("create kube clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	metadataClient, err := metadataclient.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return clientConfig, kubeClient, metadataClient, nil
+}
+
+func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, metricsConfig *metrics.MetricsConfig) (kubernetes.Interface, kubernetes.Interface, versioned.Interface, dclient.Interface, error) {
+	logger = logger.WithName("instrumented-clients")
+	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	kubeClient, err := kubeclient.NewForConfig(clientConfig, metricsConfig, metrics.KubeClient)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
-	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
+	kubeClientLeaderElection, err := kubeclient.NewForConfig(clientConfig, metricsConfig, metrics.KubeClient)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	return clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, nil
-}
-
-func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, kubeClient *kubernetes.Clientset, metricsConfig *metrics.MetricsConfig) (versioned.Interface, dclient.Interface, error) {
-	logger = logger.WithName("instrumented-clients")
-	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig, metrics.KyvernoClient)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return kyvernoClient, dynamicClient, nil
+	return kubeClient, kubeClientLeaderElection, kyvernoClient, dynamicClient, nil
 }
 
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
@@ -544,19 +549,28 @@ func main() {
 	// start profiling
 	startProfiling(logger)
 	// create client config and kube clients
-	clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, err := createKubeClients(logger)
+	clientConfig, rawClient, metadataClient, err := createKubeClients(logger)
 	if err != nil {
 		logger.Error(err, "failed to create kubernetes clients")
 		os.Exit(1)
 	}
 	// setup metrics
-	metricsConfig, metricsShutdown, err := setupMetrics(logger, kubeClient)
+	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
 	if err != nil {
 		logger.Error(err, "failed to setup metrics")
 		os.Exit(1)
 	}
 	if metricsShutdown != nil {
 		defer metricsShutdown()
+	}
+	// setup signals
+	signalCtx, signalCancel := setupSignals()
+	defer signalCancel()
+	// create instrumented clients
+	kubeClient, kubeClientLeaderElection, kyvernoClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, metricsConfig)
+	if err != nil {
+		logger.Error(err, "failed to create instrument clients")
+		os.Exit(1)
 	}
 	// setup tracing
 	if tracingShutdown, err := setupTracing(logger, kubeClient); err != nil {
@@ -572,15 +586,6 @@ func main() {
 	}
 	// setup cosign
 	setupCosign(logger)
-	// setup signals
-	signalCtx, signalCancel := setupSignals()
-	defer signalCancel()
-	// create instrumented clients
-	kyvernoClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, kubeClient, metricsConfig)
-	if err != nil {
-		logger.Error(err, "failed to create instrument clients")
-		os.Exit(1)
-	}
 	// check we can run
 	if err := sanityChecks(dynamicClient); err != nil {
 		logger.Error(err, "sanity checks failed")
