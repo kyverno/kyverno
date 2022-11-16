@@ -188,7 +188,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissio
 		h.log.Error(err, "failed to convert object resource to unstructured format")
 		return
 	}
-	var policyKind = kyvernov1beta1.PolicyKindCluster
+	policyKind := kyvernov1beta1.PolicyKindCluster
 	policyName := resLabels["policy.kyverno.io/policy-name"]
 
 	if resLabels["policy.kyverno.io/policy-kind"] == kyvernov1beta1.PolicyKindNamespace {

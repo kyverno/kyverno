@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  test: test
+kind: ConfigMap
+metadata:
+  name: cm-2
+  namespace: poltest
