@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v1alpha1
+kind: CleanupPolicy
+metadata:
+  name: cleanuppolicy
+  namespace: default
+spec:
+  match:
+    any:
+    - resources:
+        kinds:
+          - Pod
+  conditions:
+    any:
+    - key: "{{ request.name }}"
+      operator: Equals
+      value: example
+  schedule: "* * * * *"
