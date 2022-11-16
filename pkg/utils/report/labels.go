@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -110,17 +109,4 @@ func GetResourceHash(report metav1.Object) string {
 
 func CompareHash(report metav1.Object, hash string) bool {
 	return GetResourceHash(report) == hash
-}
-
-func CompareResourceVersion(current string, new string) string {
-	if newInt, err := strconv.ParseInt(new, 10, 64); err == nil {
-		if currentInt, err := strconv.ParseInt(current, 10, 64); err == nil {
-			if newInt > currentInt {
-				return new
-			}
-		} else {
-			return new
-		}
-	}
-	return current
 }

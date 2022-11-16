@@ -160,7 +160,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			if err != nil {
 				logger.Error(err, "failed to list resources", "gvr", gvr)
 			} else {
-				resourceVersion := "1"
+				resourceVersion := objs.GetResourceVersion()
 				for _, obj := range objs.Items {
 					uid := obj.GetUID()
 					hash := reportutils.CalculateResourceHash(obj)
@@ -170,7 +170,6 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 						Name:      obj.GetName(),
 					}
 					c.notify(uid, gvk, hashes[uid])
-					resourceVersion = reportutils.CompareResourceVersion(resourceVersion, obj.GetResourceVersion())
 				}
 				logger.Info("start watcher ...", "gvr", gvr, "resourceVersion", resourceVersion)
 
