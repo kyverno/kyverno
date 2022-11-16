@@ -2,16 +2,20 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
 
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"k8s.io/client-go/kubernetes"
 )
+
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
 
 func lookupImports(in reflect.Type) map[string]string {
 	imports := map[string]string{}
@@ -54,6 +58,7 @@ func lookupImports(in reflect.Type) map[string]string {
 	imports2["restclient"] = "k8s.io/client-go/rest"
 	imports2["watch"] = "k8s.io/apimachinery/pkg/watch"
 	imports2["metrics"] = "github.com/kyverno/kyverno/pkg/metrics"
+	imports2["discovery"] = "k8s.io/client-go/discovery"
 	for _, v := range imports {
 		if v != "" {
 			k := strings.ReplaceAll(v, ".", "_")
@@ -61,9 +66,6 @@ func lookupImports(in reflect.Type) map[string]string {
 			k = strings.ReplaceAll(k, "/", "_")
 			imports2[k] = v
 		}
-	}
-	for k, v := range imports2 {
-		fmt.Println(k + " -> " + v)
 	}
 	return imports2
 }
@@ -95,16 +97,16 @@ func resolveType(in reflect.Type, imports map[string]string) string {
 	return pack + "." + in.Name()
 }
 
-func main() {
-	log.Println("loading packages...")
-	t := reflect.TypeOf((*kubernetes.Interface)(nil)).Elem()
-	log.Println(t)
-	for i := 0; i < t.NumMethod(); i++ {
-		log.Println(t.Method(i))
-	}
-	imports := lookupImports(t)
+func toSnakeCase(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
+	return strings.ToLower(snake)
+}
+
+func generateClient(in reflect.Type, folder string) {
+	imports := lookupImports(in)
 	tpl := `
-package kubernetes
+package client
 
 import (
 	versioned {{ Quote .PkgPath }}
@@ -119,6 +121,10 @@ type clientset struct {
 	{{- $clientType := index (Out $cmethod) 0 }}
 	{{ ToLower $cmethod.Name }} {{ Type $clientType }}
 	{{- end }}
+}
+
+func (c *clientset) Discovery() discovery.DiscoveryInterface {
+	return c.inner.Discovery()
 }
 
 func Wrap(inner versioned.Interface, m metrics.MetricsConfigManager) versioned.Interface {
@@ -175,7 +181,7 @@ func (c *wrapped{{ $clientType.Name }}{{ $resourceType.Name }}) {{ $emethod.Name
 	{{ Type $returnType }},
 	{{- end -}}
 ) {
-	defer c.recorder.Record({{ Quote $emethod.Name }})
+	defer c.recorder.Record({{ Quote (Snake $emethod.Name) }})
 	return c.inner.{{ $emethod.Name }}(
 		{{- range $i, $_ := In $emethod -}}
 		{{- if IsVariadic $emethod $i -}}
@@ -275,12 +281,14 @@ func (c *wrapped{{ $clientType.Name }}) RESTClient() restclient.Interface {
 			"IsNamespaced": func(in reflect.Method) bool {
 				return in.Type.NumIn() != 0
 			},
+			"Snake": func(in string) string {
+				return toSnakeCase(in)
+			},
 		},
 	)
 	if tmpl, err := tmpl.Parse(tpl); err != nil {
 		panic(err)
 	} else {
-		folder := "pkg/clients/wrappers/kube"
 		if err := os.MkdirAll(folder, 0o755); err != nil {
 			panic(fmt.Sprintf("Failed to create directories for %s", folder))
 		}
@@ -289,8 +297,15 @@ func (c *wrapped{{ $clientType.Name }}) RESTClient() restclient.Interface {
 		if err != nil {
 			panic(fmt.Sprintf("Failed to create file %s", path.Join(folder, file)))
 		}
-		if err := tmpl.Execute(f, t); err != nil {
+		if err := tmpl.Execute(f, in); err != nil {
 			panic(err)
 		}
 	}
+}
+
+func main() {
+	kube := reflect.TypeOf((*kubernetes.Interface)(nil)).Elem()
+	kyverno := reflect.TypeOf((*versioned.Interface)(nil)).Elem()
+	generateClient(kube, "pkg/clients/wrappers/kube")
+	generateClient(kyverno, "pkg/clients/wrappers/xxx")
 }
