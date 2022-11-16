@@ -228,13 +228,6 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))
 	}
 
-	hasAttestors := len(copy.Attestors) > 0
-	hasAttestations := iv.HasAttestations()
-
-	if hasAttestations && !hasAttestors {
-		errs = append(errs, field.Invalid(path, iv, "An attestor is required"))
-	}
-
 	attestorsPath := path.Child("attestors")
 	for i, as := range copy.Attestors {
 		attestorErrors := as.Validate(attestorsPath.Index(i))
@@ -367,6 +360,14 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 	}
 
 	attestorSet := AttestorSet{}
+	for i := range iv.Attestors {
+		a := iv.Attestors[i]
+		a.Entries = []Attestor{}
+		attestorSet = a
+		// TODO shuting: only set index 0 as the max atterstors entries is 1?
+		break
+	}
+
 	if len(iv.Annotations) > 0 || iv.Key != "" || iv.Issuer != "" {
 		attestor := Attestor{
 			Annotations: iv.Annotations,
@@ -392,13 +393,15 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 }
 
 func (iv *ImageVerification) HasAttestations() bool {
-	hasAttestations := false
-	for i := range iv.Attestors {
-		if len(iv.Attestors[i].Attestations) > 0 {
-			hasAttestations = true
-			break
+	for _, a := range iv.Attestors {
+		if a.HasAttestations() {
+			return true
 		}
 	}
 
-	return hasAttestations
+	return false
+}
+
+func (a AttestorSet) HasAttestations() bool {
+	return len(a.Attestations) > 0
 }

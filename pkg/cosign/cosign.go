@@ -35,7 +35,7 @@ var ImageSignatureRepository string
 
 type Options struct {
 	ImageRef             string
-	FetchAttestations    bool
+	HasAttestations      bool
 	Key                  string
 	Cert                 string
 	CertChain            string
@@ -57,7 +57,7 @@ type Response struct {
 type CosignError struct{}
 
 func Verify(opts Options) (*Response, error) {
-	if opts.FetchAttestations {
+	if opts.HasAttestations {
 		return fetchAttestations(opts)
 	} else {
 		return verifySignature(opts)
@@ -132,7 +132,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 		RegistryClientOpts: remoteOpts,
 	}
 
-	if opts.FetchAttestations {
+	if opts.HasAttestations {
 		cosignOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
 	} else {
 		cosignOpts.ClaimVerifier = cosign.SimpleClaimVerifier
@@ -456,6 +456,8 @@ func matchCertificate(signatures []oci.Signature, subject, issuer string, extens
 		return nil
 	}
 
+	matchSubject := false
+	receivedSubject := []string{}
 	for _, sig := range signatures {
 		cert, err := sig.Cert()
 		if err != nil {
@@ -468,14 +470,23 @@ func matchCertificate(signatures []oci.Signature, subject, issuer string, extens
 
 		if subject != "" {
 			s := sigs.CertSubject(cert)
-			if !wildcard.Match(subject, s) {
-				return fmt.Errorf("subject mismatch: expected %s, received %s", subject, s)
+			receivedSubject = append(receivedSubject, s)
+			if wildcard.Match(subject, s) {
+				matchSubject = true
 			}
+		}
+
+		if !matchSubject {
+			continue
 		}
 
 		if err := matchExtensions(cert, issuer, extensions); err != nil {
 			return err
 		}
+	}
+
+	if !matchSubject {
+		return fmt.Errorf("subject mismatch: expected %s, received %s", subject, strings.Join(receivedSubject, ""))
 	}
 
 	return nil

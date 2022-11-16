@@ -205,7 +205,7 @@ func (iv *imageVerifier) verify(imageVerify kyvernov1.ImageVerification, images 
 			}
 
 			if ruleResp != nil {
-				if len(imageVerify.Attestors) > 0 || imageVerify.HasAttestations() {
+				if len(imageVerify.Attestors) > 0 {
 					verified := ruleResp.Status == response.RuleStatusPass
 					iv.ivm.add(image, verified)
 				}
@@ -323,6 +323,8 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, im
 		var cosignResp *cosign.Response
 		attestorPath := fmt.Sprintf("%s.entries[%d]", path, i)
 
+		iv.logger.V(2).Info("verifying attestorSet", "attestations", attestorSet.HasAttestations())
+
 		if a.Attestor != nil {
 			nestedAttestorSet, err := kyvernov1.AttestorSetUnmarshal(a.Attestor)
 			if err != nil {
@@ -332,10 +334,10 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, im
 				cosignResp, entryError = iv.verifyAttestorSet(*nestedAttestorSet, imageVerify, imageInfo, attestorPath)
 			}
 		} else {
-			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image)
+			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, attestorSet.HasAttestations(), image)
 			cosignResp, entryError = cosign.Verify(*opts)
-			if entryError == nil && opts.FetchAttestations {
-				entryError = iv.verifyAttestations(cosignResp.Statements, imageVerify, imageInfo)
+			if entryError == nil && opts.HasAttestations {
+				entryError = iv.verifyAttestations(cosignResp.Statements, attestorSet.Attestations, imageInfo)
 			}
 
 			if entryError != nil {
@@ -375,8 +377,9 @@ func expandStaticKeys(attestorSet kyvernov1.AttestorSet) kyvernov1.AttestorSet {
 	}
 
 	return kyvernov1.AttestorSet{
-		Count:   attestorSet.Count,
-		Entries: entries,
+		Count:        attestorSet.Count,
+		Attestations: attestorSet.Attestations,
+		Entries:      entries,
 	}
 }
 
@@ -411,7 +414,7 @@ func getRequiredCount(as kyvernov1.AttestorSet) int {
 	return *as.Count
 }
 
-func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageVerify kyvernov1.ImageVerification, image string) (*cosign.Options, string) {
+func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageVerify kyvernov1.ImageVerification, hasAttestations bool, image string) (*cosign.Options, string) {
 	path := ""
 	opts := &cosign.Options{
 		ImageRef:    image,
@@ -423,7 +426,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 		opts.Roots = imageVerify.Roots
 	}
 
-	opts.FetchAttestations = imageVerify.HasAttestations()
+	opts.HasAttestations = hasAttestations
 
 	if attestor.Keys != nil {
 		path = path + ".keys"
@@ -477,30 +480,28 @@ func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, er
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{}, imageVerify kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo) error {
+func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{}, attestations []kyvernov1.Attestation, imageInfo apiutils.ImageInfo) error {
 	image := imageInfo.String()
 	statementsByPredicate, types := buildStatementMap(statements)
 	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
 
-	for _, attestor := range imageVerify.Attestors {
-		for _, ac := range attestor.Attestations {
-			statements := statementsByPredicate[ac.PredicateType]
-			if statements == nil {
-				iv.logger.Info("attestation predicate type not found", "type", ac.PredicateType, "predicates", types, "image", imageInfo.String())
-				return fmt.Errorf("predicate type %s not found", ac.PredicateType)
+	for _, ac := range attestations {
+		statements := statementsByPredicate[ac.PredicateType]
+		if statements == nil {
+			iv.logger.Info("attestation predicate type not found", "type", ac.PredicateType, "predicates", types, "image", imageInfo.String())
+			return fmt.Errorf("predicate type %s not found", ac.PredicateType)
+		}
+
+		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
+
+		for _, s := range statements {
+			val, err := iv.checkAttestations(ac, s)
+			if err != nil {
+				return errors.Wrap(err, "failed to check attestations")
 			}
 
-			iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
-
-			for _, s := range statements {
-				val, err := iv.checkAttestations(ac, s)
-				if err != nil {
-					return errors.Wrap(err, "failed to check attestations")
-				}
-
-				if !val {
-					return fmt.Errorf("attestation checks failed for %s and predicate %s", imageInfo.String(), ac.PredicateType)
-				}
+			if !val {
+				return fmt.Errorf("attestation checks failed for %s and predicate %s", imageInfo.String(), ac.PredicateType)
 			}
 		}
 	}

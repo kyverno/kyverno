@@ -50,13 +50,6 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))
 	}
 
-	hasAttestors := len(copy.Attestors) > 0
-	hasAttestations := iv.HasAttestations()
-
-	if hasAttestations && !hasAttestors {
-		errs = append(errs, field.Invalid(path, iv, "An attestor is required"))
-	}
-
 	attestorsPath := path.Child("attestors")
 	for i, as := range copy.Attestors {
 		attestorErrors := as.Validate(attestorsPath.Index(i))
