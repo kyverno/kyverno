@@ -127,12 +127,12 @@ func (c *clientset) Discovery() discovery.DiscoveryInterface {
 	return c.inner.Discovery()
 }
 
-func Wrap(inner versioned.Interface, m metrics.MetricsConfigManager) versioned.Interface {
+func Wrap(inner versioned.Interface, m metrics.MetricsConfigManager, t metrics.ClientType) versioned.Interface {
 	return &clientset{
 		inner: inner,
 		{{- range $cmethod := Methods . }}
 		{{- $clientType := index (Out $cmethod) 0 }}
-		{{ ToLower $cmethod.Name }}: wrap{{ $clientType.Name }}(inner.{{ $cmethod.Name }}(), m),
+		{{ ToLower $cmethod.Name }}: wrap{{ $clientType.Name }}(inner.{{ $cmethod.Name }}(), m, t),
 		{{- end }}
 	}
 }
@@ -147,12 +147,13 @@ func (c *clientset) {{ $cmethod.Name }}() {{ Type $clientType }} {
 {{- range $cmethod := Methods . }}
 {{- $clientType := index (Out $cmethod) 0 }}
 type wrapped{{ $clientType.Name }} struct {
-	inner   {{ Type $clientType }}
-	metrics metrics.MetricsConfigManager
+	inner      {{ Type $clientType }}
+	metrics    metrics.MetricsConfigManager
+	clientType metrics.ClientType
 }
 
-func wrap{{ $clientType.Name }}(inner {{ Type $clientType }}, metrics metrics.MetricsConfigManager) {{ Type $clientType }} {
-	return &wrapped{{ $clientType.Name }}{inner, metrics}
+func wrap{{ $clientType.Name }}(inner {{ Type $clientType }}, metrics metrics.MetricsConfigManager, t metrics.ClientType) {{ Type $clientType }} {
+	return &wrapped{{ $clientType.Name }}{inner, metrics, t}
 }
 
 {{- range $rmethod := Methods $clientType }}
@@ -205,9 +206,9 @@ func (c *wrapped{{ $clientType.Name }}) {{ $rmethod.Name }}(
 ) {
 	{{- $returnType := index (Out $rmethod) 0 }}
 	{{- if IsNamespaced $rmethod }}
-	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, arg0, {{ Quote (Kind $returnType.Name) }}, metrics.KubeClient)
+	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, arg0, {{ Quote (Kind $returnType.Name) }}, c.clientType)
 	{{- else }}
-	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, {{ Quote (Kind $returnType.Name) }}, metrics.KubeClient)
+	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, {{ Quote (Kind $returnType.Name) }}, c.clientType)
 	{{- end }}
 	return wrap{{ $clientType.Name }}{{ $resourceType.Name }}(c.inner.{{ $rmethod.Name }}(
 		{{- range $i, $_ := In $rmethod -}}
