@@ -478,7 +478,7 @@ grafana:
 
 cleanupController:
   # -- Enable cleanup controller.
-  enabled: false
+  enabled: true
 
   image:
     # -- Image registry
