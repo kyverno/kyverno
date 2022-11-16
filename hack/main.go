@@ -137,6 +137,14 @@ func Wrap(inner versioned.Interface, m metrics.MetricsConfigManager, t metrics.C
 	}
 }
 
+func NewForConfig(c *restclient.Config, m metrics.MetricsConfigManager, t metrics.ClientType) (versioned.Interface, error) {
+	inner, err := versioned.NewForConfig(c)
+	if err != nil {
+		return nil, err
+	}
+	return Wrap(inner, m, t), nil
+}
+
 {{- range $cmethod := Methods . }}
 {{- $clientType := index (Out $cmethod) 0 }}
 func (c *clientset) {{ $cmethod.Name }}() {{ Type $clientType }} {
@@ -308,5 +316,5 @@ func main() {
 	kube := reflect.TypeOf((*kubernetes.Interface)(nil)).Elem()
 	kyverno := reflect.TypeOf((*versioned.Interface)(nil)).Elem()
 	generateClient(kube, "pkg/clients/wrappers/kube")
-	generateClient(kyverno, "pkg/clients/wrappers/xxx")
+	generateClient(kyverno, "pkg/clients/wrappers/kyverno")
 }

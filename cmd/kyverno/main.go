@@ -21,7 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
@@ -194,7 +194,7 @@ func createKubeClients(logger logr.Logger) (*rest.Config, *kubernetes.Clientset,
 func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, kubeClient *kubernetes.Clientset, metricsConfig *metrics.MetricsConfig) (versioned.Interface, dclient.Interface, error) {
 	logger = logger.WithName("instrumented-clients")
 	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig, metrics.KyvernoClient)
 	if err != nil {
 		return nil, nil, err
 	}
