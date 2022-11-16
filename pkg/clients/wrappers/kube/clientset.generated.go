@@ -148,6 +148,7 @@ import (
 	k8s_io_client_go_kubernetes_typed_storage_v1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	k8s_io_client_go_kubernetes_typed_storage_v1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_storage_v1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
+	k8s_io_client_go_rest "k8s.io/client-go/rest"
 	restclient "k8s.io/client-go/rest"
 )
 
@@ -429,11 +430,11 @@ func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInte
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -445,7 +446,7 @@ func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_admissionregistration_v1.MutatingWebhookConfiguration, error) {
+func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_admissionregistration_v1.MutatingWebhookConfiguration, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -453,7 +454,7 @@ func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInte
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAdmissionregistrationV1InterfaceMutatingWebhookConfigurationInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -487,7 +488,7 @@ func (c *wrappedAdmissionregistrationV1InterfaceValidatingWebhookConfigurationIn
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedAdmissionregistrationV1InterfaceValidatingWebhookConfigurationInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_admissionregistration_v1.ValidatingWebhookConfiguration, error) {
+func (c *wrappedAdmissionregistrationV1InterfaceValidatingWebhookConfigurationInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_admissionregistration_v1.ValidatingWebhookConfiguration, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -503,7 +504,7 @@ func (c *wrappedAdmissionregistrationV1InterfaceValidatingWebhookConfigurationIn
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedAdmissionregistrationV1InterfaceValidatingWebhookConfigurationInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAdmissionregistrationV1InterfaceValidatingWebhookConfigurationInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -542,7 +543,7 @@ func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfiguratio
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfigurationInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfigurationInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
@@ -554,11 +555,11 @@ func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfiguratio
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfigurationInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_admissionregistration_v1beta1.MutatingWebhookConfigurationList, error) {
+func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfigurationInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_admissionregistration_v1beta1.MutatingWebhookConfigurationList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfigurationInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_admissionregistration_v1beta1.MutatingWebhookConfiguration, error) {
+func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfigurationInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_admissionregistration_v1beta1.MutatingWebhookConfiguration, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -566,7 +567,7 @@ func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfiguratio
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfigurationInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAdmissionregistrationV1beta1InterfaceMutatingWebhookConfigurationInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -604,7 +605,7 @@ func (c *wrappedAdmissionregistrationV1beta1InterfaceValidatingWebhookConfigurat
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedAdmissionregistrationV1beta1InterfaceValidatingWebhookConfigurationInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_admissionregistration_v1beta1.ValidatingWebhookConfigurationList, error) {
+func (c *wrappedAdmissionregistrationV1beta1InterfaceValidatingWebhookConfigurationInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_admissionregistration_v1beta1.ValidatingWebhookConfigurationList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
@@ -667,7 +668,7 @@ func (c *wrappedAppsV1InterfaceControllerRevisionInterface) Get(arg0 context.Con
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceControllerRevisionInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_apps_v1.ControllerRevisionList, error) {
+func (c *wrappedAppsV1InterfaceControllerRevisionInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_apps_v1.ControllerRevisionList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
@@ -675,11 +676,11 @@ func (c *wrappedAppsV1InterfaceControllerRevisionInterface) Patch(arg0 context.C
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedAppsV1InterfaceControllerRevisionInterface) Update(arg0 context.Context, arg1 *k8s_io_api_apps_v1.ControllerRevision, arg2 metav1.UpdateOptions) (*k8s_io_api_apps_v1.ControllerRevision, error) {
+func (c *wrappedAppsV1InterfaceControllerRevisionInterface) Update(arg0 context.Context, arg1 *k8s_io_api_apps_v1.ControllerRevision, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_apps_v1.ControllerRevision, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceControllerRevisionInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAppsV1InterfaceControllerRevisionInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -713,7 +714,7 @@ func (c *wrappedAppsV1InterfaceDaemonSetInterface) Delete(arg0 context.Context, 
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceDaemonSetInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedAppsV1InterfaceDaemonSetInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -725,7 +726,7 @@ func (c *wrappedAppsV1InterfaceDaemonSetInterface) List(arg0 context.Context, ar
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAppsV1InterfaceDaemonSetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1.DaemonSet, error) {
+func (c *wrappedAppsV1InterfaceDaemonSetInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1.DaemonSet, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -737,7 +738,7 @@ func (c *wrappedAppsV1InterfaceDaemonSetInterface) UpdateStatus(arg0 context.Con
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceDaemonSetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAppsV1InterfaceDaemonSetInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -771,15 +772,15 @@ func (c *wrappedAppsV1InterfaceDeploymentInterface) Create(arg0 context.Context,
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceDeploymentInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
+func (c *wrappedAppsV1InterfaceDeploymentInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceDeploymentInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedAppsV1InterfaceDeploymentInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceDeploymentInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_apps_v1.Deployment, error) {
+func (c *wrappedAppsV1InterfaceDeploymentInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_apps_v1.Deployment, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -807,7 +808,7 @@ func (c *wrappedAppsV1InterfaceDeploymentInterface) UpdateStatus(arg0 context.Co
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceDeploymentInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAppsV1InterfaceDeploymentInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -825,7 +826,7 @@ type wrappedAppsV1InterfaceReplicaSetInterface struct {
 func wrapAppsV1InterfaceReplicaSetInterface(inner k8s_io_client_go_kubernetes_typed_apps_v1.ReplicaSetInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_apps_v1.ReplicaSetInterface {
 	return &wrappedAppsV1InterfaceReplicaSetInterface{inner, recorder}
 }
-func (c *wrappedAppsV1InterfaceReplicaSetInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1.ReplicaSetApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_apps_v1.ReplicaSet, error) {
+func (c *wrappedAppsV1InterfaceReplicaSetInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1.ReplicaSetApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_apps_v1.ReplicaSet, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -833,7 +834,7 @@ func (c *wrappedAppsV1InterfaceReplicaSetInterface) ApplyScale(arg0 context.Cont
 	defer c.recorder.Record("apply_scale")
 	return c.inner.ApplyScale(arg0, arg1, arg2, arg3)
 }
-func (c *wrappedAppsV1InterfaceReplicaSetInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1.ReplicaSetApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_apps_v1.ReplicaSet, error) {
+func (c *wrappedAppsV1InterfaceReplicaSetInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1.ReplicaSetApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_apps_v1.ReplicaSet, error) {
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
@@ -841,7 +842,7 @@ func (c *wrappedAppsV1InterfaceReplicaSetInterface) Create(arg0 context.Context,
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceReplicaSetInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedAppsV1InterfaceReplicaSetInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
@@ -865,7 +866,7 @@ func (c *wrappedAppsV1InterfaceReplicaSetInterface) Patch(arg0 context.Context, 
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedAppsV1InterfaceReplicaSetInterface) Update(arg0 context.Context, arg1 *k8s_io_api_apps_v1.ReplicaSet, arg2 metav1.UpdateOptions) (*k8s_io_api_apps_v1.ReplicaSet, error) {
+func (c *wrappedAppsV1InterfaceReplicaSetInterface) Update(arg0 context.Context, arg1 *k8s_io_api_apps_v1.ReplicaSet, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_apps_v1.ReplicaSet, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
@@ -877,7 +878,7 @@ func (c *wrappedAppsV1InterfaceReplicaSetInterface) UpdateStatus(arg0 context.Co
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceReplicaSetInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAppsV1InterfaceReplicaSetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -895,7 +896,7 @@ type wrappedAppsV1InterfaceStatefulSetInterface struct {
 func wrapAppsV1InterfaceStatefulSetInterface(inner k8s_io_client_go_kubernetes_typed_apps_v1.StatefulSetInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_apps_v1.StatefulSetInterface {
 	return &wrappedAppsV1InterfaceStatefulSetInterface{inner, recorder}
 }
-func (c *wrappedAppsV1InterfaceStatefulSetInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1.StatefulSetApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_apps_v1.StatefulSet, error) {
+func (c *wrappedAppsV1InterfaceStatefulSetInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1.StatefulSetApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_apps_v1.StatefulSet, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -931,7 +932,7 @@ func (c *wrappedAppsV1InterfaceStatefulSetInterface) List(arg0 context.Context, 
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAppsV1InterfaceStatefulSetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1.StatefulSet, error) {
+func (c *wrappedAppsV1InterfaceStatefulSetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1.StatefulSet, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -947,7 +948,7 @@ func (c *wrappedAppsV1InterfaceStatefulSetInterface) UpdateStatus(arg0 context.C
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1InterfaceStatefulSetInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAppsV1InterfaceStatefulSetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -986,7 +987,7 @@ func (c *wrappedAppsV1beta1InterfaceControllerRevisionInterface) Create(arg0 con
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta1InterfaceControllerRevisionInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
+func (c *wrappedAppsV1beta1InterfaceControllerRevisionInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
@@ -1002,7 +1003,7 @@ func (c *wrappedAppsV1beta1InterfaceControllerRevisionInterface) List(arg0 conte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAppsV1beta1InterfaceControllerRevisionInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta1.ControllerRevision, error) {
+func (c *wrappedAppsV1beta1InterfaceControllerRevisionInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta1.ControllerRevision, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -1010,7 +1011,7 @@ func (c *wrappedAppsV1beta1InterfaceControllerRevisionInterface) Update(arg0 con
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta1InterfaceControllerRevisionInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAppsV1beta1InterfaceControllerRevisionInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -1056,7 +1057,7 @@ func (c *wrappedAppsV1beta1InterfaceDeploymentInterface) List(arg0 context.Conte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAppsV1beta1InterfaceDeploymentInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta1.Deployment, error) {
+func (c *wrappedAppsV1beta1InterfaceDeploymentInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta1.Deployment, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -1068,7 +1069,7 @@ func (c *wrappedAppsV1beta1InterfaceDeploymentInterface) UpdateStatus(arg0 conte
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta1InterfaceDeploymentInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAppsV1beta1InterfaceDeploymentInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -1090,7 +1091,7 @@ func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) Apply(arg0 context.Con
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1beta1.StatefulSetApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_apps_v1beta1.StatefulSet, error) {
+func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1beta1.StatefulSetApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_apps_v1beta1.StatefulSet, error) {
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
@@ -1098,7 +1099,7 @@ func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) Create(arg0 context.Co
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
@@ -1114,7 +1115,7 @@ func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) List(arg0 context.Cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta1.StatefulSet, error) {
+func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta1.StatefulSet, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -1126,7 +1127,7 @@ func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) UpdateStatus(arg0 cont
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedAppsV1beta1InterfaceStatefulSetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -1169,7 +1170,7 @@ func (c *wrappedAppsV1beta2InterfaceControllerRevisionInterface) Delete(arg0 con
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceControllerRevisionInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedAppsV1beta2InterfaceControllerRevisionInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -1181,7 +1182,7 @@ func (c *wrappedAppsV1beta2InterfaceControllerRevisionInterface) List(arg0 conte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAppsV1beta2InterfaceControllerRevisionInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta2.ControllerRevision, error) {
+func (c *wrappedAppsV1beta2InterfaceControllerRevisionInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta2.ControllerRevision, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -1231,11 +1232,11 @@ func (c *wrappedAppsV1beta2InterfaceDaemonSetInterface) Get(arg0 context.Context
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceDaemonSetInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_apps_v1beta2.DaemonSetList, error) {
+func (c *wrappedAppsV1beta2InterfaceDaemonSetInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_apps_v1beta2.DaemonSetList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAppsV1beta2InterfaceDaemonSetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta2.DaemonSet, error) {
+func (c *wrappedAppsV1beta2InterfaceDaemonSetInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta2.DaemonSet, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -1247,7 +1248,7 @@ func (c *wrappedAppsV1beta2InterfaceDaemonSetInterface) UpdateStatus(arg0 contex
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceDaemonSetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAppsV1beta2InterfaceDaemonSetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -1269,7 +1270,7 @@ func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) Apply(arg0 context.Cont
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1beta2.DeploymentApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_apps_v1beta2.Deployment, error) {
+func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1beta2.DeploymentApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_apps_v1beta2.Deployment, error) {
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
@@ -1293,7 +1294,7 @@ func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) List(arg0 context.Conte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta2.Deployment, error) {
+func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta2.Deployment, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -1301,11 +1302,11 @@ func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) Update(arg0 context.Con
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_apps_v1beta2.Deployment, arg2 metav1.UpdateOptions) (*k8s_io_api_apps_v1beta2.Deployment, error) {
+func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_apps_v1beta2.Deployment, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_apps_v1beta2.Deployment, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAppsV1beta2InterfaceDeploymentInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -1339,7 +1340,7 @@ func (c *wrappedAppsV1beta2InterfaceReplicaSetInterface) Delete(arg0 context.Con
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceReplicaSetInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedAppsV1beta2InterfaceReplicaSetInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -1351,7 +1352,7 @@ func (c *wrappedAppsV1beta2InterfaceReplicaSetInterface) List(arg0 context.Conte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAppsV1beta2InterfaceReplicaSetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta2.ReplicaSet, error) {
+func (c *wrappedAppsV1beta2InterfaceReplicaSetInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta2.ReplicaSet, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -1381,7 +1382,7 @@ type wrappedAppsV1beta2InterfaceStatefulSetInterface struct {
 func wrapAppsV1beta2InterfaceStatefulSetInterface(inner k8s_io_client_go_kubernetes_typed_apps_v1beta2.StatefulSetInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_apps_v1beta2.StatefulSetInterface {
 	return &wrappedAppsV1beta2InterfaceStatefulSetInterface{inner, recorder}
 }
-func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1beta2.StatefulSetApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_apps_v1beta2.StatefulSet, error) {
+func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apps_v1beta2.StatefulSetApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_apps_v1beta2.StatefulSet, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -1401,7 +1402,7 @@ func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) Delete(arg0 context.Co
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -1409,7 +1410,7 @@ func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) Get(arg0 context.Conte
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) GetScale(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_apps_v1beta2.Scale, error) {
+func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) GetScale(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_apps_v1beta2.Scale, error) {
 	defer c.recorder.Record("get_scale")
 	return c.inner.GetScale(arg0, arg1, arg2)
 }
@@ -1417,7 +1418,7 @@ func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) List(arg0 context.Cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta2.StatefulSet, error) {
+func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_apps_v1beta2.StatefulSet, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -1425,7 +1426,7 @@ func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) Update(arg0 context.Co
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) UpdateScale(arg0 context.Context, arg1 string, arg2 *k8s_io_api_apps_v1beta2.Scale, arg3 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_apps_v1beta2.Scale, error) {
+func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) UpdateScale(arg0 context.Context, arg1 string, arg2 *k8s_io_api_apps_v1beta2.Scale, arg3 metav1.UpdateOptions) (*k8s_io_api_apps_v1beta2.Scale, error) {
 	defer c.recorder.Record("update_scale")
 	return c.inner.UpdateScale(arg0, arg1, arg2, arg3)
 }
@@ -1433,7 +1434,7 @@ func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) UpdateStatus(arg0 cont
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAppsV1beta2InterfaceStatefulSetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -1464,7 +1465,7 @@ type wrappedAuthenticationV1InterfaceTokenReviewInterface struct {
 func wrapAuthenticationV1InterfaceTokenReviewInterface(inner k8s_io_client_go_kubernetes_typed_authentication_v1.TokenReviewInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_authentication_v1.TokenReviewInterface {
 	return &wrappedAuthenticationV1InterfaceTokenReviewInterface{inner, recorder}
 }
-func (c *wrappedAuthenticationV1InterfaceTokenReviewInterface) Create(arg0 context.Context, arg1 *k8s_io_api_authentication_v1.TokenReview, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_authentication_v1.TokenReview, error) {
+func (c *wrappedAuthenticationV1InterfaceTokenReviewInterface) Create(arg0 context.Context, arg1 *k8s_io_api_authentication_v1.TokenReview, arg2 metav1.CreateOptions) (*k8s_io_api_authentication_v1.TokenReview, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -1611,7 +1612,7 @@ type wrappedAuthorizationV1beta1InterfaceLocalSubjectAccessReviewInterface struc
 func wrapAuthorizationV1beta1InterfaceLocalSubjectAccessReviewInterface(inner k8s_io_client_go_kubernetes_typed_authorization_v1beta1.LocalSubjectAccessReviewInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_authorization_v1beta1.LocalSubjectAccessReviewInterface {
 	return &wrappedAuthorizationV1beta1InterfaceLocalSubjectAccessReviewInterface{inner, recorder}
 }
-func (c *wrappedAuthorizationV1beta1InterfaceLocalSubjectAccessReviewInterface) Create(arg0 context.Context, arg1 *k8s_io_api_authorization_v1beta1.LocalSubjectAccessReview, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_authorization_v1beta1.LocalSubjectAccessReview, error) {
+func (c *wrappedAuthorizationV1beta1InterfaceLocalSubjectAccessReviewInterface) Create(arg0 context.Context, arg1 *k8s_io_api_authorization_v1beta1.LocalSubjectAccessReview, arg2 metav1.CreateOptions) (*k8s_io_api_authorization_v1beta1.LocalSubjectAccessReview, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -1647,7 +1648,7 @@ type wrappedAuthorizationV1beta1InterfaceSelfSubjectRulesReviewInterface struct 
 func wrapAuthorizationV1beta1InterfaceSelfSubjectRulesReviewInterface(inner k8s_io_client_go_kubernetes_typed_authorization_v1beta1.SelfSubjectRulesReviewInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_authorization_v1beta1.SelfSubjectRulesReviewInterface {
 	return &wrappedAuthorizationV1beta1InterfaceSelfSubjectRulesReviewInterface{inner, recorder}
 }
-func (c *wrappedAuthorizationV1beta1InterfaceSelfSubjectRulesReviewInterface) Create(arg0 context.Context, arg1 *k8s_io_api_authorization_v1beta1.SelfSubjectRulesReview, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_authorization_v1beta1.SelfSubjectRulesReview, error) {
+func (c *wrappedAuthorizationV1beta1InterfaceSelfSubjectRulesReviewInterface) Create(arg0 context.Context, arg1 *k8s_io_api_authorization_v1beta1.SelfSubjectRulesReview, arg2 metav1.CreateOptions) (*k8s_io_api_authorization_v1beta1.SelfSubjectRulesReview, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -1716,11 +1717,11 @@ func (c *wrappedAutoscalingV1InterfaceHorizontalPodAutoscalerInterface) DeleteCo
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedAutoscalingV1InterfaceHorizontalPodAutoscalerInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_autoscaling_v1.HorizontalPodAutoscaler, error) {
+func (c *wrappedAutoscalingV1InterfaceHorizontalPodAutoscalerInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_autoscaling_v1.HorizontalPodAutoscaler, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedAutoscalingV1InterfaceHorizontalPodAutoscalerInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_autoscaling_v1.HorizontalPodAutoscalerList, error) {
+func (c *wrappedAutoscalingV1InterfaceHorizontalPodAutoscalerInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_autoscaling_v1.HorizontalPodAutoscalerList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
@@ -1795,7 +1796,7 @@ func (c *wrappedAutoscalingV2InterfaceHorizontalPodAutoscalerInterface) List(arg
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAutoscalingV2InterfaceHorizontalPodAutoscalerInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_autoscaling_v2.HorizontalPodAutoscaler, error) {
+func (c *wrappedAutoscalingV2InterfaceHorizontalPodAutoscalerInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_autoscaling_v2.HorizontalPodAutoscaler, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -1803,11 +1804,11 @@ func (c *wrappedAutoscalingV2InterfaceHorizontalPodAutoscalerInterface) Update(a
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedAutoscalingV2InterfaceHorizontalPodAutoscalerInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_autoscaling_v2.HorizontalPodAutoscaler, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_autoscaling_v2.HorizontalPodAutoscaler, error) {
+func (c *wrappedAutoscalingV2InterfaceHorizontalPodAutoscalerInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_autoscaling_v2.HorizontalPodAutoscaler, arg2 metav1.UpdateOptions) (*k8s_io_api_autoscaling_v2.HorizontalPodAutoscaler, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAutoscalingV2InterfaceHorizontalPodAutoscalerInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedAutoscalingV2InterfaceHorizontalPodAutoscalerInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -1866,7 +1867,7 @@ func (c *wrappedAutoscalingV2beta1InterfaceHorizontalPodAutoscalerInterface) Lis
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAutoscalingV2beta1InterfaceHorizontalPodAutoscalerInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_autoscaling_v2beta1.HorizontalPodAutoscaler, error) {
+func (c *wrappedAutoscalingV2beta1InterfaceHorizontalPodAutoscalerInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_autoscaling_v2beta1.HorizontalPodAutoscaler, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -1874,7 +1875,7 @@ func (c *wrappedAutoscalingV2beta1InterfaceHorizontalPodAutoscalerInterface) Upd
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedAutoscalingV2beta1InterfaceHorizontalPodAutoscalerInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_autoscaling_v2beta1.HorizontalPodAutoscaler, arg2 metav1.UpdateOptions) (*k8s_io_api_autoscaling_v2beta1.HorizontalPodAutoscaler, error) {
+func (c *wrappedAutoscalingV2beta1InterfaceHorizontalPodAutoscalerInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_autoscaling_v2beta1.HorizontalPodAutoscaler, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_autoscaling_v2beta1.HorizontalPodAutoscaler, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
@@ -1929,7 +1930,7 @@ func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Del
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_autoscaling_v2beta2.HorizontalPodAutoscaler, error) {
+func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_autoscaling_v2beta2.HorizontalPodAutoscaler, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -1937,11 +1938,11 @@ func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Lis
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_autoscaling_v2beta2.HorizontalPodAutoscaler, error) {
+func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_autoscaling_v2beta2.HorizontalPodAutoscaler, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Update(arg0 context.Context, arg1 *k8s_io_api_autoscaling_v2beta2.HorizontalPodAutoscaler, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_autoscaling_v2beta2.HorizontalPodAutoscaler, error) {
+func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Update(arg0 context.Context, arg1 *k8s_io_api_autoscaling_v2beta2.HorizontalPodAutoscaler, arg2 metav1.UpdateOptions) (*k8s_io_api_autoscaling_v2beta2.HorizontalPodAutoscaler, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
@@ -1949,7 +1950,7 @@ func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Upd
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedAutoscalingV2beta2InterfaceHorizontalPodAutoscalerInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2020,7 +2021,7 @@ func (c *wrappedBatchV1InterfaceCronJobInterface) UpdateStatus(arg0 context.Cont
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedBatchV1InterfaceCronJobInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedBatchV1InterfaceCronJobInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2042,7 +2043,7 @@ func (c *wrappedBatchV1InterfaceJobInterface) Apply(arg0 context.Context, arg1 *
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedBatchV1InterfaceJobInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_batch_v1.JobApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_batch_v1.Job, error) {
+func (c *wrappedBatchV1InterfaceJobInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_batch_v1.JobApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_batch_v1.Job, error) {
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
@@ -2058,7 +2059,7 @@ func (c *wrappedBatchV1InterfaceJobInterface) DeleteCollection(arg0 context.Cont
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedBatchV1InterfaceJobInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_batch_v1.Job, error) {
+func (c *wrappedBatchV1InterfaceJobInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_batch_v1.Job, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -2078,7 +2079,7 @@ func (c *wrappedBatchV1InterfaceJobInterface) UpdateStatus(arg0 context.Context,
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedBatchV1InterfaceJobInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedBatchV1InterfaceJobInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2137,7 +2138,7 @@ func (c *wrappedBatchV1beta1InterfaceCronJobInterface) List(arg0 context.Context
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedBatchV1beta1InterfaceCronJobInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_batch_v1beta1.CronJob, error) {
+func (c *wrappedBatchV1beta1InterfaceCronJobInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_batch_v1beta1.CronJob, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -2145,11 +2146,11 @@ func (c *wrappedBatchV1beta1InterfaceCronJobInterface) Update(arg0 context.Conte
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedBatchV1beta1InterfaceCronJobInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_batch_v1beta1.CronJob, arg2 metav1.UpdateOptions) (*k8s_io_api_batch_v1beta1.CronJob, error) {
+func (c *wrappedBatchV1beta1InterfaceCronJobInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_batch_v1beta1.CronJob, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_batch_v1beta1.CronJob, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedBatchV1beta1InterfaceCronJobInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedBatchV1beta1InterfaceCronJobInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2208,23 +2209,23 @@ func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) List(
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_certificates_v1.CertificateSigningRequest, error) {
+func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_certificates_v1.CertificateSigningRequest, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) Update(arg0 context.Context, arg1 *k8s_io_api_certificates_v1.CertificateSigningRequest, arg2 metav1.UpdateOptions) (*k8s_io_api_certificates_v1.CertificateSigningRequest, error) {
+func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) Update(arg0 context.Context, arg1 *k8s_io_api_certificates_v1.CertificateSigningRequest, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_certificates_v1.CertificateSigningRequest, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) UpdateApproval(arg0 context.Context, arg1 string, arg2 *k8s_io_api_certificates_v1.CertificateSigningRequest, arg3 metav1.UpdateOptions) (*k8s_io_api_certificates_v1.CertificateSigningRequest, error) {
+func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) UpdateApproval(arg0 context.Context, arg1 string, arg2 *k8s_io_api_certificates_v1.CertificateSigningRequest, arg3 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_certificates_v1.CertificateSigningRequest, error) {
 	defer c.recorder.Record("update_approval")
 	return c.inner.UpdateApproval(arg0, arg1, arg2, arg3)
 }
-func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_certificates_v1.CertificateSigningRequest, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_certificates_v1.CertificateSigningRequest, error) {
+func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_certificates_v1.CertificateSigningRequest, arg2 metav1.UpdateOptions) (*k8s_io_api_certificates_v1.CertificateSigningRequest, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCertificatesV1InterfaceCertificateSigningRequestInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2259,7 +2260,7 @@ func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) 
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_certificates_v1beta1.CertificateSigningRequestApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_certificates_v1beta1.CertificateSigningRequest, error) {
+func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_certificates_v1beta1.CertificateSigningRequestApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_certificates_v1beta1.CertificateSigningRequest, error) {
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
@@ -2279,11 +2280,11 @@ func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) 
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_certificates_v1beta1.CertificateSigningRequestList, error) {
+func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_certificates_v1beta1.CertificateSigningRequestList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_certificates_v1beta1.CertificateSigningRequest, error) {
+func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_certificates_v1beta1.CertificateSigningRequest, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -2299,7 +2300,7 @@ func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) 
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCertificatesV1beta1InterfaceCertificateSigningRequestInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2330,7 +2331,7 @@ type wrappedCoordinationV1InterfaceLeaseInterface struct {
 func wrapCoordinationV1InterfaceLeaseInterface(inner k8s_io_client_go_kubernetes_typed_coordination_v1.LeaseInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_coordination_v1.LeaseInterface {
 	return &wrappedCoordinationV1InterfaceLeaseInterface{inner, recorder}
 }
-func (c *wrappedCoordinationV1InterfaceLeaseInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_coordination_v1.LeaseApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_coordination_v1.Lease, error) {
+func (c *wrappedCoordinationV1InterfaceLeaseInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_coordination_v1.LeaseApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_coordination_v1.Lease, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -2342,11 +2343,11 @@ func (c *wrappedCoordinationV1InterfaceLeaseInterface) Delete(arg0 context.Conte
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedCoordinationV1InterfaceLeaseInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedCoordinationV1InterfaceLeaseInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedCoordinationV1InterfaceLeaseInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_coordination_v1.Lease, error) {
+func (c *wrappedCoordinationV1InterfaceLeaseInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_coordination_v1.Lease, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -2354,7 +2355,7 @@ func (c *wrappedCoordinationV1InterfaceLeaseInterface) List(arg0 context.Context
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoordinationV1InterfaceLeaseInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_coordination_v1.Lease, error) {
+func (c *wrappedCoordinationV1InterfaceLeaseInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_coordination_v1.Lease, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -2362,7 +2363,7 @@ func (c *wrappedCoordinationV1InterfaceLeaseInterface) Update(arg0 context.Conte
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedCoordinationV1InterfaceLeaseInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoordinationV1InterfaceLeaseInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2421,11 +2422,11 @@ func (c *wrappedCoordinationV1beta1InterfaceLeaseInterface) Patch(arg0 context.C
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedCoordinationV1beta1InterfaceLeaseInterface) Update(arg0 context.Context, arg1 *k8s_io_api_coordination_v1beta1.Lease, arg2 metav1.UpdateOptions) (*k8s_io_api_coordination_v1beta1.Lease, error) {
+func (c *wrappedCoordinationV1beta1InterfaceLeaseInterface) Update(arg0 context.Context, arg1 *k8s_io_api_coordination_v1beta1.Lease, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_coordination_v1beta1.Lease, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedCoordinationV1beta1InterfaceLeaseInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoordinationV1beta1InterfaceLeaseInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2480,15 +2481,15 @@ func (c *wrappedCoreV1InterfaceComponentStatusInterface) List(arg0 context.Conte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoreV1InterfaceComponentStatusInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.ComponentStatus, error) {
+func (c *wrappedCoreV1InterfaceComponentStatusInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.ComponentStatus, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedCoreV1InterfaceComponentStatusInterface) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.ComponentStatus, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.ComponentStatus, error) {
+func (c *wrappedCoreV1InterfaceComponentStatusInterface) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.ComponentStatus, arg2 metav1.UpdateOptions) (*k8s_io_api_core_v1.ComponentStatus, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceComponentStatusInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoreV1InterfaceComponentStatusInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2518,7 +2519,7 @@ func (c *wrappedCoreV1InterfaceConfigMapInterface) Delete(arg0 context.Context, 
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceConfigMapInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedCoreV1InterfaceConfigMapInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -2568,7 +2569,7 @@ func (c *wrappedCoreV1InterfaceEndpointsInterface) Delete(arg0 context.Context, 
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceEndpointsInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedCoreV1InterfaceEndpointsInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -2584,11 +2585,11 @@ func (c *wrappedCoreV1InterfaceEndpointsInterface) Patch(arg0 context.Context, a
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedCoreV1InterfaceEndpointsInterface) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Endpoints, arg2 metav1.UpdateOptions) (*k8s_io_api_core_v1.Endpoints, error) {
+func (c *wrappedCoreV1InterfaceEndpointsInterface) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Endpoints, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Endpoints, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceEndpointsInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoreV1InterfaceEndpointsInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2610,7 +2611,7 @@ func (c *wrappedCoreV1InterfaceEventInterface) Apply(arg0 context.Context, arg1 
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceEventInterface) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_core_v1.Event, error) {
+func (c *wrappedCoreV1InterfaceEventInterface) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event, arg2 metav1.CreateOptions) (*k8s_io_api_core_v1.Event, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -2622,11 +2623,11 @@ func (c *wrappedCoreV1InterfaceEventInterface) Delete(arg0 context.Context, arg1
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceEventInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedCoreV1InterfaceEventInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceEventInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_core_v1.Event, error) {
+func (c *wrappedCoreV1InterfaceEventInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_core_v1.Event, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -2658,7 +2659,7 @@ func (c *wrappedCoreV1InterfaceEventInterface) UpdateWithEventNamespace(arg0 *k8
 	defer c.recorder.Record("update_with_event_namespace")
 	return c.inner.UpdateWithEventNamespace(arg0)
 }
-func (c *wrappedCoreV1InterfaceEventInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoreV1InterfaceEventInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2676,7 +2677,7 @@ type wrappedCoreV1InterfaceLimitRangeInterface struct {
 func wrapCoreV1InterfaceLimitRangeInterface(inner k8s_io_client_go_kubernetes_typed_core_v1.LimitRangeInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_core_v1.LimitRangeInterface {
 	return &wrappedCoreV1InterfaceLimitRangeInterface{inner, recorder}
 }
-func (c *wrappedCoreV1InterfaceLimitRangeInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.LimitRangeApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_core_v1.LimitRange, error) {
+func (c *wrappedCoreV1InterfaceLimitRangeInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.LimitRangeApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_core_v1.LimitRange, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -2700,7 +2701,7 @@ func (c *wrappedCoreV1InterfaceLimitRangeInterface) List(arg0 context.Context, a
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoreV1InterfaceLimitRangeInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.LimitRange, error) {
+func (c *wrappedCoreV1InterfaceLimitRangeInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.LimitRange, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -2708,7 +2709,7 @@ func (c *wrappedCoreV1InterfaceLimitRangeInterface) Update(arg0 context.Context,
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceLimitRangeInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoreV1InterfaceLimitRangeInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2730,11 +2731,11 @@ func (c *wrappedCoreV1InterfaceNamespaceInterface) Apply(arg0 context.Context, a
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceNamespaceInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.NamespaceApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_core_v1.Namespace, error) {
+func (c *wrappedCoreV1InterfaceNamespaceInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.NamespaceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_core_v1.Namespace, error) {
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceNamespaceInterface) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Namespace, arg2 metav1.CreateOptions) (*k8s_io_api_core_v1.Namespace, error) {
+func (c *wrappedCoreV1InterfaceNamespaceInterface) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Namespace, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_core_v1.Namespace, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -2746,7 +2747,7 @@ func (c *wrappedCoreV1InterfaceNamespaceInterface) Finalize(arg0 context.Context
 	defer c.recorder.Record("finalize")
 	return c.inner.Finalize(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceNamespaceInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_core_v1.Namespace, error) {
+func (c *wrappedCoreV1InterfaceNamespaceInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_core_v1.Namespace, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -2754,7 +2755,7 @@ func (c *wrappedCoreV1InterfaceNamespaceInterface) List(arg0 context.Context, ar
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoreV1InterfaceNamespaceInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.Namespace, error) {
+func (c *wrappedCoreV1InterfaceNamespaceInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.Namespace, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -2766,7 +2767,7 @@ func (c *wrappedCoreV1InterfaceNamespaceInterface) UpdateStatus(arg0 context.Con
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceNamespaceInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoreV1InterfaceNamespaceInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2824,7 +2825,7 @@ func (c *wrappedCoreV1InterfaceNodeInterface) Update(arg0 context.Context, arg1 
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceNodeInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_core_v1.Node, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Node, error) {
+func (c *wrappedCoreV1InterfaceNodeInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_core_v1.Node, arg2 metav1.UpdateOptions) (*k8s_io_api_core_v1.Node, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
@@ -2846,11 +2847,11 @@ type wrappedCoreV1InterfacePersistentVolumeClaimInterface struct {
 func wrapCoreV1InterfacePersistentVolumeClaimInterface(inner k8s_io_client_go_kubernetes_typed_core_v1.PersistentVolumeClaimInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_core_v1.PersistentVolumeClaimInterface {
 	return &wrappedCoreV1InterfacePersistentVolumeClaimInterface{inner, recorder}
 }
-func (c *wrappedCoreV1InterfacePersistentVolumeClaimInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.PersistentVolumeClaimApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_core_v1.PersistentVolumeClaim, error) {
+func (c *wrappedCoreV1InterfacePersistentVolumeClaimInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.PersistentVolumeClaimApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_core_v1.PersistentVolumeClaim, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfacePersistentVolumeClaimInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.PersistentVolumeClaimApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_core_v1.PersistentVolumeClaim, error) {
+func (c *wrappedCoreV1InterfacePersistentVolumeClaimInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.PersistentVolumeClaimApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_core_v1.PersistentVolumeClaim, error) {
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
@@ -2882,11 +2883,11 @@ func (c *wrappedCoreV1InterfacePersistentVolumeClaimInterface) Update(arg0 conte
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfacePersistentVolumeClaimInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_core_v1.PersistentVolumeClaim, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.PersistentVolumeClaim, error) {
+func (c *wrappedCoreV1InterfacePersistentVolumeClaimInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_core_v1.PersistentVolumeClaim, arg2 metav1.UpdateOptions) (*k8s_io_api_core_v1.PersistentVolumeClaim, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfacePersistentVolumeClaimInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedCoreV1InterfacePersistentVolumeClaimInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -2904,7 +2905,7 @@ type wrappedCoreV1InterfacePersistentVolumeInterface struct {
 func wrapCoreV1InterfacePersistentVolumeInterface(inner k8s_io_client_go_kubernetes_typed_core_v1.PersistentVolumeInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_core_v1.PersistentVolumeInterface {
 	return &wrappedCoreV1InterfacePersistentVolumeInterface{inner, recorder}
 }
-func (c *wrappedCoreV1InterfacePersistentVolumeInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.PersistentVolumeApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_core_v1.PersistentVolume, error) {
+func (c *wrappedCoreV1InterfacePersistentVolumeInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.PersistentVolumeApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_core_v1.PersistentVolume, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -2932,7 +2933,7 @@ func (c *wrappedCoreV1InterfacePersistentVolumeInterface) List(arg0 context.Cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoreV1InterfacePersistentVolumeInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.PersistentVolume, error) {
+func (c *wrappedCoreV1InterfacePersistentVolumeInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.PersistentVolume, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -2962,7 +2963,7 @@ type wrappedCoreV1InterfacePodTemplateInterface struct {
 func wrapCoreV1InterfacePodTemplateInterface(inner k8s_io_client_go_kubernetes_typed_core_v1.PodTemplateInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_core_v1.PodTemplateInterface {
 	return &wrappedCoreV1InterfacePodTemplateInterface{inner, recorder}
 }
-func (c *wrappedCoreV1InterfacePodTemplateInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.PodTemplateApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_core_v1.PodTemplate, error) {
+func (c *wrappedCoreV1InterfacePodTemplateInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.PodTemplateApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_core_v1.PodTemplate, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -2974,7 +2975,7 @@ func (c *wrappedCoreV1InterfacePodTemplateInterface) Delete(arg0 context.Context
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfacePodTemplateInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedCoreV1InterfacePodTemplateInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -2986,7 +2987,7 @@ func (c *wrappedCoreV1InterfacePodTemplateInterface) List(arg0 context.Context, 
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoreV1InterfacePodTemplateInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.PodTemplate, error) {
+func (c *wrappedCoreV1InterfacePodTemplateInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.PodTemplate, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -3028,11 +3029,11 @@ func (c *wrappedCoreV1InterfacePodInterface) Create(arg0 context.Context, arg1 *
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfacePodInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedCoreV1InterfacePodInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfacePodInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedCoreV1InterfacePodInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -3052,7 +3053,7 @@ func (c *wrappedCoreV1InterfacePodInterface) Get(arg0 context.Context, arg1 stri
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfacePodInterface) GetLogs(arg0 string, arg1 *k8s_io_api_core_v1.PodLogOptions) *restclient.Request {
+func (c *wrappedCoreV1InterfacePodInterface) GetLogs(arg0 string, arg1 *k8s_io_api_core_v1.PodLogOptions) *k8s_io_client_go_rest.Request {
 	defer c.recorder.Record("get_logs")
 	return c.inner.GetLogs(arg0, arg1)
 }
@@ -3060,27 +3061,27 @@ func (c *wrappedCoreV1InterfacePodInterface) List(arg0 context.Context, arg1 k8s
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoreV1InterfacePodInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.Pod, error) {
+func (c *wrappedCoreV1InterfacePodInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.Pod, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedCoreV1InterfacePodInterface) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 string, arg4 map[string]string) restclient.ResponseWrapper {
+func (c *wrappedCoreV1InterfacePodInterface) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 string, arg4 map[string]string) k8s_io_client_go_rest.ResponseWrapper {
 	defer c.recorder.Record("proxy_get")
 	return c.inner.ProxyGet(arg0, arg1, arg2, arg3, arg4)
 }
-func (c *wrappedCoreV1InterfacePodInterface) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Pod, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Pod, error) {
+func (c *wrappedCoreV1InterfacePodInterface) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Pod, arg2 metav1.UpdateOptions) (*k8s_io_api_core_v1.Pod, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfacePodInterface) UpdateEphemeralContainers(arg0 context.Context, arg1 string, arg2 *k8s_io_api_core_v1.Pod, arg3 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Pod, error) {
+func (c *wrappedCoreV1InterfacePodInterface) UpdateEphemeralContainers(arg0 context.Context, arg1 string, arg2 *k8s_io_api_core_v1.Pod, arg3 metav1.UpdateOptions) (*k8s_io_api_core_v1.Pod, error) {
 	defer c.recorder.Record("update_ephemeral_containers")
 	return c.inner.UpdateEphemeralContainers(arg0, arg1, arg2, arg3)
 }
-func (c *wrappedCoreV1InterfacePodInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_core_v1.Pod, arg2 metav1.UpdateOptions) (*k8s_io_api_core_v1.Pod, error) {
+func (c *wrappedCoreV1InterfacePodInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_core_v1.Pod, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Pod, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfacePodInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoreV1InterfacePodInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -3130,7 +3131,7 @@ func (c *wrappedCoreV1InterfaceReplicationControllerInterface) List(arg0 context
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoreV1InterfaceReplicationControllerInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.ReplicationController, error) {
+func (c *wrappedCoreV1InterfaceReplicationControllerInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.ReplicationController, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -3146,7 +3147,7 @@ func (c *wrappedCoreV1InterfaceReplicationControllerInterface) UpdateStatus(arg0
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceReplicationControllerInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoreV1InterfaceReplicationControllerInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -3180,7 +3181,7 @@ func (c *wrappedCoreV1InterfaceResourceQuotaInterface) Delete(arg0 context.Conte
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceResourceQuotaInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedCoreV1InterfaceResourceQuotaInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -3192,7 +3193,7 @@ func (c *wrappedCoreV1InterfaceResourceQuotaInterface) List(arg0 context.Context
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoreV1InterfaceResourceQuotaInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.ResourceQuota, error) {
+func (c *wrappedCoreV1InterfaceResourceQuotaInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.ResourceQuota, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -3204,7 +3205,7 @@ func (c *wrappedCoreV1InterfaceResourceQuotaInterface) UpdateStatus(arg0 context
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceResourceQuotaInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoreV1InterfaceResourceQuotaInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -3238,7 +3239,7 @@ func (c *wrappedCoreV1InterfaceSecretInterface) DeleteCollection(arg0 context.Co
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceSecretInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_core_v1.Secret, error) {
+func (c *wrappedCoreV1InterfaceSecretInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_core_v1.Secret, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -3246,7 +3247,7 @@ func (c *wrappedCoreV1InterfaceSecretInterface) List(arg0 context.Context, arg1 
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoreV1InterfaceSecretInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.Secret, error) {
+func (c *wrappedCoreV1InterfaceSecretInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.Secret, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -3288,7 +3289,7 @@ func (c *wrappedCoreV1InterfaceServiceAccountInterface) Delete(arg0 context.Cont
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceServiceAccountInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedCoreV1InterfaceServiceAccountInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -3330,7 +3331,7 @@ func (c *wrappedCoreV1InterfaceServiceInterface) Apply(arg0 context.Context, arg
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceServiceInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.ServiceApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_core_v1.Service, error) {
+func (c *wrappedCoreV1InterfaceServiceInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.ServiceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_core_v1.Service, error) {
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
@@ -3342,7 +3343,7 @@ func (c *wrappedCoreV1InterfaceServiceInterface) Delete(arg0 context.Context, ar
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceServiceInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_core_v1.Service, error) {
+func (c *wrappedCoreV1InterfaceServiceInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_core_v1.Service, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -3350,11 +3351,11 @@ func (c *wrappedCoreV1InterfaceServiceInterface) List(arg0 context.Context, arg1
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedCoreV1InterfaceServiceInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.Service, error) {
+func (c *wrappedCoreV1InterfaceServiceInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.Service, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedCoreV1InterfaceServiceInterface) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 string, arg4 map[string]string) restclient.ResponseWrapper {
+func (c *wrappedCoreV1InterfaceServiceInterface) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 string, arg4 map[string]string) k8s_io_client_go_rest.ResponseWrapper {
 	defer c.recorder.Record("proxy_get")
 	return c.inner.ProxyGet(arg0, arg1, arg2, arg3, arg4)
 }
@@ -3366,7 +3367,7 @@ func (c *wrappedCoreV1InterfaceServiceInterface) UpdateStatus(arg0 context.Conte
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedCoreV1InterfaceServiceInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedCoreV1InterfaceServiceInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -3397,7 +3398,7 @@ type wrappedDiscoveryV1InterfaceEndpointSliceInterface struct {
 func wrapDiscoveryV1InterfaceEndpointSliceInterface(inner k8s_io_client_go_kubernetes_typed_discovery_v1.EndpointSliceInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_discovery_v1.EndpointSliceInterface {
 	return &wrappedDiscoveryV1InterfaceEndpointSliceInterface{inner, recorder}
 }
-func (c *wrappedDiscoveryV1InterfaceEndpointSliceInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_discovery_v1.EndpointSliceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_discovery_v1.EndpointSlice, error) {
+func (c *wrappedDiscoveryV1InterfaceEndpointSliceInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_discovery_v1.EndpointSliceApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_discovery_v1.EndpointSlice, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -3409,7 +3410,7 @@ func (c *wrappedDiscoveryV1InterfaceEndpointSliceInterface) Delete(arg0 context.
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedDiscoveryV1InterfaceEndpointSliceInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedDiscoveryV1InterfaceEndpointSliceInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -3429,7 +3430,7 @@ func (c *wrappedDiscoveryV1InterfaceEndpointSliceInterface) Update(arg0 context.
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedDiscoveryV1InterfaceEndpointSliceInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedDiscoveryV1InterfaceEndpointSliceInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -3484,7 +3485,7 @@ func (c *wrappedDiscoveryV1beta1InterfaceEndpointSliceInterface) List(arg0 conte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedDiscoveryV1beta1InterfaceEndpointSliceInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_discovery_v1beta1.EndpointSlice, error) {
+func (c *wrappedDiscoveryV1beta1InterfaceEndpointSliceInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_discovery_v1beta1.EndpointSlice, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -3492,7 +3493,7 @@ func (c *wrappedDiscoveryV1beta1InterfaceEndpointSliceInterface) Update(arg0 con
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedDiscoveryV1beta1InterfaceEndpointSliceInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedDiscoveryV1beta1InterfaceEndpointSliceInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -3531,7 +3532,7 @@ func (c *wrappedEventsV1InterfaceEventInterface) Create(arg0 context.Context, ar
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedEventsV1InterfaceEventInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedEventsV1InterfaceEventInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
@@ -3551,7 +3552,7 @@ func (c *wrappedEventsV1InterfaceEventInterface) Patch(arg0 context.Context, arg
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedEventsV1InterfaceEventInterface) Update(arg0 context.Context, arg1 *k8s_io_api_events_v1.Event, arg2 metav1.UpdateOptions) (*k8s_io_api_events_v1.Event, error) {
+func (c *wrappedEventsV1InterfaceEventInterface) Update(arg0 context.Context, arg1 *k8s_io_api_events_v1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_events_v1.Event, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
@@ -3586,7 +3587,7 @@ type wrappedEventsV1beta1InterfaceEventInterface struct {
 func wrapEventsV1beta1InterfaceEventInterface(inner k8s_io_client_go_kubernetes_typed_events_v1beta1.EventInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_events_v1beta1.EventInterface {
 	return &wrappedEventsV1beta1InterfaceEventInterface{inner, recorder}
 }
-func (c *wrappedEventsV1beta1InterfaceEventInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_events_v1beta1.EventApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_events_v1beta1.Event, error) {
+func (c *wrappedEventsV1beta1InterfaceEventInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_events_v1beta1.EventApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_events_v1beta1.Event, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -3630,7 +3631,7 @@ func (c *wrappedEventsV1beta1InterfaceEventInterface) UpdateWithEventNamespace(a
 	defer c.recorder.Record("update_with_event_namespace")
 	return c.inner.UpdateWithEventNamespace(arg0)
 }
-func (c *wrappedEventsV1beta1InterfaceEventInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedEventsV1beta1InterfaceEventInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -3689,7 +3690,7 @@ func (c *wrappedExtensionsV1beta1InterfaceDaemonSetInterface) List(arg0 context.
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedExtensionsV1beta1InterfaceDaemonSetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.DaemonSet, error) {
+func (c *wrappedExtensionsV1beta1InterfaceDaemonSetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.DaemonSet, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -3697,11 +3698,11 @@ func (c *wrappedExtensionsV1beta1InterfaceDaemonSetInterface) Update(arg0 contex
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceDaemonSetInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.DaemonSet, arg2 metav1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.DaemonSet, error) {
+func (c *wrappedExtensionsV1beta1InterfaceDaemonSetInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.DaemonSet, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.DaemonSet, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceDaemonSetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedExtensionsV1beta1InterfaceDaemonSetInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -3743,7 +3744,7 @@ func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) DeleteCollection(
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_extensions_v1beta1.Deployment, error) {
+func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_extensions_v1beta1.Deployment, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -3755,11 +3756,11 @@ func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) List(arg0 context
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.Deployment, error) {
+func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.Deployment, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) Rollback(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.DeploymentRollback, arg2 metav1.CreateOptions) error {
+func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) Rollback(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.DeploymentRollback, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) error {
 	defer c.recorder.Record("rollback")
 	return c.inner.Rollback(arg0, arg1, arg2)
 }
@@ -3767,7 +3768,7 @@ func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) Update(arg0 conte
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) UpdateScale(arg0 context.Context, arg1 string, arg2 *k8s_io_api_extensions_v1beta1.Scale, arg3 metav1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.Scale, error) {
+func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) UpdateScale(arg0 context.Context, arg1 string, arg2 *k8s_io_api_extensions_v1beta1.Scale, arg3 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.Scale, error) {
 	defer c.recorder.Record("update_scale")
 	return c.inner.UpdateScale(arg0, arg1, arg2, arg3)
 }
@@ -3775,7 +3776,7 @@ func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) UpdateStatus(arg0
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedExtensionsV1beta1InterfaceDeploymentInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -3821,11 +3822,11 @@ func (c *wrappedExtensionsV1beta1InterfaceIngressInterface) List(arg0 context.Co
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedExtensionsV1beta1InterfaceIngressInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.Ingress, error) {
+func (c *wrappedExtensionsV1beta1InterfaceIngressInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.Ingress, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedExtensionsV1beta1InterfaceIngressInterface) Update(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.Ingress, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.Ingress, error) {
+func (c *wrappedExtensionsV1beta1InterfaceIngressInterface) Update(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.Ingress, arg2 metav1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.Ingress, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
@@ -3833,7 +3834,7 @@ func (c *wrappedExtensionsV1beta1InterfaceIngressInterface) UpdateStatus(arg0 co
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceIngressInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedExtensionsV1beta1InterfaceIngressInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -3851,7 +3852,7 @@ type wrappedExtensionsV1beta1InterfaceNetworkPolicyInterface struct {
 func wrapExtensionsV1beta1InterfaceNetworkPolicyInterface(inner k8s_io_client_go_kubernetes_typed_extensions_v1beta1.NetworkPolicyInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.NetworkPolicyInterface {
 	return &wrappedExtensionsV1beta1InterfaceNetworkPolicyInterface{inner, recorder}
 }
-func (c *wrappedExtensionsV1beta1InterfaceNetworkPolicyInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_extensions_v1beta1.NetworkPolicyApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_extensions_v1beta1.NetworkPolicy, error) {
+func (c *wrappedExtensionsV1beta1InterfaceNetworkPolicyInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_extensions_v1beta1.NetworkPolicyApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_extensions_v1beta1.NetworkPolicy, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -3867,7 +3868,7 @@ func (c *wrappedExtensionsV1beta1InterfaceNetworkPolicyInterface) Delete(arg0 co
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceNetworkPolicyInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedExtensionsV1beta1InterfaceNetworkPolicyInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -3879,7 +3880,7 @@ func (c *wrappedExtensionsV1beta1InterfaceNetworkPolicyInterface) List(arg0 cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedExtensionsV1beta1InterfaceNetworkPolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.NetworkPolicy, error) {
+func (c *wrappedExtensionsV1beta1InterfaceNetworkPolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.NetworkPolicy, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -3909,7 +3910,7 @@ type wrappedExtensionsV1beta1InterfacePodSecurityPolicyInterface struct {
 func wrapExtensionsV1beta1InterfacePodSecurityPolicyInterface(inner k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface {
 	return &wrappedExtensionsV1beta1InterfacePodSecurityPolicyInterface{inner, recorder}
 }
-func (c *wrappedExtensionsV1beta1InterfacePodSecurityPolicyInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_extensions_v1beta1.PodSecurityPolicyApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
+func (c *wrappedExtensionsV1beta1InterfacePodSecurityPolicyInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_extensions_v1beta1.PodSecurityPolicyApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_extensions_v1beta1.PodSecurityPolicy, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -3917,7 +3918,7 @@ func (c *wrappedExtensionsV1beta1InterfacePodSecurityPolicyInterface) Create(arg
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfacePodSecurityPolicyInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedExtensionsV1beta1InterfacePodSecurityPolicyInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
@@ -3963,7 +3964,7 @@ func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) Apply(arg0 contex
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) ApplyScale(arg0 context.Context, arg1 string, arg2 *k8s_io_client_go_applyconfigurations_extensions_v1beta1.ScaleApplyConfiguration, arg3 metav1.ApplyOptions) (*k8s_io_api_extensions_v1beta1.Scale, error) {
+func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) ApplyScale(arg0 context.Context, arg1 string, arg2 *k8s_io_client_go_applyconfigurations_extensions_v1beta1.ScaleApplyConfiguration, arg3 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_extensions_v1beta1.Scale, error) {
 	defer c.recorder.Record("apply_scale")
 	return c.inner.ApplyScale(arg0, arg1, arg2, arg3)
 }
@@ -3975,11 +3976,11 @@ func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) Create(arg0 conte
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -3987,15 +3988,15 @@ func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) Get(arg0 context.
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) GetScale(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_extensions_v1beta1.Scale, error) {
+func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) GetScale(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_extensions_v1beta1.Scale, error) {
 	defer c.recorder.Record("get_scale")
 	return c.inner.GetScale(arg0, arg1, arg2)
 }
-func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_extensions_v1beta1.ReplicaSetList, error) {
+func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_extensions_v1beta1.ReplicaSetList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.ReplicaSet, error) {
+func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_extensions_v1beta1.ReplicaSet, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -4007,7 +4008,7 @@ func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) UpdateScale(arg0 
 	defer c.recorder.Record("update_scale")
 	return c.inner.UpdateScale(arg0, arg1, arg2, arg3)
 }
-func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.ReplicaSet, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.ReplicaSet, error) {
+func (c *wrappedExtensionsV1beta1InterfaceReplicaSetInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_extensions_v1beta1.ReplicaSet, arg2 metav1.UpdateOptions) (*k8s_io_api_extensions_v1beta1.ReplicaSet, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
@@ -4046,7 +4047,7 @@ func (c *wrappedFlowcontrolV1alpha1InterfaceFlowSchemaInterface) Apply(arg0 cont
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedFlowcontrolV1alpha1InterfaceFlowSchemaInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_flowcontrol_v1alpha1.FlowSchemaApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_flowcontrol_v1alpha1.FlowSchema, error) {
+func (c *wrappedFlowcontrolV1alpha1InterfaceFlowSchemaInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_flowcontrol_v1alpha1.FlowSchemaApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_flowcontrol_v1alpha1.FlowSchema, error) {
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
@@ -4058,7 +4059,7 @@ func (c *wrappedFlowcontrolV1alpha1InterfaceFlowSchemaInterface) Delete(arg0 con
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedFlowcontrolV1alpha1InterfaceFlowSchemaInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedFlowcontrolV1alpha1InterfaceFlowSchemaInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -4082,7 +4083,7 @@ func (c *wrappedFlowcontrolV1alpha1InterfaceFlowSchemaInterface) UpdateStatus(ar
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedFlowcontrolV1alpha1InterfaceFlowSchemaInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedFlowcontrolV1alpha1InterfaceFlowSchemaInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4120,7 +4121,7 @@ func (c *wrappedFlowcontrolV1alpha1InterfacePriorityLevelConfigurationInterface)
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedFlowcontrolV1alpha1InterfacePriorityLevelConfigurationInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_flowcontrol_v1alpha1.PriorityLevelConfiguration, error) {
+func (c *wrappedFlowcontrolV1alpha1InterfacePriorityLevelConfigurationInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_flowcontrol_v1alpha1.PriorityLevelConfiguration, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -4128,7 +4129,7 @@ func (c *wrappedFlowcontrolV1alpha1InterfacePriorityLevelConfigurationInterface)
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedFlowcontrolV1alpha1InterfacePriorityLevelConfigurationInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_flowcontrol_v1alpha1.PriorityLevelConfiguration, error) {
+func (c *wrappedFlowcontrolV1alpha1InterfacePriorityLevelConfigurationInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_flowcontrol_v1alpha1.PriorityLevelConfiguration, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -4140,7 +4141,7 @@ func (c *wrappedFlowcontrolV1alpha1InterfacePriorityLevelConfigurationInterface)
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedFlowcontrolV1alpha1InterfacePriorityLevelConfigurationInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedFlowcontrolV1alpha1InterfacePriorityLevelConfigurationInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4191,7 +4192,7 @@ func (c *wrappedFlowcontrolV1beta1InterfaceFlowSchemaInterface) DeleteCollection
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedFlowcontrolV1beta1InterfaceFlowSchemaInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_flowcontrol_v1beta1.FlowSchema, error) {
+func (c *wrappedFlowcontrolV1beta1InterfaceFlowSchemaInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_flowcontrol_v1beta1.FlowSchema, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -4199,7 +4200,7 @@ func (c *wrappedFlowcontrolV1beta1InterfaceFlowSchemaInterface) List(arg0 contex
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedFlowcontrolV1beta1InterfaceFlowSchemaInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_flowcontrol_v1beta1.FlowSchema, error) {
+func (c *wrappedFlowcontrolV1beta1InterfaceFlowSchemaInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_flowcontrol_v1beta1.FlowSchema, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -4257,7 +4258,7 @@ func (c *wrappedFlowcontrolV1beta1InterfacePriorityLevelConfigurationInterface) 
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedFlowcontrolV1beta1InterfacePriorityLevelConfigurationInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_flowcontrol_v1beta1.PriorityLevelConfiguration, error) {
+func (c *wrappedFlowcontrolV1beta1InterfacePriorityLevelConfigurationInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_flowcontrol_v1beta1.PriorityLevelConfiguration, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -4269,7 +4270,7 @@ func (c *wrappedFlowcontrolV1beta1InterfacePriorityLevelConfigurationInterface) 
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedFlowcontrolV1beta1InterfacePriorityLevelConfigurationInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedFlowcontrolV1beta1InterfacePriorityLevelConfigurationInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4316,7 +4317,7 @@ func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) Delete(arg0 cont
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -4328,11 +4329,11 @@ func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) List(arg0 contex
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_flowcontrol_v1beta2.FlowSchema, error) {
+func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_flowcontrol_v1beta2.FlowSchema, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) Update(arg0 context.Context, arg1 *k8s_io_api_flowcontrol_v1beta2.FlowSchema, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_flowcontrol_v1beta2.FlowSchema, error) {
+func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) Update(arg0 context.Context, arg1 *k8s_io_api_flowcontrol_v1beta2.FlowSchema, arg2 metav1.UpdateOptions) (*k8s_io_api_flowcontrol_v1beta2.FlowSchema, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
@@ -4340,7 +4341,7 @@ func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) UpdateStatus(arg
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedFlowcontrolV1beta2InterfaceFlowSchemaInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4386,7 +4387,7 @@ func (c *wrappedFlowcontrolV1beta2InterfacePriorityLevelConfigurationInterface) 
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedFlowcontrolV1beta2InterfacePriorityLevelConfigurationInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_flowcontrol_v1beta2.PriorityLevelConfiguration, error) {
+func (c *wrappedFlowcontrolV1beta2InterfacePriorityLevelConfigurationInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_flowcontrol_v1beta2.PriorityLevelConfiguration, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -4398,7 +4399,7 @@ func (c *wrappedFlowcontrolV1beta2InterfacePriorityLevelConfigurationInterface) 
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedFlowcontrolV1beta2InterfacePriorityLevelConfigurationInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedFlowcontrolV1beta2InterfacePriorityLevelConfigurationInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4429,7 +4430,7 @@ type wrappedInternalV1alpha1InterfaceStorageVersionInterface struct {
 func wrapInternalV1alpha1InterfaceStorageVersionInterface(inner k8s_io_client_go_kubernetes_typed_apiserverinternal_v1alpha1.StorageVersionInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_apiserverinternal_v1alpha1.StorageVersionInterface {
 	return &wrappedInternalV1alpha1InterfaceStorageVersionInterface{inner, recorder}
 }
-func (c *wrappedInternalV1alpha1InterfaceStorageVersionInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apiserverinternal_v1alpha1.StorageVersionApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_apiserverinternal_v1alpha1.StorageVersion, error) {
+func (c *wrappedInternalV1alpha1InterfaceStorageVersionInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_apiserverinternal_v1alpha1.StorageVersionApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_apiserverinternal_v1alpha1.StorageVersion, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -4445,7 +4446,7 @@ func (c *wrappedInternalV1alpha1InterfaceStorageVersionInterface) Delete(arg0 co
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedInternalV1alpha1InterfaceStorageVersionInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedInternalV1alpha1InterfaceStorageVersionInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -4512,7 +4513,7 @@ func (c *wrappedNetworkingV1InterfaceIngressClassInterface) Delete(arg0 context.
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedNetworkingV1InterfaceIngressClassInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedNetworkingV1InterfaceIngressClassInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -4524,7 +4525,7 @@ func (c *wrappedNetworkingV1InterfaceIngressClassInterface) List(arg0 context.Co
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedNetworkingV1InterfaceIngressClassInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_networking_v1.IngressClass, error) {
+func (c *wrappedNetworkingV1InterfaceIngressClassInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_networking_v1.IngressClass, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -4590,7 +4591,7 @@ func (c *wrappedNetworkingV1InterfaceIngressInterface) UpdateStatus(arg0 context
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedNetworkingV1InterfaceIngressInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedNetworkingV1InterfaceIngressInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4608,7 +4609,7 @@ type wrappedNetworkingV1InterfaceNetworkPolicyInterface struct {
 func wrapNetworkingV1InterfaceNetworkPolicyInterface(inner k8s_io_client_go_kubernetes_typed_networking_v1.NetworkPolicyInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_networking_v1.NetworkPolicyInterface {
 	return &wrappedNetworkingV1InterfaceNetworkPolicyInterface{inner, recorder}
 }
-func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_networking_v1.NetworkPolicyApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_networking_v1.NetworkPolicy, error) {
+func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_networking_v1.NetworkPolicyApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_networking_v1.NetworkPolicy, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -4616,7 +4617,7 @@ func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) ApplyStatus(arg0 co
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
-func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) Create(arg0 context.Context, arg1 *k8s_io_api_networking_v1.NetworkPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_networking_v1.NetworkPolicy, error) {
+func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) Create(arg0 context.Context, arg1 *k8s_io_api_networking_v1.NetworkPolicy, arg2 metav1.CreateOptions) (*k8s_io_api_networking_v1.NetworkPolicy, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -4632,11 +4633,11 @@ func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) Get(arg0 context.Co
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_networking_v1.NetworkPolicyList, error) {
+func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_networking_v1.NetworkPolicyList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_networking_v1.NetworkPolicy, error) {
+func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_networking_v1.NetworkPolicy, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -4648,7 +4649,7 @@ func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) UpdateStatus(arg0 c
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedNetworkingV1InterfaceNetworkPolicyInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4711,7 +4712,7 @@ func (c *wrappedNetworkingV1alpha1InterfaceClusterCIDRInterface) Update(arg0 con
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedNetworkingV1alpha1InterfaceClusterCIDRInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedNetworkingV1alpha1InterfaceClusterCIDRInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4766,7 +4767,7 @@ func (c *wrappedNetworkingV1beta1InterfaceIngressClassInterface) List(arg0 conte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedNetworkingV1beta1InterfaceIngressClassInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_networking_v1beta1.IngressClass, error) {
+func (c *wrappedNetworkingV1beta1InterfaceIngressClassInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_networking_v1beta1.IngressClass, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -4774,7 +4775,7 @@ func (c *wrappedNetworkingV1beta1InterfaceIngressClassInterface) Update(arg0 con
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedNetworkingV1beta1InterfaceIngressClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedNetworkingV1beta1InterfaceIngressClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4832,7 +4833,7 @@ func (c *wrappedNetworkingV1beta1InterfaceIngressInterface) UpdateStatus(arg0 co
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedNetworkingV1beta1InterfaceIngressInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedNetworkingV1beta1InterfaceIngressInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4883,7 +4884,7 @@ func (c *wrappedNodeV1InterfaceRuntimeClassInterface) Get(arg0 context.Context, 
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedNodeV1InterfaceRuntimeClassInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_node_v1.RuntimeClassList, error) {
+func (c *wrappedNodeV1InterfaceRuntimeClassInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_node_v1.RuntimeClassList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
@@ -4891,11 +4892,11 @@ func (c *wrappedNodeV1InterfaceRuntimeClassInterface) Patch(arg0 context.Context
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedNodeV1InterfaceRuntimeClassInterface) Update(arg0 context.Context, arg1 *k8s_io_api_node_v1.RuntimeClass, arg2 metav1.UpdateOptions) (*k8s_io_api_node_v1.RuntimeClass, error) {
+func (c *wrappedNodeV1InterfaceRuntimeClassInterface) Update(arg0 context.Context, arg1 *k8s_io_api_node_v1.RuntimeClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_node_v1.RuntimeClass, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedNodeV1InterfaceRuntimeClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedNodeV1InterfaceRuntimeClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4934,11 +4935,11 @@ func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) Create(arg0 context.
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -4950,7 +4951,7 @@ func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) List(arg0 context.Co
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_node_v1alpha1.RuntimeClass, error) {
+func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_node_v1alpha1.RuntimeClass, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -4958,7 +4959,7 @@ func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) Update(arg0 context.
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedNodeV1alpha1InterfaceRuntimeClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -4993,7 +4994,7 @@ func (c *wrappedNodeV1beta1InterfaceRuntimeClassInterface) Apply(arg0 context.Co
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedNodeV1beta1InterfaceRuntimeClassInterface) Create(arg0 context.Context, arg1 *k8s_io_api_node_v1beta1.RuntimeClass, arg2 metav1.CreateOptions) (*k8s_io_api_node_v1beta1.RuntimeClass, error) {
+func (c *wrappedNodeV1beta1InterfaceRuntimeClassInterface) Create(arg0 context.Context, arg1 *k8s_io_api_node_v1beta1.RuntimeClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_node_v1beta1.RuntimeClass, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -5001,7 +5002,7 @@ func (c *wrappedNodeV1beta1InterfaceRuntimeClassInterface) Delete(arg0 context.C
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedNodeV1beta1InterfaceRuntimeClassInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedNodeV1beta1InterfaceRuntimeClassInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -5021,7 +5022,7 @@ func (c *wrappedNodeV1beta1InterfaceRuntimeClassInterface) Update(arg0 context.C
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedNodeV1beta1InterfaceRuntimeClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedNodeV1beta1InterfaceRuntimeClassInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5098,7 +5099,7 @@ func (c *wrappedPolicyV1InterfacePodDisruptionBudgetInterface) List(arg0 context
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedPolicyV1InterfacePodDisruptionBudgetInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_policy_v1.PodDisruptionBudget, error) {
+func (c *wrappedPolicyV1InterfacePodDisruptionBudgetInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_policy_v1.PodDisruptionBudget, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -5106,7 +5107,7 @@ func (c *wrappedPolicyV1InterfacePodDisruptionBudgetInterface) Update(arg0 conte
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedPolicyV1InterfacePodDisruptionBudgetInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_policy_v1.PodDisruptionBudget, arg2 metav1.UpdateOptions) (*k8s_io_api_policy_v1.PodDisruptionBudget, error) {
+func (c *wrappedPolicyV1InterfacePodDisruptionBudgetInterface) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_policy_v1.PodDisruptionBudget, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_policy_v1.PodDisruptionBudget, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
@@ -5163,7 +5164,7 @@ func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) Apply(arg0 c
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_policy_v1beta1.PodDisruptionBudgetApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_policy_v1beta1.PodDisruptionBudget, error) {
+func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_policy_v1beta1.PodDisruptionBudgetApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_policy_v1beta1.PodDisruptionBudget, error) {
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
@@ -5171,7 +5172,7 @@ func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) Create(arg0 
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
+func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
@@ -5183,7 +5184,7 @@ func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) Get(arg0 con
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_policy_v1beta1.PodDisruptionBudgetList, error) {
+func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_policy_v1beta1.PodDisruptionBudgetList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
@@ -5199,7 +5200,7 @@ func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) UpdateStatus
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedPolicyV1beta1InterfacePodDisruptionBudgetInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5221,7 +5222,7 @@ func (c *wrappedPolicyV1beta1InterfacePodSecurityPolicyInterface) Apply(arg0 con
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedPolicyV1beta1InterfacePodSecurityPolicyInterface) Create(arg0 context.Context, arg1 *k8s_io_api_policy_v1beta1.PodSecurityPolicy, arg2 metav1.CreateOptions) (*k8s_io_api_policy_v1beta1.PodSecurityPolicy, error) {
+func (c *wrappedPolicyV1beta1InterfacePodSecurityPolicyInterface) Create(arg0 context.Context, arg1 *k8s_io_api_policy_v1beta1.PodSecurityPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_policy_v1beta1.PodSecurityPolicy, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -5241,7 +5242,7 @@ func (c *wrappedPolicyV1beta1InterfacePodSecurityPolicyInterface) List(arg0 cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedPolicyV1beta1InterfacePodSecurityPolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_policy_v1beta1.PodSecurityPolicy, error) {
+func (c *wrappedPolicyV1beta1InterfacePodSecurityPolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_policy_v1beta1.PodSecurityPolicy, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -5284,7 +5285,7 @@ func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) Apply(arg0 context.C
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) Create(arg0 context.Context, arg1 *k8s_io_api_rbac_v1.ClusterRoleBinding, arg2 metav1.CreateOptions) (*k8s_io_api_rbac_v1.ClusterRoleBinding, error) {
+func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) Create(arg0 context.Context, arg1 *k8s_io_api_rbac_v1.ClusterRoleBinding, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_rbac_v1.ClusterRoleBinding, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -5296,7 +5297,7 @@ func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) DeleteCollection(arg
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_rbac_v1.ClusterRoleBinding, error) {
+func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_rbac_v1.ClusterRoleBinding, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -5304,7 +5305,7 @@ func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) List(arg0 context.Co
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1.ClusterRoleBinding, error) {
+func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1.ClusterRoleBinding, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -5312,7 +5313,7 @@ func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) Update(arg0 context.
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedRbacV1InterfaceClusterRoleBindingInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5338,11 +5339,11 @@ func (c *wrappedRbacV1InterfaceClusterRoleInterface) Create(arg0 context.Context
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1InterfaceClusterRoleInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedRbacV1InterfaceClusterRoleInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1InterfaceClusterRoleInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedRbacV1InterfaceClusterRoleInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -5362,7 +5363,7 @@ func (c *wrappedRbacV1InterfaceClusterRoleInterface) Update(arg0 context.Context
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1InterfaceClusterRoleInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedRbacV1InterfaceClusterRoleInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5396,7 +5397,7 @@ func (c *wrappedRbacV1InterfaceRoleBindingInterface) DeleteCollection(arg0 conte
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1InterfaceRoleBindingInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_rbac_v1.RoleBinding, error) {
+func (c *wrappedRbacV1InterfaceRoleBindingInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_rbac_v1.RoleBinding, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -5412,7 +5413,7 @@ func (c *wrappedRbacV1InterfaceRoleBindingInterface) Update(arg0 context.Context
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1InterfaceRoleBindingInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedRbacV1InterfaceRoleBindingInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5458,7 +5459,7 @@ func (c *wrappedRbacV1InterfaceRoleInterface) Patch(arg0 context.Context, arg1 s
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedRbacV1InterfaceRoleInterface) Update(arg0 context.Context, arg1 *k8s_io_api_rbac_v1.Role, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_rbac_v1.Role, error) {
+func (c *wrappedRbacV1InterfaceRoleInterface) Update(arg0 context.Context, arg1 *k8s_io_api_rbac_v1.Role, arg2 metav1.UpdateOptions) (*k8s_io_api_rbac_v1.Role, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
@@ -5497,7 +5498,7 @@ func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) Apply(arg0 con
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) Create(arg0 context.Context, arg1 *k8s_io_api_rbac_v1alpha1.ClusterRoleBinding, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_rbac_v1alpha1.ClusterRoleBinding, error) {
+func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) Create(arg0 context.Context, arg1 *k8s_io_api_rbac_v1alpha1.ClusterRoleBinding, arg2 metav1.CreateOptions) (*k8s_io_api_rbac_v1alpha1.ClusterRoleBinding, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -5505,7 +5506,7 @@ func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) Delete(arg0 co
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -5513,11 +5514,11 @@ func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) Get(arg0 conte
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_rbac_v1alpha1.ClusterRoleBindingList, error) {
+func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_rbac_v1alpha1.ClusterRoleBindingList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1alpha1.ClusterRoleBinding, error) {
+func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1alpha1.ClusterRoleBinding, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -5525,7 +5526,7 @@ func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) Update(arg0 co
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedRbacV1alpha1InterfaceClusterRoleBindingInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5551,11 +5552,11 @@ func (c *wrappedRbacV1alpha1InterfaceClusterRoleInterface) Create(arg0 context.C
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceClusterRoleInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedRbacV1alpha1InterfaceClusterRoleInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceClusterRoleInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedRbacV1alpha1InterfaceClusterRoleInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -5567,7 +5568,7 @@ func (c *wrappedRbacV1alpha1InterfaceClusterRoleInterface) List(arg0 context.Con
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedRbacV1alpha1InterfaceClusterRoleInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1alpha1.ClusterRole, error) {
+func (c *wrappedRbacV1alpha1InterfaceClusterRoleInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1alpha1.ClusterRole, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -5597,7 +5598,7 @@ func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) Apply(arg0 context.Co
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) Create(arg0 context.Context, arg1 *k8s_io_api_rbac_v1alpha1.RoleBinding, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_rbac_v1alpha1.RoleBinding, error) {
+func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) Create(arg0 context.Context, arg1 *k8s_io_api_rbac_v1alpha1.RoleBinding, arg2 metav1.CreateOptions) (*k8s_io_api_rbac_v1alpha1.RoleBinding, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -5609,7 +5610,7 @@ func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) DeleteCollection(arg0
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_rbac_v1alpha1.RoleBinding, error) {
+func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_rbac_v1alpha1.RoleBinding, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -5617,11 +5618,11 @@ func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) List(arg0 context.Con
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1alpha1.RoleBinding, error) {
+func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1alpha1.RoleBinding, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) Update(arg0 context.Context, arg1 *k8s_io_api_rbac_v1alpha1.RoleBinding, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_rbac_v1alpha1.RoleBinding, error) {
+func (c *wrappedRbacV1alpha1InterfaceRoleBindingInterface) Update(arg0 context.Context, arg1 *k8s_io_api_rbac_v1alpha1.RoleBinding, arg2 metav1.UpdateOptions) (*k8s_io_api_rbac_v1alpha1.RoleBinding, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
@@ -5655,7 +5656,7 @@ func (c *wrappedRbacV1alpha1InterfaceRoleInterface) Delete(arg0 context.Context,
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceRoleInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedRbacV1alpha1InterfaceRoleInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -5663,11 +5664,11 @@ func (c *wrappedRbacV1alpha1InterfaceRoleInterface) Get(arg0 context.Context, ar
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceRoleInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_rbac_v1alpha1.RoleList, error) {
+func (c *wrappedRbacV1alpha1InterfaceRoleInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_rbac_v1alpha1.RoleList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedRbacV1alpha1InterfaceRoleInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1alpha1.Role, error) {
+func (c *wrappedRbacV1alpha1InterfaceRoleInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1alpha1.Role, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -5675,7 +5676,7 @@ func (c *wrappedRbacV1alpha1InterfaceRoleInterface) Update(arg0 context.Context,
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1alpha1InterfaceRoleInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedRbacV1alpha1InterfaceRoleInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5714,7 +5715,7 @@ func (c *wrappedRbacV1beta1InterfaceClusterRoleBindingInterface) Create(arg0 con
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1beta1InterfaceClusterRoleBindingInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedRbacV1beta1InterfaceClusterRoleBindingInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
@@ -5730,7 +5731,7 @@ func (c *wrappedRbacV1beta1InterfaceClusterRoleBindingInterface) List(arg0 conte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedRbacV1beta1InterfaceClusterRoleBindingInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1beta1.ClusterRoleBinding, error) {
+func (c *wrappedRbacV1beta1InterfaceClusterRoleBindingInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1beta1.ClusterRoleBinding, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -5738,7 +5739,7 @@ func (c *wrappedRbacV1beta1InterfaceClusterRoleBindingInterface) Update(arg0 con
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1beta1InterfaceClusterRoleBindingInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedRbacV1beta1InterfaceClusterRoleBindingInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5780,7 +5781,7 @@ func (c *wrappedRbacV1beta1InterfaceClusterRoleInterface) List(arg0 context.Cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedRbacV1beta1InterfaceClusterRoleInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1beta1.ClusterRole, error) {
+func (c *wrappedRbacV1beta1InterfaceClusterRoleInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1beta1.ClusterRole, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -5788,7 +5789,7 @@ func (c *wrappedRbacV1beta1InterfaceClusterRoleInterface) Update(arg0 context.Co
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1beta1InterfaceClusterRoleInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedRbacV1beta1InterfaceClusterRoleInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5810,7 +5811,7 @@ func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) Apply(arg0 context.Con
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) Create(arg0 context.Context, arg1 *k8s_io_api_rbac_v1beta1.RoleBinding, arg2 metav1.CreateOptions) (*k8s_io_api_rbac_v1beta1.RoleBinding, error) {
+func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) Create(arg0 context.Context, arg1 *k8s_io_api_rbac_v1beta1.RoleBinding, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_rbac_v1beta1.RoleBinding, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -5818,7 +5819,7 @@ func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) Delete(arg0 context.Co
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -5830,7 +5831,7 @@ func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) List(arg0 context.Cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1beta1.RoleBinding, error) {
+func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1beta1.RoleBinding, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -5838,7 +5839,7 @@ func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) Update(arg0 context.Co
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedRbacV1beta1InterfaceRoleBindingInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5880,15 +5881,15 @@ func (c *wrappedRbacV1beta1InterfaceRoleInterface) List(arg0 context.Context, ar
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedRbacV1beta1InterfaceRoleInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1beta1.Role, error) {
+func (c *wrappedRbacV1beta1InterfaceRoleInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_rbac_v1beta1.Role, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedRbacV1beta1InterfaceRoleInterface) Update(arg0 context.Context, arg1 *k8s_io_api_rbac_v1beta1.Role, arg2 metav1.UpdateOptions) (*k8s_io_api_rbac_v1beta1.Role, error) {
+func (c *wrappedRbacV1beta1InterfaceRoleInterface) Update(arg0 context.Context, arg1 *k8s_io_api_rbac_v1beta1.Role, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_rbac_v1beta1.Role, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedRbacV1beta1InterfaceRoleInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedRbacV1beta1InterfaceRoleInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5935,7 +5936,7 @@ func (c *wrappedSchedulingV1InterfacePriorityClassInterface) DeleteCollection(ar
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedSchedulingV1InterfacePriorityClassInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_scheduling_v1.PriorityClass, error) {
+func (c *wrappedSchedulingV1InterfacePriorityClassInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_scheduling_v1.PriorityClass, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -5943,15 +5944,15 @@ func (c *wrappedSchedulingV1InterfacePriorityClassInterface) List(arg0 context.C
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedSchedulingV1InterfacePriorityClassInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_scheduling_v1.PriorityClass, error) {
+func (c *wrappedSchedulingV1InterfacePriorityClassInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_scheduling_v1.PriorityClass, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedSchedulingV1InterfacePriorityClassInterface) Update(arg0 context.Context, arg1 *k8s_io_api_scheduling_v1.PriorityClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_scheduling_v1.PriorityClass, error) {
+func (c *wrappedSchedulingV1InterfacePriorityClassInterface) Update(arg0 context.Context, arg1 *k8s_io_api_scheduling_v1.PriorityClass, arg2 metav1.UpdateOptions) (*k8s_io_api_scheduling_v1.PriorityClass, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedSchedulingV1InterfacePriorityClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedSchedulingV1InterfacePriorityClassInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -5994,7 +5995,7 @@ func (c *wrappedSchedulingV1alpha1InterfacePriorityClassInterface) Delete(arg0 c
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedSchedulingV1alpha1InterfacePriorityClassInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedSchedulingV1alpha1InterfacePriorityClassInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -6069,7 +6070,7 @@ func (c *wrappedSchedulingV1beta1InterfacePriorityClassInterface) List(arg0 cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedSchedulingV1beta1InterfacePriorityClassInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_scheduling_v1beta1.PriorityClass, error) {
+func (c *wrappedSchedulingV1beta1InterfacePriorityClassInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_scheduling_v1beta1.PriorityClass, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -6077,7 +6078,7 @@ func (c *wrappedSchedulingV1beta1InterfacePriorityClassInterface) Update(arg0 co
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedSchedulingV1beta1InterfacePriorityClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedSchedulingV1beta1InterfacePriorityClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -6108,7 +6109,7 @@ type wrappedStorageV1InterfaceCSIDriverInterface struct {
 func wrapStorageV1InterfaceCSIDriverInterface(inner k8s_io_client_go_kubernetes_typed_storage_v1.CSIDriverInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_storage_v1.CSIDriverInterface {
 	return &wrappedStorageV1InterfaceCSIDriverInterface{inner, recorder}
 }
-func (c *wrappedStorageV1InterfaceCSIDriverInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_storage_v1.CSIDriverApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_storage_v1.CSIDriver, error) {
+func (c *wrappedStorageV1InterfaceCSIDriverInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_storage_v1.CSIDriverApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_storage_v1.CSIDriver, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -6128,11 +6129,11 @@ func (c *wrappedStorageV1InterfaceCSIDriverInterface) Get(arg0 context.Context, 
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1InterfaceCSIDriverInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_storage_v1.CSIDriverList, error) {
+func (c *wrappedStorageV1InterfaceCSIDriverInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_storage_v1.CSIDriverList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedStorageV1InterfaceCSIDriverInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1.CSIDriver, error) {
+func (c *wrappedStorageV1InterfaceCSIDriverInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1.CSIDriver, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -6140,7 +6141,7 @@ func (c *wrappedStorageV1InterfaceCSIDriverInterface) Update(arg0 context.Contex
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1InterfaceCSIDriverInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedStorageV1InterfaceCSIDriverInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -6158,11 +6159,11 @@ type wrappedStorageV1InterfaceCSINodeInterface struct {
 func wrapStorageV1InterfaceCSINodeInterface(inner k8s_io_client_go_kubernetes_typed_storage_v1.CSINodeInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_storage_v1.CSINodeInterface {
 	return &wrappedStorageV1InterfaceCSINodeInterface{inner, recorder}
 }
-func (c *wrappedStorageV1InterfaceCSINodeInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_storage_v1.CSINodeApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_storage_v1.CSINode, error) {
+func (c *wrappedStorageV1InterfaceCSINodeInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_storage_v1.CSINodeApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_storage_v1.CSINode, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1InterfaceCSINodeInterface) Create(arg0 context.Context, arg1 *k8s_io_api_storage_v1.CSINode, arg2 metav1.CreateOptions) (*k8s_io_api_storage_v1.CSINode, error) {
+func (c *wrappedStorageV1InterfaceCSINodeInterface) Create(arg0 context.Context, arg1 *k8s_io_api_storage_v1.CSINode, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_storage_v1.CSINode, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -6182,7 +6183,7 @@ func (c *wrappedStorageV1InterfaceCSINodeInterface) List(arg0 context.Context, a
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedStorageV1InterfaceCSINodeInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1.CSINode, error) {
+func (c *wrappedStorageV1InterfaceCSINodeInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1.CSINode, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -6190,7 +6191,7 @@ func (c *wrappedStorageV1InterfaceCSINodeInterface) Update(arg0 context.Context,
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1InterfaceCSINodeInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedStorageV1InterfaceCSINodeInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -6216,11 +6217,11 @@ func (c *wrappedStorageV1InterfaceCSIStorageCapacityInterface) Create(arg0 conte
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1InterfaceCSIStorageCapacityInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedStorageV1InterfaceCSIStorageCapacityInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1InterfaceCSIStorageCapacityInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedStorageV1InterfaceCSIStorageCapacityInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -6274,7 +6275,7 @@ func (c *wrappedStorageV1InterfaceStorageClassInterface) DeleteCollection(arg0 c
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1InterfaceStorageClassInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*k8s_io_api_storage_v1.StorageClass, error) {
+func (c *wrappedStorageV1InterfaceStorageClassInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_storage_v1.StorageClass, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -6290,7 +6291,7 @@ func (c *wrappedStorageV1InterfaceStorageClassInterface) Update(arg0 context.Con
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1InterfaceStorageClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedStorageV1InterfaceStorageClassInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -6336,7 +6337,7 @@ func (c *wrappedStorageV1InterfaceVolumeAttachmentInterface) List(arg0 context.C
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedStorageV1InterfaceVolumeAttachmentInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1.VolumeAttachment, error) {
+func (c *wrappedStorageV1InterfaceVolumeAttachmentInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1.VolumeAttachment, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -6348,7 +6349,7 @@ func (c *wrappedStorageV1InterfaceVolumeAttachmentInterface) UpdateStatus(arg0 c
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1InterfaceVolumeAttachmentInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedStorageV1InterfaceVolumeAttachmentInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -6379,7 +6380,7 @@ type wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface struct {
 func wrapStorageV1alpha1InterfaceCSIStorageCapacityInterface(inner k8s_io_client_go_kubernetes_typed_storage_v1alpha1.CSIStorageCapacityInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_storage_v1alpha1.CSIStorageCapacityInterface {
 	return &wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface{inner, recorder}
 }
-func (c *wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_storage_v1alpha1.CSIStorageCapacityApplyConfiguration, arg2 metav1.ApplyOptions) (*k8s_io_api_storage_v1alpha1.CSIStorageCapacity, error) {
+func (c *wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_storage_v1alpha1.CSIStorageCapacityApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_storage_v1alpha1.CSIStorageCapacity, error) {
 	defer c.recorder.Record("apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
@@ -6403,15 +6404,15 @@ func (c *wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface) List(arg0 c
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1alpha1.CSIStorageCapacity, error) {
+func (c *wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1alpha1.CSIStorageCapacity, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface) Update(arg0 context.Context, arg1 *k8s_io_api_storage_v1alpha1.CSIStorageCapacity, arg2 metav1.UpdateOptions) (*k8s_io_api_storage_v1alpha1.CSIStorageCapacity, error) {
+func (c *wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface) Update(arg0 context.Context, arg1 *k8s_io_api_storage_v1alpha1.CSIStorageCapacity, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_storage_v1alpha1.CSIStorageCapacity, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedStorageV1alpha1InterfaceCSIStorageCapacityInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -6437,7 +6438,7 @@ func (c *wrappedStorageV1alpha1InterfaceVolumeAttachmentInterface) ApplyStatus(a
 	defer c.recorder.Record("apply_status")
 	return c.inner.ApplyStatus(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1alpha1InterfaceVolumeAttachmentInterface) Create(arg0 context.Context, arg1 *k8s_io_api_storage_v1alpha1.VolumeAttachment, arg2 metav1.CreateOptions) (*k8s_io_api_storage_v1alpha1.VolumeAttachment, error) {
+func (c *wrappedStorageV1alpha1InterfaceVolumeAttachmentInterface) Create(arg0 context.Context, arg1 *k8s_io_api_storage_v1alpha1.VolumeAttachment, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_storage_v1alpha1.VolumeAttachment, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -6457,11 +6458,11 @@ func (c *wrappedStorageV1alpha1InterfaceVolumeAttachmentInterface) List(arg0 con
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedStorageV1alpha1InterfaceVolumeAttachmentInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1alpha1.VolumeAttachment, error) {
+func (c *wrappedStorageV1alpha1InterfaceVolumeAttachmentInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1alpha1.VolumeAttachment, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedStorageV1alpha1InterfaceVolumeAttachmentInterface) Update(arg0 context.Context, arg1 *k8s_io_api_storage_v1alpha1.VolumeAttachment, arg2 metav1.UpdateOptions) (*k8s_io_api_storage_v1alpha1.VolumeAttachment, error) {
+func (c *wrappedStorageV1alpha1InterfaceVolumeAttachmentInterface) Update(arg0 context.Context, arg1 *k8s_io_api_storage_v1alpha1.VolumeAttachment, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_storage_v1alpha1.VolumeAttachment, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
@@ -6512,7 +6513,7 @@ func (c *wrappedStorageV1beta1InterfaceCSIDriverInterface) Delete(arg0 context.C
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceCSIDriverInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedStorageV1beta1InterfaceCSIDriverInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -6524,7 +6525,7 @@ func (c *wrappedStorageV1beta1InterfaceCSIDriverInterface) List(arg0 context.Con
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedStorageV1beta1InterfaceCSIDriverInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1beta1.CSIDriver, error) {
+func (c *wrappedStorageV1beta1InterfaceCSIDriverInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1beta1.CSIDriver, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -6532,7 +6533,7 @@ func (c *wrappedStorageV1beta1InterfaceCSIDriverInterface) Update(arg0 context.C
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceCSIDriverInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedStorageV1beta1InterfaceCSIDriverInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -6558,11 +6559,11 @@ func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) Create(arg0 context.Con
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
+func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -6574,7 +6575,7 @@ func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) List(arg0 context.Conte
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1beta1.CSINode, error) {
+func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1beta1.CSINode, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -6582,7 +6583,7 @@ func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) Update(arg0 context.Con
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedStorageV1beta1InterfaceCSINodeInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -6620,11 +6621,11 @@ func (c *wrappedStorageV1beta1InterfaceCSIStorageCapacityInterface) Get(arg0 con
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceCSIStorageCapacityInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_storage_v1beta1.CSIStorageCapacityList, error) {
+func (c *wrappedStorageV1beta1InterfaceCSIStorageCapacityInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_storage_v1beta1.CSIStorageCapacityList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedStorageV1beta1InterfaceCSIStorageCapacityInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1beta1.CSIStorageCapacity, error) {
+func (c *wrappedStorageV1beta1InterfaceCSIStorageCapacityInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1beta1.CSIStorageCapacity, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -6632,7 +6633,7 @@ func (c *wrappedStorageV1beta1InterfaceCSIStorageCapacityInterface) Update(arg0 
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceCSIStorageCapacityInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedStorageV1beta1InterfaceCSIStorageCapacityInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -6658,11 +6659,11 @@ func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) Create(arg0 contex
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -6670,11 +6671,11 @@ func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) Get(arg0 context.C
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_storage_v1beta1.StorageClassList, error) {
+func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*k8s_io_api_storage_v1beta1.StorageClassList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1beta1.StorageClass, error) {
+func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1beta1.StorageClass, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -6682,7 +6683,7 @@ func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) Update(arg0 contex
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedStorageV1beta1InterfaceStorageClassInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -6712,7 +6713,7 @@ func (c *wrappedStorageV1beta1InterfaceVolumeAttachmentInterface) Create(arg0 co
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedStorageV1beta1InterfaceVolumeAttachmentInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
+func (c *wrappedStorageV1beta1InterfaceVolumeAttachmentInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
@@ -6728,7 +6729,7 @@ func (c *wrappedStorageV1beta1InterfaceVolumeAttachmentInterface) List(arg0 cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedStorageV1beta1InterfaceVolumeAttachmentInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1beta1.VolumeAttachment, error) {
+func (c *wrappedStorageV1beta1InterfaceVolumeAttachmentInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_storage_v1beta1.VolumeAttachment, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }

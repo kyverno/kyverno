@@ -90,7 +90,7 @@ type wrappedKyvernoV1InterfaceClusterPolicyInterface struct {
 func wrapKyvernoV1InterfaceClusterPolicyInterface(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.ClusterPolicyInterface, recorder metrics.Recorder) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.ClusterPolicyInterface {
 	return &wrappedKyvernoV1InterfaceClusterPolicyInterface{inner, recorder}
 }
-func (c *wrappedKyvernoV1InterfaceClusterPolicyInterface) Create(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, error) {
+func (c *wrappedKyvernoV1InterfaceClusterPolicyInterface) Create(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, arg2 metav1.CreateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -110,7 +110,7 @@ func (c *wrappedKyvernoV1InterfaceClusterPolicyInterface) List(arg0 context.Cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedKyvernoV1InterfaceClusterPolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, error) {
+func (c *wrappedKyvernoV1InterfaceClusterPolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -152,7 +152,7 @@ func (c *wrappedKyvernoV1InterfaceGenerateRequestInterface) DeleteCollection(arg
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1InterfaceGenerateRequestInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, error) {
+func (c *wrappedKyvernoV1InterfaceGenerateRequestInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
@@ -160,11 +160,11 @@ func (c *wrappedKyvernoV1InterfaceGenerateRequestInterface) List(arg0 context.Co
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedKyvernoV1InterfaceGenerateRequestInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, error) {
+func (c *wrappedKyvernoV1InterfaceGenerateRequestInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedKyvernoV1InterfaceGenerateRequestInterface) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, arg2 metav1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, error) {
+func (c *wrappedKyvernoV1InterfaceGenerateRequestInterface) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
@@ -194,11 +194,11 @@ func (c *wrappedKyvernoV1InterfacePolicyInterface) Create(arg0 context.Context, 
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1InterfacePolicyInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedKyvernoV1InterfacePolicyInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1InterfacePolicyInterface) DeleteCollection(arg0 context.Context, arg1 metav1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedKyvernoV1InterfacePolicyInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -210,7 +210,7 @@ func (c *wrappedKyvernoV1InterfacePolicyInterface) List(arg0 context.Context, ar
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedKyvernoV1InterfacePolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1.Policy, error) {
+func (c *wrappedKyvernoV1InterfacePolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1.Policy, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -218,11 +218,11 @@ func (c *wrappedKyvernoV1InterfacePolicyInterface) Update(arg0 context.Context, 
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1InterfacePolicyInterface) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.Policy, arg2 metav1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.Policy, error) {
+func (c *wrappedKyvernoV1InterfacePolicyInterface) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.Policy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.Policy, error) {
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1InterfacePolicyInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedKyvernoV1InterfacePolicyInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -261,7 +261,7 @@ func (c *wrappedKyvernoV1alpha1InterfaceCleanupPolicyInterface) Delete(arg0 cont
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha1InterfaceCleanupPolicyInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedKyvernoV1alpha1InterfaceCleanupPolicyInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -273,7 +273,7 @@ func (c *wrappedKyvernoV1alpha1InterfaceCleanupPolicyInterface) List(arg0 contex
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedKyvernoV1alpha1InterfaceCleanupPolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.CleanupPolicy, error) {
+func (c *wrappedKyvernoV1alpha1InterfaceCleanupPolicyInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.CleanupPolicy, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -285,7 +285,7 @@ func (c *wrappedKyvernoV1alpha1InterfaceCleanupPolicyInterface) UpdateStatus(arg
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha1InterfaceCleanupPolicyInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedKyvernoV1alpha1InterfaceCleanupPolicyInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -307,7 +307,7 @@ func (c *wrappedKyvernoV1alpha1InterfaceClusterCleanupPolicyInterface) Create(ar
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha1InterfaceClusterCleanupPolicyInterface) Delete(arg0 context.Context, arg1 string, arg2 metav1.DeleteOptions) error {
+func (c *wrappedKyvernoV1alpha1InterfaceClusterCleanupPolicyInterface) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
@@ -335,7 +335,7 @@ func (c *wrappedKyvernoV1alpha1InterfaceClusterCleanupPolicyInterface) UpdateSta
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha1InterfaceClusterCleanupPolicyInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedKyvernoV1alpha1InterfaceClusterCleanupPolicyInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -386,7 +386,7 @@ func (c *wrappedKyvernoV1alpha2InterfaceAdmissionReportInterface) List(arg0 cont
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedKyvernoV1alpha2InterfaceAdmissionReportInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.AdmissionReport, error) {
+func (c *wrappedKyvernoV1alpha2InterfaceAdmissionReportInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.AdmissionReport, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
@@ -394,7 +394,7 @@ func (c *wrappedKyvernoV1alpha2InterfaceAdmissionReportInterface) Update(arg0 co
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha2InterfaceAdmissionReportInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedKyvernoV1alpha2InterfaceAdmissionReportInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -424,11 +424,11 @@ func (c *wrappedKyvernoV1alpha2InterfaceBackgroundScanReportInterface) DeleteCol
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha2InterfaceBackgroundScanReportInterface) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReport, error) {
+func (c *wrappedKyvernoV1alpha2InterfaceBackgroundScanReportInterface) Get(arg0 context.Context, arg1 string, arg2 metav1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReport, error) {
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha2InterfaceBackgroundScanReportInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReportList, error) {
+func (c *wrappedKyvernoV1alpha2InterfaceBackgroundScanReportInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReportList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
@@ -436,11 +436,11 @@ func (c *wrappedKyvernoV1alpha2InterfaceBackgroundScanReportInterface) Patch(arg
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedKyvernoV1alpha2InterfaceBackgroundScanReportInterface) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReport, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReport, error) {
+func (c *wrappedKyvernoV1alpha2InterfaceBackgroundScanReportInterface) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReport, arg2 metav1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReport, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha2InterfaceBackgroundScanReportInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedKyvernoV1alpha2InterfaceBackgroundScanReportInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -458,7 +458,7 @@ type wrappedKyvernoV1alpha2InterfaceClusterAdmissionReportInterface struct {
 func wrapKyvernoV1alpha2InterfaceClusterAdmissionReportInterface(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha2.ClusterAdmissionReportInterface, recorder metrics.Recorder) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha2.ClusterAdmissionReportInterface {
 	return &wrappedKyvernoV1alpha2InterfaceClusterAdmissionReportInterface{inner, recorder}
 }
-func (c *wrappedKyvernoV1alpha2InterfaceClusterAdmissionReportInterface) Create(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterAdmissionReport, arg2 metav1.CreateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterAdmissionReport, error) {
+func (c *wrappedKyvernoV1alpha2InterfaceClusterAdmissionReportInterface) Create(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterAdmissionReport, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterAdmissionReport, error) {
 	defer c.recorder.Record("create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
@@ -466,7 +466,7 @@ func (c *wrappedKyvernoV1alpha2InterfaceClusterAdmissionReportInterface) Delete(
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha2InterfaceClusterAdmissionReportInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
+func (c *wrappedKyvernoV1alpha2InterfaceClusterAdmissionReportInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -520,7 +520,7 @@ func (c *wrappedKyvernoV1alpha2InterfaceClusterBackgroundScanReportInterface) Ge
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha2InterfaceClusterBackgroundScanReportInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterBackgroundScanReportList, error) {
+func (c *wrappedKyvernoV1alpha2InterfaceClusterBackgroundScanReportInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterBackgroundScanReportList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
@@ -532,7 +532,7 @@ func (c *wrappedKyvernoV1alpha2InterfaceClusterBackgroundScanReportInterface) Up
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1alpha2InterfaceClusterBackgroundScanReportInterface) Watch(arg0 context.Context, arg1 metav1.ListOptions) (watch.Interface, error) {
+func (c *wrappedKyvernoV1alpha2InterfaceClusterBackgroundScanReportInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -595,7 +595,7 @@ func (c *wrappedKyvernoV1beta1InterfaceUpdateRequestInterface) UpdateStatus(arg0
 	defer c.recorder.Record("update_status")
 	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
-func (c *wrappedKyvernoV1beta1InterfaceUpdateRequestInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+func (c *wrappedKyvernoV1beta1InterfaceUpdateRequestInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -642,7 +642,7 @@ func (c *wrappedWgpolicyk8sV1alpha2InterfaceClusterPolicyReportInterface) Get(ar
 	defer c.recorder.Record("get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
-func (c *wrappedWgpolicyk8sV1alpha2InterfaceClusterPolicyReportInterface) List(arg0 context.Context, arg1 metav1.ListOptions) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.ClusterPolicyReportList, error) {
+func (c *wrappedWgpolicyk8sV1alpha2InterfaceClusterPolicyReportInterface) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.ClusterPolicyReportList, error) {
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
@@ -654,7 +654,7 @@ func (c *wrappedWgpolicyk8sV1alpha2InterfaceClusterPolicyReportInterface) Update
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
-func (c *wrappedWgpolicyk8sV1alpha2InterfaceClusterPolicyReportInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (watch.Interface, error) {
+func (c *wrappedWgpolicyk8sV1alpha2InterfaceClusterPolicyReportInterface) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.Record("watch")
 	return c.inner.Watch(arg0, arg1)
 }
@@ -680,7 +680,7 @@ func (c *wrappedWgpolicyk8sV1alpha2InterfacePolicyReportInterface) Delete(arg0 c
 	defer c.recorder.Record("delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
-func (c *wrappedWgpolicyk8sV1alpha2InterfacePolicyReportInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+func (c *wrappedWgpolicyk8sV1alpha2InterfacePolicyReportInterface) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 metav1.ListOptions) error {
 	defer c.recorder.Record("delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
@@ -692,11 +692,11 @@ func (c *wrappedWgpolicyk8sV1alpha2InterfacePolicyReportInterface) List(arg0 con
 	defer c.recorder.Record("list")
 	return c.inner.List(arg0, arg1)
 }
-func (c *wrappedWgpolicyk8sV1alpha2InterfacePolicyReportInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 metav1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReport, error) {
+func (c *wrappedWgpolicyk8sV1alpha2InterfacePolicyReportInterface) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReport, error) {
 	defer c.recorder.Record("patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
-func (c *wrappedWgpolicyk8sV1alpha2InterfacePolicyReportInterface) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReport, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReport, error) {
+func (c *wrappedWgpolicyk8sV1alpha2InterfacePolicyReportInterface) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReport, arg2 metav1.UpdateOptions) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReport, error) {
 	defer c.recorder.Record("update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
