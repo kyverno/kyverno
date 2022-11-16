@@ -14,8 +14,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
-var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+var (
+	matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+	matchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
+)
 
 func lookupImports(in reflect.Type) map[string]string {
 	imports := map[string]string{}
