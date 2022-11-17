@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -15,9 +16,9 @@ func (h AdmissionHandler) WithMetrics(metricsConfig *metrics.MetricsConfig) Admi
 }
 
 func withMetrics(metricsConfig *metrics.MetricsConfig, inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		defer admissionReviewDuration.Process(metricsConfig, request, int64(time.Since(startTime)))
 		admissionRequests.Process(metricsConfig, request)
-		return inner(logger, request, startTime)
+		return inner(ctx, logger, request, startTime)
 	}
 }

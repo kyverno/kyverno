@@ -39,16 +39,16 @@ type Server interface {
 
 type PolicyHandlers interface {
 	// Mutate performs the mutation of policy resources
-	Mutate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	Mutate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 	// Validate performs the validation check on policy resources
-	Validate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 }
 
 type ResourceHandlers interface {
 	// Mutate performs the mutation of kube resources
-	Mutate(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
+	Mutate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
 	// Validate performs the validation check on kube resources
-	Validate(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
+	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
 }
 
 type server struct {
@@ -199,14 +199,14 @@ func registerWebhookHandlers(
 	basePath string,
 	configuration config.Configuration,
 	metricsConfig *metrics.MetricsConfig,
-	handlerFunc func(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
+	handlerFunc func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
 	debugModeOpts DebugModeOptions,
 ) {
 	mux.HandlerFunc(
 		"POST",
 		basePath,
-		handlers.AdmissionHandler(func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-			return handlerFunc(logger, request, "all", startTime)
+		handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(ctx, logger, request, "all", startTime)
 		}).
 			WithFilter(configuration).
 			WithProtection(toggle.ProtectManagedResources.Enabled()).
@@ -217,8 +217,8 @@ func registerWebhookHandlers(
 	mux.HandlerFunc(
 		"POST",
 		basePath+"/fail",
-		handlers.AdmissionHandler(func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-			return handlerFunc(logger, request, "fail", startTime)
+		handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(ctx, logger, request, "fail", startTime)
 		}).
 			WithFilter(configuration).
 			WithProtection(toggle.ProtectManagedResources.Enabled()).
@@ -229,8 +229,8 @@ func registerWebhookHandlers(
 	mux.HandlerFunc(
 		"POST",
 		basePath+"/ignore",
-		handlers.AdmissionHandler(func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-			return handlerFunc(logger, request, "ignore", startTime)
+		handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(ctx, logger, request, "ignore", startTime)
 		}).
 			WithFilter(configuration).
 			WithProtection(toggle.ProtectManagedResources.Enabled()).

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -13,10 +14,10 @@ func (h AdmissionHandler) WithFilter(configuration config.Configuration) Admissi
 }
 
 func withFilter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			return nil
 		}
-		return inner(logger, request, startTime)
+		return inner(ctx, logger, request, startTime)
 	}
 }
