@@ -61,9 +61,7 @@ KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
 KUTTL_VERSION                      := v0.14.0
-GO_IMPORTS                         := $(TOOLS_DIR)/goimports
-GO_IMPORTS_VERSION                 := latest
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL) $(GO_IMPORTS)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -125,10 +123,6 @@ $(KO):
 $(KUTTL):
 	@echo Install kuttl... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/kudobuilder/kuttl/cmd/kubectl-kuttl@$(KUTTL_VERSION)
-
-$(GO_IMPORTS):
-	@echo Install goimports... >&2
-	@GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@$(GO_IMPORTS_VERSION)
 
 .PHONY: install-tools
 install-tools: $(TOOLS) ## Install tools
@@ -346,11 +340,11 @@ codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) --versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
 
 .PHONY: codegen-client-wrappers
-codegen-client-wrappers: $(GO_IMPORTS) ## Generate client wrappers
+codegen-client-wrappers: $(GOIMPORTS) ## Generate client wrappers
 	@echo Generate client wrappers... >&2
 	@go run ./hack/main.go
 	@go fmt ./pkg/clients/wrappers/...
-	@$(GO_IMPORTS) -w ./pkg/clients/wrappers
+	@$(GOIMPORTS) -w ./pkg/clients/wrappers
 
 .PHONY: codegen-client-all
 codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
