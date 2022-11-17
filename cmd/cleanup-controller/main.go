@@ -12,9 +12,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno"
+	kubeclient "github.com/kyverno/kyverno/pkg/clients/wrappers/kube"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -59,7 +58,7 @@ func parseFlags() error {
 	return nil
 }
 
-func createKubeClients(logger logr.Logger) (*rest.Config, *kubernetes.Clientset, error) {
+func createKubeClients(logger logr.Logger) (*rest.Config, kubernetes.Interface, error) {
 	logger = logger.WithName("kube-clients")
 	logger.Info("create kube clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
@@ -73,10 +72,10 @@ func createKubeClients(logger logr.Logger) (*rest.Config, *kubernetes.Clientset,
 	return clientConfig, kubeClient, nil
 }
 
-func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, kubeClient *kubernetes.Clientset, metricsConfig *metrics.MetricsConfig) (versioned.Interface, dclient.Interface, error) {
+func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, metricsConfig *metrics.MetricsConfig) (kubernetes.Interface, dclient.Interface, error) {
 	logger = logger.WithName("instrumented-clients")
 	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	kubeClient, err := kubeclient.NewForConfig(clientConfig, metricsConfig, metrics.KubeClient)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -84,7 +83,7 @@ func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientCo
 	if err != nil {
 		return nil, nil, err
 	}
-	return kyvernoClient, dynamicClient, nil
+	return kubeClient, dynamicClient, nil
 }
 
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
@@ -148,15 +147,15 @@ func main() {
 	}
 	logger := logging.WithName("setup")
 	// create client config and kube clients
-	clientConfig, kubeClient, err := createKubeClients(logger)
+	clientConfig, rawClient, err := createKubeClients(logger)
 	if err != nil {
 		os.Exit(1)
 	}
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	// setup signals
 	signalCtx, signalCancel := setupSignals()
 	defer signalCancel()
-	metricsConfig, metricsShutdown, err := setupMetrics(logger, kubeClient)
+	// setup metrics
+	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
 	if err != nil {
 		logger.Error(err, "failed to setup metrics")
 		os.Exit(1)
@@ -164,11 +163,13 @@ func main() {
 	if metricsShutdown != nil {
 		defer metricsShutdown()
 	}
-	_, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, kubeClient, metricsConfig)
+	// create instrumented clients
+	kubeClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, metricsConfig)
 	if err != nil {
 		logger.Error(err, "failed to create instrument clients")
 		os.Exit(1)
 	}
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	policyHandlers := NewHandlers(
 		dynamicClient,
 	)
