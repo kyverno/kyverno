@@ -13,7 +13,10 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+type (
+	AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	HttpHandler      func(http.ResponseWriter, *http.Request)
+)
 
 func (h AdmissionHandler) WithAdmission(logger logr.Logger) http.HandlerFunc {
 	return withAdmission(logger, h)
