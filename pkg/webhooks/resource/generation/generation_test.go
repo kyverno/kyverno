@@ -545,12 +545,12 @@ func Test_handleUpdateGenerateTargetResource(t *testing.T) {
 			assert.NilError(t, err)
 
 			clientObjects := []clientObject{
-				clientObject{
+				{
 					object:       triggerUnstructured,
 					resource:     tt.triggerResource,
 					resourceList: tt.targetList,
 				},
-				clientObject{
+				{
 					object:       sourceResourceUnstructured,
 					resource:     tt.sourceResource,
 					resourceList: tt.sourceList,
