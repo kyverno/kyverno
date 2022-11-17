@@ -168,6 +168,7 @@ func startProfiling(logger logr.Logger) {
 			}
 			if err := s.ListenAndServe(); err != nil {
 				logger.Error(err, "failed to enable profiling", "address", addr)
+				os.Exit(1)
 			}
 		}()
 	}
