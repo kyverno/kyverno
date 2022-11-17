@@ -14,41 +14,42 @@ func Test_ImageVerification(t *testing.T) {
 		name    string
 		subject ImageVerification
 		errors  func(*ImageVerification) field.ErrorList
-	}{{
-		name: "only key",
-		subject: ImageVerification{
-			ImageReferences: []string{"bla"},
-			Key:             "bla",
+	}{
+		{
+			name: "only key",
+			subject: ImageVerification{
+				ImageReferences: []string{"bla"},
+				Key:             "bla",
+			},
+		}, {
+			name: "only keyless",
+			subject: ImageVerification{
+				ImageReferences: []string{"bla"},
+				Issuer:          "bla",
+				Subject:         "*",
+			},
+			errors: func(i *ImageVerification) field.ErrorList {
+				return field.ErrorList{
+					field.Invalid(
+						path.Child("attestors").Index(0).Child("entries").Index(0).Child("keyless"),
+						i.Attestors[0].Entries[0].Keyless,
+						"Either Rekor URL or roots are required"),
+				}
+			},
+		}, {
+			name: "key roots, issuer, and subject",
+			subject: ImageVerification{
+				ImageReferences: []string{"bla"},
+				Issuer:          "bla",
+				Subject:         "bla",
+				Roots:           "bla",
+			},
+		}, {
+			name: "empty",
+			subject: ImageVerification{
+				ImageReferences: []string{"bla"},
+			},
 		},
-	}, {
-		name: "only keyless",
-		subject: ImageVerification{
-			ImageReferences: []string{"bla"},
-			Issuer:          "bla",
-			Subject:         "*",
-		},
-		errors: func(i *ImageVerification) field.ErrorList {
-			return field.ErrorList{
-				field.Invalid(
-					path.Child("attestors").Index(0).Child("entries").Index(0).Child("keyless"),
-					i.Attestors[0].Entries[0].Keyless,
-					"Either Rekor URL or roots are required"),
-			}
-		},
-	}, {
-		name: "key roots, issuer, and subject",
-		subject: ImageVerification{
-			ImageReferences: []string{"bla"},
-			Issuer:          "bla",
-			Subject:         "bla",
-			Roots:           "bla",
-		},
-	}, {
-		name: "empty",
-		subject: ImageVerification{
-			ImageReferences: []string{"bla"},
-		},
-	},
 		{
 			name: "no image",
 			subject: ImageVerification{
@@ -178,6 +179,28 @@ func Test_ImageVerification(t *testing.T) {
 				return field.ErrorList{
 					field.Invalid(path, i, "An attestor is required"),
 				}
+			},
+		},
+		{
+			name: "multiple entries",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestors: []AttestorSet{
+					{
+						Entries: []Attestor{
+							{
+								Keys: &StaticKeyAttestor{
+									PublicKeys: "key1",
+								},
+							},
+							{
+								Keys: &StaticKeyAttestor{
+									PublicKeys: "key2",
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
