@@ -144,9 +144,16 @@ spec:
       Task:
         - path: /spec/steps/*/image
     verifyImages:
-    - image: "ghcr.io/*"
-      subject: "https://github.com/*"
-      issuer: "https://token.actions.githubusercontent.com"
+    - imageReferences:
+      - "ghcr.io/*"
+      attestors:
+      - count: 1
+        entries:
+        - keyless:
+            issuer: "https://token.actions.githubusercontent.com"
+            subject: "https://github.com/*"
+            rekor:
+              url: https://rekor.sigstore.dev
       required: false
 `)
 
