@@ -2037,3 +2037,60 @@ func testResourceList() []*metav1.APIResourceList {
 		},
 	}
 }
+
+func Test_Any_wildcard_policy(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "verify-image"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"background": false,
+			"rules": [
+				{
+					"name": "verify-image",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"*"
+									]
+								}
+							}
+						]
+					},
+					"verifyImages": [
+						{
+							"imageReferences": [
+								"ghcr.io/kyverno/test-verify-image:*"
+							],
+							"mutateDigest": true,
+							"attestors": [
+								{
+									"entries": [
+										{
+											"keys": {
+												"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----                \n"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	}`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
+	assert.Assert(t, err != nil)
+}
