@@ -1037,51 +1037,6 @@ func Test_Validate_ApiCall(t *testing.T) {
 	}
 }
 
-func Test_validate_Wildcard(t *testing.T) {
-	testCases := []struct {
-		resource       kyverno.ContextEntry
-		expectedResult interface{}
-	}{
-		{
-			resource: kyverno.ContextEntry{
-				APICall: &kyverno.APICall{
-					URLPath:  "/apis/networking.k8s.io/v1/namespaces/{{request.namespace}}/networkpolicies",
-					JMESPath: "",
-				},
-			},
-			expectedResult: nil,
-		},
-		{
-			resource: kyverno.ContextEntry{
-				APICall: &kyverno.APICall{
-					URLPath:  "/apis/networking.k8s.io/v1/namespaces/{{request.namespace}}/networkpolicies",
-					JMESPath: "items[",
-				},
-			},
-			expectedResult: "failed to parse JMESPath items[: SyntaxError: Expected tStar, received: tEOF",
-		},
-		{
-			resource: kyverno.ContextEntry{
-				APICall: &kyverno.APICall{
-					URLPath:  "/apis/networking.k8s.io/v1/namespaces/{{request.namespace}}/networkpolicies",
-					JMESPath: "items[{{request.namespace}}",
-				},
-			},
-			expectedResult: nil,
-		},
-	}
-
-	for _, testCase := range testCases {
-		err := validateAPICall(testCase.resource)
-
-		if err == nil {
-			assert.Equal(t, err, testCase.expectedResult)
-		} else {
-			assert.Equal(t, err.Error(), testCase.expectedResult)
-		}
-	}
-}
-
 func Test_Wildcards_Kind(t *testing.T) {
 	rawPolicy := []byte(`
 	{
