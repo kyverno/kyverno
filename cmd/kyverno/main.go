@@ -21,7 +21,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
+	kubeclient "github.com/kyverno/kyverno/pkg/clients/wrappers/kube"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
@@ -53,8 +54,6 @@ import (
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	"go.uber.org/automaxprocs/maxprocs" // #nosec
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -174,41 +173,45 @@ func startProfiling(logger logr.Logger) {
 	}
 }
 
-func createKubeClients(logger logr.Logger) (*rest.Config, *kubernetes.Clientset, metadataclient.Interface, kubernetes.Interface, error) {
+func createKubeClients(logger logr.Logger) (*rest.Config, kubernetes.Interface, metadataclient.Interface, error) {
 	logger = logger.WithName("kube-clients")
 	logger.Info("create kube clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	metadataClient, err := metadataclient.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return clientConfig, kubeClient, metadataClient, nil
+}
+
+func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, metricsConfig *metrics.MetricsConfig) (kubernetes.Interface, kubernetes.Interface, versioned.Interface, dclient.Interface, error) {
+	logger = logger.WithName("instrumented-clients")
+	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	kubeClient, err := kubeclient.NewForConfig(clientConfig, metricsConfig, metrics.KubeClient)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
-	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
+	kubeClientLeaderElection, err := kubeclient.NewForConfig(clientConfig, metricsConfig, metrics.KubeClient)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	return clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, nil
-}
-
-func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, kubeClient *kubernetes.Clientset, metricsConfig *metrics.MetricsConfig) (versioned.Interface, dclient.Interface, error) {
-	logger = logger.WithName("instrumented-clients")
-	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig, metrics.KyvernoClient)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return kyvernoClient, dynamicClient, nil
+	return kubeClient, kubeClientLeaderElection, kyvernoClient, dynamicClient, nil
 }
 
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
@@ -476,22 +479,10 @@ func createrLeaderControllers(
 	)
 	webhookController := webhookcontroller.NewController(
 		dynamicClient.Discovery(),
-		metrics.ObjectClient[*corev1.Secret](
-			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
-			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-		),
-		metrics.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration](
-			metrics.ClusteredClientQueryRecorder(metricsConfig, "MutatingWebhookConfiguration", metrics.KubeClient),
-			kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
-		),
-		metrics.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration](
-			metrics.ClusteredClientQueryRecorder(metricsConfig, "ValidatingWebhookConfiguration", metrics.KubeClient),
-			kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
-		),
-		metrics.ObjectClient[*coordinationv1.Lease](
-			metrics.ClusteredClientQueryRecorder(metricsConfig, "Lease", metrics.KubeClient),
-			kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
-		),
+		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+		kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
 		kyvernoClient,
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
@@ -556,19 +547,28 @@ func main() {
 	// start profiling
 	startProfiling(logger)
 	// create client config and kube clients
-	clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, err := createKubeClients(logger)
+	clientConfig, rawClient, metadataClient, err := createKubeClients(logger)
 	if err != nil {
 		logger.Error(err, "failed to create kubernetes clients")
 		os.Exit(1)
 	}
 	// setup metrics
-	metricsConfig, metricsShutdown, err := setupMetrics(logger, kubeClient)
+	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
 	if err != nil {
 		logger.Error(err, "failed to setup metrics")
 		os.Exit(1)
 	}
 	if metricsShutdown != nil {
 		defer metricsShutdown()
+	}
+	// setup signals
+	signalCtx, signalCancel := setupSignals()
+	defer signalCancel()
+	// create instrumented clients
+	kubeClient, kubeClientLeaderElection, kyvernoClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, metricsConfig)
+	if err != nil {
+		logger.Error(err, "failed to create instrument clients")
+		os.Exit(1)
 	}
 	// setup tracing
 	if tracingShutdown, err := setupTracing(logger, kubeClient); err != nil {
@@ -584,15 +584,6 @@ func main() {
 	}
 	// setup cosign
 	setupCosign(logger)
-	// setup signals
-	signalCtx, signalCancel := setupSignals()
-	defer signalCancel()
-	// create instrumented clients
-	kyvernoClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, kubeClient, metricsConfig)
-	if err != nil {
-		logger.Error(err, "failed to create instrument clients")
-		os.Exit(1)
-	}
 	// check we can run
 	if err := sanityChecks(dynamicClient); err != nil {
 		logger.Error(err, "sanity checks failed")
@@ -615,10 +606,7 @@ func main() {
 		os.Exit(1)
 	}
 	certRenewer := tls.NewCertRenewer(
-		metrics.ObjectClient[*corev1.Secret](
-			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
-			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-		),
+		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
@@ -788,18 +776,9 @@ func main() {
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
-		metrics.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration](
-			metrics.ClusteredClientQueryRecorder(metricsConfig, "MutatingWebhookConfiguration", metrics.KubeClient),
-			kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
-		),
-		metrics.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration](
-			metrics.ClusteredClientQueryRecorder(metricsConfig, "ValidatingWebhookConfiguration", metrics.KubeClient),
-			kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
-		),
-		metrics.ObjectClient[*coordinationv1.Lease](
-			metrics.ClusteredClientQueryRecorder(metricsConfig, "Lease", metrics.KubeClient),
-			kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
-		),
+		kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
 		runtime,
 	)
 	// start informers and wait for cache sync
