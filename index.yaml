@@ -3172,6 +3172,52 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.8.2-rc.1
+    created: "2022-11-17T15:36:29.563852767Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 206a34540e21a15de781bcad24fd5e6070e17c70672dbb2458fb10abc7308965
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-2.6.2-rc.1.tgz
+    version: 2.6.2-rc.1
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Add possibility to manually set kyvernoVersion and avoid autodetection
+        - kind: added
+          description: Support for artifacthub.io/changes annotation
+        - kind: fixed
+          description: Fix Kyverno version check when image tag contains registry port number
+        - kind: fixed
+          description: Ensure preconditions are present with default values
+        - kind: added
+          description: Support for failurePolicy setting in kyverno-policies helm chart
+        - kind: added
+          description: Add possibility to set validationFailureAction by Policy
+        - kind: added
+          description: Added ability to get additional policies from restricted
+        - kind: fixed
+          description: Applied fix in preconditions for background mode
+        - kind: added
+          description: Added case insensitivity guarantees to disallow-capabilities-strict
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.8.1
     created: "2022-10-25T05:45:08.15326588Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -4906,4 +4952,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-11-17T15:24:41.028815692Z"
+generated: "2022-11-17T15:36:29.562162966Z"
