@@ -77,7 +77,7 @@ func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc 
 			attribute.String("operation", string(admissionReview.Request.Operation)),
 			attribute.String("uid", string(admissionReview.Request.UID)),
 		}
-		span := tracing.StartSpan(ctx, "admission_webhook_operations", string(admissionReview.Request.Operation), attributes)
+		_, span := tracing.StartSpan(ctx, "admission_webhook_operations", string(admissionReview.Request.Operation), attributes)
 		defer span.End()
 
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
