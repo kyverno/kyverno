@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"os"
+	"strconv"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apply"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/oci"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/version"
 	"github.com/spf13/cobra"
@@ -14,10 +16,13 @@ import (
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const EnableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
+
 // CLI ...
 func main() {
 	cli := &cobra.Command{
 		Use:   "kyverno",
+		Long:  `To enable experimental commands, KYVERNO_EXPERIMENTAL should be configured with true or 1.`,
 		Short: "Kubernetes Native Policy Management",
 	}
 
@@ -30,11 +35,22 @@ func main() {
 		jp.Command(),
 	}
 
+	if enableExperimental() {
+		commands = append(commands, oci.Command())
+	}
+
 	cli.AddCommand(commands...)
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)
 	}
+}
+
+func enableExperimental() bool {
+	if b, err := strconv.ParseBool(os.Getenv(EnableExperimentalEnv)); err == nil {
+		return b
+	}
+	return false
 }
 
 func configurelog(cli *cobra.Command) {

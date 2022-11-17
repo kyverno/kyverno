@@ -12,9 +12,7 @@ import (
 	"reflect"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -28,8 +26,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	ut "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/policymutation"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -195,41 +191,6 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 	return policies, errors
 }
 
-// MutatePolicy - applies mutation to a policy
-func MutatePolicy(policy kyvernov1.PolicyInterface, logger logr.Logger) (kyvernov1.PolicyInterface, error) {
-	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
-	if len(patches) == 0 {
-		return policy, nil
-	}
-	patch, err := jsonpatch.DecodePatch(patches)
-	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.GetName()), err)
-	}
-	policyBytes, err := json.Marshal(policy)
-	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.GetName()), err)
-	}
-	modifiedPolicy, err := patch.Apply(policyBytes)
-	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.GetName()), err)
-	}
-	if policy.IsNamespaced() {
-		var p kyvernov1.Policy
-		err = json.Unmarshal(modifiedPolicy, &p)
-		if err != nil {
-			return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.GetName()), err)
-		}
-		return &p, nil
-	} else {
-		var p kyvernov1.ClusterPolicy
-		err = json.Unmarshal(modifiedPolicy, &p)
-		if err != nil {
-			return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.GetName()), err)
-		}
-		return &p, nil
-	}
-}
-
 // IsInputFromPipe - check if input is passed using pipe
 func IsInputFromPipe() bool {
 	fileInfo, _ := os.Stdin.Stat()
@@ -392,26 +353,8 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, nil
 }
 
-// MutatePolicies - function to apply mutation on policies
-func MutatePolicies(policies []kyvernov1.PolicyInterface) ([]kyvernov1.PolicyInterface, error) {
-	newPolicies := make([]kyvernov1.PolicyInterface, 0)
-	logger := log.Log.WithName("apply")
-
-	for _, policy := range policies {
-		p, err := MutatePolicy(policy, logger)
-		if err != nil {
-			if !sanitizederror.IsErrorSanitized(err) {
-				return nil, sanitizederror.NewWithError("failed to mutate policy.", err)
-			}
-			return nil, err
-		}
-		newPolicies = append(newPolicies, p)
-	}
-	return newPolicies, nil
-}
-
 // ApplyPolicyOnResource - function to apply policy on resource
-func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]*response.EngineResponse, policyreport.Info, error) {
+func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]*response.EngineResponse, Info, error) {
 	var engineResponses []*response.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operationIsDelete := false
@@ -458,7 +401,7 @@ OuterLoop:
 		resourceNamespace := c.Resource.GetNamespace()
 		namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
+			return engineResponses, Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
 		}
 	}
 
@@ -520,17 +463,7 @@ OuterLoop:
 	err = processMutateEngineResponse(c, mutateResponse, resPath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
-			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
-		}
-	}
-
-	if c.Resource.GetKind() == "Pod" && len(c.Resource.GetOwnerReferences()) > 0 {
-		if c.Policy.HasAutoGenAnnotation() {
-			annotations := c.Policy.GetAnnotations()
-			if _, ok := annotations[kyvernov1.PodControllersAnnotation]; ok {
-				delete(annotations, kyvernov1.PodControllersAnnotation)
-				c.Policy.SetAnnotations(annotations)
-			}
+			return engineResponses, Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
 		}
 	}
 
@@ -543,7 +476,7 @@ OuterLoop:
 
 	policyContext.NewResource = mutateResponse.PatchedResource
 
-	var info policyreport.Info
+	var info Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
 		validateResponse = engine.Validate(policyContext)
@@ -740,7 +673,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
-func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
+func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) Info {
 	var violatedRules []kyvernov1.ViolatedRule
 
 	printCount := 0
@@ -816,11 +749,11 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 	return buildPVInfo(validateResponse, violatedRules)
 }
 
-func buildPVInfo(er *response.EngineResponse, violatedRules []kyvernov1.ViolatedRule) policyreport.Info {
-	info := policyreport.Info{
+func buildPVInfo(er *response.EngineResponse, violatedRules []kyvernov1.ViolatedRule) Info {
+	info := Info{
 		PolicyName: er.PolicyResponse.Policy.Name,
 		Namespace:  er.PatchedResource.GetNamespace(),
-		Results: []policyreport.EngineResponseResult{
+		Results: []EngineResponseResult{
 			{
 				Resource: er.GetResourceSpec(),
 				Rules:    violatedRules,

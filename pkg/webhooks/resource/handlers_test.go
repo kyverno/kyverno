@@ -290,7 +290,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0)
 
-	validPolicy.Spec.ValidationFailureAction = kyverno.Enforce
+	validPolicy.Spec.ValidationFailureAction = "Enforce"
 	policyCache.Set(key, &validPolicy)
 
 	response = handlers.Validate(logger, request, "", time.Now())
@@ -323,7 +323,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	}
 
 	keyInvalid := makeKey(&invalidPolicy)
-	invalidPolicy.Spec.ValidationFailureAction = kyverno.Enforce
+	invalidPolicy.Spec.ValidationFailureAction = "Enforce"
 	policyCache.Set(keyInvalid, &invalidPolicy)
 
 	response := handlers.Validate(logger, request, "", time.Now())
@@ -364,7 +364,7 @@ func Test_ImageVerify(t *testing.T) {
 		},
 	}
 
-	policy.Spec.ValidationFailureAction = kyverno.Enforce
+	policy.Spec.ValidationFailureAction = "Enforce"
 	policyCache.Set(key, &policy)
 
 	response := handlers.Mutate(logger, request, "", time.Now())

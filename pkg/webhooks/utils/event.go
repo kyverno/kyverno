@@ -18,6 +18,10 @@ func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool) []
 	//     - report skipped event on resource
 
 	for _, er := range engineResponses {
+		if er.IsEmpty() {
+			continue
+		}
+
 		if !er.IsSuccessful() {
 			for i, ruleResp := range er.PolicyResponse.Rules {
 				if ruleResp.Status == response.RuleStatusFail || ruleResp.Status == response.RuleStatusError {

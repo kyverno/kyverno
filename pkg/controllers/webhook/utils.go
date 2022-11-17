@@ -1,10 +1,14 @@
 package webhook
 
 import (
+	"strings"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"golang.org/x/exp/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -13,40 +17,74 @@ import (
 type webhook struct {
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
-	groups            sets.String
-	versions          sets.String
-	resources         sets.String
+	rules             map[schema.GroupVersionResource]struct{}
 }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType) *webhook {
 	return &webhook{
 		maxWebhookTimeout: timeout,
 		failurePolicy:     failurePolicy,
-		groups:            sets.NewString(),
-		versions:          sets.NewString(),
-		resources:         sets.NewString(),
+		rules:             map[schema.GroupVersionResource]struct{}{},
 	}
 }
 
-func (wh *webhook) buildRuleWithOperations(ops ...admissionregistrationv1.OperationType) admissionregistrationv1.RuleWithOperations {
-	return admissionregistrationv1.RuleWithOperations{
-		Rule: admissionregistrationv1.Rule{
-			APIGroups:   wh.groups.List(),
-			APIVersions: wh.versions.List(),
-			Resources:   wh.resources.List(),
-		},
-		Operations: ops,
+func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
+	var rules []admissionregistrationv1.RuleWithOperations
+	for gvr := range wh.rules {
+		resources := sets.NewString(gvr.Resource)
+		if resources.Has("pods") {
+			resources.Insert("pods/ephemeralcontainers")
+		}
+		if resources.Has("services") {
+			resources.Insert("services/status")
+		}
+		rules = append(rules, admissionregistrationv1.RuleWithOperations{
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{gvr.Group},
+				APIVersions: []string{gvr.Version},
+				Resources:   resources.List(),
+			},
+			Operations: ops,
+		})
 	}
+	less := func(a []string, b []string) (bool, bool) {
+		if len(a) != len(b) {
+			return len(a) < len(b), true
+		}
+		for i := range a {
+			if a[i] != b[i] {
+				return a[i] < b[i], true
+			}
+		}
+		return false, false
+	}
+	slices.SortFunc(rules, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) bool {
+		if less, match := less(a.APIGroups, b.APIGroups); match {
+			return less
+		}
+		if less, match := less(a.APIVersions, b.APIVersions); match {
+			return less
+		}
+		if less, match := less(a.Resources, b.Resources); match {
+			return less
+		}
+		return false
+	})
+	return rules
+}
+
+func (wh *webhook) set(gvr schema.GroupVersionResource) {
+	wh.rules[gvr] = struct{}{}
 }
 
 func (wh *webhook) isEmpty() bool {
-	return wh.groups.Len() == 0 || wh.versions.Len() == 0 || wh.resources.Len() == 0
+	return len(wh.rules) == 0
 }
 
 func (wh *webhook) setWildcard() {
-	wh.groups = sets.NewString("*")
-	wh.versions = sets.NewString("*")
-	wh.resources = sets.NewString("*/*")
+	wh.rules = map[schema.GroupVersionResource]struct{}{
+		{Group: "*", Version: "*", Resource: "*/*"}: {},
+	}
 }
 
 func hasWildcard(policies ...kyvernov1.PolicyInterface) bool {
@@ -69,4 +107,28 @@ func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 		},
 		OwnerReferences: owner,
 	}
+}
+
+func setRuleCount(rules []kyvernov1.Rule, status *kyvernov1.PolicyStatus) {
+	validateCount, generateCount, mutateCount, verifyImagesCount := 0, 0, 0, 0
+	for _, rule := range rules {
+		if !strings.HasPrefix(rule.Name, "autogen-") {
+			if rule.HasGenerate() {
+				generateCount += 1
+			}
+			if rule.HasValidate() {
+				validateCount += 1
+			}
+			if rule.HasMutate() {
+				mutateCount += 1
+			}
+			if rule.HasVerifyImages() {
+				verifyImagesCount += 1
+			}
+		}
+	}
+	status.RuleCount.Validate = validateCount
+	status.RuleCount.Generate = generateCount
+	status.RuleCount.Mutate = mutateCount
+	status.RuleCount.VerifyImages = verifyImagesCount
 }
