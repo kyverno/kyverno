@@ -253,6 +253,7 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 			}
 			if err := metricsServer.ListenAndServe(); err != nil {
 				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
+				os.Exit(1)
 			}
 		}()
 	}
