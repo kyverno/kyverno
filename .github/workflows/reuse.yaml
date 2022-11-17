@@ -38,9 +38,9 @@ jobs:
       packages: write
       id-token: write
     outputs:
-      init-container-digest: ${{ steps.set-sha256-digest.outputs.init-container-digest }}
-      kyverno-digest: ${{ steps.set-sha256-digest.outputs.kyverno-digest }}
-      cli-digest: ${{ steps.set-sha256-digest.outputs.cli-digest }}
+      init-container-digest: ${{ steps.set-sha256sum-digest.outputs.init-container-digest }}
+      kyverno-digest: ${{ steps.set-sha256sum-digest.outputs.kyverno-digest }}
+      cli-digest: ${{ steps.set-sha256sum-digest.outputs.cli-digest }}
     steps:
       - name: Checkout release
         if: ${{ inputs.tag == 'release'}}
