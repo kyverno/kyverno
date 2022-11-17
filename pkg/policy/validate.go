@@ -1184,6 +1184,7 @@ func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule)
 					" the rule does not match any kind")
 			}
 		}
+
 	}
 	return nil
 }
