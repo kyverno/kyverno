@@ -1,3 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: kyverno-dryrun
+---
 # Additional permission is required to enable DryRun.
 # If using DryRun to validate yaml, please deploy this Role/RoleBinding.
 # If validating custom resources with DryRun, please add the resources to the role.
@@ -5,7 +17,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: manifest-verify-dry-run
-  namespace: kyverno
+  namespace: kyverno-dryrun
 rules:
 - apiGroups:
   - rbac.authorization.k8s.io
@@ -64,7 +76,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: manifest-verify-dry-run
-  namespace: kyverno
+  namespace: kyverno-dryrun
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
