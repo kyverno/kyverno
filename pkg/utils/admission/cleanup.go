@@ -37,3 +37,48 @@ func GetCleanupPolicies(request *admissionv1.AdmissionRequest) (kyvernov1alpha1.
 	}
 	return policy, emptypolicy, nil
 }
+
+func FetchUniqueKinds(polspec kyvernov1alpha1.CleanupPolicySpec) []string {
+	var kindlist []string
+
+	kindlist = append(kindlist, polspec.MatchResources.Kinds...)
+
+	for _, all := range polspec.MatchResources.Any {
+		kindlist = append(kindlist, all.Kinds...)
+	}
+
+	if isMatchResourcesAllValid(polspec) {
+		for _, all := range polspec.MatchResources.All {
+			kindlist = append(kindlist, all.Kinds...)
+		}
+	}
+
+	inResult := make(map[string]bool)
+	var result []string
+	for _, kind := range kindlist {
+		if _, ok := inResult[kind]; !ok {
+			inResult[kind] = true
+			result = append(result, kind)
+		}
+	}
+	return result
+}
+
+// check if all slice elements are same
+func isMatchResourcesAllValid(polspec kyvernov1alpha1.CleanupPolicySpec) bool {
+	var kindlist []string
+	for _, all := range polspec.MatchResources.All {
+		kindlist = append(kindlist, all.Kinds...)
+	}
+
+	if len(kindlist) == 0 {
+		return false
+	}
+
+	for i := 1; i < len(kindlist); i++ {
+		if kindlist[i] != kindlist[0] {
+			return false
+		}
+	}
+	return true
+}
