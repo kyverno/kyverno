@@ -14,7 +14,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
