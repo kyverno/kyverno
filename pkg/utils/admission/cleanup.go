@@ -1,4 +1,4 @@
-package utils
+package admission
 
 import (
 	"encoding/json"
@@ -9,18 +9,20 @@ import (
 )
 
 func UnmarshalCleanupPolicy(kind string, raw []byte) (kyvernov1alpha1.CleanupPolicyInterface, error) {
-	var policy kyvernov1alpha1.CleanupPolicyInterface
 	if kind == "CleanupPolicy" {
+		var policy *kyvernov1alpha1.CleanupPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
-			return policy, err
+			return nil, err
+		}
+		return policy, nil
+	} else if kind == "ClusterCleanupPolicy" {
+		var policy *kyvernov1alpha1.ClusterCleanupPolicy
+		if err := json.Unmarshal(raw, &policy); err != nil {
+			return nil, err
 		}
 		return policy, nil
 	}
-	return policy, fmt.Errorf("admission request does not contain a cleanuppolicy")
-}
-
-func GetCleanupPolicy(request *admissionv1.AdmissionRequest) (kyvernov1alpha1.CleanupPolicyInterface, error) {
-	return UnmarshalCleanupPolicy(request.Kind.Kind, request.Object.Raw)
+	return nil, fmt.Errorf("admission request does not contain a cleanuppolicy")
 }
 
 func GetCleanupPolicies(request *admissionv1.AdmissionRequest) (kyvernov1alpha1.CleanupPolicyInterface, kyvernov1alpha1.CleanupPolicyInterface, error) {
@@ -34,12 +36,4 @@ func GetCleanupPolicies(request *admissionv1.AdmissionRequest) (kyvernov1alpha1.
 		return policy, oldPolicy, err
 	}
 	return policy, emptypolicy, nil
-}
-
-func GetResourceName(request *admissionv1.AdmissionRequest) string {
-	resourceName := request.Kind.Kind + "/" + request.Name
-	if request.Namespace != "" {
-		resourceName = request.Namespace + "/" + resourceName
-	}
-	return resourceName
 }
