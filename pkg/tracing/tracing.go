@@ -96,3 +96,10 @@ func Span(ctx context.Context, tracerName string, operationName string, doFn fun
 	defer span.End()
 	doFn(newCtx, span)
 }
+
+// Span executes function doFn inside new span with `operationName` name and hooking as child to a span found within given context if any.
+func Span1[T any](ctx context.Context, tracerName string, operationName string, doFn func(context.Context, trace.Span) T, opts ...trace.SpanStartOption) T {
+	newCtx, span := otel.Tracer(tracerName).Start(ctx, operationName, opts...)
+	defer span.End()
+	return doFn(newCtx, span)
+}
