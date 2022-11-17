@@ -22,7 +22,7 @@ func withMetrics(metricsConfig *metrics.MetricsConfig, inner AdmissionHandler) A
 		return tracing.Span1(
 			ctx,
 			"admission_webhook_operations",
-			"dump",
+			"metrics",
 			func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
 				defer admissionReviewDuration.Process(metricsConfig, request, int64(time.Since(startTime)))
 				admissionRequests.Process(metricsConfig, request)
