@@ -73,10 +73,16 @@ var (
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
 	// defaultExcludeGroupRole ...
 	defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-system", "system:nodes", "system:kube-scheduler"}
+	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
+	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
 )
 
 func KyvernoNamespace() string {
 	return kyvernoNamespace
+}
+
+func KyvernoDryRunNamespace() string {
+	return kyvernoDryrunNamespace
 }
 
 func KyvernoServiceAccountName() string {
