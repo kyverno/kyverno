@@ -160,8 +160,14 @@ func startProfiling(logger logr.Logger) {
 		addr := ":" + profilePort
 		logger.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
 		go func() {
-			if err := http.ListenAndServe(addr, nil); err != nil {
-				logger.Error(err, "Failed to enable profiling")
+			s := http.Server{
+				Addr:              addr,
+				Handler:           nil,
+				ErrorLog:          logging.StdLogger(logger, ""),
+				ReadHeaderTimeout: 30 * time.Second,
+			}
+			if err := s.ListenAndServe(); err != nil {
+				logger.Error(err, "failed to enable profiling", "address", addr)
 				os.Exit(1)
 			}
 		}()
