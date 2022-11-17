@@ -1106,17 +1106,17 @@ func checkClusterResourceInMatchAndExclude(rule kyvernov1.Rule, clusterResources
 								return fmt.Errorf("path: spec.rules[%v]: please mention the namespace to generate a namespaced resource", rule.Name)
 							}
 							if rule.Generation.Namespace != policyNamespace {
-								return fmt.Errorf("path: spec.rules[%v]: namespace policy allowed to generate resource where the policy exists", rule.Name)
+								return fmt.Errorf("path: spec.rules[%v]: a namespaced policy cannot generate resources in other namespaces, expected: %v, received: %v", rule.Name, policyNamespace, rule.Generation.Namespace)
 							}
 							if rule.Generation.Clone.Namespace != policyNamespace {
-								return fmt.Errorf("path: spec.rules[%v]: namespace policy not allowed to clone resource outside the policy namespace", rule.Name)
+								return fmt.Errorf("path: spec.rules[%v]: a namespaced policy cannot clone resource in other namespace, expected: %v, received: %v", rule.Name, policyNamespace, rule.Generation.Clone.Namespace)
 							}
 						} else {
 							if rule.Generation.Namespace != "" {
 								return fmt.Errorf("path: spec.rules[%v]: do not mention the namespace to generate a non namespaced resource", rule.Name)
 							}
 							if policyNamespace != "" {
-								return fmt.Errorf("path: spec.rules[%v]: namespace policy not allowed to generate a cluster scoped resource", rule.Name)
+								return fmt.Errorf("path: spec.rules[%v]: a namespaced policy cannot generate cluster-wide resources", rule.Name)
 							}
 						}
 					} else if len(rule.Generation.CloneList.Kinds) != 0 {
@@ -1125,11 +1125,11 @@ func checkClusterResourceInMatchAndExclude(rule kyvernov1.Rule, clusterResources
 							if r.Kind == splitkind {
 								if r.Namespaced {
 									if rule.Generation.CloneList.Namespace != policyNamespace {
-										return fmt.Errorf("path: spec.rules[%v]: namespace policy not allowed to clone resource outside the policy namespace", rule.Name)
+										return fmt.Errorf("path: spec.rules[%v]: a namespaced policy cannot clone resource in other namespace, expected: %v, received: %v", rule.Name, policyNamespace, rule.Generation.Namespace)
 									}
 								} else {
 									if policyNamespace != "" {
-										return fmt.Errorf("path: spec.rules[%v]: namespace policy not allowed to generate a cluster scoped resource", rule.Name)
+										return fmt.Errorf("path: spec.rules[%v]: a namespaced policy cannot generate cluster-wide resources", rule.Name)
 									}
 								}
 							}

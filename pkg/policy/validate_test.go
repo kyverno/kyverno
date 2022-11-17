@@ -1164,7 +1164,7 @@ func Test_Namespaced_Generate_Policy(t *testing.T) {
                 }
 					}`),
 			policyNamespace: "poltest",
-			expectedError:   errors.New("path: spec.rules[gen-zk]: namespace policy allowed to generate resource where the policy exists"),
+			expectedError:   errors.New("path: spec.rules[gen-zk]: a namespaced policy cannot generate resources in other namespaces, expected: poltest, received: default"),
 		},
 		{
 			description: "Not allowed to clone resource outside the policy namespace",
@@ -1184,7 +1184,7 @@ func Test_Namespaced_Generate_Policy(t *testing.T) {
             }
         }`),
 			policyNamespace: "poltest",
-			expectedError:   errors.New("path: spec.rules[sync-image-pull-secret]: namespace policy not allowed to clone resource outside the policy namespace"),
+			expectedError:   errors.New("path: spec.rules[sync-image-pull-secret]: a namespaced policy cannot clone resource in other namespace, expected: poltest, received: default"),
 		},
 		{
 			description: "Do not mention the namespace to generate cluster scoped resource",
@@ -1221,7 +1221,7 @@ func Test_Namespaced_Generate_Policy(t *testing.T) {
             }
         }`),
 			policyNamespace: "poltest",
-			expectedError:   errors.New("path: spec.rules[sync-clone]: namespace policy not allowed to generate a cluster scoped resource"),
+			expectedError:   errors.New("path: spec.rules[sync-clone]: a namespaced policy cannot generate cluster-wide resources"),
 		},
 		{
 			description: "Not allowed to multi clone cluster scoped resource",
@@ -1245,7 +1245,7 @@ func Test_Namespaced_Generate_Policy(t *testing.T) {
         }
     }`),
 			policyNamespace: "staging",
-			expectedError:   errors.New("path: spec.rules[sync-multi-clone]: namespace policy not allowed to generate a cluster scoped resource"),
+			expectedError:   errors.New("path: spec.rules[sync-multi-clone]: a namespaced policy cannot generate cluster-wide resources"),
 		},
 	}
 	for _, tc := range testcases {
