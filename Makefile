@@ -339,8 +339,15 @@ codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@echo Generate informers... >&2
 	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) --versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
 
+.PHONY: codegen-client-wrappers
+codegen-client-wrappers: $(GOIMPORTS) ## Generate client wrappers
+	@echo Generate client wrappers... >&2
+	@go run ./hack/main.go
+	@go fmt ./pkg/clients/wrappers/...
+	@$(GOIMPORTS) -w ./pkg/clients/wrappers
+
 .PHONY: codegen-client-all
-codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers ## Generate clientset, listers and informers
+codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
