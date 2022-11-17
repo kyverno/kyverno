@@ -203,54 +203,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			return warnings, err
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, "*") && spec.BackgroundProcessingEnabled() {
-			return warnings, fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
-		}
-
-		if (utils.ContainsString(rule.MatchResources.Kinds, "*") && len(rule.MatchResources.Kinds) > 1) || (utils.ContainsString(rule.ExcludeResources.Kinds, "*") && len(rule.ExcludeResources.Kinds) > 1) {
-			return warnings, fmt.Errorf("wildard policy can not deal more than one kind")
-		}
-
-		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
-			if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
-				return warnings, fmt.Errorf("wildcard policy does not support rule type")
-			}
-
-			if rule.HasValidate() {
-				if rule.Validation.GetPattern() != nil || rule.Validation.GetAnyPattern() != nil {
-					if !ruleOnlyDealsWithResourceMetaData(rule) {
-						return warnings, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-							" the rule does not match any kind")
-					}
-				}
-
-				if rule.Validation.Deny != nil {
-					kyvernoConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.Validation.Deny.GetAnyAllConditions())
-					switch typedConditions := kyvernoConditions.(type) {
-					case []kyvernov1.Condition: // backwards compatibility
-						for _, condition := range typedConditions {
-							key := condition.GetKey()
-							if !strings.Contains(key.(string), "request.object.metadata.") && (!wildCardAllowedVariables.MatchString(key.(string)) || strings.Contains(key.(string), "request.object.spec")) {
-								return warnings, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-									" the rule does not match any kind")
-							}
-						}
-					}
-				}
-			}
-
-			if rule.HasMutate() {
-				if !ruleOnlyDealsWithResourceMetaData(rule) {
-					return warnings, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
-						" the rule does not match any kind")
-				}
-			}
-
-			if len(errs) != 0 {
-				return warnings, errs.ToAggregate()
-			}
-		}
-
 		if rule.HasVerifyImages() {
 			verifyImagePath := rulePath.Child("verifyImages")
 			for index, i := range rule.VerifyImages {
@@ -274,6 +226,10 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
 		for _, value := range match.Any {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
@@ -282,6 +238,10 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 		}
 		for _, value := range match.All {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
@@ -290,6 +250,10 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 		}
 		for _, value := range exclude.Any {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
@@ -298,6 +262,10 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 		}
 		for _, value := range exclude.All {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
@@ -305,6 +273,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				}
 			}
 		}
+
 		if !utils.ContainsString(rule.MatchResources.Kinds, "*") {
 			err := validateKinds(rule.MatchResources.Kinds, mock, client, policy)
 			if err != nil {
@@ -313,6 +282,15 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			err = validateKinds(rule.ExcludeResources.Kinds, mock, client, policy)
 			if err != nil {
 				return warnings, errors.Wrapf(err, "exclude resource kind is invalid")
+			}
+		} else {
+			wildcardErr := validateWildcard(rule.MatchResources.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			wildcardErr = validateWildcard(rule.ExcludeResources.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
 			}
 		}
 
@@ -1114,6 +1092,52 @@ func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 		return true
 	}
 	return false
+}
+
+// validateWildcard check for an Match/Exclude block contains "*"
+func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule) error {
+	if utils.ContainsString(kinds, "*") && spec.BackgroundProcessingEnabled() {
+		return fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
+	}
+	if utils.ContainsString(kinds, "*") && len(kinds) > 1 {
+		return fmt.Errorf("wildard policy can not deal more than one kind")
+	}
+	if utils.ContainsString(kinds, "*") {
+		if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
+			return fmt.Errorf("wildcard policy does not support rule type")
+		}
+
+		if rule.HasValidate() {
+			if rule.Validation.GetPattern() != nil || rule.Validation.GetAnyPattern() != nil {
+				if !ruleOnlyDealsWithResourceMetaData(rule) {
+					return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+						" the rule does not match any kind")
+				}
+			}
+
+			if rule.Validation.Deny != nil {
+				kyvernoConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.Validation.Deny.GetAnyAllConditions())
+				switch typedConditions := kyvernoConditions.(type) {
+				case []kyvernov1.Condition: // backwards compatibility
+					for _, condition := range typedConditions {
+						key := condition.GetKey()
+						if !strings.Contains(key.(string), "request.object.metadata.") && (!wildCardAllowedVariables.MatchString(key.(string)) || strings.Contains(key.(string), "request.object.spec")) {
+							return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+								" the rule does not match any kind")
+						}
+					}
+				}
+			}
+		}
+
+		if rule.HasMutate() {
+			if !ruleOnlyDealsWithResourceMetaData(rule) {
+				return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+					" the rule does not match any kind")
+			}
+		}
+	}
+	return nil
 }
 
 // validateKinds verifies if an API resource that matches 'kind' is valid kind
