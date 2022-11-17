@@ -26,6 +26,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: AdmissionReport
     listKind: AdmissionReportList
     plural: admissionreports
@@ -367,6 +370,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: BackgroundScanReport
     listKind: BackgroundScanReportList
     plural: backgroundscanreports
@@ -672,6 +678,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterAdmissionReport
     listKind: ClusterAdmissionReportList
     plural: clusteradmissionreports
@@ -1014,6 +1023,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterBackgroundScanReport
     listKind: ClusterBackgroundScanReportList
     plural: clusterbackgroundscanreports
@@ -1319,6 +1331,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterPolicy
     listKind: ClusterPolicyList
     plural: clusterpolicies
@@ -4113,9 +4128,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -9586,9 +9601,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -13117,6 +13132,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: Policy
     listKind: PolicyList
     plural: policies
@@ -15912,9 +15930,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -21387,9 +21405,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -24727,6 +24745,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: UpdateRequest
     listKind: UpdateRequestList
     plural: updaterequests
