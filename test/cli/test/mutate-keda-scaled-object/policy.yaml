@@ -7,11 +7,6 @@ metadata:
     policies.kyverno.io/subject: KedaPrometheusScaler
     policies.kyverno.io/description: >-
       The KEDA Prometheus Scaler requires the serverAddress attribute.
-      This attribute points to the Prometheus Server that must be used by this Scaler.
-      Setting this attribute in the miro-svc-helm-chart requires us to modify all values.yaml manifests
-      of the microservice that use this Scaler and then apply it. This is not very efficient and scalable.
-      This policy watches for any new scaledObject that uses the Prometheus scaler and subsequently
-      populates the serverAddress attribute by reading the value from a configmap.
 spec:
   background: false
   rules:
