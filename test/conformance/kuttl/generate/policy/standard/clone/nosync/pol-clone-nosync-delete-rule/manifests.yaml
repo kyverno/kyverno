@@ -1,0 +1,63 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: regcred
+  namespace: default
+type: Opaque
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: sourcelr
+  namespace: default
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: 500m
+    defaultRequest:
+      cpu: 500m
+    max:
+      cpu: "1"
+    min:
+      cpu: 100m
+---
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-clone-nosync-delete-rule
+  namespace: default
+spec:
+  rules:
+  - name: pol-clone-nosync-delete-rule-cm
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: newsecret
+      namespace: default
+      synchronize: false
+      clone:
+        name: regcred
+        namespace: default
+  - name: pol-clone-nosync-delete-rule-lr
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: LimitRange
+      name: genlr
+      namespace: default
+      synchronize: false
+      clone:
+        name: sourcelr
+        namespace: default
