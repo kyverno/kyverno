@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -22,7 +23,7 @@ func (h AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 }
 
 func withProtection(inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		newResource, oldResource, err := utils.ExtractResources(nil, request)
 		if err != nil {
 			logger.Error(err, "Failed to extract resources")
@@ -37,6 +38,6 @@ func withProtection(inner AdmissionHandler) AdmissionHandler {
 				}
 			}
 		}
-		return inner(logger, request, startTime)
+		return inner(ctx, logger, request, startTime)
 	}
 }

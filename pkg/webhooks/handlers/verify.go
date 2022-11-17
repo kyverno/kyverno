@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -11,7 +12,7 @@ import (
 )
 
 func Verify() AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		if request.Name != "kyverno-health" || request.Namespace != config.KyvernoNamespace() {
 			return admissionutils.ResponseSuccess()
 		}
