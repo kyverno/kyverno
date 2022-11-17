@@ -1143,7 +1143,6 @@ func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 
 // validateWildcard check for an Match/Exclude block contains "*"
 func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule) error {
-
 	if utils.ContainsString(kinds, "*") && spec.BackgroundProcessingEnabled() {
 		return fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
 	}
