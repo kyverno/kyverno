@@ -236,7 +236,13 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 	}
 	if otel == "prometheus" {
 		go func() {
-			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+			metricsServer := http.Server{
+				Addr:              metricsAddr,
+				Handler:           metricsServerMux,
+				ErrorLog:          logging.StdLogger(logger, ""),
+				ReadHeaderTimeout: 30 * time.Second,
+			}
+			if err := metricsServer.ListenAndServe(); err != nil {
 				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
 			}
 		}()
