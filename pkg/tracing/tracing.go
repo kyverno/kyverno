@@ -86,7 +86,6 @@ func DoInSpan(ctx context.Context, tracerName string, operationName string, doFn
 }
 
 // StartSpan creates a span from a context with `operationName` name
-func StartSpan(ctx context.Context, tracerName string, operationName string, attributes []attribute.KeyValue) trace.Span {
-	_, span := otel.Tracer(tracerName).Start(ctx, operationName, trace.WithAttributes(attributes...))
-	return span
+func StartSpan(ctx context.Context, tracerName string, operationName string, attributes ...attribute.KeyValue) (context.Context, trace.Span) {
+	return otel.Tracer(tracerName).Start(ctx, operationName, trace.WithAttributes(attributes...))
 }
