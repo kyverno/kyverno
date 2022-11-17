@@ -34,8 +34,7 @@ var (
 )
 
 const (
-	resyncPeriod         = 15 * time.Minute
-	metadataResyncPeriod = 15 * time.Minute
+	resyncPeriod = 15 * time.Minute
 )
 
 func parseFlags() {
@@ -72,7 +71,7 @@ func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientCo
 	if err != nil {
 		return nil, nil, err
 	}
-	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
+	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, resyncPeriod)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -164,7 +163,7 @@ func main() {
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers
-	if !startInformersAndWaitForCacheSync(signalCtx, kubeKyvernoInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kubeKyvernoInformer) {
 		os.Exit(1)
 	}
 	server := NewServer(
