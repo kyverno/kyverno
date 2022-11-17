@@ -180,6 +180,28 @@ func Test_ImageVerification(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "multiple entries",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestors: []AttestorSet{
+					{
+						Entries: []Attestor{
+							{
+								Keys: &StaticKeyAttestor{
+									PublicKeys: "key1",
+								},
+							},
+							{
+								Keys: &StaticKeyAttestor{
+									PublicKeys: "key2",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testCases {
