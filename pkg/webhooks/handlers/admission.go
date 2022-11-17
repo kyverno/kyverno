@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +15,7 @@ import (
 )
 
 type (
-	AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	AdmissionHandler func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 	HttpHandler      func(http.ResponseWriter, *http.Request)
 )
 
@@ -24,7 +25,6 @@ func (h AdmissionHandler) WithAdmission(logger logr.Logger) http.HandlerFunc {
 
 func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		ctx := request.Context()
 		startTime := time.Now()
 		if request.Body == nil {
 			logger.Info("empty body", "req", request.URL.String())
@@ -62,7 +62,19 @@ func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc 
 			Allowed: true,
 			UID:     admissionReview.Request.UID,
 		}
-		adminssionResponse := inner(logger, admissionReview.Request, startTime)
+		// start span from request context
+		ctx, span := tracing.StartSpan(
+			request.Context(),
+			"admission_webhook_operations",
+			string(admissionReview.Request.Operation),
+			attribute.String("kind", admissionReview.Request.Kind.Kind),
+			attribute.String("namespace", admissionReview.Request.Namespace),
+			attribute.String("name", admissionReview.Request.Name),
+			attribute.String("operation", string(admissionReview.Request.Operation)),
+			attribute.String("uid", string(admissionReview.Request.UID)),
+		)
+		defer span.End()
+		adminssionResponse := inner(ctx, logger, admissionReview.Request, startTime)
 		if adminssionResponse != nil {
 			admissionReview.Response = adminssionResponse
 		}
@@ -71,18 +83,6 @@ func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc 
 			http.Error(writer, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
 			return
 		}
-
-		// start span from request context
-		attributes := []attribute.KeyValue{
-			attribute.String("kind", admissionReview.Request.Kind.Kind),
-			attribute.String("namespace", admissionReview.Request.Namespace),
-			attribute.String("name", admissionReview.Request.Name),
-			attribute.String("operation", string(admissionReview.Request.Operation)),
-			attribute.String("uid", string(admissionReview.Request.UID)),
-		}
-		span := tracing.StartSpan(ctx, "admission_webhook_operations", string(admissionReview.Request.Operation), attributes)
-		defer span.End()
-
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 		if _, err := writer.Write(responseJSON); err != nil {
 			http.Error(writer, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)

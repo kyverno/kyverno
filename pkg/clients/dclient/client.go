@@ -63,7 +63,7 @@ type client struct {
 }
 
 // NewClient creates new instance of client
-func NewClient(ctx context.Context, config *rest.Config, kclient *kubernetes.Clientset, metricsConfig metrics.MetricsConfigManager, resync time.Duration) (Interface, error) {
+func NewClient(ctx context.Context, config *rest.Config, kclient kubernetes.Interface, metricsConfig metrics.MetricsConfigManager, resync time.Duration) (Interface, error) {
 	dclient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func NewClient(ctx context.Context, config *rest.Config, kclient *kubernetes.Cli
 		client:       dclient,
 		clientConfig: config,
 		kclient:      kclient,
-		restClient:   kclient.RESTClient(),
+		restClient:   kclient.Discovery().RESTClient(),
 	}
 
 	if metricsConfig != nil {
