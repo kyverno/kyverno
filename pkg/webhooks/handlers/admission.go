@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +14,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+type AdmissionHandler func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 
 func (h AdmissionHandler) WithAdmission(logger logr.Logger) http.HandlerFunc {
 	return withAdmission(logger, h)
@@ -21,7 +22,6 @@ func (h AdmissionHandler) WithAdmission(logger logr.Logger) http.HandlerFunc {
 
 func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		ctx := request.Context()
 		startTime := time.Now()
 		if request.Body == nil {
 			logger.Info("empty body", "req", request.URL.String())
@@ -59,7 +59,7 @@ func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc 
 			Allowed: true,
 			UID:     admissionReview.Request.UID,
 		}
-		adminssionResponse := inner(logger, admissionReview.Request, startTime)
+		adminssionResponse := inner(request.Context(), logger, admissionReview.Request, startTime)
 		if adminssionResponse != nil {
 			admissionReview.Response = adminssionResponse
 		}
@@ -77,7 +77,7 @@ func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc 
 			attribute.String("operation", string(admissionReview.Request.Operation)),
 			attribute.String("uid", string(admissionReview.Request.UID)),
 		}
-		span := tracing.StartSpan(ctx, "admission_webhook_operations", string(admissionReview.Request.Operation), attributes)
+		span := tracing.StartSpan(request.Context(), "admission_webhook_operations", string(admissionReview.Request.Operation), attributes)
 		defer span.End()
 
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
