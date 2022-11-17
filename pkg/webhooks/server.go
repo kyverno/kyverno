@@ -84,26 +84,35 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		config.PolicyMutatingWebhookServicePath,
-		handlers.AdmissionHandler(policyHandlers.Mutate).
-			WithFilter(configuration).
-			WithDump(debugModeOpts.DumpPayload).
-			WithMetrics(metricsConfig).
-			WithAdmission(policyLogger.WithName("mutate")),
+		http.HandlerFunc(
+			handlers.AdmissionHandler(policyHandlers.Mutate).
+				WithFilter(configuration).
+				WithDump(debugModeOpts.DumpPayload).
+				WithMetrics(metricsConfig).
+				WithAdmission(policyLogger.WithName("mutate")).
+				WithTrace(),
+		),
 	)
 	mux.HandlerFunc(
 		"POST",
 		config.PolicyValidatingWebhookServicePath,
-		handlers.AdmissionHandler(policyHandlers.Validate).
-			WithFilter(configuration).
-			WithDump(debugModeOpts.DumpPayload).
-			WithMetrics(metricsConfig).
-			WithAdmission(policyLogger.WithName("validate")),
+		http.HandlerFunc(
+			handlers.AdmissionHandler(policyHandlers.Validate).
+				WithFilter(configuration).
+				WithDump(debugModeOpts.DumpPayload).
+				WithMetrics(metricsConfig).
+				WithAdmission(policyLogger.WithName("validate")).
+				WithTrace(),
+		),
 	)
 	mux.HandlerFunc(
 		"POST",
 		config.VerifyMutatingWebhookServicePath,
-		handlers.Verify().
-			WithAdmission(verifyLogger.WithName("mutate")),
+		http.HandlerFunc(
+			handlers.Verify().
+				WithAdmission(verifyLogger.WithName("mutate")).
+				WithTrace(),
+		),
 	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
@@ -205,37 +214,46 @@ func registerWebhookHandlers(
 	mux.HandlerFunc(
 		"POST",
 		basePath,
-		handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-			return handlerFunc(ctx, logger, request, "all", startTime)
-		}).
-			WithFilter(configuration).
-			WithProtection(toggle.ProtectManagedResources.Enabled()).
-			WithDump(debugModeOpts.DumpPayload).
-			WithMetrics(metricsConfig).
-			WithAdmission(logger),
+		http.HandlerFunc(
+			handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+				return handlerFunc(ctx, logger, request, "all", startTime)
+			}).
+				WithFilter(configuration).
+				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithDump(debugModeOpts.DumpPayload).
+				WithMetrics(metricsConfig).
+				WithAdmission(logger).
+				WithTrace(),
+		),
 	)
 	mux.HandlerFunc(
 		"POST",
 		basePath+"/fail",
-		handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-			return handlerFunc(ctx, logger, request, "fail", startTime)
-		}).
-			WithFilter(configuration).
-			WithProtection(toggle.ProtectManagedResources.Enabled()).
-			WithDump(debugModeOpts.DumpPayload).
-			WithMetrics(metricsConfig).
-			WithAdmission(logger),
+		http.HandlerFunc(
+			handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+				return handlerFunc(ctx, logger, request, "fail", startTime)
+			}).
+				WithFilter(configuration).
+				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithDump(debugModeOpts.DumpPayload).
+				WithMetrics(metricsConfig).
+				WithAdmission(logger).
+				WithTrace(),
+		),
 	)
 	mux.HandlerFunc(
 		"POST",
 		basePath+"/ignore",
-		handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-			return handlerFunc(ctx, logger, request, "ignore", startTime)
-		}).
-			WithFilter(configuration).
-			WithProtection(toggle.ProtectManagedResources.Enabled()).
-			WithDump(debugModeOpts.DumpPayload).
-			WithMetrics(metricsConfig).
-			WithAdmission(logger),
+		http.HandlerFunc(
+			handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+				return handlerFunc(ctx, logger, request, "ignore", startTime)
+			}).
+				WithFilter(configuration).
+				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithDump(debugModeOpts.DumpPayload).
+				WithMetrics(metricsConfig).
+				WithAdmission(logger).
+				WithTrace(),
+		),
 	)
 }

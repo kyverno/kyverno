@@ -19,11 +19,11 @@ type (
 	HttpHandler      func(http.ResponseWriter, *http.Request)
 )
 
-func (h AdmissionHandler) WithAdmission(logger logr.Logger) http.HandlerFunc {
+func (h AdmissionHandler) WithAdmission(logger logr.Logger) HttpHandler {
 	return withAdmission(logger, h)
 }
 
-func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
+func withAdmission(logger logr.Logger, inner AdmissionHandler) HttpHandler {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		startTime := time.Now()
 		if request.Body == nil {
