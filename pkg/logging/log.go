@@ -26,6 +26,8 @@ const (
 	TextFormat = "text"
 	// LogLevelController is the log level to use for controllers plumbing.
 	LogLevelController = 3
+	// LogLevelClient is the log level to use for clients.
+	LogLevelClient = 3
 )
 
 // Initially, globalLog comes from controller-runtime/log with logger created earlier by controller-runtime.
@@ -34,7 +36,7 @@ const (
 // All loggers created after logging.Setup won't be subject to the call depth limitation and will work if the underlying sink supports it.
 var globalLog = log.Log
 
-func Init(flags *flag.FlagSet) {
+func InitFlags(flags *flag.FlagSet) {
 	// clear flags initialized in static dependencies
 	if flag.CommandLine.Lookup("log_dir") != nil {
 		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
@@ -75,6 +77,11 @@ func GlobalLogger() logr.Logger {
 // ControllerLogger returns a logr.Logger to be used by controllers.
 func ControllerLogger(name string) logr.Logger {
 	return globalLog.WithName(name).V(LogLevelController)
+}
+
+// ClientLogger returns a logr.Logger to be used by clients.
+func ClientLogger(name string) logr.Logger {
+	return globalLog.WithName(name).V(LogLevelClient)
 }
 
 // WithName returns a new logr.Logger instance with the specified name element added to the Logger's name.

@@ -7,16 +7,15 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	_ "net/http/pprof" // #nosec
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -48,12 +47,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
-	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
-	"go.uber.org/automaxprocs/maxprocs" // #nosec
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -72,12 +69,10 @@ var (
 	// will be removed in future and the configuration will be set only via configmaps
 	kubeconfig                 string
 	serverIP                   string
-	profilePort                string
 	metricsPort                string
 	webhookTimeout             int
 	genWorkers                 int
 	maxQueuedEvents            int
-	profile                    bool
 	disableMetricsExport       bool
 	enableTracing              bool
 	otel                       string
@@ -94,24 +89,20 @@ var (
 	admissionReports           bool
 	reportsChunkSize           int
 	backgroundScanWorkers      int
-	logFormat                  string
 	dumpPayload                bool
 	leaderElectionRetryPeriod  time.Duration
 	// DEPRECATED: remove in 1.9
 	splitPolicyReport bool
 )
 
-func parseFlags() error {
-	logging.Init(nil)
-	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+func parseFlags() {
+	internal.InitFlags(true)
 	flag.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
-	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
-	flag.StringVar(&profilePort, "profilePort", "6060", "Enable profiling at given port, defaults to 6060.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 	flag.BoolVar(&enableTracing, "enableTracing", false, "Set this flag to 'true', to enable exposing traces.")
 	flag.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
@@ -134,43 +125,7 @@ func parseFlags() error {
 	flag.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	// DEPRECATED: remove in 1.9
 	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
-	if err := flag.Set("v", "2"); err != nil {
-		return err
-	}
 	flag.Parse()
-	return nil
-}
-
-func setupMaxProcs(logger logr.Logger) (func(), error) {
-	logger = logger.WithName("maxprocs")
-	if undo, err := maxprocs.Set(maxprocs.Logger(func(format string, args ...interface{}) {
-		logger.Info(fmt.Sprintf(format, args...))
-	})); err != nil {
-		return nil, err
-	} else {
-		return undo, nil
-	}
-}
-
-func startProfiling(logger logr.Logger) {
-	logger = logger.WithName("profiling")
-	logger.Info("start profiling...", "profile", profile, "port", profilePort)
-	if profile {
-		addr := ":" + profilePort
-		logger.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
-		go func() {
-			s := http.Server{
-				Addr:              addr,
-				Handler:           nil,
-				ErrorLog:          logging.StdLogger(logger, ""),
-				ReadHeaderTimeout: 30 * time.Second,
-			}
-			if err := s.ListenAndServe(); err != nil {
-				logger.Error(err, "failed to enable profiling", "address", addr)
-				os.Exit(1)
-			}
-		}()
-	}
 }
 
 func createKubeClients(logger logr.Logger) (*rest.Config, kubernetes.Interface, metadataclient.Interface, error) {
@@ -318,11 +273,6 @@ func showWarnings(logger logr.Logger) {
 	if toggle.ForceFailurePolicyIgnore.Enabled() {
 		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
 	}
-}
-
-func showVersion(logger logr.Logger) {
-	logger = logger.WithName("version")
-	version.PrintVersionInfo(logger)
 }
 
 func sanityChecks(dynamicClient dclient.Interface) error {
@@ -518,34 +468,18 @@ func createrLeaderControllers(
 
 func main() {
 	// parse flags
-	if err := parseFlags(); err != nil {
-		fmt.Println("failed to parse flags", err)
-		os.Exit(1)
-	}
+	parseFlags()
 	// setup logger
-	logLevel, err := strconv.Atoi(flag.Lookup("v").Value.String())
-	if err != nil {
-		fmt.Println("failed to setup logger", err)
-		os.Exit(1)
-	}
-	if err := logging.Setup(logFormat, logLevel); err != nil {
-		fmt.Println("failed to setup logger", err)
-		os.Exit(1)
-	}
-	logger := logging.WithName("setup")
+	logger := internal.SetupLogger()
 	// setup maxprocs
-	if undo, err := setupMaxProcs(logger); err != nil {
-		logger.Error(err, "failed to configure maxprocs")
-		os.Exit(1)
-	} else {
-		defer undo()
-	}
+	undo := internal.SetupMaxProcs(logger)
+	defer undo()
 	// show version
 	showWarnings(logger)
 	// show version
-	showVersion(logger)
+	internal.ShowVersion(logger)
 	// start profiling
-	startProfiling(logger)
+	internal.StartProfiling(logger)
 	// create client config and kube clients
 	clientConfig, rawClient, metadataClient, err := createKubeClients(logger)
 	if err != nil {

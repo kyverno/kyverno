@@ -3,15 +3,14 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/wrappers/kube"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -27,7 +26,6 @@ var (
 	kubeconfig           string
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
-	logFormat            string
 	otel                 string
 	otelCollector        string
 	metricsPort          string
@@ -40,9 +38,8 @@ const (
 	metadataResyncPeriod = 15 * time.Minute
 )
 
-func parseFlags() error {
-	logging.Init(nil)
-	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+func parseFlags() {
+	internal.InitFlags(true)
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
@@ -51,11 +48,7 @@ func parseFlags() error {
 	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
 	flag.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
-	if err := flag.Set("v", "2"); err != nil {
-		return err
-	}
 	flag.Parse()
-	return nil
 }
 
 func createKubeClients(logger logr.Logger) (*rest.Config, kubernetes.Interface, error) {
@@ -131,21 +124,16 @@ func setupSignals() (context.Context, context.CancelFunc) {
 
 func main() {
 	// parse flags
-	if err := parseFlags(); err != nil {
-		fmt.Println("failed to parse flags", err)
-		os.Exit(1)
-	}
+	parseFlags()
 	// setup logger
-	logLevel, err := strconv.Atoi(flag.Lookup("v").Value.String())
-	if err != nil {
-		fmt.Println("failed to setup logger", err)
-		os.Exit(1)
-	}
-	if err := logging.Setup(logFormat, logLevel); err != nil {
-		fmt.Println("failed to setup logger", err)
-		os.Exit(1)
-	}
-	logger := logging.WithName("setup")
+	logger := internal.SetupLogger()
+	// setup maxprocs
+	undo := internal.SetupMaxProcs(logger)
+	defer undo()
+	// show version
+	internal.ShowVersion(logger)
+	// start profiling
+	internal.StartProfiling(logger)
 	// create client config and kube clients
 	clientConfig, rawClient, err := createKubeClients(logger)
 	if err != nil {
