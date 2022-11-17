@@ -59,19 +59,9 @@ func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc 
 			Allowed: true,
 			UID:     admissionReview.Request.UID,
 		}
-		adminssionResponse := inner(request.Context(), logger, admissionReview.Request, startTime)
-		if adminssionResponse != nil {
-			admissionReview.Response = adminssionResponse
-		}
-		responseJSON, err := json.Marshal(admissionReview)
-		if err != nil {
-			http.Error(writer, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
-			return
-		}
-
 		// start span from request context
-		_, span := tracing.StartSpan(
-			ctx,
+		ctx, span := tracing.StartSpan(
+			request.Context(),
 			"admission_webhook_operations",
 			string(admissionReview.Request.Operation),
 			attribute.String("kind", admissionReview.Request.Kind.Kind),
@@ -81,7 +71,15 @@ func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc 
 			attribute.String("uid", string(admissionReview.Request.UID)),
 		)
 		defer span.End()
-
+		adminssionResponse := inner(ctx, logger, admissionReview.Request, startTime)
+		if adminssionResponse != nil {
+			admissionReview.Response = adminssionResponse
+		}
+		responseJSON, err := json.Marshal(admissionReview)
+		if err != nil {
+			http.Error(writer, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
+			return
+		}
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 		if _, err := writer.Write(responseJSON); err != nil {
 			http.Error(writer, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
