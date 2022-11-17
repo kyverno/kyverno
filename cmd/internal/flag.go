@@ -14,7 +14,7 @@ var (
 	// profiling
 	profilingEnabled bool
 	profilingAddress string
-	profilingPort    int
+	profilingPort    string
 )
 
 func InitFlags(profile bool) {
@@ -29,6 +29,6 @@ func InitFlags(profile bool) {
 	if profile {
 		flag.BoolVar(&profilingEnabled, "profile", false, "Set this flag to 'true', to enable profiling.")
 		flag.StringVar(&profilingAddress, "profileAddress", "", "Profiling server address, defaults to ''.")
-		flag.IntVar(&profilingPort, "profilePort", 6060, "Profiling server port, defaults to 6060.")
+		flag.StringVar(&profilingPort, "profilePort", "6060", "Profiling server port, defaults to 6060.")
 	}
 }
