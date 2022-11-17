@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -101,8 +102,8 @@ func (h AdmissionHandler) WithDump(enabled bool) AdmissionHandler {
 }
 
 func withDump(inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		response := inner(logger, request, startTime)
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		response := inner(ctx, logger, request, startTime)
 		dumpPayload(logger, request, response)
 		return response
 	}
