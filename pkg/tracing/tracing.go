@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/utils/kube"
@@ -17,15 +18,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func ShutDownController(ctx context.Context, tp *sdktrace.TracerProvider) {
-	// pushes any last exports to the receiver
-	if err := tp.Shutdown(ctx); err != nil {
-		otel.Handle(err)
-	}
-}
-
-// NewTraceConfig generates the initial tracing configuration with 'endpoint' as the endpoint to connect to the Opentelemetry Collector
-func NewTraceConfig(endpoint string, certs string, kubeClient kubernetes.Interface, log logr.Logger) (*sdktrace.TracerProvider, error) {
+// NewTraceConfig generates the initial tracing configuration with 'address' as the endpoint to connect to the Opentelemetry Collector
+func NewTraceConfig(log logr.Logger, name, address, certs string, kubeClient kubernetes.Interface) (func(), error) {
 	ctx := context.Background()
 
 	var client otlptrace.Client
@@ -38,12 +32,12 @@ func NewTraceConfig(endpoint string, certs string, kubeClient kubernetes.Interfa
 		}
 
 		client = otlptracegrpc.NewClient(
-			otlptracegrpc.WithEndpoint(endpoint),
+			otlptracegrpc.WithEndpoint(address),
 			otlptracegrpc.WithTLSCredentials(transportCreds),
 		)
 	} else {
 		client = otlptracegrpc.NewClient(
-			otlptracegrpc.WithEndpoint(endpoint),
+			otlptracegrpc.WithEndpoint(address),
 			otlptracegrpc.WithInsecure(),
 		)
 	}
@@ -56,7 +50,7 @@ func NewTraceConfig(endpoint string, certs string, kubeClient kubernetes.Interfa
 	}
 
 	res, err := resource.New(context.Background(),
-		resource.WithAttributes(semconv.ServiceNameKey.String("kyverno_traces")),
+		resource.WithAttributes(semconv.ServiceNameKey.String(name)),
 		resource.WithSchemaURL(semconv.SchemaURL),
 	)
 	if err != nil {
@@ -75,7 +69,14 @@ func NewTraceConfig(endpoint string, certs string, kubeClient kubernetes.Interfa
 	// set global propagator to tracecontext (the default is no-op).
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 	otel.SetTracerProvider(tp)
-	return tp, nil
+	return func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		// pushes any last exports to the receiver
+		if err := tp.Shutdown(ctx); err != nil {
+			otel.Handle(err)
+		}
+	}, nil
 }
 
 // DoInSpan executes function doFn inside new span with `operationName` name and hooking as child to a span found within given context if any.

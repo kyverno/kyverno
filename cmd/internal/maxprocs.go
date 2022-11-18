@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/go-logr/logr"
 	"go.uber.org/automaxprocs/maxprocs"
@@ -17,9 +16,6 @@ func SetupMaxProcs(logger logr.Logger) func() {
 			},
 		),
 	)
-	if err != nil {
-		logger.Error(err, "failed to configure maxprocs")
-		os.Exit(1)
-	}
+	checkError(logger, err, "failed to configure maxprocs")
 	return undo
 }

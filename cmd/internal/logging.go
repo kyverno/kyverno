@@ -2,8 +2,6 @@ package internal
 
 import (
 	"flag"
-	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -12,13 +10,7 @@ import (
 
 func SetupLogger() logr.Logger {
 	logLevel, err := strconv.Atoi(flag.Lookup("v").Value.String())
-	if err != nil {
-		fmt.Println("failed to setup logger", err)
-		os.Exit(1)
-	}
-	if err := logging.Setup(loggingFormat, logLevel); err != nil {
-		fmt.Println("failed to setup logger", err)
-		os.Exit(1)
-	}
+	checkErr(err, "failed to setup logger")
+	checkErr(logging.Setup(loggingFormat, logLevel), "failed to setup logger")
 	return logging.WithName("setup")
 }

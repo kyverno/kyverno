@@ -42,8 +42,8 @@ const (
 	convertGenerateRequest  string = "ConvertGenerateRequest"
 )
 
-func parseFlags() {
-	internal.InitFlags(false)
+func parseFlags(config internal.Configuration) {
+	internal.InitFlags(config)
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
@@ -51,8 +51,10 @@ func parseFlags() {
 }
 
 func main() {
+	// config
+	appConfig := internal.NewConfiguration()
 	// parse flags
-	parseFlags()
+	parseFlags(appConfig)
 	// setup logger
 	logger := internal.SetupLogger()
 	// setup maxprocs

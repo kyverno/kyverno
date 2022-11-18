@@ -37,8 +37,8 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
-func parseFlags() {
-	internal.InitFlags(true)
+func parseFlags(config internal.Configuration) {
+	internal.InitFlags(config)
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
@@ -122,8 +122,10 @@ func setupSignals() (context.Context, context.CancelFunc) {
 }
 
 func main() {
+	// config
+	appConfig := internal.NewConfiguration(internal.WithProfiling(), internal.WithTracing())
 	// parse flags
-	parseFlags()
+	parseFlags(appConfig)
 	// setup logger
 	logger := internal.SetupLogger()
 	// setup maxprocs
@@ -132,7 +134,7 @@ func main() {
 	// show version
 	internal.ShowVersion(logger)
 	// start profiling
-	internal.StartProfiling(logger)
+	internal.SetupProfiling(logger)
 	// create client config and kube clients
 	clientConfig, rawClient, err := createKubeClients(logger)
 	if err != nil {

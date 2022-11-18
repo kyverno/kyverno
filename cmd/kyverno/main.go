@@ -44,7 +44,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks"
@@ -95,8 +94,8 @@ var (
 	splitPolicyReport bool
 )
 
-func parseFlags() {
-	internal.InitFlags(true)
+func parseFlags(config internal.Configuration) {
+	internal.InitFlags(config)
 	flag.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
@@ -213,24 +212,6 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 		}()
 	}
 	return metricsConfig, cancel, nil
-}
-
-func setupTracing(logger logr.Logger, kubeClient kubernetes.Interface) (context.CancelFunc, error) {
-	logger = logger.WithName("tracing")
-	logger.Info("setup tracing...", "enabled", enableTracing, "port", otelCollector, "creds", transportCreds)
-	var cancel context.CancelFunc
-	if enableTracing {
-		tracerProvider, err := tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, logging.WithName("tracing"))
-		if err != nil {
-			return nil, err
-		}
-		cancel = func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			defer cancel()
-			defer tracing.ShutDownController(ctx, tracerProvider)
-		}
-	}
-	return cancel, nil
 }
 
 func setupRegistryClient(logger logr.Logger, kubeClient kubernetes.Interface) error {
@@ -468,8 +449,10 @@ func createrLeaderControllers(
 }
 
 func main() {
+	// config
+	appConfig := internal.NewConfiguration(internal.WithProfiling(), internal.WithTracing())
 	// parse flags
-	parseFlags()
+	parseFlags(appConfig)
 	// setup logger
 	logger := internal.SetupLogger()
 	// setup maxprocs
@@ -480,7 +463,7 @@ func main() {
 	// show version
 	internal.ShowVersion(logger)
 	// start profiling
-	internal.StartProfiling(logger)
+	internal.SetupProfiling(logger)
 	// create client config and kube clients
 	clientConfig, rawClient, metadataClient, err := createKubeClients(logger)
 	if err != nil {
@@ -506,12 +489,8 @@ func main() {
 		os.Exit(1)
 	}
 	// setup tracing
-	if tracingShutdown, err := setupTracing(logger, kubeClient); err != nil {
-		logger.Error(err, "failed to setup tracing")
-		os.Exit(1)
-	} else if tracingShutdown != nil {
-		defer tracingShutdown()
-	}
+	tracingShutdown := internal.SetupTracing(logger, "kyverno", kubeClient)
+	defer tracingShutdown()
 	// setup registry client
 	if err := setupRegistryClient(logger, kubeClient); err != nil {
 		logger.Error(err, "failed to setup registry client")
