@@ -501,6 +501,11 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 		return fmt.Errorf("rule \"%s\" should not have variables in match section", rule.Name)
 	}
 
+	err = imageRefHasVariables(rule.VerifyImages)
+	if err != nil {
+		return fmt.Errorf("rule \"%s\" should not have variables in image reference section", rule.Name)
+	}
+
 	return nil
 }
 
@@ -548,6 +553,19 @@ func objectHasVariables(object interface{}) error {
 		return fmt.Errorf("invalid variables")
 	}
 
+	return nil
+}
+
+func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
+	for _, verifyImage := range verifyImages {
+		verifyImage = *verifyImage.Convert()
+		for _, imageRef := range verifyImage.ImageReferences {
+			matches := variables.RegexVariables.FindAllString(imageRef, -1)
+			if len(matches) > 0 {
+				return fmt.Errorf("variables are not allowed in image reference")
+			}
+		}
+	}
 	return nil
 }
 
