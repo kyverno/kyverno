@@ -15,7 +15,9 @@ import (
 )
 
 type Controller struct {
-	client kubernetes.Clientset
+	// clients
+	client kubernetes.Interface
+
 	// listers
 	cpolLister kyvernov1alpha1listers.ClusterCleanupPolicyLister
 	polLister  kyvernov1alpha1listers.CleanupPolicyLister
@@ -25,18 +27,22 @@ type Controller struct {
 }
 
 const (
-	MaxRetries = 10
-	Workers    = 3
+	maxRetries     = 10
+	Workers        = 3
+	ControllerName = "cleanup-controller"
 )
 
-func NewController(kubeClient kubernetes.Clientset, cpolInformer kyvernov1alpha1informers.ClusterCleanupPolicyInformer, polInformer kyvernov1alpha1informers.CleanupPolicyInformer) *Controller {
+func NewController(
+	client kubernetes.Interface,
+	cpolInformer kyvernov1alpha1informers.ClusterCleanupPolicyInformer,
+	polInformer kyvernov1alpha1informers.CleanupPolicyInformer,
+) *Controller {
 	c := &Controller{
-		client:     kubeClient,
+		client:     client,
 		cpolLister: cpolInformer.Lister(),
 		polLister:  polInformer.Lister(),
-		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "cleanup-controller"),
+		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 	}
-
 	cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: c.enqueue,
 		UpdateFunc: func(_, obj interface{}) {
@@ -57,7 +63,7 @@ func (c *Controller) enqueue(obj interface{}) {
 }
 
 func (c *Controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, logger.V(3), ControllerName, time.Second, c.queue, Workers, MaxRetries, c.reconcile)
+	controllerutils.Run(ctx, logger.V(3), ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *Controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {

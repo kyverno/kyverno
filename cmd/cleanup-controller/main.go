@@ -120,6 +120,14 @@ func main() {
 		logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
 	}
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	cleanupController := cleanup.NewController(
+		kubeClient,
+		kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies(),
+		kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies(),
+	)
+	controller := newController(cleanup.ControllerName, *cleanupController, cleanup.Workers)
 	policyHandlers := NewHandlers(
 		dClient,
 	)

@@ -1,7 +1,5 @@
 package cleanup
 
-import "sigs.k8s.io/controller-runtime/pkg/log"
+import "github.com/kyverno/kyverno/pkg/logging"
 
-const ControllerName = "cleanup-controller"
-
-var logger = log.Log.WithName(ControllerName)
+var logger = logging.WithName(ControllerName)
