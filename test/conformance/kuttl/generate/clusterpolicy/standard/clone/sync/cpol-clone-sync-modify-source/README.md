@@ -8,4 +8,4 @@ After the source is modified, the downstream resources should be synced to refle
 
 ## Reference Issue(s)
 
-Currently disabled due to blocking issue 5277
+5411
