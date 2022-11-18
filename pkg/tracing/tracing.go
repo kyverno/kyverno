@@ -89,3 +89,17 @@ func DoInSpan(ctx context.Context, tracerName string, operationName string, doFn
 func StartSpan(ctx context.Context, tracerName string, operationName string, attributes ...attribute.KeyValue) (context.Context, trace.Span) {
 	return otel.Tracer(tracerName).Start(ctx, operationName, trace.WithAttributes(attributes...))
 }
+
+// Span executes function doFn inside new span with `operationName` name and hooking as child to a span found within given context if any.
+func Span(ctx context.Context, tracerName string, operationName string, doFn func(context.Context, trace.Span), opts ...trace.SpanStartOption) {
+	newCtx, span := otel.Tracer(tracerName).Start(ctx, operationName, opts...)
+	defer span.End()
+	doFn(newCtx, span)
+}
+
+// Span executes function doFn inside new span with `operationName` name and hooking as child to a span found within given context if any.
+func Span1[T any](ctx context.Context, tracerName string, operationName string, doFn func(context.Context, trace.Span) T, opts ...trace.SpanStartOption) T {
+	newCtx, span := otel.Tracer(tracerName).Start(ctx, operationName, opts...)
+	defer span.End()
+	return doFn(newCtx, span)
+}
