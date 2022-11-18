@@ -28,3 +28,23 @@ spec:
       prune: true
       selfHeal: true
 EOF
+
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    grafana_datasource: "1"
+  name: tempo-datasource
+  namespace: monitoring
+data:
+  tempo-datasource.yaml: |-
+    apiVersion: 1
+    datasources:
+    - name: Tempo
+      type: tempo
+      access: proxy
+      url: "http://tempo.monitoring:16686"
+      version: 1
+      isDefault: false
+EOF
