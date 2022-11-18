@@ -9,8 +9,12 @@ import (
 
 func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *batchv1.CronJob {
 	namespace := pol.GetNamespace()
+	// TODO: find a better way to do that, it looks like resources returned by WATCH don't have the GVK
+	apiVersion := "kyverno.io/v1alpha1"
+	kind := "CleanupPolicy"
 	if namespace == "" {
 		namespace = "kyverno"
+		kind = "ClusterCleanupPolicy"
 	}
 	cronjob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -18,8 +22,8 @@ func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *b
 			Namespace: namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: pol.GetAPIVersion(),
-					Kind:       pol.GetKind(),
+					APIVersion: apiVersion,
+					Kind:       kind,
 					Name:       pol.GetName(),
 					UID:        pol.GetUID(),
 				},

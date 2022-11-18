@@ -80,9 +80,9 @@ func (c *Controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 
 	cronjob := getCronJobForTriggerResource(policy)
-	_, err = c.client.BatchV1().CronJobs("default").Create(ctx, cronjob, metav1.CreateOptions{})
+	_, err = c.client.BatchV1().CronJobs(cronjob.GetNamespace()).Create(ctx, cronjob, metav1.CreateOptions{})
 	if err != nil {
-		logger.Error(err, "unable to create the resource of kind CronJob for CleanupPolicy %s", name)
+		logger.Error(err, "unable to create the resource of kind CronJob", "policy", policy)
 		return err
 	}
 	return nil
