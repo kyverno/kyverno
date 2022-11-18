@@ -8,10 +8,14 @@ import (
 	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
 	kyvernov1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	kyvernov1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	"github.com/kyverno/kyverno/pkg/config"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	batchv1 "k8s.io/api/batch/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	batchv1informers "k8s.io/client-go/informers/batch/v1"
 	"k8s.io/client-go/kubernetes"
+	batchv1listers "k8s.io/client-go/listers/batch/v1"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -22,6 +26,7 @@ type Controller struct {
 	// listers
 	cpolLister kyvernov1alpha1listers.ClusterCleanupPolicyLister
 	polLister  kyvernov1alpha1listers.CleanupPolicyLister
+	cjLister   batchv1listers.CronJobLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -37,15 +42,18 @@ func NewController(
 	client kubernetes.Interface,
 	cpolInformer kyvernov1alpha1informers.ClusterCleanupPolicyInformer,
 	polInformer kyvernov1alpha1informers.CleanupPolicyInformer,
+	cjInformer batchv1informers.CronJobInformer,
 ) *Controller {
 	c := &Controller{
 		client:     client,
 		cpolLister: cpolInformer.Lister(),
 		polLister:  polInformer.Lister(),
+		cjLister:   cjInformer.Lister(),
 		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 	}
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
+	// TODO: we need to enqueue something on cronjob events
 	return c
 }
 
@@ -68,6 +76,13 @@ func (c *Controller) getPolicy(namespace, name string) (kyvernov1alpha1.CleanupP
 		return policy, nil
 	}
 }
+func (c *Controller) getCronjob(namespace, name string) (*batchv1.CronJob, error) {
+	cj, err := c.cjLister.CronJobs(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	return cj, nil
+}
 
 func (c *Controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	policy, err := c.getPolicy(namespace, name)
@@ -78,12 +93,22 @@ func (c *Controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		logger.Error(err, "unable to get the policy from policy informer")
 		return err
 	}
-
-	cronjob := getCronJobForTriggerResource(policy)
-	_, err = c.client.BatchV1().CronJobs(cronjob.GetNamespace()).Create(ctx, cronjob, metav1.CreateOptions{})
-	if err != nil {
-		logger.Error(err, "unable to create the resource of kind CronJob", "policy", policy)
+	cronjobNs := namespace
+	if namespace == "" {
+		cronjobNs = config.KyvernoNamespace()
+	}
+	if cronjob, err := c.getCronjob(cronjobNs, string(policy.GetUID())); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+		cronjob := getCronJobForTriggerResource(policy)
+		_, err = c.client.BatchV1().CronJobs(cronjobNs).Create(ctx, cronjob, metav1.CreateOptions{})
+		return err
+	} else {
+		_, err = controllerutils.Update(ctx, cronjob, c.client.BatchV1().CronJobs(cronjobNs), func(cronjob *batchv1.CronJob) error {
+			cronjob.Spec.Schedule = policy.GetSpec().Schedule
+			return nil
+		})
 		return err
 	}
-	return nil
 }
