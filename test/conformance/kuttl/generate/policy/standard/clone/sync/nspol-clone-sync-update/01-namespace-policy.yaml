@@ -2,7 +2,6 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 apply:
 - manifests.yaml
-- namespace-policy.yaml
 assert:
 - namespace-policy-ready.yaml
 - required-resources-ready.yaml
