@@ -25,9 +25,45 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string) {
+	imageInfos := []apiutils.ImageInfo{}
+	imageRefs := []string{}
+	for _, infoMap := range images {
+		for _, imageInfo := range infoMap {
+			image := imageInfo.String()
+			for _, verifyImage := range rule.VerifyImages {
+				verifyImage = *verifyImage.Convert()
+				imageRefs = append(imageRefs, verifyImage.ImageReferences...)
+				if imageMatches(image, verifyImage.ImageReferences) {
+					imageInfos = append(imageInfos, imageInfo)
+				}
+			}
+		}
+	}
+	return imageInfos, strings.Join(imageRefs, ",")
+}
+
+func extractMatchingImages(policyContext *PolicyContext, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string, error) {
+	var (
+		images map[string]map[string]apiutils.ImageInfo
+		err    error
+	)
+	images = policyContext.JSONContext.ImageInfo()
+	if rule.ImageExtractors != nil {
+		images, err = policyContext.JSONContext.GenerateCustomImageInfo(
+			&policyContext.NewResource, rule.ImageExtractors)
+		if err != nil {
+			// if we get an error while generating custom images from image extractors,
+			// don't check for matching images in imageExtractors
+			return nil, "", err
+		}
+	}
+	matchingImages, imageRefs := getMatchingImages(images, rule)
+	return matchingImages, imageRefs, nil
+}
+
 func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineResponse, *ImageVerificationMetadata) {
 	resp := &response.EngineResponse{}
-	images := policyContext.JSONContext.ImageInfo()
 
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
@@ -66,28 +102,28 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 
 		logger.V(3).Info("processing image verification rule", "ruleSelector", applyRules)
 
-		policyContext.JSONContext.Restore()
-		if err := LoadContext(logger, rule.Context, policyContext, rule.Name); err != nil {
-			appendError(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), response.RuleStatusError)
+		var err error
+		ruleImages, imageRefs, err := extractMatchingImages(policyContext, rule)
+		if err != nil {
+			appendResponse(resp, rule, fmt.Sprintf("failed to extract images: %s", err.Error()), response.RuleStatusError)
+			continue
+		}
+		if len(ruleImages) == 0 {
+			appendResponse(resp, rule,
+				fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'",
+					imageRefs), response.RuleStatusSkip)
 			continue
 		}
 
-		ruleImages := images
-		var err error
-		if rule.ImageExtractors != nil {
-			if ruleImages, err = policyContext.JSONContext.GenerateCustomImageInfo(&policyContext.NewResource, rule.ImageExtractors); err != nil {
-				appendError(resp, rule, fmt.Sprintf("failed to extract images: %s", err.Error()), response.RuleStatusError)
-				continue
-			}
-		}
-
-		if ruleImages == nil {
+		policyContext.JSONContext.Restore()
+		if err := LoadContext(logger, rule.Context, policyContext, rule.Name); err != nil {
+			appendResponse(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), response.RuleStatusError)
 			continue
 		}
 
 		ruleCopy, err := substituteVariables(rule, policyContext.JSONContext, logger)
 		if err != nil {
-			appendError(resp, rule, fmt.Sprintf("failed to substitute variables: %s", err.Error()), response.RuleStatusError)
+			appendResponse(resp, rule, fmt.Sprintf("failed to substitute variables: %s", err.Error()), response.RuleStatusError)
 			continue
 		}
 
@@ -111,7 +147,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 	return resp, ivm
 }
 
-func appendError(resp *response.EngineResponse, rule *kyvernov1.Rule, msg string, status response.RuleStatus) {
+func appendResponse(resp *response.EngineResponse, rule *kyvernov1.Rule, msg string, status response.RuleStatus) {
 	rr := ruleResponse(*rule, response.ImageVerify, msg, status, nil)
 	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 	incrementErrorCount(resp)
@@ -148,67 +184,60 @@ type imageVerifier struct {
 
 // verify applies policy rules to each matching image. The policy rule results and annotation patches are
 // added to tme imageVerifier `resp` and `ivm` fields.
-func (iv *imageVerifier) verify(imageVerify kyvernov1.ImageVerification, images map[string]map[string]apiutils.ImageInfo) {
+func (iv *imageVerifier) verify(imageVerify kyvernov1.ImageVerification, matchedImageInfos []apiutils.ImageInfo) {
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
 
-	for _, infoMap := range images {
-		for _, imageInfo := range infoMap {
-			image := imageInfo.String()
+	for _, imageInfo := range matchedImageInfos {
+		image := imageInfo.String()
 
-			if !imageMatches(image, imageVerify.ImageReferences) {
-				iv.logger.V(4).Info("image does not match pattern", "image", image, "patterns", imageVerify.ImageReferences)
-				continue
-			}
+		if hasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
+			msg := imageVerifyAnnotationKey + " annotation cannot be changed"
+			iv.logger.Info("image verification error", "reason", msg)
+			ruleResp := ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
+			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
+			incrementAppliedCount(iv.resp)
+			continue
+		}
 
-			if hasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
-				msg := imageVerifyAnnotationKey + " annotation cannot be changed"
-				iv.logger.Info("image verification error", "reason", msg)
-				ruleResp := ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
-				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
-				incrementAppliedCount(iv.resp)
-				continue
-			}
+		pointer := jsonpointer.ParsePath(imageInfo.Pointer).JMESPath()
+		changed, err := iv.policyContext.JSONContext.HasChanged(pointer)
+		if err == nil && !changed {
+			iv.logger.V(4).Info("no change in image, skipping check", "image", image)
+			continue
+		}
 
-			pointer := jsonpointer.ParsePath(imageInfo.Pointer).JMESPath()
-			changed, err := iv.policyContext.JSONContext.HasChanged(pointer)
-			if err == nil && !changed {
-				iv.logger.V(4).Info("no change in image, skipping check", "image", image)
-				continue
-			}
+		verified, err := isImageVerified(iv.policyContext.NewResource, image, iv.logger)
+		if err == nil && verified {
+			iv.logger.Info("image was previously verified, skipping check", "image", image)
+			continue
+		}
 
-			verified, err := isImageVerified(iv.policyContext.NewResource, image, iv.logger)
-			if err == nil && verified {
-				iv.logger.Info("image was previously verified, skipping check", "image", image)
-				continue
-			}
+		ruleResp, digest := iv.verifyImage(imageVerify, imageInfo)
 
-			ruleResp, digest := iv.verifyImage(imageVerify, imageInfo)
-
-			if imageVerify.MutateDigest {
-				patch, retrievedDigest, err := iv.handleMutateDigest(digest, imageInfo)
-				if err != nil {
-					ruleResp = ruleError(iv.rule, response.ImageVerify, "failed to update digest", err)
-				} else if patch != nil {
-					if ruleResp == nil {
-						ruleResp = ruleResponse(*iv.rule, response.ImageVerify, "mutated image digest", response.RuleStatusPass, nil)
-					}
-
-					ruleResp.Patches = append(ruleResp.Patches, patch)
-					imageInfo.Digest = retrievedDigest
-					image = imageInfo.String()
-				}
-			}
-
-			if ruleResp != nil {
-				if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
-					verified := ruleResp.Status == response.RuleStatusPass
-					iv.ivm.add(image, verified)
+		if imageVerify.MutateDigest {
+			patch, retrievedDigest, err := iv.handleMutateDigest(digest, imageInfo)
+			if err != nil {
+				ruleResp = ruleError(iv.rule, response.ImageVerify, "failed to update digest", err)
+			} else if patch != nil {
+				if ruleResp == nil {
+					ruleResp = ruleResponse(*iv.rule, response.ImageVerify, "mutated image digest", response.RuleStatusPass, nil)
 				}
 
-				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
-				incrementAppliedCount(iv.resp)
+				ruleResp.Patches = append(ruleResp.Patches, patch)
+				imageInfo.Digest = retrievedDigest
+				image = imageInfo.String()
 			}
+		}
+
+		if ruleResp != nil {
+			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
+				verified := ruleResp.Status == response.RuleStatusPass
+				iv.ivm.add(image, verified)
+			}
+
+			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
+			incrementAppliedCount(iv.resp)
 		}
 	}
 }
