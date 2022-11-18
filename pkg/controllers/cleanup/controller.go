@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
 	kyvernov1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	kyvernov1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -43,27 +43,29 @@ func NewController(
 		polLister:  polInformer.Lister(),
 		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 	}
-	cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.enqueue,
-		UpdateFunc: func(_, obj interface{}) {
-			c.enqueue(obj)
-		},
-	})
-	polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.enqueue,
-		UpdateFunc: func(_, obj interface{}) {
-			c.enqueue(obj)
-		},
-	})
+	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
 	return c
-}
-
-func (c *Controller) enqueue(obj interface{}) {
-	c.queue.Add(obj)
 }
 
 func (c *Controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger.V(3), ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+}
+
+func (c *Controller) getPolicy(namespace, name string) (kyvernov1alpha1.CleanupPolicyInterface, error) {
+	if namespace == "" {
+		cpolicy, err := c.cpolLister.Get(name)
+		if err != nil {
+			return nil, err
+		}
+		return cpolicy, nil
+	} else {
+		policy, err := c.polLister.CleanupPolicies(namespace).Get(name)
+		if err != nil {
+			return nil, err
+		}
+		return policy, nil
+	}
 }
 
 func (c *Controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {

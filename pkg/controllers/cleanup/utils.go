@@ -7,22 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c *Controller) getPolicy(namespace, name string) (kyvernov1alpha1.CleanupPolicyInterface, error) {
-	if namespace == "" {
-		cpolicy, err := c.cpolLister.Get(name)
-		if err != nil {
-			return nil, err
-		}
-		return cpolicy, nil
-	} else {
-		policy, err := c.polLister.CleanupPolicies(namespace).Get(name)
-		if err != nil {
-			return nil, err
-		}
-		return policy, nil
-	}
-}
-
 func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *batchv1.CronJob {
 	cronjob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
