@@ -2779,7 +2779,7 @@ spec:
     listKind: ClusterCleanupPolicyList
     plural: clustercleanuppolicies
     shortNames:
-    - cleancpol
+    - ccleanpol
     singular: clustercleanuppolicy
   scope: Cluster
   versions:
