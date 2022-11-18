@@ -76,6 +76,7 @@ func (c *Controller) getPolicy(namespace, name string) (kyvernov1alpha1.CleanupP
 		return policy, nil
 	}
 }
+
 func (c *Controller) getCronjob(namespace, name string) (*batchv1.CronJob, error) {
 	cj, err := c.cjLister.CronJobs(namespace).Get(name)
 	if err != nil {
