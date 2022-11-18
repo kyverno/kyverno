@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks"
@@ -28,6 +29,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
@@ -95,105 +97,109 @@ func NewHandlers(
 }
 
 func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
-	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
-		return admissionutils.ResponseSuccess()
-	}
-	kind := request.Kind.Kind
-	logger = logger.WithValues("kind", kind)
-	logger.V(4).Info("received an admission request in validating webhook")
+	return tracing.Span1(ctx, "pkg/webhooks/resource", "ENGINE VALIDATE", func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
+		if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
+			return admissionutils.ResponseSuccess()
+		}
+		kind := request.Kind.Kind
+		logger = logger.WithValues("kind", kind)
+		logger.V(4).Info("received an admission request in validating webhook")
 
-	// timestamp at which this admission request got triggered
-	policies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)...)
-	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)...)
-	generatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)...)
-	imageVerifyValidatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, kind, request.Namespace)...)
-	policies = append(policies, imageVerifyValidatePolicies...)
+		// timestamp at which this admission request got triggered
+		policies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)...)
+		mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)...)
+		generatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)...)
+		imageVerifyValidatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, kind, request.Namespace)...)
+		policies = append(policies, imageVerifyValidatePolicies...)
 
-	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
-		logger.V(4).Info("no policies matched admission request")
-	}
-	if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
-		// handle generate source resource updates
-		gh := generation.NewGenerationHandler(logger, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.urGenerator, h.urUpdater, h.eventGen)
-		go gh.HandleUpdatesForGenerateRules(request, []kyvernov1.PolicyInterface{})
-	}
+		if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
+			logger.V(4).Info("no policies matched admission request")
+		}
+		if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
+			// handle generate source resource updates
+			gh := generation.NewGenerationHandler(logger, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.urGenerator, h.urUpdater, h.eventGen)
+			go gh.HandleUpdatesForGenerateRules(request, []kyvernov1.PolicyInterface{})
+		}
 
-	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
+		logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
-	policyContext, err := h.pcBuilder.Build(request, generatePolicies...)
-	if err != nil {
-		return errorResponse(logger, err, "failed create policy context")
-	}
+		policyContext, err := h.pcBuilder.Build(request, generatePolicies...)
+		if err != nil {
+			return errorResponse(logger, err, "failed create policy context")
+		}
 
-	namespaceLabels := make(map[string]string)
-	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
-	}
+		namespaceLabels := make(map[string]string)
+		if request.Kind.Kind != "Namespace" && request.Namespace != "" {
+			namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
+		}
 
-	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports)
+		vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig)
 
-	ok, msg, warnings := vh.HandleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
-	if !ok {
-		logger.Info("admission request denied")
-		return admissionutils.Response(errors.New(msg), warnings...)
-	}
+		ok, msg, warnings := vh.HandleValidation(ctx, request, policies, policyContext, namespaceLabels, startTime)
+		if !ok {
+			logger.Info("admission request denied")
+			return admissionutils.Response(errors.New(msg), warnings...)
+		}
 
-	defer h.handleDelete(logger, request)
-	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
+		defer h.handleDelete(logger, request)
+		go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 
-	return admissionutils.ResponseSuccess(warnings...)
+		return admissionutils.ResponseSuccess(warnings...)
+	})
 }
 
 func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
-	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
-		return admissionutils.ResponseSuccess()
-	}
-	if request.Operation == admissionv1.Delete {
-		return admissionutils.ResponseSuccess()
-	}
-	kind := request.Kind.Kind
-	logger = logger.WithValues("kind", kind)
-	logger.V(4).Info("received an admission request in mutating webhook")
-	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)...)
-	verifyImagesPolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)...)
-	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
-		logger.V(4).Info("no policies matched mutate admission request")
-		return admissionutils.ResponseSuccess()
-	}
-	logger.V(4).Info("processing policies for mutate admission request", "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
-	policyContext, err := h.pcBuilder.Build(request, mutatePolicies...)
-	if err != nil {
-		logger.Error(err, "failed to build policy context")
-		return admissionutils.Response(err)
-	}
-	// update container images to a canonical form
-	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext); err != nil {
-		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
-	}
-	mh := mutation.NewMutationHandler(logger, h.eventGen, h.openApiManager, h.nsLister)
-	mutatePatches, mutateWarnings, err := mh.HandleMutation(h.metricsConfig, request, mutatePolicies, policyContext, startTime)
-	if err != nil {
-		logger.Error(err, "mutation failed")
-		return admissionutils.Response(err)
-	}
-	newRequest := patchRequest(mutatePatches, request, logger)
-	// rebuild context to process images updated via mutate policies
-	policyContext, err = h.pcBuilder.Build(newRequest, mutatePolicies...)
-	if err != nil {
-		logger.Error(err, "failed to build policy context")
-		return admissionutils.Response(err)
-	}
-	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.eventGen, h.admissionReports)
-	imagePatches, imageVerifyWarnings, err := ivh.Handle(h.metricsConfig, newRequest, verifyImagesPolicies, policyContext)
-	if err != nil {
-		logger.Error(err, "image verification failed")
-		return admissionutils.Response(err)
-	}
-	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
-	var warnings []string
-	warnings = append(warnings, mutateWarnings...)
-	warnings = append(warnings, imageVerifyWarnings...)
-	return admissionutils.MutationResponse(patch, warnings...)
+	return tracing.Span1(ctx, "pkg/webhooks/resource", "ENGINE MUTATE", func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
+		if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
+			return admissionutils.ResponseSuccess()
+		}
+		if request.Operation == admissionv1.Delete {
+			return admissionutils.ResponseSuccess()
+		}
+		kind := request.Kind.Kind
+		logger = logger.WithValues("kind", kind)
+		logger.V(4).Info("received an admission request in mutating webhook")
+		mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)...)
+		verifyImagesPolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)...)
+		if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
+			logger.V(4).Info("no policies matched mutate admission request")
+			return admissionutils.ResponseSuccess()
+		}
+		logger.V(4).Info("processing policies for mutate admission request", "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
+		policyContext, err := h.pcBuilder.Build(request, mutatePolicies...)
+		if err != nil {
+			logger.Error(err, "failed to build policy context")
+			return admissionutils.Response(err)
+		}
+		// update container images to a canonical form
+		if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext); err != nil {
+			logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
+		}
+		mh := mutation.NewMutationHandler(logger, h.eventGen, h.openApiManager, h.nsLister)
+		mutatePatches, mutateWarnings, err := mh.HandleMutation(h.metricsConfig, request, mutatePolicies, policyContext, startTime)
+		if err != nil {
+			logger.Error(err, "mutation failed")
+			return admissionutils.Response(err)
+		}
+		newRequest := patchRequest(mutatePatches, request, logger)
+		// rebuild context to process images updated via mutate policies
+		policyContext, err = h.pcBuilder.Build(newRequest, mutatePolicies...)
+		if err != nil {
+			logger.Error(err, "failed to build policy context")
+			return admissionutils.Response(err)
+		}
+		ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.eventGen, h.admissionReports)
+		imagePatches, imageVerifyWarnings, err := ivh.Handle(h.metricsConfig, newRequest, verifyImagesPolicies, policyContext)
+		if err != nil {
+			logger.Error(err, "image verification failed")
+			return admissionutils.Response(err)
+		}
+		patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
+		var warnings []string
+		warnings = append(warnings, mutateWarnings...)
+		warnings = append(warnings, imageVerifyWarnings...)
+		return admissionutils.MutationResponse(patch, warnings...)
+	})
 }
 
 func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.AdmissionRequest) {

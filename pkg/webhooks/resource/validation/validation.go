@@ -2,6 +2,7 @@ package validation
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -13,10 +14,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,7 +30,7 @@ type ValidationHandler interface {
 	// HandleValidation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleValidation(*metrics.MetricsConfig, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
+	HandleValidation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
 }
 
 func NewValidationHandler(
@@ -37,6 +40,7 @@ func NewValidationHandler(
 	pcBuilder webhookutils.PolicyContextBuilder,
 	eventGen event.Interface,
 	admissionReports bool,
+	metrics *metrics.MetricsConfig,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -45,6 +49,7 @@ func NewValidationHandler(
 		pcBuilder:        pcBuilder,
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
+		metrics:          metrics,
 	}
 }
 
@@ -55,10 +60,11 @@ type validationHandler struct {
 	pcBuilder        webhookutils.PolicyContextBuilder
 	eventGen         event.Interface
 	admissionReports bool
+	metrics          *metrics.MetricsConfig
 }
 
 func (v *validationHandler) HandleValidation(
-	metricsConfig *metrics.MetricsConfig,
+	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -88,31 +94,38 @@ func (v *validationHandler) HandleValidation(
 	var engineResponses []*response.EngineResponse
 	failurePolicy := kyvernov1.Ignore
 	for _, policy := range policies {
-		policyContext.Policy = policy
-		policyContext.NamespaceLabels = namespaceLabels
-		if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
-			failurePolicy = kyvernov1.Fail
-		}
+		tracing.Span(
+			ctx,
+			"pkg/webhooks/resource/validate",
+			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
+			func(ctx context.Context, span trace.Span) {
+				policyContext.Policy = policy
+				policyContext.NamespaceLabels = namespaceLabels
+				if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+					failurePolicy = kyvernov1.Fail
+				}
 
-		engineResponse := engine.Validate(policyContext)
-		if engineResponse.IsNil() {
-			// we get an empty response if old and new resources created the same response
-			// allow updates if resource update doesnt change the policy evaluation
-			continue
-		}
+				engineResponse := engine.Validate(ctx, policyContext)
+				if engineResponse.IsNil() {
+					// we get an empty response if old and new resources created the same response
+					// allow updates if resource update doesnt change the policy evaluation
+					return
+				}
 
-		go webhookutils.RegisterPolicyResultsMetricValidation(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
-		go webhookutils.RegisterPolicyExecutionDurationMetricValidate(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+				go webhookutils.RegisterPolicyResultsMetricValidation(logger, v.metrics, string(request.Operation), policyContext.Policy, *engineResponse)
+				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(logger, v.metrics, string(request.Operation), policyContext.Policy, *engineResponse)
 
-		engineResponses = append(engineResponses, engineResponse)
-		if !engineResponse.IsSuccessful() {
-			logger.V(2).Info("validation failed", "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
-			continue
-		}
+				engineResponses = append(engineResponses, engineResponse)
+				if !engineResponse.IsSuccessful() {
+					logger.V(2).Info("validation failed", "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
+					return
+				}
 
-		if len(engineResponse.GetSuccessRules()) > 0 {
-			logger.V(2).Info("validation passed", "policy", policy.GetName())
-		}
+				if len(engineResponse.GetSuccessRules()) > 0 {
+					logger.V(2).Info("validation passed", "policy", policy.GetName())
+				}
+			},
+		)
 	}
 
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
@@ -142,7 +155,7 @@ func (v *validationHandler) buildAuditResponses(resource unstructured.Unstructur
 	for _, policy := range policies {
 		policyContext.Policy = policy
 		policyContext.NamespaceLabels = namespaceLabels
-		responses = append(responses, engine.Validate(policyContext))
+		responses = append(responses, engine.Validate(context.TODO(), policyContext))
 	}
 	return responses, nil
 }

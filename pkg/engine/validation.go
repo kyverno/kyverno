@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -13,14 +14,16 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/pss"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +33,7 @@ import (
 )
 
 // Validate applies validation rules from policy on the resource
-func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Validate(ctx context.Context, policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
 
@@ -41,7 +44,7 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	resp = validateResource(logger, policyContext)
+	resp = validateResource(ctx, logger, policyContext)
 	return
 }
 
@@ -88,53 +91,56 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 }
 
-func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineResponse {
+func validateResource(ctx context.Context, log logr.Logger, polctx *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
-	ctx.JSONContext.Checkpoint()
-	defer ctx.JSONContext.Restore()
+	polctx.JSONContext.Checkpoint()
+	defer polctx.JSONContext.Restore()
 
-	rules := autogen.ComputeRules(ctx.Policy)
+	rules := autogen.ComputeRules(polctx.Policy)
 	matchCount := 0
-	applyRules := ctx.Policy.GetSpec().GetApplyRules()
+	applyRules := polctx.Policy.GetSpec().GetApplyRules()
 
-	if ctx.Policy.IsNamespaced() {
-		polNs := ctx.Policy.GetNamespace()
-		if ctx.NewResource.Object != nil && (ctx.NewResource.GetNamespace() != polNs || ctx.NewResource.GetNamespace() == "") {
+	if polctx.Policy.IsNamespaced() {
+		polNs := polctx.Policy.GetNamespace()
+		if polctx.NewResource.Object != nil && (polctx.NewResource.GetNamespace() != polNs || polctx.NewResource.GetNamespace() == "") {
 			return resp
 		}
-		if ctx.OldResource.Object != nil && (ctx.OldResource.GetNamespace() != polNs || ctx.OldResource.GetNamespace() == "") {
+		if polctx.OldResource.Object != nil && (polctx.OldResource.GetNamespace() != polNs || polctx.OldResource.GetNamespace() == "") {
 			return resp
 		}
 	}
 
 	for i := range rules {
 		rule := &rules[i]
-		hasValidate := rule.HasValidate()
-		hasValidateImage := rule.HasImagesValidationChecks()
-		hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
-		if !hasValidate && !hasValidateImage {
-			continue
-		}
-
-		log = log.WithValues("rule", rule.Name)
-		if !matches(log, rule, ctx) {
-			continue
-		}
-
-		log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
-		ctx.JSONContext.Reset()
 		startTime := time.Now()
-
-		var ruleResp *response.RuleResponse
-		if hasValidate && !hasYAMLSignatureVerify {
-			ruleResp = processValidationRule(log, ctx, rule)
-		} else if hasValidateImage {
-			ruleResp = processImageValidationRule(log, ctx, rule)
-		} else if hasYAMLSignatureVerify {
-			ruleResp = processYAMLValidationRule(log, ctx, rule)
-		}
-
+		ruleResp := tracing.Span1(
+			ctx,
+			"pkg/engine",
+			fmt.Sprintf("RULE %s", rule.Name),
+			func(ctx context.Context, span trace.Span) *response.RuleResponse {
+				hasValidate := rule.HasValidate()
+				hasValidateImage := rule.HasImagesValidationChecks()
+				hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
+				if !hasValidate && !hasValidateImage {
+					return nil
+				}
+				log = log.WithValues("rule", rule.Name)
+				if !matches(log, rule, polctx) {
+					return nil
+				}
+				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
+				polctx.JSONContext.Reset()
+				if hasValidate && !hasYAMLSignatureVerify {
+					return processValidationRule(log, polctx, rule)
+				} else if hasValidateImage {
+					return processImageValidationRule(log, polctx, rule)
+				} else if hasYAMLSignatureVerify {
+					return processYAMLValidationRule(log, polctx, rule)
+				}
+				return nil
+			},
+		)
 		if ruleResp != nil {
 			addRuleResponse(log, resp, ruleResp, startTime)
 			if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
@@ -151,11 +157,11 @@ func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule
 	ctxCopy.NewResource = *ctxCopy.OldResource.DeepCopy()
 	ctxCopy.OldResource = unstructured.Unstructured{}
 
-	if err := context.ReplaceResource(ctxCopy.JSONContext, ctxCopy.NewResource.Object); err != nil {
+	if err := enginecontext.ReplaceResource(ctxCopy.JSONContext, ctxCopy.NewResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
 	}
 
-	if err := context.ReplaceOldResource(ctxCopy.JSONContext, ctxCopy.OldResource.Object); err != nil {
+	if err := enginecontext.ReplaceOldResource(ctxCopy.JSONContext, ctxCopy.OldResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
 	}
 

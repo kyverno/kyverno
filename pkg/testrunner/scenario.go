@@ -2,6 +2,7 @@ package testrunner
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	ospath "path"
@@ -13,7 +14,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
@@ -147,7 +148,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		Policy:           policy,
 		NewResource:      *resource,
 		ExcludeGroupRole: []string{},
-		JSONContext:      context.NewContext(),
+		JSONContext:      enginecontext.NewContext(),
 	}
 
 	er := engine.Mutate(ctx)
@@ -164,10 +165,10 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		Policy:           policy,
 		NewResource:      *resource,
 		ExcludeGroupRole: []string{},
-		JSONContext:      context.NewContext(),
+		JSONContext:      enginecontext.NewContext(),
 	}
 
-	er = engine.Validate(ctx)
+	er = engine.Validate(context.TODO(), ctx)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -189,7 +190,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 				ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 					return false
 				},
-				JSONContext: context.NewContext(),
+				JSONContext: enginecontext.NewContext(),
 			}
 
 			er = engine.ApplyBackgroundChecks(policyContext)

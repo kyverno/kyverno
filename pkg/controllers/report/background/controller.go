@@ -265,7 +265,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			nsLabels = ns.GetLabels()
 		}
 		var responses []*response.EngineResponse
-		for _, result := range scanner.ScanResource(*resource, nsLabels, backgroundPolicies...) {
+		for _, result := range scanner.ScanResource(ctx, *resource, nsLabels, backgroundPolicies...) {
 			if result.Error != nil {
 				logger.Error(result.Error, "failed to apply policy")
 			} else {
@@ -342,7 +342,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 				}
 				nsLabels = ns.GetLabels()
 			}
-			for _, result := range scanner.ScanResource(*resource, nsLabels, toCreate...) {
+			for _, result := range scanner.ScanResource(ctx, *resource, nsLabels, toCreate...) {
 				if result.Error != nil {
 					return result.Error
 				} else {

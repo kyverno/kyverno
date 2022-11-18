@@ -1,11 +1,13 @@
 package utils
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,7 +25,7 @@ type ScanResult struct {
 }
 
 type Scanner interface {
-	ScanResource(unstructured.Unstructured, map[string]string, ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult
+	ScanResource(context.Context, unstructured.Unstructured, map[string]string, ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult
 }
 
 func NewScanner(logger logr.Logger, client dclient.Interface, excludeGroupRole ...string) Scanner {
@@ -34,11 +36,11 @@ func NewScanner(logger logr.Logger, client dclient.Interface, excludeGroupRole .
 	}
 }
 
-func (s *scanner) ScanResource(resource unstructured.Unstructured, nsLabels map[string]string, policies ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult {
+func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policies ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult {
 	results := map[kyvernov1.PolicyInterface]ScanResult{}
 	for _, policy := range policies {
 		var errors []error
-		response, err := s.validateResource(resource, nsLabels, policy)
+		response, err := s.validateResource(ctx, resource, nsLabels, policy)
 		if err != nil {
 			s.logger.Error(err, "failed to scan resource")
 			errors = append(errors, err)
@@ -61,33 +63,33 @@ func (s *scanner) ScanResource(resource unstructured.Unstructured, nsLabels map[
 	return results
 }
 
-func (s *scanner) validateResource(resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
-	ctx := context.NewContext()
-	if err := ctx.AddResource(resource.Object); err != nil {
+func (s *scanner) validateResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
+	enginectx := enginecontext.NewContext()
+	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}
-	if err := ctx.AddNamespace(resource.GetNamespace()); err != nil {
+	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
 	}
-	if err := ctx.AddImageInfos(&resource); err != nil {
+	if err := enginectx.AddImageInfos(&resource); err != nil {
 		return nil, err
 	}
-	if err := ctx.AddOperation("CREATE"); err != nil {
+	if err := enginectx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
 	policyCtx := &engine.PolicyContext{
 		Policy:           policy,
 		NewResource:      resource,
-		JSONContext:      ctx,
+		JSONContext:      enginectx,
 		Client:           s.client,
 		NamespaceLabels:  nsLabels,
 		ExcludeGroupRole: s.excludeGroupRole,
 	}
-	return engine.Validate(policyCtx), nil
+	return engine.Validate(ctx, policyCtx), nil
 }
 
 func (s *scanner) validateImages(resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
-	ctx := context.NewContext()
+	ctx := enginecontext.NewContext()
 	if err := ctx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}

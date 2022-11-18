@@ -479,7 +479,7 @@ OuterLoop:
 	var info Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.Validate(policyContext)
+		validateResponse = engine.Validate(context.TODO(), policyContext)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport)
 	}
 
