@@ -9,11 +9,16 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterCleanupPolicy
     listKind: ClusterCleanupPolicyList
     plural: clustercleanuppolicies
+    shortNames:
+    - cleancpol
     singular: clustercleanuppolicy
-  scope: Namespaced
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.schedule

@@ -9,6 +9,7 @@ import (
 	kyvernov1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	kyvernov1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
@@ -71,6 +72,9 @@ func (c *Controller) getPolicy(namespace, name string) (kyvernov1alpha1.CleanupP
 func (c *Controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	policy, err := c.getPolicy(namespace, name)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
 		logger.Error(err, "unable to get the policy from policy informer")
 		return err
 	}

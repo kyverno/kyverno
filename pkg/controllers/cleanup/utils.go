@@ -8,10 +8,22 @@ import (
 )
 
 func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *batchv1.CronJob {
+	namespace := pol.GetNamespace()
+	if namespace == "" {
+		namespace = "kyverno"
+	}
 	cronjob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cleanupcj",
-			Namespace: "default",
+			Name:      string(pol.GetUID()),
+			Namespace: namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: pol.GetAPIVersion(),
+					Kind:       pol.GetKind(),
+					Name:       pol.GetName(),
+					UID:        pol.GetUID(),
+				},
+			},
 		},
 		Spec: batchv1.CronJobSpec{
 			Schedule: pol.GetSpec().Schedule,
