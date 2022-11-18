@@ -7,7 +7,9 @@ import (
 
 	"github.com/go-logr/logr"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -103,8 +105,15 @@ func (h AdmissionHandler) WithDump(enabled bool) AdmissionHandler {
 
 func withDump(inner AdmissionHandler) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		response := inner(ctx, logger, request, startTime)
-		dumpPayload(logger, request, response)
-		return response
+		return tracing.Span1(
+			ctx,
+			"admission_webhook_operations",
+			"dump",
+			func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
+				response := inner(ctx, logger, request, startTime)
+				dumpPayload(logger, request, response)
+				return response
+			},
+		)
 	}
 }
