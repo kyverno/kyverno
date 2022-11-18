@@ -29,6 +29,8 @@ spec:
       selfHeal: true
 EOF
 
+kubectl create namespadce monitoring || true
+
 kubectl apply -f - <<EOF
 apiVersion: v1
 kind: ConfigMap
@@ -44,7 +46,7 @@ data:
     - name: Tempo
       type: tempo
       access: proxy
-      url: "http://tempo.monitoring:16686"
+      url: "http://tempo.monitoring:3100"
       version: 1
       isDefault: false
 EOF
