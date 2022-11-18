@@ -44,8 +44,11 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		ValidatingWebhookServicePath,
-		handlers.AdmissionHandler(policyHandlers.Validate).
-			WithAdmission(logger.Logger.WithName("validate")),
+		http.HandlerFunc(
+			handlers.AdmissionHandler(policyHandlers.Validate).
+				WithAdmission(logger.Logger.WithName("validate")).
+				WithTrace(),
+		),
 	)
 	return &server{
 		server: &http.Server{
