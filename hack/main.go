@@ -223,6 +223,7 @@ func executeTemplate(tpl string, cs clientset, folder string, packages ...string
 			panic(fmt.Sprintf("Failed to create file %s", path.Join(folder, file)))
 		}
 		if err := tmpl.Execute(f, map[string]interface{}{
+			"Folder":    folder,
 			"Clientset": cs,
 			"Packages":  parseImports(cs, packages...),
 		}); err != nil {
@@ -452,8 +453,8 @@ func (c *wrapped{{ $client.Method.Name }}{{ $resource.Method.Name }}) {{ $operat
 	{{- if $operation.HasContext }}
 	ctx, span := {{ $tracingPkg }}.StartSpan(
 		arg0,
-		"{{ $client.Method.Name }}/{{ $resource.Method.Name }}",
-		{{ Quote $operation.Method.Name }},
+		{{ Quote $.Folder }},
+		"KUBE {{ $client.Method.Name }}/{{ $resource.Method.Name }}/{{ $operation.Method.Name }}",
 		{{ $attributePkg }}.String("client", {{ Quote $client.Method.Name }}),
 		{{ $attributePkg }}.String("resource", {{ Quote $resource.Method.Name }}),
 		{{ $attributePkg }}.String("kind", {{ Quote $resource.Kind }}),

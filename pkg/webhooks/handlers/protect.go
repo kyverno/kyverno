@@ -28,8 +28,8 @@ func withProtection(inner AdmissionHandler) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		return tracing.Span1(
 			ctx,
-			"admission_webhook_operations",
-			"protect",
+			"webhooks/handlers",
+			fmt.Sprintf("PROTECT %s %s", request.Operation, request.Kind),
 			func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
 				newResource, oldResource, err := utils.ExtractResources(nil, request)
 				if err != nil {
@@ -47,6 +47,7 @@ func withProtection(inner AdmissionHandler) AdmissionHandler {
 				}
 				return inner(ctx, logger, request, startTime)
 			},
+			trace.WithAttributes(admissionRequestAttributes(request)...),
 		)
 	}
 }

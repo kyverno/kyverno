@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -21,13 +22,14 @@ func withMetrics(metricsConfig *metrics.MetricsConfig, inner AdmissionHandler) A
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		return tracing.Span1(
 			ctx,
-			"admission_webhook_operations",
-			"metrics",
+			"webhooks/handlers",
+			fmt.Sprintf("METRICS %s %s", request.Operation, request.Kind),
 			func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
 				defer admissionReviewDuration.Process(metricsConfig, request, int64(time.Since(startTime)))
 				admissionRequests.Process(metricsConfig, request)
 				return inner(ctx, logger, request, startTime)
 			},
+			trace.WithAttributes(admissionRequestAttributes(request)...),
 		)
 	}
 }
