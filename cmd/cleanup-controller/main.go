@@ -11,12 +11,12 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
-	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
-	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/apiextensions-apiserver/pkg/cmd/server"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -104,8 +104,7 @@ func main() {
 	// setup signals
 	signalCtx, signalCancel := internal.SetupSignals(logger)
 	defer signalCancel()
-	// setup metrics
-	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
+	metricsConfig, metricsShutdown, err := setupMetrics(logger, kubeClient)
 	if err != nil {
 		logger.Error(err, "failed to setup metrics")
 		os.Exit(1)
@@ -121,7 +120,6 @@ func main() {
 		logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
 	}
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	policyHandlers := NewHandlers(
 		dClient,
 	)
@@ -131,8 +129,8 @@ func main() {
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kubeKyvernoInformer) {
 		os.Exit(1)
 	}
-	server := NewServer(
-		policyHandlers,
+	cleanupController := cleanup.NewController(
+		*kubeClient,
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get("cleanup-controller-tls")
 			if err != nil {
@@ -145,4 +143,5 @@ func main() {
 	server.Run(signalCtx.Done())
 	// wait for termination signal
 	<-signalCtx.Done()
+	wg.Wait()
 }
