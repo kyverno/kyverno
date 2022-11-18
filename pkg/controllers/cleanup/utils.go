@@ -14,10 +14,12 @@ func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *b
 			Namespace: "default",
 		},
 		Spec: batchv1.CronJobSpec{
+			Schedule: pol.GetSpec().Schedule,
 			JobTemplate: batchv1.JobTemplateSpec{
 				Spec: batchv1.JobSpec{
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
+							RestartPolicy: corev1.RestartPolicyOnFailure,
 							Containers: []corev1.Container{
 								{
 									Name:  "cleanup",
