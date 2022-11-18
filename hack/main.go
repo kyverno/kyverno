@@ -53,8 +53,9 @@ type client struct {
 }
 
 type clientset struct {
-	Type    reflect.Type
-	Clients []client
+	Type      reflect.Type
+	Clients   []client
+	Discovery []operation
 }
 
 func getIns(in reflect.Method) []reflect.Type {
@@ -143,6 +144,16 @@ func parse(in reflect.Type) clientset {
 				}
 			}
 			cs.Clients = append(cs.Clients, c)
+		} else if clientMethod.Name == "Discovery" {
+			clientType := clientMethod.Type.Out(0)
+			for _, operationMethod := range getMethods(clientType) {
+				if operationMethod.Name != "RESTClient" {
+					o := operation{
+						Method: operationMethod,
+					}
+					cs.Discovery = append(cs.Discovery, o)
+				}
+			}
 		}
 	}
 	return cs
@@ -171,6 +182,24 @@ func parseImports(cs clientset, packages ...string) []string {
 						imports.Insert(i.PkgPath())
 					}
 				}
+			}
+		}
+	}
+	for _, o := range cs.Discovery {
+		for _, i := range getIns(o.Method) {
+			if i.Kind() == reflect.Pointer {
+				i = i.Elem()
+			}
+			if i.PkgPath() != "" {
+				imports.Insert(i.PkgPath())
+			}
+		}
+		for _, i := range getOuts(o.Method) {
+			if i.Kind() == reflect.Pointer {
+				i = i.Elem()
+			}
+			if i.PkgPath() != "" {
+				imports.Insert(i.PkgPath())
 			}
 		}
 	}
@@ -248,7 +277,7 @@ import (
 // Wrap
 func Wrap(inner {{ GoType .Clientset.Type }}, m {{ $metricsPkg }}.MetricsConfigManager, t {{ $metricsPkg }}.ClientType) {{ GoType .Clientset.Type }} {
 	return &clientset{
-		inner: inner,
+		discovery: newDiscoveryInterface(inner.Discovery(), m, t),
 		{{- range $client := .Clientset.Clients }}
 		{{ ToLower $client.Method.Name }}: new{{ $client.Method.Name }}(inner.{{ $client.Method.Name }}(), m, t),
 		{{- end }}
@@ -266,20 +295,59 @@ func NewForConfig(c *{{ $restPkg }}.Config, m {{ $metricsPkg }}.MetricsConfigMan
 
 // clientset wrapper
 type clientset struct {
-	inner {{ GoType .Clientset.Type }}
+	discovery {{ $discoveryPkg }}.DiscoveryInterface
 	{{- range $client := .Clientset.Clients }}
 	{{ ToLower $client.Method.Name }} {{ GoType $client.Type }}
 	{{- end }}
 }
-// Discovery is NOT instrumented
 func (c *clientset) Discovery() {{ $discoveryPkg }}.DiscoveryInterface {
-	return c.inner.Discovery()
+	return c.discovery
 }
 {{- range $client := .Clientset.Clients }}
 func (c *clientset) {{ $client.Method.Name }}() {{ GoType $client.Type }} {
 	return c.{{ ToLower $client.Method.Name }}
 }
 {{- end }}
+
+// wrappedDiscoveryInterface
+type wrappedDiscoveryInterface struct {
+	inner {{ $discoveryPkg }}.DiscoveryInterface
+	metrics    {{ $metricsPkg }}.MetricsConfigManager
+	clientType {{ $metricsPkg }}.ClientType
+}
+
+func newDiscoveryInterface(inner {{ $discoveryPkg }}.DiscoveryInterface, metrics {{ $metricsPkg }}.MetricsConfigManager, t {{ $metricsPkg }}.ClientType) {{ $discoveryPkg }}.DiscoveryInterface {
+	return &wrappedDiscoveryInterface{inner, metrics, t}
+}
+{{- range $operation := .Clientset.Discovery }}
+func (c *wrappedDiscoveryInterface) {{ $operation.Method.Name }}(
+	{{- range $i, $arg := Args $operation.Method -}}
+	{{- if $arg.IsVariadic -}}
+	arg{{ $i }} ...{{ GoType $arg.Type.Elem }},
+	{{- else -}}
+	arg{{ $i }} {{ GoType $arg.Type }},
+	{{- end -}}
+	{{- end -}}
+) (
+	{{- range $return := Returns $operation.Method -}}
+	{{ GoType $return }},
+	{{- end -}}
+) {
+	c.metrics.RecordClientQueries({{ Quote (SnakeCase $operation.Method.Name) }}, "Discovery", "", "")
+	return c.inner.{{ $operation.Method.Name }}(
+		{{- range $i, $arg := Args $operation.Method -}}
+		{{- if $arg.IsVariadic -}}
+		arg{{ $i }}...,
+		{{- else -}}
+		arg{{ $i }},
+		{{- end -}}
+		{{- end -}}
+	)
+}
+{{- end }}
+func (c *wrappedDiscoveryInterface) RESTClient() {{ $restPkg }}.Interface {
+	return c.inner.RESTClient()
+}
 
 {{- range $client := .Clientset.Clients }}
 {{- $clientGoType := GoType $client.Type }}
@@ -303,7 +371,6 @@ func (c *wrapped{{ $client.Method.Name }}) {{ $resource.Method.Name }}({{- if $r
 	{{- end }}
 }
 {{- end }}
-// RESTClient is NOT instrumented
 func (c *wrapped{{ $client.Method.Name }}) RESTClient() {{ $restPkg }}.Interface {
 	return c.inner.RESTClient()
 }
@@ -369,7 +436,7 @@ import (
 // Wrap
 func Wrap(inner {{ GoType .Clientset.Type }}) {{ GoType .Clientset.Type }} {
 	return &clientset{
-		inner: inner,
+		discovery: newDiscoveryInterface(inner.Discovery()),
 		{{- range $client := .Clientset.Clients }}
 		{{ ToLower $client.Method.Name }}: new{{ $client.Method.Name }}(inner.{{ $client.Method.Name }}()),
 		{{- end }}
@@ -387,20 +454,72 @@ func NewForConfig(c *{{ $restPkg }}.Config) ({{ GoType .Clientset.Type }}, error
 
 // clientset wrapper
 type clientset struct {
-	inner {{ GoType .Clientset.Type }}
+	discovery {{ $discoveryPkg }}.DiscoveryInterface
 	{{- range $client := .Clientset.Clients }}
 	{{ ToLower $client.Method.Name }} {{ GoType $client.Type }}
 	{{- end }}
 }
-// Discovery is NOT instrumented
 func (c *clientset) Discovery() {{ $discoveryPkg }}.DiscoveryInterface {
-	return c.inner.Discovery()
+	return c.discovery
 }
 {{- range $client := .Clientset.Clients }}
 func (c *clientset) {{ $client.Method.Name }}() {{ GoType $client.Type }} {
 	return c.{{ ToLower $client.Method.Name }}
 }
 {{- end }}
+
+// wrappedDiscoveryInterface
+type wrappedDiscoveryInterface struct {
+	inner {{ $discoveryPkg }}.DiscoveryInterface
+}
+
+func newDiscoveryInterface(inner {{ $discoveryPkg }}.DiscoveryInterface) {{ $discoveryPkg }}.DiscoveryInterface {
+	return &wrappedDiscoveryInterface{inner}
+}
+{{- range $operation := .Clientset.Discovery }}
+func (c *wrappedDiscoveryInterface) {{ $operation.Method.Name }}(
+	{{- range $i, $arg := Args $operation.Method -}}
+	{{- if $arg.IsVariadic -}}
+	arg{{ $i }} ...{{ GoType $arg.Type.Elem }},
+	{{- else -}}
+	arg{{ $i }} {{ GoType $arg.Type }},
+	{{- end -}}
+	{{- end -}}
+) (
+	{{- range $return := Returns $operation.Method -}}
+	{{ GoType $return }},
+	{{- end -}}
+) {
+	{{- if $operation.HasContext }}
+	ctx, span := {{ $tracingPkg }}.StartSpan(
+		arg0,
+	{{- else }}
+	_, span := {{ $tracingPkg }}.StartSpan(
+		context.TODO(),
+	{{- end }}
+		{{ Quote $.Folder }},
+		"KUBE Discovery/{{ $operation.Method.Name }}",
+		{{ $attributePkg }}.String("client", "Discovery"),
+		{{ $attributePkg }}.String("operation", {{ Quote $operation.Method.Name }}),
+	)
+	defer span.End()
+	{{- if $operation.HasContext }}
+	arg0 = ctx
+	{{- end }}
+	return c.inner.{{ $operation.Method.Name }}(
+		{{- range $i, $arg := Args $operation.Method -}}
+		{{- if $arg.IsVariadic -}}
+		arg{{ $i }}...,
+		{{- else -}}
+		arg{{ $i }},
+		{{- end -}}
+		{{- end -}}
+	)
+}
+{{- end }}
+func (c *wrappedDiscoveryInterface) RESTClient() {{ $restPkg }}.Interface {
+	return c.inner.RESTClient()
+}
 
 {{- range $client := .Clientset.Clients }}
 {{- $clientGoType := GoType $client.Type }}
@@ -420,7 +539,6 @@ func (c *wrapped{{ $client.Method.Name }}) {{ $resource.Method.Name }}({{- if $r
 	{{- end }}
 }
 {{- end }}
-// RESTClient is NOT instrumented
 func (c *wrapped{{ $client.Method.Name }}) RESTClient() {{ $restPkg }}.Interface {
 	return c.inner.RESTClient()
 }
@@ -457,8 +575,10 @@ func (c *wrapped{{ $client.Method.Name }}{{ $resource.Method.Name }}) {{ $operat
 		{{ $attributePkg }}.String("client", {{ Quote $client.Method.Name }}),
 		{{ $attributePkg }}.String("resource", {{ Quote $resource.Method.Name }}),
 		{{ $attributePkg }}.String("kind", {{ Quote $resource.Kind }}),
+		{{ $attributePkg }}.String("operation", {{ Quote $operation.Method.Name }}),
 	)
 	defer span.End()
+	{{- if $operation.HasContext }}
 	arg0 = ctx
 	{{- end }}
 	return c.inner.{{ $operation.Method.Name }}(

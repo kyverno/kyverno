@@ -3,6 +3,7 @@ package client
 import (
 	context "context"
 
+	github_com_google_gnostic_openapiv2 "github.com/google/gnostic/openapiv2"
 	github_com_kyverno_kyverno_pkg_metrics "github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_api_admissionregistration_v1 "k8s.io/api/admissionregistration/v1"
 	k8s_io_api_admissionregistration_v1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -54,6 +55,7 @@ import (
 	k8s_io_apimachinery_pkg_fields "k8s.io/apimachinery/pkg/fields"
 	k8s_io_apimachinery_pkg_runtime "k8s.io/apimachinery/pkg/runtime"
 	k8s_io_apimachinery_pkg_types "k8s.io/apimachinery/pkg/types"
+	k8s_io_apimachinery_pkg_version "k8s.io/apimachinery/pkg/version"
 	k8s_io_apimachinery_pkg_watch "k8s.io/apimachinery/pkg/watch"
 	k8s_io_client_go_applyconfigurations_admissionregistration_v1 "k8s.io/client-go/applyconfigurations/admissionregistration/v1"
 	k8s_io_client_go_applyconfigurations_admissionregistration_v1beta1 "k8s.io/client-go/applyconfigurations/admissionregistration/v1beta1"
@@ -145,13 +147,14 @@ import (
 	k8s_io_client_go_kubernetes_typed_storage_v1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	k8s_io_client_go_kubernetes_typed_storage_v1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_storage_v1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
+	k8s_io_client_go_openapi "k8s.io/client-go/openapi"
 	k8s_io_client_go_rest "k8s.io/client-go/rest"
 )
 
 // Wrap
 func Wrap(inner k8s_io_client_go_kubernetes.Interface, m github_com_kyverno_kyverno_pkg_metrics.MetricsConfigManager, t github_com_kyverno_kyverno_pkg_metrics.ClientType) k8s_io_client_go_kubernetes.Interface {
 	return &clientset{
-		inner:                        inner,
+		discovery:                    newDiscoveryInterface(inner.Discovery(), m, t),
 		admissionregistrationv1:      newAdmissionregistrationV1(inner.AdmissionregistrationV1(), m, t),
 		admissionregistrationv1beta1: newAdmissionregistrationV1beta1(inner.AdmissionregistrationV1beta1(), m, t),
 		appsv1:                       newAppsV1(inner.AppsV1(), m, t),
@@ -212,7 +215,7 @@ func NewForConfig(c *k8s_io_client_go_rest.Config, m github_com_kyverno_kyverno_
 
 // clientset wrapper
 type clientset struct {
-	inner                        k8s_io_client_go_kubernetes.Interface
+	discovery                    k8s_io_client_go_discovery.DiscoveryInterface
 	admissionregistrationv1      k8s_io_client_go_kubernetes_typed_admissionregistration_v1.AdmissionregistrationV1Interface
 	admissionregistrationv1beta1 k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.AdmissionregistrationV1beta1Interface
 	appsv1                       k8s_io_client_go_kubernetes_typed_apps_v1.AppsV1Interface
@@ -261,9 +264,8 @@ type clientset struct {
 	storagev1beta1               k8s_io_client_go_kubernetes_typed_storage_v1beta1.StorageV1beta1Interface
 }
 
-// Discovery is NOT instrumented
 func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
-	return c.inner.Discovery()
+	return c.discovery
 }
 func (c *clientset) AdmissionregistrationV1() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.AdmissionregistrationV1Interface {
 	return c.admissionregistrationv1
@@ -404,6 +406,52 @@ func (c *clientset) StorageV1beta1() k8s_io_client_go_kubernetes_typed_storage_v
 	return c.storagev1beta1
 }
 
+// wrappedDiscoveryInterface
+type wrappedDiscoveryInterface struct {
+	inner      k8s_io_client_go_discovery.DiscoveryInterface
+	metrics    github_com_kyverno_kyverno_pkg_metrics.MetricsConfigManager
+	clientType github_com_kyverno_kyverno_pkg_metrics.ClientType
+}
+
+func newDiscoveryInterface(inner k8s_io_client_go_discovery.DiscoveryInterface, metrics github_com_kyverno_kyverno_pkg_metrics.MetricsConfigManager, t github_com_kyverno_kyverno_pkg_metrics.ClientType) k8s_io_client_go_discovery.DiscoveryInterface {
+	return &wrappedDiscoveryInterface{inner, metrics, t}
+}
+func (c *wrappedDiscoveryInterface) OpenAPISchema() (*github_com_google_gnostic_openapiv2.Document, error) {
+	c.metrics.RecordClientQueries("open_api_schema", "Discovery", "", "")
+	return c.inner.OpenAPISchema()
+}
+func (c *wrappedDiscoveryInterface) OpenAPIV3() k8s_io_client_go_openapi.Client {
+	c.metrics.RecordClientQueries("open_apiv3", "Discovery", "", "")
+	return c.inner.OpenAPIV3()
+}
+func (c *wrappedDiscoveryInterface) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroupList, error) {
+	c.metrics.RecordClientQueries("server_groups", "Discovery", "", "")
+	return c.inner.ServerGroups()
+}
+func (c *wrappedDiscoveryInterface) ServerGroupsAndResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroup, []*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	c.metrics.RecordClientQueries("server_groups_and_resources", "Discovery", "", "")
+	return c.inner.ServerGroupsAndResources()
+}
+func (c *wrappedDiscoveryInterface) ServerPreferredNamespacedResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	c.metrics.RecordClientQueries("server_preferred_namespaced_resources", "Discovery", "", "")
+	return c.inner.ServerPreferredNamespacedResources()
+}
+func (c *wrappedDiscoveryInterface) ServerPreferredResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	c.metrics.RecordClientQueries("server_preferred_resources", "Discovery", "", "")
+	return c.inner.ServerPreferredResources()
+}
+func (c *wrappedDiscoveryInterface) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	c.metrics.RecordClientQueries("server_resources_for_group_version", "Discovery", "", "")
+	return c.inner.ServerResourcesForGroupVersion(arg0)
+}
+func (c *wrappedDiscoveryInterface) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, error) {
+	c.metrics.RecordClientQueries("server_version", "Discovery", "", "")
+	return c.inner.ServerVersion()
+}
+func (c *wrappedDiscoveryInterface) RESTClient() k8s_io_client_go_rest.Interface {
+	return c.inner.RESTClient()
+}
+
 // wrappedAdmissionregistrationV1 wrapper
 type wrappedAdmissionregistrationV1 struct {
 	inner      k8s_io_client_go_kubernetes_typed_admissionregistration_v1.AdmissionregistrationV1Interface
@@ -422,8 +470,6 @@ func (c *wrappedAdmissionregistrationV1) ValidatingWebhookConfigurations() k8s_i
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "ValidatingWebhookConfiguration", c.clientType)
 	return newAdmissionregistrationV1ValidatingWebhookConfigurations(c.inner.ValidatingWebhookConfigurations(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAdmissionregistrationV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -446,8 +492,6 @@ func (c *wrappedAdmissionregistrationV1beta1) ValidatingWebhookConfigurations() 
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "ValidatingWebhookConfiguration", c.clientType)
 	return newAdmissionregistrationV1beta1ValidatingWebhookConfigurations(c.inner.ValidatingWebhookConfigurations(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAdmissionregistrationV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -482,8 +526,6 @@ func (c *wrappedAppsV1) StatefulSets(namespace string) k8s_io_client_go_kubernet
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "StatefulSet", c.clientType)
 	return newAppsV1StatefulSets(c.inner.StatefulSets(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAppsV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -510,8 +552,6 @@ func (c *wrappedAppsV1beta1) StatefulSets(namespace string) k8s_io_client_go_kub
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "StatefulSet", c.clientType)
 	return newAppsV1beta1StatefulSets(c.inner.StatefulSets(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAppsV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -546,8 +586,6 @@ func (c *wrappedAppsV1beta2) StatefulSets(namespace string) k8s_io_client_go_kub
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "StatefulSet", c.clientType)
 	return newAppsV1beta2StatefulSets(c.inner.StatefulSets(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAppsV1beta2) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -566,8 +604,6 @@ func (c *wrappedAuthenticationV1) TokenReviews() k8s_io_client_go_kubernetes_typ
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "TokenReview", c.clientType)
 	return newAuthenticationV1TokenReviews(c.inner.TokenReviews(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAuthenticationV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -586,8 +622,6 @@ func (c *wrappedAuthenticationV1beta1) TokenReviews() k8s_io_client_go_kubernete
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "TokenReview", c.clientType)
 	return newAuthenticationV1beta1TokenReviews(c.inner.TokenReviews(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAuthenticationV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -618,8 +652,6 @@ func (c *wrappedAuthorizationV1) SubjectAccessReviews() k8s_io_client_go_kuberne
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "SubjectAccessReview", c.clientType)
 	return newAuthorizationV1SubjectAccessReviews(c.inner.SubjectAccessReviews(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAuthorizationV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -650,8 +682,6 @@ func (c *wrappedAuthorizationV1beta1) SubjectAccessReviews() k8s_io_client_go_ku
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "SubjectAccessReview", c.clientType)
 	return newAuthorizationV1beta1SubjectAccessReviews(c.inner.SubjectAccessReviews(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAuthorizationV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -670,8 +700,6 @@ func (c *wrappedAutoscalingV1) HorizontalPodAutoscalers(namespace string) k8s_io
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "HorizontalPodAutoscaler", c.clientType)
 	return newAutoscalingV1HorizontalPodAutoscalers(c.inner.HorizontalPodAutoscalers(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAutoscalingV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -690,8 +718,6 @@ func (c *wrappedAutoscalingV2) HorizontalPodAutoscalers(namespace string) k8s_io
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "HorizontalPodAutoscaler", c.clientType)
 	return newAutoscalingV2HorizontalPodAutoscalers(c.inner.HorizontalPodAutoscalers(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAutoscalingV2) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -710,8 +736,6 @@ func (c *wrappedAutoscalingV2beta1) HorizontalPodAutoscalers(namespace string) k
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "HorizontalPodAutoscaler", c.clientType)
 	return newAutoscalingV2beta1HorizontalPodAutoscalers(c.inner.HorizontalPodAutoscalers(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAutoscalingV2beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -730,8 +754,6 @@ func (c *wrappedAutoscalingV2beta2) HorizontalPodAutoscalers(namespace string) k
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "HorizontalPodAutoscaler", c.clientType)
 	return newAutoscalingV2beta2HorizontalPodAutoscalers(c.inner.HorizontalPodAutoscalers(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAutoscalingV2beta2) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -754,8 +776,6 @@ func (c *wrappedBatchV1) Jobs(namespace string) k8s_io_client_go_kubernetes_type
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Job", c.clientType)
 	return newBatchV1Jobs(c.inner.Jobs(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedBatchV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -774,8 +794,6 @@ func (c *wrappedBatchV1beta1) CronJobs(namespace string) k8s_io_client_go_kubern
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "CronJob", c.clientType)
 	return newBatchV1beta1CronJobs(c.inner.CronJobs(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedBatchV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -794,8 +812,6 @@ func (c *wrappedCertificatesV1) CertificateSigningRequests() k8s_io_client_go_ku
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "CertificateSigningRequest", c.clientType)
 	return newCertificatesV1CertificateSigningRequests(c.inner.CertificateSigningRequests(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedCertificatesV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -814,8 +830,6 @@ func (c *wrappedCertificatesV1beta1) CertificateSigningRequests() k8s_io_client_
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "CertificateSigningRequest", c.clientType)
 	return newCertificatesV1beta1CertificateSigningRequests(c.inner.CertificateSigningRequests(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedCertificatesV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -834,8 +848,6 @@ func (c *wrappedCoordinationV1) Leases(namespace string) k8s_io_client_go_kubern
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Lease", c.clientType)
 	return newCoordinationV1Leases(c.inner.Leases(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedCoordinationV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -854,8 +866,6 @@ func (c *wrappedCoordinationV1beta1) Leases(namespace string) k8s_io_client_go_k
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Lease", c.clientType)
 	return newCoordinationV1beta1Leases(c.inner.Leases(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedCoordinationV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -934,8 +944,6 @@ func (c *wrappedCoreV1) Services(namespace string) k8s_io_client_go_kubernetes_t
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Service", c.clientType)
 	return newCoreV1Services(c.inner.Services(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedCoreV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -954,8 +962,6 @@ func (c *wrappedDiscoveryV1) EndpointSlices(namespace string) k8s_io_client_go_k
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "EndpointSlice", c.clientType)
 	return newDiscoveryV1EndpointSlices(c.inner.EndpointSlices(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedDiscoveryV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -974,8 +980,6 @@ func (c *wrappedDiscoveryV1beta1) EndpointSlices(namespace string) k8s_io_client
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "EndpointSlice", c.clientType)
 	return newDiscoveryV1beta1EndpointSlices(c.inner.EndpointSlices(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedDiscoveryV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -994,8 +998,6 @@ func (c *wrappedEventsV1) Events(namespace string) k8s_io_client_go_kubernetes_t
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Event", c.clientType)
 	return newEventsV1Events(c.inner.Events(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedEventsV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1014,8 +1016,6 @@ func (c *wrappedEventsV1beta1) Events(namespace string) k8s_io_client_go_kuberne
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Event", c.clientType)
 	return newEventsV1beta1Events(c.inner.Events(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedEventsV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1054,8 +1054,6 @@ func (c *wrappedExtensionsV1beta1) ReplicaSets(namespace string) k8s_io_client_g
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "ReplicaSet", c.clientType)
 	return newExtensionsV1beta1ReplicaSets(c.inner.ReplicaSets(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedExtensionsV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1078,8 +1076,6 @@ func (c *wrappedFlowcontrolV1alpha1) PriorityLevelConfigurations() k8s_io_client
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "PriorityLevelConfiguration", c.clientType)
 	return newFlowcontrolV1alpha1PriorityLevelConfigurations(c.inner.PriorityLevelConfigurations(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedFlowcontrolV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1102,8 +1098,6 @@ func (c *wrappedFlowcontrolV1beta1) PriorityLevelConfigurations() k8s_io_client_
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "PriorityLevelConfiguration", c.clientType)
 	return newFlowcontrolV1beta1PriorityLevelConfigurations(c.inner.PriorityLevelConfigurations(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedFlowcontrolV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1126,8 +1120,6 @@ func (c *wrappedFlowcontrolV1beta2) PriorityLevelConfigurations() k8s_io_client_
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "PriorityLevelConfiguration", c.clientType)
 	return newFlowcontrolV1beta2PriorityLevelConfigurations(c.inner.PriorityLevelConfigurations(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedFlowcontrolV1beta2) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1146,8 +1138,6 @@ func (c *wrappedInternalV1alpha1) StorageVersions() k8s_io_client_go_kubernetes_
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "StorageVersion", c.clientType)
 	return newInternalV1alpha1StorageVersions(c.inner.StorageVersions(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedInternalV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1174,8 +1164,6 @@ func (c *wrappedNetworkingV1) NetworkPolicies(namespace string) k8s_io_client_go
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "NetworkPolicy", c.clientType)
 	return newNetworkingV1NetworkPolicies(c.inner.NetworkPolicies(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNetworkingV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1194,8 +1182,6 @@ func (c *wrappedNetworkingV1alpha1) ClusterCIDRs() k8s_io_client_go_kubernetes_t
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "ClusterCIDR", c.clientType)
 	return newNetworkingV1alpha1ClusterCIDRs(c.inner.ClusterCIDRs(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNetworkingV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1218,8 +1204,6 @@ func (c *wrappedNetworkingV1beta1) Ingresses(namespace string) k8s_io_client_go_
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Ingress", c.clientType)
 	return newNetworkingV1beta1Ingresses(c.inner.Ingresses(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNetworkingV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1238,8 +1222,6 @@ func (c *wrappedNodeV1) RuntimeClasses() k8s_io_client_go_kubernetes_typed_node_
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "RuntimeClass", c.clientType)
 	return newNodeV1RuntimeClasses(c.inner.RuntimeClasses(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNodeV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1258,8 +1240,6 @@ func (c *wrappedNodeV1alpha1) RuntimeClasses() k8s_io_client_go_kubernetes_typed
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "RuntimeClass", c.clientType)
 	return newNodeV1alpha1RuntimeClasses(c.inner.RuntimeClasses(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNodeV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1278,8 +1258,6 @@ func (c *wrappedNodeV1beta1) RuntimeClasses() k8s_io_client_go_kubernetes_typed_
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "RuntimeClass", c.clientType)
 	return newNodeV1beta1RuntimeClasses(c.inner.RuntimeClasses(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNodeV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1302,8 +1280,6 @@ func (c *wrappedPolicyV1) PodDisruptionBudgets(namespace string) k8s_io_client_g
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "PodDisruptionBudget", c.clientType)
 	return newPolicyV1PodDisruptionBudgets(c.inner.PodDisruptionBudgets(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedPolicyV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1330,8 +1306,6 @@ func (c *wrappedPolicyV1beta1) PodSecurityPolicies() k8s_io_client_go_kubernetes
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "PodSecurityPolicy", c.clientType)
 	return newPolicyV1beta1PodSecurityPolicies(c.inner.PodSecurityPolicies(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedPolicyV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1362,8 +1336,6 @@ func (c *wrappedRbacV1) Roles(namespace string) k8s_io_client_go_kubernetes_type
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Role", c.clientType)
 	return newRbacV1Roles(c.inner.Roles(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedRbacV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1394,8 +1366,6 @@ func (c *wrappedRbacV1alpha1) Roles(namespace string) k8s_io_client_go_kubernete
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Role", c.clientType)
 	return newRbacV1alpha1Roles(c.inner.Roles(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedRbacV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1426,8 +1396,6 @@ func (c *wrappedRbacV1beta1) Roles(namespace string) k8s_io_client_go_kubernetes
 	recorder := github_com_kyverno_kyverno_pkg_metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Role", c.clientType)
 	return newRbacV1beta1Roles(c.inner.Roles(namespace), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedRbacV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1446,8 +1414,6 @@ func (c *wrappedSchedulingV1) PriorityClasses() k8s_io_client_go_kubernetes_type
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "PriorityClass", c.clientType)
 	return newSchedulingV1PriorityClasses(c.inner.PriorityClasses(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedSchedulingV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1466,8 +1432,6 @@ func (c *wrappedSchedulingV1alpha1) PriorityClasses() k8s_io_client_go_kubernete
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "PriorityClass", c.clientType)
 	return newSchedulingV1alpha1PriorityClasses(c.inner.PriorityClasses(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedSchedulingV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1486,8 +1450,6 @@ func (c *wrappedSchedulingV1beta1) PriorityClasses() k8s_io_client_go_kubernetes
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "PriorityClass", c.clientType)
 	return newSchedulingV1beta1PriorityClasses(c.inner.PriorityClasses(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedSchedulingV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1522,8 +1484,6 @@ func (c *wrappedStorageV1) VolumeAttachments() k8s_io_client_go_kubernetes_typed
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "VolumeAttachment", c.clientType)
 	return newStorageV1VolumeAttachments(c.inner.VolumeAttachments(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedStorageV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1546,8 +1506,6 @@ func (c *wrappedStorageV1alpha1) VolumeAttachments() k8s_io_client_go_kubernetes
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "VolumeAttachment", c.clientType)
 	return newStorageV1alpha1VolumeAttachments(c.inner.VolumeAttachments(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedStorageV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1582,8 +1540,6 @@ func (c *wrappedStorageV1beta1) VolumeAttachments() k8s_io_client_go_kubernetes_
 	recorder := github_com_kyverno_kyverno_pkg_metrics.ClusteredClientQueryRecorder(c.metrics, "VolumeAttachment", c.clientType)
 	return newStorageV1beta1VolumeAttachments(c.inner.VolumeAttachments(), recorder)
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedStorageV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }

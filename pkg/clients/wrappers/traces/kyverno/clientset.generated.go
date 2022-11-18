@@ -3,6 +3,7 @@ package client
 import (
 	context "context"
 
+	github_com_google_gnostic_openapiv2 "github.com/google/gnostic/openapiv2"
 	github_com_kyverno_kyverno_api_kyverno_v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	github_com_kyverno_kyverno_api_kyverno_v1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
 	github_com_kyverno_kyverno_api_kyverno_v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
@@ -18,15 +19,17 @@ import (
 	go_opentelemetry_io_otel_attribute "go.opentelemetry.io/otel/attribute"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_io_apimachinery_pkg_types "k8s.io/apimachinery/pkg/types"
+	k8s_io_apimachinery_pkg_version "k8s.io/apimachinery/pkg/version"
 	k8s_io_apimachinery_pkg_watch "k8s.io/apimachinery/pkg/watch"
 	k8s_io_client_go_discovery "k8s.io/client-go/discovery"
+	k8s_io_client_go_openapi "k8s.io/client-go/openapi"
 	k8s_io_client_go_rest "k8s.io/client-go/rest"
 )
 
 // Wrap
 func Wrap(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface) github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface {
 	return &clientset{
-		inner:               inner,
+		discovery:           newDiscoveryInterface(inner.Discovery()),
 		kyvernov1:           newKyvernoV1(inner.KyvernoV1()),
 		kyvernov1alpha1:     newKyvernoV1alpha1(inner.KyvernoV1alpha1()),
 		kyvernov1alpha2:     newKyvernoV1alpha2(inner.KyvernoV1alpha2()),
@@ -46,7 +49,7 @@ func NewForConfig(c *k8s_io_client_go_rest.Config) (github_com_kyverno_kyverno_p
 
 // clientset wrapper
 type clientset struct {
-	inner               github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface
+	discovery           k8s_io_client_go_discovery.DiscoveryInterface
 	kyvernov1           github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.KyvernoV1Interface
 	kyvernov1alpha1     github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha1.KyvernoV1alpha1Interface
 	kyvernov1alpha2     github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha2.KyvernoV1alpha2Interface
@@ -54,9 +57,8 @@ type clientset struct {
 	wgpolicyk8sv1alpha2 github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.Wgpolicyk8sV1alpha2Interface
 }
 
-// Discovery is NOT instrumented
 func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
-	return c.inner.Discovery()
+	return c.discovery
 }
 func (c *clientset) KyvernoV1() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.KyvernoV1Interface {
 	return c.kyvernov1
@@ -72,6 +74,106 @@ func (c *clientset) KyvernoV1beta1() github_com_kyverno_kyverno_pkg_client_clien
 }
 func (c *clientset) Wgpolicyk8sV1alpha2() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.Wgpolicyk8sV1alpha2Interface {
 	return c.wgpolicyk8sv1alpha2
+}
+
+// wrappedDiscoveryInterface
+type wrappedDiscoveryInterface struct {
+	inner k8s_io_client_go_discovery.DiscoveryInterface
+}
+
+func newDiscoveryInterface(inner k8s_io_client_go_discovery.DiscoveryInterface) k8s_io_client_go_discovery.DiscoveryInterface {
+	return &wrappedDiscoveryInterface{inner}
+}
+func (c *wrappedDiscoveryInterface) OpenAPISchema() (*github_com_google_gnostic_openapiv2.Document, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kyverno",
+		"KUBE Discovery/OpenAPISchema",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "OpenAPISchema"),
+	)
+	defer span.End()
+	return c.inner.OpenAPISchema()
+}
+func (c *wrappedDiscoveryInterface) OpenAPIV3() k8s_io_client_go_openapi.Client {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kyverno",
+		"KUBE Discovery/OpenAPIV3",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "OpenAPIV3"),
+	)
+	defer span.End()
+	return c.inner.OpenAPIV3()
+}
+func (c *wrappedDiscoveryInterface) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroupList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kyverno",
+		"KUBE Discovery/ServerGroups",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerGroups"),
+	)
+	defer span.End()
+	return c.inner.ServerGroups()
+}
+func (c *wrappedDiscoveryInterface) ServerGroupsAndResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroup, []*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kyverno",
+		"KUBE Discovery/ServerGroupsAndResources",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerGroupsAndResources"),
+	)
+	defer span.End()
+	return c.inner.ServerGroupsAndResources()
+}
+func (c *wrappedDiscoveryInterface) ServerPreferredNamespacedResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kyverno",
+		"KUBE Discovery/ServerPreferredNamespacedResources",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerPreferredNamespacedResources"),
+	)
+	defer span.End()
+	return c.inner.ServerPreferredNamespacedResources()
+}
+func (c *wrappedDiscoveryInterface) ServerPreferredResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kyverno",
+		"KUBE Discovery/ServerPreferredResources",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerPreferredResources"),
+	)
+	defer span.End()
+	return c.inner.ServerPreferredResources()
+}
+func (c *wrappedDiscoveryInterface) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kyverno",
+		"KUBE Discovery/ServerResourcesForGroupVersion",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerResourcesForGroupVersion"),
+	)
+	defer span.End()
+	return c.inner.ServerResourcesForGroupVersion(arg0)
+}
+func (c *wrappedDiscoveryInterface) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kyverno",
+		"KUBE Discovery/ServerVersion",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerVersion"),
+	)
+	defer span.End()
+	return c.inner.ServerVersion()
+}
+func (c *wrappedDiscoveryInterface) RESTClient() k8s_io_client_go_rest.Interface {
+	return c.inner.RESTClient()
 }
 
 // wrappedKyvernoV1 wrapper
@@ -91,8 +193,6 @@ func (c *wrappedKyvernoV1) GenerateRequests(namespace string) github_com_kyverno
 func (c *wrappedKyvernoV1) Policies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.PolicyInterface {
 	return newKyvernoV1Policies(c.inner.Policies(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedKyvernoV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -111,8 +211,6 @@ func (c *wrappedKyvernoV1alpha1) CleanupPolicies(namespace string) github_com_ky
 func (c *wrappedKyvernoV1alpha1) ClusterCleanupPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha1.ClusterCleanupPolicyInterface {
 	return newKyvernoV1alpha1ClusterCleanupPolicies(c.inner.ClusterCleanupPolicies())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedKyvernoV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -137,8 +235,6 @@ func (c *wrappedKyvernoV1alpha2) ClusterAdmissionReports() github_com_kyverno_ky
 func (c *wrappedKyvernoV1alpha2) ClusterBackgroundScanReports() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha2.ClusterBackgroundScanReportInterface {
 	return newKyvernoV1alpha2ClusterBackgroundScanReports(c.inner.ClusterBackgroundScanReports())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedKyvernoV1alpha2) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -154,8 +250,6 @@ func newKyvernoV1beta1(inner github_com_kyverno_kyverno_pkg_client_clientset_ver
 func (c *wrappedKyvernoV1beta1) UpdateRequests(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1beta1.UpdateRequestInterface {
 	return newKyvernoV1beta1UpdateRequests(c.inner.UpdateRequests(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedKyvernoV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -174,8 +268,6 @@ func (c *wrappedWgpolicyk8sV1alpha2) ClusterPolicyReports() github_com_kyverno_k
 func (c *wrappedWgpolicyk8sV1alpha2) PolicyReports(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.PolicyReportInterface {
 	return newWgpolicyk8sV1alpha2PolicyReports(c.inner.PolicyReports(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedWgpolicyk8sV1alpha2) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -196,6 +288,7 @@ func (c *wrappedKyvernoV1ClusterPolicies) Create(arg0 context.Context, arg1 *git
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -209,6 +302,7 @@ func (c *wrappedKyvernoV1ClusterPolicies) Delete(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -222,6 +316,7 @@ func (c *wrappedKyvernoV1ClusterPolicies) DeleteCollection(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -235,6 +330,7 @@ func (c *wrappedKyvernoV1ClusterPolicies) Get(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -248,6 +344,7 @@ func (c *wrappedKyvernoV1ClusterPolicies) List(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -261,6 +358,7 @@ func (c *wrappedKyvernoV1ClusterPolicies) Patch(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -274,6 +372,7 @@ func (c *wrappedKyvernoV1ClusterPolicies) Update(arg0 context.Context, arg1 *git
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -287,6 +386,7 @@ func (c *wrappedKyvernoV1ClusterPolicies) UpdateStatus(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -300,6 +400,7 @@ func (c *wrappedKyvernoV1ClusterPolicies) Watch(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -322,6 +423,7 @@ func (c *wrappedKyvernoV1GenerateRequests) Create(arg0 context.Context, arg1 *gi
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "GenerateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "GenerateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -335,6 +437,7 @@ func (c *wrappedKyvernoV1GenerateRequests) Delete(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "GenerateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "GenerateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -348,6 +451,7 @@ func (c *wrappedKyvernoV1GenerateRequests) DeleteCollection(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "GenerateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "GenerateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -361,6 +465,7 @@ func (c *wrappedKyvernoV1GenerateRequests) Get(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "GenerateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "GenerateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -374,6 +479,7 @@ func (c *wrappedKyvernoV1GenerateRequests) List(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "GenerateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "GenerateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -387,6 +493,7 @@ func (c *wrappedKyvernoV1GenerateRequests) Patch(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "GenerateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "GenerateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -400,6 +507,7 @@ func (c *wrappedKyvernoV1GenerateRequests) Update(arg0 context.Context, arg1 *gi
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "GenerateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "GenerateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -413,6 +521,7 @@ func (c *wrappedKyvernoV1GenerateRequests) UpdateStatus(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "GenerateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "GenerateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -426,6 +535,7 @@ func (c *wrappedKyvernoV1GenerateRequests) Watch(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "GenerateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "GenerateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -448,6 +558,7 @@ func (c *wrappedKyvernoV1Policies) Create(arg0 context.Context, arg1 *github_com
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Policies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Policy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -461,6 +572,7 @@ func (c *wrappedKyvernoV1Policies) Delete(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Policies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Policy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -474,6 +586,7 @@ func (c *wrappedKyvernoV1Policies) DeleteCollection(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Policies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Policy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -487,6 +600,7 @@ func (c *wrappedKyvernoV1Policies) Get(arg0 context.Context, arg1 string, arg2 k
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Policies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Policy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -500,6 +614,7 @@ func (c *wrappedKyvernoV1Policies) List(arg0 context.Context, arg1 k8s_io_apimac
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Policies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Policy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -513,6 +628,7 @@ func (c *wrappedKyvernoV1Policies) Patch(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Policies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Policy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -526,6 +642,7 @@ func (c *wrappedKyvernoV1Policies) Update(arg0 context.Context, arg1 *github_com
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Policies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Policy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -539,6 +656,7 @@ func (c *wrappedKyvernoV1Policies) UpdateStatus(arg0 context.Context, arg1 *gith
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Policies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Policy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -552,6 +670,7 @@ func (c *wrappedKyvernoV1Policies) Watch(arg0 context.Context, arg1 k8s_io_apima
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Policies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Policy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -574,6 +693,7 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Create(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -587,6 +707,7 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Delete(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -600,6 +721,7 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) DeleteCollection(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -613,6 +735,7 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Get(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -626,6 +749,7 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) List(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -639,6 +763,7 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Patch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -652,6 +777,7 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Update(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -665,6 +791,7 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) UpdateStatus(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -678,6 +805,7 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Watch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -700,6 +828,7 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Create(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -713,6 +842,7 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Delete(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -726,6 +856,7 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) DeleteCollection(arg0 con
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -739,6 +870,7 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Get(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -752,6 +884,7 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) List(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -765,6 +898,7 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Patch(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -778,6 +912,7 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Update(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -791,6 +926,7 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) UpdateStatus(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -804,6 +940,7 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Watch(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCleanupPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCleanupPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -826,6 +963,7 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Create(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "AdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "AdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -839,6 +977,7 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Delete(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "AdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "AdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -852,6 +991,7 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) DeleteCollection(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "AdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "AdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -865,6 +1005,7 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Get(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "AdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "AdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -878,6 +1019,7 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) List(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "AdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "AdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -891,6 +1033,7 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Patch(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "AdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "AdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -904,6 +1047,7 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Update(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "AdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "AdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -917,6 +1061,7 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Watch(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "AdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "AdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -939,6 +1084,7 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Create(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "BackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "BackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -952,6 +1098,7 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Delete(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "BackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "BackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -965,6 +1112,7 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) DeleteCollection(arg0 cont
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "BackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "BackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -978,6 +1126,7 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Get(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "BackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "BackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -991,6 +1140,7 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) List(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "BackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "BackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1004,6 +1154,7 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Patch(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "BackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "BackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1017,6 +1168,7 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Update(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "BackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "BackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1030,6 +1182,7 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Watch(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "BackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "BackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1052,6 +1205,7 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Create(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterAdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterAdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1065,6 +1219,7 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Delete(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterAdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterAdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1078,6 +1233,7 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) DeleteCollection(arg0 co
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterAdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterAdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1091,6 +1247,7 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Get(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterAdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterAdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1104,6 +1261,7 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) List(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterAdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterAdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1117,6 +1275,7 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Patch(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterAdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterAdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1130,6 +1289,7 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Update(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterAdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterAdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1143,6 +1303,7 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Watch(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterAdmissionReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterAdmissionReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1165,6 +1326,7 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Create(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterBackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterBackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1178,6 +1340,7 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Delete(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterBackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterBackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1191,6 +1354,7 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) DeleteCollection(ar
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterBackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterBackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1204,6 +1368,7 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Get(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterBackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterBackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1217,6 +1382,7 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) List(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterBackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterBackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1230,6 +1396,7 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Patch(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterBackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterBackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1243,6 +1410,7 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Update(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterBackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterBackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1256,6 +1424,7 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Watch(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterBackgroundScanReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterBackgroundScanReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1278,6 +1447,7 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Create(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "UpdateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "UpdateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1291,6 +1461,7 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Delete(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "UpdateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "UpdateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1304,6 +1475,7 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) DeleteCollection(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "UpdateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "UpdateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1317,6 +1489,7 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Get(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "UpdateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "UpdateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1330,6 +1503,7 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) List(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "UpdateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "UpdateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1343,6 +1517,7 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Patch(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "UpdateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "UpdateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1356,6 +1531,7 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Update(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "UpdateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "UpdateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1369,6 +1545,7 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) UpdateStatus(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "UpdateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "UpdateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1382,6 +1559,7 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Watch(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "KyvernoV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "UpdateRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "UpdateRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1404,6 +1582,7 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Create(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1417,6 +1596,7 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Delete(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1430,6 +1610,7 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) DeleteCollection(arg0 c
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1443,6 +1624,7 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Get(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1456,6 +1638,7 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) List(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1469,6 +1652,7 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Patch(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1482,6 +1666,7 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Update(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1495,6 +1680,7 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Watch(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterPolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterPolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1517,6 +1703,7 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Create(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1530,6 +1717,7 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Delete(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1543,6 +1731,7 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) DeleteCollection(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1556,6 +1745,7 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Get(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1569,6 +1759,7 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) List(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1582,6 +1773,7 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Patch(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1595,6 +1787,7 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Update(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1608,6 +1801,7 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Watch(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "Wgpolicyk8sV1alpha2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PolicyReports"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PolicyReport"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx

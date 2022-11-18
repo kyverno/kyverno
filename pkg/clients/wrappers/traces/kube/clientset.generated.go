@@ -3,6 +3,7 @@ package client
 import (
 	context "context"
 
+	github_com_google_gnostic_openapiv2 "github.com/google/gnostic/openapiv2"
 	github_com_kyverno_kyverno_pkg_tracing "github.com/kyverno/kyverno/pkg/tracing"
 	go_opentelemetry_io_otel_attribute "go.opentelemetry.io/otel/attribute"
 	k8s_io_api_admissionregistration_v1 "k8s.io/api/admissionregistration/v1"
@@ -55,6 +56,7 @@ import (
 	k8s_io_apimachinery_pkg_fields "k8s.io/apimachinery/pkg/fields"
 	k8s_io_apimachinery_pkg_runtime "k8s.io/apimachinery/pkg/runtime"
 	k8s_io_apimachinery_pkg_types "k8s.io/apimachinery/pkg/types"
+	k8s_io_apimachinery_pkg_version "k8s.io/apimachinery/pkg/version"
 	k8s_io_apimachinery_pkg_watch "k8s.io/apimachinery/pkg/watch"
 	k8s_io_client_go_applyconfigurations_admissionregistration_v1 "k8s.io/client-go/applyconfigurations/admissionregistration/v1"
 	k8s_io_client_go_applyconfigurations_admissionregistration_v1beta1 "k8s.io/client-go/applyconfigurations/admissionregistration/v1beta1"
@@ -146,13 +148,14 @@ import (
 	k8s_io_client_go_kubernetes_typed_storage_v1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	k8s_io_client_go_kubernetes_typed_storage_v1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	k8s_io_client_go_kubernetes_typed_storage_v1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
+	k8s_io_client_go_openapi "k8s.io/client-go/openapi"
 	k8s_io_client_go_rest "k8s.io/client-go/rest"
 )
 
 // Wrap
 func Wrap(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_go_kubernetes.Interface {
 	return &clientset{
-		inner:                        inner,
+		discovery:                    newDiscoveryInterface(inner.Discovery()),
 		admissionregistrationv1:      newAdmissionregistrationV1(inner.AdmissionregistrationV1()),
 		admissionregistrationv1beta1: newAdmissionregistrationV1beta1(inner.AdmissionregistrationV1beta1()),
 		appsv1:                       newAppsV1(inner.AppsV1()),
@@ -213,7 +216,7 @@ func NewForConfig(c *k8s_io_client_go_rest.Config) (k8s_io_client_go_kubernetes.
 
 // clientset wrapper
 type clientset struct {
-	inner                        k8s_io_client_go_kubernetes.Interface
+	discovery                    k8s_io_client_go_discovery.DiscoveryInterface
 	admissionregistrationv1      k8s_io_client_go_kubernetes_typed_admissionregistration_v1.AdmissionregistrationV1Interface
 	admissionregistrationv1beta1 k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.AdmissionregistrationV1beta1Interface
 	appsv1                       k8s_io_client_go_kubernetes_typed_apps_v1.AppsV1Interface
@@ -262,9 +265,8 @@ type clientset struct {
 	storagev1beta1               k8s_io_client_go_kubernetes_typed_storage_v1beta1.StorageV1beta1Interface
 }
 
-// Discovery is NOT instrumented
 func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
-	return c.inner.Discovery()
+	return c.discovery
 }
 func (c *clientset) AdmissionregistrationV1() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.AdmissionregistrationV1Interface {
 	return c.admissionregistrationv1
@@ -405,6 +407,106 @@ func (c *clientset) StorageV1beta1() k8s_io_client_go_kubernetes_typed_storage_v
 	return c.storagev1beta1
 }
 
+// wrappedDiscoveryInterface
+type wrappedDiscoveryInterface struct {
+	inner k8s_io_client_go_discovery.DiscoveryInterface
+}
+
+func newDiscoveryInterface(inner k8s_io_client_go_discovery.DiscoveryInterface) k8s_io_client_go_discovery.DiscoveryInterface {
+	return &wrappedDiscoveryInterface{inner}
+}
+func (c *wrappedDiscoveryInterface) OpenAPISchema() (*github_com_google_gnostic_openapiv2.Document, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE Discovery/OpenAPISchema",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "OpenAPISchema"),
+	)
+	defer span.End()
+	return c.inner.OpenAPISchema()
+}
+func (c *wrappedDiscoveryInterface) OpenAPIV3() k8s_io_client_go_openapi.Client {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE Discovery/OpenAPIV3",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "OpenAPIV3"),
+	)
+	defer span.End()
+	return c.inner.OpenAPIV3()
+}
+func (c *wrappedDiscoveryInterface) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroupList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE Discovery/ServerGroups",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerGroups"),
+	)
+	defer span.End()
+	return c.inner.ServerGroups()
+}
+func (c *wrappedDiscoveryInterface) ServerGroupsAndResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroup, []*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE Discovery/ServerGroupsAndResources",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerGroupsAndResources"),
+	)
+	defer span.End()
+	return c.inner.ServerGroupsAndResources()
+}
+func (c *wrappedDiscoveryInterface) ServerPreferredNamespacedResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE Discovery/ServerPreferredNamespacedResources",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerPreferredNamespacedResources"),
+	)
+	defer span.End()
+	return c.inner.ServerPreferredNamespacedResources()
+}
+func (c *wrappedDiscoveryInterface) ServerPreferredResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE Discovery/ServerPreferredResources",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerPreferredResources"),
+	)
+	defer span.End()
+	return c.inner.ServerPreferredResources()
+}
+func (c *wrappedDiscoveryInterface) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE Discovery/ServerResourcesForGroupVersion",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerResourcesForGroupVersion"),
+	)
+	defer span.End()
+	return c.inner.ServerResourcesForGroupVersion(arg0)
+}
+func (c *wrappedDiscoveryInterface) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE Discovery/ServerVersion",
+		go_opentelemetry_io_otel_attribute.String("client", "Discovery"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ServerVersion"),
+	)
+	defer span.End()
+	return c.inner.ServerVersion()
+}
+func (c *wrappedDiscoveryInterface) RESTClient() k8s_io_client_go_rest.Interface {
+	return c.inner.RESTClient()
+}
+
 // wrappedAdmissionregistrationV1 wrapper
 type wrappedAdmissionregistrationV1 struct {
 	inner k8s_io_client_go_kubernetes_typed_admissionregistration_v1.AdmissionregistrationV1Interface
@@ -419,8 +521,6 @@ func (c *wrappedAdmissionregistrationV1) MutatingWebhookConfigurations() k8s_io_
 func (c *wrappedAdmissionregistrationV1) ValidatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.ValidatingWebhookConfigurationInterface {
 	return newAdmissionregistrationV1ValidatingWebhookConfigurations(c.inner.ValidatingWebhookConfigurations())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAdmissionregistrationV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -439,8 +539,6 @@ func (c *wrappedAdmissionregistrationV1beta1) MutatingWebhookConfigurations() k8
 func (c *wrappedAdmissionregistrationV1beta1) ValidatingWebhookConfigurations() k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.ValidatingWebhookConfigurationInterface {
 	return newAdmissionregistrationV1beta1ValidatingWebhookConfigurations(c.inner.ValidatingWebhookConfigurations())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAdmissionregistrationV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -468,8 +566,6 @@ func (c *wrappedAppsV1) ReplicaSets(namespace string) k8s_io_client_go_kubernete
 func (c *wrappedAppsV1) StatefulSets(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1.StatefulSetInterface {
 	return newAppsV1StatefulSets(c.inner.StatefulSets(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAppsV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -491,8 +587,6 @@ func (c *wrappedAppsV1beta1) Deployments(namespace string) k8s_io_client_go_kube
 func (c *wrappedAppsV1beta1) StatefulSets(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1beta1.StatefulSetInterface {
 	return newAppsV1beta1StatefulSets(c.inner.StatefulSets(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAppsV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -520,8 +614,6 @@ func (c *wrappedAppsV1beta2) ReplicaSets(namespace string) k8s_io_client_go_kube
 func (c *wrappedAppsV1beta2) StatefulSets(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1beta2.StatefulSetInterface {
 	return newAppsV1beta2StatefulSets(c.inner.StatefulSets(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAppsV1beta2) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -537,8 +629,6 @@ func newAuthenticationV1(inner k8s_io_client_go_kubernetes_typed_authentication_
 func (c *wrappedAuthenticationV1) TokenReviews() k8s_io_client_go_kubernetes_typed_authentication_v1.TokenReviewInterface {
 	return newAuthenticationV1TokenReviews(c.inner.TokenReviews())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAuthenticationV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -554,8 +644,6 @@ func newAuthenticationV1beta1(inner k8s_io_client_go_kubernetes_typed_authentica
 func (c *wrappedAuthenticationV1beta1) TokenReviews() k8s_io_client_go_kubernetes_typed_authentication_v1beta1.TokenReviewInterface {
 	return newAuthenticationV1beta1TokenReviews(c.inner.TokenReviews())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAuthenticationV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -580,8 +668,6 @@ func (c *wrappedAuthorizationV1) SelfSubjectRulesReviews() k8s_io_client_go_kube
 func (c *wrappedAuthorizationV1) SubjectAccessReviews() k8s_io_client_go_kubernetes_typed_authorization_v1.SubjectAccessReviewInterface {
 	return newAuthorizationV1SubjectAccessReviews(c.inner.SubjectAccessReviews())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAuthorizationV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -606,8 +692,6 @@ func (c *wrappedAuthorizationV1beta1) SelfSubjectRulesReviews() k8s_io_client_go
 func (c *wrappedAuthorizationV1beta1) SubjectAccessReviews() k8s_io_client_go_kubernetes_typed_authorization_v1beta1.SubjectAccessReviewInterface {
 	return newAuthorizationV1beta1SubjectAccessReviews(c.inner.SubjectAccessReviews())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAuthorizationV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -623,8 +707,6 @@ func newAutoscalingV1(inner k8s_io_client_go_kubernetes_typed_autoscaling_v1.Aut
 func (c *wrappedAutoscalingV1) HorizontalPodAutoscalers(namespace string) k8s_io_client_go_kubernetes_typed_autoscaling_v1.HorizontalPodAutoscalerInterface {
 	return newAutoscalingV1HorizontalPodAutoscalers(c.inner.HorizontalPodAutoscalers(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAutoscalingV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -640,8 +722,6 @@ func newAutoscalingV2(inner k8s_io_client_go_kubernetes_typed_autoscaling_v2.Aut
 func (c *wrappedAutoscalingV2) HorizontalPodAutoscalers(namespace string) k8s_io_client_go_kubernetes_typed_autoscaling_v2.HorizontalPodAutoscalerInterface {
 	return newAutoscalingV2HorizontalPodAutoscalers(c.inner.HorizontalPodAutoscalers(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAutoscalingV2) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -657,8 +737,6 @@ func newAutoscalingV2beta1(inner k8s_io_client_go_kubernetes_typed_autoscaling_v
 func (c *wrappedAutoscalingV2beta1) HorizontalPodAutoscalers(namespace string) k8s_io_client_go_kubernetes_typed_autoscaling_v2beta1.HorizontalPodAutoscalerInterface {
 	return newAutoscalingV2beta1HorizontalPodAutoscalers(c.inner.HorizontalPodAutoscalers(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAutoscalingV2beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -674,8 +752,6 @@ func newAutoscalingV2beta2(inner k8s_io_client_go_kubernetes_typed_autoscaling_v
 func (c *wrappedAutoscalingV2beta2) HorizontalPodAutoscalers(namespace string) k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2.HorizontalPodAutoscalerInterface {
 	return newAutoscalingV2beta2HorizontalPodAutoscalers(c.inner.HorizontalPodAutoscalers(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedAutoscalingV2beta2) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -694,8 +770,6 @@ func (c *wrappedBatchV1) CronJobs(namespace string) k8s_io_client_go_kubernetes_
 func (c *wrappedBatchV1) Jobs(namespace string) k8s_io_client_go_kubernetes_typed_batch_v1.JobInterface {
 	return newBatchV1Jobs(c.inner.Jobs(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedBatchV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -711,8 +785,6 @@ func newBatchV1beta1(inner k8s_io_client_go_kubernetes_typed_batch_v1beta1.Batch
 func (c *wrappedBatchV1beta1) CronJobs(namespace string) k8s_io_client_go_kubernetes_typed_batch_v1beta1.CronJobInterface {
 	return newBatchV1beta1CronJobs(c.inner.CronJobs(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedBatchV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -728,8 +800,6 @@ func newCertificatesV1(inner k8s_io_client_go_kubernetes_typed_certificates_v1.C
 func (c *wrappedCertificatesV1) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1.CertificateSigningRequestInterface {
 	return newCertificatesV1CertificateSigningRequests(c.inner.CertificateSigningRequests())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedCertificatesV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -745,8 +815,6 @@ func newCertificatesV1beta1(inner k8s_io_client_go_kubernetes_typed_certificates
 func (c *wrappedCertificatesV1beta1) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1beta1.CertificateSigningRequestInterface {
 	return newCertificatesV1beta1CertificateSigningRequests(c.inner.CertificateSigningRequests())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedCertificatesV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -762,8 +830,6 @@ func newCoordinationV1(inner k8s_io_client_go_kubernetes_typed_coordination_v1.C
 func (c *wrappedCoordinationV1) Leases(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1.LeaseInterface {
 	return newCoordinationV1Leases(c.inner.Leases(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedCoordinationV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -779,8 +845,6 @@ func newCoordinationV1beta1(inner k8s_io_client_go_kubernetes_typed_coordination
 func (c *wrappedCoordinationV1beta1) Leases(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.LeaseInterface {
 	return newCoordinationV1beta1Leases(c.inner.Leases(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedCoordinationV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -841,8 +905,6 @@ func (c *wrappedCoreV1) ServiceAccounts(namespace string) k8s_io_client_go_kuber
 func (c *wrappedCoreV1) Services(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.ServiceInterface {
 	return newCoreV1Services(c.inner.Services(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedCoreV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -858,8 +920,6 @@ func newDiscoveryV1(inner k8s_io_client_go_kubernetes_typed_discovery_v1.Discove
 func (c *wrappedDiscoveryV1) EndpointSlices(namespace string) k8s_io_client_go_kubernetes_typed_discovery_v1.EndpointSliceInterface {
 	return newDiscoveryV1EndpointSlices(c.inner.EndpointSlices(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedDiscoveryV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -875,8 +935,6 @@ func newDiscoveryV1beta1(inner k8s_io_client_go_kubernetes_typed_discovery_v1bet
 func (c *wrappedDiscoveryV1beta1) EndpointSlices(namespace string) k8s_io_client_go_kubernetes_typed_discovery_v1beta1.EndpointSliceInterface {
 	return newDiscoveryV1beta1EndpointSlices(c.inner.EndpointSlices(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedDiscoveryV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -892,8 +950,6 @@ func newEventsV1(inner k8s_io_client_go_kubernetes_typed_events_v1.EventsV1Inter
 func (c *wrappedEventsV1) Events(namespace string) k8s_io_client_go_kubernetes_typed_events_v1.EventInterface {
 	return newEventsV1Events(c.inner.Events(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedEventsV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -909,8 +965,6 @@ func newEventsV1beta1(inner k8s_io_client_go_kubernetes_typed_events_v1beta1.Eve
 func (c *wrappedEventsV1beta1) Events(namespace string) k8s_io_client_go_kubernetes_typed_events_v1beta1.EventInterface {
 	return newEventsV1beta1Events(c.inner.Events(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedEventsV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -941,8 +995,6 @@ func (c *wrappedExtensionsV1beta1) PodSecurityPolicies() k8s_io_client_go_kubern
 func (c *wrappedExtensionsV1beta1) ReplicaSets(namespace string) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ReplicaSetInterface {
 	return newExtensionsV1beta1ReplicaSets(c.inner.ReplicaSets(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedExtensionsV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -961,8 +1013,6 @@ func (c *wrappedFlowcontrolV1alpha1) FlowSchemas() k8s_io_client_go_kubernetes_t
 func (c *wrappedFlowcontrolV1alpha1) PriorityLevelConfigurations() k8s_io_client_go_kubernetes_typed_flowcontrol_v1alpha1.PriorityLevelConfigurationInterface {
 	return newFlowcontrolV1alpha1PriorityLevelConfigurations(c.inner.PriorityLevelConfigurations())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedFlowcontrolV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -981,8 +1031,6 @@ func (c *wrappedFlowcontrolV1beta1) FlowSchemas() k8s_io_client_go_kubernetes_ty
 func (c *wrappedFlowcontrolV1beta1) PriorityLevelConfigurations() k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta1.PriorityLevelConfigurationInterface {
 	return newFlowcontrolV1beta1PriorityLevelConfigurations(c.inner.PriorityLevelConfigurations())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedFlowcontrolV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1001,8 +1049,6 @@ func (c *wrappedFlowcontrolV1beta2) FlowSchemas() k8s_io_client_go_kubernetes_ty
 func (c *wrappedFlowcontrolV1beta2) PriorityLevelConfigurations() k8s_io_client_go_kubernetes_typed_flowcontrol_v1beta2.PriorityLevelConfigurationInterface {
 	return newFlowcontrolV1beta2PriorityLevelConfigurations(c.inner.PriorityLevelConfigurations())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedFlowcontrolV1beta2) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1018,8 +1064,6 @@ func newInternalV1alpha1(inner k8s_io_client_go_kubernetes_typed_apiserverintern
 func (c *wrappedInternalV1alpha1) StorageVersions() k8s_io_client_go_kubernetes_typed_apiserverinternal_v1alpha1.StorageVersionInterface {
 	return newInternalV1alpha1StorageVersions(c.inner.StorageVersions())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedInternalV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1041,8 +1085,6 @@ func (c *wrappedNetworkingV1) Ingresses(namespace string) k8s_io_client_go_kuber
 func (c *wrappedNetworkingV1) NetworkPolicies(namespace string) k8s_io_client_go_kubernetes_typed_networking_v1.NetworkPolicyInterface {
 	return newNetworkingV1NetworkPolicies(c.inner.NetworkPolicies(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNetworkingV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1058,8 +1100,6 @@ func newNetworkingV1alpha1(inner k8s_io_client_go_kubernetes_typed_networking_v1
 func (c *wrappedNetworkingV1alpha1) ClusterCIDRs() k8s_io_client_go_kubernetes_typed_networking_v1alpha1.ClusterCIDRInterface {
 	return newNetworkingV1alpha1ClusterCIDRs(c.inner.ClusterCIDRs())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNetworkingV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1078,8 +1118,6 @@ func (c *wrappedNetworkingV1beta1) IngressClasses() k8s_io_client_go_kubernetes_
 func (c *wrappedNetworkingV1beta1) Ingresses(namespace string) k8s_io_client_go_kubernetes_typed_networking_v1beta1.IngressInterface {
 	return newNetworkingV1beta1Ingresses(c.inner.Ingresses(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNetworkingV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1095,8 +1133,6 @@ func newNodeV1(inner k8s_io_client_go_kubernetes_typed_node_v1.NodeV1Interface) 
 func (c *wrappedNodeV1) RuntimeClasses() k8s_io_client_go_kubernetes_typed_node_v1.RuntimeClassInterface {
 	return newNodeV1RuntimeClasses(c.inner.RuntimeClasses())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNodeV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1112,8 +1148,6 @@ func newNodeV1alpha1(inner k8s_io_client_go_kubernetes_typed_node_v1alpha1.NodeV
 func (c *wrappedNodeV1alpha1) RuntimeClasses() k8s_io_client_go_kubernetes_typed_node_v1alpha1.RuntimeClassInterface {
 	return newNodeV1alpha1RuntimeClasses(c.inner.RuntimeClasses())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNodeV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1129,8 +1163,6 @@ func newNodeV1beta1(inner k8s_io_client_go_kubernetes_typed_node_v1beta1.NodeV1b
 func (c *wrappedNodeV1beta1) RuntimeClasses() k8s_io_client_go_kubernetes_typed_node_v1beta1.RuntimeClassInterface {
 	return newNodeV1beta1RuntimeClasses(c.inner.RuntimeClasses())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedNodeV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1149,8 +1181,6 @@ func (c *wrappedPolicyV1) Evictions(namespace string) k8s_io_client_go_kubernete
 func (c *wrappedPolicyV1) PodDisruptionBudgets(namespace string) k8s_io_client_go_kubernetes_typed_policy_v1.PodDisruptionBudgetInterface {
 	return newPolicyV1PodDisruptionBudgets(c.inner.PodDisruptionBudgets(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedPolicyV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1172,8 +1202,6 @@ func (c *wrappedPolicyV1beta1) PodDisruptionBudgets(namespace string) k8s_io_cli
 func (c *wrappedPolicyV1beta1) PodSecurityPolicies() k8s_io_client_go_kubernetes_typed_policy_v1beta1.PodSecurityPolicyInterface {
 	return newPolicyV1beta1PodSecurityPolicies(c.inner.PodSecurityPolicies())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedPolicyV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1198,8 +1226,6 @@ func (c *wrappedRbacV1) RoleBindings(namespace string) k8s_io_client_go_kubernet
 func (c *wrappedRbacV1) Roles(namespace string) k8s_io_client_go_kubernetes_typed_rbac_v1.RoleInterface {
 	return newRbacV1Roles(c.inner.Roles(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedRbacV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1224,8 +1250,6 @@ func (c *wrappedRbacV1alpha1) RoleBindings(namespace string) k8s_io_client_go_ku
 func (c *wrappedRbacV1alpha1) Roles(namespace string) k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RoleInterface {
 	return newRbacV1alpha1Roles(c.inner.Roles(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedRbacV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1250,8 +1274,6 @@ func (c *wrappedRbacV1beta1) RoleBindings(namespace string) k8s_io_client_go_kub
 func (c *wrappedRbacV1beta1) Roles(namespace string) k8s_io_client_go_kubernetes_typed_rbac_v1beta1.RoleInterface {
 	return newRbacV1beta1Roles(c.inner.Roles(namespace))
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedRbacV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1267,8 +1289,6 @@ func newSchedulingV1(inner k8s_io_client_go_kubernetes_typed_scheduling_v1.Sched
 func (c *wrappedSchedulingV1) PriorityClasses() k8s_io_client_go_kubernetes_typed_scheduling_v1.PriorityClassInterface {
 	return newSchedulingV1PriorityClasses(c.inner.PriorityClasses())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedSchedulingV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1284,8 +1304,6 @@ func newSchedulingV1alpha1(inner k8s_io_client_go_kubernetes_typed_scheduling_v1
 func (c *wrappedSchedulingV1alpha1) PriorityClasses() k8s_io_client_go_kubernetes_typed_scheduling_v1alpha1.PriorityClassInterface {
 	return newSchedulingV1alpha1PriorityClasses(c.inner.PriorityClasses())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedSchedulingV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1301,8 +1319,6 @@ func newSchedulingV1beta1(inner k8s_io_client_go_kubernetes_typed_scheduling_v1b
 func (c *wrappedSchedulingV1beta1) PriorityClasses() k8s_io_client_go_kubernetes_typed_scheduling_v1beta1.PriorityClassInterface {
 	return newSchedulingV1beta1PriorityClasses(c.inner.PriorityClasses())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedSchedulingV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1330,8 +1346,6 @@ func (c *wrappedStorageV1) StorageClasses() k8s_io_client_go_kubernetes_typed_st
 func (c *wrappedStorageV1) VolumeAttachments() k8s_io_client_go_kubernetes_typed_storage_v1.VolumeAttachmentInterface {
 	return newStorageV1VolumeAttachments(c.inner.VolumeAttachments())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedStorageV1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1350,8 +1364,6 @@ func (c *wrappedStorageV1alpha1) CSIStorageCapacities(namespace string) k8s_io_c
 func (c *wrappedStorageV1alpha1) VolumeAttachments() k8s_io_client_go_kubernetes_typed_storage_v1alpha1.VolumeAttachmentInterface {
 	return newStorageV1alpha1VolumeAttachments(c.inner.VolumeAttachments())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedStorageV1alpha1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1379,8 +1391,6 @@ func (c *wrappedStorageV1beta1) StorageClasses() k8s_io_client_go_kubernetes_typ
 func (c *wrappedStorageV1beta1) VolumeAttachments() k8s_io_client_go_kubernetes_typed_storage_v1beta1.VolumeAttachmentInterface {
 	return newStorageV1beta1VolumeAttachments(c.inner.VolumeAttachments())
 }
-
-// RESTClient is NOT instrumented
 func (c *wrappedStorageV1beta1) RESTClient() k8s_io_client_go_rest.Interface {
 	return c.inner.RESTClient()
 }
@@ -1401,6 +1411,7 @@ func (c *wrappedAdmissionregistrationV1MutatingWebhookConfigurations) Apply(arg0
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1414,6 +1425,7 @@ func (c *wrappedAdmissionregistrationV1MutatingWebhookConfigurations) Create(arg
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1427,6 +1439,7 @@ func (c *wrappedAdmissionregistrationV1MutatingWebhookConfigurations) Delete(arg
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1440,6 +1453,7 @@ func (c *wrappedAdmissionregistrationV1MutatingWebhookConfigurations) DeleteColl
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1453,6 +1467,7 @@ func (c *wrappedAdmissionregistrationV1MutatingWebhookConfigurations) Get(arg0 c
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1466,6 +1481,7 @@ func (c *wrappedAdmissionregistrationV1MutatingWebhookConfigurations) List(arg0 
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1479,6 +1495,7 @@ func (c *wrappedAdmissionregistrationV1MutatingWebhookConfigurations) Patch(arg0
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1492,6 +1509,7 @@ func (c *wrappedAdmissionregistrationV1MutatingWebhookConfigurations) Update(arg
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1505,6 +1523,7 @@ func (c *wrappedAdmissionregistrationV1MutatingWebhookConfigurations) Watch(arg0
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1527,6 +1546,7 @@ func (c *wrappedAdmissionregistrationV1ValidatingWebhookConfigurations) Apply(ar
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1540,6 +1560,7 @@ func (c *wrappedAdmissionregistrationV1ValidatingWebhookConfigurations) Create(a
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1553,6 +1574,7 @@ func (c *wrappedAdmissionregistrationV1ValidatingWebhookConfigurations) Delete(a
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1566,6 +1588,7 @@ func (c *wrappedAdmissionregistrationV1ValidatingWebhookConfigurations) DeleteCo
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1579,6 +1602,7 @@ func (c *wrappedAdmissionregistrationV1ValidatingWebhookConfigurations) Get(arg0
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1592,6 +1616,7 @@ func (c *wrappedAdmissionregistrationV1ValidatingWebhookConfigurations) List(arg
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1605,6 +1630,7 @@ func (c *wrappedAdmissionregistrationV1ValidatingWebhookConfigurations) Patch(ar
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1618,6 +1644,7 @@ func (c *wrappedAdmissionregistrationV1ValidatingWebhookConfigurations) Update(a
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1631,6 +1658,7 @@ func (c *wrappedAdmissionregistrationV1ValidatingWebhookConfigurations) Watch(ar
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1653,6 +1681,7 @@ func (c *wrappedAdmissionregistrationV1beta1MutatingWebhookConfigurations) Apply
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1666,6 +1695,7 @@ func (c *wrappedAdmissionregistrationV1beta1MutatingWebhookConfigurations) Creat
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1679,6 +1709,7 @@ func (c *wrappedAdmissionregistrationV1beta1MutatingWebhookConfigurations) Delet
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1692,6 +1723,7 @@ func (c *wrappedAdmissionregistrationV1beta1MutatingWebhookConfigurations) Delet
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1705,6 +1737,7 @@ func (c *wrappedAdmissionregistrationV1beta1MutatingWebhookConfigurations) Get(a
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1718,6 +1751,7 @@ func (c *wrappedAdmissionregistrationV1beta1MutatingWebhookConfigurations) List(
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1731,6 +1765,7 @@ func (c *wrappedAdmissionregistrationV1beta1MutatingWebhookConfigurations) Patch
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1744,6 +1779,7 @@ func (c *wrappedAdmissionregistrationV1beta1MutatingWebhookConfigurations) Updat
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1757,6 +1793,7 @@ func (c *wrappedAdmissionregistrationV1beta1MutatingWebhookConfigurations) Watch
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "MutatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "MutatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1779,6 +1816,7 @@ func (c *wrappedAdmissionregistrationV1beta1ValidatingWebhookConfigurations) App
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1792,6 +1830,7 @@ func (c *wrappedAdmissionregistrationV1beta1ValidatingWebhookConfigurations) Cre
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1805,6 +1844,7 @@ func (c *wrappedAdmissionregistrationV1beta1ValidatingWebhookConfigurations) Del
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1818,6 +1858,7 @@ func (c *wrappedAdmissionregistrationV1beta1ValidatingWebhookConfigurations) Del
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1831,6 +1872,7 @@ func (c *wrappedAdmissionregistrationV1beta1ValidatingWebhookConfigurations) Get
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1844,6 +1886,7 @@ func (c *wrappedAdmissionregistrationV1beta1ValidatingWebhookConfigurations) Lis
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1857,6 +1900,7 @@ func (c *wrappedAdmissionregistrationV1beta1ValidatingWebhookConfigurations) Pat
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1870,6 +1914,7 @@ func (c *wrappedAdmissionregistrationV1beta1ValidatingWebhookConfigurations) Upd
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1883,6 +1928,7 @@ func (c *wrappedAdmissionregistrationV1beta1ValidatingWebhookConfigurations) Wat
 		go_opentelemetry_io_otel_attribute.String("client", "AdmissionregistrationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ValidatingWebhookConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ValidatingWebhookConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1905,6 +1951,7 @@ func (c *wrappedAppsV1ControllerRevisions) Apply(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1918,6 +1965,7 @@ func (c *wrappedAppsV1ControllerRevisions) Create(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1931,6 +1979,7 @@ func (c *wrappedAppsV1ControllerRevisions) Delete(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1944,6 +1993,7 @@ func (c *wrappedAppsV1ControllerRevisions) DeleteCollection(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1957,6 +2007,7 @@ func (c *wrappedAppsV1ControllerRevisions) Get(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1970,6 +2021,7 @@ func (c *wrappedAppsV1ControllerRevisions) List(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1983,6 +2035,7 @@ func (c *wrappedAppsV1ControllerRevisions) Patch(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -1996,6 +2049,7 @@ func (c *wrappedAppsV1ControllerRevisions) Update(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2009,6 +2063,7 @@ func (c *wrappedAppsV1ControllerRevisions) Watch(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2031,6 +2086,7 @@ func (c *wrappedAppsV1DaemonSets) Apply(arg0 context.Context, arg1 *k8s_io_clien
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2044,6 +2100,7 @@ func (c *wrappedAppsV1DaemonSets) ApplyStatus(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2057,6 +2114,7 @@ func (c *wrappedAppsV1DaemonSets) Create(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2070,6 +2128,7 @@ func (c *wrappedAppsV1DaemonSets) Delete(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2083,6 +2142,7 @@ func (c *wrappedAppsV1DaemonSets) DeleteCollection(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2096,6 +2156,7 @@ func (c *wrappedAppsV1DaemonSets) Get(arg0 context.Context, arg1 string, arg2 k8
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2109,6 +2170,7 @@ func (c *wrappedAppsV1DaemonSets) List(arg0 context.Context, arg1 k8s_io_apimach
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2122,6 +2184,7 @@ func (c *wrappedAppsV1DaemonSets) Patch(arg0 context.Context, arg1 string, arg2 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2135,6 +2198,7 @@ func (c *wrappedAppsV1DaemonSets) Update(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2148,6 +2212,7 @@ func (c *wrappedAppsV1DaemonSets) UpdateStatus(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2161,6 +2226,7 @@ func (c *wrappedAppsV1DaemonSets) Watch(arg0 context.Context, arg1 k8s_io_apimac
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2183,6 +2249,7 @@ func (c *wrappedAppsV1Deployments) Apply(arg0 context.Context, arg1 *k8s_io_clie
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2196,6 +2263,7 @@ func (c *wrappedAppsV1Deployments) ApplyScale(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2209,6 +2277,7 @@ func (c *wrappedAppsV1Deployments) ApplyStatus(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2222,6 +2291,7 @@ func (c *wrappedAppsV1Deployments) Create(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2235,6 +2305,7 @@ func (c *wrappedAppsV1Deployments) Delete(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2248,6 +2319,7 @@ func (c *wrappedAppsV1Deployments) DeleteCollection(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2261,6 +2333,7 @@ func (c *wrappedAppsV1Deployments) Get(arg0 context.Context, arg1 string, arg2 k
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2274,6 +2347,7 @@ func (c *wrappedAppsV1Deployments) GetScale(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "GetScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2287,6 +2361,7 @@ func (c *wrappedAppsV1Deployments) List(arg0 context.Context, arg1 k8s_io_apimac
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2300,6 +2375,7 @@ func (c *wrappedAppsV1Deployments) Patch(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2313,6 +2389,7 @@ func (c *wrappedAppsV1Deployments) Update(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2326,6 +2403,7 @@ func (c *wrappedAppsV1Deployments) UpdateScale(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2339,6 +2417,7 @@ func (c *wrappedAppsV1Deployments) UpdateStatus(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2352,6 +2431,7 @@ func (c *wrappedAppsV1Deployments) Watch(arg0 context.Context, arg1 k8s_io_apima
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2374,6 +2454,7 @@ func (c *wrappedAppsV1ReplicaSets) Apply(arg0 context.Context, arg1 *k8s_io_clie
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2387,6 +2468,7 @@ func (c *wrappedAppsV1ReplicaSets) ApplyScale(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2400,6 +2482,7 @@ func (c *wrappedAppsV1ReplicaSets) ApplyStatus(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2413,6 +2496,7 @@ func (c *wrappedAppsV1ReplicaSets) Create(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2426,6 +2510,7 @@ func (c *wrappedAppsV1ReplicaSets) Delete(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2439,6 +2524,7 @@ func (c *wrappedAppsV1ReplicaSets) DeleteCollection(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2452,6 +2538,7 @@ func (c *wrappedAppsV1ReplicaSets) Get(arg0 context.Context, arg1 string, arg2 k
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2465,6 +2552,7 @@ func (c *wrappedAppsV1ReplicaSets) GetScale(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "GetScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2478,6 +2566,7 @@ func (c *wrappedAppsV1ReplicaSets) List(arg0 context.Context, arg1 k8s_io_apimac
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2491,6 +2580,7 @@ func (c *wrappedAppsV1ReplicaSets) Patch(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2504,6 +2594,7 @@ func (c *wrappedAppsV1ReplicaSets) Update(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2517,6 +2608,7 @@ func (c *wrappedAppsV1ReplicaSets) UpdateScale(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2530,6 +2622,7 @@ func (c *wrappedAppsV1ReplicaSets) UpdateStatus(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2543,6 +2636,7 @@ func (c *wrappedAppsV1ReplicaSets) Watch(arg0 context.Context, arg1 k8s_io_apima
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2565,6 +2659,7 @@ func (c *wrappedAppsV1StatefulSets) Apply(arg0 context.Context, arg1 *k8s_io_cli
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2578,6 +2673,7 @@ func (c *wrappedAppsV1StatefulSets) ApplyScale(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2591,6 +2687,7 @@ func (c *wrappedAppsV1StatefulSets) ApplyStatus(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2604,6 +2701,7 @@ func (c *wrappedAppsV1StatefulSets) Create(arg0 context.Context, arg1 *k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2617,6 +2715,7 @@ func (c *wrappedAppsV1StatefulSets) Delete(arg0 context.Context, arg1 string, ar
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2630,6 +2729,7 @@ func (c *wrappedAppsV1StatefulSets) DeleteCollection(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2643,6 +2743,7 @@ func (c *wrappedAppsV1StatefulSets) Get(arg0 context.Context, arg1 string, arg2 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2656,6 +2757,7 @@ func (c *wrappedAppsV1StatefulSets) GetScale(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "GetScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2669,6 +2771,7 @@ func (c *wrappedAppsV1StatefulSets) List(arg0 context.Context, arg1 k8s_io_apima
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2682,6 +2785,7 @@ func (c *wrappedAppsV1StatefulSets) Patch(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2695,6 +2799,7 @@ func (c *wrappedAppsV1StatefulSets) Update(arg0 context.Context, arg1 *k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2708,6 +2813,7 @@ func (c *wrappedAppsV1StatefulSets) UpdateScale(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2721,6 +2827,7 @@ func (c *wrappedAppsV1StatefulSets) UpdateStatus(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2734,6 +2841,7 @@ func (c *wrappedAppsV1StatefulSets) Watch(arg0 context.Context, arg1 k8s_io_apim
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2756,6 +2864,7 @@ func (c *wrappedAppsV1beta1ControllerRevisions) Apply(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2769,6 +2878,7 @@ func (c *wrappedAppsV1beta1ControllerRevisions) Create(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2782,6 +2892,7 @@ func (c *wrappedAppsV1beta1ControllerRevisions) Delete(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2795,6 +2906,7 @@ func (c *wrappedAppsV1beta1ControllerRevisions) DeleteCollection(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2808,6 +2920,7 @@ func (c *wrappedAppsV1beta1ControllerRevisions) Get(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2821,6 +2934,7 @@ func (c *wrappedAppsV1beta1ControllerRevisions) List(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2834,6 +2948,7 @@ func (c *wrappedAppsV1beta1ControllerRevisions) Patch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2847,6 +2962,7 @@ func (c *wrappedAppsV1beta1ControllerRevisions) Update(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2860,6 +2976,7 @@ func (c *wrappedAppsV1beta1ControllerRevisions) Watch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2882,6 +2999,7 @@ func (c *wrappedAppsV1beta1Deployments) Apply(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2895,6 +3013,7 @@ func (c *wrappedAppsV1beta1Deployments) ApplyStatus(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2908,6 +3027,7 @@ func (c *wrappedAppsV1beta1Deployments) Create(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2921,6 +3041,7 @@ func (c *wrappedAppsV1beta1Deployments) Delete(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2934,6 +3055,7 @@ func (c *wrappedAppsV1beta1Deployments) DeleteCollection(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2947,6 +3069,7 @@ func (c *wrappedAppsV1beta1Deployments) Get(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2960,6 +3083,7 @@ func (c *wrappedAppsV1beta1Deployments) List(arg0 context.Context, arg1 k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2973,6 +3097,7 @@ func (c *wrappedAppsV1beta1Deployments) Patch(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2986,6 +3111,7 @@ func (c *wrappedAppsV1beta1Deployments) Update(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -2999,6 +3125,7 @@ func (c *wrappedAppsV1beta1Deployments) UpdateStatus(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3012,6 +3139,7 @@ func (c *wrappedAppsV1beta1Deployments) Watch(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3034,6 +3162,7 @@ func (c *wrappedAppsV1beta1StatefulSets) Apply(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3047,6 +3176,7 @@ func (c *wrappedAppsV1beta1StatefulSets) ApplyStatus(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3060,6 +3190,7 @@ func (c *wrappedAppsV1beta1StatefulSets) Create(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3073,6 +3204,7 @@ func (c *wrappedAppsV1beta1StatefulSets) Delete(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3086,6 +3218,7 @@ func (c *wrappedAppsV1beta1StatefulSets) DeleteCollection(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3099,6 +3232,7 @@ func (c *wrappedAppsV1beta1StatefulSets) Get(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3112,6 +3246,7 @@ func (c *wrappedAppsV1beta1StatefulSets) List(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3125,6 +3260,7 @@ func (c *wrappedAppsV1beta1StatefulSets) Patch(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3138,6 +3274,7 @@ func (c *wrappedAppsV1beta1StatefulSets) Update(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3151,6 +3288,7 @@ func (c *wrappedAppsV1beta1StatefulSets) UpdateStatus(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3164,6 +3302,7 @@ func (c *wrappedAppsV1beta1StatefulSets) Watch(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3186,6 +3325,7 @@ func (c *wrappedAppsV1beta2ControllerRevisions) Apply(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3199,6 +3339,7 @@ func (c *wrappedAppsV1beta2ControllerRevisions) Create(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3212,6 +3353,7 @@ func (c *wrappedAppsV1beta2ControllerRevisions) Delete(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3225,6 +3367,7 @@ func (c *wrappedAppsV1beta2ControllerRevisions) DeleteCollection(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3238,6 +3381,7 @@ func (c *wrappedAppsV1beta2ControllerRevisions) Get(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3251,6 +3395,7 @@ func (c *wrappedAppsV1beta2ControllerRevisions) List(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3264,6 +3409,7 @@ func (c *wrappedAppsV1beta2ControllerRevisions) Patch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3277,6 +3423,7 @@ func (c *wrappedAppsV1beta2ControllerRevisions) Update(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3290,6 +3437,7 @@ func (c *wrappedAppsV1beta2ControllerRevisions) Watch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ControllerRevisions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ControllerRevision"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3312,6 +3460,7 @@ func (c *wrappedAppsV1beta2DaemonSets) Apply(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3325,6 +3474,7 @@ func (c *wrappedAppsV1beta2DaemonSets) ApplyStatus(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3338,6 +3488,7 @@ func (c *wrappedAppsV1beta2DaemonSets) Create(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3351,6 +3502,7 @@ func (c *wrappedAppsV1beta2DaemonSets) Delete(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3364,6 +3516,7 @@ func (c *wrappedAppsV1beta2DaemonSets) DeleteCollection(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3377,6 +3530,7 @@ func (c *wrappedAppsV1beta2DaemonSets) Get(arg0 context.Context, arg1 string, ar
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3390,6 +3544,7 @@ func (c *wrappedAppsV1beta2DaemonSets) List(arg0 context.Context, arg1 k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3403,6 +3558,7 @@ func (c *wrappedAppsV1beta2DaemonSets) Patch(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3416,6 +3572,7 @@ func (c *wrappedAppsV1beta2DaemonSets) Update(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3429,6 +3586,7 @@ func (c *wrappedAppsV1beta2DaemonSets) UpdateStatus(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3442,6 +3600,7 @@ func (c *wrappedAppsV1beta2DaemonSets) Watch(arg0 context.Context, arg1 k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3464,6 +3623,7 @@ func (c *wrappedAppsV1beta2Deployments) Apply(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3477,6 +3637,7 @@ func (c *wrappedAppsV1beta2Deployments) ApplyStatus(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3490,6 +3651,7 @@ func (c *wrappedAppsV1beta2Deployments) Create(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3503,6 +3665,7 @@ func (c *wrappedAppsV1beta2Deployments) Delete(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3516,6 +3679,7 @@ func (c *wrappedAppsV1beta2Deployments) DeleteCollection(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3529,6 +3693,7 @@ func (c *wrappedAppsV1beta2Deployments) Get(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3542,6 +3707,7 @@ func (c *wrappedAppsV1beta2Deployments) List(arg0 context.Context, arg1 k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3555,6 +3721,7 @@ func (c *wrappedAppsV1beta2Deployments) Patch(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3568,6 +3735,7 @@ func (c *wrappedAppsV1beta2Deployments) Update(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3581,6 +3749,7 @@ func (c *wrappedAppsV1beta2Deployments) UpdateStatus(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3594,6 +3763,7 @@ func (c *wrappedAppsV1beta2Deployments) Watch(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3616,6 +3786,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) Apply(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3629,6 +3800,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) ApplyStatus(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3642,6 +3814,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) Create(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3655,6 +3828,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) Delete(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3668,6 +3842,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) DeleteCollection(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3681,6 +3856,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) Get(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3694,6 +3870,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) List(arg0 context.Context, arg1 k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3707,6 +3884,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) Patch(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3720,6 +3898,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) Update(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3733,6 +3912,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) UpdateStatus(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3746,6 +3926,7 @@ func (c *wrappedAppsV1beta2ReplicaSets) Watch(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3768,6 +3949,7 @@ func (c *wrappedAppsV1beta2StatefulSets) Apply(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3781,6 +3963,7 @@ func (c *wrappedAppsV1beta2StatefulSets) ApplyScale(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3794,6 +3977,7 @@ func (c *wrappedAppsV1beta2StatefulSets) ApplyStatus(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3807,6 +3991,7 @@ func (c *wrappedAppsV1beta2StatefulSets) Create(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3820,6 +4005,7 @@ func (c *wrappedAppsV1beta2StatefulSets) Delete(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3833,6 +4019,7 @@ func (c *wrappedAppsV1beta2StatefulSets) DeleteCollection(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3846,6 +4033,7 @@ func (c *wrappedAppsV1beta2StatefulSets) Get(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3859,6 +4047,7 @@ func (c *wrappedAppsV1beta2StatefulSets) GetScale(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "GetScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3872,6 +4061,7 @@ func (c *wrappedAppsV1beta2StatefulSets) List(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3885,6 +4075,7 @@ func (c *wrappedAppsV1beta2StatefulSets) Patch(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3898,6 +4089,7 @@ func (c *wrappedAppsV1beta2StatefulSets) Update(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3911,6 +4103,7 @@ func (c *wrappedAppsV1beta2StatefulSets) UpdateScale(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3924,6 +4117,7 @@ func (c *wrappedAppsV1beta2StatefulSets) UpdateStatus(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3937,6 +4131,7 @@ func (c *wrappedAppsV1beta2StatefulSets) Watch(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "AppsV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StatefulSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StatefulSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3959,6 +4154,7 @@ func (c *wrappedAuthenticationV1TokenReviews) Create(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "AuthenticationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "TokenReviews"),
 		go_opentelemetry_io_otel_attribute.String("kind", "TokenReview"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -3981,6 +4177,7 @@ func (c *wrappedAuthenticationV1beta1TokenReviews) Create(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "AuthenticationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "TokenReviews"),
 		go_opentelemetry_io_otel_attribute.String("kind", "TokenReview"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4003,6 +4200,7 @@ func (c *wrappedAuthorizationV1LocalSubjectAccessReviews) Create(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "AuthorizationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LocalSubjectAccessReviews"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LocalSubjectAccessReview"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4025,6 +4223,7 @@ func (c *wrappedAuthorizationV1SelfSubjectAccessReviews) Create(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "AuthorizationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "SelfSubjectAccessReviews"),
 		go_opentelemetry_io_otel_attribute.String("kind", "SelfSubjectAccessReview"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4047,6 +4246,7 @@ func (c *wrappedAuthorizationV1SelfSubjectRulesReviews) Create(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "AuthorizationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "SelfSubjectRulesReviews"),
 		go_opentelemetry_io_otel_attribute.String("kind", "SelfSubjectRulesReview"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4069,6 +4269,7 @@ func (c *wrappedAuthorizationV1SubjectAccessReviews) Create(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "AuthorizationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "SubjectAccessReviews"),
 		go_opentelemetry_io_otel_attribute.String("kind", "SubjectAccessReview"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4091,6 +4292,7 @@ func (c *wrappedAuthorizationV1beta1LocalSubjectAccessReviews) Create(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "AuthorizationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LocalSubjectAccessReviews"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LocalSubjectAccessReview"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4113,6 +4315,7 @@ func (c *wrappedAuthorizationV1beta1SelfSubjectAccessReviews) Create(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "AuthorizationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "SelfSubjectAccessReviews"),
 		go_opentelemetry_io_otel_attribute.String("kind", "SelfSubjectAccessReview"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4135,6 +4338,7 @@ func (c *wrappedAuthorizationV1beta1SelfSubjectRulesReviews) Create(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "AuthorizationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "SelfSubjectRulesReviews"),
 		go_opentelemetry_io_otel_attribute.String("kind", "SelfSubjectRulesReview"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4157,6 +4361,7 @@ func (c *wrappedAuthorizationV1beta1SubjectAccessReviews) Create(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "AuthorizationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "SubjectAccessReviews"),
 		go_opentelemetry_io_otel_attribute.String("kind", "SubjectAccessReview"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4179,6 +4384,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) Apply(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4192,6 +4398,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) ApplyStatus(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4205,6 +4412,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) Create(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4218,6 +4426,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) Delete(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4231,6 +4440,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) DeleteCollection(arg0 con
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4244,6 +4454,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) Get(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4257,6 +4468,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) List(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4270,6 +4482,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) Patch(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4283,6 +4496,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) Update(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4296,6 +4510,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) UpdateStatus(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4309,6 +4524,7 @@ func (c *wrappedAutoscalingV1HorizontalPodAutoscalers) Watch(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4331,6 +4547,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) Apply(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4344,6 +4561,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) ApplyStatus(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4357,6 +4575,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) Create(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4370,6 +4589,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) Delete(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4383,6 +4603,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) DeleteCollection(arg0 con
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4396,6 +4617,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) Get(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4409,6 +4631,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) List(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4422,6 +4645,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) Patch(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4435,6 +4659,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) Update(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4448,6 +4673,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) UpdateStatus(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4461,6 +4687,7 @@ func (c *wrappedAutoscalingV2HorizontalPodAutoscalers) Watch(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4483,6 +4710,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) Apply(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4496,6 +4724,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) ApplyStatus(arg0 con
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4509,6 +4738,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) Create(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4522,6 +4752,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) Delete(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4535,6 +4766,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) DeleteCollection(arg
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4548,6 +4780,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) Get(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4561,6 +4794,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) List(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4574,6 +4808,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) Patch(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4587,6 +4822,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) Update(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4600,6 +4836,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) UpdateStatus(arg0 co
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4613,6 +4850,7 @@ func (c *wrappedAutoscalingV2beta1HorizontalPodAutoscalers) Watch(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4635,6 +4873,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) Apply(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4648,6 +4887,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) ApplyStatus(arg0 con
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4661,6 +4901,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) Create(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4674,6 +4915,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) Delete(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4687,6 +4929,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) DeleteCollection(arg
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4700,6 +4943,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) Get(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4713,6 +4957,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) List(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4726,6 +4971,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) Patch(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4739,6 +4985,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) Update(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4752,6 +4999,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) UpdateStatus(arg0 co
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4765,6 +5013,7 @@ func (c *wrappedAutoscalingV2beta2HorizontalPodAutoscalers) Watch(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "AutoscalingV2beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "HorizontalPodAutoscalers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "HorizontalPodAutoscaler"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4787,6 +5036,7 @@ func (c *wrappedBatchV1CronJobs) Apply(arg0 context.Context, arg1 *k8s_io_client
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4800,6 +5050,7 @@ func (c *wrappedBatchV1CronJobs) ApplyStatus(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4813,6 +5064,7 @@ func (c *wrappedBatchV1CronJobs) Create(arg0 context.Context, arg1 *k8s_io_api_b
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4826,6 +5078,7 @@ func (c *wrappedBatchV1CronJobs) Delete(arg0 context.Context, arg1 string, arg2 
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4839,6 +5092,7 @@ func (c *wrappedBatchV1CronJobs) DeleteCollection(arg0 context.Context, arg1 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4852,6 +5106,7 @@ func (c *wrappedBatchV1CronJobs) Get(arg0 context.Context, arg1 string, arg2 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4865,6 +5120,7 @@ func (c *wrappedBatchV1CronJobs) List(arg0 context.Context, arg1 k8s_io_apimachi
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4878,6 +5134,7 @@ func (c *wrappedBatchV1CronJobs) Patch(arg0 context.Context, arg1 string, arg2 k
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4891,6 +5148,7 @@ func (c *wrappedBatchV1CronJobs) Update(arg0 context.Context, arg1 *k8s_io_api_b
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4904,6 +5162,7 @@ func (c *wrappedBatchV1CronJobs) UpdateStatus(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4917,6 +5176,7 @@ func (c *wrappedBatchV1CronJobs) Watch(arg0 context.Context, arg1 k8s_io_apimach
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4939,6 +5199,7 @@ func (c *wrappedBatchV1Jobs) Apply(arg0 context.Context, arg1 *k8s_io_client_go_
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4952,6 +5213,7 @@ func (c *wrappedBatchV1Jobs) ApplyStatus(arg0 context.Context, arg1 *k8s_io_clie
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4965,6 +5227,7 @@ func (c *wrappedBatchV1Jobs) Create(arg0 context.Context, arg1 *k8s_io_api_batch
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4978,6 +5241,7 @@ func (c *wrappedBatchV1Jobs) Delete(arg0 context.Context, arg1 string, arg2 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -4991,6 +5255,7 @@ func (c *wrappedBatchV1Jobs) DeleteCollection(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5004,6 +5269,7 @@ func (c *wrappedBatchV1Jobs) Get(arg0 context.Context, arg1 string, arg2 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5017,6 +5283,7 @@ func (c *wrappedBatchV1Jobs) List(arg0 context.Context, arg1 k8s_io_apimachinery
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5030,6 +5297,7 @@ func (c *wrappedBatchV1Jobs) Patch(arg0 context.Context, arg1 string, arg2 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5043,6 +5311,7 @@ func (c *wrappedBatchV1Jobs) Update(arg0 context.Context, arg1 *k8s_io_api_batch
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5056,6 +5325,7 @@ func (c *wrappedBatchV1Jobs) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5069,6 +5339,7 @@ func (c *wrappedBatchV1Jobs) Watch(arg0 context.Context, arg1 k8s_io_apimachiner
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Jobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Job"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5091,6 +5362,7 @@ func (c *wrappedBatchV1beta1CronJobs) Apply(arg0 context.Context, arg1 *k8s_io_c
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5104,6 +5376,7 @@ func (c *wrappedBatchV1beta1CronJobs) ApplyStatus(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5117,6 +5390,7 @@ func (c *wrappedBatchV1beta1CronJobs) Create(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5130,6 +5404,7 @@ func (c *wrappedBatchV1beta1CronJobs) Delete(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5143,6 +5418,7 @@ func (c *wrappedBatchV1beta1CronJobs) DeleteCollection(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5156,6 +5432,7 @@ func (c *wrappedBatchV1beta1CronJobs) Get(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5169,6 +5446,7 @@ func (c *wrappedBatchV1beta1CronJobs) List(arg0 context.Context, arg1 k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5182,6 +5460,7 @@ func (c *wrappedBatchV1beta1CronJobs) Patch(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5195,6 +5474,7 @@ func (c *wrappedBatchV1beta1CronJobs) Update(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5208,6 +5488,7 @@ func (c *wrappedBatchV1beta1CronJobs) UpdateStatus(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5221,6 +5502,7 @@ func (c *wrappedBatchV1beta1CronJobs) Watch(arg0 context.Context, arg1 k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "BatchV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CronJobs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CronJob"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5243,6 +5525,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) Apply(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5256,6 +5539,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) ApplyStatus(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5269,6 +5553,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) Create(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5282,6 +5567,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) Delete(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5295,6 +5581,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) DeleteCollection(arg0 
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5308,6 +5595,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) Get(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5321,6 +5609,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) List(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5334,6 +5623,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) Patch(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5347,6 +5637,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) Update(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5360,6 +5651,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) UpdateApproval(arg0 co
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateApproval"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5373,6 +5665,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) UpdateStatus(arg0 cont
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5386,6 +5679,7 @@ func (c *wrappedCertificatesV1CertificateSigningRequests) Watch(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5408,6 +5702,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) Apply(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5421,6 +5716,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) ApplyStatus(arg0 
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5434,6 +5730,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) Create(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5447,6 +5744,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) Delete(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5460,6 +5758,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) DeleteCollection(
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5473,6 +5772,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) Get(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5486,6 +5786,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) List(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5499,6 +5800,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) Patch(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5512,6 +5814,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) Update(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5525,6 +5828,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) UpdateApproval(ar
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateApproval"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5538,6 +5842,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) UpdateStatus(arg0
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5551,6 +5856,7 @@ func (c *wrappedCertificatesV1beta1CertificateSigningRequests) Watch(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "CertificatesV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CertificateSigningRequests"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CertificateSigningRequest"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5573,6 +5879,7 @@ func (c *wrappedCoordinationV1Leases) Apply(arg0 context.Context, arg1 *k8s_io_c
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5586,6 +5893,7 @@ func (c *wrappedCoordinationV1Leases) Create(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5599,6 +5907,7 @@ func (c *wrappedCoordinationV1Leases) Delete(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5612,6 +5921,7 @@ func (c *wrappedCoordinationV1Leases) DeleteCollection(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5625,6 +5935,7 @@ func (c *wrappedCoordinationV1Leases) Get(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5638,6 +5949,7 @@ func (c *wrappedCoordinationV1Leases) List(arg0 context.Context, arg1 k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5651,6 +5963,7 @@ func (c *wrappedCoordinationV1Leases) Patch(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5664,6 +5977,7 @@ func (c *wrappedCoordinationV1Leases) Update(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5677,6 +5991,7 @@ func (c *wrappedCoordinationV1Leases) Watch(arg0 context.Context, arg1 k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5699,6 +6014,7 @@ func (c *wrappedCoordinationV1beta1Leases) Apply(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5712,6 +6028,7 @@ func (c *wrappedCoordinationV1beta1Leases) Create(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5725,6 +6042,7 @@ func (c *wrappedCoordinationV1beta1Leases) Delete(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5738,6 +6056,7 @@ func (c *wrappedCoordinationV1beta1Leases) DeleteCollection(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5751,6 +6070,7 @@ func (c *wrappedCoordinationV1beta1Leases) Get(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5764,6 +6084,7 @@ func (c *wrappedCoordinationV1beta1Leases) List(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5777,6 +6098,7 @@ func (c *wrappedCoordinationV1beta1Leases) Patch(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5790,6 +6112,7 @@ func (c *wrappedCoordinationV1beta1Leases) Update(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5803,6 +6126,7 @@ func (c *wrappedCoordinationV1beta1Leases) Watch(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "CoordinationV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Leases"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Lease"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5825,6 +6149,7 @@ func (c *wrappedCoreV1ComponentStatuses) Apply(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ComponentStatuses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ComponentStatus"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5838,6 +6163,7 @@ func (c *wrappedCoreV1ComponentStatuses) Create(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ComponentStatuses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ComponentStatus"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5851,6 +6177,7 @@ func (c *wrappedCoreV1ComponentStatuses) Delete(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ComponentStatuses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ComponentStatus"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5864,6 +6191,7 @@ func (c *wrappedCoreV1ComponentStatuses) DeleteCollection(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ComponentStatuses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ComponentStatus"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5877,6 +6205,7 @@ func (c *wrappedCoreV1ComponentStatuses) Get(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ComponentStatuses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ComponentStatus"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5890,6 +6219,7 @@ func (c *wrappedCoreV1ComponentStatuses) List(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ComponentStatuses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ComponentStatus"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5903,6 +6233,7 @@ func (c *wrappedCoreV1ComponentStatuses) Patch(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ComponentStatuses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ComponentStatus"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5916,6 +6247,7 @@ func (c *wrappedCoreV1ComponentStatuses) Update(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ComponentStatuses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ComponentStatus"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5929,6 +6261,7 @@ func (c *wrappedCoreV1ComponentStatuses) Watch(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ComponentStatuses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ComponentStatus"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5951,6 +6284,7 @@ func (c *wrappedCoreV1ConfigMaps) Apply(arg0 context.Context, arg1 *k8s_io_clien
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ConfigMaps"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ConfigMap"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5964,6 +6298,7 @@ func (c *wrappedCoreV1ConfigMaps) Create(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ConfigMaps"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ConfigMap"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5977,6 +6312,7 @@ func (c *wrappedCoreV1ConfigMaps) Delete(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ConfigMaps"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ConfigMap"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -5990,6 +6326,7 @@ func (c *wrappedCoreV1ConfigMaps) DeleteCollection(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ConfigMaps"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ConfigMap"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6003,6 +6340,7 @@ func (c *wrappedCoreV1ConfigMaps) Get(arg0 context.Context, arg1 string, arg2 k8
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ConfigMaps"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ConfigMap"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6016,6 +6354,7 @@ func (c *wrappedCoreV1ConfigMaps) List(arg0 context.Context, arg1 k8s_io_apimach
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ConfigMaps"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ConfigMap"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6029,6 +6368,7 @@ func (c *wrappedCoreV1ConfigMaps) Patch(arg0 context.Context, arg1 string, arg2 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ConfigMaps"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ConfigMap"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6042,6 +6382,7 @@ func (c *wrappedCoreV1ConfigMaps) Update(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ConfigMaps"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ConfigMap"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6055,6 +6396,7 @@ func (c *wrappedCoreV1ConfigMaps) Watch(arg0 context.Context, arg1 k8s_io_apimac
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ConfigMaps"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ConfigMap"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6077,6 +6419,7 @@ func (c *wrappedCoreV1Endpoints) Apply(arg0 context.Context, arg1 *k8s_io_client
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Endpoints"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Endpoints"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6090,6 +6433,7 @@ func (c *wrappedCoreV1Endpoints) Create(arg0 context.Context, arg1 *k8s_io_api_c
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Endpoints"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Endpoints"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6103,6 +6447,7 @@ func (c *wrappedCoreV1Endpoints) Delete(arg0 context.Context, arg1 string, arg2 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Endpoints"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Endpoints"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6116,6 +6461,7 @@ func (c *wrappedCoreV1Endpoints) DeleteCollection(arg0 context.Context, arg1 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Endpoints"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Endpoints"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6129,6 +6475,7 @@ func (c *wrappedCoreV1Endpoints) Get(arg0 context.Context, arg1 string, arg2 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Endpoints"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Endpoints"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6142,6 +6489,7 @@ func (c *wrappedCoreV1Endpoints) List(arg0 context.Context, arg1 k8s_io_apimachi
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Endpoints"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Endpoints"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6155,6 +6503,7 @@ func (c *wrappedCoreV1Endpoints) Patch(arg0 context.Context, arg1 string, arg2 k
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Endpoints"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Endpoints"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6168,6 +6517,7 @@ func (c *wrappedCoreV1Endpoints) Update(arg0 context.Context, arg1 *k8s_io_api_c
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Endpoints"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Endpoints"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6181,6 +6531,7 @@ func (c *wrappedCoreV1Endpoints) Watch(arg0 context.Context, arg1 k8s_io_apimach
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Endpoints"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Endpoints"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6203,6 +6554,7 @@ func (c *wrappedCoreV1Events) Apply(arg0 context.Context, arg1 *k8s_io_client_go
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6216,12 +6568,23 @@ func (c *wrappedCoreV1Events) Create(arg0 context.Context, arg1 *k8s_io_api_core
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
 	return c.inner.Create(arg0, arg1, arg2)
 }
 func (c *wrappedCoreV1Events) CreateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE CoreV1/Events/CreateWithEventNamespace",
+		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "CreateWithEventNamespace"),
+	)
+	defer span.End()
 	return c.inner.CreateWithEventNamespace(arg0)
 }
 func (c *wrappedCoreV1Events) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
@@ -6232,6 +6595,7 @@ func (c *wrappedCoreV1Events) Delete(arg0 context.Context, arg1 string, arg2 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6245,6 +6609,7 @@ func (c *wrappedCoreV1Events) DeleteCollection(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6258,12 +6623,23 @@ func (c *wrappedCoreV1Events) Get(arg0 context.Context, arg1 string, arg2 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
 	return c.inner.Get(arg0, arg1, arg2)
 }
 func (c *wrappedCoreV1Events) GetFieldSelector(arg0 *string, arg1 *string, arg2 *string, arg3 *string) k8s_io_apimachinery_pkg_fields.Selector {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE CoreV1/Events/GetFieldSelector",
+		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "GetFieldSelector"),
+	)
+	defer span.End()
 	return c.inner.GetFieldSelector(arg0, arg1, arg2, arg3)
 }
 func (c *wrappedCoreV1Events) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_core_v1.EventList, error) {
@@ -6274,6 +6650,7 @@ func (c *wrappedCoreV1Events) List(arg0 context.Context, arg1 k8s_io_apimachiner
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6287,15 +6664,36 @@ func (c *wrappedCoreV1Events) Patch(arg0 context.Context, arg1 string, arg2 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
 func (c *wrappedCoreV1Events) PatchWithEventNamespace(arg0 *k8s_io_api_core_v1.Event, arg1 []uint8) (*k8s_io_api_core_v1.Event, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE CoreV1/Events/PatchWithEventNamespace",
+		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "PatchWithEventNamespace"),
+	)
+	defer span.End()
 	return c.inner.PatchWithEventNamespace(arg0, arg1)
 }
 func (c *wrappedCoreV1Events) Search(arg0 *k8s_io_apimachinery_pkg_runtime.Scheme, arg1 k8s_io_apimachinery_pkg_runtime.Object) (*k8s_io_api_core_v1.EventList, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE CoreV1/Events/Search",
+		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Search"),
+	)
+	defer span.End()
 	return c.inner.Search(arg0, arg1)
 }
 func (c *wrappedCoreV1Events) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Event, error) {
@@ -6306,12 +6704,23 @@ func (c *wrappedCoreV1Events) Update(arg0 context.Context, arg1 *k8s_io_api_core
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
 	return c.inner.Update(arg0, arg1, arg2)
 }
 func (c *wrappedCoreV1Events) UpdateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE CoreV1/Events/UpdateWithEventNamespace",
+		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateWithEventNamespace"),
+	)
+	defer span.End()
 	return c.inner.UpdateWithEventNamespace(arg0)
 }
 func (c *wrappedCoreV1Events) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
@@ -6322,6 +6731,7 @@ func (c *wrappedCoreV1Events) Watch(arg0 context.Context, arg1 k8s_io_apimachine
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6344,6 +6754,7 @@ func (c *wrappedCoreV1LimitRanges) Apply(arg0 context.Context, arg1 *k8s_io_clie
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LimitRanges"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LimitRange"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6357,6 +6768,7 @@ func (c *wrappedCoreV1LimitRanges) Create(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LimitRanges"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LimitRange"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6370,6 +6782,7 @@ func (c *wrappedCoreV1LimitRanges) Delete(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LimitRanges"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LimitRange"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6383,6 +6796,7 @@ func (c *wrappedCoreV1LimitRanges) DeleteCollection(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LimitRanges"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LimitRange"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6396,6 +6810,7 @@ func (c *wrappedCoreV1LimitRanges) Get(arg0 context.Context, arg1 string, arg2 k
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LimitRanges"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LimitRange"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6409,6 +6824,7 @@ func (c *wrappedCoreV1LimitRanges) List(arg0 context.Context, arg1 k8s_io_apimac
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LimitRanges"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LimitRange"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6422,6 +6838,7 @@ func (c *wrappedCoreV1LimitRanges) Patch(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LimitRanges"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LimitRange"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6435,6 +6852,7 @@ func (c *wrappedCoreV1LimitRanges) Update(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LimitRanges"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LimitRange"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6448,6 +6866,7 @@ func (c *wrappedCoreV1LimitRanges) Watch(arg0 context.Context, arg1 k8s_io_apima
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "LimitRanges"),
 		go_opentelemetry_io_otel_attribute.String("kind", "LimitRange"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6470,6 +6889,7 @@ func (c *wrappedCoreV1Namespaces) Apply(arg0 context.Context, arg1 *k8s_io_clien
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6483,6 +6903,7 @@ func (c *wrappedCoreV1Namespaces) ApplyStatus(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6496,6 +6917,7 @@ func (c *wrappedCoreV1Namespaces) Create(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6509,6 +6931,7 @@ func (c *wrappedCoreV1Namespaces) Delete(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6522,6 +6945,7 @@ func (c *wrappedCoreV1Namespaces) Finalize(arg0 context.Context, arg1 *k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Finalize"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6535,6 +6959,7 @@ func (c *wrappedCoreV1Namespaces) Get(arg0 context.Context, arg1 string, arg2 k8
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6548,6 +6973,7 @@ func (c *wrappedCoreV1Namespaces) List(arg0 context.Context, arg1 k8s_io_apimach
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6561,6 +6987,7 @@ func (c *wrappedCoreV1Namespaces) Patch(arg0 context.Context, arg1 string, arg2 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6574,6 +7001,7 @@ func (c *wrappedCoreV1Namespaces) Update(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6587,6 +7015,7 @@ func (c *wrappedCoreV1Namespaces) UpdateStatus(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6600,6 +7029,7 @@ func (c *wrappedCoreV1Namespaces) Watch(arg0 context.Context, arg1 k8s_io_apimac
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Namespaces"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Namespace"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6622,6 +7052,7 @@ func (c *wrappedCoreV1Nodes) Apply(arg0 context.Context, arg1 *k8s_io_client_go_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6635,6 +7066,7 @@ func (c *wrappedCoreV1Nodes) ApplyStatus(arg0 context.Context, arg1 *k8s_io_clie
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6648,6 +7080,7 @@ func (c *wrappedCoreV1Nodes) Create(arg0 context.Context, arg1 *k8s_io_api_core_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6661,6 +7094,7 @@ func (c *wrappedCoreV1Nodes) Delete(arg0 context.Context, arg1 string, arg2 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6674,6 +7108,7 @@ func (c *wrappedCoreV1Nodes) DeleteCollection(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6687,6 +7122,7 @@ func (c *wrappedCoreV1Nodes) Get(arg0 context.Context, arg1 string, arg2 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6700,6 +7136,7 @@ func (c *wrappedCoreV1Nodes) List(arg0 context.Context, arg1 k8s_io_apimachinery
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6713,6 +7150,7 @@ func (c *wrappedCoreV1Nodes) Patch(arg0 context.Context, arg1 string, arg2 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6726,6 +7164,7 @@ func (c *wrappedCoreV1Nodes) PatchStatus(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "PatchStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6739,6 +7178,7 @@ func (c *wrappedCoreV1Nodes) Update(arg0 context.Context, arg1 *k8s_io_api_core_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6752,6 +7192,7 @@ func (c *wrappedCoreV1Nodes) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6765,6 +7206,7 @@ func (c *wrappedCoreV1Nodes) Watch(arg0 context.Context, arg1 k8s_io_apimachiner
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Nodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Node"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6787,6 +7229,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) Apply(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6800,6 +7243,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) ApplyStatus(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6813,6 +7257,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) Create(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6826,6 +7271,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) Delete(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6839,6 +7285,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) DeleteCollection(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6852,6 +7299,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) Get(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6865,6 +7313,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) List(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6878,6 +7327,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) Patch(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6891,6 +7341,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) Update(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6904,6 +7355,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) UpdateStatus(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6917,6 +7369,7 @@ func (c *wrappedCoreV1PersistentVolumeClaims) Watch(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumeClaims"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolumeClaim"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6939,6 +7392,7 @@ func (c *wrappedCoreV1PersistentVolumes) Apply(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6952,6 +7406,7 @@ func (c *wrappedCoreV1PersistentVolumes) ApplyStatus(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6965,6 +7420,7 @@ func (c *wrappedCoreV1PersistentVolumes) Create(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6978,6 +7434,7 @@ func (c *wrappedCoreV1PersistentVolumes) Delete(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -6991,6 +7448,7 @@ func (c *wrappedCoreV1PersistentVolumes) DeleteCollection(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7004,6 +7462,7 @@ func (c *wrappedCoreV1PersistentVolumes) Get(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7017,6 +7476,7 @@ func (c *wrappedCoreV1PersistentVolumes) List(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7030,6 +7490,7 @@ func (c *wrappedCoreV1PersistentVolumes) Patch(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7043,6 +7504,7 @@ func (c *wrappedCoreV1PersistentVolumes) Update(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7056,6 +7518,7 @@ func (c *wrappedCoreV1PersistentVolumes) UpdateStatus(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7069,6 +7532,7 @@ func (c *wrappedCoreV1PersistentVolumes) Watch(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PersistentVolumes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PersistentVolume"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7091,6 +7555,7 @@ func (c *wrappedCoreV1PodTemplates) Apply(arg0 context.Context, arg1 *k8s_io_cli
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodTemplates"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodTemplate"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7104,6 +7569,7 @@ func (c *wrappedCoreV1PodTemplates) Create(arg0 context.Context, arg1 *k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodTemplates"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodTemplate"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7117,6 +7583,7 @@ func (c *wrappedCoreV1PodTemplates) Delete(arg0 context.Context, arg1 string, ar
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodTemplates"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodTemplate"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7130,6 +7597,7 @@ func (c *wrappedCoreV1PodTemplates) DeleteCollection(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodTemplates"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodTemplate"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7143,6 +7611,7 @@ func (c *wrappedCoreV1PodTemplates) Get(arg0 context.Context, arg1 string, arg2 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodTemplates"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodTemplate"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7156,6 +7625,7 @@ func (c *wrappedCoreV1PodTemplates) List(arg0 context.Context, arg1 k8s_io_apima
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodTemplates"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodTemplate"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7169,6 +7639,7 @@ func (c *wrappedCoreV1PodTemplates) Patch(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodTemplates"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodTemplate"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7182,6 +7653,7 @@ func (c *wrappedCoreV1PodTemplates) Update(arg0 context.Context, arg1 *k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodTemplates"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodTemplate"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7195,6 +7667,7 @@ func (c *wrappedCoreV1PodTemplates) Watch(arg0 context.Context, arg1 k8s_io_apim
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodTemplates"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodTemplate"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7217,6 +7690,7 @@ func (c *wrappedCoreV1Pods) Apply(arg0 context.Context, arg1 *k8s_io_client_go_a
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7230,6 +7704,7 @@ func (c *wrappedCoreV1Pods) ApplyStatus(arg0 context.Context, arg1 *k8s_io_clien
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7243,6 +7718,7 @@ func (c *wrappedCoreV1Pods) Bind(arg0 context.Context, arg1 *k8s_io_api_core_v1.
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Bind"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7256,6 +7732,7 @@ func (c *wrappedCoreV1Pods) Create(arg0 context.Context, arg1 *k8s_io_api_core_v
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7269,6 +7746,7 @@ func (c *wrappedCoreV1Pods) Delete(arg0 context.Context, arg1 string, arg2 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7282,6 +7760,7 @@ func (c *wrappedCoreV1Pods) DeleteCollection(arg0 context.Context, arg1 k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7295,6 +7774,7 @@ func (c *wrappedCoreV1Pods) Evict(arg0 context.Context, arg1 *k8s_io_api_policy_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Evict"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7308,6 +7788,7 @@ func (c *wrappedCoreV1Pods) EvictV1(arg0 context.Context, arg1 *k8s_io_api_polic
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "EvictV1"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7321,6 +7802,7 @@ func (c *wrappedCoreV1Pods) EvictV1beta1(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "EvictV1beta1"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7334,12 +7816,23 @@ func (c *wrappedCoreV1Pods) Get(arg0 context.Context, arg1 string, arg2 k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
 	return c.inner.Get(arg0, arg1, arg2)
 }
 func (c *wrappedCoreV1Pods) GetLogs(arg0 string, arg1 *k8s_io_api_core_v1.PodLogOptions) *k8s_io_client_go_rest.Request {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE CoreV1/Pods/GetLogs",
+		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "GetLogs"),
+	)
+	defer span.End()
 	return c.inner.GetLogs(arg0, arg1)
 }
 func (c *wrappedCoreV1Pods) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_core_v1.PodList, error) {
@@ -7350,6 +7843,7 @@ func (c *wrappedCoreV1Pods) List(arg0 context.Context, arg1 k8s_io_apimachinery_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7363,12 +7857,23 @@ func (c *wrappedCoreV1Pods) Patch(arg0 context.Context, arg1 string, arg2 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
 func (c *wrappedCoreV1Pods) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 string, arg4 map[string]string) k8s_io_client_go_rest.ResponseWrapper {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE CoreV1/Pods/ProxyGet",
+		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ProxyGet"),
+	)
+	defer span.End()
 	return c.inner.ProxyGet(arg0, arg1, arg2, arg3, arg4)
 }
 func (c *wrappedCoreV1Pods) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Pod, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Pod, error) {
@@ -7379,6 +7884,7 @@ func (c *wrappedCoreV1Pods) Update(arg0 context.Context, arg1 *k8s_io_api_core_v
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7392,6 +7898,7 @@ func (c *wrappedCoreV1Pods) UpdateEphemeralContainers(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateEphemeralContainers"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7405,6 +7912,7 @@ func (c *wrappedCoreV1Pods) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7418,6 +7926,7 @@ func (c *wrappedCoreV1Pods) Watch(arg0 context.Context, arg1 k8s_io_apimachinery
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Pods"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Pod"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7440,6 +7949,7 @@ func (c *wrappedCoreV1ReplicationControllers) Apply(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7453,6 +7963,7 @@ func (c *wrappedCoreV1ReplicationControllers) ApplyStatus(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7466,6 +7977,7 @@ func (c *wrappedCoreV1ReplicationControllers) Create(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7479,6 +7991,7 @@ func (c *wrappedCoreV1ReplicationControllers) Delete(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7492,6 +8005,7 @@ func (c *wrappedCoreV1ReplicationControllers) DeleteCollection(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7505,6 +8019,7 @@ func (c *wrappedCoreV1ReplicationControllers) Get(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7518,6 +8033,7 @@ func (c *wrappedCoreV1ReplicationControllers) GetScale(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "GetScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7531,6 +8047,7 @@ func (c *wrappedCoreV1ReplicationControllers) List(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7544,6 +8061,7 @@ func (c *wrappedCoreV1ReplicationControllers) Patch(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7557,6 +8075,7 @@ func (c *wrappedCoreV1ReplicationControllers) Update(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7570,6 +8089,7 @@ func (c *wrappedCoreV1ReplicationControllers) UpdateScale(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7583,6 +8103,7 @@ func (c *wrappedCoreV1ReplicationControllers) UpdateStatus(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7596,6 +8117,7 @@ func (c *wrappedCoreV1ReplicationControllers) Watch(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicationControllers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicationController"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7618,6 +8140,7 @@ func (c *wrappedCoreV1ResourceQuotas) Apply(arg0 context.Context, arg1 *k8s_io_c
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7631,6 +8154,7 @@ func (c *wrappedCoreV1ResourceQuotas) ApplyStatus(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7644,6 +8168,7 @@ func (c *wrappedCoreV1ResourceQuotas) Create(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7657,6 +8182,7 @@ func (c *wrappedCoreV1ResourceQuotas) Delete(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7670,6 +8196,7 @@ func (c *wrappedCoreV1ResourceQuotas) DeleteCollection(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7683,6 +8210,7 @@ func (c *wrappedCoreV1ResourceQuotas) Get(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7696,6 +8224,7 @@ func (c *wrappedCoreV1ResourceQuotas) List(arg0 context.Context, arg1 k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7709,6 +8238,7 @@ func (c *wrappedCoreV1ResourceQuotas) Patch(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7722,6 +8252,7 @@ func (c *wrappedCoreV1ResourceQuotas) Update(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7735,6 +8266,7 @@ func (c *wrappedCoreV1ResourceQuotas) UpdateStatus(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7748,6 +8280,7 @@ func (c *wrappedCoreV1ResourceQuotas) Watch(arg0 context.Context, arg1 k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ResourceQuotas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ResourceQuota"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7770,6 +8303,7 @@ func (c *wrappedCoreV1Secrets) Apply(arg0 context.Context, arg1 *k8s_io_client_g
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Secrets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Secret"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7783,6 +8317,7 @@ func (c *wrappedCoreV1Secrets) Create(arg0 context.Context, arg1 *k8s_io_api_cor
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Secrets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Secret"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7796,6 +8331,7 @@ func (c *wrappedCoreV1Secrets) Delete(arg0 context.Context, arg1 string, arg2 k8
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Secrets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Secret"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7809,6 +8345,7 @@ func (c *wrappedCoreV1Secrets) DeleteCollection(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Secrets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Secret"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7822,6 +8359,7 @@ func (c *wrappedCoreV1Secrets) Get(arg0 context.Context, arg1 string, arg2 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Secrets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Secret"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7835,6 +8373,7 @@ func (c *wrappedCoreV1Secrets) List(arg0 context.Context, arg1 k8s_io_apimachine
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Secrets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Secret"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7848,6 +8387,7 @@ func (c *wrappedCoreV1Secrets) Patch(arg0 context.Context, arg1 string, arg2 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Secrets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Secret"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7861,6 +8401,7 @@ func (c *wrappedCoreV1Secrets) Update(arg0 context.Context, arg1 *k8s_io_api_cor
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Secrets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Secret"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7874,6 +8415,7 @@ func (c *wrappedCoreV1Secrets) Watch(arg0 context.Context, arg1 k8s_io_apimachin
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Secrets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Secret"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7896,6 +8438,7 @@ func (c *wrappedCoreV1ServiceAccounts) Apply(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ServiceAccounts"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ServiceAccount"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7909,6 +8452,7 @@ func (c *wrappedCoreV1ServiceAccounts) Create(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ServiceAccounts"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ServiceAccount"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7922,6 +8466,7 @@ func (c *wrappedCoreV1ServiceAccounts) CreateToken(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ServiceAccounts"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ServiceAccount"),
+		go_opentelemetry_io_otel_attribute.String("operation", "CreateToken"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7935,6 +8480,7 @@ func (c *wrappedCoreV1ServiceAccounts) Delete(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ServiceAccounts"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ServiceAccount"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7948,6 +8494,7 @@ func (c *wrappedCoreV1ServiceAccounts) DeleteCollection(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ServiceAccounts"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ServiceAccount"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7961,6 +8508,7 @@ func (c *wrappedCoreV1ServiceAccounts) Get(arg0 context.Context, arg1 string, ar
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ServiceAccounts"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ServiceAccount"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7974,6 +8522,7 @@ func (c *wrappedCoreV1ServiceAccounts) List(arg0 context.Context, arg1 k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ServiceAccounts"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ServiceAccount"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -7987,6 +8536,7 @@ func (c *wrappedCoreV1ServiceAccounts) Patch(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ServiceAccounts"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ServiceAccount"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8000,6 +8550,7 @@ func (c *wrappedCoreV1ServiceAccounts) Update(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ServiceAccounts"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ServiceAccount"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8013,6 +8564,7 @@ func (c *wrappedCoreV1ServiceAccounts) Watch(arg0 context.Context, arg1 k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ServiceAccounts"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ServiceAccount"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8035,6 +8587,7 @@ func (c *wrappedCoreV1Services) Apply(arg0 context.Context, arg1 *k8s_io_client_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8048,6 +8601,7 @@ func (c *wrappedCoreV1Services) ApplyStatus(arg0 context.Context, arg1 *k8s_io_c
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8061,6 +8615,7 @@ func (c *wrappedCoreV1Services) Create(arg0 context.Context, arg1 *k8s_io_api_co
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8074,6 +8629,7 @@ func (c *wrappedCoreV1Services) Delete(arg0 context.Context, arg1 string, arg2 k
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8087,6 +8643,7 @@ func (c *wrappedCoreV1Services) Get(arg0 context.Context, arg1 string, arg2 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8100,6 +8657,7 @@ func (c *wrappedCoreV1Services) List(arg0 context.Context, arg1 k8s_io_apimachin
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8113,12 +8671,23 @@ func (c *wrappedCoreV1Services) Patch(arg0 context.Context, arg1 string, arg2 k8
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
 func (c *wrappedCoreV1Services) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 string, arg4 map[string]string) k8s_io_client_go_rest.ResponseWrapper {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE CoreV1/Services/ProxyGet",
+		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ProxyGet"),
+	)
+	defer span.End()
 	return c.inner.ProxyGet(arg0, arg1, arg2, arg3, arg4)
 }
 func (c *wrappedCoreV1Services) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Service, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Service, error) {
@@ -8129,6 +8698,7 @@ func (c *wrappedCoreV1Services) Update(arg0 context.Context, arg1 *k8s_io_api_co
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8142,6 +8712,7 @@ func (c *wrappedCoreV1Services) UpdateStatus(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8155,6 +8726,7 @@ func (c *wrappedCoreV1Services) Watch(arg0 context.Context, arg1 k8s_io_apimachi
 		go_opentelemetry_io_otel_attribute.String("client", "CoreV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Services"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Service"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8177,6 +8749,7 @@ func (c *wrappedDiscoveryV1EndpointSlices) Apply(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8190,6 +8763,7 @@ func (c *wrappedDiscoveryV1EndpointSlices) Create(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8203,6 +8777,7 @@ func (c *wrappedDiscoveryV1EndpointSlices) Delete(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8216,6 +8791,7 @@ func (c *wrappedDiscoveryV1EndpointSlices) DeleteCollection(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8229,6 +8805,7 @@ func (c *wrappedDiscoveryV1EndpointSlices) Get(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8242,6 +8819,7 @@ func (c *wrappedDiscoveryV1EndpointSlices) List(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8255,6 +8833,7 @@ func (c *wrappedDiscoveryV1EndpointSlices) Patch(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8268,6 +8847,7 @@ func (c *wrappedDiscoveryV1EndpointSlices) Update(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8281,6 +8861,7 @@ func (c *wrappedDiscoveryV1EndpointSlices) Watch(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8303,6 +8884,7 @@ func (c *wrappedDiscoveryV1beta1EndpointSlices) Apply(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8316,6 +8898,7 @@ func (c *wrappedDiscoveryV1beta1EndpointSlices) Create(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8329,6 +8912,7 @@ func (c *wrappedDiscoveryV1beta1EndpointSlices) Delete(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8342,6 +8926,7 @@ func (c *wrappedDiscoveryV1beta1EndpointSlices) DeleteCollection(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8355,6 +8940,7 @@ func (c *wrappedDiscoveryV1beta1EndpointSlices) Get(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8368,6 +8954,7 @@ func (c *wrappedDiscoveryV1beta1EndpointSlices) List(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8381,6 +8968,7 @@ func (c *wrappedDiscoveryV1beta1EndpointSlices) Patch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8394,6 +8982,7 @@ func (c *wrappedDiscoveryV1beta1EndpointSlices) Update(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8407,6 +8996,7 @@ func (c *wrappedDiscoveryV1beta1EndpointSlices) Watch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "DiscoveryV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "EndpointSlices"),
 		go_opentelemetry_io_otel_attribute.String("kind", "EndpointSlice"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8429,6 +9019,7 @@ func (c *wrappedEventsV1Events) Apply(arg0 context.Context, arg1 *k8s_io_client_
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8442,6 +9033,7 @@ func (c *wrappedEventsV1Events) Create(arg0 context.Context, arg1 *k8s_io_api_ev
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8455,6 +9047,7 @@ func (c *wrappedEventsV1Events) Delete(arg0 context.Context, arg1 string, arg2 k
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8468,6 +9061,7 @@ func (c *wrappedEventsV1Events) DeleteCollection(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8481,6 +9075,7 @@ func (c *wrappedEventsV1Events) Get(arg0 context.Context, arg1 string, arg2 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8494,6 +9089,7 @@ func (c *wrappedEventsV1Events) List(arg0 context.Context, arg1 k8s_io_apimachin
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8507,6 +9103,7 @@ func (c *wrappedEventsV1Events) Patch(arg0 context.Context, arg1 string, arg2 k8
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8520,6 +9117,7 @@ func (c *wrappedEventsV1Events) Update(arg0 context.Context, arg1 *k8s_io_api_ev
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8533,6 +9131,7 @@ func (c *wrappedEventsV1Events) Watch(arg0 context.Context, arg1 k8s_io_apimachi
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8555,6 +9154,7 @@ func (c *wrappedEventsV1beta1Events) Apply(arg0 context.Context, arg1 *k8s_io_cl
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8568,12 +9168,23 @@ func (c *wrappedEventsV1beta1Events) Create(arg0 context.Context, arg1 *k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
 	return c.inner.Create(arg0, arg1, arg2)
 }
 func (c *wrappedEventsV1beta1Events) CreateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event) (*k8s_io_api_events_v1beta1.Event, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE EventsV1beta1/Events/CreateWithEventNamespace",
+		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "CreateWithEventNamespace"),
+	)
+	defer span.End()
 	return c.inner.CreateWithEventNamespace(arg0)
 }
 func (c *wrappedEventsV1beta1Events) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
@@ -8584,6 +9195,7 @@ func (c *wrappedEventsV1beta1Events) Delete(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8597,6 +9209,7 @@ func (c *wrappedEventsV1beta1Events) DeleteCollection(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8610,6 +9223,7 @@ func (c *wrappedEventsV1beta1Events) Get(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8623,6 +9237,7 @@ func (c *wrappedEventsV1beta1Events) List(arg0 context.Context, arg1 k8s_io_apim
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8636,12 +9251,23 @@ func (c *wrappedEventsV1beta1Events) Patch(arg0 context.Context, arg1 string, ar
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
 func (c *wrappedEventsV1beta1Events) PatchWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event, arg1 []uint8) (*k8s_io_api_events_v1beta1.Event, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE EventsV1beta1/Events/PatchWithEventNamespace",
+		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "PatchWithEventNamespace"),
+	)
+	defer span.End()
 	return c.inner.PatchWithEventNamespace(arg0, arg1)
 }
 func (c *wrappedEventsV1beta1Events) Update(arg0 context.Context, arg1 *k8s_io_api_events_v1beta1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_events_v1beta1.Event, error) {
@@ -8652,12 +9278,23 @@ func (c *wrappedEventsV1beta1Events) Update(arg0 context.Context, arg1 *k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
 	return c.inner.Update(arg0, arg1, arg2)
 }
 func (c *wrappedEventsV1beta1Events) UpdateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event) (*k8s_io_api_events_v1beta1.Event, error) {
+	_, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
+		context.TODO(),
+		"pkg/clients/wrappers/traces/kube",
+		"KUBE EventsV1beta1/Events/UpdateWithEventNamespace",
+		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
+		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
+		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateWithEventNamespace"),
+	)
+	defer span.End()
 	return c.inner.UpdateWithEventNamespace(arg0)
 }
 func (c *wrappedEventsV1beta1Events) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
@@ -8668,6 +9305,7 @@ func (c *wrappedEventsV1beta1Events) Watch(arg0 context.Context, arg1 k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "EventsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Events"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Event"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8690,6 +9328,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) Apply(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8703,6 +9342,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) ApplyStatus(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8716,6 +9356,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) Create(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8729,6 +9370,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) Delete(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8742,6 +9384,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) DeleteCollection(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8755,6 +9398,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) Get(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8768,6 +9412,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) List(arg0 context.Context, arg1 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8781,6 +9426,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) Patch(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8794,6 +9440,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) Update(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8807,6 +9454,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) UpdateStatus(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8820,6 +9468,7 @@ func (c *wrappedExtensionsV1beta1DaemonSets) Watch(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "DaemonSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "DaemonSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8842,6 +9491,7 @@ func (c *wrappedExtensionsV1beta1Deployments) Apply(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8855,6 +9505,7 @@ func (c *wrappedExtensionsV1beta1Deployments) ApplyScale(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8868,6 +9519,7 @@ func (c *wrappedExtensionsV1beta1Deployments) ApplyStatus(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8881,6 +9533,7 @@ func (c *wrappedExtensionsV1beta1Deployments) Create(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8894,6 +9547,7 @@ func (c *wrappedExtensionsV1beta1Deployments) Delete(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8907,6 +9561,7 @@ func (c *wrappedExtensionsV1beta1Deployments) DeleteCollection(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8920,6 +9575,7 @@ func (c *wrappedExtensionsV1beta1Deployments) Get(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8933,6 +9589,7 @@ func (c *wrappedExtensionsV1beta1Deployments) GetScale(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "GetScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8946,6 +9603,7 @@ func (c *wrappedExtensionsV1beta1Deployments) List(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8959,6 +9617,7 @@ func (c *wrappedExtensionsV1beta1Deployments) Patch(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8972,6 +9631,7 @@ func (c *wrappedExtensionsV1beta1Deployments) Rollback(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Rollback"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8985,6 +9645,7 @@ func (c *wrappedExtensionsV1beta1Deployments) Update(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -8998,6 +9659,7 @@ func (c *wrappedExtensionsV1beta1Deployments) UpdateScale(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9011,6 +9673,7 @@ func (c *wrappedExtensionsV1beta1Deployments) UpdateStatus(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9024,6 +9687,7 @@ func (c *wrappedExtensionsV1beta1Deployments) Watch(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Deployments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Deployment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9046,6 +9710,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) Apply(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9059,6 +9724,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) ApplyStatus(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9072,6 +9738,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) Create(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9085,6 +9752,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) Delete(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9098,6 +9766,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) DeleteCollection(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9111,6 +9780,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) Get(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9124,6 +9794,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) List(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9137,6 +9808,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) Patch(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9150,6 +9822,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) Update(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9163,6 +9836,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) UpdateStatus(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9176,6 +9850,7 @@ func (c *wrappedExtensionsV1beta1Ingresses) Watch(arg0 context.Context, arg1 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9198,6 +9873,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) Apply(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9211,6 +9887,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) ApplyStatus(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9224,6 +9901,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) Create(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9237,6 +9915,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) Delete(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9250,6 +9929,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) DeleteCollection(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9263,6 +9943,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) Get(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9276,6 +9957,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) List(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9289,6 +9971,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) Patch(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9302,6 +9985,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) Update(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9315,6 +9999,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) UpdateStatus(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9328,6 +10013,7 @@ func (c *wrappedExtensionsV1beta1NetworkPolicies) Watch(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9350,6 +10036,7 @@ func (c *wrappedExtensionsV1beta1PodSecurityPolicies) Apply(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9363,6 +10050,7 @@ func (c *wrappedExtensionsV1beta1PodSecurityPolicies) Create(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9376,6 +10064,7 @@ func (c *wrappedExtensionsV1beta1PodSecurityPolicies) Delete(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9389,6 +10078,7 @@ func (c *wrappedExtensionsV1beta1PodSecurityPolicies) DeleteCollection(arg0 cont
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9402,6 +10092,7 @@ func (c *wrappedExtensionsV1beta1PodSecurityPolicies) Get(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9415,6 +10106,7 @@ func (c *wrappedExtensionsV1beta1PodSecurityPolicies) List(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9428,6 +10120,7 @@ func (c *wrappedExtensionsV1beta1PodSecurityPolicies) Patch(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9441,6 +10134,7 @@ func (c *wrappedExtensionsV1beta1PodSecurityPolicies) Update(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9454,6 +10148,7 @@ func (c *wrappedExtensionsV1beta1PodSecurityPolicies) Watch(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9476,6 +10171,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) Apply(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9489,6 +10185,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) ApplyScale(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9502,6 +10199,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) ApplyStatus(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9515,6 +10213,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) Create(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9528,6 +10227,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) Delete(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9541,6 +10241,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) DeleteCollection(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9554,6 +10255,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) Get(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9567,6 +10269,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) GetScale(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "GetScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9580,6 +10283,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) List(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9593,6 +10297,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) Patch(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9606,6 +10311,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) Update(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9619,6 +10325,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) UpdateScale(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateScale"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9632,6 +10339,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) UpdateStatus(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9645,6 +10353,7 @@ func (c *wrappedExtensionsV1beta1ReplicaSets) Watch(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "ExtensionsV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ReplicaSets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ReplicaSet"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9667,6 +10376,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) Apply(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9680,6 +10390,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) ApplyStatus(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9693,6 +10404,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) Create(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9706,6 +10418,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) Delete(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9719,6 +10432,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) DeleteCollection(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9732,6 +10446,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) Get(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9745,6 +10460,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) List(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9758,6 +10474,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) Patch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9771,6 +10488,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) Update(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9784,6 +10502,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) UpdateStatus(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9797,6 +10516,7 @@ func (c *wrappedFlowcontrolV1alpha1FlowSchemas) Watch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9819,6 +10539,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) Apply(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9832,6 +10553,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) ApplyStatus(arg0
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9845,6 +10567,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) Create(arg0 cont
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9858,6 +10581,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) Delete(arg0 cont
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9871,6 +10595,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) DeleteCollection
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9884,6 +10609,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) Get(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9897,6 +10623,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) List(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9910,6 +10637,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) Patch(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9923,6 +10651,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) Update(arg0 cont
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9936,6 +10665,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) UpdateStatus(arg
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9949,6 +10679,7 @@ func (c *wrappedFlowcontrolV1alpha1PriorityLevelConfigurations) Watch(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9971,6 +10702,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) Apply(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9984,6 +10716,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) ApplyStatus(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -9997,6 +10730,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) Create(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10010,6 +10744,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) Delete(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10023,6 +10758,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) DeleteCollection(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10036,6 +10772,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) Get(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10049,6 +10786,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) List(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10062,6 +10800,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) Patch(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10075,6 +10814,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) Update(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10088,6 +10828,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) UpdateStatus(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10101,6 +10842,7 @@ func (c *wrappedFlowcontrolV1beta1FlowSchemas) Watch(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10123,6 +10865,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) Apply(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10136,6 +10879,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) ApplyStatus(arg0 
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10149,6 +10893,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) Create(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10162,6 +10907,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) Delete(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10175,6 +10921,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) DeleteCollection(
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10188,6 +10935,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) Get(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10201,6 +10949,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) List(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10214,6 +10963,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) Patch(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10227,6 +10977,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) Update(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10240,6 +10991,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) UpdateStatus(arg0
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10253,6 +11005,7 @@ func (c *wrappedFlowcontrolV1beta1PriorityLevelConfigurations) Watch(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10275,6 +11028,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) Apply(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10288,6 +11042,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) ApplyStatus(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10301,6 +11056,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) Create(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10314,6 +11070,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) Delete(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10327,6 +11084,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) DeleteCollection(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10340,6 +11098,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) Get(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10353,6 +11112,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) List(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10366,6 +11126,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) Patch(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10379,6 +11140,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) Update(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10392,6 +11154,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) UpdateStatus(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10405,6 +11168,7 @@ func (c *wrappedFlowcontrolV1beta2FlowSchemas) Watch(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "FlowSchemas"),
 		go_opentelemetry_io_otel_attribute.String("kind", "FlowSchema"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10427,6 +11191,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) Apply(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10440,6 +11205,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) ApplyStatus(arg0 
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10453,6 +11219,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) Create(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10466,6 +11233,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) Delete(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10479,6 +11247,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) DeleteCollection(
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10492,6 +11261,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) Get(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10505,6 +11275,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) List(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10518,6 +11289,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) Patch(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10531,6 +11303,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) Update(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10544,6 +11317,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) UpdateStatus(arg0
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10557,6 +11331,7 @@ func (c *wrappedFlowcontrolV1beta2PriorityLevelConfigurations) Watch(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "FlowcontrolV1beta2"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityLevelConfigurations"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityLevelConfiguration"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10579,6 +11354,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) Apply(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10592,6 +11368,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) ApplyStatus(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10605,6 +11382,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) Create(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10618,6 +11396,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) Delete(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10631,6 +11410,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) DeleteCollection(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10644,6 +11424,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) Get(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10657,6 +11438,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) List(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10670,6 +11452,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) Patch(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10683,6 +11466,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) Update(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10696,6 +11480,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) UpdateStatus(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10709,6 +11494,7 @@ func (c *wrappedInternalV1alpha1StorageVersions) Watch(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "InternalV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageVersions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageVersion"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10731,6 +11517,7 @@ func (c *wrappedNetworkingV1IngressClasses) Apply(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10744,6 +11531,7 @@ func (c *wrappedNetworkingV1IngressClasses) Create(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10757,6 +11545,7 @@ func (c *wrappedNetworkingV1IngressClasses) Delete(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10770,6 +11559,7 @@ func (c *wrappedNetworkingV1IngressClasses) DeleteCollection(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10783,6 +11573,7 @@ func (c *wrappedNetworkingV1IngressClasses) Get(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10796,6 +11587,7 @@ func (c *wrappedNetworkingV1IngressClasses) List(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10809,6 +11601,7 @@ func (c *wrappedNetworkingV1IngressClasses) Patch(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10822,6 +11615,7 @@ func (c *wrappedNetworkingV1IngressClasses) Update(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10835,6 +11629,7 @@ func (c *wrappedNetworkingV1IngressClasses) Watch(arg0 context.Context, arg1 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10857,6 +11652,7 @@ func (c *wrappedNetworkingV1Ingresses) Apply(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10870,6 +11666,7 @@ func (c *wrappedNetworkingV1Ingresses) ApplyStatus(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10883,6 +11680,7 @@ func (c *wrappedNetworkingV1Ingresses) Create(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10896,6 +11694,7 @@ func (c *wrappedNetworkingV1Ingresses) Delete(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10909,6 +11708,7 @@ func (c *wrappedNetworkingV1Ingresses) DeleteCollection(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10922,6 +11722,7 @@ func (c *wrappedNetworkingV1Ingresses) Get(arg0 context.Context, arg1 string, ar
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10935,6 +11736,7 @@ func (c *wrappedNetworkingV1Ingresses) List(arg0 context.Context, arg1 k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10948,6 +11750,7 @@ func (c *wrappedNetworkingV1Ingresses) Patch(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10961,6 +11764,7 @@ func (c *wrappedNetworkingV1Ingresses) Update(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10974,6 +11778,7 @@ func (c *wrappedNetworkingV1Ingresses) UpdateStatus(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -10987,6 +11792,7 @@ func (c *wrappedNetworkingV1Ingresses) Watch(arg0 context.Context, arg1 k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11009,6 +11815,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) Apply(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11022,6 +11829,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) ApplyStatus(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11035,6 +11843,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) Create(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11048,6 +11857,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) Delete(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11061,6 +11871,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) DeleteCollection(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11074,6 +11885,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) Get(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11087,6 +11899,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) List(arg0 context.Context, arg1 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11100,6 +11913,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) Patch(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11113,6 +11927,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) Update(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11126,6 +11941,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) UpdateStatus(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11139,6 +11955,7 @@ func (c *wrappedNetworkingV1NetworkPolicies) Watch(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "NetworkPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "NetworkPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11161,6 +11978,7 @@ func (c *wrappedNetworkingV1alpha1ClusterCIDRs) Apply(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCIDRs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCIDR"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11174,6 +11992,7 @@ func (c *wrappedNetworkingV1alpha1ClusterCIDRs) Create(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCIDRs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCIDR"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11187,6 +12006,7 @@ func (c *wrappedNetworkingV1alpha1ClusterCIDRs) Delete(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCIDRs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCIDR"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11200,6 +12020,7 @@ func (c *wrappedNetworkingV1alpha1ClusterCIDRs) DeleteCollection(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCIDRs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCIDR"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11213,6 +12034,7 @@ func (c *wrappedNetworkingV1alpha1ClusterCIDRs) Get(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCIDRs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCIDR"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11226,6 +12048,7 @@ func (c *wrappedNetworkingV1alpha1ClusterCIDRs) List(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCIDRs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCIDR"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11239,6 +12062,7 @@ func (c *wrappedNetworkingV1alpha1ClusterCIDRs) Patch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCIDRs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCIDR"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11252,6 +12076,7 @@ func (c *wrappedNetworkingV1alpha1ClusterCIDRs) Update(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCIDRs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCIDR"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11265,6 +12090,7 @@ func (c *wrappedNetworkingV1alpha1ClusterCIDRs) Watch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterCIDRs"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterCIDR"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11287,6 +12113,7 @@ func (c *wrappedNetworkingV1beta1IngressClasses) Apply(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11300,6 +12127,7 @@ func (c *wrappedNetworkingV1beta1IngressClasses) Create(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11313,6 +12141,7 @@ func (c *wrappedNetworkingV1beta1IngressClasses) Delete(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11326,6 +12155,7 @@ func (c *wrappedNetworkingV1beta1IngressClasses) DeleteCollection(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11339,6 +12169,7 @@ func (c *wrappedNetworkingV1beta1IngressClasses) Get(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11352,6 +12183,7 @@ func (c *wrappedNetworkingV1beta1IngressClasses) List(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11365,6 +12197,7 @@ func (c *wrappedNetworkingV1beta1IngressClasses) Patch(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11378,6 +12211,7 @@ func (c *wrappedNetworkingV1beta1IngressClasses) Update(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11391,6 +12225,7 @@ func (c *wrappedNetworkingV1beta1IngressClasses) Watch(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "IngressClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "IngressClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11413,6 +12248,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) Apply(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11426,6 +12262,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) ApplyStatus(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11439,6 +12276,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) Create(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11452,6 +12290,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) Delete(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11465,6 +12304,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) DeleteCollection(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11478,6 +12318,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) Get(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11491,6 +12332,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) List(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11504,6 +12346,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) Patch(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11517,6 +12360,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) Update(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11530,6 +12374,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) UpdateStatus(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11543,6 +12388,7 @@ func (c *wrappedNetworkingV1beta1Ingresses) Watch(arg0 context.Context, arg1 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "NetworkingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Ingresses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Ingress"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11565,6 +12411,7 @@ func (c *wrappedNodeV1RuntimeClasses) Apply(arg0 context.Context, arg1 *k8s_io_c
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11578,6 +12425,7 @@ func (c *wrappedNodeV1RuntimeClasses) Create(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11591,6 +12439,7 @@ func (c *wrappedNodeV1RuntimeClasses) Delete(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11604,6 +12453,7 @@ func (c *wrappedNodeV1RuntimeClasses) DeleteCollection(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11617,6 +12467,7 @@ func (c *wrappedNodeV1RuntimeClasses) Get(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11630,6 +12481,7 @@ func (c *wrappedNodeV1RuntimeClasses) List(arg0 context.Context, arg1 k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11643,6 +12495,7 @@ func (c *wrappedNodeV1RuntimeClasses) Patch(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11656,6 +12509,7 @@ func (c *wrappedNodeV1RuntimeClasses) Update(arg0 context.Context, arg1 *k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11669,6 +12523,7 @@ func (c *wrappedNodeV1RuntimeClasses) Watch(arg0 context.Context, arg1 k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11691,6 +12546,7 @@ func (c *wrappedNodeV1alpha1RuntimeClasses) Apply(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11704,6 +12560,7 @@ func (c *wrappedNodeV1alpha1RuntimeClasses) Create(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11717,6 +12574,7 @@ func (c *wrappedNodeV1alpha1RuntimeClasses) Delete(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11730,6 +12588,7 @@ func (c *wrappedNodeV1alpha1RuntimeClasses) DeleteCollection(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11743,6 +12602,7 @@ func (c *wrappedNodeV1alpha1RuntimeClasses) Get(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11756,6 +12616,7 @@ func (c *wrappedNodeV1alpha1RuntimeClasses) List(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11769,6 +12630,7 @@ func (c *wrappedNodeV1alpha1RuntimeClasses) Patch(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11782,6 +12644,7 @@ func (c *wrappedNodeV1alpha1RuntimeClasses) Update(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11795,6 +12658,7 @@ func (c *wrappedNodeV1alpha1RuntimeClasses) Watch(arg0 context.Context, arg1 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11817,6 +12681,7 @@ func (c *wrappedNodeV1beta1RuntimeClasses) Apply(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11830,6 +12695,7 @@ func (c *wrappedNodeV1beta1RuntimeClasses) Create(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11843,6 +12709,7 @@ func (c *wrappedNodeV1beta1RuntimeClasses) Delete(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11856,6 +12723,7 @@ func (c *wrappedNodeV1beta1RuntimeClasses) DeleteCollection(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11869,6 +12737,7 @@ func (c *wrappedNodeV1beta1RuntimeClasses) Get(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11882,6 +12751,7 @@ func (c *wrappedNodeV1beta1RuntimeClasses) List(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11895,6 +12765,7 @@ func (c *wrappedNodeV1beta1RuntimeClasses) Patch(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11908,6 +12779,7 @@ func (c *wrappedNodeV1beta1RuntimeClasses) Update(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11921,6 +12793,7 @@ func (c *wrappedNodeV1beta1RuntimeClasses) Watch(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "NodeV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RuntimeClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RuntimeClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11943,6 +12816,7 @@ func (c *wrappedPolicyV1Evictions) Evict(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Evictions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Eviction"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Evict"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11965,6 +12839,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) Apply(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11978,6 +12853,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) ApplyStatus(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -11991,6 +12867,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) Create(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12004,6 +12881,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) Delete(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12017,6 +12895,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) DeleteCollection(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12030,6 +12909,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) Get(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12043,6 +12923,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) List(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12056,6 +12937,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) Patch(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12069,6 +12951,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) Update(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12082,6 +12965,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) UpdateStatus(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12095,6 +12979,7 @@ func (c *wrappedPolicyV1PodDisruptionBudgets) Watch(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12117,6 +13002,7 @@ func (c *wrappedPolicyV1beta1Evictions) Evict(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Evictions"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Eviction"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Evict"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12139,6 +13025,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) Apply(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12152,6 +13039,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) ApplyStatus(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12165,6 +13053,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) Create(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12178,6 +13067,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) Delete(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12191,6 +13081,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) DeleteCollection(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12204,6 +13095,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) Get(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12217,6 +13109,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) List(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12230,6 +13123,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) Patch(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12243,6 +13137,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) Update(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12256,6 +13151,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) UpdateStatus(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12269,6 +13165,7 @@ func (c *wrappedPolicyV1beta1PodDisruptionBudgets) Watch(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodDisruptionBudgets"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodDisruptionBudget"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12291,6 +13188,7 @@ func (c *wrappedPolicyV1beta1PodSecurityPolicies) Apply(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12304,6 +13202,7 @@ func (c *wrappedPolicyV1beta1PodSecurityPolicies) Create(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12317,6 +13216,7 @@ func (c *wrappedPolicyV1beta1PodSecurityPolicies) Delete(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12330,6 +13230,7 @@ func (c *wrappedPolicyV1beta1PodSecurityPolicies) DeleteCollection(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12343,6 +13244,7 @@ func (c *wrappedPolicyV1beta1PodSecurityPolicies) Get(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12356,6 +13258,7 @@ func (c *wrappedPolicyV1beta1PodSecurityPolicies) List(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12369,6 +13272,7 @@ func (c *wrappedPolicyV1beta1PodSecurityPolicies) Patch(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12382,6 +13286,7 @@ func (c *wrappedPolicyV1beta1PodSecurityPolicies) Update(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12395,6 +13300,7 @@ func (c *wrappedPolicyV1beta1PodSecurityPolicies) Watch(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "PolicyV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PodSecurityPolicies"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PodSecurityPolicy"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12417,6 +13323,7 @@ func (c *wrappedRbacV1ClusterRoleBindings) Apply(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12430,6 +13337,7 @@ func (c *wrappedRbacV1ClusterRoleBindings) Create(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12443,6 +13351,7 @@ func (c *wrappedRbacV1ClusterRoleBindings) Delete(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12456,6 +13365,7 @@ func (c *wrappedRbacV1ClusterRoleBindings) DeleteCollection(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12469,6 +13379,7 @@ func (c *wrappedRbacV1ClusterRoleBindings) Get(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12482,6 +13393,7 @@ func (c *wrappedRbacV1ClusterRoleBindings) List(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12495,6 +13407,7 @@ func (c *wrappedRbacV1ClusterRoleBindings) Patch(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12508,6 +13421,7 @@ func (c *wrappedRbacV1ClusterRoleBindings) Update(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12521,6 +13435,7 @@ func (c *wrappedRbacV1ClusterRoleBindings) Watch(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12543,6 +13458,7 @@ func (c *wrappedRbacV1ClusterRoles) Apply(arg0 context.Context, arg1 *k8s_io_cli
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12556,6 +13472,7 @@ func (c *wrappedRbacV1ClusterRoles) Create(arg0 context.Context, arg1 *k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12569,6 +13486,7 @@ func (c *wrappedRbacV1ClusterRoles) Delete(arg0 context.Context, arg1 string, ar
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12582,6 +13500,7 @@ func (c *wrappedRbacV1ClusterRoles) DeleteCollection(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12595,6 +13514,7 @@ func (c *wrappedRbacV1ClusterRoles) Get(arg0 context.Context, arg1 string, arg2 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12608,6 +13528,7 @@ func (c *wrappedRbacV1ClusterRoles) List(arg0 context.Context, arg1 k8s_io_apima
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12621,6 +13542,7 @@ func (c *wrappedRbacV1ClusterRoles) Patch(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12634,6 +13556,7 @@ func (c *wrappedRbacV1ClusterRoles) Update(arg0 context.Context, arg1 *k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12647,6 +13570,7 @@ func (c *wrappedRbacV1ClusterRoles) Watch(arg0 context.Context, arg1 k8s_io_apim
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12669,6 +13593,7 @@ func (c *wrappedRbacV1RoleBindings) Apply(arg0 context.Context, arg1 *k8s_io_cli
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12682,6 +13607,7 @@ func (c *wrappedRbacV1RoleBindings) Create(arg0 context.Context, arg1 *k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12695,6 +13621,7 @@ func (c *wrappedRbacV1RoleBindings) Delete(arg0 context.Context, arg1 string, ar
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12708,6 +13635,7 @@ func (c *wrappedRbacV1RoleBindings) DeleteCollection(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12721,6 +13649,7 @@ func (c *wrappedRbacV1RoleBindings) Get(arg0 context.Context, arg1 string, arg2 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12734,6 +13663,7 @@ func (c *wrappedRbacV1RoleBindings) List(arg0 context.Context, arg1 k8s_io_apima
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12747,6 +13677,7 @@ func (c *wrappedRbacV1RoleBindings) Patch(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12760,6 +13691,7 @@ func (c *wrappedRbacV1RoleBindings) Update(arg0 context.Context, arg1 *k8s_io_ap
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12773,6 +13705,7 @@ func (c *wrappedRbacV1RoleBindings) Watch(arg0 context.Context, arg1 k8s_io_apim
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12795,6 +13728,7 @@ func (c *wrappedRbacV1Roles) Apply(arg0 context.Context, arg1 *k8s_io_client_go_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12808,6 +13742,7 @@ func (c *wrappedRbacV1Roles) Create(arg0 context.Context, arg1 *k8s_io_api_rbac_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12821,6 +13756,7 @@ func (c *wrappedRbacV1Roles) Delete(arg0 context.Context, arg1 string, arg2 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12834,6 +13770,7 @@ func (c *wrappedRbacV1Roles) DeleteCollection(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12847,6 +13784,7 @@ func (c *wrappedRbacV1Roles) Get(arg0 context.Context, arg1 string, arg2 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12860,6 +13798,7 @@ func (c *wrappedRbacV1Roles) List(arg0 context.Context, arg1 k8s_io_apimachinery
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12873,6 +13812,7 @@ func (c *wrappedRbacV1Roles) Patch(arg0 context.Context, arg1 string, arg2 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12886,6 +13826,7 @@ func (c *wrappedRbacV1Roles) Update(arg0 context.Context, arg1 *k8s_io_api_rbac_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12899,6 +13840,7 @@ func (c *wrappedRbacV1Roles) Watch(arg0 context.Context, arg1 k8s_io_apimachiner
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12921,6 +13863,7 @@ func (c *wrappedRbacV1alpha1ClusterRoleBindings) Apply(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12934,6 +13877,7 @@ func (c *wrappedRbacV1alpha1ClusterRoleBindings) Create(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12947,6 +13891,7 @@ func (c *wrappedRbacV1alpha1ClusterRoleBindings) Delete(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12960,6 +13905,7 @@ func (c *wrappedRbacV1alpha1ClusterRoleBindings) DeleteCollection(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12973,6 +13919,7 @@ func (c *wrappedRbacV1alpha1ClusterRoleBindings) Get(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12986,6 +13933,7 @@ func (c *wrappedRbacV1alpha1ClusterRoleBindings) List(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -12999,6 +13947,7 @@ func (c *wrappedRbacV1alpha1ClusterRoleBindings) Patch(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13012,6 +13961,7 @@ func (c *wrappedRbacV1alpha1ClusterRoleBindings) Update(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13025,6 +13975,7 @@ func (c *wrappedRbacV1alpha1ClusterRoleBindings) Watch(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13047,6 +13998,7 @@ func (c *wrappedRbacV1alpha1ClusterRoles) Apply(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13060,6 +14012,7 @@ func (c *wrappedRbacV1alpha1ClusterRoles) Create(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13073,6 +14026,7 @@ func (c *wrappedRbacV1alpha1ClusterRoles) Delete(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13086,6 +14040,7 @@ func (c *wrappedRbacV1alpha1ClusterRoles) DeleteCollection(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13099,6 +14054,7 @@ func (c *wrappedRbacV1alpha1ClusterRoles) Get(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13112,6 +14068,7 @@ func (c *wrappedRbacV1alpha1ClusterRoles) List(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13125,6 +14082,7 @@ func (c *wrappedRbacV1alpha1ClusterRoles) Patch(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13138,6 +14096,7 @@ func (c *wrappedRbacV1alpha1ClusterRoles) Update(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13151,6 +14110,7 @@ func (c *wrappedRbacV1alpha1ClusterRoles) Watch(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13173,6 +14133,7 @@ func (c *wrappedRbacV1alpha1RoleBindings) Apply(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13186,6 +14147,7 @@ func (c *wrappedRbacV1alpha1RoleBindings) Create(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13199,6 +14161,7 @@ func (c *wrappedRbacV1alpha1RoleBindings) Delete(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13212,6 +14175,7 @@ func (c *wrappedRbacV1alpha1RoleBindings) DeleteCollection(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13225,6 +14189,7 @@ func (c *wrappedRbacV1alpha1RoleBindings) Get(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13238,6 +14203,7 @@ func (c *wrappedRbacV1alpha1RoleBindings) List(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13251,6 +14217,7 @@ func (c *wrappedRbacV1alpha1RoleBindings) Patch(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13264,6 +14231,7 @@ func (c *wrappedRbacV1alpha1RoleBindings) Update(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13277,6 +14245,7 @@ func (c *wrappedRbacV1alpha1RoleBindings) Watch(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13299,6 +14268,7 @@ func (c *wrappedRbacV1alpha1Roles) Apply(arg0 context.Context, arg1 *k8s_io_clie
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13312,6 +14282,7 @@ func (c *wrappedRbacV1alpha1Roles) Create(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13325,6 +14296,7 @@ func (c *wrappedRbacV1alpha1Roles) Delete(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13338,6 +14310,7 @@ func (c *wrappedRbacV1alpha1Roles) DeleteCollection(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13351,6 +14324,7 @@ func (c *wrappedRbacV1alpha1Roles) Get(arg0 context.Context, arg1 string, arg2 k
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13364,6 +14338,7 @@ func (c *wrappedRbacV1alpha1Roles) List(arg0 context.Context, arg1 k8s_io_apimac
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13377,6 +14352,7 @@ func (c *wrappedRbacV1alpha1Roles) Patch(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13390,6 +14366,7 @@ func (c *wrappedRbacV1alpha1Roles) Update(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13403,6 +14380,7 @@ func (c *wrappedRbacV1alpha1Roles) Watch(arg0 context.Context, arg1 k8s_io_apima
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13425,6 +14403,7 @@ func (c *wrappedRbacV1beta1ClusterRoleBindings) Apply(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13438,6 +14417,7 @@ func (c *wrappedRbacV1beta1ClusterRoleBindings) Create(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13451,6 +14431,7 @@ func (c *wrappedRbacV1beta1ClusterRoleBindings) Delete(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13464,6 +14445,7 @@ func (c *wrappedRbacV1beta1ClusterRoleBindings) DeleteCollection(arg0 context.Co
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13477,6 +14459,7 @@ func (c *wrappedRbacV1beta1ClusterRoleBindings) Get(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13490,6 +14473,7 @@ func (c *wrappedRbacV1beta1ClusterRoleBindings) List(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13503,6 +14487,7 @@ func (c *wrappedRbacV1beta1ClusterRoleBindings) Patch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13516,6 +14501,7 @@ func (c *wrappedRbacV1beta1ClusterRoleBindings) Update(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13529,6 +14515,7 @@ func (c *wrappedRbacV1beta1ClusterRoleBindings) Watch(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13551,6 +14538,7 @@ func (c *wrappedRbacV1beta1ClusterRoles) Apply(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13564,6 +14552,7 @@ func (c *wrappedRbacV1beta1ClusterRoles) Create(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13577,6 +14566,7 @@ func (c *wrappedRbacV1beta1ClusterRoles) Delete(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13590,6 +14580,7 @@ func (c *wrappedRbacV1beta1ClusterRoles) DeleteCollection(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13603,6 +14594,7 @@ func (c *wrappedRbacV1beta1ClusterRoles) Get(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13616,6 +14608,7 @@ func (c *wrappedRbacV1beta1ClusterRoles) List(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13629,6 +14622,7 @@ func (c *wrappedRbacV1beta1ClusterRoles) Patch(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13642,6 +14636,7 @@ func (c *wrappedRbacV1beta1ClusterRoles) Update(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13655,6 +14650,7 @@ func (c *wrappedRbacV1beta1ClusterRoles) Watch(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "ClusterRoles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "ClusterRole"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13677,6 +14673,7 @@ func (c *wrappedRbacV1beta1RoleBindings) Apply(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13690,6 +14687,7 @@ func (c *wrappedRbacV1beta1RoleBindings) Create(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13703,6 +14701,7 @@ func (c *wrappedRbacV1beta1RoleBindings) Delete(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13716,6 +14715,7 @@ func (c *wrappedRbacV1beta1RoleBindings) DeleteCollection(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13729,6 +14729,7 @@ func (c *wrappedRbacV1beta1RoleBindings) Get(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13742,6 +14743,7 @@ func (c *wrappedRbacV1beta1RoleBindings) List(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13755,6 +14757,7 @@ func (c *wrappedRbacV1beta1RoleBindings) Patch(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13768,6 +14771,7 @@ func (c *wrappedRbacV1beta1RoleBindings) Update(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13781,6 +14785,7 @@ func (c *wrappedRbacV1beta1RoleBindings) Watch(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "RoleBindings"),
 		go_opentelemetry_io_otel_attribute.String("kind", "RoleBinding"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13803,6 +14808,7 @@ func (c *wrappedRbacV1beta1Roles) Apply(arg0 context.Context, arg1 *k8s_io_clien
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13816,6 +14822,7 @@ func (c *wrappedRbacV1beta1Roles) Create(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13829,6 +14836,7 @@ func (c *wrappedRbacV1beta1Roles) Delete(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13842,6 +14850,7 @@ func (c *wrappedRbacV1beta1Roles) DeleteCollection(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13855,6 +14864,7 @@ func (c *wrappedRbacV1beta1Roles) Get(arg0 context.Context, arg1 string, arg2 k8
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13868,6 +14878,7 @@ func (c *wrappedRbacV1beta1Roles) List(arg0 context.Context, arg1 k8s_io_apimach
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13881,6 +14892,7 @@ func (c *wrappedRbacV1beta1Roles) Patch(arg0 context.Context, arg1 string, arg2 
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13894,6 +14906,7 @@ func (c *wrappedRbacV1beta1Roles) Update(arg0 context.Context, arg1 *k8s_io_api_
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13907,6 +14920,7 @@ func (c *wrappedRbacV1beta1Roles) Watch(arg0 context.Context, arg1 k8s_io_apimac
 		go_opentelemetry_io_otel_attribute.String("client", "RbacV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "Roles"),
 		go_opentelemetry_io_otel_attribute.String("kind", "Role"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13929,6 +14943,7 @@ func (c *wrappedSchedulingV1PriorityClasses) Apply(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13942,6 +14957,7 @@ func (c *wrappedSchedulingV1PriorityClasses) Create(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13955,6 +14971,7 @@ func (c *wrappedSchedulingV1PriorityClasses) Delete(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13968,6 +14985,7 @@ func (c *wrappedSchedulingV1PriorityClasses) DeleteCollection(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13981,6 +14999,7 @@ func (c *wrappedSchedulingV1PriorityClasses) Get(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -13994,6 +15013,7 @@ func (c *wrappedSchedulingV1PriorityClasses) List(arg0 context.Context, arg1 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14007,6 +15027,7 @@ func (c *wrappedSchedulingV1PriorityClasses) Patch(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14020,6 +15041,7 @@ func (c *wrappedSchedulingV1PriorityClasses) Update(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14033,6 +15055,7 @@ func (c *wrappedSchedulingV1PriorityClasses) Watch(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14055,6 +15078,7 @@ func (c *wrappedSchedulingV1alpha1PriorityClasses) Apply(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14068,6 +15092,7 @@ func (c *wrappedSchedulingV1alpha1PriorityClasses) Create(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14081,6 +15106,7 @@ func (c *wrappedSchedulingV1alpha1PriorityClasses) Delete(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14094,6 +15120,7 @@ func (c *wrappedSchedulingV1alpha1PriorityClasses) DeleteCollection(arg0 context
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14107,6 +15134,7 @@ func (c *wrappedSchedulingV1alpha1PriorityClasses) Get(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14120,6 +15148,7 @@ func (c *wrappedSchedulingV1alpha1PriorityClasses) List(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14133,6 +15162,7 @@ func (c *wrappedSchedulingV1alpha1PriorityClasses) Patch(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14146,6 +15176,7 @@ func (c *wrappedSchedulingV1alpha1PriorityClasses) Update(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14159,6 +15190,7 @@ func (c *wrappedSchedulingV1alpha1PriorityClasses) Watch(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14181,6 +15213,7 @@ func (c *wrappedSchedulingV1beta1PriorityClasses) Apply(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14194,6 +15227,7 @@ func (c *wrappedSchedulingV1beta1PriorityClasses) Create(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14207,6 +15241,7 @@ func (c *wrappedSchedulingV1beta1PriorityClasses) Delete(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14220,6 +15255,7 @@ func (c *wrappedSchedulingV1beta1PriorityClasses) DeleteCollection(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14233,6 +15269,7 @@ func (c *wrappedSchedulingV1beta1PriorityClasses) Get(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14246,6 +15283,7 @@ func (c *wrappedSchedulingV1beta1PriorityClasses) List(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14259,6 +15297,7 @@ func (c *wrappedSchedulingV1beta1PriorityClasses) Patch(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14272,6 +15311,7 @@ func (c *wrappedSchedulingV1beta1PriorityClasses) Update(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14285,6 +15325,7 @@ func (c *wrappedSchedulingV1beta1PriorityClasses) Watch(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "SchedulingV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "PriorityClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "PriorityClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14307,6 +15348,7 @@ func (c *wrappedStorageV1CSIDrivers) Apply(arg0 context.Context, arg1 *k8s_io_cl
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14320,6 +15362,7 @@ func (c *wrappedStorageV1CSIDrivers) Create(arg0 context.Context, arg1 *k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14333,6 +15376,7 @@ func (c *wrappedStorageV1CSIDrivers) Delete(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14346,6 +15390,7 @@ func (c *wrappedStorageV1CSIDrivers) DeleteCollection(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14359,6 +15404,7 @@ func (c *wrappedStorageV1CSIDrivers) Get(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14372,6 +15418,7 @@ func (c *wrappedStorageV1CSIDrivers) List(arg0 context.Context, arg1 k8s_io_apim
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14385,6 +15432,7 @@ func (c *wrappedStorageV1CSIDrivers) Patch(arg0 context.Context, arg1 string, ar
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14398,6 +15446,7 @@ func (c *wrappedStorageV1CSIDrivers) Update(arg0 context.Context, arg1 *k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14411,6 +15460,7 @@ func (c *wrappedStorageV1CSIDrivers) Watch(arg0 context.Context, arg1 k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14433,6 +15483,7 @@ func (c *wrappedStorageV1CSINodes) Apply(arg0 context.Context, arg1 *k8s_io_clie
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14446,6 +15497,7 @@ func (c *wrappedStorageV1CSINodes) Create(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14459,6 +15511,7 @@ func (c *wrappedStorageV1CSINodes) Delete(arg0 context.Context, arg1 string, arg
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14472,6 +15525,7 @@ func (c *wrappedStorageV1CSINodes) DeleteCollection(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14485,6 +15539,7 @@ func (c *wrappedStorageV1CSINodes) Get(arg0 context.Context, arg1 string, arg2 k
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14498,6 +15553,7 @@ func (c *wrappedStorageV1CSINodes) List(arg0 context.Context, arg1 k8s_io_apimac
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14511,6 +15567,7 @@ func (c *wrappedStorageV1CSINodes) Patch(arg0 context.Context, arg1 string, arg2
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14524,6 +15581,7 @@ func (c *wrappedStorageV1CSINodes) Update(arg0 context.Context, arg1 *k8s_io_api
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14537,6 +15595,7 @@ func (c *wrappedStorageV1CSINodes) Watch(arg0 context.Context, arg1 k8s_io_apima
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14559,6 +15618,7 @@ func (c *wrappedStorageV1CSIStorageCapacities) Apply(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14572,6 +15632,7 @@ func (c *wrappedStorageV1CSIStorageCapacities) Create(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14585,6 +15646,7 @@ func (c *wrappedStorageV1CSIStorageCapacities) Delete(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14598,6 +15660,7 @@ func (c *wrappedStorageV1CSIStorageCapacities) DeleteCollection(arg0 context.Con
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14611,6 +15674,7 @@ func (c *wrappedStorageV1CSIStorageCapacities) Get(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14624,6 +15688,7 @@ func (c *wrappedStorageV1CSIStorageCapacities) List(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14637,6 +15702,7 @@ func (c *wrappedStorageV1CSIStorageCapacities) Patch(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14650,6 +15716,7 @@ func (c *wrappedStorageV1CSIStorageCapacities) Update(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14663,6 +15730,7 @@ func (c *wrappedStorageV1CSIStorageCapacities) Watch(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14685,6 +15753,7 @@ func (c *wrappedStorageV1StorageClasses) Apply(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14698,6 +15767,7 @@ func (c *wrappedStorageV1StorageClasses) Create(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14711,6 +15781,7 @@ func (c *wrappedStorageV1StorageClasses) Delete(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14724,6 +15795,7 @@ func (c *wrappedStorageV1StorageClasses) DeleteCollection(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14737,6 +15809,7 @@ func (c *wrappedStorageV1StorageClasses) Get(arg0 context.Context, arg1 string, 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14750,6 +15823,7 @@ func (c *wrappedStorageV1StorageClasses) List(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14763,6 +15837,7 @@ func (c *wrappedStorageV1StorageClasses) Patch(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14776,6 +15851,7 @@ func (c *wrappedStorageV1StorageClasses) Update(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14789,6 +15865,7 @@ func (c *wrappedStorageV1StorageClasses) Watch(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14811,6 +15888,7 @@ func (c *wrappedStorageV1VolumeAttachments) Apply(arg0 context.Context, arg1 *k8
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14824,6 +15902,7 @@ func (c *wrappedStorageV1VolumeAttachments) ApplyStatus(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14837,6 +15916,7 @@ func (c *wrappedStorageV1VolumeAttachments) Create(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14850,6 +15930,7 @@ func (c *wrappedStorageV1VolumeAttachments) Delete(arg0 context.Context, arg1 st
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14863,6 +15944,7 @@ func (c *wrappedStorageV1VolumeAttachments) DeleteCollection(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14876,6 +15958,7 @@ func (c *wrappedStorageV1VolumeAttachments) Get(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14889,6 +15972,7 @@ func (c *wrappedStorageV1VolumeAttachments) List(arg0 context.Context, arg1 k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14902,6 +15986,7 @@ func (c *wrappedStorageV1VolumeAttachments) Patch(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14915,6 +16000,7 @@ func (c *wrappedStorageV1VolumeAttachments) Update(arg0 context.Context, arg1 *k
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14928,6 +16014,7 @@ func (c *wrappedStorageV1VolumeAttachments) UpdateStatus(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14941,6 +16028,7 @@ func (c *wrappedStorageV1VolumeAttachments) Watch(arg0 context.Context, arg1 k8s
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14963,6 +16051,7 @@ func (c *wrappedStorageV1alpha1CSIStorageCapacities) Apply(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14976,6 +16065,7 @@ func (c *wrappedStorageV1alpha1CSIStorageCapacities) Create(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -14989,6 +16079,7 @@ func (c *wrappedStorageV1alpha1CSIStorageCapacities) Delete(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15002,6 +16093,7 @@ func (c *wrappedStorageV1alpha1CSIStorageCapacities) DeleteCollection(arg0 conte
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15015,6 +16107,7 @@ func (c *wrappedStorageV1alpha1CSIStorageCapacities) Get(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15028,6 +16121,7 @@ func (c *wrappedStorageV1alpha1CSIStorageCapacities) List(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15041,6 +16135,7 @@ func (c *wrappedStorageV1alpha1CSIStorageCapacities) Patch(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15054,6 +16149,7 @@ func (c *wrappedStorageV1alpha1CSIStorageCapacities) Update(arg0 context.Context
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15067,6 +16163,7 @@ func (c *wrappedStorageV1alpha1CSIStorageCapacities) Watch(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15089,6 +16186,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) Apply(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15102,6 +16200,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) ApplyStatus(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15115,6 +16214,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) Create(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15128,6 +16228,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) Delete(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15141,6 +16242,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) DeleteCollection(arg0 context.
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15154,6 +16256,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) Get(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15167,6 +16270,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) List(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15180,6 +16284,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) Patch(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15193,6 +16298,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) Update(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15206,6 +16312,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) UpdateStatus(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15219,6 +16326,7 @@ func (c *wrappedStorageV1alpha1VolumeAttachments) Watch(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1alpha1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15241,6 +16349,7 @@ func (c *wrappedStorageV1beta1CSIDrivers) Apply(arg0 context.Context, arg1 *k8s_
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15254,6 +16363,7 @@ func (c *wrappedStorageV1beta1CSIDrivers) Create(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15267,6 +16377,7 @@ func (c *wrappedStorageV1beta1CSIDrivers) Delete(arg0 context.Context, arg1 stri
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15280,6 +16391,7 @@ func (c *wrappedStorageV1beta1CSIDrivers) DeleteCollection(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15293,6 +16405,7 @@ func (c *wrappedStorageV1beta1CSIDrivers) Get(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15306,6 +16419,7 @@ func (c *wrappedStorageV1beta1CSIDrivers) List(arg0 context.Context, arg1 k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15319,6 +16433,7 @@ func (c *wrappedStorageV1beta1CSIDrivers) Patch(arg0 context.Context, arg1 strin
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15332,6 +16447,7 @@ func (c *wrappedStorageV1beta1CSIDrivers) Update(arg0 context.Context, arg1 *k8s
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15345,6 +16461,7 @@ func (c *wrappedStorageV1beta1CSIDrivers) Watch(arg0 context.Context, arg1 k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIDrivers"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIDriver"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15367,6 +16484,7 @@ func (c *wrappedStorageV1beta1CSINodes) Apply(arg0 context.Context, arg1 *k8s_io
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15380,6 +16498,7 @@ func (c *wrappedStorageV1beta1CSINodes) Create(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15393,6 +16512,7 @@ func (c *wrappedStorageV1beta1CSINodes) Delete(arg0 context.Context, arg1 string
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15406,6 +16526,7 @@ func (c *wrappedStorageV1beta1CSINodes) DeleteCollection(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15419,6 +16540,7 @@ func (c *wrappedStorageV1beta1CSINodes) Get(arg0 context.Context, arg1 string, a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15432,6 +16554,7 @@ func (c *wrappedStorageV1beta1CSINodes) List(arg0 context.Context, arg1 k8s_io_a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15445,6 +16568,7 @@ func (c *wrappedStorageV1beta1CSINodes) Patch(arg0 context.Context, arg1 string,
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15458,6 +16582,7 @@ func (c *wrappedStorageV1beta1CSINodes) Update(arg0 context.Context, arg1 *k8s_i
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15471,6 +16596,7 @@ func (c *wrappedStorageV1beta1CSINodes) Watch(arg0 context.Context, arg1 k8s_io_
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSINodes"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSINode"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15493,6 +16619,7 @@ func (c *wrappedStorageV1beta1CSIStorageCapacities) Apply(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15506,6 +16633,7 @@ func (c *wrappedStorageV1beta1CSIStorageCapacities) Create(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15519,6 +16647,7 @@ func (c *wrappedStorageV1beta1CSIStorageCapacities) Delete(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15532,6 +16661,7 @@ func (c *wrappedStorageV1beta1CSIStorageCapacities) DeleteCollection(arg0 contex
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15545,6 +16675,7 @@ func (c *wrappedStorageV1beta1CSIStorageCapacities) Get(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15558,6 +16689,7 @@ func (c *wrappedStorageV1beta1CSIStorageCapacities) List(arg0 context.Context, a
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15571,6 +16703,7 @@ func (c *wrappedStorageV1beta1CSIStorageCapacities) Patch(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15584,6 +16717,7 @@ func (c *wrappedStorageV1beta1CSIStorageCapacities) Update(arg0 context.Context,
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15597,6 +16731,7 @@ func (c *wrappedStorageV1beta1CSIStorageCapacities) Watch(arg0 context.Context, 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "CSIStorageCapacities"),
 		go_opentelemetry_io_otel_attribute.String("kind", "CSIStorageCapacity"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15619,6 +16754,7 @@ func (c *wrappedStorageV1beta1StorageClasses) Apply(arg0 context.Context, arg1 *
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15632,6 +16768,7 @@ func (c *wrappedStorageV1beta1StorageClasses) Create(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15645,6 +16782,7 @@ func (c *wrappedStorageV1beta1StorageClasses) Delete(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15658,6 +16796,7 @@ func (c *wrappedStorageV1beta1StorageClasses) DeleteCollection(arg0 context.Cont
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15671,6 +16810,7 @@ func (c *wrappedStorageV1beta1StorageClasses) Get(arg0 context.Context, arg1 str
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15684,6 +16824,7 @@ func (c *wrappedStorageV1beta1StorageClasses) List(arg0 context.Context, arg1 k8
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15697,6 +16838,7 @@ func (c *wrappedStorageV1beta1StorageClasses) Patch(arg0 context.Context, arg1 s
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15710,6 +16852,7 @@ func (c *wrappedStorageV1beta1StorageClasses) Update(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15723,6 +16866,7 @@ func (c *wrappedStorageV1beta1StorageClasses) Watch(arg0 context.Context, arg1 k
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "StorageClasses"),
 		go_opentelemetry_io_otel_attribute.String("kind", "StorageClass"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15745,6 +16889,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) Apply(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15758,6 +16903,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) ApplyStatus(arg0 context.Contex
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15771,6 +16917,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) Create(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Create"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15784,6 +16931,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) Delete(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15797,6 +16945,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) DeleteCollection(arg0 context.C
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15810,6 +16959,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) Get(arg0 context.Context, arg1 
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Get"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15823,6 +16973,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) List(arg0 context.Context, arg1
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "List"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15836,6 +16987,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) Patch(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15849,6 +17001,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) Update(arg0 context.Context, ar
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Update"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15862,6 +17015,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) UpdateStatus(arg0 context.Conte
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
@@ -15875,6 +17029,7 @@ func (c *wrappedStorageV1beta1VolumeAttachments) Watch(arg0 context.Context, arg
 		go_opentelemetry_io_otel_attribute.String("client", "StorageV1beta1"),
 		go_opentelemetry_io_otel_attribute.String("resource", "VolumeAttachments"),
 		go_opentelemetry_io_otel_attribute.String("kind", "VolumeAttachment"),
+		go_opentelemetry_io_otel_attribute.String("operation", "Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
