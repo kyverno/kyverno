@@ -1103,6 +1103,10 @@ github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLA
 github.com/nishanths/exhaustive v0.1.0/go.mod h1:S1j9110vxV1ECdCudXRkeMnFQ/DQk9ajLT0Uf2MYZQQ=
 github.com/nishanths/predeclared v0.0.0-20190419143655-18a43bb90ffc/go.mod h1:62PewwiQTlm/7Rj+cxVYqZvDIUc+JjZq6GHAC1fsObQ=
 github.com/nishanths/predeclared v0.2.1/go.mod h1:HvkGJcA3naj4lOwnFXFDkFxVtSqQMB9sbB1usJ+xjQE=
+github.com/notaryproject/notation-core-go v0.2.0-beta.1 h1:8tFxNycWCcPLti9ZYST5kjkX2wMXtX9YPvMjiBAQ1tA=
+github.com/notaryproject/notation-core-go v0.2.0-beta.1/go.mod h1:s8DZptmN1rZS0tBLTPt/w+d4o6eAcGWTYYJlXaJhQ4U=
+github.com/notaryproject/notation-go v0.12.0-beta.1 h1:LATXX7gt/Y7a+vqLVN4Ydmd6GfaPAFRdKgUEjaEYhUM=
+github.com/notaryproject/notation-go v0.12.0-beta.1/go.mod h1:sfOLDfdt7IXtzU9tyGwhsWDYY357+OWr1ktCfHfLdOk=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8 h1:nPr65rt6Y5JFSKQO7qToXr7pePgD6Gwiw05lkbyAQTE=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=

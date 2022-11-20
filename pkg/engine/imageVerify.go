@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -18,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/notaryv2"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
@@ -598,8 +600,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 		if attestor.Keys.PublicKeys != "" {
 			opts.Key = attestor.Keys.PublicKeys
 		} else if attestor.Keys.Secret != nil {
-			opts.Key = fmt.Sprintf("k8s://%s/%s", attestor.Keys.Secret.Namespace,
-				attestor.Keys.Secret.Name)
+			opts.Key = fmt.Sprintf("k8s://%s/%s", attestor.Keys.Secret.Namespace, attestor.Keys.Secret.Name)
 		} else if attestor.Keys.KMS != "" {
 			opts.Key = attestor.Keys.KMS
 		}
@@ -634,6 +635,29 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 		opts.Annotations = attestor.Annotations
 	}
 
+	return opts, path
+}
+
+func (iv *imageVerifier) buildNotaryV2OptionsAndPath(attestor kyvernov1.Attestor, imageVerify kyvernov1.ImageVerification, image string) (*notaryv2.Options, string) {
+	path := ""
+	opts := &notaryv2.Options{}
+
+	if attestor.Certificates != nil {
+		path = path + ".certificates"
+		certs := ""
+
+		if attestor.Certificates.Certificate != "" {
+			certs = attestor.Certificates.Certificate + "\n"
+		}
+
+		if attestor.Certificates.CertificateChain != "" {
+			certs += attestor.Certificates.CertificateChain
+		}
+
+		opts.Certificates = certs
+	}
+
+	opts.Identities = ""
 	return opts, path
 }
 
