@@ -335,7 +335,8 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 }
 
 func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, imageVerify kyvernov1.ImageVerification,
-	imageInfo apiutils.ImageInfo, path string) (*cosign.Response, error) {
+	imageInfo apiutils.ImageInfo, path string,
+) (*cosign.Response, error) {
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
