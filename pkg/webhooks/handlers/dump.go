@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -107,13 +108,14 @@ func withDump(inner AdmissionHandler) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		return tracing.Span1(
 			ctx,
-			"admission_webhook_operations",
-			"dump",
+			"webhooks/handlers",
+			fmt.Sprintf("DUMP %s %s", request.Operation, request.Kind),
 			func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
 				response := inner(ctx, logger, request, startTime)
 				dumpPayload(logger, request, response)
 				return response
 			},
+			trace.WithAttributes(admissionRequestAttributes(request)...),
 		)
 	}
 }
