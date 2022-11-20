@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/kyverno/kyverno/pkg/tracing"
@@ -17,8 +18,8 @@ func withTrace(inner HttpHandler) HttpHandler {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		tracing.Span(
 			request.Context(),
-			"admission_webhook_operations",
-			request.URL.Path,
+			"webhooks/handlers",
+			fmt.Sprintf("HTTP %s %s", request.Method, request.URL.Path),
 			func(ctx context.Context, span trace.Span) {
 				inner(writer, request.WithContext(ctx))
 			},

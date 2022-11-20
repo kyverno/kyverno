@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -19,14 +20,15 @@ func withFilter(c config.Configuration, inner AdmissionHandler) AdmissionHandler
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		return tracing.Span1(
 			ctx,
-			"admission_webhook_operations",
-			"filter",
+			"webhooks/handlers",
+			fmt.Sprintf("FILTER %s %s", request.Operation, request.Kind),
 			func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
 				if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 					return nil
 				}
 				return inner(ctx, logger, request, startTime)
 			},
+			trace.WithAttributes(admissionRequestAttributes(request)...),
 		)
 	}
 }
