@@ -88,10 +88,13 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	logger := logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
-	if err = MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, ""); err != nil {
+	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
+	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+
+	if err = MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err != nil {
 		if ruleType == response.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, ""); err == nil {
+			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err == nil {
 				return &response.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,

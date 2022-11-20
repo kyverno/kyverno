@@ -261,13 +261,23 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 		}
 
-		podOnlyMap := make(map[string]bool) // Validate that Kind is only Pod
-		podOnlyMap["Pod"] = true
-		if reflect.DeepEqual(common.GetKindsFromRule(rule), podOnlyMap) && podControllerAutoGenExclusion(policy) {
-			msg := "Policies that match Pods apply to all Pods including those created and managed by controllers " +
-				"excluded from autogen. Use preconditions to exclude the Pods managed by controllers which are " +
-				"excluded from autogen. Refer to https://kyverno.io/docs/writing-policies/autogen/ for details."
-			warnings = append(warnings, msg)
+		kindsFromRule := rule.MatchResources.GetKinds()
+		resourceTypesMap := make(map[string]bool)
+		for _, kind := range kindsFromRule {
+			_, k := kubeutils.GetKindFromGVK(kind)
+			k, _ = kubeutils.SplitSubresource(k)
+			resourceTypesMap[k] = true
+		}
+		if len(resourceTypesMap) == 1 {
+			for k := range resourceTypesMap {
+				if k == "Pod" && podControllerAutoGenExclusion(policy) {
+					msg := "Policies that match Pods apply to all Pods including those created and managed by controllers " +
+						"excluded from autogen. Use preconditions to exclude the Pods managed by controllers which are " +
+						"excluded from autogen. Refer to https://kyverno.io/docs/writing-policies/autogen/ for details."
+
+					warnings = append(warnings, msg)
+				}
+			}
 		}
 
 		// Validate Kind with match resource kinds
@@ -279,7 +289,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				return warnings, wildcardErr
 			}
 			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
 				if err != nil {
 					return warnings, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
 				}
@@ -291,7 +301,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				return warnings, wildcardErr
 			}
 			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
 				if err != nil {
 					return warnings, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
 				}
@@ -303,7 +313,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				return warnings, wildcardErr
 			}
 			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
 				if err != nil {
 					return warnings, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
 				}
@@ -315,7 +325,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				return warnings, wildcardErr
 			}
 			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
 				if err != nil {
 					return warnings, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
 				}
@@ -323,11 +333,11 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		}
 
 		if !slices.Contains(rule.MatchResources.Kinds, "*") {
-			err := validateKinds(rule.MatchResources.Kinds, mock, client, policy)
+			err := validateKinds(rule.MatchResources.Kinds, mock, background, rule.HasValidate(), client)
 			if err != nil {
 				return warnings, errors.Wrapf(err, "match resource kind is invalid")
 			}
-			err = validateKinds(rule.ExcludeResources.Kinds, mock, client, policy)
+			err = validateKinds(rule.ExcludeResources.Kinds, mock, background, rule.HasValidate(), client)
 			if err != nil {
 				return warnings, errors.Wrapf(err, "exclude resource kind is invalid")
 			}
@@ -382,6 +392,35 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 					}
 				}
 			}
+		}
+
+		matchKinds := match.GetKinds()
+		excludeKinds := exclude.GetKinds()
+		allKinds := make([]string, 0, len(matchKinds)+len(excludeKinds))
+		allKinds = append(allKinds, matchKinds...)
+		allKinds = append(allKinds, excludeKinds...)
+		if rule.HasValidate() {
+			validationJson, err := json.Marshal(rule.Validation)
+			if err != nil {
+				return nil, err
+			}
+			checkForScaleSubresource(validationJson, allKinds, &warnings)
+			checkForStatusSubresource(validationJson, allKinds, &warnings)
+			checkForEphemeralContainersSubresource(validationJson, allKinds, &warnings)
+		}
+
+		if rule.HasMutate() {
+			mutationJson, err := json.Marshal(rule.Mutation)
+			targets := rule.Mutation.Targets
+			for _, target := range targets {
+				allKinds = append(allKinds, target.GetKind())
+			}
+			if err != nil {
+				return nil, err
+			}
+			checkForScaleSubresource(mutationJson, allKinds, &warnings)
+			checkForStatusSubresource(mutationJson, allKinds, &warnings)
+			checkForEphemeralContainersSubresource(mutationJson, allKinds, &warnings)
 		}
 	}
 	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
@@ -1209,15 +1248,19 @@ func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule)
 }
 
 // validateKinds verifies if an API resource that matches 'kind' is valid kind
-// and found in the cache, returns error if not found
-func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvernov1.PolicyInterface) error {
+// and found in the cache, returns error if not found. It also returns an error if background scanning
+// is enabled for a subresource.
+func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidationPolicy bool, client dclient.Interface) error {
 	for _, kind := range kinds {
-		gv, k := kubeutils.GetKindFromGVK(kind)
-
-		if !mock && !kubeutils.SkipSubResources(k) && !strings.Contains(kind, "*") {
-			_, _, err := client.Discovery().FindResource(gv, k)
+		if !mock && !strings.Contains(kind, "*") {
+			gv, k := kubeutils.GetKindFromGVK(kind)
+			_, _, gvr, err := client.Discovery().FindResource(gv, k)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", k, err)
+			}
+			_, subresource := kubeutils.SplitSubresource(gvr.Resource)
+			if subresource != "" && isValidationPolicy && backgroundScanningEnabled {
+				return fmt.Errorf("background scan enabled with subresource %s", subresource)
 			}
 		}
 	}
@@ -1279,4 +1322,40 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 	}
 
 	return nil
+}
+
+func checkForScaleSubresource(ruleTypeJson []byte, allKinds []string, warnings *[]string) {
+	if strings.Contains(string(ruleTypeJson), "replicas") {
+		for _, kind := range allKinds {
+			if strings.Contains(strings.ToLower(kind), "scale") {
+				return
+			}
+		}
+		msg := "You are matching on replicas but not including the scale subresource in the policy."
+		*warnings = append(*warnings, msg)
+	}
+}
+
+func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings *[]string) {
+	if strings.Contains(string(ruleTypeJson), "status") {
+		for _, kind := range allKinds {
+			if strings.Contains(strings.ToLower(kind), "status") {
+				return
+			}
+		}
+		msg := "You are matching on status but not including the status subresource in the policy."
+		*warnings = append(*warnings, msg)
+	}
+}
+
+func checkForEphemeralContainersSubresource(ruleTypeJson []byte, allKinds []string, warnings *[]string) {
+	if strings.Contains(string(ruleTypeJson), "ephemeralcontainers") {
+		for _, kind := range allKinds {
+			if strings.Contains(strings.ToLower(kind), "ephemeralcontainers") {
+				return
+			}
+		}
+		msg := "You are matching on ephemeralcontainers but not including the ephemeralcontainers subresource in the policy."
+		*warnings = append(*warnings, msg)
+	}
 }
