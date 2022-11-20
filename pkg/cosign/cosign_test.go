@@ -126,18 +126,23 @@ type testSignature struct {
 func (ts testSignature) Digest() (v1.Hash, error) {
 	return v1.Hash{}, fmt.Errorf("not implemented")
 }
+
 func (ts testSignature) DiffID() (v1.Hash, error) {
 	return v1.Hash{}, fmt.Errorf("not implemented")
 }
+
 func (ts testSignature) Compressed() (io.ReadCloser, error) {
 	return nil, fmt.Errorf("not implemented")
 }
+
 func (ts testSignature) Uncompressed() (io.ReadCloser, error) {
 	return nil, fmt.Errorf("not implemented")
 }
+
 func (ts testSignature) Size() (int64, error) {
 	return 0, fmt.Errorf("not implemented")
 }
+
 func (ts testSignature) MediaType() (types.MediaType, error) {
 	return "", fmt.Errorf("not implemented")
 }
@@ -145,12 +150,15 @@ func (ts testSignature) MediaType() (types.MediaType, error) {
 func (ts testSignature) Annotations() (map[string]string, error) {
 	return nil, fmt.Errorf("not implemented")
 }
+
 func (ts testSignature) Payload() ([]byte, error) {
 	return nil, fmt.Errorf("not implemented")
 }
+
 func (ts testSignature) Base64Signature() (string, error) {
 	return "", fmt.Errorf("not implemented")
 }
+
 func (ts testSignature) Cert() (*x509.Certificate, error) {
 	return ts.cert, nil
 }
@@ -158,6 +166,7 @@ func (ts testSignature) Cert() (*x509.Certificate, error) {
 func (ts testSignature) Chain() ([]*x509.Certificate, error) {
 	return nil, fmt.Errorf("not implemented")
 }
+
 func (ts testSignature) Bundle() (*bundle.RekorBundle, error) {
 	return nil, fmt.Errorf("not implemented")
 }
@@ -199,5 +208,4 @@ func TestCosignMatchSignatures(t *testing.T) {
 
 	matchErr = matchSignatures(sigs, subject2, issuer2, extensions)
 	assert.ErrorContains(t, matchErr, "extension mismatch")
-
 }
