@@ -74,9 +74,9 @@ func withAdmission(logger logr.Logger, inner AdmissionHandler) HttpHandler {
 			attribute.String("uid", string(admissionReview.Request.UID)),
 		)
 		defer span.End()
-		adminssionResponse := inner(ctx, logger, admissionReview.Request, startTime)
-		if adminssionResponse != nil {
-			admissionReview.Response = adminssionResponse
+		admissionResponse := inner(ctx, logger, admissionReview.Request, startTime)
+		if admissionResponse != nil {
+			admissionReview.Response = admissionResponse
 		}
 		responseJSON, err := json.Marshal(admissionReview)
 		if err != nil {
