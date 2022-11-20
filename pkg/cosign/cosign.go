@@ -97,7 +97,7 @@ func verifySignature(opts Options) (*Response, error) {
 		return nil, err
 	}
 
-	if err := matchCertificate(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+	if err := matchSignatures(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
 		return nil, err
 	}
 
@@ -291,7 +291,7 @@ func fetchAttestations(opts Options) (*Response, error) {
 		return nil, err
 	}
 
-	if err := matchCertificate(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+	if err := matchSignatures(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
 		return nil, err
 	}
 
@@ -452,7 +452,7 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (strin
 	return "", fmt.Errorf("digest not found for " + imgRef)
 }
 
-func matchCertificate(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
+func matchSignatures(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
 	if subject == "" && issuer == "" && len(extensions) == 0 {
 		return nil
 	}
