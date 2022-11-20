@@ -7,13 +7,14 @@ spec:
   failurePolicy: Fail
   rules:
     - match:
-        resources:
-          kinds:
-            - "Deployment/scale"
-          names:
-            - nginx-test
-          namespaces:
-            - default
+        all:
+          - resources:
+              kinds:
+                - "Deployment/scale"
+              names:
+                - nginx-test
+              namespaces:
+                - default
       name: validate-nginx-test
       validate:
         message: 'nginx-test needs to have 2 replicas'
