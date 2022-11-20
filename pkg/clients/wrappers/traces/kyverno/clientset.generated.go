@@ -16,6 +16,7 @@ import (
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	github_com_kyverno_kyverno_pkg_tracing "github.com/kyverno/kyverno/pkg/tracing"
 	go_opentelemetry_io_otel_attribute "go.opentelemetry.io/otel/attribute"
+	go_opentelemetry_io_otel_codes "go.opentelemetry.io/otel/codes"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_io_apimachinery_pkg_types "k8s.io/apimachinery/pkg/types"
 	k8s_io_apimachinery_pkg_watch "k8s.io/apimachinery/pkg/watch"
@@ -199,7 +200,12 @@ func (c *wrappedKyvernoV1ClusterPolicies) Create(arg0 context.Context, arg1 *git
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1ClusterPolicies) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -212,7 +218,12 @@ func (c *wrappedKyvernoV1ClusterPolicies) Delete(arg0 context.Context, arg1 stri
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1ClusterPolicies) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -225,7 +236,12 @@ func (c *wrappedKyvernoV1ClusterPolicies) DeleteCollection(arg0 context.Context,
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1ClusterPolicies) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -238,7 +254,12 @@ func (c *wrappedKyvernoV1ClusterPolicies) Get(arg0 context.Context, arg1 string,
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1ClusterPolicies) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicyList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -251,7 +272,12 @@ func (c *wrappedKyvernoV1ClusterPolicies) List(arg0 context.Context, arg1 k8s_io
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1ClusterPolicies) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -264,7 +290,12 @@ func (c *wrappedKyvernoV1ClusterPolicies) Patch(arg0 context.Context, arg1 strin
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1ClusterPolicies) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -277,7 +308,12 @@ func (c *wrappedKyvernoV1ClusterPolicies) Update(arg0 context.Context, arg1 *git
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1ClusterPolicies) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.ClusterPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -290,7 +326,12 @@ func (c *wrappedKyvernoV1ClusterPolicies) UpdateStatus(arg0 context.Context, arg
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.UpdateStatus(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1ClusterPolicies) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -303,7 +344,12 @@ func (c *wrappedKyvernoV1ClusterPolicies) Watch(arg0 context.Context, arg1 k8s_i
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedKyvernoV1GenerateRequests wrapper
@@ -325,7 +371,12 @@ func (c *wrappedKyvernoV1GenerateRequests) Create(arg0 context.Context, arg1 *gi
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1GenerateRequests) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -338,7 +389,12 @@ func (c *wrappedKyvernoV1GenerateRequests) Delete(arg0 context.Context, arg1 str
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1GenerateRequests) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -351,7 +407,12 @@ func (c *wrappedKyvernoV1GenerateRequests) DeleteCollection(arg0 context.Context
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1GenerateRequests) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -364,7 +425,12 @@ func (c *wrappedKyvernoV1GenerateRequests) Get(arg0 context.Context, arg1 string
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1GenerateRequests) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequestList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -377,7 +443,12 @@ func (c *wrappedKyvernoV1GenerateRequests) List(arg0 context.Context, arg1 k8s_i
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1GenerateRequests) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -390,7 +461,12 @@ func (c *wrappedKyvernoV1GenerateRequests) Patch(arg0 context.Context, arg1 stri
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1GenerateRequests) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -403,7 +479,12 @@ func (c *wrappedKyvernoV1GenerateRequests) Update(arg0 context.Context, arg1 *gi
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1GenerateRequests) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.GenerateRequest, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -416,7 +497,12 @@ func (c *wrappedKyvernoV1GenerateRequests) UpdateStatus(arg0 context.Context, ar
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.UpdateStatus(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1GenerateRequests) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -429,7 +515,12 @@ func (c *wrappedKyvernoV1GenerateRequests) Watch(arg0 context.Context, arg1 k8s_
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedKyvernoV1Policies wrapper
@@ -451,7 +542,12 @@ func (c *wrappedKyvernoV1Policies) Create(arg0 context.Context, arg1 *github_com
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1Policies) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -464,7 +560,12 @@ func (c *wrappedKyvernoV1Policies) Delete(arg0 context.Context, arg1 string, arg
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1Policies) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -477,7 +578,12 @@ func (c *wrappedKyvernoV1Policies) DeleteCollection(arg0 context.Context, arg1 k
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1Policies) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.Policy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -490,7 +596,12 @@ func (c *wrappedKyvernoV1Policies) Get(arg0 context.Context, arg1 string, arg2 k
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1Policies) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.PolicyList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -503,7 +614,12 @@ func (c *wrappedKyvernoV1Policies) List(arg0 context.Context, arg1 k8s_io_apimac
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1Policies) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1.Policy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -516,7 +632,12 @@ func (c *wrappedKyvernoV1Policies) Patch(arg0 context.Context, arg1 string, arg2
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1Policies) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.Policy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.Policy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -529,7 +650,12 @@ func (c *wrappedKyvernoV1Policies) Update(arg0 context.Context, arg1 *github_com
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1Policies) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1.Policy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1.Policy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -542,7 +668,12 @@ func (c *wrappedKyvernoV1Policies) UpdateStatus(arg0 context.Context, arg1 *gith
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.UpdateStatus(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1Policies) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -555,7 +686,12 @@ func (c *wrappedKyvernoV1Policies) Watch(arg0 context.Context, arg1 k8s_io_apima
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedKyvernoV1alpha1CleanupPolicies wrapper
@@ -577,7 +713,12 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Create(arg0 context.Context, arg
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1CleanupPolicies) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -590,7 +731,12 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Delete(arg0 context.Context, arg
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha1CleanupPolicies) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -603,7 +749,12 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) DeleteCollection(arg0 context.Co
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha1CleanupPolicies) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.CleanupPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -616,7 +767,12 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Get(arg0 context.Context, arg1 s
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1CleanupPolicies) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.CleanupPolicyList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -629,7 +785,12 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) List(arg0 context.Context, arg1 
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1CleanupPolicies) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.CleanupPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -642,7 +803,12 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Patch(arg0 context.Context, arg1
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1CleanupPolicies) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha1.CleanupPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.CleanupPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -655,7 +821,12 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Update(arg0 context.Context, arg
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1CleanupPolicies) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha1.CleanupPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.CleanupPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -668,7 +839,12 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) UpdateStatus(arg0 context.Contex
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.UpdateStatus(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1CleanupPolicies) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -681,7 +857,12 @@ func (c *wrappedKyvernoV1alpha1CleanupPolicies) Watch(arg0 context.Context, arg1
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedKyvernoV1alpha1ClusterCleanupPolicies wrapper
@@ -703,7 +884,12 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Create(arg0 context.Conte
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -716,7 +902,12 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Delete(arg0 context.Conte
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -729,7 +920,12 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) DeleteCollection(arg0 con
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.ClusterCleanupPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -742,7 +938,12 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Get(arg0 context.Context,
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.ClusterCleanupPolicyList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -755,7 +956,12 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) List(arg0 context.Context
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.ClusterCleanupPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -768,7 +974,12 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Patch(arg0 context.Contex
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha1.ClusterCleanupPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.ClusterCleanupPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -781,7 +992,12 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Update(arg0 context.Conte
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha1.ClusterCleanupPolicy, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha1.ClusterCleanupPolicy, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -794,7 +1010,12 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) UpdateStatus(arg0 context
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.UpdateStatus(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -807,7 +1028,12 @@ func (c *wrappedKyvernoV1alpha1ClusterCleanupPolicies) Watch(arg0 context.Contex
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedKyvernoV1alpha2AdmissionReports wrapper
@@ -829,7 +1055,12 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Create(arg0 context.Context, ar
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2AdmissionReports) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -842,7 +1073,12 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Delete(arg0 context.Context, ar
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha2AdmissionReports) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -855,7 +1091,12 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) DeleteCollection(arg0 context.C
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha2AdmissionReports) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.AdmissionReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -868,7 +1109,12 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Get(arg0 context.Context, arg1 
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2AdmissionReports) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.AdmissionReportList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -881,7 +1127,12 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) List(arg0 context.Context, arg1
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2AdmissionReports) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.AdmissionReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -894,7 +1145,12 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Patch(arg0 context.Context, arg
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2AdmissionReports) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha2.AdmissionReport, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.AdmissionReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -907,7 +1163,12 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Update(arg0 context.Context, ar
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2AdmissionReports) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -920,7 +1181,12 @@ func (c *wrappedKyvernoV1alpha2AdmissionReports) Watch(arg0 context.Context, arg
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedKyvernoV1alpha2BackgroundScanReports wrapper
@@ -942,7 +1208,12 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Create(arg0 context.Contex
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -955,7 +1226,12 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Delete(arg0 context.Contex
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha2BackgroundScanReports) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -968,7 +1244,12 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) DeleteCollection(arg0 cont
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -981,7 +1262,12 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Get(arg0 context.Context, 
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2BackgroundScanReports) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReportList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -994,7 +1280,12 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) List(arg0 context.Context,
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1007,7 +1298,12 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Patch(arg0 context.Context
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReport, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.BackgroundScanReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1020,7 +1316,12 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Update(arg0 context.Contex
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1033,7 +1334,12 @@ func (c *wrappedKyvernoV1alpha2BackgroundScanReports) Watch(arg0 context.Context
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedKyvernoV1alpha2ClusterAdmissionReports wrapper
@@ -1055,7 +1361,12 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Create(arg0 context.Cont
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1068,7 +1379,12 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Delete(arg0 context.Cont
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1081,7 +1397,12 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) DeleteCollection(arg0 co
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterAdmissionReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1094,7 +1415,12 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Get(arg0 context.Context
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterAdmissionReportList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1107,7 +1433,12 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) List(arg0 context.Contex
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterAdmissionReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1120,7 +1451,12 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Patch(arg0 context.Conte
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterAdmissionReport, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterAdmissionReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1133,7 +1469,12 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Update(arg0 context.Cont
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1146,7 +1487,12 @@ func (c *wrappedKyvernoV1alpha2ClusterAdmissionReports) Watch(arg0 context.Conte
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedKyvernoV1alpha2ClusterBackgroundScanReports wrapper
@@ -1168,7 +1514,12 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Create(arg0 context
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1181,7 +1532,12 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Delete(arg0 context
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1194,7 +1550,12 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) DeleteCollection(ar
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterBackgroundScanReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1207,7 +1568,12 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Get(arg0 context.Co
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterBackgroundScanReportList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1220,7 +1586,12 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) List(arg0 context.C
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterBackgroundScanReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1233,7 +1604,12 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Patch(arg0 context.
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterBackgroundScanReport, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1alpha2.ClusterBackgroundScanReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1246,7 +1622,12 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Update(arg0 context
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1259,7 +1640,12 @@ func (c *wrappedKyvernoV1alpha2ClusterBackgroundScanReports) Watch(arg0 context.
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedKyvernoV1beta1UpdateRequests wrapper
@@ -1281,7 +1667,12 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Create(arg0 context.Context, arg1 
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1beta1UpdateRequests) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1294,7 +1685,12 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Delete(arg0 context.Context, arg1 
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1beta1UpdateRequests) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1307,7 +1703,12 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) DeleteCollection(arg0 context.Cont
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedKyvernoV1beta1UpdateRequests) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_kyverno_v1beta1.UpdateRequest, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1320,7 +1721,12 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Get(arg0 context.Context, arg1 str
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1beta1UpdateRequests) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_kyverno_v1beta1.UpdateRequestList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1333,7 +1739,12 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) List(arg0 context.Context, arg1 k8
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1beta1UpdateRequests) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_kyverno_v1beta1.UpdateRequest, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1346,7 +1757,12 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Patch(arg0 context.Context, arg1 s
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1beta1UpdateRequests) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1beta1.UpdateRequest, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1beta1.UpdateRequest, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1359,7 +1775,12 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Update(arg0 context.Context, arg1 
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1beta1UpdateRequests) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v1beta1.UpdateRequest, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v1beta1.UpdateRequest, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1372,7 +1793,12 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) UpdateStatus(arg0 context.Context,
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.UpdateStatus(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedKyvernoV1beta1UpdateRequests) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1385,7 +1811,12 @@ func (c *wrappedKyvernoV1beta1UpdateRequests) Watch(arg0 context.Context, arg1 k
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedWgpolicyk8sV1alpha2ClusterPolicyReports wrapper
@@ -1407,7 +1838,12 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Create(arg0 context.Con
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1420,7 +1856,12 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Delete(arg0 context.Con
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1433,7 +1874,12 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) DeleteCollection(arg0 c
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.ClusterPolicyReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1446,7 +1892,12 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Get(arg0 context.Contex
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.ClusterPolicyReportList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1459,7 +1910,12 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) List(arg0 context.Conte
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.ClusterPolicyReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1472,7 +1928,12 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Patch(arg0 context.Cont
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_policyreport_v1alpha2.ClusterPolicyReport, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.ClusterPolicyReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1485,7 +1946,12 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Update(arg0 context.Con
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1498,7 +1964,12 @@ func (c *wrappedWgpolicyk8sV1alpha2ClusterPolicyReports) Watch(arg0 context.Cont
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 
 // wrappedWgpolicyk8sV1alpha2PolicyReports wrapper
@@ -1520,7 +1991,12 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Create(arg0 context.Context, a
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Create(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1533,7 +2009,12 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Delete(arg0 context.Context, a
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Delete(arg0, arg1, arg2)
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1546,7 +2027,12 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) DeleteCollection(arg0 context.
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.DeleteCollection(arg0, arg1, arg2)
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if ret0 != nil {
+		span.RecordError(ret0)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret0.Error())
+	}
+	return ret0
 }
 func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1559,7 +2045,12 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Get(arg0 context.Context, arg1
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Get(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReportList, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1572,7 +2063,12 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) List(arg0 context.Context, arg
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.List(arg0, arg1)
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1585,7 +2081,12 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Patch(arg0 context.Context, ar
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReport, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_policyreport_v1alpha2.PolicyReport, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1598,7 +2099,12 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Update(arg0 context.Context, a
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Update(arg0, arg1, arg2)
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
 func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := github_com_kyverno_kyverno_pkg_tracing.StartSpan(
@@ -1611,5 +2117,10 @@ func (c *wrappedWgpolicyk8sV1alpha2PolicyReports) Watch(arg0 context.Context, ar
 	)
 	defer span.End()
 	arg0 = ctx
-	return c.inner.Watch(arg0, arg1)
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(go_opentelemetry_io_otel_codes.Ok, ret1.Error())
+	}
+	return ret0, ret1
 }
