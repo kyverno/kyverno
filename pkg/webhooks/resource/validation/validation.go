@@ -73,7 +73,7 @@ func (v *validationHandler) HandleValidation(
 ) (bool, string, []string) {
 	if len(policies) == 0 {
 		// invoke handleAudit as we may have some policies in audit mode to consider
-		go v.handleAudit(policyContext.NewResource, request, namespaceLabels)
+		go v.handleAudit(ctx, policyContext.NewResource, request, namespaceLabels)
 		return true, "", nil
 	}
 
@@ -139,13 +139,13 @@ func (v *validationHandler) HandleValidation(
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil
 	}
 
-	go v.handleAudit(policyContext.NewResource, request, namespaceLabels, engineResponses...)
+	go v.handleAudit(ctx, policyContext.NewResource, request, namespaceLabels, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings
 }
 
-func (v *validationHandler) buildAuditResponses(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, namespaceLabels map[string]string) ([]*response.EngineResponse, error) {
+func (v *validationHandler) buildAuditResponses(ctx context.Context, resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, namespaceLabels map[string]string) ([]*response.EngineResponse, error) {
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request, policies...)
 	if err != nil {
@@ -153,14 +153,22 @@ func (v *validationHandler) buildAuditResponses(resource unstructured.Unstructur
 	}
 	var responses []*response.EngineResponse
 	for _, policy := range policies {
-		policyContext.Policy = policy
-		policyContext.NamespaceLabels = namespaceLabels
-		responses = append(responses, engine.Validate(context.TODO(), policyContext))
+		tracing.Span(
+			ctx,
+			"pkg/webhooks/resource/validate",
+			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
+			func(ctx context.Context, span trace.Span) {
+				policyContext.Policy = policy
+				policyContext.NamespaceLabels = namespaceLabels
+				responses = append(responses, engine.Validate(ctx, policyContext))
+			},
+		)
 	}
 	return responses, nil
 }
 
 func (v *validationHandler) handleAudit(
+	ctx context.Context,
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
@@ -180,21 +188,30 @@ func (v *validationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		return
 	}
-	responses, err := v.buildAuditResponses(resource, request, namespaceLabels)
-	if err != nil {
-		v.log.Error(err, "failed to build audit responses")
-	}
-	responses = append(responses, engineResponses...)
-	report := reportutils.NewAdmissionReport(resource, request, request.Kind, responses...)
-	// if it's not a creation, the resource already exists, we can set the owner
-	if request.Operation != admissionv1.Create {
-		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
-		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
-	}
-	if len(report.GetResults()) > 0 {
-		_, err = reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
-		if err != nil {
-			v.log.Error(err, "failed to create report")
-		}
-	}
+	tracing.Span(
+		ctx,
+		"pkg/webhooks/resource/validate",
+		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
+		func(ctx context.Context, span trace.Span) {
+			responses, err := v.buildAuditResponses(ctx, resource, request, namespaceLabels)
+			if err != nil {
+				v.log.Error(err, "failed to build audit responses")
+			}
+			responses = append(responses, engineResponses...)
+			report := reportutils.NewAdmissionReport(resource, request, request.Kind, responses...)
+			// if it's not a creation, the resource already exists, we can set the owner
+			if request.Operation != admissionv1.Create {
+				gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
+				controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
+			}
+			if len(report.GetResults()) > 0 {
+				_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
+				if err != nil {
+					v.log.Error(err, "failed to create report")
+				}
+			}
+		},
+		trace.WithNewRoot(),
+		trace.WithLinks(trace.LinkFromContext(ctx)),
+	)
 }

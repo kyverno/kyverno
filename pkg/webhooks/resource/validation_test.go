@@ -18,7 +18,6 @@ import (
 )
 
 func TestValidate_failure_action_overrides(t *testing.T) {
-
 	testcases := []struct {
 		rawPolicy   []byte
 		rawResource []byte
