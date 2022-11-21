@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,17 +9,14 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"go.opentelemetry.io/otel/attribute"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-type AdmissionHandler func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
-
-func (h AdmissionHandler) WithAdmission(logger logr.Logger) http.HandlerFunc {
+func (h AdmissionHandler) WithAdmission(logger logr.Logger) HttpHandler {
 	return withAdmission(logger, h)
 }
 
-func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
+func withAdmission(logger logr.Logger, inner AdmissionHandler) HttpHandler {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		startTime := time.Now()
 		if request.Body == nil {
@@ -62,13 +58,9 @@ func withAdmission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc 
 		// start span from request context
 		ctx, span := tracing.StartSpan(
 			request.Context(),
-			"admission_webhook_operations",
-			string(admissionReview.Request.Operation),
-			attribute.String("kind", admissionReview.Request.Kind.Kind),
-			attribute.String("namespace", admissionReview.Request.Namespace),
-			attribute.String("name", admissionReview.Request.Name),
-			attribute.String("operation", string(admissionReview.Request.Operation)),
-			attribute.String("uid", string(admissionReview.Request.UID)),
+			"webhooks/handlers",
+			fmt.Sprintf("ADMISSION %s %s", admissionReview.Request.Operation, admissionReview.Request.Kind),
+			admissionRequestAttributes(admissionReview.Request)...,
 		)
 		defer span.End()
 		adminssionResponse := inner(ctx, logger, admissionReview.Request, startTime)
