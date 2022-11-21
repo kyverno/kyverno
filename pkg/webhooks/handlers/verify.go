@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -17,8 +18,8 @@ func Verify() AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		return tracing.Span1(
 			ctx,
-			"admission_webhook_operations",
-			"verify",
+			"webhooks/handlers",
+			fmt.Sprintf("VERIFY %s %s", request.Operation, request.Kind),
 			func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
 				if request.Name != "kyverno-health" || request.Namespace != config.KyvernoNamespace() {
 					return admissionutils.ResponseSuccess()
@@ -31,6 +32,7 @@ func Verify() AdmissionHandler {
 				}
 				return admissionutils.MutationResponse(bytes)
 			},
+			trace.WithAttributes(admissionRequestAttributes(request)...),
 		)
 	}
 }
