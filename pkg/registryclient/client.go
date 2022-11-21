@@ -55,7 +55,7 @@ func InitClient(options ...Option) (Client, error) {
 	c := &client{
 		keychain:     baseKeychain,
 		baseKeychain: baseKeychain,
-		transport:    gcrremote.DefaultTransport,
+		transport:    gcrremote.DefaultTransport.(*http.Transport),
 	}
 
 	for _, opt := range options {
