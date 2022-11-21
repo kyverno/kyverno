@@ -20,8 +20,21 @@ var (
 )
 
 type arg struct {
-	Type       reflect.Type
+	reflect.Type
 	IsVariadic bool
+}
+
+func (a arg) IsError() bool {
+	return goType(a.Type) == "error"
+}
+
+type ret struct {
+	reflect.Type
+	IsLast bool
+}
+
+func (r ret) IsError() bool {
+	return goType(r.Type) == "error"
 }
 
 type operation struct {
@@ -30,6 +43,10 @@ type operation struct {
 
 func (o operation) HasContext() bool {
 	return o.Method.Type.NumIn() > 0 && goType(o.Method.Type.In(0)) == "context.Context"
+}
+
+func (o operation) HasError() bool {
+	return o.Method.Type.NumIn() > 0 && goType(o.Method.Type.In(o.Method.Type.NumIn()-1)) == "error"
 }
 
 type resource struct {
@@ -65,10 +82,13 @@ func getIns(in reflect.Method) []reflect.Type {
 	return out
 }
 
-func getOuts(in reflect.Method) []reflect.Type {
-	var out []reflect.Type
+func getOuts(in reflect.Method) []ret {
+	var out []ret
 	for i := 0; i < in.Type.NumOut(); i++ {
-		out = append(out, in.Type.Out(i))
+		out = append(out, ret{
+			Type:   in.Type.Out(i),
+			IsLast: i == in.Type.NumOut()-1,
+		})
 	}
 	return out
 }
@@ -148,8 +168,20 @@ func parse(in reflect.Type) clientset {
 	return cs
 }
 
-func parseImports(cs clientset, packages ...string) []string {
-	imports := sets.NewString(packages...).Insert(cs.Type.PkgPath())
+func parseImports(client string, cs clientset, packages ...string) []string {
+	imports := sets.NewString(
+		"context",
+		"net/http",
+		"github.com/kyverno/kyverno/pkg/metrics",
+		"github.com/kyverno/kyverno/pkg/clients/middleware/metrics/"+client,
+		"github.com/kyverno/kyverno/pkg/clients/middleware/tracing/"+client,
+		"k8s.io/client-go/discovery",
+		"k8s.io/client-go/rest",
+		"github.com/kyverno/kyverno/pkg/tracing",
+		"go.opentelemetry.io/otel/attribute",
+		"go.opentelemetry.io/otel/codes",
+		cs.Type.PkgPath(),
+	)
 	for _, c := range cs.Clients {
 		imports.Insert(c.Type.PkgPath())
 		for _, r := range c.Resources {
@@ -164,10 +196,11 @@ func parseImports(cs clientset, packages ...string) []string {
 					}
 				}
 				for _, i := range getOuts(o.Method) {
+					pkg := i.PkgPath()
 					if i.Kind() == reflect.Pointer {
-						i = i.Elem()
+						i.Elem().PkgPath()
 					}
-					if i.PkgPath() != "" {
+					if pkg != "" {
 						imports.Insert(i.PkgPath())
 					}
 				}
@@ -177,7 +210,7 @@ func parseImports(cs clientset, packages ...string) []string {
 	return imports.List()
 }
 
-func executeTemplate(tpl string, cs clientset, folder string, packages ...string) {
+func executeTemplate(client string, tpl string, cs clientset, folder string, packages ...string) {
 	tmpl := template.New("xxx")
 	tmpl.Funcs(
 		template.FuncMap{
@@ -200,7 +233,7 @@ func executeTemplate(tpl string, cs clientset, folder string, packages ...string
 				}
 				return out
 			},
-			"Returns": func(in reflect.Method) []reflect.Type {
+			"Returns": func(in reflect.Method) []ret {
 				return getOuts(in)
 			},
 			"Pkg": func(in string) string {
@@ -214,6 +247,7 @@ func executeTemplate(tpl string, cs clientset, folder string, packages ...string
 	if tmpl, err := tmpl.Parse(tpl); err != nil {
 		panic(err)
 	} else {
+		folder := path.Join(folder, client)
 		if err := os.MkdirAll(folder, 0o755); err != nil {
 			panic(fmt.Sprintf("Failed to create directories for %s", folder))
 		}
@@ -223,15 +257,103 @@ func executeTemplate(tpl string, cs clientset, folder string, packages ...string
 			panic(fmt.Sprintf("Failed to create file %s", path.Join(folder, file)))
 		}
 		if err := tmpl.Execute(f, map[string]interface{}{
+			"Folder":    folder,
+			"Client":    client,
 			"Clientset": cs,
-			"Packages":  parseImports(cs, packages...),
+			"Packages":  parseImports(client, cs, packages...),
 		}); err != nil {
 			panic(err)
 		}
 	}
 }
 
-func generateMetricsWrapper(cs clientset, folder string, packages ...string) {
+func generateInterface(client string, cs clientset, folder string, packages ...string) {
+	tpl := `
+package client
+{{- $clientsetPkg := Pkg .Clientset.Type.PkgPath }}
+{{- $metricsPkg := Pkg "github.com/kyverno/kyverno/pkg/metrics" }}
+{{- $restPkg := Pkg "k8s.io/client-go/rest" }}
+{{- $middlewareMetricsPkg := print "github.com/kyverno/kyverno/pkg/clients/middleware/metrics/" .Client }}
+{{- $middlewareTracingPkg := print "github.com/kyverno/kyverno/pkg/clients/middleware/tracing/" .Client }}
+
+import (
+	{{- range $package := .Packages }}
+	{{ Pkg $package }} {{ Quote $package }}
+	{{- end }}
+)
+
+type Interface interface {
+	{{ GoType .Clientset.Type }}
+	WithMetrics(m {{ $metricsPkg }}.MetricsConfigManager, t {{ $metricsPkg }}.ClientType) Interface
+	WithTracing() Interface
+}
+
+type wrapper struct {
+	{{ GoType .Clientset.Type }}
+}
+
+type NewOption func (Interface) Interface
+
+func NewForConfig(c *{{ $restPkg }}.Config, opts ...NewOption) (Interface, error) {
+	inner, err := {{ $clientsetPkg }}.NewForConfig(c)
+	if err != nil {
+		return nil, err
+	}
+	return From(inner, opts...), nil
+}
+
+func NewForConfigAndClient(c *{{ $restPkg }}.Config, httpClient *{{ Pkg "net/http" }}.Client, opts ...NewOption) (Interface, error) {
+	inner, err := {{ $clientsetPkg }}.NewForConfigAndClient(c, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	return From(inner, opts...), nil
+}
+
+func NewForConfigOrDie(c *{{ $restPkg }}.Config, opts ...NewOption) Interface {
+	return From({{ $clientsetPkg }}.NewForConfigOrDie(c), opts...)
+}
+
+func New(c {{ $restPkg }}.Interface, opts ...NewOption) Interface {
+	return From({{ $clientsetPkg }}.New(c), opts...)
+}
+
+func from(inner {{ GoType .Clientset.Type }}, opts ...NewOption) Interface {
+	return &wrapper{inner}
+}
+
+func From(inner {{ GoType .Clientset.Type }}, opts ...NewOption) Interface {
+	i := from(inner)
+	for _, opt := range opts {
+		i = opt(i)
+	}
+	return i
+}
+
+func (i *wrapper) WithMetrics(m {{ $metricsPkg }}.MetricsConfigManager, t {{ $metricsPkg }}.ClientType) Interface {
+	return from({{ Pkg $middlewareMetricsPkg }}.Wrap(i, m, t))
+}
+
+func WithMetrics(m {{ $metricsPkg }}.MetricsConfigManager, t {{ $metricsPkg }}.ClientType) NewOption {
+	return func(i Interface) Interface {
+		return i.WithMetrics(m, t)
+	}
+}
+
+func (i *wrapper) WithTracing() Interface {
+	return from({{ Pkg $middlewareTracingPkg }}.Wrap(i))
+}
+
+func WithTracing() NewOption {
+	return func(i Interface) Interface {
+		return i.WithTracing()
+	}
+}
+`
+	executeTemplate(client, tpl, cs, folder, packages...)
+}
+
+func generateMetricsWrapper(client string, cs clientset, folder string, packages ...string) {
 	tpl := `
 package client
 {{- $clientsetPkg := Pkg .Clientset.Type.PkgPath }}
@@ -253,15 +375,6 @@ func Wrap(inner {{ GoType .Clientset.Type }}, m {{ $metricsPkg }}.MetricsConfigM
 		{{ ToLower $client.Method.Name }}: new{{ $client.Method.Name }}(inner.{{ $client.Method.Name }}(), m, t),
 		{{- end }}
 	}
-}
-
-// NewForConfig
-func NewForConfig(c *{{ $restPkg }}.Config, m {{ $metricsPkg }}.MetricsConfigManager, t {{ $metricsPkg }}.ClientType) ({{ GoType .Clientset.Type }}, error) {
-	inner, err := {{ $clientsetPkg }}.NewForConfig(c)
-	if err != nil {
-		return nil, err
-	}
-	return Wrap(inner, m, t), nil
 }
 
 // clientset wrapper
@@ -348,10 +461,10 @@ func (c *wrapped{{ $client.Method.Name }}{{ $resource.Method.Name }}) {{ $operat
 {{- end }}
 {{- end }}
 `
-	executeTemplate(tpl, cs, folder, packages...)
+	executeTemplate(client, tpl, cs, folder, packages...)
 }
 
-func generateTracesWrapper(cs clientset, folder string, packages ...string) {
+func generateTracesWrapper(client string, cs clientset, folder string, packages ...string) {
 	tpl := `
 package client
 {{- $clientsetPkg := Pkg .Clientset.Type.PkgPath }}
@@ -359,6 +472,7 @@ package client
 {{- $restPkg := Pkg "k8s.io/client-go/rest" }}
 {{- $tracingPkg := Pkg "github.com/kyverno/kyverno/pkg/tracing" }}
 {{- $attributePkg := Pkg "go.opentelemetry.io/otel/attribute" }}
+{{- $codesPkg := Pkg "go.opentelemetry.io/otel/codes" }}
 
 import (
 	{{- range $package := .Packages }}
@@ -374,15 +488,6 @@ func Wrap(inner {{ GoType .Clientset.Type }}) {{ GoType .Clientset.Type }} {
 		{{ ToLower $client.Method.Name }}: new{{ $client.Method.Name }}(inner.{{ $client.Method.Name }}()),
 		{{- end }}
 	}
-}
-
-// NewForConfig
-func NewForConfig(c *{{ $restPkg }}.Config) ({{ GoType .Clientset.Type }}, error) {
-	inner, err := {{ $clientsetPkg }}.NewForConfig(c)
-	if err != nil {
-		return nil, err
-	}
-	return Wrap(inner), nil
 }
 
 // clientset wrapper
@@ -452,8 +557,8 @@ func (c *wrapped{{ $client.Method.Name }}{{ $resource.Method.Name }}) {{ $operat
 	{{- if $operation.HasContext }}
 	ctx, span := {{ $tracingPkg }}.StartSpan(
 		arg0,
-		"{{ $client.Method.Name }}/{{ $resource.Method.Name }}",
-		{{ Quote $operation.Method.Name }},
+		{{ Quote $.Folder }},
+		"KUBE {{ $client.Method.Name }}/{{ $resource.Method.Name }}/{{ $operation.Method.Name }}",
 		{{ $attributePkg }}.String("client", {{ Quote $client.Method.Name }}),
 		{{ $attributePkg }}.String("resource", {{ Quote $resource.Method.Name }}),
 		{{ $attributePkg }}.String("kind", {{ Quote $resource.Kind }}),
@@ -461,7 +566,7 @@ func (c *wrapped{{ $client.Method.Name }}{{ $resource.Method.Name }}) {{ $operat
 	defer span.End()
 	arg0 = ctx
 	{{- end }}
-	return c.inner.{{ $operation.Method.Name }}(
+	{{ range $i, $ret := Returns $operation.Method }}ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }} {{ end }} := c.inner.{{ $operation.Method.Name }}(
 		{{- range $i, $arg := Args $operation.Method -}}
 		{{- if $arg.IsVariadic -}}
 		arg{{ $i }}...,
@@ -470,49 +575,34 @@ func (c *wrapped{{ $client.Method.Name }}{{ $resource.Method.Name }}) {{ $operat
 		{{- end -}}
 		{{- end -}}
 	)
+	{{- if $operation.HasContext }}
+	{{- range $i, $ret := Returns $operation.Method }}
+	{{- if $ret.IsError }}
+	if ret{{ $i }} != nil {
+		span.RecordError(ret{{ $i }})
+		span.SetStatus({{ $codesPkg }}.Ok, ret{{ $i }}.Error())
+	}
+	{{- end }}
+	{{- end }}
+	{{- end }}
+	return	{{ range $i, $ret := Returns $operation.Method -}}
+	ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }}
+	{{- end }}
 }
 {{- end }}
 {{- end }}
 {{- end }}
 `
-	executeTemplate(tpl, cs, folder, packages...)
+	executeTemplate(client, tpl, cs, folder, packages...)
 }
 
 func main() {
 	kube := parse(reflect.TypeOf((*kubernetes.Interface)(nil)).Elem())
 	kyverno := parse(reflect.TypeOf((*versioned.Interface)(nil)).Elem())
-	generateMetricsWrapper(
-		kube,
-		"pkg/clients/wrappers/metrics/kube",
-		"context",
-		"github.com/kyverno/kyverno/pkg/metrics",
-		"k8s.io/client-go/discovery",
-		"k8s.io/client-go/rest",
-	)
-	generateMetricsWrapper(
-		kyverno,
-		"pkg/clients/wrappers/metrics/kyverno",
-		"context",
-		"github.com/kyverno/kyverno/pkg/metrics",
-		"k8s.io/client-go/discovery",
-		"k8s.io/client-go/rest",
-	)
-	generateTracesWrapper(
-		kube,
-		"pkg/clients/wrappers/traces/kube",
-		"context",
-		"github.com/kyverno/kyverno/pkg/tracing",
-		"go.opentelemetry.io/otel/attribute",
-		"k8s.io/client-go/discovery",
-		"k8s.io/client-go/rest",
-	)
-	generateTracesWrapper(
-		kyverno,
-		"pkg/clients/wrappers/traces/kyverno",
-		"context",
-		"github.com/kyverno/kyverno/pkg/tracing",
-		"go.opentelemetry.io/otel/attribute",
-		"k8s.io/client-go/discovery",
-		"k8s.io/client-go/rest",
-	)
+	generateInterface("kube", kube, "pkg/clients")
+	generateInterface("kyverno", kyverno, "pkg/clients")
+	generateMetricsWrapper("kube", kube, "pkg/clients/middleware/metrics")
+	generateMetricsWrapper("kyverno", kyverno, "pkg/clients/middleware/metrics")
+	generateTracesWrapper("kube", kube, "pkg/clients/middleware/tracing")
+	generateTracesWrapper("kyverno", kyverno, "pkg/clients/middleware/tracing")
 }
