@@ -7,7 +7,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-type NamespaceableInterface interface {
+type namespaceableInterface interface {
 	Namespace(string) dynamic.ResourceInterface
 }
 
@@ -29,7 +29,7 @@ type withMetricsNamespaceable struct {
 	metrics    metrics.MetricsConfigManager
 	resource   string
 	clientType metrics.ClientType
-	inner      NamespaceableInterface
+	inner      namespaceableInterface
 }
 
 func (c *withMetricsNamespaceable) Namespace(namespace string) dynamic.ResourceInterface {
@@ -42,7 +42,7 @@ func (c *withMetrics) Resource(gvr schema.GroupVersionResource) dynamic.Namespac
 	inner := c.inner.Resource(gvr)
 	return struct {
 		dynamic.ResourceInterface
-		NamespaceableInterface
+		namespaceableInterface
 	}{
 		resource.WithMetrics(inner, recorder),
 		&withMetricsNamespaceable{c.metrics, gvr.Resource, c.clientType, inner},
@@ -56,7 +56,7 @@ type withTracing struct {
 type withTracingNamespaceable struct {
 	client string
 	kind   string
-	inner  NamespaceableInterface
+	inner  namespaceableInterface
 }
 
 func (c *withTracingNamespaceable) Namespace(namespace string) dynamic.ResourceInterface {
@@ -69,7 +69,7 @@ func (c *withTracing) Resource(gvr schema.GroupVersionResource) dynamic.Namespac
 	kind := gvr.Resource
 	return struct {
 		dynamic.ResourceInterface
-		NamespaceableInterface
+		namespaceableInterface
 	}{
 		resource.WithTracing(inner, client, kind),
 		&withTracingNamespaceable{client, kind, inner},
