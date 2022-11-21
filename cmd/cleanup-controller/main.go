@@ -127,11 +127,7 @@ func setupSignals() (context.Context, context.CancelFunc) {
 
 func main() {
 	// config
-	appConfig := internal.NewConfiguration(
-		internal.WithProfiling(),
-		internal.WithTracing(),
-		internal.WithKubeconfig(),
-	)
+	appConfig := internal.NewConfiguration(internal.WithProfiling(), internal.WithTracing())
 	// parse flags
 	parseFlags(appConfig)
 	// setup logger
@@ -143,8 +139,11 @@ func main() {
 	internal.ShowVersion(logger)
 	// start profiling
 	internal.SetupProfiling(logger)
-	// create kube client
-	rawClient := internal.CreateKubernetesClient(logger)
+	// create client config and kube clients
+	clientConfig, rawClient, err := createKubeClients(logger)
+	if err != nil {
+		os.Exit(1)
+	}
 	// setup signals
 	signalCtx, signalCancel := setupSignals()
 	defer signalCancel()
