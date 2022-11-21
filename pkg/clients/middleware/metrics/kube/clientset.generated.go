@@ -201,15 +201,6 @@ func Wrap(inner k8s_io_client_go_kubernetes.Interface, m github_com_kyverno_kyve
 	}
 }
 
-// NewForConfig
-func NewForConfig(c *k8s_io_client_go_rest.Config, m github_com_kyverno_kyverno_pkg_metrics.MetricsConfigManager, t github_com_kyverno_kyverno_pkg_metrics.ClientType) (k8s_io_client_go_kubernetes.Interface, error) {
-	inner, err := k8s_io_client_go_kubernetes.NewForConfig(c)
-	if err != nil {
-		return nil, err
-	}
-	return Wrap(inner, m, t), nil
-}
-
 // clientset wrapper
 type clientset struct {
 	inner                        k8s_io_client_go_kubernetes.Interface
