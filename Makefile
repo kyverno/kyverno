@@ -343,8 +343,8 @@ codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 codegen-client-wrappers: $(GOIMPORTS) ## Generate client wrappers
 	@echo Generate client wrappers... >&2
 	@go run ./hack/main.go
-	@go fmt ./pkg/clients/wrappers/...
-	@$(GOIMPORTS) -w ./pkg/clients/wrappers
+	@$(GOIMPORTS) -w ./pkg/clients
+	@go fmt ./pkg/clients/...
 
 .PHONY: codegen-client-all
 codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
