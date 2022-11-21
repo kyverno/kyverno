@@ -27,6 +27,7 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -81,9 +82,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	dynamicClient, err := dynamic.NewForConfig(clientConfig)
+	if err != nil {
+		logger.Error(err, "Failed to create dynamic client")
+		os.Exit(1)
+	}
+
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, nil, 15*time.Minute)
+	client, err := dclient.NewClient(
+		signalCtx,
+		dynamicClient,
+		kubeClient,
+		15*time.Minute,
+	)
 	if err != nil {
 		logger.Error(err, "Failed to create client")
 		os.Exit(1)
