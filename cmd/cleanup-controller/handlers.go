@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -20,7 +21,7 @@ func NewHandlers(client dclient.Interface) CleanupPolicyHandlers {
 	}
 }
 
-func (h *cleanupPolicyHandlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
+func (h *cleanupPolicyHandlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
 	if request.SubResource != "" {
 		logger.V(4).Info("skip policy validation on status update")
 		return admissionutils.ResponseSuccess()

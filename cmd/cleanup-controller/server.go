@@ -26,7 +26,7 @@ type Server interface {
 
 type CleanupPolicyHandlers interface {
 	// Validate performs the validation check on policy resources
-	Validate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 }
 
 type server struct {
@@ -44,8 +44,11 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		ValidatingWebhookServicePath,
-		handlers.AdmissionHandler(policyHandlers.Validate).
-			WithAdmission(logger.Logger.WithName("validate")),
+		http.HandlerFunc(
+			handlers.AdmissionHandler(policyHandlers.Validate).
+				WithAdmission(logger.Logger.WithName("validate")).
+				WithTrace(),
+		),
 	)
 	return &server{
 		server: &http.Server{

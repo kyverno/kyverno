@@ -339,8 +339,15 @@ codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@echo Generate informers... >&2
 	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) --versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
 
+.PHONY: codegen-client-wrappers
+codegen-client-wrappers: $(GOIMPORTS) ## Generate client wrappers
+	@echo Generate client wrappers... >&2
+	@go run ./hack/main.go
+	@$(GOIMPORTS) -w ./pkg/clients
+	@go fmt ./pkg/clients/...
+
 .PHONY: codegen-client-all
-codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers ## Generate clientset, listers and informers
+codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
@@ -391,7 +398,7 @@ codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
 	@VERSION='"{{.Chart.AppVersion}}"' TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.helm/labels.yaml
 	@VERSION=dummy TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.helm/kustomization.yaml
 	@echo Generate helm crds... >&2
-	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' -e '/^  creationTimestamp: null/i \ \ \ \ {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}' > ./charts/kyverno/templates/crds.yaml
+	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}' > ./charts/kyverno/templates/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
