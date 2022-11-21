@@ -34,15 +34,6 @@ func Wrap(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interf
 	}
 }
 
-// NewForConfig
-func NewForConfig(c *k8s_io_client_go_rest.Config, m github_com_kyverno_kyverno_pkg_metrics.MetricsConfigManager, t github_com_kyverno_kyverno_pkg_metrics.ClientType) (github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface, error) {
-	inner, err := github_com_kyverno_kyverno_pkg_client_clientset_versioned.NewForConfig(c)
-	if err != nil {
-		return nil, err
-	}
-	return Wrap(inner, m, t), nil
-}
-
 // clientset wrapper
 type clientset struct {
 	inner               github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface

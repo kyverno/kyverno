@@ -12,8 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	kubeclientmetrics "github.com/kyverno/kyverno/pkg/clients/wrappers/metrics/kube"
-	kubeclienttraces "github.com/kyverno/kyverno/pkg/clients/wrappers/traces/kube"
+	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -68,11 +67,14 @@ func createKubeClients(logger logr.Logger) (*rest.Config, kubernetes.Interface, 
 func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, metricsConfig *metrics.MetricsConfig) (kubernetes.Interface, dclient.Interface, error) {
 	logger = logger.WithName("instrumented-clients")
 	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	kubeClient, err := kubeclientmetrics.NewForConfig(clientConfig, metricsConfig, metrics.KubeClient)
+	kubeClient, err := kubeclient.NewForConfig(
+		clientConfig,
+		kubeclient.WithMetrics(metricsConfig, metrics.KubeClient),
+		kubeclient.WithTracing(),
+	)
 	if err != nil {
 		return nil, nil, err
 	}
-	kubeClient = kubeclienttraces.Wrap(kubeClient)
 	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, resyncPeriod)
 	if err != nil {
 		return nil, nil, err
