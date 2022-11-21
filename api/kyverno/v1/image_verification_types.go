@@ -256,8 +256,6 @@ func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorLis
 
 	if len(as.Entries) == 0 {
 		errs = append(errs, field.Invalid(path, as, "An entry is required"))
-	} else if len(as.Entries) > 1 {
-		errs = append(errs, field.Invalid(path, as, "Only one entry is currently supported"))
 	}
 
 	entriesPath := path.Child("entries")

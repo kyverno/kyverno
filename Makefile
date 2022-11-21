@@ -339,8 +339,15 @@ codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@echo Generate informers... >&2
 	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) --versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
 
+.PHONY: codegen-client-wrappers
+codegen-client-wrappers: $(GOIMPORTS) ## Generate client wrappers
+	@echo Generate client wrappers... >&2
+	@go run ./hack/main.go
+	@go fmt ./pkg/clients/wrappers/...
+	@$(GOIMPORTS) -w ./pkg/clients/wrappers
+
 .PHONY: codegen-client-all
-codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers ## Generate clientset, listers and informers
+codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers codegen-client-wrappers ## Generate clientset, listers and informers
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
@@ -640,6 +647,38 @@ gh-install-pin-github-action:
 gh-pin-actions: gh-install-pin-github-action
 	@pin-github-action ./.github/workflows/release.yaml
 
+#############
+# PERF TEST #
+#############
+
+PERF_TEST_NODE_COUNT		?= 3
+PERF_TEST_MEMORY_REQUEST	?= "1Gi"
+
+.PHONY: test-perf
+test-perf: $(PACKAGE_SHIM)
+	GO111MODULE=off GOPATH=$(GOPATH_SHIM) go get k8s.io/perf-tests || true
+	cd $(GOPATH_SHIM)/src/k8s.io/perf-tests && \
+	GOPATH=$(GOPATH_SHIM) ./run-e2e.sh cluster-loader2 \
+		--testconfig=./testing/load/config.yaml \
+		--provider=kind \
+		--kubeconfig=${HOME}/.kube/config \
+		--nodes=$(PERF_TEST_NODE_COUNT) \
+		--prometheus-memory-request=$(PERF_TEST_MEMORY_REQUEST) \
+		--enable-prometheus-server=true \
+		--tear-down-prometheus-server=true \
+		--prometheus-apiserver-scrape-port=6443 \
+		--prometheus-scrape-kubelets=true \
+		--prometheus-scrape-master-kubelets=true \
+		--prometheus-scrape-etcd=true \
+		--prometheus-scrape-kube-proxy=true \
+		--prometheus-kube-proxy-selector-key=k8s-app \
+		--prometheus-scrape-node-exporter=false \
+		--prometheus-scrape-kube-state-metrics=true \
+		--prometheus-scrape-metrics-server=true \
+		--prometheus-pvc-storage-class=standard \
+		--v=2 \
+		--report-dir=.
+
 ########
 # KIND #
 ########
@@ -690,12 +729,12 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
-	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --wait --create-namespace ./charts/kyverno-policies
 
 .PHONY: kind-deploy-metrics-server
 kind-deploy-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) upgrade --install metrics-server --repo https://charts.bitnami.com/bitnami metrics-server -n kube-system \
+	@$(HELM) upgrade --install metrics-server --namespace kube-system --wait --repo https://charts.bitnami.com/bitnami metrics-server \
 		--set extraArgs={--kubelet-insecure-tls=true} \
 		--set apiService.create=true
 
@@ -705,11 +744,16 @@ kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-ky
 .PHONY: kind-deploy-reporter
 kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
-	@$(HELM) upgrade --install policy-reporter --repo https://kyverno.github.io/policy-reporter policy-reporter -n policy-reporter \
+	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --wait --repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--set ui.enabled=true \
 		--set kyvernoPlugin.enabled=true \
 		--create-namespace
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
+
+deploy-kube-prom-stack: $(HELM)
+	@$(HELM) upgrade --install kube-prometheus-stack --namespace monitoring --create-namespace --wait \
+		--repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack \
+		--values ./scripts/kube-prometheus-stack.yaml
 
 ########
 # HELP #
