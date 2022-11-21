@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 )
 
 const (
@@ -595,4 +596,8 @@ func main() {
 	dynamicResource := parseResource(reflect.TypeOf((*dynamic.ResourceInterface)(nil)).Elem())
 	generateResource(dynamicResource, "pkg/clients/dynamic/resource")
 	generateInterface(dynamicInterface, "pkg/clients/dynamic")
+	metadataInterface := parse(reflect.TypeOf((*metadata.Interface)(nil)).Elem())
+	metadataResource := parseResource(reflect.TypeOf((*metadata.ResourceInterface)(nil)).Elem())
+	generateInterface(metadataInterface, "pkg/clients/metadata")
+	generateResource(metadataResource, "pkg/clients/metadata/resource")
 }
