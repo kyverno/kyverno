@@ -1,4 +1,4 @@
-package client
+package clientset
 
 import (
 	admissionregistrationv1 "github.com/kyverno/kyverno/pkg/clients/kube/admissionregistrationv1"
@@ -290,7 +290,7 @@ func (c *clientset) StorageV1beta1() k8s_io_client_go_kubernetes_typed_storage_v
 	return c.storagev1beta1
 }
 
-func WithMetrics(inner k8s_io_client_go_kubernetes.Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes.Interface {
+func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes.Interface {
 	return &clientset{
 		inner:                        inner,
 		admissionregistrationv1:      admissionregistrationv1.WithMetrics(inner.AdmissionregistrationV1(), metrics, clientType),
@@ -342,7 +342,7 @@ func WithMetrics(inner k8s_io_client_go_kubernetes.Interface, metrics metrics.Me
 	}
 }
 
-func WithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_go_kubernetes.Interface {
+func WrapWithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_go_kubernetes.Interface {
 	return &clientset{
 		inner:                        inner,
 		admissionregistrationv1:      admissionregistrationv1.WithTracing(inner.AdmissionregistrationV1(), "AdmissionregistrationV1"),

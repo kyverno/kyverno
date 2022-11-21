@@ -1,4 +1,4 @@
-package client
+package clientset
 
 import (
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -44,7 +44,7 @@ func (c *clientset) Wgpolicyk8sV1alpha2() github_com_kyverno_kyverno_pkg_client_
 	return c.wgpolicyk8sv1alpha2
 }
 
-func WithMetrics(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface {
+func WrapWithMetrics(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface {
 	return &clientset{
 		inner:               inner,
 		kyvernov1:           kyvernov1.WithMetrics(inner.KyvernoV1(), metrics, clientType),
@@ -55,7 +55,7 @@ func WithMetrics(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned
 	}
 }
 
-func WithTracing(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface) github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface {
+func WrapWithTracing(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface) github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface {
 	return &clientset{
 		inner:               inner,
 		kyvernov1:           kyvernov1.WithTracing(inner.KyvernoV1(), "KyvernoV1"),
