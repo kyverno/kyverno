@@ -56,7 +56,6 @@ type Interface interface {
 type client struct {
 	client          dynamic.Interface
 	discoveryClient IDiscovery
-	clientConfig    *rest.Config
 	kclient         kubernetes.Interface
 	metricsConfig   metrics.MetricsConfigManager
 	restClient      rest.Interface
@@ -69,16 +68,13 @@ func NewClient(ctx context.Context, config *rest.Config, kclient kubernetes.Inte
 		return nil, err
 	}
 	client := client{
-		client:       dclient,
-		clientConfig: config,
-		kclient:      kclient,
-		restClient:   kclient.Discovery().RESTClient(),
+		client:     dclient,
+		kclient:    kclient,
+		restClient: kclient.Discovery().RESTClient(),
 	}
-
 	if metricsConfig != nil {
 		client.metricsConfig = metricsConfig
 	}
-
 	// Set discovery client
 	discoveryClient := &serverPreferredResources{
 		cachedClient: memory.NewMemCacheClient(kclient.Discovery()),
