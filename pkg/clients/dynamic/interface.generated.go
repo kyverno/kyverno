@@ -4,24 +4,24 @@ import (
 	"net/http"
 
 	"github.com/kyverno/kyverno/pkg/metrics"
-	k8s_io_client_go_kubernetes "k8s.io/client-go/kubernetes"
+	k8s_io_client_go_dynamic "k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
 
 type Interface interface {
-	k8s_io_client_go_kubernetes.Interface
+	k8s_io_client_go_dynamic.Interface
 	WithMetrics(m metrics.MetricsConfigManager, t metrics.ClientType) Interface
 	WithTracing() Interface
 }
 
 type wrapper struct {
-	k8s_io_client_go_kubernetes.Interface
+	k8s_io_client_go_dynamic.Interface
 }
 
 type NewOption func(Interface) Interface
 
 func NewForConfig(c *rest.Config, opts ...NewOption) (Interface, error) {
-	inner, err := k8s_io_client_go_kubernetes.NewForConfig(c)
+	inner, err := k8s_io_client_go_dynamic.NewForConfig(c)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func NewForConfig(c *rest.Config, opts ...NewOption) (Interface, error) {
 }
 
 func NewForConfigAndClient(c *rest.Config, httpClient *http.Client, opts ...NewOption) (Interface, error) {
-	inner, err := k8s_io_client_go_kubernetes.NewForConfigAndClient(c, httpClient)
+	inner, err := k8s_io_client_go_dynamic.NewForConfigAndClient(c, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -37,14 +37,14 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client, opts ...NewO
 }
 
 func NewForConfigOrDie(c *rest.Config, opts ...NewOption) Interface {
-	return From(k8s_io_client_go_kubernetes.NewForConfigOrDie(c), opts...)
+	return From(k8s_io_client_go_dynamic.NewForConfigOrDie(c), opts...)
 }
 
-func from(inner k8s_io_client_go_kubernetes.Interface, opts ...NewOption) Interface {
+func from(inner k8s_io_client_go_dynamic.Interface, opts ...NewOption) Interface {
 	return &wrapper{inner}
 }
 
-func From(inner k8s_io_client_go_kubernetes.Interface, opts ...NewOption) Interface {
+func From(inner k8s_io_client_go_dynamic.Interface, opts ...NewOption) Interface {
 	i := from(inner)
 	for _, opt := range opts {
 		i = opt(i)

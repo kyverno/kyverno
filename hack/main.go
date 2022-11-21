@@ -278,10 +278,6 @@ func NewForConfigOrDie(c *rest.Config, opts ...NewOption) Interface {
 	return From({{ Pkg .Target.Type.PkgPath }}.NewForConfigOrDie(c), opts...)
 }
 
-func New(c rest.Interface, opts ...NewOption) Interface {
-	return From({{ Pkg .Target.Type.PkgPath }}.New(c), opts...)
-}
-
 func from(inner {{ GoType .Target }}, opts ...NewOption) Interface {
 	return &wrapper{inner}
 }
@@ -595,6 +591,8 @@ func main() {
 	kyverno := parse(reflect.TypeOf((*versioned.Interface)(nil)).Elem())
 	generateClientset(kyverno, "pkg/clients/kyverno")
 	generateInterface(kyverno, "pkg/clients/kyverno")
+	dynamicInterface := parse(reflect.TypeOf((*dynamic.Interface)(nil)).Elem())
 	dynamicResource := parseResource(reflect.TypeOf((*dynamic.ResourceInterface)(nil)).Elem())
 	generateResource(dynamicResource, "pkg/clients/dynamic/resource")
+	generateInterface(dynamicInterface, "pkg/clients/dynamic")
 }

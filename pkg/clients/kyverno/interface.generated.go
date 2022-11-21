@@ -40,10 +40,6 @@ func NewForConfigOrDie(c *rest.Config, opts ...NewOption) Interface {
 	return From(github_com_kyverno_kyverno_pkg_client_clientset_versioned.NewForConfigOrDie(c), opts...)
 }
 
-func New(c rest.Interface, opts ...NewOption) Interface {
-	return From(github_com_kyverno_kyverno_pkg_client_clientset_versioned.New(c), opts...)
-}
-
 func from(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface, opts ...NewOption) Interface {
 	return &wrapper{inner}
 }

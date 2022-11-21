@@ -1,4 +1,4 @@
-package resource
+package clientset
 
 import (
 	"github.com/kyverno/kyverno/pkg/clients/dynamic/resource"
@@ -11,11 +11,11 @@ type NamespaceableInterface interface {
 	Namespace(string) dynamic.ResourceInterface
 }
 
-func WithMetrics(inner dynamic.Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) dynamic.Interface {
+func WrapWithMetrics(inner dynamic.Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) dynamic.Interface {
 	return &withMetrics{inner, metrics, clientType}
 }
 
-func WithTracing(inner dynamic.Interface) dynamic.Interface {
+func WrapWithTracing(inner dynamic.Interface) dynamic.Interface {
 	return &withTracing{inner}
 }
 
