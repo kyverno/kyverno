@@ -22,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
+	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
@@ -53,9 +54,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	metadataclient "k8s.io/client-go/metadata"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -123,59 +122,6 @@ func parseFlags(config internal.Configuration) {
 	// DEPRECATED: remove in 1.9
 	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
 	flag.Parse()
-}
-
-func createKubeClients(logger logr.Logger) (*rest.Config, kubernetes.Interface, metadataclient.Interface, error) {
-	logger = logger.WithName("kube-clients")
-	logger.Info("create kube clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	metadataClient, err := metadataclient.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return clientConfig, kubeClient, metadataClient, nil
-}
-
-func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, metricsConfig *metrics.MetricsConfig) (kubernetes.Interface, kubernetes.Interface, versioned.Interface, dclient.Interface, error) {
-	logger = logger.WithName("instrumented-clients")
-	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	kubeClient, err := kubeclient.NewForConfig(
-		clientConfig,
-		kubeclient.WithMetrics(metricsConfig, metrics.KubeClient),
-		kubeclient.WithTracing(),
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
-	kubeClientLeaderElection, err := kubeclient.NewForConfig(
-		clientConfig,
-		kubeclient.WithMetrics(metricsConfig, metrics.KubeClient),
-		kubeclient.WithTracing(),
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	kyvernoClient, err := kyvernoclient.NewForConfig(
-		clientConfig,
-		kyvernoclient.WithMetrics(metricsConfig, metrics.KubeClient),
-		kyvernoclient.WithTracing(),
-	)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	return kubeClient, kubeClientLeaderElection, kyvernoClient, dynamicClient, nil
 }
 
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
@@ -474,12 +420,8 @@ func main() {
 	internal.ShowVersion(logger)
 	// start profiling
 	internal.SetupProfiling(logger)
-	// create client config and kube clients
-	clientConfig, rawClient, metadataClient, err := createKubeClients(logger)
-	if err != nil {
-		logger.Error(err, "failed to create kubernetes clients")
-		os.Exit(1)
-	}
+	// create raw client
+	rawClient := internal.CreateKubernetesClient(logger)
 	// setup metrics
 	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
 	if err != nil {
@@ -493,9 +435,13 @@ func main() {
 	signalCtx, signalCancel := setupSignals()
 	defer signalCancel()
 	// create instrumented clients
-	kubeClient, kubeClientLeaderElection, kyvernoClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, metricsConfig)
+	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
+	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
+	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KyvernoClient), kyvernoclient.WithTracing())
+	metadataClient := internal.CreateMetadataClient(logger, metadataclient.WithMetrics(metricsConfig, metrics.KyvernoClient), metadataclient.WithTracing())
+	dynamicClient, err := dclient.NewClient(signalCtx, internal.CreateClientConfig(logger), kubeClient, metricsConfig, 15*time.Minute)
 	if err != nil {
-		logger.Error(err, "failed to create instrument clients")
+		logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
 	}
 	// setup tracing
@@ -517,9 +463,7 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	configuration, err := config.NewConfiguration(
-		kubeClient,
-	)
+	configuration, err := config.NewConfiguration(kubeClient)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
@@ -588,7 +532,7 @@ func main() {
 		logger.WithName("leader-election"),
 		"kyverno",
 		config.KyvernoNamespace(),
-		kubeClientLeaderElection,
+		leaderElectionClient,
 		config.KyvernoPodName(),
 		leaderElectionRetryPeriod,
 		func(ctx context.Context) {
