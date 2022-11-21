@@ -550,7 +550,6 @@ func executeTemplate(tpl string, data interface{}, folder string, file string) {
 	if tmpl, err := tmpl.Parse(tpl); err != nil {
 		panic(err)
 	} else {
-		folder := path.Join(folder, client)
 		if err := os.MkdirAll(folder, 0o755); err != nil {
 			panic(fmt.Sprintf("Failed to create directories for %s", folder))
 		}
