@@ -55,6 +55,7 @@ type ApplyCommandConfig struct {
 	PolicyReport    bool
 	Stdin           bool
 	RegistryAccess  bool
+	AuditWarn       bool
 	ResourcePaths   []string
 	PolicyPaths     []string
 }
@@ -163,6 +164,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.RegistryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().StringVarP(&applyCommandConfig.KubeConfig, "kubeconfig", "", "", "path to kubeconfig file with authorization and master location information")
 	cmd.Flags().StringVarP(&applyCommandConfig.Context, "context", "", "", "The name of the kubeconfig context to use")
+	cmd.Flags().BoolVarP(&applyCommandConfig.AuditWarn, "audit-warn", "", false, "If set to true, will flag audit policies as warnings instead of failures")
 	return cmd
 }
 
@@ -360,6 +362,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 				Rc:                   rc,
 				PrintPatchResource:   true,
 				Client:               dClient,
+				AuditWarn:            c.AuditWarn,
 			}
 			_, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {

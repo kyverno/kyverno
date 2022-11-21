@@ -83,6 +83,7 @@ type ApplyPolicyConfig struct {
 	PrintPatchResource        bool
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
+	AuditWarn                 bool
 }
 
 // HasVariables - check for variables in the policy
@@ -483,7 +484,7 @@ OuterLoop:
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
 		validateResponse = engine.Validate(policyContext)
-		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport)
+		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
 	if validateResponse != nil && !validateResponse.IsEmpty() {
@@ -493,7 +494,7 @@ OuterLoop:
 	verifyImageResponse, _ := engine.VerifyAndPatchImages(policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
-		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport)
+		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
 	var policyHasGenerate bool
@@ -524,7 +525,7 @@ OuterLoop:
 			}
 			engineResponses = append(engineResponses, generateResponse)
 		}
-		updateResultCounts(c.Policy, generateResponse, resPath, c.Rc)
+		updateResultCounts(c.Policy, generateResponse, resPath, c.Rc, c.AuditWarn)
 	}
 
 	return engineResponses, info, nil
@@ -676,7 +677,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
-func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) Info {
+func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool, auditWarn bool) Info {
 	var violatedRules []kyvernov1.ViolatedRule
 
 	printCount := 0
@@ -701,11 +702,16 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 					vrule.Status = policyreportv1alpha2.StatusPass
 
 				case response.RuleStatusFail:
+					auditWarning := false
 					ann := policy.GetAnnotations()
 					if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
 						rc.Warn++
 						vrule.Status = policyreportv1alpha2.StatusWarn
 						break
+					} else if auditWarn && validateResponse.GetValidationFailureAction().Audit() {
+						rc.Warn++
+						auditWarning = true
+						vrule.Status = policyreportv1alpha2.StatusWarn
 					} else {
 						rc.Fail++
 						vrule.Status = policyreportv1alpha2.StatusFail
@@ -713,7 +719,11 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 
 					if !policyReport {
 						if printCount < 1 {
-							fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.GetName(), resPath)
+							if auditWarning {
+								fmt.Printf("\npolicy %s -> resource %s failed as audit warning: \n", policy.GetName(), resPath)
+							} else {
+								fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.GetName(), resPath)
+							}
 							printCount++
 						}
 
@@ -766,7 +776,7 @@ func buildPVInfo(er *response.EngineResponse, violatedRules []kyvernov1.Violated
 	return info
 }
 
-func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
+func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *response.EngineResponse, resPath string, rc *ResultCounts, auditWarn bool) {
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
@@ -782,7 +792,12 @@ func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *respon
 						printCount++
 					}
 					fmt.Printf("%d. %s - %s\n", i+1, ruleResponse.Name, ruleResponse.Message)
-					rc.Fail++
+
+					if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
+						rc.Warn++
+					} else {
+						rc.Fail++
+					}
 				}
 				continue
 			}
