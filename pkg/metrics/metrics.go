@@ -58,21 +58,21 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 	var err error
 	meter := global.MeterProvider().Meter(meterName)
 
-	m.policyResultsMetric, err = meter.SyncInt64().Counter("kyverno_policy_results_total", instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"))
+	m.policyResultsMetric, err = meter.SyncInt64().Counter("kyverno_policy_results", instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_policy_results_total")
+		m.Log.Error(err, "Failed to create instrument, kyverno_policy_results")
 		return nil, err
 	}
 
-	m.policyChangesMetric, err = meter.SyncInt64().Counter("kyverno_policy_changes_total", instrument.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
+	m.policyChangesMetric, err = meter.SyncInt64().Counter("kyverno_policy_changes", instrument.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_policy_changes_total")
+		m.Log.Error(err, "Failed to create instrument, kyverno_policy_changes")
 		return nil, err
 	}
 
-	m.admissionRequestsMetric, err = meter.SyncInt64().Counter("kyverno_admission_requests_total", instrument.WithDescription("can be used to track the number of admission requests encountered by Kyverno in the cluster"))
+	m.admissionRequestsMetric, err = meter.SyncInt64().Counter("kyverno_admission_requests", instrument.WithDescription("can be used to track the number of admission requests encountered by Kyverno in the cluster"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_admission_requests_total")
+		m.Log.Error(err, "Failed to create instrument, kyverno_admission_requests")
 		return nil, err
 	}
 
@@ -89,15 +89,15 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 	}
 
 	// Register Async Callbacks
-	m.policyRuleInfoMetric, err = meter.AsyncFloat64().Gauge("kyverno_policy_rule_info_total", instrument.WithDescription("can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster"))
+	m.policyRuleInfoMetric, err = meter.AsyncFloat64().Gauge("kyverno_policy_rule_info", instrument.WithDescription("can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_policy_rule_info_total")
+		m.Log.Error(err, "Failed to create instrument, kyverno_policy_rule_info")
 		return nil, err
 	}
 
-	m.clientQueriesMetric, err = meter.SyncInt64().Counter("kyverno_client_queries_total", instrument.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
+	m.clientQueriesMetric, err = meter.SyncInt64().Counter("kyverno_client_queries", instrument.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_client_queries_total")
+		m.Log.Error(err, "Failed to create instrument, kyverno_client_queries")
 		return nil, err
 	}
 
