@@ -2,6 +2,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: |
-      kubectl delete ur -A --all
-      kubectl delete -f cloned-secret.yaml --ignore-not-found=true
+  - command: kubectl delete ur -A --all
