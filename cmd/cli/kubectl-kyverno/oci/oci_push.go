@@ -12,6 +12,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
+	"github.com/kyverno/kyverno/pkg/openapi"
+	policyvalidation "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/spf13/cobra"
 	"go.uber.org/multierr"
 	"gopkg.in/yaml.v3"
@@ -39,7 +41,15 @@ kyverno oci push -p policies. -i <imgref>`,
 				return fmt.Errorf("unable to read policy file or directory %s: %w", policyRef, multierr.Combine(errs...))
 			}
 
-			// TODO: validate policy
+			openApiManager, err := openapi.NewManager()
+			if err != nil {
+				return fmt.Errorf("creating openapi manager: %v", err)
+			}
+			for _, policy := range policies {
+				if _, err := policyvalidation.Validate(policy, nil, true, openApiManager); err != nil {
+					return fmt.Errorf("validating policy %s: %v", policy.GetName(), err)
+				}
+			}
 
 			img := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
 			img = mutate.ConfigMediaType(img, policyConfigMediaType)
