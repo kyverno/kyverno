@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	cronjobs "github.com/kyverno/kyverno/pkg/clients/kube/batchv1/cronjobs"
 	jobs "github.com/kyverno/kyverno/pkg/clients/kube/batchv1/jobs"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -14,6 +15,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_batch_v1.BatchV1Interfa
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_batch_v1.BatchV1Interface, client string) k8s_io_client_go_kubernetes_typed_batch_v1.BatchV1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_batch_v1.BatchV1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_batch_v1.BatchV1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -47,4 +52,19 @@ func (c *withTracing) CronJobs(namespace string) k8s_io_client_go_kubernetes_typ
 }
 func (c *withTracing) Jobs(namespace string) k8s_io_client_go_kubernetes_typed_batch_v1.JobInterface {
 	return jobs.WithTracing(c.inner.Jobs(namespace), c.client, "Job")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_batch_v1.BatchV1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) CronJobs(namespace string) k8s_io_client_go_kubernetes_typed_batch_v1.CronJobInterface {
+	return cronjobs.WithLogging(c.inner.CronJobs(namespace), c.logger.WithValues("resource", "CronJobs").WithValues("namespace", namespace))
+}
+func (c *withLogging) Jobs(namespace string) k8s_io_client_go_kubernetes_typed_batch_v1.JobInterface {
+	return jobs.WithLogging(c.inner.Jobs(namespace), c.logger.WithValues("resource", "Jobs").WithValues("namespace", namespace))
 }

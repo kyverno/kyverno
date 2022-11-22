@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	certificatesigningrequests "github.com/kyverno/kyverno/pkg/clients/kube/certificatesv1/certificatesigningrequests"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_certificates_v1 "k8s.io/client-go/kubernetes/typed/certificates/v1"
@@ -13,6 +14,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_certificates_v1.Certifi
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_certificates_v1.CertificatesV1Interface, client string) k8s_io_client_go_kubernetes_typed_certificates_v1.CertificatesV1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_certificates_v1.CertificatesV1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_certificates_v1.CertificatesV1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -39,4 +44,16 @@ func (c *withTracing) RESTClient() rest.Interface {
 }
 func (c *withTracing) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1.CertificateSigningRequestInterface {
 	return certificatesigningrequests.WithTracing(c.inner.CertificateSigningRequests(), c.client, "CertificateSigningRequest")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_certificates_v1.CertificatesV1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1.CertificateSigningRequestInterface {
+	return certificatesigningrequests.WithLogging(c.inner.CertificateSigningRequests(), c.logger.WithValues("resource", "CertificateSigningRequests"))
 }

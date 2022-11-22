@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	leases "github.com/kyverno/kyverno/pkg/clients/kube/coordinationv1beta1/leases"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_coordination_v1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
@@ -13,6 +14,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_coordination_v1beta1.Co
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_coordination_v1beta1.CoordinationV1beta1Interface, client string) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.CoordinationV1beta1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_coordination_v1beta1.CoordinationV1beta1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.CoordinationV1beta1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -39,4 +44,16 @@ func (c *withTracing) RESTClient() rest.Interface {
 }
 func (c *withTracing) Leases(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.LeaseInterface {
 	return leases.WithTracing(c.inner.Leases(namespace), c.client, "Lease")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_coordination_v1beta1.CoordinationV1beta1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) Leases(namespace string) k8s_io_client_go_kubernetes_typed_coordination_v1beta1.LeaseInterface {
+	return leases.WithLogging(c.inner.Leases(namespace), c.logger.WithValues("resource", "Leases").WithValues("namespace", namespace))
 }

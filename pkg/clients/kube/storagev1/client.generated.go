@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	csidrivers "github.com/kyverno/kyverno/pkg/clients/kube/storagev1/csidrivers"
 	csinodes "github.com/kyverno/kyverno/pkg/clients/kube/storagev1/csinodes"
 	csistoragecapacities "github.com/kyverno/kyverno/pkg/clients/kube/storagev1/csistoragecapacities"
@@ -17,6 +18,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_storage_v1.StorageV1Int
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_storage_v1.StorageV1Interface, client string) k8s_io_client_go_kubernetes_typed_storage_v1.StorageV1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_storage_v1.StorageV1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_storage_v1.StorageV1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -71,4 +76,28 @@ func (c *withTracing) StorageClasses() k8s_io_client_go_kubernetes_typed_storage
 }
 func (c *withTracing) VolumeAttachments() k8s_io_client_go_kubernetes_typed_storage_v1.VolumeAttachmentInterface {
 	return volumeattachments.WithTracing(c.inner.VolumeAttachments(), c.client, "VolumeAttachment")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_storage_v1.StorageV1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) CSIDrivers() k8s_io_client_go_kubernetes_typed_storage_v1.CSIDriverInterface {
+	return csidrivers.WithLogging(c.inner.CSIDrivers(), c.logger.WithValues("resource", "CSIDrivers"))
+}
+func (c *withLogging) CSINodes() k8s_io_client_go_kubernetes_typed_storage_v1.CSINodeInterface {
+	return csinodes.WithLogging(c.inner.CSINodes(), c.logger.WithValues("resource", "CSINodes"))
+}
+func (c *withLogging) CSIStorageCapacities(namespace string) k8s_io_client_go_kubernetes_typed_storage_v1.CSIStorageCapacityInterface {
+	return csistoragecapacities.WithLogging(c.inner.CSIStorageCapacities(namespace), c.logger.WithValues("resource", "CSIStorageCapacities").WithValues("namespace", namespace))
+}
+func (c *withLogging) StorageClasses() k8s_io_client_go_kubernetes_typed_storage_v1.StorageClassInterface {
+	return storageclasses.WithLogging(c.inner.StorageClasses(), c.logger.WithValues("resource", "StorageClasses"))
+}
+func (c *withLogging) VolumeAttachments() k8s_io_client_go_kubernetes_typed_storage_v1.VolumeAttachmentInterface {
+	return volumeattachments.WithLogging(c.inner.VolumeAttachments(), c.logger.WithValues("resource", "VolumeAttachments"))
 }
