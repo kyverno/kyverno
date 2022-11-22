@@ -3,11 +3,14 @@ package resource
 import (
 	context "context"
 	"fmt"
+	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.uber.org/multierr"
 	k8s_io_api_events_v1beta1 "k8s.io/api/events/v1beta1"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_io_apimachinery_pkg_types "k8s.io/apimachinery/pkg/types"
@@ -16,12 +19,154 @@ import (
 	k8s_io_client_go_kubernetes_typed_events_v1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 )
 
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_events_v1beta1.EventInterface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_events_v1beta1.EventInterface {
+	return &withLogging{inner, logger}
+}
+
 func WithMetrics(inner k8s_io_client_go_kubernetes_typed_events_v1beta1.EventInterface, recorder metrics.Recorder) k8s_io_client_go_kubernetes_typed_events_v1beta1.EventInterface {
 	return &withMetrics{inner, recorder}
 }
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_events_v1beta1.EventInterface, client, kind string) k8s_io_client_go_kubernetes_typed_events_v1beta1.EventInterface {
 	return &withTracing{inner, client, kind}
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_events_v1beta1.EventInterface
+	logger logr.Logger
+}
+
+func (c *withLogging) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_events_v1beta1.EventApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_events_v1beta1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Apply")
+	ret0, ret1 := c.inner.Apply(arg0, arg1, arg2)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "Apply failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Apply done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) Create(arg0 context.Context, arg1 *k8s_io_api_events_v1beta1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_events_v1beta1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Create")
+	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "Create failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Create done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) CreateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event) (*k8s_io_api_events_v1beta1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "CreateWithEventNamespace")
+	ret0, ret1 := c.inner.CreateWithEventNamespace(arg0)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "CreateWithEventNamespace failed", "duration", time.Since(start))
+	} else {
+		logger.Info("CreateWithEventNamespace done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Delete")
+	ret0 := c.inner.Delete(arg0, arg1, arg2)
+	if err := multierr.Combine(ret0); err != nil {
+		logger.Error(err, "Delete failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Delete done", "duration", time.Since(start))
+	}
+	return ret0
+}
+func (c *withLogging) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "DeleteCollection")
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if err := multierr.Combine(ret0); err != nil {
+		logger.Error(err, "DeleteCollection failed", "duration", time.Since(start))
+	} else {
+		logger.Info("DeleteCollection done", "duration", time.Since(start))
+	}
+	return ret0
+}
+func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_events_v1beta1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Get")
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "Get failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Get done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_events_v1beta1.EventList, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "List")
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "List failed", "duration", time.Since(start))
+	} else {
+		logger.Info("List done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_events_v1beta1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Patch")
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "Patch failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Patch done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) PatchWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event, arg1 []uint8) (*k8s_io_api_events_v1beta1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "PatchWithEventNamespace")
+	ret0, ret1 := c.inner.PatchWithEventNamespace(arg0, arg1)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "PatchWithEventNamespace failed", "duration", time.Since(start))
+	} else {
+		logger.Info("PatchWithEventNamespace done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) Update(arg0 context.Context, arg1 *k8s_io_api_events_v1beta1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_events_v1beta1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Update")
+	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "Update failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Update done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) UpdateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event) (*k8s_io_api_events_v1beta1.Event, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "UpdateWithEventNamespace")
+	ret0, ret1 := c.inner.UpdateWithEventNamespace(arg0)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "UpdateWithEventNamespace failed", "duration", time.Since(start))
+	} else {
+		logger.Info("UpdateWithEventNamespace done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Watch")
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "Watch failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Watch done", "duration", time.Since(start))
+	}
+	return ret0, ret1
 }
 
 type withMetrics struct {
@@ -121,7 +266,20 @@ func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_events_v1bet
 	return ret0, ret1
 }
 func (c *withTracing) CreateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event) (*k8s_io_api_events_v1beta1.Event, error) {
+	_, span := tracing.StartSpan(
+		context.TODO(),
+		"",
+		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "CreateWithEventNamespace"),
+		attribute.String("client", c.client),
+		attribute.String("kind", c.kind),
+		attribute.String("operation", "CreateWithEventNamespace"),
+	)
+	defer span.End()
 	ret0, ret1 := c.inner.CreateWithEventNamespace(arg0)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(codes.Error, ret1.Error())
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
@@ -215,7 +373,20 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	return ret0, ret1
 }
 func (c *withTracing) PatchWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event, arg1 []uint8) (*k8s_io_api_events_v1beta1.Event, error) {
+	_, span := tracing.StartSpan(
+		context.TODO(),
+		"",
+		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "PatchWithEventNamespace"),
+		attribute.String("client", c.client),
+		attribute.String("kind", c.kind),
+		attribute.String("operation", "PatchWithEventNamespace"),
+	)
+	defer span.End()
 	ret0, ret1 := c.inner.PatchWithEventNamespace(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(codes.Error, ret1.Error())
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_events_v1beta1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_events_v1beta1.Event, error) {
@@ -237,7 +408,20 @@ func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_events_v1bet
 	return ret0, ret1
 }
 func (c *withTracing) UpdateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event) (*k8s_io_api_events_v1beta1.Event, error) {
+	_, span := tracing.StartSpan(
+		context.TODO(),
+		"",
+		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "UpdateWithEventNamespace"),
+		attribute.String("client", c.client),
+		attribute.String("kind", c.kind),
+		attribute.String("operation", "UpdateWithEventNamespace"),
+	)
+	defer span.End()
 	ret0, ret1 := c.inner.UpdateWithEventNamespace(arg0)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(codes.Error, ret1.Error())
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {

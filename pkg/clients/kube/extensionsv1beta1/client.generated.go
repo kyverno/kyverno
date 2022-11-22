@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	daemonsets "github.com/kyverno/kyverno/pkg/clients/kube/extensionsv1beta1/daemonsets"
 	deployments "github.com/kyverno/kyverno/pkg/clients/kube/extensionsv1beta1/deployments"
 	ingresses "github.com/kyverno/kyverno/pkg/clients/kube/extensionsv1beta1/ingresses"
@@ -18,6 +19,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_extensions_v1beta1.Exte
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ExtensionsV1beta1Interface, client string) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ExtensionsV1beta1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ExtensionsV1beta1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ExtensionsV1beta1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -79,4 +84,31 @@ func (c *withTracing) PodSecurityPolicies() k8s_io_client_go_kubernetes_typed_ex
 }
 func (c *withTracing) ReplicaSets(namespace string) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ReplicaSetInterface {
 	return replicasets.WithTracing(c.inner.ReplicaSets(namespace), c.client, "ReplicaSet")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ExtensionsV1beta1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) DaemonSets(namespace string) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.DaemonSetInterface {
+	return daemonsets.WithLogging(c.inner.DaemonSets(namespace), c.logger.WithValues("resource", "DaemonSets").WithValues("namespace", namespace))
+}
+func (c *withLogging) Deployments(namespace string) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.DeploymentInterface {
+	return deployments.WithLogging(c.inner.Deployments(namespace), c.logger.WithValues("resource", "Deployments").WithValues("namespace", namespace))
+}
+func (c *withLogging) Ingresses(namespace string) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.IngressInterface {
+	return ingresses.WithLogging(c.inner.Ingresses(namespace), c.logger.WithValues("resource", "Ingresses").WithValues("namespace", namespace))
+}
+func (c *withLogging) NetworkPolicies(namespace string) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.NetworkPolicyInterface {
+	return networkpolicies.WithLogging(c.inner.NetworkPolicies(namespace), c.logger.WithValues("resource", "NetworkPolicies").WithValues("namespace", namespace))
+}
+func (c *withLogging) PodSecurityPolicies() k8s_io_client_go_kubernetes_typed_extensions_v1beta1.PodSecurityPolicyInterface {
+	return podsecuritypolicies.WithLogging(c.inner.PodSecurityPolicies(), c.logger.WithValues("resource", "PodSecurityPolicies"))
+}
+func (c *withLogging) ReplicaSets(namespace string) k8s_io_client_go_kubernetes_typed_extensions_v1beta1.ReplicaSetInterface {
+	return replicasets.WithLogging(c.inner.ReplicaSets(namespace), c.logger.WithValues("resource", "ReplicaSets").WithValues("namespace", namespace))
 }

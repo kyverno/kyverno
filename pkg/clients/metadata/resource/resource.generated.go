@@ -3,16 +3,23 @@ package resource
 import (
 	context "context"
 	"fmt"
+	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.uber.org/multierr"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_io_apimachinery_pkg_types "k8s.io/apimachinery/pkg/types"
 	k8s_io_apimachinery_pkg_watch "k8s.io/apimachinery/pkg/watch"
 	k8s_io_client_go_metadata "k8s.io/client-go/metadata"
 )
+
+func WithLogging(inner k8s_io_client_go_metadata.ResourceInterface, logger logr.Logger) k8s_io_client_go_metadata.ResourceInterface {
+	return &withLogging{inner, logger}
+}
 
 func WithMetrics(inner k8s_io_client_go_metadata.ResourceInterface, recorder metrics.Recorder) k8s_io_client_go_metadata.ResourceInterface {
 	return &withMetrics{inner, recorder}
@@ -20,6 +27,78 @@ func WithMetrics(inner k8s_io_client_go_metadata.ResourceInterface, recorder met
 
 func WithTracing(inner k8s_io_client_go_metadata.ResourceInterface, client, kind string) k8s_io_client_go_metadata.ResourceInterface {
 	return &withTracing{inner, client, kind}
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_metadata.ResourceInterface
+	logger logr.Logger
+}
+
+func (c *withLogging) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg3 ...string) error {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Delete")
+	ret0 := c.inner.Delete(arg0, arg1, arg2, arg3...)
+	if err := multierr.Combine(ret0); err != nil {
+		logger.Error(err, "Delete failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Delete done", "duration", time.Since(start))
+	}
+	return ret0
+}
+func (c *withLogging) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "DeleteCollection")
+	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
+	if err := multierr.Combine(ret0); err != nil {
+		logger.Error(err, "DeleteCollection failed", "duration", time.Since(start))
+	} else {
+		logger.Info("DeleteCollection done", "duration", time.Since(start))
+	}
+	return ret0
+}
+func (c *withLogging) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions, arg3 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1.PartialObjectMetadata, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Get")
+	ret0, ret1 := c.inner.Get(arg0, arg1, arg2, arg3...)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "Get failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Get done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_apimachinery_pkg_apis_meta_v1.PartialObjectMetadataList, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "List")
+	ret0, ret1 := c.inner.List(arg0, arg1)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "List failed", "duration", time.Since(start))
+	} else {
+		logger.Info("List done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_apimachinery_pkg_apis_meta_v1.PartialObjectMetadata, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Patch")
+	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "Patch failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Patch done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "Watch")
+	ret0, ret1 := c.inner.Watch(arg0, arg1)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "Watch failed", "duration", time.Since(start))
+	} else {
+		logger.Info("Watch done", "duration", time.Since(start))
+	}
+	return ret0, ret1
 }
 
 type withMetrics struct {
