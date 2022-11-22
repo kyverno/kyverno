@@ -549,6 +549,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 							return newGenResources, err
 						}
 					}
+
 				} else {
 					currentGeneratedResourcelabel := generatedObj.GetLabels()
 					currentSynclabel := currentGeneratedResourcelabel["policy.kyverno.io/synchronize"]

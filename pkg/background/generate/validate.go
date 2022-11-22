@@ -3,7 +3,9 @@ package generate
 import (
 	"container/list"
 	"fmt"
+	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/common"
@@ -27,7 +29,97 @@ func ValidateResourceWithPattern(log logr.Logger, resource, pattern interface{})
 	if err != nil {
 		return elemPath, err
 	}
+
+	err = validateResourceLabelsAnnotations(resource, pattern)
+	if err != nil {
+		return "", err
+	}
+
 	return "", nil
+}
+
+// validateResourceLabelsAnnotations detects if any additional
+// labels/annotations is present on the cloned resource
+func validateResourceLabelsAnnotations(resource, pattern interface{}) error {
+	// var resourceLabels, patternLabels, resourceAnnotations, patternAnnotations map[string]interface{}
+
+	if reflect.TypeOf(resource) == nil || reflect.TypeOf(pattern) == nil {
+		return nil
+	}
+
+	resourceMap, ok := resource.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	patternMap, ok := pattern.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	if _, ok := resourceMap["metadata"]; !ok {
+		return nil
+	}
+
+	if _, ok := patternMap["metadata"]; !ok {
+		return nil
+	}
+
+	resourceMetadata := resourceMap["metadata"].(map[string]interface{})
+	patternMetadata := patternMap["metadata"].(map[string]interface{})
+
+	if _, ok := resourceMetadata["labels"]; !ok {
+		return nil
+	}
+
+	if _, ok := patternMetadata["labels"]; !ok {
+		return nil
+	}
+
+	resourceLabels := resourceMetadata["labels"].(map[string]interface{})
+	patternLabels := patternMetadata["labels"].(map[string]interface{})
+
+	for k, v := range resourceLabels {
+		if strings.Contains(k, "kyverno.io") || strings.Contains(k, "policy.kyverno.io") || strings.Contains(k, "app.kubernetes.io") || strings.Contains(k, "generate.kyverno.io") {
+			continue
+		}
+
+		val, ok := patternLabels[k]
+		if !ok {
+			return fmt.Errorf("label key '%s' not present in pattern", k)
+		}
+
+		if v != val {
+			return fmt.Errorf("label value '%s' is different for key '%s' in pattern", v, k)
+		}
+
+	}
+
+	if _, ok := resourceMetadata["annotations"]; !ok {
+		return nil
+	}
+
+	if _, ok := patternMetadata["annotations"]; !ok {
+		return nil
+	}
+
+	resourceAnnotations := resourceMetadata["annotations"].(map[string]interface{})
+	patternAnnotations := patternMetadata["annotations"].(map[string]interface{})
+
+	for k, v := range resourceAnnotations {
+
+		val, ok := patternAnnotations[k]
+		if !ok {
+			return fmt.Errorf("annotation key '%s' not present in pattern", k)
+		}
+
+		if v != val {
+			return fmt.Errorf("annotation value '%s' is different for key '%s' in pattern", v, k)
+		}
+
+	}
+
+	return nil
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
