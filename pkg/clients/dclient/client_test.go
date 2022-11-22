@@ -107,11 +107,8 @@ func TestCRUDResource(t *testing.T) {
 
 func TestEventInterface(t *testing.T) {
 	f := newFixture(t)
-	iEvent, err := f.client.GetEventsInterface()
-	if err != nil {
-		t.Errorf("GetEventsInterface not working: %s", err)
-	}
-	_, err = iEvent.List(context.TODO(), metav1.ListOptions{})
+	iEvent := f.client.GetEventsInterface()
+	_, err := iEvent.List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		t.Errorf("Testing Event interface not working: %s", err)
 	}
