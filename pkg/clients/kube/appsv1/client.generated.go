@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	controllerrevisions "github.com/kyverno/kyverno/pkg/clients/kube/appsv1/controllerrevisions"
 	daemonsets "github.com/kyverno/kyverno/pkg/clients/kube/appsv1/daemonsets"
 	deployments "github.com/kyverno/kyverno/pkg/clients/kube/appsv1/deployments"
@@ -17,6 +18,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_apps_v1.AppsV1Interface
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_apps_v1.AppsV1Interface, client string) k8s_io_client_go_kubernetes_typed_apps_v1.AppsV1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_apps_v1.AppsV1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_apps_v1.AppsV1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -71,4 +76,28 @@ func (c *withTracing) ReplicaSets(namespace string) k8s_io_client_go_kubernetes_
 }
 func (c *withTracing) StatefulSets(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1.StatefulSetInterface {
 	return statefulsets.WithTracing(c.inner.StatefulSets(namespace), c.client, "StatefulSet")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_apps_v1.AppsV1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) ControllerRevisions(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1.ControllerRevisionInterface {
+	return controllerrevisions.WithLogging(c.inner.ControllerRevisions(namespace), c.logger.WithValues("resource", "ControllerRevisions").WithValues("namespace", namespace))
+}
+func (c *withLogging) DaemonSets(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1.DaemonSetInterface {
+	return daemonsets.WithLogging(c.inner.DaemonSets(namespace), c.logger.WithValues("resource", "DaemonSets").WithValues("namespace", namespace))
+}
+func (c *withLogging) Deployments(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1.DeploymentInterface {
+	return deployments.WithLogging(c.inner.Deployments(namespace), c.logger.WithValues("resource", "Deployments").WithValues("namespace", namespace))
+}
+func (c *withLogging) ReplicaSets(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1.ReplicaSetInterface {
+	return replicasets.WithLogging(c.inner.ReplicaSets(namespace), c.logger.WithValues("resource", "ReplicaSets").WithValues("namespace", namespace))
+}
+func (c *withLogging) StatefulSets(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1.StatefulSetInterface {
+	return statefulsets.WithLogging(c.inner.StatefulSets(namespace), c.logger.WithValues("resource", "StatefulSets").WithValues("namespace", namespace))
 }

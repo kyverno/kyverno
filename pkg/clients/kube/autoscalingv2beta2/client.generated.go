@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	horizontalpodautoscalers "github.com/kyverno/kyverno/pkg/clients/kube/autoscalingv2beta2/horizontalpodautoscalers"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
@@ -13,6 +14,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2.Aut
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2.AutoscalingV2beta2Interface, client string) k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2.AutoscalingV2beta2Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2.AutoscalingV2beta2Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2.AutoscalingV2beta2Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -39,4 +44,16 @@ func (c *withTracing) RESTClient() rest.Interface {
 }
 func (c *withTracing) HorizontalPodAutoscalers(namespace string) k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2.HorizontalPodAutoscalerInterface {
 	return horizontalpodautoscalers.WithTracing(c.inner.HorizontalPodAutoscalers(namespace), c.client, "HorizontalPodAutoscaler")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2.AutoscalingV2beta2Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) HorizontalPodAutoscalers(namespace string) k8s_io_client_go_kubernetes_typed_autoscaling_v2beta2.HorizontalPodAutoscalerInterface {
+	return horizontalpodautoscalers.WithLogging(c.inner.HorizontalPodAutoscalers(namespace), c.logger.WithValues("resource", "HorizontalPodAutoscalers").WithValues("namespace", namespace))
 }
