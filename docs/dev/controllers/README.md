@@ -17,5 +17,5 @@ Most controllers code can be found under `pkg/controllers` except for some legac
 | `resource-report-controller`     | :heavy_check_mark: | Watches resources that participate in reports         |
 | `cleanup-controller`             | :heavy_check_mark: | Reconciles cleanup policies and associated cron jobs  |
 | `policy-controller`              | :heavy_check_mark: | Manages mutation of existing resources                |
-
+`update-request-controller` |                           | Manages generate policy and its generated resources lifecycle |
 [`policycache-controller`]: ./policycache.md
