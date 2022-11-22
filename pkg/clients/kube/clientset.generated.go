@@ -21,6 +21,7 @@ import (
 	coordinationv1 "github.com/kyverno/kyverno/pkg/clients/kube/coordinationv1"
 	coordinationv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/coordinationv1beta1"
 	corev1 "github.com/kyverno/kyverno/pkg/clients/kube/corev1"
+	discovery "github.com/kyverno/kyverno/pkg/clients/kube/discovery"
 	discoveryv1 "github.com/kyverno/kyverno/pkg/clients/kube/discoveryv1"
 	discoveryv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/discoveryv1beta1"
 	eventsv1 "github.com/kyverno/kyverno/pkg/clients/kube/eventsv1"
@@ -48,7 +49,7 @@ import (
 	storagev1alpha1 "github.com/kyverno/kyverno/pkg/clients/kube/storagev1alpha1"
 	storagev1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/storagev1beta1"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"k8s.io/client-go/discovery"
+	k8s_io_client_go_discovery "k8s.io/client-go/discovery"
 	k8s_io_client_go_kubernetes "k8s.io/client-go/kubernetes"
 	k8s_io_client_go_kubernetes_typed_admissionregistration_v1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
@@ -99,7 +100,7 @@ import (
 )
 
 type clientset struct {
-	inner                        k8s_io_client_go_kubernetes.Interface
+	discovery                    k8s_io_client_go_discovery.DiscoveryInterface
 	admissionregistrationv1      k8s_io_client_go_kubernetes_typed_admissionregistration_v1.AdmissionregistrationV1Interface
 	admissionregistrationv1beta1 k8s_io_client_go_kubernetes_typed_admissionregistration_v1beta1.AdmissionregistrationV1beta1Interface
 	appsv1                       k8s_io_client_go_kubernetes_typed_apps_v1.AppsV1Interface
@@ -148,8 +149,8 @@ type clientset struct {
 	storagev1beta1               k8s_io_client_go_kubernetes_typed_storage_v1beta1.StorageV1beta1Interface
 }
 
-func (c *clientset) Discovery() discovery.DiscoveryInterface {
-	return c.inner.Discovery()
+func (c *clientset) Discovery() k8s_io_client_go_discovery.DiscoveryInterface {
+	return c.discovery
 }
 func (c *clientset) AdmissionregistrationV1() k8s_io_client_go_kubernetes_typed_admissionregistration_v1.AdmissionregistrationV1Interface {
 	return c.admissionregistrationv1
@@ -290,61 +291,61 @@ func (c *clientset) StorageV1beta1() k8s_io_client_go_kubernetes_typed_storage_v
 	return c.storagev1beta1
 }
 
-func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes.Interface {
+func WrapWithMetrics(inner k8s_io_client_go_kubernetes.Interface, m metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes.Interface {
 	return &clientset{
-		inner:                        inner,
-		admissionregistrationv1:      admissionregistrationv1.WithMetrics(inner.AdmissionregistrationV1(), metrics, clientType),
-		admissionregistrationv1beta1: admissionregistrationv1beta1.WithMetrics(inner.AdmissionregistrationV1beta1(), metrics, clientType),
-		appsv1:                       appsv1.WithMetrics(inner.AppsV1(), metrics, clientType),
-		appsv1beta1:                  appsv1beta1.WithMetrics(inner.AppsV1beta1(), metrics, clientType),
-		appsv1beta2:                  appsv1beta2.WithMetrics(inner.AppsV1beta2(), metrics, clientType),
-		authenticationv1:             authenticationv1.WithMetrics(inner.AuthenticationV1(), metrics, clientType),
-		authenticationv1beta1:        authenticationv1beta1.WithMetrics(inner.AuthenticationV1beta1(), metrics, clientType),
-		authorizationv1:              authorizationv1.WithMetrics(inner.AuthorizationV1(), metrics, clientType),
-		authorizationv1beta1:         authorizationv1beta1.WithMetrics(inner.AuthorizationV1beta1(), metrics, clientType),
-		autoscalingv1:                autoscalingv1.WithMetrics(inner.AutoscalingV1(), metrics, clientType),
-		autoscalingv2:                autoscalingv2.WithMetrics(inner.AutoscalingV2(), metrics, clientType),
-		autoscalingv2beta1:           autoscalingv2beta1.WithMetrics(inner.AutoscalingV2beta1(), metrics, clientType),
-		autoscalingv2beta2:           autoscalingv2beta2.WithMetrics(inner.AutoscalingV2beta2(), metrics, clientType),
-		batchv1:                      batchv1.WithMetrics(inner.BatchV1(), metrics, clientType),
-		batchv1beta1:                 batchv1beta1.WithMetrics(inner.BatchV1beta1(), metrics, clientType),
-		certificatesv1:               certificatesv1.WithMetrics(inner.CertificatesV1(), metrics, clientType),
-		certificatesv1beta1:          certificatesv1beta1.WithMetrics(inner.CertificatesV1beta1(), metrics, clientType),
-		coordinationv1:               coordinationv1.WithMetrics(inner.CoordinationV1(), metrics, clientType),
-		coordinationv1beta1:          coordinationv1beta1.WithMetrics(inner.CoordinationV1beta1(), metrics, clientType),
-		corev1:                       corev1.WithMetrics(inner.CoreV1(), metrics, clientType),
-		discoveryv1:                  discoveryv1.WithMetrics(inner.DiscoveryV1(), metrics, clientType),
-		discoveryv1beta1:             discoveryv1beta1.WithMetrics(inner.DiscoveryV1beta1(), metrics, clientType),
-		eventsv1:                     eventsv1.WithMetrics(inner.EventsV1(), metrics, clientType),
-		eventsv1beta1:                eventsv1beta1.WithMetrics(inner.EventsV1beta1(), metrics, clientType),
-		extensionsv1beta1:            extensionsv1beta1.WithMetrics(inner.ExtensionsV1beta1(), metrics, clientType),
-		flowcontrolv1alpha1:          flowcontrolv1alpha1.WithMetrics(inner.FlowcontrolV1alpha1(), metrics, clientType),
-		flowcontrolv1beta1:           flowcontrolv1beta1.WithMetrics(inner.FlowcontrolV1beta1(), metrics, clientType),
-		flowcontrolv1beta2:           flowcontrolv1beta2.WithMetrics(inner.FlowcontrolV1beta2(), metrics, clientType),
-		internalv1alpha1:             internalv1alpha1.WithMetrics(inner.InternalV1alpha1(), metrics, clientType),
-		networkingv1:                 networkingv1.WithMetrics(inner.NetworkingV1(), metrics, clientType),
-		networkingv1alpha1:           networkingv1alpha1.WithMetrics(inner.NetworkingV1alpha1(), metrics, clientType),
-		networkingv1beta1:            networkingv1beta1.WithMetrics(inner.NetworkingV1beta1(), metrics, clientType),
-		nodev1:                       nodev1.WithMetrics(inner.NodeV1(), metrics, clientType),
-		nodev1alpha1:                 nodev1alpha1.WithMetrics(inner.NodeV1alpha1(), metrics, clientType),
-		nodev1beta1:                  nodev1beta1.WithMetrics(inner.NodeV1beta1(), metrics, clientType),
-		policyv1:                     policyv1.WithMetrics(inner.PolicyV1(), metrics, clientType),
-		policyv1beta1:                policyv1beta1.WithMetrics(inner.PolicyV1beta1(), metrics, clientType),
-		rbacv1:                       rbacv1.WithMetrics(inner.RbacV1(), metrics, clientType),
-		rbacv1alpha1:                 rbacv1alpha1.WithMetrics(inner.RbacV1alpha1(), metrics, clientType),
-		rbacv1beta1:                  rbacv1beta1.WithMetrics(inner.RbacV1beta1(), metrics, clientType),
-		schedulingv1:                 schedulingv1.WithMetrics(inner.SchedulingV1(), metrics, clientType),
-		schedulingv1alpha1:           schedulingv1alpha1.WithMetrics(inner.SchedulingV1alpha1(), metrics, clientType),
-		schedulingv1beta1:            schedulingv1beta1.WithMetrics(inner.SchedulingV1beta1(), metrics, clientType),
-		storagev1:                    storagev1.WithMetrics(inner.StorageV1(), metrics, clientType),
-		storagev1alpha1:              storagev1alpha1.WithMetrics(inner.StorageV1alpha1(), metrics, clientType),
-		storagev1beta1:               storagev1beta1.WithMetrics(inner.StorageV1beta1(), metrics, clientType),
+		discovery:                    discovery.WithMetrics(inner.Discovery(), metrics.ClusteredClientQueryRecorder(m, "Discovery", clientType)),
+		admissionregistrationv1:      admissionregistrationv1.WithMetrics(inner.AdmissionregistrationV1(), m, clientType),
+		admissionregistrationv1beta1: admissionregistrationv1beta1.WithMetrics(inner.AdmissionregistrationV1beta1(), m, clientType),
+		appsv1:                       appsv1.WithMetrics(inner.AppsV1(), m, clientType),
+		appsv1beta1:                  appsv1beta1.WithMetrics(inner.AppsV1beta1(), m, clientType),
+		appsv1beta2:                  appsv1beta2.WithMetrics(inner.AppsV1beta2(), m, clientType),
+		authenticationv1:             authenticationv1.WithMetrics(inner.AuthenticationV1(), m, clientType),
+		authenticationv1beta1:        authenticationv1beta1.WithMetrics(inner.AuthenticationV1beta1(), m, clientType),
+		authorizationv1:              authorizationv1.WithMetrics(inner.AuthorizationV1(), m, clientType),
+		authorizationv1beta1:         authorizationv1beta1.WithMetrics(inner.AuthorizationV1beta1(), m, clientType),
+		autoscalingv1:                autoscalingv1.WithMetrics(inner.AutoscalingV1(), m, clientType),
+		autoscalingv2:                autoscalingv2.WithMetrics(inner.AutoscalingV2(), m, clientType),
+		autoscalingv2beta1:           autoscalingv2beta1.WithMetrics(inner.AutoscalingV2beta1(), m, clientType),
+		autoscalingv2beta2:           autoscalingv2beta2.WithMetrics(inner.AutoscalingV2beta2(), m, clientType),
+		batchv1:                      batchv1.WithMetrics(inner.BatchV1(), m, clientType),
+		batchv1beta1:                 batchv1beta1.WithMetrics(inner.BatchV1beta1(), m, clientType),
+		certificatesv1:               certificatesv1.WithMetrics(inner.CertificatesV1(), m, clientType),
+		certificatesv1beta1:          certificatesv1beta1.WithMetrics(inner.CertificatesV1beta1(), m, clientType),
+		coordinationv1:               coordinationv1.WithMetrics(inner.CoordinationV1(), m, clientType),
+		coordinationv1beta1:          coordinationv1beta1.WithMetrics(inner.CoordinationV1beta1(), m, clientType),
+		corev1:                       corev1.WithMetrics(inner.CoreV1(), m, clientType),
+		discoveryv1:                  discoveryv1.WithMetrics(inner.DiscoveryV1(), m, clientType),
+		discoveryv1beta1:             discoveryv1beta1.WithMetrics(inner.DiscoveryV1beta1(), m, clientType),
+		eventsv1:                     eventsv1.WithMetrics(inner.EventsV1(), m, clientType),
+		eventsv1beta1:                eventsv1beta1.WithMetrics(inner.EventsV1beta1(), m, clientType),
+		extensionsv1beta1:            extensionsv1beta1.WithMetrics(inner.ExtensionsV1beta1(), m, clientType),
+		flowcontrolv1alpha1:          flowcontrolv1alpha1.WithMetrics(inner.FlowcontrolV1alpha1(), m, clientType),
+		flowcontrolv1beta1:           flowcontrolv1beta1.WithMetrics(inner.FlowcontrolV1beta1(), m, clientType),
+		flowcontrolv1beta2:           flowcontrolv1beta2.WithMetrics(inner.FlowcontrolV1beta2(), m, clientType),
+		internalv1alpha1:             internalv1alpha1.WithMetrics(inner.InternalV1alpha1(), m, clientType),
+		networkingv1:                 networkingv1.WithMetrics(inner.NetworkingV1(), m, clientType),
+		networkingv1alpha1:           networkingv1alpha1.WithMetrics(inner.NetworkingV1alpha1(), m, clientType),
+		networkingv1beta1:            networkingv1beta1.WithMetrics(inner.NetworkingV1beta1(), m, clientType),
+		nodev1:                       nodev1.WithMetrics(inner.NodeV1(), m, clientType),
+		nodev1alpha1:                 nodev1alpha1.WithMetrics(inner.NodeV1alpha1(), m, clientType),
+		nodev1beta1:                  nodev1beta1.WithMetrics(inner.NodeV1beta1(), m, clientType),
+		policyv1:                     policyv1.WithMetrics(inner.PolicyV1(), m, clientType),
+		policyv1beta1:                policyv1beta1.WithMetrics(inner.PolicyV1beta1(), m, clientType),
+		rbacv1:                       rbacv1.WithMetrics(inner.RbacV1(), m, clientType),
+		rbacv1alpha1:                 rbacv1alpha1.WithMetrics(inner.RbacV1alpha1(), m, clientType),
+		rbacv1beta1:                  rbacv1beta1.WithMetrics(inner.RbacV1beta1(), m, clientType),
+		schedulingv1:                 schedulingv1.WithMetrics(inner.SchedulingV1(), m, clientType),
+		schedulingv1alpha1:           schedulingv1alpha1.WithMetrics(inner.SchedulingV1alpha1(), m, clientType),
+		schedulingv1beta1:            schedulingv1beta1.WithMetrics(inner.SchedulingV1beta1(), m, clientType),
+		storagev1:                    storagev1.WithMetrics(inner.StorageV1(), m, clientType),
+		storagev1alpha1:              storagev1alpha1.WithMetrics(inner.StorageV1alpha1(), m, clientType),
+		storagev1beta1:               storagev1beta1.WithMetrics(inner.StorageV1beta1(), m, clientType),
 	}
 }
 
 func WrapWithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_go_kubernetes.Interface {
 	return &clientset{
-		inner:                        inner,
+		discovery:                    discovery.WithTracing(inner.Discovery(), "Discovery", ""),
 		admissionregistrationv1:      admissionregistrationv1.WithTracing(inner.AdmissionregistrationV1(), "AdmissionregistrationV1"),
 		admissionregistrationv1beta1: admissionregistrationv1beta1.WithTracing(inner.AdmissionregistrationV1beta1(), "AdmissionregistrationV1beta1"),
 		appsv1:                       appsv1.WithTracing(inner.AppsV1(), "AppsV1"),
