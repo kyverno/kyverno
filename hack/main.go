@@ -22,14 +22,21 @@ package resource
 
 import (
 	"fmt"
+	"time"
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.uber.org/multierr"
 	{{- range $package := Packages .Target.Type }}
 	{{ Pkg $package }} {{ Quote $package }}
 	{{- end }}
 )
+
+func WithLogging(inner {{ GoType .Target.Type }}, logger logr.Logger) {{ GoType .Target.Type }} {
+	return &withLogging{inner, logger}
+}
 
 func WithMetrics(inner {{ GoType .Target.Type }}, recorder metrics.Recorder) {{ GoType .Target.Type }} {
 	return &withMetrics{inner, recorder}
@@ -38,6 +45,57 @@ func WithMetrics(inner {{ GoType .Target.Type }}, recorder metrics.Recorder) {{ 
 func WithTracing(inner {{ GoType .Target.Type }}, client, kind string) {{ GoType .Target.Type }} {
 	return &withTracing{inner, client, kind}
 }
+
+type withLogging struct {
+	inner  {{ GoType .Target.Type }}
+	logger logr.Logger
+}
+
+{{- range $operation := .Target.Operations }}
+func (c *withLogging) {{ $operation.Method.Name }}(
+	{{- range $i, $arg := Args $operation.Method -}}
+	{{- if $arg.IsVariadic -}}
+	arg{{ $i }} ...{{ GoType $arg.Type.Elem }},
+	{{- else -}}
+	arg{{ $i }} {{ GoType $arg.Type }},
+	{{- end -}}
+	{{- end -}}
+) (
+	{{- range $return := Returns $operation.Method -}}
+	{{ GoType $return }},
+	{{- end -}}
+) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", {{ Quote $operation.Method.Name }})
+	{{ range $i, $ret := Returns $operation.Method }}ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }} {{ end }} := c.inner.{{ $operation.Method.Name }}(
+		{{- range $i, $arg := Args $operation.Method -}}
+		{{- if $arg.IsVariadic -}}
+		arg{{ $i }}...,
+		{{- else -}}
+		arg{{ $i }},
+		{{- end -}}
+		{{- end -}}
+	)
+	{{- if $operation.HasError }}
+	if err := multierr.Combine(
+		{{- range $i, $ret := Returns $operation.Method -}}
+		{{- if $ret.IsError -}}
+		ret{{ $i }},
+		{{- end -}}
+		{{- end -}}
+	); err != nil {
+		logger.Error(err, "{{ $operation.Method.Name }} failed", "duration", time.Since(start))
+	} else {
+		logger.Info("{{ $operation.Method.Name }} done", "duration", time.Since(start))
+	}
+	{{- else }}
+	logger.Info("{{ $operation.Method.Name }} done", "duration", time.Since(start))
+	{{- end }}
+	return	{{ range $i, $ret := Returns $operation.Method -}}
+	ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }}
+	{{- end }}
+}
+{{- end }}
 
 type withMetrics struct {
 	inner    {{ GoType .Target.Type }}
@@ -94,6 +152,10 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 	{{- if $operation.HasContext }}
 	ctx, span := tracing.StartSpan(
 		arg0,
+	{{- else }}
+	_, span := tracing.StartSpan(
+		context.TODO(),
+	{{- end }}
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, {{ Quote $operation.Method.Name }}),
 		attribute.String("client", c.client),
@@ -101,6 +163,7 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 		attribute.String("operation", {{ Quote $operation.Method.Name }}),
 	)
 	defer span.End()
+	{{- if $operation.HasContext }}
 	arg0 = ctx
 	{{- end }}
 	{{ range $i, $ret := Returns $operation.Method }}ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }} {{ end }} := c.inner.{{ $operation.Method.Name }}(
@@ -112,7 +175,7 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 		{{- end -}}
 		{{- end -}}
 	)
-	{{- if $operation.HasContext }}
+	{{- if $operation.HasError }}
 	{{- range $i, $ret := Returns $operation.Method }}
 	{{- if $ret.IsError }}
 	if ret{{ $i }} != nil {
@@ -132,8 +195,9 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 package client
 
 import (
-	"k8s.io/client-go/rest"
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"k8s.io/client-go/rest"
 	{{- range $package := Packages .Target.Type }}
 	{{ Pkg $package }} {{ Quote $package }}
 	{{- end }}
@@ -148,6 +212,10 @@ func WithMetrics(inner {{ GoType .Target.Type }}, metrics metrics.MetricsConfigM
 
 func WithTracing(inner {{ GoType .Target.Type }}, client string) {{ GoType .Target.Type }} {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner {{ GoType .Target.Type }}, logger logr.Logger) {{ GoType .Target.Type }} {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -185,14 +253,34 @@ func (c *withTracing) {{ $method.Name }}({{- if $method.IsNamespaced -}}namespac
 	)
 }
 {{- end }}
+
+type withLogging struct {
+	inner  {{ GoType .Target }}
+	logger logr.Logger
+}
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+{{- range $method, $resource := .Target.Resources }}
+func (c *withLogging) {{ $method.Name }}({{- if $method.IsNamespaced -}}namespace string{{- end -}}) {{ GoType $resource.Type }} {
+	return 	{{ ToLower $method.Name }}.WithLogging(c.inner.{{ $method.Name }}(
+		{{- if $method.IsNamespaced -}}namespace{{- end -}}), c.logger.WithValues("resource", {{ Quote $method.Name }})
+		{{- if $method.IsNamespaced -}}.WithValues("namespace", namespace){{- end -}}
+	)
+}
+{{- end }}
 `
 	clientsetTpl = `
 package clientset
 
 import (
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	{{- range $package := Packages .Target.Type }}
 	{{ Pkg $package }} {{ Quote $package }}
+	{{- end }}
+	{{- range $resourceMethod, $resource := .Target.Resources }}
+	{{ ToLower $resourceMethod.Name }} "github.com/kyverno/kyverno/{{ $.Folder }}/{{ ToLower $resourceMethod.Name }}"
 	{{- end }}
 	{{- range $clientMethod, $client := .Target.Clients }}
 	{{ ToLower $clientMethod.Name }} "github.com/kyverno/kyverno/{{ $.Folder }}/{{ ToLower $clientMethod.Name }}"
@@ -200,15 +288,19 @@ import (
 )
 
 type clientset struct {
-	inner {{ GoType .Target }}
+	{{- range $resourceMethod, $resource := .Target.Resources }}
+	{{ ToLower $resourceMethod.Name }} {{ GoType $resource.Type }}
+	{{- end }}
 	{{- range $clientMethod, $client := .Target.Clients }}
 	{{ ToLower $clientMethod.Name }} {{ GoType $client.Type }}
 	{{- end }}
 }
 
-func (c *clientset) Discovery() discovery.DiscoveryInterface {
-	return c.inner.Discovery()
+{{- range $resourceMethod, $resource := .Target.Resources }}
+func (c *clientset) {{ $resourceMethod.Name }}() {{ GoType $resource.Type }}{
+	return c.{{ ToLower $resourceMethod.Name }}
 }
+{{- end }}
 
 {{- range $clientMethod, $client := .Target.Clients }}
 func (c *clientset) {{ $clientMethod.Name }}() {{ GoType $client.Type }}{
@@ -216,20 +308,35 @@ func (c *clientset) {{ $clientMethod.Name }}() {{ GoType $client.Type }}{
 }
 {{- end }}
 
-func WrapWithMetrics(inner {{ GoType .Target }}, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) {{ GoType .Target }} {
+func WrapWithMetrics(inner {{ GoType .Target }}, m metrics.MetricsConfigManager, clientType metrics.ClientType) {{ GoType .Target }} {
 	return &clientset{
-		inner: inner,
+		{{- range $resourceMethod, $resource := .Target.Resources }}
+		{{ ToLower $resourceMethod.Name }}: {{ ToLower $resourceMethod.Name }}.WithMetrics(inner.{{ $resourceMethod.Name }}(), metrics.ClusteredClientQueryRecorder(m, {{ Quote $resource.Kind }}, clientType)),
+		{{- end }}
 		{{- range $clientMethod, $client := .Target.Clients }}
-		{{ ToLower $clientMethod.Name }}: {{ ToLower $clientMethod.Name }}.WithMetrics(inner.{{ $clientMethod.Name }}(), metrics, clientType),
+		{{ ToLower $clientMethod.Name }}: {{ ToLower $clientMethod.Name }}.WithMetrics(inner.{{ $clientMethod.Name }}(), m, clientType),
 		{{- end }}
 	}
 }
 
 func WrapWithTracing(inner {{ GoType .Target }}) {{ GoType .Target }} {
 	return &clientset{
-		inner: inner,
+		{{- range $resourceMethod, $resource := .Target.Resources }}
+		{{ ToLower $resourceMethod.Name }}: {{ ToLower $resourceMethod.Name }}.WithTracing(inner.{{ $resourceMethod.Name }}(), {{ Quote $resourceMethod.Name }}, ""),
+		{{- end }}
 		{{- range $clientMethod, $client := .Target.Clients }}
 		{{ ToLower $clientMethod.Name }}: {{ ToLower $clientMethod.Name }}.WithTracing(inner.{{ $clientMethod.Name }}(), {{ Quote $clientMethod.Name }}),
+		{{- end }}
+	}
+}
+
+func WrapWithLogging(inner {{ GoType .Target }}, logger logr.Logger) {{ GoType .Target }} {
+	return &clientset{
+		{{- range $resourceMethod, $resource := .Target.Resources }}
+		{{ ToLower $resourceMethod.Name }}: {{ ToLower $resourceMethod.Name }}.WithLogging(inner.{{ $resourceMethod.Name }}(), logger.WithValues("group", {{ Quote $resourceMethod.Name }})),
+		{{- end }}
+		{{- range $clientMethod, $client := .Target.Clients }}
+		{{ ToLower $clientMethod.Name }}: {{ ToLower $clientMethod.Name }}.WithLogging(inner.{{ $clientMethod.Name }}(), logger.WithValues("group", {{ Quote $clientMethod.Name }})),
 		{{- end }}
 	}
 }
@@ -238,6 +345,7 @@ func WrapWithTracing(inner {{ GoType .Target }}) {{ GoType .Target }} {
 package clientset
 
 import (
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	{{- range $package := Packages .Target.Type }}
 	{{ Pkg $package }} {{ Quote $package }}
@@ -249,15 +357,38 @@ import (
 
 type Interface interface {
 	{{ GoType .Target.Type }}
-	WithMetrics(m metrics.MetricsConfigManager, t metrics.ClientType) Interface
+	WithMetrics(metrics.MetricsConfigManager, metrics.ClientType) Interface
 	WithTracing() Interface
+	WithLogging(logr.Logger) Interface
 }
 
-type wrapper struct {
-	{{ GoType .Target.Type }}
+func From(inner {{ GoType .Target }}, opts ...NewOption) Interface {
+	i := from(inner)
+	for _, opt := range opts {
+		i = opt(i)
+	}
+	return i
 }
 
 type NewOption func (Interface) Interface
+
+func WithMetrics(m metrics.MetricsConfigManager, t metrics.ClientType) NewOption {
+	return func(i Interface) Interface {
+		return i.WithMetrics(m, t)
+	}
+}
+
+func WithTracing() NewOption {
+	return func(i Interface) Interface {
+		return i.WithTracing()
+	}
+}
+
+func WithLogging(logger logr.Logger) NewOption {
+	return func(i Interface) Interface {
+		return i.WithLogging(logger)
+	}
+}
 
 func NewForConfig(c *rest.Config, opts ...NewOption) (Interface, error) {
 	inner, err := {{ Pkg .Target.Type.PkgPath }}.NewForConfig(c)
@@ -279,36 +410,24 @@ func NewForConfigOrDie(c *rest.Config, opts ...NewOption) Interface {
 	return From({{ Pkg .Target.Type.PkgPath }}.NewForConfigOrDie(c), opts...)
 }
 
-func from(inner {{ GoType .Target }}, opts ...NewOption) Interface {
-	return &wrapper{inner}
+type wrapper struct {
+	{{ GoType .Target.Type }}
 }
 
-func From(inner {{ GoType .Target }}, opts ...NewOption) Interface {
-	i := from(inner)
-	for _, opt := range opts {
-		i = opt(i)
-	}
-	return i
+func from(inner {{ GoType .Target }}, opts ...NewOption) Interface {
+	return &wrapper{inner}
 }
 
 func (i *wrapper) WithMetrics(m metrics.MetricsConfigManager, t metrics.ClientType) Interface {
 	return from(WrapWithMetrics(i, m, t))
 }
 
-func WithMetrics(m metrics.MetricsConfigManager, t metrics.ClientType) NewOption {
-	return func(i Interface) Interface {
-		return i.WithMetrics(m, t)
-	}
-}
-
 func (i *wrapper) WithTracing() Interface {
 	return from(WrapWithTracing(i))
 }
 
-func WithTracing() NewOption {
-	return func(i Interface) Interface {
-		return i.WithTracing()
-	}
+func (i *wrapper) WithLogging(logger logr.Logger) Interface {
+	return from(WrapWithLogging(i, logger))
 }
 `
 )
@@ -337,7 +456,7 @@ func (r ret) IsError() bool {
 }
 
 type operation struct {
-	Method reflect.Method
+	reflect.Method
 }
 
 func (o operation) HasContext() bool {
@@ -345,7 +464,12 @@ func (o operation) HasContext() bool {
 }
 
 func (o operation) HasError() bool {
-	return o.Method.Type.NumIn() > 0 && goType(o.Method.Type.In(o.Method.Type.NumIn()-1)) == "error"
+	for _, out := range getOuts(o.Method) {
+		if goType(out) == "error" {
+			return true
+		}
+	}
+	return false
 }
 
 type resource struct {
@@ -370,7 +494,8 @@ type client struct {
 
 type clientset struct {
 	reflect.Type
-	Clients map[reflect.Method]client
+	Clients   map[reflect.Method]client
+	Resources map[resourceKey]resource
 }
 
 func getIns(in reflect.Method) []reflect.Type {
@@ -469,15 +594,18 @@ func parseClient(in reflect.Type) client {
 	return c
 }
 
-func parse(in reflect.Type) clientset {
+func parseClientset(in reflect.Type) clientset {
 	cs := clientset{
-		Type:    in,
-		Clients: map[reflect.Method]client{},
+		Type:      in,
+		Clients:   map[reflect.Method]client{},
+		Resources: map[resourceKey]resource{},
 	}
 	for _, clientMethod := range getMethods(in) {
 		// client methods return only the client interface type
 		if clientMethod.Type.NumOut() == 1 && clientMethod.Name != "Discovery" {
 			cs.Clients[clientMethod] = parseClient(clientMethod.Type.Out(0))
+		} else if clientMethod.Name == "Discovery" {
+			cs.Resources[resourceKey(clientMethod)] = parseResource(clientMethod.Type.Out(0))
 		}
 	}
 	return cs
@@ -497,10 +625,10 @@ func parseImports(in reflect.Type) []string {
 		for _, i := range getOuts(m) {
 			pkg := i.PkgPath()
 			if i.Kind() == reflect.Pointer {
-				i.Elem().PkgPath()
+				pkg = i.Elem().PkgPath()
 			}
 			if pkg != "" {
-				imports.Insert(i.PkgPath())
+				imports.Insert(pkg)
 			}
 		}
 	}
@@ -579,6 +707,9 @@ func generateClientset(cs clientset, folder string) {
 	for m, c := range cs.Clients {
 		generateClient(c, path.Join(folder, strings.ToLower(m.Name)))
 	}
+	for m, r := range cs.Resources {
+		generateResource(r, path.Join(folder, strings.ToLower(m.Name)))
+	}
 }
 
 func generateInterface(cs clientset, folder string) {
@@ -586,17 +717,17 @@ func generateInterface(cs clientset, folder string) {
 }
 
 func main() {
-	kube := parse(reflect.TypeOf((*kubernetes.Interface)(nil)).Elem())
+	kube := parseClientset(reflect.TypeOf((*kubernetes.Interface)(nil)).Elem())
 	generateClientset(kube, "pkg/clients/kube")
 	generateInterface(kube, "pkg/clients/kube")
-	kyverno := parse(reflect.TypeOf((*versioned.Interface)(nil)).Elem())
+	kyverno := parseClientset(reflect.TypeOf((*versioned.Interface)(nil)).Elem())
 	generateClientset(kyverno, "pkg/clients/kyverno")
 	generateInterface(kyverno, "pkg/clients/kyverno")
-	dynamicInterface := parse(reflect.TypeOf((*dynamic.Interface)(nil)).Elem())
+	dynamicInterface := parseClientset(reflect.TypeOf((*dynamic.Interface)(nil)).Elem())
 	dynamicResource := parseResource(reflect.TypeOf((*dynamic.ResourceInterface)(nil)).Elem())
 	generateResource(dynamicResource, "pkg/clients/dynamic/resource")
 	generateInterface(dynamicInterface, "pkg/clients/dynamic")
-	metadataInterface := parse(reflect.TypeOf((*metadata.Interface)(nil)).Elem())
+	metadataInterface := parseClientset(reflect.TypeOf((*metadata.Interface)(nil)).Elem())
 	metadataResource := parseResource(reflect.TypeOf((*metadata.ResourceInterface)(nil)).Elem())
 	generateInterface(metadataInterface, "pkg/clients/metadata")
 	generateResource(metadataResource, "pkg/clients/metadata/resource")

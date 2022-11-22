@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	localsubjectaccessreviews "github.com/kyverno/kyverno/pkg/clients/kube/authorizationv1/localsubjectaccessreviews"
 	selfsubjectaccessreviews "github.com/kyverno/kyverno/pkg/clients/kube/authorizationv1/selfsubjectaccessreviews"
 	selfsubjectrulesreviews "github.com/kyverno/kyverno/pkg/clients/kube/authorizationv1/selfsubjectrulesreviews"
@@ -16,6 +17,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_authorization_v1.Author
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_authorization_v1.AuthorizationV1Interface, client string) k8s_io_client_go_kubernetes_typed_authorization_v1.AuthorizationV1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_authorization_v1.AuthorizationV1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_authorization_v1.AuthorizationV1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -63,4 +68,25 @@ func (c *withTracing) SelfSubjectRulesReviews() k8s_io_client_go_kubernetes_type
 }
 func (c *withTracing) SubjectAccessReviews() k8s_io_client_go_kubernetes_typed_authorization_v1.SubjectAccessReviewInterface {
 	return subjectaccessreviews.WithTracing(c.inner.SubjectAccessReviews(), c.client, "SubjectAccessReview")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_authorization_v1.AuthorizationV1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) LocalSubjectAccessReviews(namespace string) k8s_io_client_go_kubernetes_typed_authorization_v1.LocalSubjectAccessReviewInterface {
+	return localsubjectaccessreviews.WithLogging(c.inner.LocalSubjectAccessReviews(namespace), c.logger.WithValues("resource", "LocalSubjectAccessReviews").WithValues("namespace", namespace))
+}
+func (c *withLogging) SelfSubjectAccessReviews() k8s_io_client_go_kubernetes_typed_authorization_v1.SelfSubjectAccessReviewInterface {
+	return selfsubjectaccessreviews.WithLogging(c.inner.SelfSubjectAccessReviews(), c.logger.WithValues("resource", "SelfSubjectAccessReviews"))
+}
+func (c *withLogging) SelfSubjectRulesReviews() k8s_io_client_go_kubernetes_typed_authorization_v1.SelfSubjectRulesReviewInterface {
+	return selfsubjectrulesreviews.WithLogging(c.inner.SelfSubjectRulesReviews(), c.logger.WithValues("resource", "SelfSubjectRulesReviews"))
+}
+func (c *withLogging) SubjectAccessReviews() k8s_io_client_go_kubernetes_typed_authorization_v1.SubjectAccessReviewInterface {
+	return subjectaccessreviews.WithLogging(c.inner.SubjectAccessReviews(), c.logger.WithValues("resource", "SubjectAccessReviews"))
 }
