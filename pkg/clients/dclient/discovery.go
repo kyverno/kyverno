@@ -70,8 +70,8 @@ func (c serverPreferredResources) GetGVRFromKind(kind string) (schema.GroupVersi
 	if kind == "" {
 		return schema.GroupVersionResource{}, nil
 	}
-	_, k := kubeutils.GetKindFromGVK(kind)
-	_, gvr, err := c.FindResource("", k)
+	gv, k := kubeutils.GetKindFromGVK(kind)
+	_, gvr, err := c.FindResource(gv, k)
 	if err != nil {
 		logger.Info("schema not found", "kind", k)
 		return schema.GroupVersionResource{}, err
