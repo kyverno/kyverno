@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: mutate-existing-background-false
+  name: add-privileged-existing-namespaces
 status:
   conditions:
   - reason: Succeeded
