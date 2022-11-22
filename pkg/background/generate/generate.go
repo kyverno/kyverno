@@ -535,6 +535,7 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 				_, err = client.CreateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 				if err != nil {
 					if !apierrors.IsAlreadyExists(err) {
+						logger.Error(err, "failed to create resource")
 						newGenResources = append(newGenResources, noGenResource)
 						break
 					}
@@ -548,6 +549,7 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 					logger.V(2).Info(fmt.Sprintf("creating generate resource name:name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
 					_, err = client.CreateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 					if err != nil {
+						logger.Error(err, "failed to update resource")
 						newGenResources = append(newGenResources, noGenResource)
 						break
 					}
