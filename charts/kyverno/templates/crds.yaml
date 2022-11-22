@@ -6,7 +6,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '1'
     internal.config.kubernetes.io/index: '1'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -268,7 +268,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '2'
     internal.config.kubernetes.io/index: '2'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -500,7 +500,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '3'
     internal.config.kubernetes.io/index: '3'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -1447,7 +1447,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '4'
     internal.config.kubernetes.io/index: '4'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -1709,7 +1709,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '5'
     internal.config.kubernetes.io/index: '5'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -1941,7 +1941,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '6'
     internal.config.kubernetes.io/index: '6'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -2888,7 +2888,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '7'
     internal.config.kubernetes.io/index: '7'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -10110,7 +10110,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '8'
     internal.config.kubernetes.io/index: '8'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -10383,7 +10383,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '9'
     internal.config.kubernetes.io/index: '9'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -10559,7 +10559,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '10'
     internal.config.kubernetes.io/index: '10'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -17781,7 +17781,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '11'
     internal.config.kubernetes.io/index: '11'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -18054,7 +18054,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '12'
     internal.config.kubernetes.io/index: '12'
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
