@@ -53,7 +53,91 @@ func NewController(
 	}
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
-	// TODO: we need to enqueue something on cronjob events
+	cpolEnqueue := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
+	polEnqueue := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
+	controllerutils.AddEventHandlersT(
+		cjInformer.Informer(),
+		func(n *batchv1.CronJob) {
+			if len(n.OwnerReferences) == 1 {
+				if n.OwnerReferences[0].Kind == "ClusterCleanupPolicy" {
+					cpol := kyvernov1alpha1.ClusterCleanupPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: n.OwnerReferences[0].Name,
+						},
+					}
+					err := cpolEnqueue(&cpol)
+					if err != nil {
+						logger.Error(err, "failed to enqueue ClusterCleanupPolicy object", cpol)
+					}
+				} else if n.OwnerReferences[0].Kind == "CleanupPolicy" {
+					pol := kyvernov1alpha1.CleanupPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      n.OwnerReferences[0].Name,
+							Namespace: n.Namespace,
+						},
+					}
+					err := polEnqueue(&pol)
+					if err != nil {
+						logger.Error(err, "failed to enqueue CleanupPolicy object", pol)
+					}
+				}
+			}
+		},
+		func(o *batchv1.CronJob, n *batchv1.CronJob) {
+			if o.GetResourceVersion() != n.GetResourceVersion() {
+				for _, owner := range n.OwnerReferences {
+					if owner.Kind == "ClusterCleanupPolicy" {
+						cpol := kyvernov1alpha1.ClusterCleanupPolicy{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: owner.Name,
+							},
+						}
+						err := cpolEnqueue(&cpol)
+						if err != nil {
+							logger.Error(err, "failed to enqueue ClusterCleanupPolicy object", cpol)
+						}
+					} else if owner.Kind == "CleanupPolicy" {
+						pol := kyvernov1alpha1.CleanupPolicy{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      owner.Name,
+								Namespace: n.Namespace,
+							},
+						}
+						err := polEnqueue(&pol)
+						if err != nil {
+							logger.Error(err, "failed to enqueue CleanupPolicy object", pol)
+						}
+					}
+				}
+			}
+		},
+		func(n *batchv1.CronJob) {
+			if len(n.OwnerReferences) == 1 {
+				if n.OwnerReferences[0].Kind == "ClusterCleanupPolicy" {
+					cpol := kyvernov1alpha1.ClusterCleanupPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: n.OwnerReferences[0].Name,
+						},
+					}
+					err := cpolEnqueue(&cpol)
+					if err != nil {
+						logger.Error(err, "failed to enqueue ClusterCleanupPolicy object", cpol)
+					}
+				} else if n.OwnerReferences[0].Kind == "CleanupPolicy" {
+					pol := kyvernov1alpha1.CleanupPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      n.OwnerReferences[0].Name,
+							Namespace: n.Namespace,
+						},
+					}
+					err := polEnqueue(&pol)
+					if err != nil {
+						logger.Error(err, "failed to enqueue CleanupPolicy object", pol)
+					}
+				}
+			}
+		},
+	)
 	return c
 }
 
