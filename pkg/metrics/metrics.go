@@ -183,7 +183,10 @@ func NewPrometheusConfig(
 		return nil, err
 	}
 
-	exporter, err := prometheus.New(prometheus.WithoutUnits())
+	exporter, err := prometheus.New(
+		prometheus.WithoutUnits(),
+		prometheus.WithoutTargetInfo(),
+	)
 	if err != nil {
 		log.Error(err, "failed to initialize prometheus exporter")
 		return nil, err
