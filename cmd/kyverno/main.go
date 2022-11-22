@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -171,11 +172,19 @@ func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientCo
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
+	dynamicClient, err := dynamicclient.NewForConfig(
+		clientConfig,
+		dynamicclient.WithMetrics(metricsConfig, metrics.KubeClient),
+		dynamicclient.WithTracing(),
+	)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	return kubeClient, kubeClientLeaderElection, kyvernoClient, dynamicClient, nil
+	dClient, err := dclient.NewClient(ctx, dynamicClient, kubeClient, metadataResyncPeriod)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	return kubeClient, kubeClientLeaderElection, kyvernoClient, dClient, nil
 }
 
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {

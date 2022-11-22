@@ -106,10 +106,7 @@ func NewPolicyController(
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.V(5).Info)
-	eventInterface, err := client.GetEventsInterface()
-	if err != nil {
-		return nil, err
-	}
+	eventInterface := client.GetEventsInterface()
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{

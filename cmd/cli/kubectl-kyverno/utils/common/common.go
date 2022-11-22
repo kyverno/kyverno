@@ -327,8 +327,11 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 	}
 
 	if globalValMap != nil {
-		globalValMap["request.operation"] = "CREATE"
-		log.Log.V(3).Info("Defaulting request.operation to CREATE")
+		_, exist := globalValMap["request.operation"]
+		if !exist {
+			globalValMap["request.operation"] = "CREATE"
+			log.Log.V(3).Info("Defaulting request.operation to CREATE")
+		}
 	}
 
 	storePolicies := make([]store.Policy, 0)
