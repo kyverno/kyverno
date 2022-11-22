@@ -1,6 +1,7 @@
 package clientset
 
 import (
+	"github.com/go-logr/logr"
 	admissionregistrationv1 "github.com/kyverno/kyverno/pkg/clients/kube/admissionregistrationv1"
 	admissionregistrationv1beta1 "github.com/kyverno/kyverno/pkg/clients/kube/admissionregistrationv1beta1"
 	appsv1 "github.com/kyverno/kyverno/pkg/clients/kube/appsv1"
@@ -392,5 +393,57 @@ func WrapWithTracing(inner k8s_io_client_go_kubernetes.Interface) k8s_io_client_
 		storagev1:                    storagev1.WithTracing(inner.StorageV1(), "StorageV1"),
 		storagev1alpha1:              storagev1alpha1.WithTracing(inner.StorageV1alpha1(), "StorageV1alpha1"),
 		storagev1beta1:               storagev1beta1.WithTracing(inner.StorageV1beta1(), "StorageV1beta1"),
+	}
+}
+
+func WrapWithLogging(inner k8s_io_client_go_kubernetes.Interface, logger logr.Logger) k8s_io_client_go_kubernetes.Interface {
+	return &clientset{
+		discovery:                    discovery.WithLogging(inner.Discovery(), logger.WithValues("group", "Discovery")),
+		admissionregistrationv1:      admissionregistrationv1.WithLogging(inner.AdmissionregistrationV1(), logger.WithValues("group", "AdmissionregistrationV1")),
+		admissionregistrationv1beta1: admissionregistrationv1beta1.WithLogging(inner.AdmissionregistrationV1beta1(), logger.WithValues("group", "AdmissionregistrationV1beta1")),
+		appsv1:                       appsv1.WithLogging(inner.AppsV1(), logger.WithValues("group", "AppsV1")),
+		appsv1beta1:                  appsv1beta1.WithLogging(inner.AppsV1beta1(), logger.WithValues("group", "AppsV1beta1")),
+		appsv1beta2:                  appsv1beta2.WithLogging(inner.AppsV1beta2(), logger.WithValues("group", "AppsV1beta2")),
+		authenticationv1:             authenticationv1.WithLogging(inner.AuthenticationV1(), logger.WithValues("group", "AuthenticationV1")),
+		authenticationv1beta1:        authenticationv1beta1.WithLogging(inner.AuthenticationV1beta1(), logger.WithValues("group", "AuthenticationV1beta1")),
+		authorizationv1:              authorizationv1.WithLogging(inner.AuthorizationV1(), logger.WithValues("group", "AuthorizationV1")),
+		authorizationv1beta1:         authorizationv1beta1.WithLogging(inner.AuthorizationV1beta1(), logger.WithValues("group", "AuthorizationV1beta1")),
+		autoscalingv1:                autoscalingv1.WithLogging(inner.AutoscalingV1(), logger.WithValues("group", "AutoscalingV1")),
+		autoscalingv2:                autoscalingv2.WithLogging(inner.AutoscalingV2(), logger.WithValues("group", "AutoscalingV2")),
+		autoscalingv2beta1:           autoscalingv2beta1.WithLogging(inner.AutoscalingV2beta1(), logger.WithValues("group", "AutoscalingV2beta1")),
+		autoscalingv2beta2:           autoscalingv2beta2.WithLogging(inner.AutoscalingV2beta2(), logger.WithValues("group", "AutoscalingV2beta2")),
+		batchv1:                      batchv1.WithLogging(inner.BatchV1(), logger.WithValues("group", "BatchV1")),
+		batchv1beta1:                 batchv1beta1.WithLogging(inner.BatchV1beta1(), logger.WithValues("group", "BatchV1beta1")),
+		certificatesv1:               certificatesv1.WithLogging(inner.CertificatesV1(), logger.WithValues("group", "CertificatesV1")),
+		certificatesv1beta1:          certificatesv1beta1.WithLogging(inner.CertificatesV1beta1(), logger.WithValues("group", "CertificatesV1beta1")),
+		coordinationv1:               coordinationv1.WithLogging(inner.CoordinationV1(), logger.WithValues("group", "CoordinationV1")),
+		coordinationv1beta1:          coordinationv1beta1.WithLogging(inner.CoordinationV1beta1(), logger.WithValues("group", "CoordinationV1beta1")),
+		corev1:                       corev1.WithLogging(inner.CoreV1(), logger.WithValues("group", "CoreV1")),
+		discoveryv1:                  discoveryv1.WithLogging(inner.DiscoveryV1(), logger.WithValues("group", "DiscoveryV1")),
+		discoveryv1beta1:             discoveryv1beta1.WithLogging(inner.DiscoveryV1beta1(), logger.WithValues("group", "DiscoveryV1beta1")),
+		eventsv1:                     eventsv1.WithLogging(inner.EventsV1(), logger.WithValues("group", "EventsV1")),
+		eventsv1beta1:                eventsv1beta1.WithLogging(inner.EventsV1beta1(), logger.WithValues("group", "EventsV1beta1")),
+		extensionsv1beta1:            extensionsv1beta1.WithLogging(inner.ExtensionsV1beta1(), logger.WithValues("group", "ExtensionsV1beta1")),
+		flowcontrolv1alpha1:          flowcontrolv1alpha1.WithLogging(inner.FlowcontrolV1alpha1(), logger.WithValues("group", "FlowcontrolV1alpha1")),
+		flowcontrolv1beta1:           flowcontrolv1beta1.WithLogging(inner.FlowcontrolV1beta1(), logger.WithValues("group", "FlowcontrolV1beta1")),
+		flowcontrolv1beta2:           flowcontrolv1beta2.WithLogging(inner.FlowcontrolV1beta2(), logger.WithValues("group", "FlowcontrolV1beta2")),
+		internalv1alpha1:             internalv1alpha1.WithLogging(inner.InternalV1alpha1(), logger.WithValues("group", "InternalV1alpha1")),
+		networkingv1:                 networkingv1.WithLogging(inner.NetworkingV1(), logger.WithValues("group", "NetworkingV1")),
+		networkingv1alpha1:           networkingv1alpha1.WithLogging(inner.NetworkingV1alpha1(), logger.WithValues("group", "NetworkingV1alpha1")),
+		networkingv1beta1:            networkingv1beta1.WithLogging(inner.NetworkingV1beta1(), logger.WithValues("group", "NetworkingV1beta1")),
+		nodev1:                       nodev1.WithLogging(inner.NodeV1(), logger.WithValues("group", "NodeV1")),
+		nodev1alpha1:                 nodev1alpha1.WithLogging(inner.NodeV1alpha1(), logger.WithValues("group", "NodeV1alpha1")),
+		nodev1beta1:                  nodev1beta1.WithLogging(inner.NodeV1beta1(), logger.WithValues("group", "NodeV1beta1")),
+		policyv1:                     policyv1.WithLogging(inner.PolicyV1(), logger.WithValues("group", "PolicyV1")),
+		policyv1beta1:                policyv1beta1.WithLogging(inner.PolicyV1beta1(), logger.WithValues("group", "PolicyV1beta1")),
+		rbacv1:                       rbacv1.WithLogging(inner.RbacV1(), logger.WithValues("group", "RbacV1")),
+		rbacv1alpha1:                 rbacv1alpha1.WithLogging(inner.RbacV1alpha1(), logger.WithValues("group", "RbacV1alpha1")),
+		rbacv1beta1:                  rbacv1beta1.WithLogging(inner.RbacV1beta1(), logger.WithValues("group", "RbacV1beta1")),
+		schedulingv1:                 schedulingv1.WithLogging(inner.SchedulingV1(), logger.WithValues("group", "SchedulingV1")),
+		schedulingv1alpha1:           schedulingv1alpha1.WithLogging(inner.SchedulingV1alpha1(), logger.WithValues("group", "SchedulingV1alpha1")),
+		schedulingv1beta1:            schedulingv1beta1.WithLogging(inner.SchedulingV1beta1(), logger.WithValues("group", "SchedulingV1beta1")),
+		storagev1:                    storagev1.WithLogging(inner.StorageV1(), logger.WithValues("group", "StorageV1")),
+		storagev1alpha1:              storagev1alpha1.WithLogging(inner.StorageV1alpha1(), logger.WithValues("group", "StorageV1alpha1")),
+		storagev1beta1:               storagev1beta1.WithLogging(inner.StorageV1beta1(), logger.WithValues("group", "StorageV1beta1")),
 	}
 }
