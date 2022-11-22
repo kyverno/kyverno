@@ -36,19 +36,6 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
-func parseFlags(config internal.Configuration) {
-	internal.InitFlags(config)
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
-	flag.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
-	flag.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local", "Set this flag to the OpenTelemetry Collector Service Address. Kyverno will try to connect to this on the metrics port.")
-	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
-	flag.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
-	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
-	flag.Parse()
-}
-
 func createKubeClients(logger logr.Logger) (*rest.Config, kubernetes.Interface, error) {
 	logger = logger.WithName("kube-clients")
 	logger.Info("create kube clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
@@ -129,27 +116,34 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 }
 
 func main() {
+	flagset := flag.NewFlagSet("application", flag.ExitOnError)
+	flagset.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flagset.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
+	flagset.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
+	flagset.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
+	flagset.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local", "Set this flag to the OpenTelemetry Collector Service Address. Kyverno will try to connect to this on the metrics port.")
+	flagset.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
+	flagset.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
+	flagset.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 	// config
-	appConfig := internal.NewConfiguration(internal.WithProfiling(), internal.WithTracing())
+	appConfig := internal.NewConfiguration(
+		internal.WithProfiling(),
+		internal.WithTracing(),
+		internal.WithFlagSets(flagset),
+	)
 	// parse flags
-	parseFlags(appConfig)
 	// setup logger
-	logger := internal.SetupLogger()
-	// setup maxprocs
-	undo := internal.SetupMaxProcs(logger)
-	defer undo()
 	// show version
-	internal.ShowVersion(logger)
 	// start profiling
-	internal.SetupProfiling(logger)
+	// setup signals
+	// setup maxprocs
+	ctx, logger, sdown := internal.Setup(appConfig)
+	defer sdown()
 	// create client config and kube clients
 	clientConfig, rawClient, err := createKubeClients(logger)
 	if err != nil {
 		os.Exit(1)
 	}
-	// setup signals
-	signalCtx, signalCancel := internal.SetupSignals(logger)
-	defer signalCancel()
 	// setup metrics
 	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
 	if err != nil {
@@ -160,7 +154,7 @@ func main() {
 		defer metricsShutdown()
 	}
 	// create instrumented clients
-	kubeClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, metricsConfig)
+	kubeClient, dynamicClient, err := createInstrumentedClients(ctx, logger, clientConfig, metricsConfig)
 	if err != nil {
 		logger.Error(err, "failed to create instrument clients")
 		os.Exit(1)
@@ -172,7 +166,7 @@ func main() {
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kubeKyvernoInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(ctx, kubeKyvernoInformer) {
 		os.Exit(1)
 	}
 	server := NewServer(
@@ -186,7 +180,7 @@ func main() {
 		},
 	)
 	// start webhooks server
-	server.Run(signalCtx.Done())
+	server.Run(ctx.Done())
 	// wait for termination signal
-	<-signalCtx.Done()
+	<-ctx.Done()
 }

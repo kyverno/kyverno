@@ -1,8 +1,10 @@
 package internal
 
 import (
+	"context"
 	"flag"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/logging"
 )
 
@@ -63,5 +65,28 @@ func InitFlags(config Configuration) {
 	// kubeconfig
 	if config.UsesKubeconfig() {
 		initKubeconfigFlags()
+	}
+	for _, flagset := range config.FlagSets() {
+		flagset.VisitAll(func(f *flag.Flag) {
+			flag.CommandLine.Var(f.Value, f.Name, f.Usage)
+		})
+	}
+}
+
+func ParseFlags(config Configuration) {
+	InitFlags(config)
+	flag.Parse()
+}
+
+func Setup(config Configuration) (context.Context, logr.Logger, context.CancelFunc) {
+	ParseFlags(config)
+	logger := SetupLogger()
+	ShowVersion(logger)
+	sdownMaxProcs := SetupMaxProcs(logger)
+	SetupProfiling(logger)
+	ctx, sdownSignals := SetupSignals(logger)
+	return ctx, logger, func() {
+		sdownSignals()
+		sdownMaxProcs()
 	}
 }
