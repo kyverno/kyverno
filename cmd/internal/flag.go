@@ -1,10 +1,8 @@
 package internal
 
 import (
-	"context"
 	"flag"
 
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/logging"
 )
 
@@ -76,17 +74,4 @@ func InitFlags(config Configuration) {
 func ParseFlags(config Configuration) {
 	InitFlags(config)
 	flag.Parse()
-}
-
-func Setup(config Configuration) (context.Context, logr.Logger, context.CancelFunc) {
-	ParseFlags(config)
-	logger := SetupLogger()
-	ShowVersion(logger)
-	sdownMaxProcs := SetupMaxProcs(logger)
-	SetupProfiling(logger)
-	ctx, sdownSignals := SetupSignals(logger)
-	return ctx, logger, func() {
-		sdownSignals()
-		sdownMaxProcs()
-	}
 }

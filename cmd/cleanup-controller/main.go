@@ -132,12 +132,13 @@ func main() {
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
+	internal.ParseFlags(appConfig)
 	// setup logger
 	// show version
 	// start profiling
 	// setup signals
 	// setup maxprocs
-	ctx, logger, sdown := internal.Setup(appConfig)
+	ctx, logger, sdown := internal.Setup()
 	defer sdown()
 	// create client config and kube clients
 	clientConfig, rawClient, err := createKubeClients(logger)
