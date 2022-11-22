@@ -94,6 +94,10 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 	{{- if $operation.HasContext }}
 	ctx, span := tracing.StartSpan(
 		arg0,
+	{{- else }}
+	_, span := tracing.StartSpan(
+		context.TODO(),
+	{{- end }}
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, {{ Quote $operation.Method.Name }}),
 		attribute.String("client", c.client),
@@ -101,6 +105,7 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 		attribute.String("operation", {{ Quote $operation.Method.Name }}),
 	)
 	defer span.End()
+	{{- if $operation.HasContext }}
 	arg0 = ctx
 	{{- end }}
 	{{ range $i, $ret := Returns $operation.Method }}ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }} {{ end }} := c.inner.{{ $operation.Method.Name }}(
@@ -112,7 +117,7 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 		{{- end -}}
 		{{- end -}}
 	)
-	{{- if $operation.HasContext }}
+	{{- if $operation.HasError }}
 	{{- range $i, $ret := Returns $operation.Method }}
 	{{- if $ret.IsError }}
 	if ret{{ $i }} != nil {
@@ -356,7 +361,12 @@ func (o operation) HasContext() bool {
 }
 
 func (o operation) HasError() bool {
-	return o.Method.Type.NumIn() > 0 && goType(o.Method.Type.In(o.Method.Type.NumIn()-1)) == "error"
+	for _, out := range getOuts(o.Method) {
+		if goType(out) == "error" {
+			return true
+		}
+	}
+	return false
 }
 
 type resource struct {
