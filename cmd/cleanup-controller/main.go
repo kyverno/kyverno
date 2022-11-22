@@ -116,6 +116,7 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 }
 
 func main() {
+	// application flags
 	flagset := flag.NewFlagSet("application", flag.ExitOnError)
 	flagset.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flagset.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
