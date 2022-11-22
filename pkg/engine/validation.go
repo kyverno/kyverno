@@ -78,7 +78,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
-	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.GetSpec().GetValidationFailureAction()
+	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.GetSpec().ValidationFailureAction
 
 	for _, v := range ctx.Policy.GetSpec().ValidationFailureActionOverrides {
 		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, response.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces})
@@ -305,7 +305,6 @@ func (v *validator) validateForEach() *response.RuleResponse {
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}
-
 		resp, count := v.validateElements(foreach, elements, foreach.ElementScope)
 		if resp.Status != response.RuleStatusPass {
 			return resp
@@ -327,6 +326,9 @@ func (v *validator) validateElements(foreach kyvernov1.ForEachValidation, elemen
 	applyCount := 0
 
 	for i, e := range elements {
+		if e == nil {
+			continue
+		}
 		store.SetForeachElement(i)
 		v.ctx.JSONContext.Reset()
 
@@ -454,7 +456,7 @@ func (v *validator) getDenyMessage(deny bool) string {
 func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
 	kind := v.ctx.NewResource.GetKind()
 
-	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" {
+	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
 		var deployment appsv1.Deployment
 
 		resourceBytes, err := v.ctx.NewResource.MarshalJSON()

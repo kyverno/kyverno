@@ -6,9 +6,9 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	preport "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	kyvCommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/core/v1"
 )
@@ -87,7 +87,7 @@ var rawEngRes = []byte(`{"PatchedResource":{"apiVersion":"v1","kind":"Pod","meta
 
 func Test_buildPolicyReports(t *testing.T) {
 	rc := &kyvCommon.ResultCounts{}
-	var pvInfos []policyreport.Info
+	var pvInfos []common.Info
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
@@ -96,7 +96,7 @@ func Test_buildPolicyReports(t *testing.T) {
 	err = json.Unmarshal(rawEngRes, &er)
 	assert.NilError(t, err)
 
-	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true)
+	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
 	pvInfos = append(pvInfos, info)
 
 	reports := buildPolicyReports(pvInfos)
@@ -123,7 +123,7 @@ func Test_buildPolicyReports(t *testing.T) {
 
 func Test_buildPolicyResults(t *testing.T) {
 	rc := &kyvCommon.ResultCounts{}
-	var pvInfos []policyreport.Info
+	var pvInfos []common.Info
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
@@ -132,7 +132,7 @@ func Test_buildPolicyResults(t *testing.T) {
 	err = json.Unmarshal(rawEngRes, &er)
 	assert.NilError(t, err)
 
-	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true)
+	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
 	pvInfos = append(pvInfos, info)
 
 	results := buildPolicyResults(pvInfos)

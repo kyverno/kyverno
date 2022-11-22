@@ -25,6 +25,6 @@ jobs:
         run: |
           export GOPATH=$HOME/go
           export PATH=$PATH:$(go env GOPATH)/bin
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
+          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/f90d8f6ea32a55bc3b08d557590066b820a7c1b8/install-latest.sh | bash # v3.5.2
           fossa init
           fossa analyze

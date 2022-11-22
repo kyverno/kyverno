@@ -240,9 +240,9 @@ startupProbe:
     path: /health/liveness
     port: 9443
     scheme: HTTPS
-  failureThreshold: 12
-  initialDelaySeconds: 30
-  periodSeconds: 10
+  failureThreshold: 20
+  initialDelaySeconds: 2
+  periodSeconds: 6
 
 # -- Liveness probe.
 # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
@@ -445,6 +445,12 @@ createSelfSignedCert: false
 # If the CRDs are not installed by Helm, they must be added before policies can be created.
 installCRDs: true
 
+crds:
+  # -- Additional CRDs annotations.
+  annotations: {}
+    # argocd.argoproj.io/sync-options: Replace=true
+    # strategy.spinnaker.io/replace: 'true'
+
 networkPolicy:
   # -- When true, use a NetworkPolicy to allow ingress to the webhook
   # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
@@ -458,5 +464,73 @@ webhooksCleanup:
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
 
-# -- A writable volume to use for the TUF root initialization
+# -- A writable volume to use for the TUF root initialization.
 tufRootMountPath: /.sigstore
+
+grafana:
+  # -- Enable grafana dashboard creation.
+  enabled: false
+  # -- Namespace to create the grafana dashboard configmap.
+  # If not set, it will be created in the same namespace where the chart is deployed.
+  namespace:
+  # -- Grafana dashboard configmap annotations.
+  annotations: {}
+
+cleanupController:
+  # -- Enable cleanup controller.
+  enabled: true
+
+  image:
+    # -- Image registry
+    registry:
+    # If you want to manage the registry you should remove it from the repository
+    # registry: ghcr.io
+    # repository: kyverno/kyverno
+    # -- Image repository
+    repository: ghcr.io/kyverno/cleanup-controller  # kyverno: replaced in e2e tests
+    # -- Image tag
+    # Defaults to appVersion in Chart.yaml if omitted
+    tag:  # replaced in e2e tests
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+    # -- Image pull secrets
+    pullSecrets: []
+    # - secretName
+
+  service:
+    # -- Service port.
+    port: 443
+    # -- Service type.
+    type: ClusterIP
+    # -- Service node port.
+    # Only used if `service.type` is `NodePort`.
+    nodePort:
+    # -- Service annotations.
+    annotations: {}
+
+  # -- Startup probe.
+  # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  startupProbe: {}
+
+  # -- Liveness probe.
+  # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  livenessProbe: {}
+
+  # -- Readiness Probe.
+  # The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  readinessProbe: {}
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Topology spread constraints.
+  topologySpreadConstraints: []

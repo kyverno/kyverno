@@ -205,11 +205,31 @@ The command removes all the Kubernetes components associated with the chart and 
 | serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
 | createSelfSignedCert | bool | `false` | Kyverno requires a certificate key pair and corresponding certificate authority to properly register its webhooks. This can be done in one of 3 ways: 1) Use kube-controller-manager to generate a CA-signed certificate (preferred) 2) Provide your own CA and cert.    In this case, you will need to create a certificate with a specific name and data structure.    As long as you follow the naming scheme, it will be automatically picked up.    kyverno-svc.(namespace).svc.kyverno-tls-ca (with data entries named tls.key and tls.crt)    kyverno-svc.kyverno.svc.kyverno-tls-pair (with data entries named tls.key and tls.crt) 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false |
 | installCRDs | bool | `true` | Whether to have Helm install the Kyverno CRDs. If the CRDs are not installed by Helm, they must be added before policies can be created. |
+| crds.annotations | object | `{}` | Additional CRDs annotations. |
 | networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | webhooksCleanup.enable | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
-| tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization |
+| tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
+| grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
+| grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
+| grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
+| cleanupController.enabled | bool | `true` | Enable cleanup controller. |
+| cleanupController.image.registry | string | `nil` | Image registry |
+| cleanupController.image.repository | string | `"ghcr.io/kyverno/cleanup-controller"` | Image repository |
+| cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| cleanupController.image.pullSecrets | list | `[]` | Image pull secrets |
+| cleanupController.service.port | int | `443` | Service port. |
+| cleanupController.service.type | string | `"ClusterIP"` | Service type. |
+| cleanupController.service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
+| cleanupController.service.annotations | object | `{}` | Service annotations. |
+| cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| cleanupController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| cleanupController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| cleanupController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| cleanupController.tolerations | list | `[]` | List of node taints to tolerate |
+| cleanupController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
 
 ## TLS Configuration
 
