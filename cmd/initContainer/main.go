@@ -27,14 +27,7 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-)
-
-var (
-	kubeconfig           string
-	clientRateLimitQPS   float64
-	clientRateLimitBurst int
 )
 
 const (
@@ -45,15 +38,14 @@ const (
 
 func parseFlags(config internal.Configuration) {
 	internal.InitFlags(config)
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Parse()
 }
 
 func main() {
 	// config
-	appConfig := internal.NewConfiguration()
+	appConfig := internal.NewConfiguration(
+		internal.WithKubeconfig(),
+	)
 	// parse flags
 	parseFlags(appConfig)
 	// setup logger
@@ -69,24 +61,9 @@ func main() {
 
 	stopCh := signalCtx.Done()
 
-	// create client config
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
-	if err != nil {
-		logger.Error(err, "Failed to build kubeconfig")
-		os.Exit(1)
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
-	}
-
-	dynamicClient, err := dynamic.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create dynamic client")
-		os.Exit(1)
-	}
+	kubeClient := internal.CreateKubernetesClient(logger)
+	dynamicClient := internal.CreateDynamicClient(logger)
+	kyvernoClient := internal.CreateKyvernoClient(logger)
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
@@ -96,12 +73,6 @@ func main() {
 		kubeClient,
 		15*time.Minute,
 	)
-	if err != nil {
-		logger.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
-
-	pclient, err := kyvernoclient.NewForConfig(clientConfig)
 	if err != nil {
 		logger.Error(err, "Failed to create client")
 		os.Exit(1)
@@ -155,8 +126,8 @@ func main() {
 		in := gen(done, stopCh, requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(client, pclient, done, stopCh, in)
-		p2 := process(client, pclient, done, stopCh, in)
+		p1 := process(client, kyvernoClient, done, stopCh, in)
+		p2 := process(client, kyvernoClient, done, stopCh, in)
 		// merge results from processing routines
 		for err := range merge(done, stopCh, p1, p2) {
 			if err != nil {

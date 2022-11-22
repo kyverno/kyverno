@@ -65,7 +65,6 @@ const (
 var (
 	// TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	kubeconfig                 string
 	serverIP                   string
 	metricsPort                string
 	webhookTimeout             int
@@ -79,8 +78,6 @@ var (
 	imagePullSecrets           string
 	imageSignatureRepository   string
 	allowInsecureRegistry      bool
-	clientRateLimitQPS         float64
-	clientRateLimitBurst       int
 	webhookRegistrationTimeout time.Duration
 	backgroundScan             bool
 	admissionReports           bool
@@ -98,7 +95,6 @@ func parseFlags(config internal.Configuration) {
 	flag.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 	flag.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
@@ -109,8 +105,6 @@ func parseFlags(config internal.Configuration) {
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flag.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
@@ -406,7 +400,11 @@ func createrLeaderControllers(
 
 func main() {
 	// config
-	appConfig := internal.NewConfiguration(internal.WithProfiling(), internal.WithTracing())
+	appConfig := internal.NewConfiguration(
+		internal.WithProfiling(),
+		internal.WithTracing(),
+		internal.WithKubeconfig(),
+	)
 	// parse flags
 	parseFlags(appConfig)
 	// setup logger
