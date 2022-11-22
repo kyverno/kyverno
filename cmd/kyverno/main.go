@@ -20,10 +20,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	kubeclientmetrics "github.com/kyverno/kyverno/pkg/clients/wrappers/metrics/kube"
-	kyvernoclientmetrics "github.com/kyverno/kyverno/pkg/clients/wrappers/metrics/kyverno"
-	kubeclienttraces "github.com/kyverno/kyverno/pkg/clients/wrappers/traces/kube"
-	kyvernoclienttraces "github.com/kyverno/kyverno/pkg/clients/wrappers/traces/kyverno"
+	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
@@ -148,22 +146,31 @@ func createKubeClients(logger logr.Logger) (*rest.Config, kubernetes.Interface, 
 func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, metricsConfig *metrics.MetricsConfig) (kubernetes.Interface, kubernetes.Interface, versioned.Interface, dclient.Interface, error) {
 	logger = logger.WithName("instrumented-clients")
 	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	kubeClient, err := kubeclientmetrics.NewForConfig(clientConfig, metricsConfig, metrics.KubeClient)
+	kubeClient, err := kubeclient.NewForConfig(
+		clientConfig,
+		kubeclient.WithMetrics(metricsConfig, metrics.KubeClient),
+		kubeclient.WithTracing(),
+	)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	kubeClient = kubeclienttraces.Wrap(kubeClient)
 	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
-	kubeClientLeaderElection, err := kubeclientmetrics.NewForConfig(clientConfig, metricsConfig, metrics.KubeClient)
+	kubeClientLeaderElection, err := kubeclient.NewForConfig(
+		clientConfig,
+		kubeclient.WithMetrics(metricsConfig, metrics.KubeClient),
+		kubeclient.WithTracing(),
+	)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	kubeClientLeaderElection = kubeclienttraces.Wrap(kubeClientLeaderElection)
-	kyvernoClient, err := kyvernoclientmetrics.NewForConfig(clientConfig, metricsConfig, metrics.KyvernoClient)
+	kyvernoClient, err := kyvernoclient.NewForConfig(
+		clientConfig,
+		kyvernoclient.WithMetrics(metricsConfig, metrics.KubeClient),
+		kyvernoclient.WithTracing(),
+	)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	kyvernoClient = kyvernoclienttraces.Wrap(kyvernoClient)
 	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
 	if err != nil {
 		return nil, nil, nil, nil, err
