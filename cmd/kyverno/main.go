@@ -493,7 +493,7 @@ func main() {
 		defer metricsShutdown()
 	}
 	// setup signals
-	signalCtx, signalCancel := internal.SetupSignals()
+	signalCtx, signalCancel := internal.SetupSignals(logger)
 	defer signalCancel()
 	// create instrumented clients
 	kubeClient, kubeClientLeaderElection, kyvernoClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, metricsConfig)

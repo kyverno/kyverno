@@ -62,7 +62,7 @@ func main() {
 	// show version
 	internal.ShowVersion(logger)
 	// os signal handler
-	signalCtx, signalCancel := internal.SetupSignals()
+	signalCtx, signalCancel := internal.SetupSignals(logger)
 	defer signalCancel()
 	// create client config
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
