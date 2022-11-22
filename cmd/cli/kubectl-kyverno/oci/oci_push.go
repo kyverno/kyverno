@@ -71,14 +71,14 @@ kyverno oci push -p policies. -i <imgref>`,
 				policyLayer := static.NewLayer(policyBytes, policyLayerMediaType)
 				img, err = mutate.Append(img, mutate.Addendum{
 					Layer:       policyLayer,
-					Annotations: policy.GetAnnotations(),
+					Annotations: annotations(policy),
 				})
 				if err != nil {
 					return fmt.Errorf("mutating image: %v", err)
 				}
 			}
 			fmt.Fprintf(os.Stderr, "Uploading [%s]...\n", ref.Name())
-			if err = Write(ref, img, remote.WithContext(cmd.Context()), remote.WithAuthFromKeychain(keychain)); err != nil {
+			if err = remote.Write(ref, img, remote.WithContext(cmd.Context()), remote.WithAuthFromKeychain(keychain)); err != nil {
 				return fmt.Errorf("writing image: %v", err)
 			}
 			fmt.Fprintf(os.Stderr, "Done.")

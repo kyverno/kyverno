@@ -63,7 +63,7 @@ kyverno oci pull -i <imgref> -d policies`,
 				remote.WithAuthFromKeychain(keychain),
 			}
 
-			rmt, err := Get(ref, do...)
+			rmt, err := remote.Get(ref, do...)
 			if err != nil {
 				return fmt.Errorf("getting image: %v", err)
 			}
