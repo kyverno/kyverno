@@ -131,7 +131,20 @@ func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Even
 	return ret0, ret1
 }
 func (c *withTracing) CreateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
+	_, span := tracing.StartSpan(
+		context.TODO(),
+		"",
+		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "CreateWithEventNamespace"),
+		attribute.String("client", c.client),
+		attribute.String("kind", c.kind),
+		attribute.String("operation", "CreateWithEventNamespace"),
+	)
+	defer span.End()
 	ret0, ret1 := c.inner.CreateWithEventNamespace(arg0)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(codes.Error, ret1.Error())
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
@@ -189,6 +202,15 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	return ret0, ret1
 }
 func (c *withTracing) GetFieldSelector(arg0 *string, arg1 *string, arg2 *string, arg3 *string) k8s_io_apimachinery_pkg_fields.Selector {
+	_, span := tracing.StartSpan(
+		context.TODO(),
+		"",
+		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "GetFieldSelector"),
+		attribute.String("client", c.client),
+		attribute.String("kind", c.kind),
+		attribute.String("operation", "GetFieldSelector"),
+	)
+	defer span.End()
 	ret0 := c.inner.GetFieldSelector(arg0, arg1, arg2, arg3)
 	return ret0
 }
@@ -229,11 +251,37 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	return ret0, ret1
 }
 func (c *withTracing) PatchWithEventNamespace(arg0 *k8s_io_api_core_v1.Event, arg1 []uint8) (*k8s_io_api_core_v1.Event, error) {
+	_, span := tracing.StartSpan(
+		context.TODO(),
+		"",
+		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "PatchWithEventNamespace"),
+		attribute.String("client", c.client),
+		attribute.String("kind", c.kind),
+		attribute.String("operation", "PatchWithEventNamespace"),
+	)
+	defer span.End()
 	ret0, ret1 := c.inner.PatchWithEventNamespace(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(codes.Error, ret1.Error())
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Search(arg0 *k8s_io_apimachinery_pkg_runtime.Scheme, arg1 k8s_io_apimachinery_pkg_runtime.Object) (*k8s_io_api_core_v1.EventList, error) {
+	_, span := tracing.StartSpan(
+		context.TODO(),
+		"",
+		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Search"),
+		attribute.String("client", c.client),
+		attribute.String("kind", c.kind),
+		attribute.String("operation", "Search"),
+	)
+	defer span.End()
 	ret0, ret1 := c.inner.Search(arg0, arg1)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(codes.Error, ret1.Error())
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Event, error) {
@@ -255,7 +303,20 @@ func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Even
 	return ret0, ret1
 }
 func (c *withTracing) UpdateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
+	_, span := tracing.StartSpan(
+		context.TODO(),
+		"",
+		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "UpdateWithEventNamespace"),
+		attribute.String("client", c.client),
+		attribute.String("kind", c.kind),
+		attribute.String("operation", "UpdateWithEventNamespace"),
+	)
+	defer span.End()
 	ret0, ret1 := c.inner.UpdateWithEventNamespace(arg0)
+	if ret1 != nil {
+		span.RecordError(ret1)
+		span.SetStatus(codes.Error, ret1.Error())
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {

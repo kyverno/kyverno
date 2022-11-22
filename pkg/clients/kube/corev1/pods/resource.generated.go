@@ -292,6 +292,15 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	return ret0, ret1
 }
 func (c *withTracing) GetLogs(arg0 string, arg1 *k8s_io_api_core_v1.PodLogOptions) *k8s_io_client_go_rest.Request {
+	_, span := tracing.StartSpan(
+		context.TODO(),
+		"",
+		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "GetLogs"),
+		attribute.String("client", c.client),
+		attribute.String("kind", c.kind),
+		attribute.String("operation", "GetLogs"),
+	)
+	defer span.End()
 	ret0 := c.inner.GetLogs(arg0, arg1)
 	return ret0
 }
@@ -332,6 +341,15 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	return ret0, ret1
 }
 func (c *withTracing) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 string, arg4 map[string]string) k8s_io_client_go_rest.ResponseWrapper {
+	_, span := tracing.StartSpan(
+		context.TODO(),
+		"",
+		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ProxyGet"),
+		attribute.String("client", c.client),
+		attribute.String("kind", c.kind),
+		attribute.String("operation", "ProxyGet"),
+	)
+	defer span.End()
 	ret0 := c.inner.ProxyGet(arg0, arg1, arg2, arg3, arg4)
 	return ret0
 }

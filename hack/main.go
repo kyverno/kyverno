@@ -94,6 +94,10 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 	{{- if $operation.HasContext }}
 	ctx, span := tracing.StartSpan(
 		arg0,
+	{{- else }}
+	_, span := tracing.StartSpan(
+		context.TODO(),
+	{{- end }}
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, {{ Quote $operation.Method.Name }}),
 		attribute.String("client", c.client),
@@ -101,6 +105,7 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 		attribute.String("operation", {{ Quote $operation.Method.Name }}),
 	)
 	defer span.End()
+	{{- if $operation.HasContext }}
 	arg0 = ctx
 	{{- end }}
 	{{ range $i, $ret := Returns $operation.Method }}ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }} {{ end }} := c.inner.{{ $operation.Method.Name }}(
@@ -112,7 +117,7 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 		{{- end -}}
 		{{- end -}}
 	)
-	{{- if $operation.HasContext }}
+	{{- if $operation.HasError }}
 	{{- range $i, $ret := Returns $operation.Method }}
 	{{- if $ret.IsError }}
 	if ret{{ $i }} != nil {
@@ -194,21 +199,28 @@ import (
 	{{- range $package := Packages .Target.Type }}
 	{{ Pkg $package }} {{ Quote $package }}
 	{{- end }}
+	{{- range $resourceMethod, $resource := .Target.Resources }}
+	{{ ToLower $resourceMethod.Name }} "github.com/kyverno/kyverno/{{ $.Folder }}/{{ ToLower $resourceMethod.Name }}"
+	{{- end }}
 	{{- range $clientMethod, $client := .Target.Clients }}
 	{{ ToLower $clientMethod.Name }} "github.com/kyverno/kyverno/{{ $.Folder }}/{{ ToLower $clientMethod.Name }}"
 	{{- end }}
 )
 
 type clientset struct {
-	inner {{ GoType .Target }}
+	{{- range $resourceMethod, $resource := .Target.Resources }}
+	{{ ToLower $resourceMethod.Name }} {{ GoType $resource.Type }}
+	{{- end }}
 	{{- range $clientMethod, $client := .Target.Clients }}
 	{{ ToLower $clientMethod.Name }} {{ GoType $client.Type }}
 	{{- end }}
 }
 
-func (c *clientset) Discovery() discovery.DiscoveryInterface {
-	return c.inner.Discovery()
+{{- range $resourceMethod, $resource := .Target.Resources }}
+func (c *clientset) {{ $resourceMethod.Name }}() {{ GoType $resource.Type }}{
+	return c.{{ ToLower $resourceMethod.Name }}
 }
+{{- end }}
 
 {{- range $clientMethod, $client := .Target.Clients }}
 func (c *clientset) {{ $clientMethod.Name }}() {{ GoType $client.Type }}{
@@ -216,18 +228,22 @@ func (c *clientset) {{ $clientMethod.Name }}() {{ GoType $client.Type }}{
 }
 {{- end }}
 
-func WrapWithMetrics(inner {{ GoType .Target }}, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) {{ GoType .Target }} {
+func WrapWithMetrics(inner {{ GoType .Target }}, m metrics.MetricsConfigManager, clientType metrics.ClientType) {{ GoType .Target }} {
 	return &clientset{
-		inner: inner,
+		{{- range $resourceMethod, $resource := .Target.Resources }}
+		{{ ToLower $resourceMethod.Name }}: {{ ToLower $resourceMethod.Name }}.WithMetrics(inner.{{ $resourceMethod.Name }}(), metrics.ClusteredClientQueryRecorder(m, {{ Quote $resource.Kind }}, clientType)),
+		{{- end }}
 		{{- range $clientMethod, $client := .Target.Clients }}
-		{{ ToLower $clientMethod.Name }}: {{ ToLower $clientMethod.Name }}.WithMetrics(inner.{{ $clientMethod.Name }}(), metrics, clientType),
+		{{ ToLower $clientMethod.Name }}: {{ ToLower $clientMethod.Name }}.WithMetrics(inner.{{ $clientMethod.Name }}(), m, clientType),
 		{{- end }}
 	}
 }
 
 func WrapWithTracing(inner {{ GoType .Target }}) {{ GoType .Target }} {
 	return &clientset{
-		inner: inner,
+		{{- range $resourceMethod, $resource := .Target.Resources }}
+		{{ ToLower $resourceMethod.Name }}: {{ ToLower $resourceMethod.Name }}.WithTracing(inner.{{ $resourceMethod.Name }}(), {{ Quote $resourceMethod.Name }}, ""),
+		{{- end }}
 		{{- range $clientMethod, $client := .Target.Clients }}
 		{{ ToLower $clientMethod.Name }}: {{ ToLower $clientMethod.Name }}.WithTracing(inner.{{ $clientMethod.Name }}(), {{ Quote $clientMethod.Name }}),
 		{{- end }}
@@ -337,7 +353,7 @@ func (r ret) IsError() bool {
 }
 
 type operation struct {
-	Method reflect.Method
+	reflect.Method
 }
 
 func (o operation) HasContext() bool {
@@ -345,7 +361,12 @@ func (o operation) HasContext() bool {
 }
 
 func (o operation) HasError() bool {
-	return o.Method.Type.NumIn() > 0 && goType(o.Method.Type.In(o.Method.Type.NumIn()-1)) == "error"
+	for _, out := range getOuts(o.Method) {
+		if goType(out) == "error" {
+			return true
+		}
+	}
+	return false
 }
 
 type resource struct {
@@ -370,7 +391,8 @@ type client struct {
 
 type clientset struct {
 	reflect.Type
-	Clients map[reflect.Method]client
+	Clients   map[reflect.Method]client
+	Resources map[resourceKey]resource
 }
 
 func getIns(in reflect.Method) []reflect.Type {
@@ -469,15 +491,18 @@ func parseClient(in reflect.Type) client {
 	return c
 }
 
-func parse(in reflect.Type) clientset {
+func parseClientset(in reflect.Type) clientset {
 	cs := clientset{
-		Type:    in,
-		Clients: map[reflect.Method]client{},
+		Type:      in,
+		Clients:   map[reflect.Method]client{},
+		Resources: map[resourceKey]resource{},
 	}
 	for _, clientMethod := range getMethods(in) {
 		// client methods return only the client interface type
 		if clientMethod.Type.NumOut() == 1 && clientMethod.Name != "Discovery" {
 			cs.Clients[clientMethod] = parseClient(clientMethod.Type.Out(0))
+		} else if clientMethod.Name == "Discovery" {
+			cs.Resources[resourceKey(clientMethod)] = parseResource(clientMethod.Type.Out(0))
 		}
 	}
 	return cs
@@ -497,10 +522,10 @@ func parseImports(in reflect.Type) []string {
 		for _, i := range getOuts(m) {
 			pkg := i.PkgPath()
 			if i.Kind() == reflect.Pointer {
-				i.Elem().PkgPath()
+				pkg = i.Elem().PkgPath()
 			}
 			if pkg != "" {
-				imports.Insert(i.PkgPath())
+				imports.Insert(pkg)
 			}
 		}
 	}
@@ -579,6 +604,9 @@ func generateClientset(cs clientset, folder string) {
 	for m, c := range cs.Clients {
 		generateClient(c, path.Join(folder, strings.ToLower(m.Name)))
 	}
+	for m, r := range cs.Resources {
+		generateResource(r, path.Join(folder, strings.ToLower(m.Name)))
+	}
 }
 
 func generateInterface(cs clientset, folder string) {
@@ -586,17 +614,17 @@ func generateInterface(cs clientset, folder string) {
 }
 
 func main() {
-	kube := parse(reflect.TypeOf((*kubernetes.Interface)(nil)).Elem())
+	kube := parseClientset(reflect.TypeOf((*kubernetes.Interface)(nil)).Elem())
 	generateClientset(kube, "pkg/clients/kube")
 	generateInterface(kube, "pkg/clients/kube")
-	kyverno := parse(reflect.TypeOf((*versioned.Interface)(nil)).Elem())
+	kyverno := parseClientset(reflect.TypeOf((*versioned.Interface)(nil)).Elem())
 	generateClientset(kyverno, "pkg/clients/kyverno")
 	generateInterface(kyverno, "pkg/clients/kyverno")
-	dynamicInterface := parse(reflect.TypeOf((*dynamic.Interface)(nil)).Elem())
+	dynamicInterface := parseClientset(reflect.TypeOf((*dynamic.Interface)(nil)).Elem())
 	dynamicResource := parseResource(reflect.TypeOf((*dynamic.ResourceInterface)(nil)).Elem())
 	generateResource(dynamicResource, "pkg/clients/dynamic/resource")
 	generateInterface(dynamicInterface, "pkg/clients/dynamic")
-	metadataInterface := parse(reflect.TypeOf((*metadata.Interface)(nil)).Elem())
+	metadataInterface := parseClientset(reflect.TypeOf((*metadata.Interface)(nil)).Elem())
 	metadataResource := parseResource(reflect.TypeOf((*metadata.ResourceInterface)(nil)).Elem())
 	generateInterface(metadataInterface, "pkg/clients/metadata")
 	generateResource(metadataResource, "pkg/clients/metadata/resource")
