@@ -3,12 +3,15 @@ package resource
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/go-logr/logr"
 	github_com_google_gnostic_openapiv2 "github.com/google/gnostic/openapiv2"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.uber.org/multierr"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_io_apimachinery_pkg_version "k8s.io/apimachinery/pkg/version"
 	k8s_io_client_go_discovery "k8s.io/client-go/discovery"
@@ -16,12 +19,113 @@ import (
 	k8s_io_client_go_rest "k8s.io/client-go/rest"
 )
 
+func WithLogging(inner k8s_io_client_go_discovery.DiscoveryInterface, logger logr.Logger) k8s_io_client_go_discovery.DiscoveryInterface {
+	return &withLogging{inner, logger}
+}
+
 func WithMetrics(inner k8s_io_client_go_discovery.DiscoveryInterface, recorder metrics.Recorder) k8s_io_client_go_discovery.DiscoveryInterface {
 	return &withMetrics{inner, recorder}
 }
 
 func WithTracing(inner k8s_io_client_go_discovery.DiscoveryInterface, client, kind string) k8s_io_client_go_discovery.DiscoveryInterface {
 	return &withTracing{inner, client, kind}
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_discovery.DiscoveryInterface
+	logger logr.Logger
+}
+
+func (c *withLogging) OpenAPISchema() (*github_com_google_gnostic_openapiv2.Document, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "OpenAPISchema")
+	ret0, ret1 := c.inner.OpenAPISchema()
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "OpenAPISchema failed", "duration", time.Since(start))
+	} else {
+		logger.Info("OpenAPISchema done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) OpenAPIV3() k8s_io_client_go_openapi.Client {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "OpenAPIV3")
+	ret0 := c.inner.OpenAPIV3()
+	logger.Info("OpenAPIV3 done", "duration", time.Since(start))
+	return ret0
+}
+func (c *withLogging) RESTClient() k8s_io_client_go_rest.Interface {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "RESTClient")
+	ret0 := c.inner.RESTClient()
+	logger.Info("RESTClient done", "duration", time.Since(start))
+	return ret0
+}
+func (c *withLogging) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroupList, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "ServerGroups")
+	ret0, ret1 := c.inner.ServerGroups()
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "ServerGroups failed", "duration", time.Since(start))
+	} else {
+		logger.Info("ServerGroups done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) ServerGroupsAndResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroup, []*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "ServerGroupsAndResources")
+	ret0, ret1, ret2 := c.inner.ServerGroupsAndResources()
+	if err := multierr.Combine(ret2); err != nil {
+		logger.Error(err, "ServerGroupsAndResources failed", "duration", time.Since(start))
+	} else {
+		logger.Info("ServerGroupsAndResources done", "duration", time.Since(start))
+	}
+	return ret0, ret1, ret2
+}
+func (c *withLogging) ServerPreferredNamespacedResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "ServerPreferredNamespacedResources")
+	ret0, ret1 := c.inner.ServerPreferredNamespacedResources()
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "ServerPreferredNamespacedResources failed", "duration", time.Since(start))
+	} else {
+		logger.Info("ServerPreferredNamespacedResources done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) ServerPreferredResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "ServerPreferredResources")
+	ret0, ret1 := c.inner.ServerPreferredResources()
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "ServerPreferredResources failed", "duration", time.Since(start))
+	} else {
+		logger.Info("ServerPreferredResources done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "ServerResourcesForGroupVersion")
+	ret0, ret1 := c.inner.ServerResourcesForGroupVersion(arg0)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "ServerResourcesForGroupVersion failed", "duration", time.Since(start))
+	} else {
+		logger.Info("ServerResourcesForGroupVersion done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
+func (c *withLogging) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "ServerVersion")
+	ret0, ret1 := c.inner.ServerVersion()
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "ServerVersion failed", "duration", time.Since(start))
+	} else {
+		logger.Info("ServerVersion done", "duration", time.Since(start))
+	}
+	return ret0, ret1
 }
 
 type withMetrics struct {

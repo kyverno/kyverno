@@ -1,6 +1,7 @@
 package clientset
 
 import (
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/clients/metadata/resource"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -17,6 +18,10 @@ func WrapWithMetrics(inner metadata.Interface, metrics metrics.MetricsConfigMana
 
 func WrapWithTracing(inner metadata.Interface) metadata.Interface {
 	return &withTracing{inner}
+}
+
+func WrapWithLogging(inner metadata.Interface, logger logr.Logger) metadata.Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -73,5 +78,31 @@ func (c *withTracing) Resource(gvr schema.GroupVersionResource) metadata.Getter 
 	}{
 		resource.WithTracing(inner, client, kind),
 		&withTracingNamespaceable{client, kind, inner},
+	}
+}
+
+type withLogging struct {
+	inner  metadata.Interface
+	logger logr.Logger
+}
+
+type withLoggingNamespaceable struct {
+	inner  namespaceableInterface
+	logger logr.Logger
+}
+
+func (c *withLoggingNamespaceable) Namespace(namespace string) metadata.ResourceInterface {
+	return resource.WithLogging(c.inner.Namespace(namespace), c.logger)
+}
+
+func (c *withLogging) Resource(gvr schema.GroupVersionResource) metadata.Getter {
+	logger := c.logger.WithValues("group", gvr.Group, "version", gvr.Version, "resource", gvr.Resource)
+	inner := c.inner.Resource(gvr)
+	return struct {
+		metadata.ResourceInterface
+		namespaceableInterface
+	}{
+		resource.WithLogging(inner, logger),
+		&withLoggingNamespaceable{inner, logger},
 	}
 }

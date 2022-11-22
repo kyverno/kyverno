@@ -1,6 +1,7 @@
 package clientset
 
 import (
+	"github.com/go-logr/logr"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
@@ -64,5 +65,16 @@ func WrapWithTracing(inner github_com_kyverno_kyverno_pkg_client_clientset_versi
 		kyvernov1alpha2:     kyvernov1alpha2.WithTracing(inner.KyvernoV1alpha2(), "KyvernoV1alpha2"),
 		kyvernov1beta1:      kyvernov1beta1.WithTracing(inner.KyvernoV1beta1(), "KyvernoV1beta1"),
 		wgpolicyk8sv1alpha2: wgpolicyk8sv1alpha2.WithTracing(inner.Wgpolicyk8sV1alpha2(), "Wgpolicyk8sV1alpha2"),
+	}
+}
+
+func WrapWithLogging(inner github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface, logger logr.Logger) github_com_kyverno_kyverno_pkg_client_clientset_versioned.Interface {
+	return &clientset{
+		discovery:           discovery.WithLogging(inner.Discovery(), logger.WithValues("group", "Discovery")),
+		kyvernov1:           kyvernov1.WithLogging(inner.KyvernoV1(), logger.WithValues("group", "KyvernoV1")),
+		kyvernov1alpha1:     kyvernov1alpha1.WithLogging(inner.KyvernoV1alpha1(), logger.WithValues("group", "KyvernoV1alpha1")),
+		kyvernov1alpha2:     kyvernov1alpha2.WithLogging(inner.KyvernoV1alpha2(), logger.WithValues("group", "KyvernoV1alpha2")),
+		kyvernov1beta1:      kyvernov1beta1.WithLogging(inner.KyvernoV1beta1(), logger.WithValues("group", "KyvernoV1beta1")),
+		wgpolicyk8sv1alpha2: wgpolicyk8sv1alpha2.WithLogging(inner.Wgpolicyk8sV1alpha2(), logger.WithValues("group", "Wgpolicyk8sV1alpha2")),
 	}
 }

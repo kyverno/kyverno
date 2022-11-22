@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	csistoragecapacities "github.com/kyverno/kyverno/pkg/clients/kube/storagev1alpha1/csistoragecapacities"
 	volumeattachments "github.com/kyverno/kyverno/pkg/clients/kube/storagev1alpha1/volumeattachments"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -14,6 +15,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_storage_v1alpha1.Storag
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_storage_v1alpha1.StorageV1alpha1Interface, client string) k8s_io_client_go_kubernetes_typed_storage_v1alpha1.StorageV1alpha1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_storage_v1alpha1.StorageV1alpha1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_storage_v1alpha1.StorageV1alpha1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -47,4 +52,19 @@ func (c *withTracing) CSIStorageCapacities(namespace string) k8s_io_client_go_ku
 }
 func (c *withTracing) VolumeAttachments() k8s_io_client_go_kubernetes_typed_storage_v1alpha1.VolumeAttachmentInterface {
 	return volumeattachments.WithTracing(c.inner.VolumeAttachments(), c.client, "VolumeAttachment")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_storage_v1alpha1.StorageV1alpha1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) CSIStorageCapacities(namespace string) k8s_io_client_go_kubernetes_typed_storage_v1alpha1.CSIStorageCapacityInterface {
+	return csistoragecapacities.WithLogging(c.inner.CSIStorageCapacities(namespace), c.logger.WithValues("resource", "CSIStorageCapacities").WithValues("namespace", namespace))
+}
+func (c *withLogging) VolumeAttachments() k8s_io_client_go_kubernetes_typed_storage_v1alpha1.VolumeAttachmentInterface {
+	return volumeattachments.WithLogging(c.inner.VolumeAttachments(), c.logger.WithValues("resource", "VolumeAttachments"))
 }
