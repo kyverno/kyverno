@@ -3,6 +3,7 @@ package internal
 type Configuration interface {
 	UsesTracing() bool
 	UsesProfiling() bool
+	UsesKubeconfig() bool
 }
 
 func NewConfiguration(options ...ConfigurationOption) Configuration {
@@ -27,9 +28,16 @@ func WithProfiling() ConfigurationOption {
 	}
 }
 
+func WithKubeconfig() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesKubeconfig = true
+	}
+}
+
 type configuration struct {
-	usesTracing   bool
-	usesProfiling bool
+	usesTracing    bool
+	usesProfiling  bool
+	usesKubeconfig bool
 }
 
 func (c *configuration) UsesTracing() bool {
@@ -38,4 +46,8 @@ func (c *configuration) UsesTracing() bool {
 
 func (c *configuration) UsesProfiling() bool {
 	return c.usesProfiling
+}
+
+func (c *configuration) UsesKubeconfig() bool {
+	return c.usesKubeconfig
 }
