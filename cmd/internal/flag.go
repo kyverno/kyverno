@@ -18,6 +18,10 @@ var (
 	tracingAddress string
 	tracingPort    string
 	tracingCreds   string
+	// kubeconfig
+	kubeconfig           string
+	clientRateLimitQPS   float64
+	clientRateLimitBurst int
 )
 
 func initLoggingFlags() {
@@ -39,6 +43,12 @@ func initTracingFlags() {
 	flag.StringVar(&tracingCreds, "tracingCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Tracing Client. If empty string is set, means an insecure connection will be used")
 }
 
+func initKubeconfigFlags() {
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
+	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
+}
+
 func InitFlags(config Configuration) {
 	// logging
 	initLoggingFlags()
@@ -49,5 +59,9 @@ func InitFlags(config Configuration) {
 	// tracing
 	if config.UsesTracing() {
 		initTracingFlags()
+	}
+	// kubeconfig
+	if config.UsesKubeconfig() {
+		initKubeconfigFlags()
 	}
 }
