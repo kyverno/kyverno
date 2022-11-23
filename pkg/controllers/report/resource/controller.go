@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -172,9 +173,12 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 					c.notify(uid, gvk, hashes[uid])
 				}
 				logger.Info("start watcher ...", "gvr", gvr, "resourceVersion", resourceVersion)
-
 				watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
-					return c.client.GetDynamicInterface().Resource(gvr).Watch(ctx, options)
+					watch, err := c.client.GetDynamicInterface().Resource(gvr).Watch(ctx, options)
+					if err != nil && !errors.Is(err, context.Canceled) {
+						logger.Error(err, "failed to watch", "gvr", gvr)
+					}
+					return watch, err
 				}
 				watchInterface, err := watchTools.NewRetryWatcher(resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
 				if err != nil {
