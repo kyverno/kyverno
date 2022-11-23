@@ -2,7 +2,6 @@ package admission
 
 import (
 	"context"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -11,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
+	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
@@ -19,7 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -137,36 +136,6 @@ func (c *controller) getReport(ctx context.Context, namespace, name string) (kyv
 	}
 }
 
-// reportsAreIdentical we expect reports are sorted before comparing them
-func reportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
-	bLabels := sets.NewString()
-	aLabels := sets.NewString()
-	for key := range before.GetLabels() {
-		bLabels.Insert(key)
-	}
-	for key := range after.GetLabels() {
-		aLabels.Insert(key)
-	}
-	if !aLabels.Equal(bLabels) {
-		return false
-	}
-	b := before.GetResults()
-	a := after.GetResults()
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		a := a[i]
-		b := b[i]
-		a.Timestamp = metav1.Timestamp{}
-		b.Timestamp = metav1.Timestamp{}
-		if !reflect.DeepEqual(&a, &b) {
-			return false
-		}
-	}
-	return true
-}
-
 func mergeReports(accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
 	for _, report := range reports {
 		if len(report.GetOwnerReferences()) == 1 {
@@ -235,7 +204,7 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID, gvk sc
 	controllerutils.SetLabel(after, reportutils.LabelResourceHash, res.Hash)
 	controllerutils.SetLabel(after, reportutils.LabelAggregatedReport, res.Hash)
 	reportutils.SetResults(after, results...)
-	if !reportsAreIdentical(before, after) {
+	if !utils.ReportsAreIdentical(before, after) {
 		_, err = reportutils.UpdateReport(ctx, after, c.client)
 		if err != nil {
 			return err
