@@ -99,6 +99,7 @@ func (c *controller) Warmup(ctx context.Context) error {
 
 func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+	c.stopDynamicWatchers()
 }
 
 func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {
@@ -224,6 +225,16 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (c *controller) stopDynamicWatchers() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for _, watcher := range c.dynamicWatchers {
+		watcher.watcher.Stop()
+	}
+	c.dynamicWatchers = map[schema.GroupVersionResource]*watcher{}
+
 }
 
 func (c *controller) notify(uid types.UID, gvk schema.GroupVersionKind, obj Resource) {

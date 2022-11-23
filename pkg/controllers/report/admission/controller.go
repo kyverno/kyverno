@@ -81,6 +81,22 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
+func (c *controller) deleteReport(ctx context.Context, namespace, name string) error {
+	if namespace == "" {
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(ctx, name, metav1.DeleteOptions{})
+	} else {
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	}
+}
+
+func (c *controller) fetchReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+	if namespace == "" {
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
+	} else {
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
+	}
+}
+
 func (c *controller) getReports(uid types.UID) ([]metav1.Object, error) {
 	selector, err := reportutils.SelectorResourceUidEquals(uid)
 	if err != nil {
@@ -102,38 +118,6 @@ func (c *controller) getReports(uid types.UID) ([]metav1.Object, error) {
 		results = append(results, cadmr.(metav1.Object))
 	}
 	return results, nil
-}
-
-func (c *controller) getReportMetadata(namespace, name string) (metav1.Object, error) {
-	if namespace == "" {
-		obj, err := c.cadmrLister.Get(name)
-		if err != nil {
-			return nil, err
-		}
-		return obj.(metav1.Object), err
-	} else {
-		obj, err := c.admrLister.ByNamespace(namespace).Get(name)
-		if err != nil {
-			return nil, err
-		}
-		return obj.(metav1.Object), err
-	}
-}
-
-func (c *controller) deleteReport(ctx context.Context, namespace, name string) error {
-	if namespace == "" {
-		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(ctx, name, metav1.DeleteOptions{})
-	} else {
-		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
-	}
-}
-
-func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
-	if namespace == "" {
-		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
-	} else {
-		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
-	}
 }
 
 func mergeReports(accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
@@ -161,53 +145,67 @@ func mergeReports(accumulator map[string]policyreportv1alpha2.PolicyReportResult
 }
 
 func (c *controller) aggregateReports(ctx context.Context, uid types.UID, gvk schema.GroupVersionKind, res resource.Resource, reports ...metav1.Object) error {
+	before, err := c.fetchReport(ctx, res.Namespace, string(uid))
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+		before = reportutils.EmptyAdmissionReport(uid, res.Namespace, res.Name, metav1.GroupVersionKind(gvk))
+	}
 	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
-	var toDelete []metav1.Object
 	for _, report := range reports {
 		if reportutils.GetResourceHash(report) == res.Hash {
 			// TODO: see if we can use List instead of fetching reports one by one
-			report, err := c.getReport(ctx, report.GetNamespace(), report.GetName())
+			report, err := c.fetchReport(ctx, report.GetNamespace(), report.GetName())
 			if err != nil {
 				return err
 			}
 			mergeReports(merged, report)
-		}
-		if report.GetName() != string(uid) {
-			if reportutils.GetResourceHash(report) == res.Hash || report.GetCreationTimestamp().Add(time.Minute*2).Before(time.Now()) {
-				toDelete = append(toDelete, report)
-			} else {
-				c.queue.AddAfter(cache.ExplicitKey(uid), time.Minute*2)
-			}
 		}
 	}
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, result := range merged {
 		results = append(results, result)
 	}
-	before, err := c.getReport(ctx, res.Namespace, string(uid))
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if len(results) == 0 {
-				return nil
-			}
-			report := reportutils.EmptyAdmissionReport(uid, res.Namespace, res.Name, metav1.GroupVersionKind(gvk))
-			controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, res.Name, uid)
-			controllerutils.SetLabel(report, reportutils.LabelResourceHash, res.Hash)
-			controllerutils.SetLabel(report, reportutils.LabelAggregatedReport, res.Hash)
-			reportutils.SetResults(report, results...)
-			_, err := reportutils.CreateReport(ctx, report, c.client)
-			return err
-		}
-		return err
+	after := before
+	if before.GetResourceVersion() != "" {
+		after = reportutils.DeepCopy(before)
 	}
-	after := reportutils.DeepCopy(before)
+	controllerutils.SetOwner(after, gvk.GroupVersion().String(), gvk.Kind, res.Name, uid)
 	controllerutils.SetLabel(after, reportutils.LabelResourceHash, res.Hash)
 	controllerutils.SetLabel(after, reportutils.LabelAggregatedReport, res.Hash)
 	reportutils.SetResults(after, results...)
-	if !utils.ReportsAreIdentical(before, after) {
-		_, err = reportutils.UpdateReport(ctx, after, c.client)
-		if err != nil {
-			return err
+	if after.GetResourceVersion() == "" {
+		if len(results) > 0 {
+			if _, err := reportutils.CreateReport(ctx, after, c.client); err != nil {
+				return err
+			}
+		}
+	} else {
+		if len(results) == 0 {
+			if err := c.deleteReport(ctx, after.GetNamespace(), after.GetName()); err != nil {
+				return err
+			}
+		} else {
+			if !utils.ReportsAreIdentical(before, after) {
+				if _, err = reportutils.UpdateReport(ctx, after, c.client); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return c.cleanupReports(ctx, uid, res.Hash, reports...)
+}
+
+func (c *controller) cleanupReports(ctx context.Context, uid types.UID, hash string, reports ...metav1.Object) error {
+	var toDelete []metav1.Object
+	for _, report := range reports {
+		if report.GetName() != string(uid) {
+			if reportutils.GetResourceHash(report) == hash || report.GetCreationTimestamp().Add(time.Minute*2).Before(time.Now()) {
+				toDelete = append(toDelete, report)
+			} else {
+				c.queue.AddAfter(cache.ExplicitKey(uid), time.Minute*2)
+			}
 		}
 	}
 	var errs []error
@@ -220,47 +218,29 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID, gvk sc
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
-	resourceUid := types.UID(key)
+	uid := types.UID(key)
 	// find related reports
-	reports, err := c.getReports(resourceUid)
+	reports, err := c.getReports(uid)
 	if err != nil {
 		return err
-	} else {
-		var toDelete []metav1.Object
-		for _, report := range reports {
-			if report.GetName() != string(resourceUid) {
-				if report.GetCreationTimestamp().Add(time.Minute * 2).Before(time.Now()) {
-					toDelete = append(toDelete, report)
-				}
-			}
-		}
-		var errs []error
-		for _, report := range toDelete {
-			if err := c.deleteReport(ctx, report.GetNamespace(), report.GetName()); err != nil {
-				errs = append(errs, err)
-			}
-		}
-		if err := multierr.Combine(errs...); err != nil {
-			return err
-		}
 	}
 	// is the resource known
-	resource, gvk, found := c.metadataCache.GetResourceHash(resourceUid)
+	resource, gvk, found := c.metadataCache.GetResourceHash(uid)
 	if !found {
-		return nil
+		return c.cleanupReports(ctx, uid, "", reports...)
 	}
 	// set orphan reports an owner
 	for _, report := range reports {
 		if len(report.GetOwnerReferences()) == 0 {
-			report, err := c.getReport(ctx, report.GetNamespace(), report.GetName())
+			report, err := c.fetchReport(ctx, report.GetNamespace(), report.GetName())
 			if err != nil {
 				return err
 			}
-			controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, resource.Name, resourceUid)
+			controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
 			_, err = reportutils.UpdateReport(ctx, report, c.client)
 			return err
 		}
 	}
 	// build an aggregated report
-	return c.aggregateReports(ctx, resourceUid, gvk, resource, reports...)
+	return c.aggregateReports(ctx, uid, gvk, resource, reports...)
 }
