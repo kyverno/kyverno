@@ -32,7 +32,7 @@ func CreateKyvernoClient(logger logr.Logger, opts ...kyverno.NewOption) versione
 	logger = logger.WithName("kyverno-client")
 	logger.Info("create kyverno client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := kyverno.NewForConfig(CreateClientConfig(logger), opts...)
-	checkError(logger, err, "failed to create kubernetes client")
+	checkError(logger, err, "failed to create kyverno client")
 	return client
 }
 

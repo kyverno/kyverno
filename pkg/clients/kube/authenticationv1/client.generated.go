@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	tokenreviews "github.com/kyverno/kyverno/pkg/clients/kube/authenticationv1/tokenreviews"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_authentication_v1 "k8s.io/client-go/kubernetes/typed/authentication/v1"
@@ -13,6 +14,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_authentication_v1.Authe
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_authentication_v1.AuthenticationV1Interface, client string) k8s_io_client_go_kubernetes_typed_authentication_v1.AuthenticationV1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_authentication_v1.AuthenticationV1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_authentication_v1.AuthenticationV1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -39,4 +44,16 @@ func (c *withTracing) RESTClient() rest.Interface {
 }
 func (c *withTracing) TokenReviews() k8s_io_client_go_kubernetes_typed_authentication_v1.TokenReviewInterface {
 	return tokenreviews.WithTracing(c.inner.TokenReviews(), c.client, "TokenReview")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_authentication_v1.AuthenticationV1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) TokenReviews() k8s_io_client_go_kubernetes_typed_authentication_v1.TokenReviewInterface {
+	return tokenreviews.WithLogging(c.inner.TokenReviews(), c.logger.WithValues("resource", "TokenReviews"))
 }
