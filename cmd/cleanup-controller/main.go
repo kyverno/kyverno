@@ -5,8 +5,6 @@ import (
 	"flag"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -130,10 +128,6 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 	return metricsConfig, cancel, nil
 }
 
-func setupSignals() (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-}
-
 func main() {
 	// config
 	appConfig := internal.NewConfiguration(internal.WithProfiling(), internal.WithTracing())
@@ -154,7 +148,7 @@ func main() {
 		os.Exit(1)
 	}
 	// setup signals
-	signalCtx, signalCancel := setupSignals()
+	signalCtx, signalCancel := internal.SetupSignals(logger)
 	defer signalCancel()
 	// setup metrics
 	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)

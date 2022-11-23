@@ -33,7 +33,7 @@ type Manager interface {
 
 type manager struct {
 	// definitions holds the map of {definitionName: *openapiv2.Schema}
-	definitions cmap.ConcurrentMap[*openapiv2.Schema]
+	definitions cmap.ConcurrentMap[string, *openapiv2.Schema]
 
 	// kindToDefinitionName holds the map of {(group/version/)kind: definitionName}
 	// i.e. with k8s 1.20.2
@@ -41,13 +41,13 @@ type manager struct {
 	// - networking.k8s.io/v1/Ingress: io.k8s.api.networking.v1.Ingress
 	// - networking.k8s.io/v1beta1/Ingress: io.k8s.api.networking.v1beta1.Ingress
 	// - extension/v1beta1/Ingress: io.k8s.api.extensions.v1beta1.Ingress
-	gvkToDefinitionName cmap.ConcurrentMap[string]
+	gvkToDefinitionName cmap.ConcurrentMap[string, string]
 
 	crdList []string
 	models  proto.Models
 
 	// kindToAPIVersions stores the Kind and all its available apiVersions, {kind: apiVersions}
-	kindToAPIVersions cmap.ConcurrentMap[apiVersions]
+	kindToAPIVersions cmap.ConcurrentMap[string, apiVersions]
 }
 
 // apiVersions stores all available gvks for a kind, a gvk is "/" separated string
