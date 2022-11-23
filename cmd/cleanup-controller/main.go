@@ -124,6 +124,7 @@ func main() {
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	policyHandlers := NewHandlers(
 		dClient,
+		kubeClient,
 	)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
 	// start informers and wait for cache sync

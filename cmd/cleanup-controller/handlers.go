@@ -9,15 +9,18 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 type cleanupPolicyHandlers struct {
-	client dclient.Interface
+	dclient dclient.Interface
+	kclient kubernetes.Interface
 }
 
-func NewHandlers(client dclient.Interface) CleanupPolicyHandlers {
+func NewHandlers(dclient dclient.Interface, kclient kubernetes.Interface) CleanupPolicyHandlers {
 	return &cleanupPolicyHandlers{
-		client: client,
+		dclient: dclient,
+		kclient: kclient,
 	}
 }
 
@@ -31,7 +34,7 @@ func (h *cleanupPolicyHandlers) Validate(ctx context.Context, logger logr.Logger
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(err)
 	}
-	err = validate.ValidateCleanupPolicy(policy, h.client, false)
+	err = validate.ValidateCleanupPolicy(policy, h.dclient, h.kclient, false)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 		return admissionutils.Response(err)

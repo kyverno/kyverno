@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -14,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/kubernetes"
 )
 
 // Cleanup provides implementation to validate permission for using DELETE operation by CleanupPolicy
@@ -58,14 +60,24 @@ func (c *Cleanup) CanIDelete(kind, namespace string) error {
 	return nil
 }
 
+func listNameSpaces(coreClient kubernetes.Interface) ([]string, error) {
+	var namespaceList []string
+	nsList, err := coreClient.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return namespaceList, err
+	}
+	for _, n := range nsList.Items {
+		namespaceList = append(namespaceList, n.Name)
+	}
+	return namespaceList, nil
+}
+
 // Validate checks the policy and rules declarations for required configurations
-func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface, client dclient.Interface, mock bool) error {
-	namespace := cleanuppolicy.GetNamespace()
+func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface, dclient dclient.Interface, client kubernetes.Interface, mock bool) error {
 	var res []*metav1.APIResourceList
 	clusterResources := sets.NewString()
-
 	// Get all the cluster type kind supported by cluster
-	res, err := discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
+	res, err := discovery.ServerPreferredResources(dclient.Discovery().DiscoveryInterface())
 	if err != nil {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			err := err.(*discovery.ErrGroupDiscoveryFailed)
@@ -90,9 +102,15 @@ func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface,
 
 	kinds := admission.FetchUniqueKinds(*cleanuppolicy.GetSpec())
 	for _, kind := range kinds {
-		checker := NewCleanup(client, *cleanuppolicy.GetSpec(), logging.GlobalLogger())
-		if err := checker.CanIDelete(kind, namespace); err != nil {
-			return fmt.Errorf("cannot delete kind %s in namespace %s", kind, namespace)
+		checker := NewCleanup(dclient, *cleanuppolicy.GetSpec(), logging.GlobalLogger())
+		namespaces, err := listNameSpaces(client)
+		if err != nil {
+			return err
+		}
+		for _, namespace := range namespaces {
+			if err := checker.CanIDelete(kind, namespace); err != nil {
+				return fmt.Errorf("cannot delete kind %s in namespace %s", kind, namespace)
+			}
 		}
 	}
 
