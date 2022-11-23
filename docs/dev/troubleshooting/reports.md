@@ -4,7 +4,7 @@ This document contains scripts to help troubleshooting reports issues.
 
 ## Getting reports detailed information
 
-When querying reports yoy can add `-o wide` to get a more detailed output.
+When querying reports you can add `-o wide` to get a more detailed output.
 
 This will show infos about the resource associated with the report.
 
@@ -37,7 +37,7 @@ NAME                                   APIVERSION                     KIND      
 
 ## Getting the number of reports in a cluster
 
-This will help checking if reports are anormaly accumulating in the cluster.
+This will help checking if reports are incorrectly accumulating in the cluster.
 
 ```console
 COUNT=$(kubectl get cadmr --no-headers 2> /dev/null | wc -l)
