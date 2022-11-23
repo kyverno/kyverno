@@ -5,18 +5,24 @@ import (
 	"flag"
 	"net/http"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
+	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
+	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apiextensions-apiserver/pkg/cmd/server"
+	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -81,6 +87,10 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 	return metricsConfig, cancel, nil
 }
 
+func setupSignals() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+}
+
 func main() {
 	// config
 	appConfig := internal.NewConfiguration(
@@ -99,12 +109,10 @@ func main() {
 	internal.ShowVersion(logger)
 	// start profiling
 	internal.SetupProfiling(logger)
-	// create raw client
+	// raw kube client
 	rawClient := internal.CreateKubernetesClient(logger)
-	// setup signals
-	signalCtx, signalCancel := internal.SetupSignals(logger)
-	defer signalCancel()
-	metricsConfig, metricsShutdown, err := setupMetrics(logger, kubeClient)
+	// setup metrics
+	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
 	if err != nil {
 		logger.Error(err, "failed to setup metrics")
 		os.Exit(1)
@@ -112,12 +120,25 @@ func main() {
 	if metricsShutdown != nil {
 		defer metricsShutdown()
 	}
+	// setup signals
+	signalCtx, signalCancel := setupSignals()
+	defer signalCancel()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
 	dClient, err := dclient.NewClient(signalCtx, dynamicClient, kubeClient, 15*time.Minute)
 	if err != nil {
 		logger.Error(err, "failed to create dynamic client")
+		os.Exit(1)
+	}
+	clientConfig := internal.CreateClientConfig(logger)
+	kyvernoClient, err := kyvernoclient.NewForConfig(
+		clientConfig,
+		kyvernoclient.WithMetrics(metricsConfig, metrics.KubeClient),
+		kyvernoclient.WithTracing(),
+	)
+	if err != nil {
+		logger.Error(err, "failed to create kyverno client")
 		os.Exit(1)
 	}
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
@@ -139,8 +160,10 @@ func main() {
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kubeKyvernoInformer) {
 		os.Exit(1)
 	}
-	cleanupController := cleanup.NewController(
-		*kubeClient,
+	var wg sync.WaitGroup
+	controller.run(signalCtx, logger.WithName("cleanup-controller"), &wg)
+	server := NewServer(
+		policyHandlers,
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get("cleanup-controller-tls")
 			if err != nil {
