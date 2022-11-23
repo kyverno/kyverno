@@ -44,3 +44,13 @@ annotations:
       description: Allow overriding of test security context and resource block.
     - kind: added
       description: Added possibility to define custom image registries
+    - kind: added
+      description: Enable adding optional annotations to configmaps
+    - kind: added
+      description: Add startup probes support
+    - kind: added
+      description: Support extra CRD annotations
+    - kind: added
+      description: Grafana dashboard.
+    - kind: added
+      description: Cleanup controller.

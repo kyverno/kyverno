@@ -1,3 +1,18 @@
+## v1.9.0-rc.1
+
+### Note
+
+- Flag `autogenInternals` was removed, policy mutation has been removed.
+- Flag `leaderElectionRetryPeriod` was added to control leader election renewal frequency (default value is `2s`).
+- Support upper case `Audit` and `Enforce` in `.spec.validationFailureAction` of the Kyverno policy, failure actions `audit` and `enforce` are deprecated and will be removed in `v1.11.0`.
+- Flag `profileAddress` was added to configure address of profiling server (default value is `""`).
+
+## v1.8.1-rc3
+
+### Note
+
+- A new flag `backgroundScanWorkers` to configure the number of background scan workers (default value is `2`).
+
 ## v1.8.0-rc3
 
 ### Note

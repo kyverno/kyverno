@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
-	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	util "github.com/kyverno/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -42,7 +41,6 @@ func NewController(client dclient.Interface, mgr Manager) Controller {
 	if mgr == nil {
 		panic(fmt.Errorf("nil manager sent into crd sync"))
 	}
-
 	return &controller{
 		manager: mgr,
 		client:  client,
@@ -51,23 +49,27 @@ func NewController(client dclient.Interface, mgr Manager) Controller {
 
 func (c *controller) Run(ctx context.Context, workers int) {
 	if err := c.updateInClusterKindToAPIVersions(); err != nil {
-		logging.Error(err, "failed to update in-cluster api versions")
+		logger.Error(err, "failed to update in-cluster api versions")
 	}
-
 	newDoc, err := c.client.Discovery().OpenAPISchema()
 	if err != nil {
-		logging.Error(err, "cannot get OpenAPI schema")
+		logger.Error(err, "cannot get OpenAPI schema")
 	}
-
 	err = c.manager.UseOpenAPIDocument(newDoc)
 	if err != nil {
-		logging.Error(err, "Could not set custom OpenAPI document")
+		logger.Error(err, "Could not set custom OpenAPI document")
 	}
 	// Sync CRD before kyverno starts
 	c.sync()
+	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
-		go wait.UntilWithContext(ctx, c.CheckSync, 15*time.Second)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			wait.UntilWithContext(ctx, c.CheckSync, 15*time.Second)
+		}()
 	}
+	<-ctx.Done()
 }
 
 func (c *controller) sync() {
@@ -77,10 +79,8 @@ func (c *controller) sync() {
 		Version:  "v1",
 		Resource: "customresourcedefinitions",
 	}).List(context.TODO(), metav1.ListOptions{})
-
-	c.client.RecordClientQuery(metrics.ClientList, metrics.KubeDynamicClient, "CustomResourceDefinition", "")
 	if err != nil {
-		logging.Error(err, "could not fetch crd's from server")
+		logger.Error(err, "could not fetch crd's from server")
 		return
 	}
 
@@ -91,17 +91,17 @@ func (c *controller) sync() {
 	}
 
 	if err := c.updateInClusterKindToAPIVersions(); err != nil {
-		logging.Error(err, "sync failed, unable to update in-cluster api versions")
+		logger.Error(err, "sync failed, unable to update in-cluster api versions")
 	}
 
 	newDoc, err := c.client.Discovery().OpenAPISchema()
 	if err != nil {
-		logging.Error(err, "cannot get OpenAPI schema")
+		logger.Error(err, "cannot get OpenAPI schema")
 	}
 
 	err = c.manager.UseOpenAPIDocument(newDoc)
 	if err != nil {
-		logging.Error(err, "Could not set custom OpenAPI document")
+		logger.Error(err, "Could not set custom OpenAPI document")
 	}
 }
 
@@ -140,7 +140,7 @@ func (c *controller) CheckSync(ctx context.Context) {
 		Resource: "customresourcedefinitions",
 	}).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		logging.Error(err, "could not fetch crd's from server")
+		logger.Error(err, "could not fetch crd's from server")
 		return
 	}
 	if len(c.manager.GetCrdList()) != len(crds.Items) {

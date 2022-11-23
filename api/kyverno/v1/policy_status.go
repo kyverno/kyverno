@@ -30,6 +30,22 @@ type PolicyStatus struct {
 	// Autogen contains autogen status information
 	// +optional
 	Autogen AutogenStatus `json:"autogen" yaml:"autogen"`
+	// RuleCount describes total number of rules in a policy
+	// +optional
+	RuleCount RuleCountStatus `json:"rulecount" yaml:"rulecount"`
+}
+
+// RuleCountStatus contains four variables which describes counts for
+// validate, generate, mutate and verify images rules
+type RuleCountStatus struct {
+	// Count for validate rules in policy
+	Validate int `json:"validate" yaml:"validate"`
+	// Count for generate rules in policy
+	Generate int `json:"generate" yaml:"generate"`
+	// Count for mutate rules in policy
+	Mutate int `json:"mutate" yaml:"mutate"`
+	// Count for verify image rules in policy
+	VerifyImages int `json:"verifyimages" yaml:"verifyimages"`
 }
 
 func (status *PolicyStatus) SetReady(ready bool) {

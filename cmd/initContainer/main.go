@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -27,15 +27,14 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
 var (
 	kubeconfig           string
-	setupLog             = logging.WithName("setup")
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
-	logFormat            string
 )
 
 const (
@@ -44,31 +43,26 @@ const (
 	convertGenerateRequest  string = "ConvertGenerateRequest"
 )
 
-func parseFlags() error {
-	logging.Init(nil)
-	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+func parseFlags(config internal.Configuration) {
+	internal.InitFlags(config)
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
-	if err := flag.Set("v", "2"); err != nil {
-		return err
-	}
-
 	flag.Parse()
-	return nil
 }
 
 func main() {
+	// config
+	appConfig := internal.NewConfiguration()
 	// parse flags
-	if err := parseFlags(); err != nil {
-		fmt.Println("failed to parse flags", err)
-		os.Exit(1)
-	}
+	parseFlags(appConfig)
 	// setup logger
-	if err := logging.Setup(logFormat); err != nil {
-		fmt.Println("could not setup logger", err)
-		os.Exit(1)
-	}
+	logger := internal.SetupLogger()
+	// setup maxprocs
+	undo := internal.SetupMaxProcs(logger)
+	defer undo()
+	// show version
+	internal.ShowVersion(logger)
 	// os signal handler
 	signalCtx, signalCancel := signal.NotifyContext(logging.Background(), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
@@ -78,27 +72,38 @@ func main() {
 	// create client config
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
-		setupLog.Error(err, "Failed to build kubeconfig")
+		logger.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
-		setupLog.Error(err, "Failed to create kubernetes client")
+		logger.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
+	dynamicClient, err := dynamic.NewForConfig(clientConfig)
+	if err != nil {
+		logger.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
 	}
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, nil, 15*time.Minute)
+	client, err := dclient.NewClient(
+		signalCtx,
+		dynamicClient,
+		kubeClient,
+		15*time.Minute,
+	)
 	if err != nil {
-		setupLog.Error(err, "Failed to create client")
+		logger.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
 
 	pclient, err := kyvernoclient.NewForConfig(clientConfig)
 	if err != nil {
-		setupLog.Error(err, "Failed to create client")
+		logger.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
 
@@ -174,11 +179,12 @@ func main() {
 		config.KyvernoNamespace(),
 		kubeClient,
 		config.KyvernoPodName(),
+		leaderelection.DefaultRetryPeriod,
 		run,
 		nil,
 	)
 	if err != nil {
-		setupLog.Error(err, "failed to elect a leader")
+		logger.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
 

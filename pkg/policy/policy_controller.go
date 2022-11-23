@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	utilscommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -25,12 +24,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -109,10 +106,7 @@ func NewPolicyController(
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.V(5).Info)
-	eventInterface, err := client.GetEventsInterface()
-	if err != nil {
-		return nil, err
-	}
+	eventInterface := client.GetEventsInterface()
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
@@ -163,16 +157,6 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
-	if !toggle.AutogenInternals.Enabled() {
-		if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
-			pol, _ := utilscommon.MutatePolicy(p, logger)
-			_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
-			if err != nil {
-				logger.Error(err, "failed to add policy ")
-			}
-		}
-	}
-
 	if !pc.canBackgroundProcess(p) {
 		return
 	}
@@ -185,16 +169,6 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	logger := pc.log
 	oldP := old.(*kyvernov1.ClusterPolicy)
 	curP := cur.(*kyvernov1.ClusterPolicy)
-
-	if !toggle.AutogenInternals.Enabled() {
-		if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
-			pol, _ := utilscommon.MutatePolicy(curP, logger)
-			_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
-			if err != nil {
-				logger.Error(err, "failed to update policy ")
-			}
-		}
-	}
 
 	if !pc.canBackgroundProcess(curP) {
 		return
@@ -236,17 +210,6 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
 
-	if !toggle.AutogenInternals.Enabled() {
-		spec := p.GetSpec()
-		if spec.Background == nil || spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
-			nsPol, _ := utilscommon.MutatePolicy(p, logger)
-			_, err := pc.kyvernoClient.KyvernoV1().Policies(p.Namespace).Update(context.TODO(), nsPol.(*kyvernov1.Policy), metav1.UpdateOptions{})
-			if err != nil {
-				logger.Error(err, "failed to add namespace policy")
-			}
-		}
-	}
-
 	if !pc.canBackgroundProcess(p) {
 		return
 	}
@@ -258,16 +221,6 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	logger := pc.log
 	oldP := old.(*kyvernov1.Policy)
 	curP := cur.(*kyvernov1.Policy)
-
-	if !toggle.AutogenInternals.Enabled() {
-		if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
-			nsPol, _ := utilscommon.MutatePolicy(curP, logger)
-			_, err := pc.kyvernoClient.KyvernoV1().Policies(curP.GetNamespace()).Update(context.TODO(), nsPol.(*kyvernov1.Policy), metav1.UpdateOptions{})
-			if err != nil {
-				logger.Error(err, "failed to update namespace policy ")
-			}
-		}
-	}
 
 	if !pc.canBackgroundProcess(curP) {
 		return

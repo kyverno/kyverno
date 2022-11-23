@@ -70,13 +70,7 @@ func (h *mutationHandler) HandleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-
 	h.log.V(6).Info("", "generated patches", string(mutatePatches))
-
-	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
-	go webhookutils.RegisterAdmissionReviewDurationMetricMutate(h.log, metricsConfig, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
-	go webhookutils.RegisterAdmissionRequestsMetricMutate(h.log, metricsConfig, string(request.Operation), mutateEngineResponses)
-
 	return mutatePatches, webhookutils.GetWarningMessages(mutateEngineResponses), nil
 }
 
@@ -152,11 +146,11 @@ func (h *mutationHandler) applyMutation(request *admissionv1.AdmissionRequest, p
 	engineResponse := engine.Mutate(policyContext)
 	policyPatches := engineResponse.GetPatches()
 
-	if !engineResponse.IsSuccessful() && len(engineResponse.GetFailedRules()) > 0 {
+	if !engineResponse.IsSuccessful() {
 		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy.GetName(), engineResponse.GetFailedRules())
 	}
 
-	if engineResponse.PatchedResource.GetKind() != "*" {
+	if policyContext.Policy.ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
 		err := h.openApiManager.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy.GetName())

@@ -27,6 +27,11 @@ jobs:
       # see https://michaelheap.com/ensure-github-actions-pinned-sha/
       - name: Ensure SHA pinned actions
         uses: zgosalvez/github-actions-ensure-sha-pinned-actions@6ca5574367befbc9efdb2fa25978084159c5902d # pin@v1.3.0
+        with:
+          # slsa-github-generator requires using a semver tag for reusable workflows. 
+          # See: https://github.com/slsa-framework/slsa-github-generator#referencing-slsa-builders-and-generators
+          allowlist: |
+            slsa-framework/slsa-github-generator
 
       - name: Setup go
         uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # pin@v3
@@ -50,7 +55,7 @@ jobs:
 
       - name: goimports
         run: |
-          go install golang.org/x/tools/cmd/goimports@latest
+          go install golang.org/x/tools/cmd/goimports@f112c43328372460f7ac5bc951711609e22b01cc # v0.2.0
           if [ "$(goimports -l . | wc -l)" -ne 0 ]
           then
            echo "The following files were found to have import formatting issues:"

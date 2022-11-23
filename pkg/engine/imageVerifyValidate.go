@@ -19,6 +19,13 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 	}
 
 	log = log.WithValues("rule", rule.Name)
+	matchingImages, _, err := extractMatchingImages(ctx, rule)
+	if err != nil {
+		return ruleResponse(*rule, response.Validation, err.Error(), response.RuleStatusError, nil)
+	}
+	if len(matchingImages) == 0 {
+		return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusSkip, nil)
+	}
 	if err := LoadContext(log, rule.Context, ctx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
@@ -35,7 +42,7 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 	}
 
 	if !preconditionsPassed {
-		if ctx.Policy.GetSpec().ValidationFailureAction == kyvernov1.Audit {
+		if ctx.Policy.GetSpec().ValidationFailureAction.Audit() {
 			return nil
 		}
 

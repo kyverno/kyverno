@@ -15,7 +15,7 @@ import (
 
 type reconcileFunc func(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error
 
-func Run(ctx context.Context, controllerName string, logger logr.Logger, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, cacheSyncs ...cache.InformerSynced) {
+func Run(ctx context.Context, logger logr.Logger, controllerName string, period time.Duration, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, routines ...func(context.Context, logr.Logger)) {
 	logger.Info("starting ...")
 	defer runtime.HandleCrash()
 	defer logger.Info("stopped")
@@ -24,19 +24,23 @@ func Run(ctx context.Context, controllerName string, logger logr.Logger, queue w
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		defer queue.ShutDown()
-		if len(cacheSyncs) > 0 {
-			if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), cacheSyncs...) {
-				return
-			}
-		}
 		for i := 0; i < n; i++ {
 			wg.Add(1)
 			go func(logger logr.Logger) {
 				logger.Info("starting worker")
 				defer wg.Done()
 				defer logger.Info("worker stopped")
-				wait.UntilWithContext(ctx, func(ctx context.Context) { worker(ctx, logger, queue, maxRetries, r) }, time.Second)
-			}(logger.WithValues("id", i))
+				wait.UntilWithContext(ctx, func(ctx context.Context) { worker(ctx, logger, queue, maxRetries, r) }, period)
+			}(logger.WithName("worker").WithValues("id", i))
+		}
+		for i, routine := range routines {
+			wg.Add(1)
+			go func(logger logr.Logger, routine func(context.Context, logr.Logger)) {
+				logger.Info("starting routine")
+				defer wg.Done()
+				defer logger.Info("routine stopped")
+				routine(ctx, logger)
+			}(logger.WithName("routine").WithValues("id", i), routine)
 		}
 		<-ctx.Done()
 	}()
@@ -87,7 +91,7 @@ func reconcile(ctx context.Context, logger logr.Logger, obj interface{}, r recon
 		}
 	}
 	logger = logger.WithValues("key", k, "namespace", ns, "name", n)
-	logger.Info("reconciling ...")
-	defer logger.Info("done", "duration", time.Since(start))
+	logger.V(6).Info("reconciling ...")
+	defer logger.V(6).Info("done", "duration", time.Since(start).String())
 	return r(ctx, logger, k, ns, n)
 }

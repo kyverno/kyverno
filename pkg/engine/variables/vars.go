@@ -15,9 +15,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
+	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 )
 
-var RegexVariables = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}|[^\\]\{\{(\{[^{}]*\}|[^{}])*\}\}`)
+var RegexVariables = regexp.MustCompile(`(?:^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
 
 var RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
@@ -352,13 +353,11 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 					if _, err := ctx.Query("target"); err != nil {
 						pathPrefix = "request.object"
 					}
-					path := getJMESPath(data.Path)
-					var val string
-					if strings.HasPrefix(path, "[") {
-						val = fmt.Sprintf("%s%s", pathPrefix, path)
-					} else {
-						val = fmt.Sprintf("%s.%s", pathPrefix, path)
-					}
+
+					// Convert path to JMESPath for current identifier.
+					// Skip 2 elements (e.g. mutate.overlay | validate.pattern) plus "foreach" if it is part of the pointer.
+					// Prefix the pointer with pathPrefix.
+					val := jsonpointer.ParsePath(data.Path).SkipPast("foreach").SkipN(2).Prepend(strings.Split(pathPrefix, ".")...).JMESPath()
 
 					variable = strings.Replace(variable, "@", val, -1)
 				}
@@ -419,20 +418,6 @@ func IsDeleteRequest(ctx context.EvalInterface) bool {
 	}
 
 	return false
-}
-
-var regexPathDigit = regexp.MustCompile(`\.?([\d])\.?`)
-
-// getJMESPath converts path to JMESPath format
-func getJMESPath(rawPath string) string {
-	tokens := strings.Split(rawPath, "/")[3:] // skip "/" + 2 elements (e.g. mutate.overlay | validate.pattern)
-	if strings.Contains(rawPath, "foreach") {
-		tokens = strings.Split(rawPath, "/")[5:] // skip "/" + 4 elements (e.g. mutate.foreach/list/overlay | validate.mutate.foreach/list/pattern)
-	}
-	path := strings.Join(tokens, ".")
-	b := regexPathDigit.ReplaceAll([]byte(path), []byte("[$1]."))
-	result := strings.Trim(string(b), ".")
-	return result
 }
 
 func substituteVarInPattern(prefix, pattern, variable string, value interface{}) (string, error) {

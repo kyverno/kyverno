@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -21,7 +22,12 @@ func newController(name string, c controllers.Controller, w int) controller {
 	}
 }
 
-func (c controller) run(ctx context.Context, logger logr.Logger) {
-	logger.Info("start controller...", "name", c.name, "workers", c.workers)
-	c.controller.Run(ctx, c.workers)
+func (c controller) run(ctx context.Context, logger logr.Logger, wg *sync.WaitGroup) {
+	wg.Add(1)
+	go func(logger logr.Logger) {
+		logger.Info("starting controller", "workers", c.workers)
+		defer logger.Info("controller stopped")
+		defer wg.Done()
+		c.controller.Run(ctx, c.workers)
+	}(logger.WithValues("name", c.name))
 }

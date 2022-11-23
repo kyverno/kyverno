@@ -19,6 +19,17 @@ on:
         required: true
       registry_password:
         required: true
+    outputs:
+      init_sha256_digest:
+        description: "sha256 digest of kyverno init docker image"
+        value: ${{ jobs.build.outputs.init-container-digest }}
+      kyverno_sha256_digest:
+        description: "sha256 digest of kyverno docker image"
+        value: ${{ jobs.build.outputs.kyverno-digest }}
+      cli_sha256_digest:
+        description: "sha256 digest of kyverno docker image"
+        value: ${{ jobs.build.outputs.cli-digest }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,6 +37,10 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    outputs:
+      init-container-digest: ${{ steps.set-sha256sum-digest.outputs.init-container-digest }}
+      kyverno-digest: ${{ steps.set-sha256sum-digest.outputs.kyverno-digest }}
+      cli-digest: ${{ steps.set-sha256sum-digest.outputs.cli-digest }}
     steps:
       - name: Checkout release
         if: ${{ inputs.tag == 'release'}}
@@ -154,3 +169,18 @@ jobs:
         env:
           COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
         run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }}
+
+      - name: get sha256sum image digest
+        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
+        id: set-sha256sum-digest
+        run: |
+          echo "The image generated is: ${{ steps.ko-publish.outputs.digest }}"
+          DIGEST=$(echo ${{ steps.ko-publish.outputs.digest }} | cut -d '@' -f2)
+          echo "Digest from image is: $DIGEST"
+          if [[ "${{inputs.publish_command}}" = "ko-publish-kyvernopre" ]]; then
+            echo "::set-output name=init-container-digest::$DIGEST"
+          elif [[ "${{inputs.publish_command}}" = "ko-publish-kyverno" ]]; then
+            echo "::set-output name=kyverno-digest::$DIGEST"
+          else
+            echo "::set-output name=cli-digest::$DIGEST"
+          fi

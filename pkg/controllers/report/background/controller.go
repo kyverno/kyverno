@@ -3,6 +3,7 @@ package background
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
@@ -79,16 +81,12 @@ func NewController(
 		cbgscanrLister: cbgscanr.Lister(),
 		nsLister:       nsInformer.Lister(),
 		queue:          queue,
-		bgscanEnqueue:  controllerutils.AddDefaultEventHandlers(logger.V(3), bgscanr.Informer(), queue),
-		cbgscanEnqueue: controllerutils.AddDefaultEventHandlers(logger.V(3), cbgscanr.Informer(), queue),
+		bgscanEnqueue:  controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue),
+		cbgscanEnqueue: controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue),
 		metadataCache:  metadataCache,
 	}
-	controllerutils.AddEventHandlers(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	return &c
-}
-
-func (c *controller) Run(ctx context.Context, workers int) {
+	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
+	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, resource resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
@@ -103,11 +101,15 @@ func (c *controller) Run(ctx context.Context, workers int) {
 			c.queue.Add(resource.Namespace + "/" + string(uid))
 		}
 	})
-	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	return &c
 }
 
-func (c *controller) addPolicy(obj interface{}) {
-	selector, err := reportutils.SelectorPolicyDoesNotExist(obj.(kyvernov1.PolicyInterface))
+func (c *controller) Run(ctx context.Context, workers int) {
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+}
+
+func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
+	selector, err := reportutils.SelectorPolicyDoesNotExist(obj)
 	if err != nil {
 		logger.Error(err, "failed to create label selector")
 	}
@@ -116,18 +118,20 @@ func (c *controller) addPolicy(obj interface{}) {
 	}
 }
 
-func (c *controller) updatePolicy(_, obj interface{}) {
-	selector, err := reportutils.SelectorPolicyNotEquals(obj.(kyvernov1.PolicyInterface))
-	if err != nil {
-		logger.Error(err, "failed to create label selector")
-	}
-	if err := c.enqueue(selector); err != nil {
-		logger.Error(err, "failed to enqueue")
+func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
+	if old.GetResourceVersion() != obj.GetResourceVersion() {
+		selector, err := reportutils.SelectorPolicyNotEquals(obj)
+		if err != nil {
+			logger.Error(err, "failed to create label selector")
+		}
+		if err := c.enqueue(selector); err != nil {
+			logger.Error(err, "failed to enqueue")
+		}
 	}
 }
 
-func (c *controller) deletePolicy(obj interface{}) {
-	selector, err := reportutils.SelectorPolicyExists(obj.(kyvernov1.PolicyInterface))
+func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
+	selector, err := reportutils.SelectorPolicyExists(obj)
 	if err != nil {
 		logger.Error(err, "failed to create label selector")
 	}
@@ -137,7 +141,6 @@ func (c *controller) deletePolicy(obj interface{}) {
 }
 
 func (c *controller) enqueue(selector labels.Selector) error {
-	logger.V(3).Info("enqueuing ...", "selector", selector.String())
 	bgscans, err := c.bgscanrLister.List(selector)
 	if err != nil {
 		return err
@@ -187,6 +190,36 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 	return policies, nil
 }
 
+// reportsAreIdentical we expect reports are sorted before comparing them
+func reportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
+	bLabels := sets.NewString()
+	aLabels := sets.NewString()
+	for key := range before.GetLabels() {
+		bLabels.Insert(key)
+	}
+	for key := range after.GetLabels() {
+		aLabels.Insert(key)
+	}
+	if !aLabels.Equal(bLabels) {
+		return false
+	}
+	b := before.GetResults()
+	a := after.GetResults()
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		a := a[i]
+		b := b[i]
+		a.Timestamp = metav1.Timestamp{}
+		b.Timestamp = metav1.Timestamp{}
+		if !reflect.DeepEqual(&a, &b) {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
 	namespace := meta.GetNamespace()
 	labels := meta.GetLabels()
@@ -203,7 +236,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		policies = append(policies, pols...)
 	}
 	// 	load background policies
-	backgroundPolicies := utils.RemoveNonValidationPolicies(logger, policies...)
+	backgroundPolicies := utils.RemoveNonBackgroundPolicies(logger, policies...)
 	if err != nil {
 		return err
 	}
@@ -240,7 +273,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			}
 		}
 		reportutils.SetResponses(report, responses...)
-		if reflect.DeepEqual(before, report) {
+		if reportsAreIdentical(before, report) {
 			return nil
 		}
 		_, err = reportutils.UpdateReport(ctx, report, c.kyvernoClient)
@@ -319,7 +352,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			}
 		}
 		reportutils.SetResults(report, ruleResults...)
-		if reflect.DeepEqual(before, report) {
+		if reportsAreIdentical(before, report) {
 			return nil
 		}
 		_, err = reportutils.UpdateReport(ctx, report, c.kyvernoClient)
@@ -356,7 +389,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
 	// if the resource is not present it means we shouldn't have a report for it
-	// we can delete the report, we will recreate one if the resource come back
+	// we can delete the report, we will recreate one if the resource comes back
 	if !exists {
 		report, err := c.getMeta(namespace, name)
 		if err != nil {

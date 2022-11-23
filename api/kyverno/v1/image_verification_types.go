@@ -151,10 +151,10 @@ type StaticKeyAttestor struct {
 }
 
 type SecretReference struct {
-	// name of the secret
+	// Name of the secret. The provided secret must contain a key named cosign.pub.
 	Name string `json:"name" yaml:"name"`
 
-	// namespace name in which secret is created
+	// Namespace name where the Secret exists.
 	Namespace string `json:"namespace" yaml:"namespace"`
 }
 
@@ -256,8 +256,6 @@ func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorLis
 
 	if len(as.Entries) == 0 {
 		errs = append(errs, field.Invalid(path, as, "An entry is required"))
-	} else if len(as.Entries) > 1 {
-		errs = append(errs, field.Invalid(path, as, "Only one entry is currently supported"))
 	}
 
 	entriesPath := path.Child("entries")

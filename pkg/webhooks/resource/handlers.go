@@ -1,6 +1,8 @@
 package resource
 
 import (
+	"context"
+	"errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -92,7 +94,7 @@ func NewHandlers(
 	}
 }
 
-func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
 	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
@@ -133,21 +135,16 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	ok, msg, warnings := vh.HandleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
 	if !ok {
 		logger.Info("admission request denied")
-		return admissionutils.ResponseFailure(msg)
+		return admissionutils.Response(errors.New(msg), warnings...)
 	}
 
 	defer h.handleDelete(logger, request)
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 
-	if warnings != nil {
-		return admissionutils.ResponseSuccessWithWarnings(warnings)
-	}
-
-	logger.V(4).Info("completed validating webhook")
-	return admissionutils.ResponseSuccess()
+	return admissionutils.ResponseSuccess(warnings...)
 }
 
-func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
 	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
@@ -167,35 +164,36 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	policyContext, err := h.pcBuilder.Build(request, mutatePolicies...)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
-		return admissionutils.ResponseFailure(err.Error())
+		return admissionutils.Response(err)
 	}
 	// update container images to a canonical form
 	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext); err != nil {
 		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
-
 	mh := mutation.NewMutationHandler(logger, h.eventGen, h.openApiManager, h.nsLister)
 	mutatePatches, mutateWarnings, err := mh.HandleMutation(h.metricsConfig, request, mutatePolicies, policyContext, startTime)
 	if err != nil {
 		logger.Error(err, "mutation failed")
-		return admissionutils.ResponseFailure(err.Error())
+		return admissionutils.Response(err)
 	}
 	newRequest := patchRequest(mutatePatches, request, logger)
-	ivh := imageverification.NewImageVerificationHandler(logger, h.eventGen)
+	// rebuild context to process images updated via mutate policies
+	policyContext, err = h.pcBuilder.Build(newRequest, mutatePolicies...)
+	if err != nil {
+		logger.Error(err, "failed to build policy context")
+		return admissionutils.Response(err)
+	}
+	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.eventGen, h.admissionReports)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(h.metricsConfig, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")
-		return admissionutils.ResponseFailure(err.Error())
+		return admissionutils.Response(err)
 	}
 	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
-	if len(mutateWarnings) > 0 || len(imageVerifyWarnings) > 0 {
-		warnings := append(mutateWarnings, imageVerifyWarnings...)
-		logger.V(2).Info("mutation webhook", "warnings", warnings)
-		return admissionutils.ResponseSuccessWithPatchAndWarnings(patch, warnings)
-	}
-	admissionResponse := admissionutils.ResponseSuccessWithPatch(patch)
-	logger.V(4).Info("completed mutating webhook", "response", admissionResponse)
-	return admissionResponse
+	var warnings []string
+	warnings = append(warnings, mutateWarnings...)
+	warnings = append(warnings, imageVerifyWarnings...)
+	return admissionutils.MutationResponse(patch, warnings...)
 }
 
 func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.AdmissionRequest) {
