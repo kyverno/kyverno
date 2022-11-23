@@ -18,13 +18,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 var (
-	kubeconfig           string
-	clientRateLimitQPS   float64
-	clientRateLimitBurst int
 	otel                 string
 	otelCollector        string
 	metricsPort          string
@@ -35,46 +31,6 @@ var (
 const (
 	resyncPeriod = 15 * time.Minute
 )
-
-func createKubeClients(logger logr.Logger) (*rest.Config, kubernetes.Interface, error) {
-	logger = logger.WithName("kube-clients")
-	logger.Info("create kube clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
-	if err != nil {
-		return nil, nil, err
-	}
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-	return clientConfig, kubeClient, nil
-}
-
-func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, metricsConfig *metrics.MetricsConfig) (kubernetes.Interface, dclient.Interface, error) {
-	logger = logger.WithName("instrumented-clients")
-	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	kubeClient, err := kubeclient.NewForConfig(
-		clientConfig,
-		kubeclient.WithMetrics(metricsConfig, metrics.KubeClient),
-		kubeclient.WithTracing(),
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	dynamicClient, err := dynamicclient.NewForConfig(
-		clientConfig,
-		dynamicclient.WithMetrics(metricsConfig, metrics.KubeClient),
-		dynamicclient.WithTracing(),
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	dClient, err := dclient.NewClient(ctx, dynamicClient, kubeClient, resyncPeriod)
-	if err != nil {
-		return nil, nil, err
-	}
-	return kubeClient, dClient, nil
-}
 
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
 	logger = logger.WithName("metrics")
@@ -118,9 +74,6 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 func main() {
 	// application flags
 	flagset := flag.NewFlagSet("application", flag.ExitOnError)
-	flagset.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flagset.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flagset.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flagset.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
 	flagset.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local", "Set this flag to the OpenTelemetry Collector Service Address. Kyverno will try to connect to this on the metrics port.")
 	flagset.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
@@ -130,6 +83,7 @@ func main() {
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
 		internal.WithTracing(),
+		internal.WithKubeconfig(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -141,11 +95,11 @@ func main() {
 	// setup maxprocs
 	ctx, logger, sdown := internal.Setup()
 	defer sdown()
-	// create client config and kube clients
-	clientConfig, rawClient, err := createKubeClients(logger)
-	if err != nil {
-		os.Exit(1)
-	}
+	// create raw client
+	rawClient := internal.CreateKubernetesClient(logger)
+	// setup signals
+	signalCtx, signalCancel := internal.SetupSignals(logger)
+	defer signalCancel()
 	// setup metrics
 	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
 	if err != nil {
@@ -156,14 +110,16 @@ func main() {
 		defer metricsShutdown()
 	}
 	// create instrumented clients
-	kubeClient, dynamicClient, err := createInstrumentedClients(ctx, logger, clientConfig, metricsConfig)
+	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
+	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
+	dClient, err := dclient.NewClient(signalCtx, dynamicClient, kubeClient, 15*time.Minute)
 	if err != nil {
-		logger.Error(err, "failed to create instrument clients")
+		logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
 	}
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	policyHandlers := NewHandlers(
-		dynamicClient,
+		dClient,
 	)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
 	// start informers and wait for cache sync
