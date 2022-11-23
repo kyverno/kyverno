@@ -12,6 +12,38 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+func EmptyAdmissionReport(uid types.UID, namespace, owner string, gvk metav1.GroupVersionKind) kyvernov1alpha2.ReportInterface {
+	var report kyvernov1alpha2.ReportInterface
+	if namespace == "" {
+		report = &kyvernov1alpha2.ClusterAdmissionReport{
+			Spec: kyvernov1alpha2.AdmissionReportSpec{
+				Owner: metav1.OwnerReference{
+					APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
+					Kind:       gvk.Kind,
+					Name:       owner,
+					UID:        uid,
+				},
+			},
+		}
+	} else {
+		report = &kyvernov1alpha2.AdmissionReport{
+			Spec: kyvernov1alpha2.AdmissionReportSpec{
+				Owner: metav1.OwnerReference{
+					APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
+					Kind:       gvk.Kind,
+					Name:       owner,
+					UID:        uid,
+				},
+			},
+		}
+	}
+	report.SetName(string(uid))
+	report.SetNamespace(namespace)
+	SetResourceLabels(report, uid)
+	SetManagedByKyvernoLabel(report)
+	return report
+}
+
 func NewAdmissionReport(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...*response.EngineResponse) kyvernov1alpha2.ReportInterface {
 	name := string(request.UID)
 	namespace := resource.GetNamespace()
