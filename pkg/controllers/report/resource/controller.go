@@ -46,6 +46,7 @@ type EventHandler func(types.UID, schema.GroupVersionKind, Resource)
 type MetadataCache interface {
 	GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool)
 	AddEventHandler(EventHandler)
+	Warmup(ctx context.Context) error
 }
 
 type Controller interface {
@@ -90,6 +91,10 @@ func NewController(
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
 	return &c
+}
+
+func (c *controller) Warmup(ctx context.Context) error {
+	return c.updateDynamicWatchers(ctx)
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {

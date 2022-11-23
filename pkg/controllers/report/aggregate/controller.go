@@ -100,6 +100,7 @@ func NewController(
 	controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, delay, keyFunc)
 	controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, delay, keyFunc)
 	enqueueFromAdmr := func(obj metav1.Object) {
+		// no need to consider non aggregated reports
 		if controllerutils.HasLabel(obj, reportutils.LabelAggregatedReport) {
 			c.queue.AddAfter(keyFunc(obj), delay)
 		}
@@ -128,6 +129,7 @@ func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string
 		next := ""
 		for {
 			cadms, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{
+				// no need to consider non aggregated reports
 				LabelSelector: reportutils.LabelAggregatedReport,
 				Limit:         mergeLimit,
 				Continue:      next,
@@ -147,6 +149,7 @@ func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string
 		next := ""
 		for {
 			adms, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).List(ctx, metav1.ListOptions{
+				// no need to consider non aggregated reports
 				LabelSelector: reportutils.LabelAggregatedReport,
 				Limit:         mergeLimit,
 				Continue:      next,
