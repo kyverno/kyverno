@@ -150,17 +150,21 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID, gvk sc
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		before = reportutils.EmptyAdmissionReport(uid, res.Namespace, res.Name, metav1.GroupVersionKind(gvk))
+		before = reportutils.NewAdmissionReport(res.Namespace, string(uid), res.Name, uid, metav1.GroupVersionKind(gvk))
 	}
 	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
 	for _, report := range reports {
 		if reportutils.GetResourceHash(report) == res.Hash {
-			// TODO: see if we can use List instead of fetching reports one by one
-			report, err := c.fetchReport(ctx, report.GetNamespace(), report.GetName())
-			if err != nil {
-				return err
+			if report.GetName() == string(uid) {
+				mergeReports(merged, before)
+			} else {
+				// TODO: see if we can use List instead of fetching reports one by one
+				report, err := c.fetchReport(ctx, report.GetNamespace(), report.GetName())
+				if err != nil {
+					return err
+				}
+				mergeReports(merged, report)
 			}
-			mergeReports(merged, report)
 		}
 	}
 	var results []policyreportv1alpha2.PolicyReportResult
