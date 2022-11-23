@@ -234,7 +234,6 @@ func (c *controller) stopDynamicWatchers() {
 		watcher.watcher.Stop()
 	}
 	c.dynamicWatchers = map[schema.GroupVersionResource]*watcher{}
-
 }
 
 func (c *controller) notify(uid types.UID, gvk schema.GroupVersionKind, obj Resource) {
