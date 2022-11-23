@@ -122,8 +122,8 @@ func main() {
 		in := gen(done, signalCtx.Done(), requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(client, pclient, done, signalCtx.Done(), in)
-		p2 := process(client, pclient, done, signalCtx.Done(), in)
+		p1 := process(client, kyvernoClient, done, signalCtx.Done(), in)
+		p2 := process(client, kyvernoClient, done, signalCtx.Done(), in)
 		// merge results from processing routines
 		for err := range merge(done, signalCtx.Done(), p1, p2) {
 			if err != nil {
