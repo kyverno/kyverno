@@ -227,7 +227,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	// is the resource known
 	resource, gvk, found := c.metadataCache.GetResourceHash(uid)
 	if !found {
-		return c.cleanupReports(ctx, uid, "", reports...)
+		return c.cleanupReports(ctx, "", "", reports...)
 	}
 	// set orphan reports an owner
 	for _, report := range reports {
