@@ -10,7 +10,7 @@ testDirs:
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/nosync
 - ./test/conformance/kuttl/generate/policy/standard/clone/nosync
 - ./test/conformance/kuttl/generate/policy/standard/clone/sync
-# - ./test/conformance/kuttl/generate/policy/standard/data/sync
+- ./test/conformance/kuttl/generate/policy/standard/data/sync
 # - ./test/conformance/kuttl/generate/policy/standard/data/nosync
 - ./test/conformance/kuttl/generate/clusterpolicy/cornercases
 # Mutate tests
