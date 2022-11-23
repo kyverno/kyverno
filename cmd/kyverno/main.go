@@ -8,10 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -189,10 +187,6 @@ func setupCosign(logger logr.Logger) {
 	if imageSignatureRepository != "" {
 		cosign.ImageSignatureRepository = imageSignatureRepository
 	}
-}
-
-func setupSignals() (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }
 
 func showWarnings(logger logr.Logger) {
@@ -430,7 +424,7 @@ func main() {
 		defer metricsShutdown()
 	}
 	// setup signals
-	signalCtx, signalCancel := setupSignals()
+	signalCtx, signalCancel := internal.SetupSignals(logger)
 	defer signalCancel()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())

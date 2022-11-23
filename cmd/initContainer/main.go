@@ -8,9 +8,7 @@ import (
 	"encoding/json"
 	"flag"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -56,10 +54,8 @@ func main() {
 	// show version
 	internal.ShowVersion(logger)
 	// os signal handler
-	signalCtx, signalCancel := signal.NotifyContext(logging.Background(), os.Interrupt, syscall.SIGTERM)
+	signalCtx, signalCancel := internal.SetupSignals(logger)
 	defer signalCancel()
-
-	stopCh := signalCtx.Done()
 
 	kubeClient := internal.CreateKubernetesClient(logger)
 	dynamicClient := internal.CreateDynamicClient(logger)
@@ -91,7 +87,7 @@ func main() {
 
 	go func() {
 		defer signalCancel()
-		<-stopCh
+		<-signalCtx.Done()
 	}()
 
 	done := make(chan struct{})
@@ -123,13 +119,13 @@ func main() {
 		}
 
 		// use pipeline to pass request to cleanup resources
-		in := gen(done, stopCh, requests...)
+		in := gen(done, signalCtx.Done(), requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(client, kyvernoClient, done, stopCh, in)
-		p2 := process(client, kyvernoClient, done, stopCh, in)
+		p1 := process(client, pclient, done, signalCtx.Done(), in)
+		p2 := process(client, pclient, done, signalCtx.Done(), in)
 		// merge results from processing routines
-		for err := range merge(done, stopCh, p1, p2) {
+		for err := range merge(done, signalCtx.Done(), p1, p2) {
 			if err != nil {
 				failure = true
 				logging.Error(err, "failed to cleanup resource")

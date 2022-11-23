@@ -9,6 +9,7 @@ import (
 
 func SetupMaxProcs(logger logr.Logger) func() {
 	logger = logger.WithName("maxprocs")
+	logger.Info("setup maxprocs...")
 	undo, err := maxprocs.Set(
 		maxprocs.Logger(
 			func(format string, args ...interface{}) {
