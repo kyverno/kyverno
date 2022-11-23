@@ -140,7 +140,7 @@ func (pc *PolicyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bo
 	logger := pc.log.WithValues("policy", p.GetName())
 	if !p.BackgroundProcessingEnabled() {
 		if !p.GetSpec().HasGenerate() && !p.GetSpec().IsMutateExisting() {
-			logger.V(4).Info("background processed is disabled")
+			logger.V(4).Info("background processing is disabled")
 			return false
 		}
 	}
