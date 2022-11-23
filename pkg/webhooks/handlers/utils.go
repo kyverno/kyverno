@@ -1,16 +1,14 @@
 package handlers
 
 import (
-	"go.opentelemetry.io/otel/attribute"
-	admissionv1 "k8s.io/api/admission/v1"
+	"net/http"
+
+	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/tracing"
 )
 
-func admissionRequestAttributes(request *admissionv1.AdmissionRequest) []attribute.KeyValue {
-	return []attribute.KeyValue{
-		attribute.String("kind", request.Kind.Kind),
-		attribute.String("namespace", request.Namespace),
-		attribute.String("name", request.Name),
-		attribute.String("operation", string(request.Operation)),
-		attribute.String("uid", string(request.UID)),
-	}
+func httpError(writer http.ResponseWriter, request *http.Request, logger logr.Logger, err error, code int) {
+	logger.Error(err, "an error has occurred", "url", request.URL.String())
+	tracing.SetHttpStatus(request.Context(), err, code)
+	http.Error(writer, err.Error(), code)
 }
