@@ -11,8 +11,8 @@ import (
 
 func SetupTracing(logger logr.Logger, name string, kubeClient kubernetes.Interface) context.CancelFunc {
 	logger = logger.WithName("tracing").WithValues("enabled", tracingEnabled, "address", tracingAddress, "port", tracingPort, "creds", tracingCreds)
-	logger.Info("setup tracing...")
 	if tracingEnabled {
+		logger.Info("setup tracing...")
 		shutdown, err := tracing.NewTraceConfig(
 			logger,
 			name,
