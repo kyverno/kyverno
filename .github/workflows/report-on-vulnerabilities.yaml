@@ -15,7 +15,7 @@ jobs:
       results: ${{ steps.parse-results.outputs.results }}
     steps:
     - name: Scan for vulnerabilities
-      uses: aquasecurity/trivy-action@d63413b0a4a4482237085319f7f4a1ce99a8f2ac # v0.7.1 (Trivy v0.31.2)
+      uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5 # v0.8.0 (Trivy v0.34.0)
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json

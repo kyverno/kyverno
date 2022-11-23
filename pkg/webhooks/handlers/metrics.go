@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -10,14 +11,14 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func (h AdmissionHandler) WithMetrics(metricsConfig *metrics.MetricsConfig) AdmissionHandler {
-	return withMetrics(metricsConfig, h)
+func (inner AdmissionHandler) WithMetrics(metricsConfig *metrics.MetricsConfig) AdmissionHandler {
+	return inner.withMetrics(metricsConfig).WithTrace("METRICS")
 }
 
-func withMetrics(metricsConfig *metrics.MetricsConfig, inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+func (inner AdmissionHandler) withMetrics(metricsConfig *metrics.MetricsConfig) AdmissionHandler {
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		defer admissionReviewDuration.Process(metricsConfig, request, int64(time.Since(startTime)))
 		admissionRequests.Process(metricsConfig, request)
-		return inner(logger, request, startTime)
+		return inner(ctx, logger, request, startTime)
 	}
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
+	"go.uber.org/multierr"
 )
 
 // ImageSignatureRepository is an alternate signature repository
@@ -96,7 +97,7 @@ func verifySignature(opts Options) (*Response, error) {
 		return nil, err
 	}
 
-	if err := matchCertificate(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+	if err := matchSignatures(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
 		return nil, err
 	}
 
@@ -290,7 +291,7 @@ func fetchAttestations(opts Options) (*Response, error) {
 		return nil, err
 	}
 
-	if err := matchCertificate(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+	if err := matchSignatures(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
 		return nil, err
 	}
 
@@ -451,11 +452,12 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (strin
 	return "", fmt.Errorf("digest not found for " + imgRef)
 }
 
-func matchCertificate(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
+func matchSignatures(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
 	if subject == "" && issuer == "" && len(extensions) == 0 {
 		return nil
 	}
 
+	var errs []error
 	for _, sig := range signatures {
 		cert, err := sig.Cert()
 		if err != nil {
@@ -466,16 +468,32 @@ func matchCertificate(signatures []oci.Signature, subject, issuer string, extens
 			return errors.Errorf("certificate not found")
 		}
 
-		if subject != "" {
-			s := sigs.CertSubject(cert)
-			if !wildcard.Match(subject, s) {
-				return fmt.Errorf("subject mismatch: expected %s, received %s", subject, s)
-			}
+		if err := matchCertificateData(cert, subject, issuer, extensions); err != nil {
+			errs = append(errs, err)
+		} else {
+			// only one signature certificate needs to match the required subject, issuer, and extensions
+			return nil
 		}
+	}
 
-		if err := matchExtensions(cert, issuer, extensions); err != nil {
-			return err
+	if len(errs) > 0 {
+		err := multierr.Combine(errs...)
+		return err
+	}
+
+	return fmt.Errorf("invalid signature")
+}
+
+func matchCertificateData(cert *x509.Certificate, subject, issuer string, extensions map[string]string) error {
+	if subject != "" {
+		s := sigs.CertSubject(cert)
+		if !wildcard.Match(subject, s) {
+			return fmt.Errorf("subject mismatch: expected %s, received %s", subject, s)
 		}
+	}
+
+	if err := matchExtensions(cert, issuer, extensions); err != nil {
+		return err
 	}
 
 	return nil

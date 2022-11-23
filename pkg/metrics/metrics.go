@@ -107,18 +107,20 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 }
 
 func ShutDownController(ctx context.Context, pusher *controller.Controller) {
-	// pushes any last exports to the receiver
-	if err := pusher.Stop(ctx); err != nil {
-		otel.Handle(err)
+	if pusher != nil {
+		// pushes any last exports to the receiver
+		if err := pusher.Stop(ctx); err != nil {
+			otel.Handle(err)
+		}
 	}
 }
 
-func NewOTLPGRPCConfig(endpoint string,
-	metricsConfigData *kconfig.MetricsConfigData,
+func NewOTLPGRPCConfig(
+	endpoint string,
 	certs string,
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
-) (*MetricsConfig, *controller.Controller, error) {
+) (*controller.Controller, error) {
 	ctx := context.Background()
 	var client otlpmetric.Client
 
@@ -127,7 +129,7 @@ func NewOTLPGRPCConfig(endpoint string,
 		transportCreds, err := kube.FetchCert(ctx, certs, kubeClient)
 		if err != nil {
 			log.Error(err, "Error fetching certificate from secret")
-			return nil, nil, err
+			return nil, err
 		}
 
 		client = otlpmetricgrpc.NewClient(
@@ -145,7 +147,7 @@ func NewOTLPGRPCConfig(endpoint string,
 	metricExp, err := otlpmetric.New(ctx, client)
 	if err != nil {
 		log.Error(err, "Failed to create the collector exporter")
-		return nil, nil, err
+		return nil, err
 	}
 
 	res, err := resource.New(context.Background(),
@@ -154,7 +156,7 @@ func NewOTLPGRPCConfig(endpoint string,
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
-		return nil, nil, err
+		return nil, err
 	}
 
 	// create controller and bind the exporter with it
@@ -170,27 +172,17 @@ func NewOTLPGRPCConfig(endpoint string,
 	)
 	global.SetMeterProvider(pusher)
 
-	m := new(MetricsConfig)
-	m.Log = log
-	m.Config = metricsConfigData
-
-	m, err = initializeMetrics(m)
-	if err != nil {
-		log.Error(err, "Failed initializing metrics")
-		return nil, nil, err
-	}
-
 	if err := pusher.Start(ctx); err != nil {
 		log.Error(err, "could not start metric exporter")
-		return nil, nil, err
+		return nil, err
 	}
 
-	return m, pusher, nil
+	return pusher, nil
 }
 
-func NewPrometheusConfig(metricsConfigData *kconfig.MetricsConfigData,
+func NewPrometheusConfig(
 	log logr.Logger,
-) (*MetricsConfig, *http.ServeMux, error) {
+) (*http.ServeMux, error) {
 	config := prometheus.Config{}
 	res, err := resource.New(context.Background(),
 		resource.WithAttributes(semconv.ServiceNameKey.String("kyverno-svc-metrics")),
@@ -199,7 +191,7 @@ func NewPrometheusConfig(metricsConfigData *kconfig.MetricsConfigData,
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
-		return nil, nil, err
+		return nil, err
 	}
 
 	c := controller.New(
@@ -215,27 +207,15 @@ func NewPrometheusConfig(metricsConfigData *kconfig.MetricsConfigData,
 	exporter, err := prometheus.New(config, c)
 	if err != nil {
 		log.Error(err, "failed to initialize prometheus exporter")
-		return nil, nil, err
+		return nil, err
 	}
 
 	global.SetMeterProvider(exporter.MeterProvider())
 
-	// Create new config object and attach metricsConfig to it
-	m := new(MetricsConfig)
-	m.Config = metricsConfigData
-
-	// Initialize metrics logger
-	m.Log = log
-	m, err = initializeMetrics(m)
-	if err != nil {
-		log.Error(err, "failed to initialize metrics config")
-		return nil, nil, err
-	}
-
 	metricsServerMux := http.NewServeMux()
 	metricsServerMux.HandleFunc("/metrics", exporter.ServeHTTP)
 
-	return m, metricsServerMux, nil
+	return metricsServerMux, nil
 }
 
 func (m *MetricsConfig) RecordPolicyResults(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,

@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-clone-nosync-delete-rule
+  namespace: default
+spec:
+  rules:
+  - name: pol-clone-nosync-delete-rule-lr
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: LimitRange
+      name: genlr
+      namespace: default
+      synchronize: false
+      clone:
+        name: sourcelr
+        namespace: default

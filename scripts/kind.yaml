@@ -9,7 +9,7 @@ kubeadmConfigPatches:
     etcd:
       local:
         extraArgs:
-          listen-metrics-urls: http://0.0.0.0:2381
+          listen-metrics-urls: http://0.0.0.0:2382
     scheduler:
       extraArgs:
         bind-address: 0.0.0.0

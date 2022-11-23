@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -24,7 +25,7 @@ func NewHandlers(client dclient.Interface, openApiManager openapi.Manager) webho
 	}
 }
 
-func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
 	if request.SubResource != "" {
 		logger.V(4).Info("skip policy validation on status update")
 		return admissionutils.ResponseSuccess()
@@ -42,6 +43,6 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	return admissionutils.Response(err, warnings...)
 }
 
-func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
 	return admissionutils.ResponseSuccess()
 }
