@@ -49,6 +49,7 @@ type AdmissionReportSpec struct {
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".spec.summary.skip"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
+// +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
 // AdmissionReport is the Schema for the AdmissionReports API
 type AdmissionReport struct {
@@ -85,6 +86,7 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".spec.summary.skip"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
+// +kubebuilder:printcolumn:name="AGGREGATE",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/report\\.aggregate']",priority=1
 
 // ClusterAdmissionReport is the Schema for the ClusterAdmissionReports API
 type ClusterAdmissionReport struct {
