@@ -75,6 +75,7 @@ func listNameSpaces(coreClient kubernetes.Interface) ([]string, error) {
 // Validate checks the policy and rules declarations for required configurations
 func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface, dclient dclient.Interface, client kubernetes.Interface, mock bool) error {
 	var res []*metav1.APIResourceList
+	policyKind := cleanuppolicy.GetKind()
 	clusterResources := sets.NewString()
 	// Get all the cluster type kind supported by cluster
 	res, err := discovery.ServerPreferredResources(dclient.Discovery().DiscoveryInterface())
@@ -101,18 +102,29 @@ func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface,
 	}
 
 	kinds := admission.FetchUniqueKinds(*cleanuppolicy.GetSpec())
-	for _, kind := range kinds {
-		checker := NewCleanup(dclient, *cleanuppolicy.GetSpec(), logging.GlobalLogger())
-		namespaces, err := listNameSpaces(client)
-		if err != nil {
-			return err
+	checker := NewCleanup(dclient, *cleanuppolicy.GetSpec(), logging.GlobalLogger())
+	if policyKind == "ClusterCleanupPolicy" {
+		namespaces := cleanuppolicy.GetSpec().MatchResources.Namespaces
+		if len(namespaces) == 0 {
+			namespaces, err = listNameSpaces(client)
+			if err != nil {
+				return err
+			}
 		}
-		for _, namespace := range namespaces {
-			if err := checker.CanIDelete(kind, namespace); err != nil {
-				return fmt.Errorf("cannot delete kind %s in namespace %s", kind, namespace)
+		for _, kind := range kinds {
+			for _, namespace := range namespaces {
+				if err := checker.CanIDelete(kind, namespace); err != nil {
+					return fmt.Errorf("cannot delete kind %s in namespace %s", kind, namespace)
+				}
+			}
+		}
+	} else {
+		policyNamespace := cleanuppolicy.GetNamespace()
+		for _, kind := range kinds {
+			if err := checker.CanIDelete(kind, policyNamespace); err != nil {
+				return fmt.Errorf("cannot delete kind %s in namespace %s", kind, policyNamespace)
 			}
 		}
 	}
-
 	return nil
 }
