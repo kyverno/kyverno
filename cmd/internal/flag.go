@@ -64,4 +64,14 @@ func InitFlags(config Configuration) {
 	if config.UsesKubeconfig() {
 		initKubeconfigFlags()
 	}
+	for _, flagset := range config.FlagSets() {
+		flagset.VisitAll(func(f *flag.Flag) {
+			flag.CommandLine.Var(f.Value, f.Name, f.Usage)
+		})
+	}
+}
+
+func ParseFlags(config Configuration) {
+	InitFlags(config)
+	flag.Parse()
 }
