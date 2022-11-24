@@ -26,10 +26,6 @@ func NewHandlers(client dclient.Interface, openApiManager openapi.Manager) webho
 }
 
 func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	if request.SubResource != "" {
-		logger.V(4).Info("skip policy validation on status update")
-		return admissionutils.ResponseSuccess()
-	}
 	policy, _, err := admissionutils.GetPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")

@@ -19,6 +19,10 @@ func (inner AdmissionHandler) WithOperationFilter(operations ...admissionv1.Oper
 	return inner.withOperationFilter(operations...).WithTrace("OPERATION")
 }
 
+func (inner AdmissionHandler) WithSubResourceFilter(subresources ...string) AdmissionHandler {
+	return inner.withSubResourceFilter(subresources...).WithTrace("SUBRESOURCE")
+}
+
 func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
@@ -32,12 +36,22 @@ func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandle
 }
 
 func (inner AdmissionHandler) withOperationFilter(operations ...admissionv1.Operation) AdmissionHandler {
-	ops := sets.NewString()
+	allowed := sets.NewString()
 	for _, operation := range operations {
-		ops.Insert(string(operation))
+		allowed.Insert(string(operation))
 	}
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		if ops.Has(string(request.Operation)) {
+		if allowed.Has(string(request.Operation)) {
+			return inner(ctx, logger, request, startTime)
+		}
+		return nil
+	}
+}
+
+func (inner AdmissionHandler) withSubResourceFilter(subresources ...string) AdmissionHandler {
+	allowed := sets.NewString(subresources...)
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		if request.SubResource == "" || allowed.Has(request.SubResource) {
 			return inner(ctx, logger, request, startTime)
 		}
 		return nil

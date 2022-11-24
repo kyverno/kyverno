@@ -122,6 +122,7 @@ func NewServer(
 		config.PolicyValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
 			WithDump(debugModeOpts.DumpPayload).
+			WithSubResourceFilter().
 			WithMetrics(metricsConfig).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc(),
