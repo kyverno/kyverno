@@ -24,6 +24,8 @@ const (
 	LabelDomainPolicy        = "pol.kyverno.io"
 	LabelPrefixClusterPolicy = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy        = LabelDomainPolicy + "/"
+	//	aggregated admission report label
+	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )
 
 func IsPolicyLabel(label string) bool {

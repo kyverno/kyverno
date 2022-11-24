@@ -172,7 +172,7 @@ func (v *validationHandler) handleAudit(
 		v.log.Error(err, "failed to build audit responses")
 	}
 	responses = append(responses, engineResponses...)
-	report := reportutils.NewAdmissionReport(resource, request, request.Kind, responses...)
+	report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
 	// if it's not a creation, the resource already exists, we can set the owner
 	if request.Operation != admissionv1.Create {
 		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
