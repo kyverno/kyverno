@@ -288,7 +288,7 @@ func (iv *imageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 		return nil, "", errors.Wrapf(err, "failed to create image digest patch")
 	}
 
-	iv.logger.V(4).Info("adding digest patch", "image", imageInfo.String(), "patch", string(patch))
+	iv.logger.V(2).Info("adding digest patch", "image", imageInfo.String(), "patch", string(patch))
 
 	return patch, digest, nil
 }
@@ -641,11 +641,11 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 func (iv *imageVerifier) buildNotaryV2OptionsAndPath(attestor kyvernov1.Attestor, imageVerify kyvernov1.ImageVerification, image string) (*notaryv2.Options, string) {
 	path := ""
 	opts := &notaryv2.Options{}
+	opts.Reference = image
 
 	if attestor.Certificates != nil {
 		path = path + ".certificates"
 		certs := ""
-
 		if attestor.Certificates.Certificate != "" {
 			certs = attestor.Certificates.Certificate + "\n"
 		}

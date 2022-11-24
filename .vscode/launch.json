@@ -7,9 +7,14 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/kyverno",
+            "env": {
+                "DOCKER_CONFIG": "",
+            },
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
-                "--serverIP=<local ip>:9443",
+                "--serverIP=172.23.218.158:9443",
+                "--v=2",
+                "--imagePullSecrets=regcred"
             ],
         },
         {

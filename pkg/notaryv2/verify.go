@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/notaryproject/notation-core-go/signature"
 	"github.com/notaryproject/notation-go"
 	notationregistry "github.com/notaryproject/notation-go/registry"
@@ -47,7 +48,7 @@ type Verifier struct {
 }
 
 func (v *Verifier) Verify(opts *Options) (*cosign.Response, error) {
-	v.log.V(3).Info("verifying %s", opts.Reference)
+	v.log.V(2).Info("verifying image", "reference", opts.Reference)
 
 	var err error
 	v.trustCerts, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(opts.Certificates)))
@@ -57,22 +58,25 @@ func (v *Verifier) Verify(opts *Options) (*cosign.Response, error) {
 
 	if opts.Identities != "" {
 		v.trustedX509Identities, err = parseDistinguishedName(opts.Identities)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse identities")
+		}
 	}
 
 	repo, parsedRef, err := parseReference(opts.Reference)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse image reference")
+		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.Reference)
 	}
 
 	// check that a digest is received
 	artifactDigest, err := parsedRef.Digest()
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to extract digest")
+		return nil, errors.Wrapf(err, "failed to extract digest from %s", parsedRef.String())
 	}
 
 	artifactDescriptor, err := repo.Resolve(context.Background(), artifactDigest.String())
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to resolve artifact descriptor")
+		return nil, errors.Wrapf(err, "failed to resolve artifact descriptor for %s", artifactDigest.String())
 	}
 
 	// get signature manifests
@@ -85,7 +89,7 @@ func (v *Verifier) Verify(opts *Options) (*cosign.Response, error) {
 		return nil, errors.Errorf("no signatures are associated with %q, make sure the image was signed successfully", parsedRef.String())
 	}
 
-	v.log.V(3).Info("processing signature", "count", len(sigManifests))
+	v.log.V(2).Info("processing signature", "count", len(sigManifests))
 
 	// process signatures
 	var verificationOutcomes []*verification.SignatureVerificationOutcome
@@ -142,39 +146,78 @@ func (v *Verifier) Verify(opts *Options) (*cosign.Response, error) {
 func parseReference(ref string) (*notationregistry.RepositoryClient, registry.Reference, error) {
 	parsedRef, err := registry.ParseReference(ref)
 	if err != nil {
-		return nil, registry.Reference{}, errors.Wrapf(err, "failed to parse registry reference")
+		return nil, registry.Reference{}, errors.Wrapf(err, "failed to parse registry reference %s", ref)
 	}
 
-	authClient, plainHTTP, err := getAuthClient()
+	authClient, plainHTTP, err := getAuthClient(parsedRef)
 	if err != nil {
-		return nil, registry.Reference{}, errors.Wrapf(err, "failed to build registry client")
+		return nil, registry.Reference{}, err
 	}
 
 	repository := notationregistry.NewRepositoryClient(authClient, parsedRef, plainHTTP)
-	parsedRef, err = resolveReference(repository, parsedRef)
+	parsedRef, err = resolveDigest(repository, parsedRef)
 	if err != nil {
-		return nil, registry.Reference{}, errors.Wrapf(err, "failed to resolve reference")
+		return nil, registry.Reference{}, errors.Wrapf(err, "failed to resolve digest")
 	}
 
 	return repository, parsedRef, nil
 }
 
-func getAuthClient() (*auth.Client, bool, error) {
+type imageResource struct {
+	ref registry.Reference
+}
+
+func (ir *imageResource) String() string {
+	return ir.ref.String()
+}
+
+func (ir *imageResource) RegistryStr() string {
+	return ir.ref.Registry
+}
+
+func getAuthClient(ref registry.Reference) (*auth.Client, bool, error) {
+	dc := registryclient.DefaultClient
+	if err := dc.RefreshKeychainPullSecrets(); err != nil {
+		return nil, false, errors.Wrapf(err, "failed to refresh image pull secrets")
+	}
+
+	authn, err := dc.Keychain().Resolve(&imageResource{ref})
+	if err != nil {
+		return nil, false, errors.Wrapf(err, "failed to resolve auth for %s", ref.String())
+	}
+
+	authConfig, err := authn.Authorization()
+	if err != nil {
+		return nil, false, errors.Wrapf(err, "failed to get auth config for %s", ref.String())
+	}
+
+	if authConfig.Username == "" || authConfig.Password == "" {
+		return nil, false, errors.Errorf("failed to get registry credentials")
+	}
+
+	credentials := auth.Credential{
+		Username:     authConfig.Username,
+		Password:     authConfig.Password,
+		AccessToken:  authConfig.IdentityToken,
+		RefreshToken: authConfig.RegistryToken,
+	}
+
 	authClient := &auth.Client{
 		Credential: func(ctx context.Context, registry string) (auth.Credential, error) {
 			switch registry {
 			default:
-				return auth.EmptyCredential, nil
+				return credentials, nil
 			}
 		},
 		Cache:    auth.NewCache(),
 		ClientID: "notation",
 	}
+
 	authClient.SetUserAgent("notation/test")
-	return authClient, true, nil
+	return authClient, false, nil
 }
 
-func resolveReference(repo *notationregistry.RepositoryClient, ref registry.Reference) (registry.Reference, error) {
+func resolveDigest(repo *notationregistry.RepositoryClient, ref registry.Reference) (registry.Reference, error) {
 	if isDigestReference(ref.String()) {
 		return ref, nil
 	}
@@ -224,8 +267,6 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 		return integrityResult.Error
 	}
 
-	v.log.V(3).Info("verified integrity")
-
 	// verify x509 trust store based authenticity
 	authenticityResult := v.verifyAuthenticity(v.trustCerts, outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticityResult)
@@ -233,14 +274,10 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 		return authenticityResult.Error
 	}
 
-	v.log.V(3).Info("verified authenticity")
-
 	v.verifyX509TrustedIdentities(outcome, authenticityResult)
 	if isCriticalFailure(authenticityResult) {
 		return authenticityResult.Error
 	}
-
-	v.log.V(3).Info("verified identity")
 
 	// verify expiry
 	expiryResult := v.verifyExpiry(outcome)
@@ -249,16 +286,12 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 		return expiryResult.Error
 	}
 
-	v.log.V(3).Info("verified expiry")
-
 	// verify authentic timestamp
 	authenticTimestampResult := v.verifyAuthenticTimestamp(outcome)
 	outcome.VerificationResults = append(outcome.VerificationResults, authenticTimestampResult)
 	if isCriticalFailure(authenticTimestampResult) {
 		return authenticTimestampResult.Error
 	}
-
-	v.log.V(3).Info("verified timestamp")
 
 	// verify revocation
 	// check if we need to bypass the revocation check, since revocation can be skipped using a trust policy or a plugin may override the check
