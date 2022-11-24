@@ -1,6 +1,7 @@
 package oci
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -16,7 +17,7 @@ import (
 	policyvalidation "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/spf13/cobra"
 	"go.uber.org/multierr"
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 )
 
 var policyRef string
@@ -64,10 +65,11 @@ kyverno oci push -p policies. -i <imgref>`,
 				} else {
 					fmt.Println("Adding cluster policy", policy.GetName(), "...")
 				}
-				policyBytes, err := yaml.Marshal(policy)
+				policyJsonBytes, err := json.Marshal(policy)
 				if err != nil {
 					return fmt.Errorf("converting policy to yaml: %v", err)
 				}
+				policyBytes, err := yaml.JSONToYAML(policyJsonBytes)
 				policyLayer := static.NewLayer(policyBytes, policyLayerMediaType)
 				img, err = mutate.Append(img, mutate.Addendum{
 					Layer:       policyLayer,
