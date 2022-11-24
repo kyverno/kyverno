@@ -67,9 +67,12 @@ kyverno oci push -p policies. -i <imgref>`,
 				}
 				policyJsonBytes, err := json.Marshal(policy)
 				if err != nil {
-					return fmt.Errorf("converting policy to yaml: %v", err)
+					return fmt.Errorf("converting policy to json: %v", err)
 				}
 				policyBytes, err := yaml.JSONToYAML(policyJsonBytes)
+				if err != nil {
+					return fmt.Errorf("converting json to yaml: %v", err)
+				}
 				policyLayer := static.NewLayer(policyBytes, policyLayerMediaType)
 				img, err = mutate.Append(img, mutate.Addendum{
 					Layer:       policyLayer,
