@@ -1,6 +1,7 @@
 package oci
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +13,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 )
 
 var dir string
@@ -96,9 +97,13 @@ kyverno oci pull -i <imgref> -d policies`,
 						return fmt.Errorf("unmarshaling layer blob: %v", err)
 					}
 					for _, policy := range policies {
-						policyBytes, err := yaml.Marshal(policy)
+						policyJsonBytes, err := json.Marshal(policy)
 						if err != nil {
-							return fmt.Errorf("converting policy to yaml: %v", err)
+							return fmt.Errorf("converting policy to json: %v", err)
+						}
+						policyBytes, err := yaml.JSONToYAML(policyJsonBytes)
+						if err != nil {
+							return fmt.Errorf("converting json to yaml: %v", err)
 						}
 						if err := os.WriteFile(filepath.Join(dir, policy.GetName()+".yaml"), policyBytes, 0o600); err != nil {
 							return fmt.Errorf("creating file: %v", err)
