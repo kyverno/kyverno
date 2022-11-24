@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: poltest
+---
 apiVersion: kyverno.io/v2beta1
 kind: Policy
 metadata:
@@ -16,7 +21,7 @@ spec:
       apiVersion: v1
       kind: ConfigMap
       name: zk-kafka-address
-      namespace: test
+      namespace: poltest
       data:
         kind: ConfigMap
         metadata:

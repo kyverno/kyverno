@@ -1099,7 +1099,7 @@ func checkClusterResourceInMatchAndExclude(rule kyvernov1.Rule, clusterResources
 							}
 							if rule.Generation.Clone.Name != "" {
 								if rule.Generation.Clone.Namespace != policyNamespace {
-									return fmt.Errorf("path: spec.rules[%v]: a namespaced policy cannot clone resource in other namespace, expected: %v, received: %v", rule.Name, policyNamespace, rule.Generation.Clone.Namespace)
+									return fmt.Errorf("path: spec.rules[%v]: a namespaced policy cannot clone resources to or from other namespaces, expected: %v, received: %v", rule.Name, policyNamespace, rule.Generation.Clone.Namespace)
 								}
 							}
 						} else {
