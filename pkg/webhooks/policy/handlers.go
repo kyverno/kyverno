@@ -34,7 +34,6 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 	warnings, err := policyvalidate.Validate(policy, h.client, false, h.openApiManager)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
-		return admissionutils.Response(err, warnings...)
 	}
 	return admissionutils.Response(err, warnings...)
 }
