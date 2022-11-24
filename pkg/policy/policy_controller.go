@@ -106,10 +106,7 @@ func NewPolicyController(
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.V(5).Info)
-	eventInterface, err := client.GetEventsInterface()
-	if err != nil {
-		return nil, err
-	}
+	eventInterface := client.GetEventsInterface()
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
@@ -142,8 +139,10 @@ func NewPolicyController(
 func (pc *PolicyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	logger := pc.log.WithValues("policy", p.GetName())
 	if !p.BackgroundProcessingEnabled() {
-		logger.V(4).Info("background processed is disabled")
-		return false
+		if !p.GetSpec().HasGenerate() && !p.GetSpec().IsMutateExisting() {
+			logger.V(4).Info("background processing is disabled")
+			return false
+		}
 	}
 
 	if err := ValidateVariables(p, true); err != nil {

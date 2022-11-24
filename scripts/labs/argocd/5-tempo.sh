@@ -29,7 +29,7 @@ spec:
       selfHeal: true
 EOF
 
-kubectl create namespadce monitoring || true
+kubectl create namespace monitoring || true
 
 kubectl apply -f - <<EOF
 apiVersion: v1
