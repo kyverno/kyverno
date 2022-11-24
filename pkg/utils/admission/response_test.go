@@ -67,7 +67,7 @@ func TestResponse(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Response(tt.args.err, tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
+			if got := Response("", tt.args.err, tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Response() = %v, want %v", got, tt.want)
 			}
 		})
@@ -102,7 +102,7 @@ func TestResponseSuccess(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ResponseSuccess(tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
+			if got := ResponseSuccess("", tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ResponseSuccess() = %v, want %v", got, tt.want)
 			}
 		})
@@ -161,7 +161,7 @@ func TestMutationResponse(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := MutationResponse(tt.args.patch, tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
+			if got := MutationResponse("", tt.args.patch, tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("MutationResponse() = %v, want %v", got, tt.want)
 			}
 		})

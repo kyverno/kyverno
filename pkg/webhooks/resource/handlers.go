@@ -96,7 +96,7 @@ func NewHandlers(
 
 func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
 	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
-		return admissionutils.ResponseSuccess()
+		return admissionutils.ResponseSuccess(request.UID)
 	}
 	kind := request.Kind.Kind
 	logger = logger.WithValues("kind", kind)
@@ -122,7 +122,7 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 
 	policyContext, err := h.pcBuilder.Build(request, generatePolicies...)
 	if err != nil {
-		return errorResponse(logger, err, "failed create policy context")
+		return errorResponse(logger, request.UID, err, "failed create policy context")
 	}
 
 	namespaceLabels := make(map[string]string)
@@ -135,21 +135,21 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 	ok, msg, warnings := vh.HandleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
 	if !ok {
 		logger.Info("admission request denied")
-		return admissionutils.Response(errors.New(msg), warnings...)
+		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
 
 	defer h.handleDelete(logger, request)
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 
-	return admissionutils.ResponseSuccess(warnings...)
+	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
 
 func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
 	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
-		return admissionutils.ResponseSuccess()
+		return admissionutils.ResponseSuccess(request.UID)
 	}
 	if request.Operation == admissionv1.Delete {
-		return admissionutils.ResponseSuccess()
+		return admissionutils.ResponseSuccess(request.UID)
 	}
 	kind := request.Kind.Kind
 	logger = logger.WithValues("kind", kind)
@@ -158,13 +158,13 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 	verifyImagesPolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)...)
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched mutate admission request")
-		return admissionutils.ResponseSuccess()
+		return admissionutils.ResponseSuccess(request.UID)
 	}
 	logger.V(4).Info("processing policies for mutate admission request", "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
 	policyContext, err := h.pcBuilder.Build(request, mutatePolicies...)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
-		return admissionutils.Response(err)
+		return admissionutils.Response(request.UID, err)
 	}
 	// update container images to a canonical form
 	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext); err != nil {
@@ -174,26 +174,26 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 	mutatePatches, mutateWarnings, err := mh.HandleMutation(h.metricsConfig, request, mutatePolicies, policyContext, startTime)
 	if err != nil {
 		logger.Error(err, "mutation failed")
-		return admissionutils.Response(err)
+		return admissionutils.Response(request.UID, err)
 	}
 	newRequest := patchRequest(mutatePatches, request, logger)
 	// rebuild context to process images updated via mutate policies
 	policyContext, err = h.pcBuilder.Build(newRequest, mutatePolicies...)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
-		return admissionutils.Response(err)
+		return admissionutils.Response(request.UID, err)
 	}
 	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.eventGen, h.admissionReports)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(h.metricsConfig, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")
-		return admissionutils.Response(err)
+		return admissionutils.Response(request.UID, err)
 	}
 	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
 	var warnings []string
 	warnings = append(warnings, mutateWarnings...)
 	warnings = append(warnings, imageVerifyWarnings...)
-	return admissionutils.MutationResponse(patch, warnings...)
+	return admissionutils.MutationResponse(request.UID, patch, warnings...)
 }
 
 func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.AdmissionRequest) {
