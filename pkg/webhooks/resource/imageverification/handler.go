@@ -147,7 +147,7 @@ func (v *imageVerificationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		return
 	}
-	report := reportutils.NewAdmissionReport(resource, request, request.Kind, engineResponses...)
+	report := reportutils.BuildAdmissionReport(resource, request, request.Kind, engineResponses...)
 	// if it's not a creation, the resource already exists, we can set the owner
 	if request.Operation != admissionv1.Create {
 		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}

@@ -2,7 +2,6 @@ package resource
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -46,6 +45,7 @@ type EventHandler func(types.UID, schema.GroupVersionKind, Resource)
 type MetadataCache interface {
 	GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool)
 	AddEventHandler(EventHandler)
+	Warmup(ctx context.Context) error
 }
 
 type Controller interface {
@@ -92,8 +92,13 @@ func NewController(
 	return &c
 }
 
+func (c *controller) Warmup(ctx context.Context) error {
+	return c.updateDynamicWatchers(ctx)
+}
+
 func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+	c.stopDynamicWatchers()
 }
 
 func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {
@@ -151,6 +156,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	}
 	dynamicWatchers := map[schema.GroupVersionResource]*watcher{}
 	for gvk, gvr := range gvrs {
+		logger := logger.WithValues("gvr", gvr, "gvk", gvk)
 		// if we already have one, transfer it to the new map
 		if c.dynamicWatchers[gvr] != nil {
 			dynamicWatchers[gvr] = c.dynamicWatchers[gvr]
@@ -159,7 +165,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			hashes := map[types.UID]Resource{}
 			objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
 			if err != nil {
-				logger.Error(err, "failed to list resources", "gvr", gvr)
+				logger.Error(err, "failed to list resources")
 			} else {
 				resourceVersion := objs.GetResourceVersion()
 				for _, obj := range objs.Items {
@@ -172,17 +178,18 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 					}
 					c.notify(uid, gvk, hashes[uid])
 				}
-				logger.Info("start watcher ...", "gvr", gvr, "resourceVersion", resourceVersion)
+				logger := logger.WithValues("resourceVersion", resourceVersion)
+				logger.Info("start watcher ...")
 				watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
-					watch, err := c.client.GetDynamicInterface().Resource(gvr).Watch(ctx, options)
-					if err != nil && !errors.Is(err, context.Canceled) {
-						logger.Error(err, "failed to watch", "gvr", gvr)
+					watch, err := c.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), options)
+					if err != nil {
+						logger.Error(err, "failed to watch")
 					}
 					return watch, err
 				}
 				watchInterface, err := watchTools.NewRetryWatcher(resourceVersion, &cache.ListWatch{WatchFunc: watchFunc})
 				if err != nil {
-					logger.Error(err, "failed to create watcher", "gvr", gvr)
+					logger.Error(err, "failed to create watcher")
 				} else {
 					w := &watcher{
 						watcher: watchInterface,
@@ -219,6 +226,15 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (c *controller) stopDynamicWatchers() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for _, watcher := range c.dynamicWatchers {
+		watcher.watcher.Stop()
+	}
+	c.dynamicWatchers = map[schema.GroupVersionResource]*watcher{}
 }
 
 func (c *controller) notify(uid types.UID, gvk schema.GroupVersionKind, obj Resource) {
