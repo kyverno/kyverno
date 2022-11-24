@@ -144,8 +144,9 @@ func TestMutationResponse(t *testing.T) {
 			warnings: nil,
 		},
 		want: &admissionv1.AdmissionResponse{
-			Allowed: true,
-			Patch:   []byte{1, 2, 3, 4},
+			Allowed:   true,
+			Patch:     []byte{1, 2, 3, 4},
+			PatchType: &patchTypeJSONPatch,
 		},
 	}, {
 		name: "patch, warnings",
@@ -154,9 +155,10 @@ func TestMutationResponse(t *testing.T) {
 			warnings: []string{"foo", "bar"},
 		},
 		want: &admissionv1.AdmissionResponse{
-			Allowed:  true,
-			Patch:    []byte{1, 2, 3, 4},
-			Warnings: []string{"foo", "bar"},
+			Allowed:   true,
+			Patch:     []byte{1, 2, 3, 4},
+			Warnings:  []string{"foo", "bar"},
+			PatchType: &patchTypeJSONPatch,
 		},
 	}}
 	for _, tt := range tests {
