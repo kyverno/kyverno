@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -13,6 +14,8 @@ import (
 	filtersutil "sigs.k8s.io/kustomize/kyaml/filtersutil"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
+
+var lock sync.Mutex
 
 // ProcessStrategicMergePatch ...
 func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource unstructured.Unstructured, log logr.Logger) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
@@ -102,6 +105,9 @@ func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, erro
 		Patch: preprocessedYaml,
 	}
 
+	// kustomize code is not thread safe...
+	lock.Lock()
+	defer lock.Unlock()
 	baseObj := buffer{Buffer: bytes.NewBufferString(base)}
 	err = filtersutil.ApplyToJSON(f, baseObj)
 
