@@ -29,7 +29,9 @@ func ResponseSuccess(uid types.UID, warnings ...string) *admissionv1.AdmissionRe
 
 func MutationResponse(uid types.UID, patch []byte, warnings ...string) *admissionv1.AdmissionResponse {
 	response := ResponseSuccess(uid, warnings...)
-	response.Patch = patch
-	response.PatchType = &patchTypeJSONPatch
+	if len(patch) != 0 {
+		response.Patch = patch
+		response.PatchType = &patchTypeJSONPatch
+	}
 	return response
 }
