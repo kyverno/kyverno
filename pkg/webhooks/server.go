@@ -103,7 +103,6 @@ func NewServer(
 		"POST",
 		config.PolicyMutatingWebhookServicePath,
 		handlers.FromAdmissionFunc("MUTATE", policyHandlers.Mutate).
-			WithFilter(configuration).
 			WithDump(debugModeOpts.DumpPayload).
 			WithMetrics(metricsConfig).
 			WithAdmission(policyLogger.WithName("mutate")).
@@ -113,7 +112,6 @@ func NewServer(
 		"POST",
 		config.PolicyValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
-			WithFilter(configuration).
 			WithDump(debugModeOpts.DumpPayload).
 			WithMetrics(metricsConfig).
 			WithAdmission(policyLogger.WithName("validate")).
