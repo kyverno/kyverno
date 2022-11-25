@@ -188,21 +188,29 @@ func (v *validationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		return
 	}
-	responses, err := v.buildAuditResponses(ctx, resource, request, namespaceLabels)
-	if err != nil {
-		v.log.Error(err, "failed to build audit responses")
-	}
-	responses = append(responses, engineResponses...)
-	report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
-	// if it's not a creation, the resource already exists, we can set the owner
-	if request.Operation != admissionv1.Create {
-		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
-		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
-	}
-	if len(report.GetResults()) > 0 {
-		_, err = reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
-		if err != nil {
-			v.log.Error(err, "failed to create report")
-		}
-	}
+	tracing.Span(
+		context.Background(),
+		"",
+		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
+		func(ctx context.Context, span trace.Span) {
+			responses, err := v.buildAuditResponses(ctx, resource, request, namespaceLabels)
+			if err != nil {
+				v.log.Error(err, "failed to build audit responses")
+			}
+			responses = append(responses, engineResponses...)
+			report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
+			// if it's not a creation, the resource already exists, we can set the owner
+			if request.Operation != admissionv1.Create {
+				gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
+				controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
+			}
+			if len(report.GetResults()) > 0 {
+				_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
+				if err != nil {
+					v.log.Error(err, "failed to create report")
+				}
+			}
+		},
+		trace.WithLinks(trace.LinkFromContext(ctx)),
+	)
 }
