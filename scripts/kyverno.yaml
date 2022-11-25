@@ -1,0 +1,9 @@
+initContainer:
+  extraArgs:
+    - --loggingFormat=text
+
+extraArgs:
+  - --loggingFormat=text
+  - --enableTracing
+  - --tracingAddress=tempo.monitoring
+  - --tracingPort=4317

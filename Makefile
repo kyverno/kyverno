@@ -723,46 +723,33 @@ kind-load-all: kind-load-kyvernopre kind-load-kyverno kind-load-cleanup-controll
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@echo Install kyverno chart... >&2
-	@$(HELM) upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
 		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
-		--set initContainer.extraArgs={--loggingFormat=text} \
-		--set "extraArgs={--loggingFormat=text}"
+		--values ./scripts/kyverno.yaml
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno
 
 .PHONY: kind-deploy-kyverno-policies
-kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
+kind-deploy-kyverno-policies: $(HELM) kind-deploy-kyverno ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
-	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --wait --create-namespace ./charts/kyverno-policies
-
-.PHONY: kind-deploy-metrics-server
-kind-deploy-metrics-server: $(HELM) ## Deploy metrics-server helm chart
-	@echo Install metrics-server chart... >&2
-	@$(HELM) upgrade --install metrics-server --namespace kube-system --wait --repo https://charts.bitnami.com/bitnami metrics-server \
-		--set extraArgs={--kubelet-insecure-tls=true} \
-		--set apiService.create=true
+	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace --wait ./charts/kyverno-policies \
+		--values ./scripts/kyverno-policies.yaml
 
 .PHONY: kind-deploy-all
-kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
+kind-deploy-all: kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
 
 .PHONY: kind-deploy-reporter
-kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
+kind-deploy-reporter: $(HELM) kind-deploy-kyverno ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
-	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --wait --repo https://kyverno.github.io/policy-reporter policy-reporter \
-		--set ui.enabled=true \
-		--set kyvernoPlugin.enabled=true \
-		--create-namespace
+	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
+		--repo https://kyverno.github.io/policy-reporter policy-reporter \
+		--values ./scripts/kyverno-reporter.yaml
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
-
-deploy-kube-prom-stack: $(HELM)
-	@$(HELM) upgrade --install kube-prometheus-stack --namespace monitoring --create-namespace --wait \
-		--repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack \
-		--values ./scripts/kube-prometheus-stack.yaml
 
 ########
 # HELP #
