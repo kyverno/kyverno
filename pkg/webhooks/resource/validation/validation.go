@@ -101,8 +101,8 @@ func (v *validationHandler) HandleValidation(
 			continue
 		}
 
-		go webhookutils.RegisterPolicyResultsMetricValidation(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
-		go webhookutils.RegisterPolicyExecutionDurationMetricValidate(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricValidation(context.TODO(), logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricValidate(context.TODO(), logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
 
 		engineResponses = append(engineResponses, engineResponse)
 		if !engineResponse.IsSuccessful() {
