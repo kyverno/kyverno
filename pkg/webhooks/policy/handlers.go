@@ -43,6 +43,6 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 	return admissionutils.Response(err, warnings...)
 }
 
-func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Mutate(_ context.Context, _ logr.Logger, _ *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
 	return admissionutils.ResponseSuccess()
 }
