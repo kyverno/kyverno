@@ -142,9 +142,6 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 }
 
 func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
-	if request.Operation == admissionv1.Delete {
-		return admissionutils.ResponseSuccess()
-	}
 	kind := request.Kind.Kind
 	logger = logger.WithValues("kind", kind)
 	logger.V(4).Info("received an admission request in mutating webhook")

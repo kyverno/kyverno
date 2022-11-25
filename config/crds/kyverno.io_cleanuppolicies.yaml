@@ -9,9 +9,14 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: CleanupPolicy
     listKind: CleanupPolicyList
     plural: cleanuppolicies
+    shortNames:
+    - cleanpol
     singular: cleanuppolicy
   scope: Namespaced
   versions:

@@ -14,5 +14,5 @@ type CleanupPolicyInterface interface {
 	GetStatus() *CleanupPolicyStatus
 	Validate(sets.String) field.ErrorList
 	GetKind() string
-	GetSchedule() string
+	GetAPIVersion() string
 }
