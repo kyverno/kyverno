@@ -1184,7 +1184,7 @@ func Test_Namespaced_Generate_Policy(t *testing.T) {
             }
         }`),
 			policyNamespace: "poltest",
-			expectedError:   errors.New("path: spec.rules[sync-image-pull-secret]: a namespaced policy cannot clone resource in other namespace, expected: poltest, received: default"),
+			expectedError:   errors.New("path: spec.rules[sync-image-pull-secret]: a namespaced policy cannot clone resources to or from other namespaces, expected: poltest, received: default"),
 		},
 		{
 			description: "Do not mention the namespace to generate cluster scoped resource",
