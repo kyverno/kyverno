@@ -682,9 +682,14 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: CleanupPolicy
     listKind: CleanupPolicyList
     plural: cleanuppolicies
+    shortNames:
+    - cleanpol
     singular: cleanuppolicy
   scope: Namespaced
   versions:
@@ -2775,11 +2780,16 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterCleanupPolicy
     listKind: ClusterCleanupPolicyList
     plural: clustercleanuppolicies
+    shortNames:
+    - ccleanpol
     singular: clustercleanuppolicy
-  scope: Namespaced
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.schedule
