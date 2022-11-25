@@ -5,14 +5,20 @@ import (
 	"flag"
 	"net/http"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
+	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
@@ -35,17 +41,14 @@ const (
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
 	logger = logger.WithName("metrics")
 	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
-	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
-	if err != nil {
-		return nil, nil, err
-	}
+	metricsConfiguration := internal.GetMetricsConfiguration(logger, kubeClient)
 	metricsAddr := ":" + metricsPort
 	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
 		disableMetricsExport,
 		otel,
 		metricsAddr,
 		otelCollector,
-		metricsConfigData,
+		metricsConfiguration,
 		transportCreds,
 		kubeClient,
 		logging.WithName("metrics"),
@@ -69,6 +72,10 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 		}()
 	}
 	return metricsConfig, cancel, nil
+}
+
+func setupSignals() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }
 
 func main() {
@@ -97,9 +104,6 @@ func main() {
 	defer sdown()
 	// create raw client
 	rawClient := internal.CreateKubernetesClient(logger)
-	// setup signals
-	signalCtx, signalCancel := internal.SetupSignals(logger)
-	defer signalCancel()
 	// setup metrics
 	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
 	if err != nil {
@@ -109,6 +113,9 @@ func main() {
 	if metricsShutdown != nil {
 		defer metricsShutdown()
 	}
+	// setup signals
+	signalCtx, signalCancel := setupSignals()
+	defer signalCancel()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
@@ -117,7 +124,26 @@ func main() {
 		logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
 	}
+	clientConfig := internal.CreateClientConfig(logger)
+	kyvernoClient, err := kyvernoclient.NewForConfig(
+		clientConfig,
+		kyvernoclient.WithMetrics(metricsConfig, metrics.KubeClient),
+		kyvernoclient.WithTracing(),
+	)
+	if err != nil {
+		logger.Error(err, "failed to create kyverno client")
+		os.Exit(1)
+	}
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	cleanupController := cleanup.NewController(
+		kubeClient,
+		kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies(),
+		kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies(),
+		kubeInformer.Batch().V1().CronJobs(),
+	)
+	controller := newController(cleanup.ControllerName, *cleanupController, cleanup.Workers)
 	policyHandlers := NewHandlers(
 		dClient,
 	)
@@ -127,6 +153,8 @@ func main() {
 	if !internal.StartInformersAndWaitForCacheSync(ctx, kubeKyvernoInformer) {
 		os.Exit(1)
 	}
+	var wg sync.WaitGroup
+	controller.run(signalCtx, logger.WithName("cleanup-controller"), &wg)
 	server := NewServer(
 		policyHandlers,
 		func() ([]byte, []byte, error) {
@@ -141,4 +169,5 @@ func main() {
 	server.Run(ctx.Done())
 	// wait for termination signal
 	<-ctx.Done()
+	wg.Wait()
 }
