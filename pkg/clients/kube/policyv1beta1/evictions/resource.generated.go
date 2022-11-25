@@ -8,8 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/multierr"
 	k8s_io_api_policy_v1beta1 "k8s.io/api/policy/v1beta1"
 	k8s_io_client_go_kubernetes_typed_policy_v1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
@@ -65,16 +63,13 @@ func (c *withTracing) Evict(arg0 context.Context, arg1 *k8s_io_api_policy_v1beta
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Evict"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Evict"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Evict"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0 := c.inner.Evict(arg0, arg1)
-	if ret0 != nil {
-		span.RecordError(ret0)
-		span.SetStatus(codes.Error, ret0.Error())
-	}
+	tracing.SetSpanStatus(span, ret0)
 	return ret0
 }
