@@ -20,7 +20,7 @@ import (
 
 func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhooks.ResourceHandlers {
 	client := fake.NewSimpleClientset()
-	metricsConfig := metrics.NewFakeMetricsConfig(client)
+	metricsConfig := metrics.NewFakeMetricsConfig()
 
 	informers := informers.NewSharedInformerFactory(client, 0)
 	informers.Start(ctx.Done())
@@ -30,7 +30,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	kyvernoInformers.Start(ctx.Done())
 
 	dclient := dclient.NewEmptyFakeClient()
-	configuration := config.NewFakeConfig()
+	configuration := config.NewDefaultConfiguration()
 	rbLister := informers.Rbac().V1().RoleBindings().Lister()
 	crbLister := informers.Rbac().V1().ClusterRoleBindings().Lister()
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
