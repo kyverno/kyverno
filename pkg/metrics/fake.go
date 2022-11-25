@@ -2,16 +2,14 @@ package metrics
 
 import (
 	"github.com/kyverno/kyverno/pkg/config"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
-func NewFakeMetricsConfig(client kubernetes.Interface) *MetricsConfig {
+func NewFakeMetricsConfig() *MetricsConfig {
 	mc := &MetricsConfig{
-		Config: config.NewFakeMetricsConfig(client),
+		Config: config.NewDefaultMetricsConfiguration(),
 		Log:    klog.NewKlogr(),
 	}
-
-	mc, _ = initializeMetrics(mc)
+	_ = mc.initializeMetrics()
 	return mc
 }
