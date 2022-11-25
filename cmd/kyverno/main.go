@@ -61,6 +61,7 @@ import (
 	metadataclient "k8s.io/client-go/metadata"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
+	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
 const (
@@ -590,6 +591,9 @@ func main() {
 	}
 	// setup cosign
 	setupCosign(logger)
+	// THIS IS AN UGLY FIX
+	// ELSE KYAML IS NOT THREAD SAFE
+	kyamlopenapi.Schema()
 	// setup signals
 	signalCtx, signalCancel := setupSignals()
 	defer signalCancel()
