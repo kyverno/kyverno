@@ -54,6 +54,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
+	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
 const (
@@ -460,6 +461,9 @@ func main() {
 	}
 	// setup cosign
 	setupCosign(logger)
+	// THIS IS AN UGLY FIX
+	// ELSE KYAML IS NOT THREAD SAFE
+	kyamlopenapi.Schema()
 	// check we can run
 	if err := sanityChecks(dClient); err != nil {
 		logger.Error(err, "sanity checks failed")
