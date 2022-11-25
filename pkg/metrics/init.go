@@ -14,7 +14,7 @@ func InitMetrics(
 	otel string,
 	metricsAddr string,
 	otelCollector string,
-	metricsConfigData *config.MetricsConfigData,
+	metricsConfiguration config.MetricsConfiguration,
 	transportCreds string,
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
@@ -23,11 +23,12 @@ func InitMetrics(
 	var metricsServerMux *http.ServeMux
 	var pusher *controller.Controller
 
-	metricsConfig := new(MetricsConfig)
-	metricsConfig.Log = log
-	metricsConfig.Config = metricsConfigData
+	metricsConfig := MetricsConfig{
+		Log:    log,
+		Config: metricsConfiguration,
+	}
 
-	metricsConfig, err = initializeMetrics(metricsConfig)
+	err = metricsConfig.initializeMetrics()
 	if err != nil {
 		log.Error(err, "Failed initializing metrics")
 		return nil, nil, nil, err
@@ -57,5 +58,5 @@ func InitMetrics(
 			}
 		}
 	}
-	return metricsConfig, metricsServerMux, pusher, nil
+	return &metricsConfig, metricsServerMux, pusher, nil
 }
