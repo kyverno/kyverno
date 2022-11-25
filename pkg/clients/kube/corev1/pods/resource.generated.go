@@ -8,8 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/multierr"
 	k8s_io_api_core_v1 "k8s.io/api/core/v1"
 	k8s_io_api_policy_v1 "k8s.io/api/policy/v1"
@@ -319,17 +317,14 @@ func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyco
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Apply"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Apply"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Apply(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.PodApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_core_v1.Pod, error) {
@@ -337,17 +332,14 @@ func (c *withTracing) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_a
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ApplyStatus"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "ApplyStatus"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("ApplyStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.ApplyStatus(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) Bind(arg0 context.Context, arg1 *k8s_io_api_core_v1.Binding, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) error {
@@ -355,17 +347,14 @@ func (c *withTracing) Bind(arg0 context.Context, arg1 *k8s_io_api_core_v1.Bindin
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Bind"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Bind"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Bind"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0 := c.inner.Bind(arg0, arg1, arg2)
-	if ret0 != nil {
-		span.RecordError(ret0)
-		span.SetStatus(codes.Error, ret0.Error())
-	}
+	tracing.SetSpanStatus(span, ret0)
 	return ret0
 }
 func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Pod, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_core_v1.Pod, error) {
@@ -373,17 +362,14 @@ func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Pod,
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Create"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Create"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
@@ -391,17 +377,14 @@ func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apim
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Delete"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Delete"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0 := c.inner.Delete(arg0, arg1, arg2)
-	if ret0 != nil {
-		span.RecordError(ret0)
-		span.SetStatus(codes.Error, ret0.Error())
-	}
+	tracing.SetSpanStatus(span, ret0)
 	return ret0
 }
 func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
@@ -409,17 +392,14 @@ func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "DeleteCollection"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "DeleteCollection"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
-	if ret0 != nil {
-		span.RecordError(ret0)
-		span.SetStatus(codes.Error, ret0.Error())
-	}
+	tracing.SetSpanStatus(span, ret0)
 	return ret0
 }
 func (c *withTracing) Evict(arg0 context.Context, arg1 *k8s_io_api_policy_v1beta1.Eviction) error {
@@ -427,17 +407,14 @@ func (c *withTracing) Evict(arg0 context.Context, arg1 *k8s_io_api_policy_v1beta
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Evict"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Evict"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Evict"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0 := c.inner.Evict(arg0, arg1)
-	if ret0 != nil {
-		span.RecordError(ret0)
-		span.SetStatus(codes.Error, ret0.Error())
-	}
+	tracing.SetSpanStatus(span, ret0)
 	return ret0
 }
 func (c *withTracing) EvictV1(arg0 context.Context, arg1 *k8s_io_api_policy_v1.Eviction) error {
@@ -445,17 +422,14 @@ func (c *withTracing) EvictV1(arg0 context.Context, arg1 *k8s_io_api_policy_v1.E
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "EvictV1"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "EvictV1"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("EvictV1"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0 := c.inner.EvictV1(arg0, arg1)
-	if ret0 != nil {
-		span.RecordError(ret0)
-		span.SetStatus(codes.Error, ret0.Error())
-	}
+	tracing.SetSpanStatus(span, ret0)
 	return ret0
 }
 func (c *withTracing) EvictV1beta1(arg0 context.Context, arg1 *k8s_io_api_policy_v1beta1.Eviction) error {
@@ -463,17 +437,14 @@ func (c *withTracing) EvictV1beta1(arg0 context.Context, arg1 *k8s_io_api_policy
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "EvictV1beta1"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "EvictV1beta1"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("EvictV1beta1"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0 := c.inner.EvictV1beta1(arg0, arg1)
-	if ret0 != nil {
-		span.RecordError(ret0)
-		span.SetStatus(codes.Error, ret0.Error())
-	}
+	tracing.SetSpanStatus(span, ret0)
 	return ret0
 }
 func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_core_v1.Pod, error) {
@@ -481,17 +452,14 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Get"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Get"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Get"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) GetLogs(arg0 string, arg1 *k8s_io_api_core_v1.PodLogOptions) *k8s_io_client_go_rest.Request {
@@ -499,9 +467,9 @@ func (c *withTracing) GetLogs(arg0 string, arg1 *k8s_io_api_core_v1.PodLogOption
 		context.TODO(),
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "GetLogs"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "GetLogs"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("GetLogs"),
 	)
 	defer span.End()
 	ret0 := c.inner.GetLogs(arg0, arg1)
@@ -512,17 +480,14 @@ func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "List"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "List"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("List"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.List(arg0, arg1)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.Pod, error) {
@@ -530,17 +495,14 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Patch"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Patch"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 string, arg4 map[string]string) k8s_io_client_go_rest.ResponseWrapper {
@@ -548,9 +510,9 @@ func (c *withTracing) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 strin
 		context.TODO(),
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ProxyGet"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "ProxyGet"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("ProxyGet"),
 	)
 	defer span.End()
 	ret0 := c.inner.ProxyGet(arg0, arg1, arg2, arg3, arg4)
@@ -561,17 +523,14 @@ func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Pod,
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Update"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Update"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Update"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) UpdateEphemeralContainers(arg0 context.Context, arg1 string, arg2 *k8s_io_api_core_v1.Pod, arg3 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Pod, error) {
@@ -579,17 +538,14 @@ func (c *withTracing) UpdateEphemeralContainers(arg0 context.Context, arg1 strin
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "UpdateEphemeralContainers"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "UpdateEphemeralContainers"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("UpdateEphemeralContainers"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.UpdateEphemeralContainers(arg0, arg1, arg2, arg3)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_core_v1.Pod, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Pod, error) {
@@ -597,17 +553,14 @@ func (c *withTracing) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_core_v
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "UpdateStatus"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "UpdateStatus"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("UpdateStatus"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
@@ -615,16 +568,13 @@ func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_a
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Watch"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Watch"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Watch(arg0, arg1)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }

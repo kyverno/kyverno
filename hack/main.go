@@ -158,9 +158,9 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 	{{- end }}
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, {{ Quote $operation.Method.Name }}),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", {{ Quote $operation.Method.Name }}),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String({{ Quote $operation.Method.Name }}),
 	)
 	defer span.End()
 	{{- if $operation.HasContext }}
@@ -178,10 +178,7 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 	{{- if $operation.HasError }}
 	{{- range $i, $ret := Returns $operation.Method }}
 	{{- if $ret.IsError }}
-	if ret{{ $i }} != nil {
-		span.RecordError(ret{{ $i }})
-		span.SetStatus(codes.Error, ret{{ $i }}.Error())
-	}
+	tracing.SetSpanStatus(span, ret{{ $i }})
 	{{- end }}
 	{{- end }}
 	{{- end }}
