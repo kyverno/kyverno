@@ -44,5 +44,5 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 }
 
 func (h *handlers) Mutate(_ context.Context, _ logr.Logger, _ *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	return admissionutils.ResponseSuccess()
+	return nil
 }
