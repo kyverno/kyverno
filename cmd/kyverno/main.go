@@ -120,7 +120,7 @@ func parseFlags(config internal.Configuration) {
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
 	logger = logger.WithName("metrics")
 	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
-	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
+	metricsConfiguration, err := config.NewMetricsConfiguration(kubeClient)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -130,7 +130,7 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 		otel,
 		metricsAddr,
 		otelCollector,
-		metricsConfigData,
+		metricsConfiguration,
 		transportCreds,
 		kubeClient,
 		logging.WithName("metrics"),

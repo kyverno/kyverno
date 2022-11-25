@@ -133,7 +133,7 @@ type configuration struct {
 	generateSuccessEvents bool
 }
 
-// NewConfiguration ...
+// NewDefaultConfiguration ...
 func NewDefaultConfiguration() *configuration {
 	return &configuration{
 		excludeGroupRole: defaultExcludeGroupRole,
