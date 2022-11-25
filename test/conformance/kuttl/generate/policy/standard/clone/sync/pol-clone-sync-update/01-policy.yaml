@@ -3,5 +3,5 @@ kind: TestStep
 apply:
 - manifests.yaml
 assert:
-- namespace-policy-ready.yaml
+- policy-ready.yaml
 - required-resources-ready.yaml
