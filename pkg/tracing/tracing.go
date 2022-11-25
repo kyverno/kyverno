@@ -21,18 +21,21 @@ import (
 )
 
 const (
+	// engine attributes
 	PolicyGroupKey     = attribute.Key("kyverno.policy.group")
 	PolicyVersionKey   = attribute.Key("kyverno.policy.version")
 	PolicyKindKey      = attribute.Key("kyverno.policy.kind")
 	PolicyNameKey      = attribute.Key("kyverno.policy.name")
 	PolicyNamespaceKey = attribute.Key("kyverno.policy.namespace")
 	RuleNameKey        = attribute.Key("kyverno.rule.name")
+	// admission resource attributes
 	// ResourceNameKey       = attribute.Key("admission.resource.name")
 	// ResourceNamespaceKey  = attribute.Key("admission.resource.namespace")
 	// ResourceGroupKey      = attribute.Key("admission.resource.group")
 	// ResourceVersionKey    = attribute.Key("admission.resource.version")
 	// ResourceKindKey       = attribute.Key("admission.resource.kind")
 	// ResourceUidKey        = attribute.Key("admission.resource.uid")
+	// admission request attributes
 	RequestNameKey                    = attribute.Key("admission.request.name")
 	RequestNamespaceKey               = attribute.Key("admission.request.namespace")
 	RequestUidKey                     = attribute.Key("admission.request.uid")
@@ -55,14 +58,20 @@ const (
 	RequestUserNameKey                = attribute.Key("admission.request.user.name")
 	RequestUserUidKey                 = attribute.Key("admission.request.user.uid")
 	RequestUserGroupsKey              = attribute.Key("admission.request.user.groups")
-	ResponseUidKey                    = attribute.Key("admission.response.uid")
-	ResponseAllowedKey                = attribute.Key("admission.response.allowed")
-	ResponseWarningsKey               = attribute.Key("admission.response.warnings")
-	ResponseResultStatusKey           = attribute.Key("admission.response.result.status")
-	ResponseResultMessageKey          = attribute.Key("admission.response.result.message")
-	ResponseResultReasonKey           = attribute.Key("admission.response.result.reason")
-	ResponseResultCodeKey             = attribute.Key("admission.response.result.code")
-	ResponsePatchTypeKey              = attribute.Key("admission.response.patchtype")
+	// admission response attributes
+	ResponseUidKey           = attribute.Key("admission.response.uid")
+	ResponseAllowedKey       = attribute.Key("admission.response.allowed")
+	ResponseWarningsKey      = attribute.Key("admission.response.warnings")
+	ResponseResultStatusKey  = attribute.Key("admission.response.result.status")
+	ResponseResultMessageKey = attribute.Key("admission.response.result.message")
+	ResponseResultReasonKey  = attribute.Key("admission.response.result.reason")
+	ResponseResultCodeKey    = attribute.Key("admission.response.result.code")
+	ResponsePatchTypeKey     = attribute.Key("admission.response.patchtype")
+	// kube client attributes
+	KubeClientGroupKey     = attribute.Key("kube.client.group")
+	KubeClientKindKey      = attribute.Key("kube.client.kind")
+	KubeClientOperationKey = attribute.Key("kube.client.operation")
+	KubeClientNamespaceKey = attribute.Key("kube.client.namespace")
 )
 
 // NewTraceConfig generates the initial tracing configuration with 'address' as the endpoint to connect to the Opentelemetry Collector
@@ -150,6 +159,19 @@ func Span1[T any](ctx context.Context, tracerName string, operationName string, 
 	newCtx, span := otel.Tracer(tracerName).Start(ctx, operationName, opts...)
 	defer span.End()
 	return doFn(newCtx, span)
+}
+
+func SetSpanStatus(span trace.Span, err error) {
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	} else {
+		span.SetStatus(codes.Ok, "")
+	}
+}
+
+func SetStatus(ctx context.Context, err error) {
+	SetSpanStatus(trace.SpanFromContext(ctx), err)
 }
 
 func SetHttpStatus(ctx context.Context, err error, code int) {
