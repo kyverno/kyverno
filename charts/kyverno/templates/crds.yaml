@@ -64,6 +64,10 @@ spec:
       name: Hash
       priority: 1
       type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
+      name: AGGREGATE
+      priority: 1
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -1508,6 +1512,10 @@ spec:
       type: date
     - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
       name: Hash
+      priority: 1
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
+      name: AGGREGATE
       priority: 1
       type: string
     name: v1alpha2

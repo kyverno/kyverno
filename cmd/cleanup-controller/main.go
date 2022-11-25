@@ -38,16 +38,6 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
-func parseFlags(config internal.Configuration) {
-	internal.InitFlags(config)
-	flag.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
-	flag.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local", "Set this flag to the OpenTelemetry Collector Service Address. Kyverno will try to connect to this on the metrics port.")
-	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
-	flag.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
-	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
-	flag.Parse()
-}
-
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
 	logger = logger.WithName("metrics")
 	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
@@ -92,24 +82,30 @@ func setupSignals() (context.Context, context.CancelFunc) {
 }
 
 func main() {
+	// application flags
+	flagset := flag.NewFlagSet("application", flag.ExitOnError)
+	flagset.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
+	flagset.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local", "Set this flag to the OpenTelemetry Collector Service Address. Kyverno will try to connect to this on the metrics port.")
+	flagset.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
+	flagset.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
+	flagset.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
 		internal.WithTracing(),
 		internal.WithKubeconfig(),
+		internal.WithFlagSets(flagset),
 	)
 	// parse flags
-	parseFlags(appConfig)
+	internal.ParseFlags(appConfig)
 	// setup logger
-	logger := internal.SetupLogger()
-	// setup maxprocs
-	undo := internal.SetupMaxProcs(logger)
-	defer undo()
 	// show version
-	internal.ShowVersion(logger)
 	// start profiling
-	internal.SetupProfiling(logger)
-	// raw kube client
+	// setup signals
+	// setup maxprocs
+	ctx, logger, sdown := internal.Setup()
+	defer sdown()
+	// create raw client
 	rawClient := internal.CreateKubernetesClient(logger)
 	// setup metrics
 	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
@@ -157,7 +153,7 @@ func main() {
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kubeKyvernoInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(ctx, kubeKyvernoInformer) {
 		os.Exit(1)
 	}
 	var wg sync.WaitGroup
@@ -173,8 +169,8 @@ func main() {
 		},
 	)
 	// start webhooks server
-	server.Run(signalCtx.Done())
+	server.Run(ctx.Done())
 	// wait for termination signal
-	<-signalCtx.Done()
+	<-ctx.Done()
 	wg.Wait()
 }

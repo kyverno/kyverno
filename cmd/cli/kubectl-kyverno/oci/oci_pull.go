@@ -1,6 +1,7 @@
 package oci
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
@@ -58,12 +60,7 @@ kyverno oci pull -i <imgref> -d policies`,
 				return fmt.Errorf("parsing image reference: %v", err)
 			}
 
-			do := []remote.Option{
-				remote.WithContext(cmd.Context()),
-				remote.WithAuthFromKeychain(keychain),
-			}
-
-			rmt, err := Get(ref, do...)
+			rmt, err := remote.Get(ref, remote.WithContext(cmd.Context()), remote.WithAuthFromKeychain(keychain))
 			if err != nil {
 				return fmt.Errorf("getting image: %v", err)
 			}
@@ -91,18 +88,26 @@ kyverno oci pull -i <imgref> -d policies`,
 					}
 					defer blob.Close()
 
-					var policy map[string]interface{}
-					b, err := io.ReadAll(blob)
+					layerBytes, err := io.ReadAll(blob)
 					if err != nil {
 						return fmt.Errorf("reading layer blob: %v", err)
 					}
-					if err := yaml.Unmarshal(b, &policy); err != nil {
+					policies, err := yamlutils.GetPolicy(layerBytes)
+					if err != nil {
 						return fmt.Errorf("unmarshaling layer blob: %v", err)
 					}
-
-					fn := policy["metadata"].(map[string]interface{})["name"].(string) + ".yaml"
-					if err := os.WriteFile(filepath.Join(dir, fn), b, 0o600); err != nil {
-						return fmt.Errorf("creating file: %v", err)
+					for _, policy := range policies {
+						policyJsonBytes, err := json.Marshal(policy)
+						if err != nil {
+							return fmt.Errorf("converting policy to json: %v", err)
+						}
+						policyBytes, err := yaml.JSONToYAML(policyJsonBytes)
+						if err != nil {
+							return fmt.Errorf("converting json to yaml: %v", err)
+						}
+						if err := os.WriteFile(filepath.Join(dir, policy.GetName()+".yaml"), policyBytes, 0o600); err != nil {
+							return fmt.Errorf("creating file: %v", err)
+						}
 					}
 				}
 			}
