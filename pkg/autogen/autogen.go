@@ -81,25 +81,25 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers string) {
 		}
 		for _, value := range match.Any {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not be applicable.", "rule", rule.Name)
+				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not applicable.", "rule", rule.Name)
 				return false, ""
 			}
 		}
 		for _, value := range match.All {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block is not be applicable.", "rule", rule.Name)
+				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block is not applicable.", "rule", rule.Name)
 				return false, ""
 			}
 		}
 		for _, value := range exclude.Any {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not be applicable.", "rule", rule.Name)
+				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not applicable.", "rule", rule.Name)
 				return false, ""
 			}
 		}
 		for _, value := range exclude.All {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
+				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not applicable.", "rule", rule.Name)
 				return false, ""
 			}
 		}
