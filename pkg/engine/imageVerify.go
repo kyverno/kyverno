@@ -288,8 +288,7 @@ func (iv *imageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 		return nil, "", errors.Wrapf(err, "failed to create image digest patch")
 	}
 
-	iv.logger.V(2).Info("adding digest patch", "image", imageInfo.String(), "patch", string(patch))
-
+	iv.logger.V(3).Info("adding digest patch", "image", imageInfo.String(), "patch", string(patch))
 	return patch, digest, nil
 }
 

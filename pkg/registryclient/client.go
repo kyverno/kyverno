@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
-	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"

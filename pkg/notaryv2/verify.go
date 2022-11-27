@@ -191,9 +191,9 @@ func getAuthClient(ref registry.Reference) (*auth.Client, bool, error) {
 		return nil, false, errors.Wrapf(err, "failed to get auth config for %s", ref.String())
 	}
 
-	if authConfig.Username == "" || authConfig.Password == "" {
-		return nil, false, errors.Errorf("failed to get registry credentials")
-	}
+	// if authConfig.Username == "" || authConfig.Password == "" {
+	// 	return nil, false, errors.Errorf("failed to get registry credentials")
+	// }
 
 	credentials := auth.Credential{
 		Username:     authConfig.Username,
