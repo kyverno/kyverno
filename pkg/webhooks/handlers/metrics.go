@@ -18,8 +18,8 @@ func (inner AdmissionHandler) WithMetrics(metricsConfig *metrics.MetricsConfig) 
 func (inner AdmissionHandler) withMetrics(metricsConfig *metrics.MetricsConfig) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		response := inner(ctx, logger, request, startTime)
-		defer admissionReviewDuration.Process(metricsConfig, request, response, int64(time.Since(startTime)))
-		admissionRequests.Process(metricsConfig, request, response)
+		defer admissionReviewDuration.Process(ctx, metricsConfig, request, response, int64(time.Since(startTime)))
+		admissionRequests.Process(ctx, metricsConfig, request, response)
 		return response
 	}
 }

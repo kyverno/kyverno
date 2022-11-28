@@ -38,12 +38,13 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
-func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
+func setupMetrics(ctx context.Context, logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
 	logger = logger.WithName("metrics")
 	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
 	metricsConfiguration := internal.GetMetricsConfiguration(logger, kubeClient)
 	metricsAddr := ":" + metricsPort
 	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
+		ctx,
 		disableMetricsExport,
 		otel,
 		metricsAddr,
@@ -105,7 +106,7 @@ func main() {
 	// create raw client
 	rawClient := internal.CreateKubernetesClient(logger)
 	// setup metrics
-	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
+	metricsConfig, metricsShutdown, err := setupMetrics(ctx, logger, rawClient)
 	if err != nil {
 		logger.Error(err, "failed to setup metrics")
 		os.Exit(1)
