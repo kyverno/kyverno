@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
+	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
@@ -36,12 +37,12 @@ func NewCleanup(client dclient.Interface, cleanup kyvernov1alpha1.CleanupPolicyS
 }
 
 // canIDelete returns a error if kyverno cannot perform operations
-func (c *Cleanup) CanIDelete(kind, namespace string) error {
+func (c *Cleanup) CanIDelete(ctx context.Context, kind, namespace string) error {
 	// Skip if there is variable defined
 	authCheck := c.authCheck
 	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
 		// DELETE
-		ok, err := authCheck.CanIDelete(kind, namespace)
+		ok, err := authCheck.CanIDelete(ctx, kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
