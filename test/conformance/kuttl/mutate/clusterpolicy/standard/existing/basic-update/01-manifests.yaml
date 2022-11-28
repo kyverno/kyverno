@@ -27,10 +27,11 @@ type: Opaque
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: "mutate-existing-secret"
+  name: mutate-existing-secret
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
-    - name: "mutate-secret-on-configmap-event"
+    - name: mutate-secret-on-configmap-event
       match:
         any:
         - resources:
