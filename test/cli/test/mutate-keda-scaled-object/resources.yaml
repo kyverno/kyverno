@@ -1,0 +1,39 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: service-1
+  namespace: default
+spec:
+  triggers:
+    - type: "prometheus"
+      metadata:
+        metricName: my-metric-name
+        query: sum(waiting_jobs_total{job='some-job'})
+        serverAddress: http://prometheus.internal.svc.cluster.local:9090
+        threshold: "100"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: service-2
+  namespace: default
+spec:
+  triggers:
+    - type: "prometheus"
+      metadata:
+        metricName: my-metric-name
+        query: sum(waiting_jobs_total{job='some-job'})
+        threshold: "50"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: service-3
+  namespace: default
+spec:
+  triggers:
+    - type: "aws-sqs-queue"
+      metadata:
+        queueURL: https://sqs.eu-west-1.amazonaws.com/account_id/QueueName
+        queueLength: "5"
+        awsRegion: "eu-west-1"
