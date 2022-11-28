@@ -633,6 +633,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 
 	if v.anyPattern != nil {
 		var failedAnyPatternsErrors []error
+		var skippedAnyPatternErrors []error
 		var err error
 
 		anyPatterns, err := deserializeAnyPattern(v.anyPattern)
@@ -649,19 +650,33 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 			}
 
 			if pe, ok := err.(*validate.PatternError); ok {
+				var patternErr error
 				v.log.V(3).Info("validation rule failed", "anyPattern[%d]", idx, "path", pe.Path)
-				if pe.Path == "" {
-					patternErr := fmt.Errorf("rule %s[%d] failed: %s", v.rule.Name, idx, err.Error())
-					failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
+
+				if pe.Skip {
+					patternErr = fmt.Errorf("rule %s[%d] skipped: %s", v.rule.Name, idx, err.Error())
+					skippedAnyPatternErrors = append(skippedAnyPatternErrors, patternErr)
 				} else {
-					patternErr := fmt.Errorf("rule %s[%d] failed at path %s", v.rule.Name, idx, pe.Path)
+					if pe.Path == "" {
+						patternErr = fmt.Errorf("rule %s[%d] failed: %s", v.rule.Name, idx, err.Error())
+					} else {
+						patternErr = fmt.Errorf("rule %s[%d] failed at path %s", v.rule.Name, idx, pe.Path)
+					}
 					failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 				}
 			}
 		}
 
 		// Any Pattern validation errors
-		if len(failedAnyPatternsErrors) > 0 {
+		if len(skippedAnyPatternErrors) > 0 && len(failedAnyPatternsErrors) == 0 {
+			var errorStr []string
+			for _, err := range skippedAnyPatternErrors {
+				errorStr = append(errorStr, err.Error())
+			}
+
+			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' skipped. %s", v.rule.Name, errorStr))
+			return ruleResponse(*v.rule, response.Validation, strings.Join(errorStr, " "), response.RuleStatusSkip, nil)
+		} else if len(failedAnyPatternsErrors) > 0 {
 			var errorStr []string
 			for _, err := range failedAnyPatternsErrors {
 				errorStr = append(errorStr, err.Error())
