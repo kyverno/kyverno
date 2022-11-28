@@ -23,6 +23,7 @@ testDirs:
 - ./test/conformance/kuttl/validate/clusterpolicy/standard/wildcard
 - ./test/conformance/kuttl/validate/clusterpolicy/cornercases
 - ./test/conformance/kuttl/validate/cleanuppolicy
+- ./test/conformance/kuttl/validate/e2e
 # Verify image tests
 - ./test/conformance/kuttl/verifyImages/clusterpolicy/standard
 # Report tests

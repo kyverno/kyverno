@@ -108,9 +108,9 @@ func (h *generationHandler) Handle(
 			}
 
 			// registering the kyverno_policy_results_total metric concurrently
-			go webhookutils.RegisterPolicyResultsMetricGeneration(h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
+			go webhookutils.RegisterPolicyResultsMetricGeneration(context.TODO(), h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
 			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
+			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(context.TODO(), h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
 		}
 
 		if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Generate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
