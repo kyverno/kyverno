@@ -7,7 +7,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/utils"
 )
 
 func registerPolicyRuleInfoMetric(
@@ -30,24 +29,16 @@ func registerPolicyRuleInfoMetric(
 	default:
 		return fmt.Errorf("unknown metric change type found:  %s", metricChangeType)
 	}
-	includeNamespaces, excludeNamespaces := m.Config.GetIncludeNamespaces(), m.Config.GetExcludeNamespaces()
-	if (policyNamespace != "" && policyNamespace != "-") && utils.ContainsString(excludeNamespaces, policyNamespace) {
-		m.Log.V(2).Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
-		return nil
+	if m.Config.CheckNamespace(policyNamespace) {
+		if policyType == metrics.Cluster {
+			policyNamespace = "-"
+		}
+		status := "false"
+		if ready {
+			status = "true"
+		}
+		m.RecordPolicyRuleInfo(ctx, policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, status, metricValue)
 	}
-	if (policyNamespace != "" && policyNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, policyNamespace) {
-		m.Log.V(2).Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
-		return nil
-	}
-	if policyType == metrics.Cluster {
-		policyNamespace = "-"
-	}
-	status := "false"
-	if ready {
-		status = "true"
-	}
-	m.RecordPolicyRuleInfo(ctx, policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, status, metricValue)
-
 	return nil
 }
 

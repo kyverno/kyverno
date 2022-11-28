@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,8 +25,8 @@ type MetricsConfiguration interface {
 	GetIncludeNamespaces() []string
 	// GetMetricsRefreshInterval returns the refresh interval for the metrics
 	GetMetricsRefreshInterval() time.Duration
-	// namespaces             namespacesConfig
-	// metricsRefreshInterval time.Duration
+	// CheckNamespace returns `true` if the namespace has to be considered
+	CheckNamespace(string) bool
 }
 
 type namespacesConfig struct {
@@ -52,6 +53,21 @@ func (mcd *metricsConfig) GetIncludeNamespaces() []string {
 // GetMetricsRefreshInterval returns the refresh interval for the metrics
 func (mcd *metricsConfig) GetMetricsRefreshInterval() time.Duration {
 	return mcd.metricsRefreshInterval
+}
+
+// CheckNamespace returns `true` if the namespace has to be considered
+func (mcd *metricsConfig) CheckNamespace(namespace string) bool {
+	// TODO(eddycharly): check we actually need `"-"`
+	if namespace == "" || namespace == "-" {
+		return true
+	}
+	if slices.Contains(mcd.namespaces.ExcludeNamespaces, namespace) {
+		return false
+	}
+	if len(mcd.namespaces.IncludeNamespaces) == 0 {
+		return true
+	}
+	return slices.Contains(mcd.namespaces.IncludeNamespaces, namespace)
 }
 
 func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
