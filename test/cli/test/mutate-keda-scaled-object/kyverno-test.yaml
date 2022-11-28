@@ -1,0 +1,24 @@
+name: mutate-keda-scaled-object
+policies:
+  -  policy.yaml
+resources:
+  -  resources.yaml
+results:
+  - policy: keda-prometheus-serveraddress
+    rule: keda-prometheus-serveraddress
+    resources: [service-1]
+    patchedResource: patchedResource1.yaml
+    kind: ScaledObject
+    result: pass
+  - policy: keda-prometheus-serveraddress
+    rule: keda-prometheus-serveraddress
+    resources: [service-2]
+    patchedResource: patchedResource2.yaml
+    kind: ScaledObject
+    result: pass
+  - policy: keda-prometheus-serveraddress
+    rule: keda-prometheus-serveraddress
+    resources: [service-3]
+    patchedResource: patchedResource3.yaml
+    kind: ScaledObject
+    result: pass
