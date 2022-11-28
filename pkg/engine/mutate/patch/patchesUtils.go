@@ -130,6 +130,10 @@ func ignorePatch(path string) bool {
 		return true
 	}
 
+	if wildcard.Match("/spec/triggers/*/metadata/*", path) {
+		return false
+	}
+
 	if wildcard.Match("*/metadata", path) {
 		return false
 	}
