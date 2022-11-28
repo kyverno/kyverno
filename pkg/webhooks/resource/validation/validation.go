@@ -101,12 +101,12 @@ func (v *validationHandler) HandleValidation(
 			continue
 		}
 
-		go webhookutils.RegisterPolicyResultsMetricValidation(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
-		go webhookutils.RegisterPolicyExecutionDurationMetricValidate(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricValidation(context.TODO(), logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricValidate(context.TODO(), logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
 
 		engineResponses = append(engineResponses, engineResponse)
 		if !engineResponse.IsSuccessful() {
-			logger.V(2).Info("validation failed", "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
+			logger.V(2).Info("validation failed", "action", policy.GetSpec().ValidationFailureAction, "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 			continue
 		}
 
@@ -172,7 +172,7 @@ func (v *validationHandler) handleAudit(
 		v.log.Error(err, "failed to build audit responses")
 	}
 	responses = append(responses, engineResponses...)
-	report := reportutils.NewAdmissionReport(resource, request, request.Kind, responses...)
+	report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
 	// if it's not a creation, the resource already exists, we can set the owner
 	if request.Operation != admissionv1.Create {
 		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}

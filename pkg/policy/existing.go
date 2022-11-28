@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"sync"
@@ -62,13 +63,13 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy kyvernov1.PolicyIn
 }
 
 func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
-	if err := policyResults.ProcessEngineResponse(pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
+	if err := policyResults.ProcessEngineResponse(context.TODO(), pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
 func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
-	if err := policyExecutionDuration.ProcessEngineResponse(pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
+	if err := policyExecutionDuration.ProcessEngineResponse(context.TODO(), pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }

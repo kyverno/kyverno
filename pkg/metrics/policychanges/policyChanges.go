@@ -1,6 +1,7 @@
 package policychanges
 
 import (
+	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -9,6 +10,7 @@ import (
 )
 
 func registerPolicyChangesMetric(
+	ctx context.Context,
 	m *metrics.MetricsConfig,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
@@ -29,17 +31,17 @@ func registerPolicyChangesMetric(
 		return nil
 	}
 
-	m.RecordPolicyChanges(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, string(policyChangeType))
+	m.RecordPolicyChanges(ctx, policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, string(policyChangeType))
 
 	return nil
 }
 
-func RegisterPolicy(m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface, policyChangeType PolicyChangeType) error {
+func RegisterPolicy(ctx context.Context, m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface, policyChangeType PolicyChangeType) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
 	}
-	if err = registerPolicyChangesMetric(m, validationMode, policyType, backgroundMode, namespace, name, policyChangeType); err != nil {
+	if err = registerPolicyChangesMetric(ctx, m, validationMode, policyType, backgroundMode, namespace, name, policyChangeType); err != nil {
 		return err
 	}
 	return nil

@@ -79,40 +79,60 @@ func NewServer(
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	verifyLogger := logger.WithName("verify")
-	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, configuration, metricsConfig, resourceHandlers.Mutate, debugModeOpts)
-	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, configuration, metricsConfig, resourceHandlers.Validate, debugModeOpts)
+	registerWebhookHandlers(
+		mux,
+		"MUTATE",
+		config.MutatingWebhookServicePath,
+		resourceHandlers.Mutate,
+		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
+			return handler.
+				WithFilter(configuration).
+				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithDump(debugModeOpts.DumpPayload).
+				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
+				WithMetrics(metricsConfig).
+				WithAdmission(resourceLogger.WithName("mutate"))
+		},
+	)
+	registerWebhookHandlers(
+		mux,
+		"VALIDATE",
+		config.ValidatingWebhookServicePath,
+		resourceHandlers.Validate,
+		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
+			return handler.
+				WithFilter(configuration).
+				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithDump(debugModeOpts.DumpPayload).
+				WithMetrics(metricsConfig).
+				WithAdmission(resourceLogger.WithName("validate"))
+		},
+	)
 	mux.HandlerFunc(
 		"POST",
 		config.PolicyMutatingWebhookServicePath,
-		http.HandlerFunc(
-			handlers.AdmissionHandler(policyHandlers.Mutate).
-				WithFilter(configuration).
-				WithDump(debugModeOpts.DumpPayload).
-				WithMetrics(metricsConfig).
-				WithAdmission(policyLogger.WithName("mutate")).
-				WithTrace(),
-		),
+		handlers.FromAdmissionFunc("MUTATE", policyHandlers.Mutate).
+			WithDump(debugModeOpts.DumpPayload).
+			WithMetrics(metricsConfig).
+			WithAdmission(policyLogger.WithName("mutate")).
+			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
 		"POST",
 		config.PolicyValidatingWebhookServicePath,
-		http.HandlerFunc(
-			handlers.AdmissionHandler(policyHandlers.Validate).
-				WithFilter(configuration).
-				WithDump(debugModeOpts.DumpPayload).
-				WithMetrics(metricsConfig).
-				WithAdmission(policyLogger.WithName("validate")).
-				WithTrace(),
-		),
+		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
+			WithDump(debugModeOpts.DumpPayload).
+			WithSubResourceFilter().
+			WithMetrics(metricsConfig).
+			WithAdmission(policyLogger.WithName("validate")).
+			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
 		"POST",
 		config.VerifyMutatingWebhookServicePath,
-		http.HandlerFunc(
-			handlers.Verify().
-				WithAdmission(verifyLogger.WithName("mutate")).
-				WithTrace(),
-		),
+		handlers.FromAdmissionFunc("VERIFY", handlers.Verify).
+			WithAdmission(verifyLogger.WithName("mutate")).
+			ToHandlerFunc(),
 	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
@@ -203,57 +223,31 @@ func (s *server) cleanup(ctx context.Context) {
 }
 
 func registerWebhookHandlers(
-	logger logr.Logger,
 	mux *httprouter.Router,
+	name string,
 	basePath string,
-	configuration config.Configuration,
-	metricsConfig *metrics.MetricsConfig,
 	handlerFunc func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
-	debugModeOpts DebugModeOptions,
+	builder func(handler handlers.AdmissionHandler) handlers.HttpHandler,
 ) {
-	mux.HandlerFunc(
-		"POST",
-		basePath,
-		http.HandlerFunc(
-			handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-				return handlerFunc(ctx, logger, request, "all", startTime)
-			}).
-				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
-				WithDump(debugModeOpts.DumpPayload).
-				WithMetrics(metricsConfig).
-				WithAdmission(logger).
-				WithTrace(),
-		),
+	all := handlers.FromAdmissionFunc(
+		name,
+		func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(ctx, logger, request, "all", startTime)
+		},
 	)
-	mux.HandlerFunc(
-		"POST",
-		basePath+"/fail",
-		http.HandlerFunc(
-			handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-				return handlerFunc(ctx, logger, request, "fail", startTime)
-			}).
-				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
-				WithDump(debugModeOpts.DumpPayload).
-				WithMetrics(metricsConfig).
-				WithAdmission(logger).
-				WithTrace(),
-		),
+	ignore := handlers.FromAdmissionFunc(
+		name,
+		func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(ctx, logger, request, "ignore", startTime)
+		},
 	)
-	mux.HandlerFunc(
-		"POST",
-		basePath+"/ignore",
-		http.HandlerFunc(
-			handlers.AdmissionHandler(func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-				return handlerFunc(ctx, logger, request, "ignore", startTime)
-			}).
-				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
-				WithDump(debugModeOpts.DumpPayload).
-				WithMetrics(metricsConfig).
-				WithAdmission(logger).
-				WithTrace(),
-		),
+	fail := handlers.FromAdmissionFunc(
+		name,
+		func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(ctx, logger, request, "fail", startTime)
+		},
 	)
+	mux.HandlerFunc("POST", basePath, builder(all).ToHandlerFunc())
+	mux.HandlerFunc("POST", basePath+"/ignore", builder(ignore).ToHandlerFunc())
+	mux.HandlerFunc("POST", basePath+"/fail", builder(fail).ToHandlerFunc())
 }

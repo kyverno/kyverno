@@ -70,6 +70,10 @@ spec:
       name: Hash
       priority: 1
       type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
+      name: AGGREGATE
+      priority: 1
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -674,9 +678,14 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: CleanupPolicy
     listKind: CleanupPolicyList
     plural: cleanuppolicies
+    shortNames:
+    - cleanpol
     singular: cleanuppolicy
   scope: Namespaced
   versions:
@@ -2155,6 +2164,10 @@ spec:
       name: Hash
       priority: 1
       type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
+      name: AGGREGATE
+      priority: 1
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -2760,11 +2773,16 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterCleanupPolicy
     listKind: ClusterCleanupPolicyList
     plural: clustercleanuppolicies
+    shortNames:
+    - ccleanpol
     singular: clustercleanuppolicy
-  scope: Namespaced
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.schedule

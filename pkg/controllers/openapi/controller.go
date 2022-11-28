@@ -9,7 +9,6 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	util "github.com/kyverno/kyverno/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -80,8 +79,6 @@ func (c *controller) sync() {
 		Version:  "v1",
 		Resource: "customresourcedefinitions",
 	}).List(context.TODO(), metav1.ListOptions{})
-
-	c.client.RecordClientQuery(metrics.ClientList, metrics.KubeDynamicClient, "CustomResourceDefinition", "")
 	if err != nil {
 		logger.Error(err, "could not fetch crd's from server")
 		return
