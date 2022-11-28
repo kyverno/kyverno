@@ -50,9 +50,9 @@ type MetricsConfigManager interface {
 	RecordPolicyResults(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause)
 	RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
 	RecordPolicyRuleInfo(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleType RuleType, status string, metricValue float64)
-	RecordAdmissionRequests(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation)
 	RecordPolicyExecutionDuration(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64)
-	RecordAdmissionReviewDuration(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64)
+	RecordAdmissionRequests(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, allowed bool)
+	RecordAdmissionReviewDuration(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64, allowed bool)
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 }
 
@@ -270,11 +270,12 @@ func (m *MetricsConfig) RecordPolicyRuleInfo(ctx context.Context, policyValidati
 	m.policyRuleInfoMetric.Observe(ctx, metricValue, commonLabels...)
 }
 
-func (m *MetricsConfig) RecordAdmissionRequests(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation) {
+func (m *MetricsConfig) RecordAdmissionRequests(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, allowed bool) {
 	commonLabels := []attribute.KeyValue{
 		attribute.String("resource_kind", resourceKind),
 		attribute.String("resource_namespace", resourceNamespace),
 		attribute.String("resource_request_operation", string(resourceRequestOperation)),
+		attribute.Bool("request_allowed", allowed),
 	}
 	m.admissionRequestsMetric.Add(ctx, 1, commonLabels...)
 }
@@ -296,11 +297,12 @@ func (m *MetricsConfig) RecordPolicyExecutionDuration(ctx context.Context, polic
 	m.policyExecutionDurationMetric.Record(ctx, ruleExecutionLatency, commonLabels...)
 }
 
-func (m *MetricsConfig) RecordAdmissionReviewDuration(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64) {
+func (m *MetricsConfig) RecordAdmissionReviewDuration(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64, allowed bool) {
 	commonLabels := []attribute.KeyValue{
 		attribute.String("resource_kind", resourceKind),
 		attribute.String("resource_namespace", resourceNamespace),
 		attribute.String("resource_request_operation", resourceRequestOperation),
+		attribute.Bool("request_allowed", allowed),
 	}
 	m.admissionReviewDurationMetric.Record(ctx, admissionRequestLatency, commonLabels...)
 }
