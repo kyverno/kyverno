@@ -58,7 +58,7 @@ func CreateMetadataClient(logger logr.Logger, opts ...meta.NewOption) metadata.I
 
 func CreateDClient(logger logr.Logger, ctx context.Context, dyn dynamic.Interface, kube kubernetes.Interface, resync time.Duration) dclient.Interface {
 	logger = logger.WithName("d-client")
-	logger.Info("create d client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	logger.Info("create the dynamic client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := dclient.NewClient(ctx, dyn, kube, resync)
 	checkError(logger, err, "failed to create d client")
 	return client
