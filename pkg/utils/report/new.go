@@ -12,41 +12,30 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewAdmissionReport(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...*response.EngineResponse) kyvernov1alpha2.ReportInterface {
-	name := string(request.UID)
-	namespace := resource.GetNamespace()
-	owner := resource.GetName()
-	uid := resource.GetUID()
+func NewAdmissionReport(namespace, name, owner string, uid types.UID, gvk metav1.GroupVersionKind) kyvernov1alpha2.ReportInterface {
+	ownerRef := metav1.OwnerReference{
+		APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
+		Kind:       gvk.Kind,
+		Name:       owner,
+		UID:        uid,
+	}
 	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
-		report = &kyvernov1alpha2.ClusterAdmissionReport{
-			Spec: kyvernov1alpha2.AdmissionReportSpec{
-				Owner: metav1.OwnerReference{
-					APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
-					Kind:       gvk.Kind,
-					Name:       owner,
-					UID:        uid,
-				},
-			},
-		}
+		report = &kyvernov1alpha2.ClusterAdmissionReport{Spec: kyvernov1alpha2.AdmissionReportSpec{Owner: ownerRef}}
 	} else {
-		report = &kyvernov1alpha2.AdmissionReport{
-			Spec: kyvernov1alpha2.AdmissionReportSpec{
-				Owner: metav1.OwnerReference{
-					APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
-					Kind:       gvk.Kind,
-					Name:       owner,
-					UID:        uid,
-				},
-			},
-		}
+		report = &kyvernov1alpha2.AdmissionReport{Spec: kyvernov1alpha2.AdmissionReportSpec{Owner: ownerRef}}
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)
 	SetResourceLabels(report, uid)
+	SetManagedByKyvernoLabel(report)
+	return report
+}
+
+func BuildAdmissionReport(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...*response.EngineResponse) kyvernov1alpha2.ReportInterface {
+	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), resource.GetName(), resource.GetUID(), gvk)
 	SetResourceVersionLabels(report, &resource)
 	SetResponses(report, responses...)
-	SetManagedByKyvernoLabel(report)
 	return report
 }
 

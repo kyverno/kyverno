@@ -2,7 +2,6 @@ package background
 
 import (
 	"context"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -24,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
@@ -190,36 +188,6 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 	return policies, nil
 }
 
-// reportsAreIdentical we expect reports are sorted before comparing them
-func reportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
-	bLabels := sets.NewString()
-	aLabels := sets.NewString()
-	for key := range before.GetLabels() {
-		bLabels.Insert(key)
-	}
-	for key := range after.GetLabels() {
-		aLabels.Insert(key)
-	}
-	if !aLabels.Equal(bLabels) {
-		return false
-	}
-	b := before.GetResults()
-	a := after.GetResults()
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		a := a[i]
-		b := b[i]
-		a.Timestamp = metav1.Timestamp{}
-		b.Timestamp = metav1.Timestamp{}
-		if !reflect.DeepEqual(&a, &b) {
-			return false
-		}
-	}
-	return true
-}
-
 func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
 	namespace := meta.GetNamespace()
 	labels := meta.GetLabels()
@@ -273,7 +241,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			}
 		}
 		reportutils.SetResponses(report, responses...)
-		if reportsAreIdentical(before, report) {
+		if utils.ReportsAreIdentical(before, report) {
 			return nil
 		}
 		_, err = reportutils.UpdateReport(ctx, report, c.kyvernoClient)
@@ -352,7 +320,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			}
 		}
 		reportutils.SetResults(report, ruleResults...)
-		if reportsAreIdentical(before, report) {
+		if utils.ReportsAreIdentical(before, report) {
 			return nil
 		}
 		_, err = reportutils.UpdateReport(ctx, report, c.kyvernoClient)

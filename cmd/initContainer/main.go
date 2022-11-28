@@ -6,11 +6,8 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -30,71 +27,35 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var (
-	kubeconfig           string
-	clientRateLimitQPS   float64
-	clientRateLimitBurst int
-)
-
 const (
 	policyReportKind        string = "PolicyReport"
 	clusterPolicyReportKind string = "ClusterPolicyReport"
 	convertGenerateRequest  string = "ConvertGenerateRequest"
 )
 
-func parseFlags(config internal.Configuration) {
-	internal.InitFlags(config)
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
-	flag.Parse()
-}
-
 func main() {
 	// config
-	appConfig := internal.NewConfiguration()
+	appConfig := internal.NewConfiguration(
+		internal.WithKubeconfig(),
+	)
 	// parse flags
-	parseFlags(appConfig)
+	internal.ParseFlags(appConfig)
 	// setup logger
-	logger := internal.SetupLogger()
-	// setup maxprocs
-	undo := internal.SetupMaxProcs(logger)
-	defer undo()
 	// show version
-	internal.ShowVersion(logger)
-	// os signal handler
-	signalCtx, signalCancel := signal.NotifyContext(logging.Background(), os.Interrupt, syscall.SIGTERM)
-	defer signalCancel()
-
-	stopCh := signalCtx.Done()
-
-	// create client config
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
-	if err != nil {
-		logger.Error(err, "Failed to build kubeconfig")
-		os.Exit(1)
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
-	}
-
-	// DYNAMIC CLIENT
-	// - client for all registered resources
-	client, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, nil, 15*time.Minute)
+	// start profiling
+	// setup signals
+	// setup maxprocs
+	ctx, logger, sdown := internal.Setup()
+	defer sdown()
+	// create clients
+	kubeClient := internal.CreateKubernetesClient(logger)
+	dynamicClient := internal.CreateDynamicClient(logger)
+	kyvernoClient := internal.CreateKyvernoClient(logger)
+	client, err := dclient.NewClient(ctx, dynamicClient, kubeClient, 15*time.Minute)
 	if err != nil {
 		logger.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
-
-	pclient, err := kyvernoclient.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
-
 	// Exit for unsupported version of kubernetes cluster
 	if !utils.HigherThanKubernetesVersion(kubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
 		os.Exit(1)
@@ -107,8 +68,8 @@ func main() {
 	}
 
 	go func() {
-		defer signalCancel()
-		<-stopCh
+		defer sdown()
+		<-ctx.Done()
 	}()
 
 	done := make(chan struct{})
@@ -134,19 +95,19 @@ func main() {
 			}
 		}
 
-		if err = acquireLeader(signalCtx, kubeClient); err != nil {
+		if err = acquireLeader(ctx, kubeClient); err != nil {
 			logging.V(2).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)
 		}
 
 		// use pipeline to pass request to cleanup resources
-		in := gen(done, stopCh, requests...)
+		in := gen(done, ctx.Done(), requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(client, pclient, done, stopCh, in)
-		p2 := process(client, pclient, done, stopCh, in)
+		p1 := process(client, kyvernoClient, done, ctx.Done(), in)
+		p2 := process(client, kyvernoClient, done, ctx.Done(), in)
 		// merge results from processing routines
-		for err := range merge(done, stopCh, p1, p2) {
+		for err := range merge(done, ctx.Done(), p1, p2) {
 			if err != nil {
 				failure = true
 				logging.Error(err, "failed to cleanup resource")
@@ -176,7 +137,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	le.Run(signalCtx)
+	le.Run(ctx)
 }
 
 func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
