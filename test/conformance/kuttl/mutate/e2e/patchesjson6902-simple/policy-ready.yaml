@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-image-as-env-var
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
