@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -10,6 +11,7 @@ import (
 )
 
 func InitMetrics(
+	ctx context.Context,
 	disableMetricsExport bool,
 	otel string,
 	metricsAddr string,
@@ -41,6 +43,7 @@ func InitMetrics(
 
 			endpoint := otelCollector + metricsAddr
 			pusher, err = NewOTLPGRPCConfig(
+				ctx,
 				endpoint,
 				transportCreds,
 				kubeClient,
@@ -51,7 +54,7 @@ func InitMetrics(
 			}
 		} else if otel == "prometheus" {
 			// Prometheus Server will serve metrics on metrics-port
-			metricsServerMux, err = NewPrometheusConfig(log)
+			metricsServerMux, err = NewPrometheusConfig(ctx, log)
 
 			if err != nil {
 				return nil, nil, pusher, err

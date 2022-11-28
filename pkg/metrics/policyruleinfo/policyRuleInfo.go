@@ -1,6 +1,7 @@
 package policyruleinfo
 
 import (
+	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -10,6 +11,7 @@ import (
 )
 
 func registerPolicyRuleInfoMetric(
+	ctx context.Context,
 	m *metrics.MetricsConfig,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
@@ -44,12 +46,12 @@ func registerPolicyRuleInfoMetric(
 	if ready {
 		status = "true"
 	}
-	m.RecordPolicyRuleInfo(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, status, metricValue)
+	m.RecordPolicyRuleInfo(ctx, policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, status, metricValue)
 
 	return nil
 }
 
-func AddPolicy(m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface) error {
+func AddPolicy(ctx context.Context, m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -58,14 +60,14 @@ func AddPolicy(m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface) error
 	for _, rule := range autogen.ComputeRules(policy) {
 		ruleName := rule.Name
 		ruleType := metrics.ParseRuleType(rule)
-		if err = registerPolicyRuleInfoMetric(m, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleCreated, ready); err != nil {
+		if err = registerPolicyRuleInfoMetric(ctx, m, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleCreated, ready); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func RemovePolicy(m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface) error {
+func RemovePolicy(ctx context.Context, m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -74,7 +76,7 @@ func RemovePolicy(m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface) er
 	for _, rule := range autogen.ComputeRules(policy) {
 		ruleName := rule.Name
 		ruleType := metrics.ParseRuleType(rule)
-		if err = registerPolicyRuleInfoMetric(m, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleDeleted, ready); err != nil {
+		if err = registerPolicyRuleInfoMetric(ctx, m, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleDeleted, ready); err != nil {
 			return err
 		}
 	}
