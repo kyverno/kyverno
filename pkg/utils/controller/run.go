@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
@@ -27,7 +28,7 @@ type controllerMetrics struct {
 }
 
 func newControllerMetrics(logger logr.Logger, controllerName string) *controllerMetrics {
-	meter := global.MeterProvider().Meter("kyverno")
+	meter := global.MeterProvider().Meter(metrics.MeterName)
 	reconcileTotal, err := meter.SyncInt64().Counter(
 		"kyverno_controller_reconcile_total",
 		instrument.WithDescription("can be used to track number of reconciliation cycles"))
