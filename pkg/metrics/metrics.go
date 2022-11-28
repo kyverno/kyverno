@@ -50,9 +50,9 @@ type MetricsConfigManager interface {
 	RecordPolicyResults(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause)
 	RecordPolicyChanges(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
 	RecordPolicyRuleInfo(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleType RuleType, status string, metricValue float64)
-	RecordAdmissionRequests(resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation)
 	RecordPolicyExecutionDuration(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64)
-	RecordAdmissionReviewDuration(resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64)
+	RecordAdmissionRequests(resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, allowed bool)
+	RecordAdmissionReviewDuration(resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64, allowed bool)
 	RecordClientQueries(clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 }
 
@@ -275,13 +275,14 @@ func (m *MetricsConfig) RecordPolicyRuleInfo(policyValidationMode PolicyValidati
 	m.policyRuleInfoMetric.Observe(ctx, metricValue, commonLabels...)
 }
 
-func (m *MetricsConfig) RecordAdmissionRequests(resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation) {
+func (m *MetricsConfig) RecordAdmissionRequests(resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, allowed bool) {
 	ctx := context.Background()
 
 	commonLabels := []attribute.KeyValue{
 		attribute.String("resource_kind", resourceKind),
 		attribute.String("resource_namespace", resourceNamespace),
 		attribute.String("resource_request_operation", string(resourceRequestOperation)),
+		attribute.Bool("request_allowed", allowed),
 	}
 
 	m.admissionRequestsMetric.Add(ctx, 1, commonLabels...)
@@ -307,13 +308,14 @@ func (m *MetricsConfig) RecordPolicyExecutionDuration(policyValidationMode Polic
 	m.policyExecutionDurationMetric.Record(ctx, ruleExecutionLatency, commonLabels...)
 }
 
-func (m *MetricsConfig) RecordAdmissionReviewDuration(resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64) {
+func (m *MetricsConfig) RecordAdmissionReviewDuration(resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64, allowed bool) {
 	ctx := context.Background()
 
 	commonLabels := []attribute.KeyValue{
 		attribute.String("resource_kind", resourceKind),
 		attribute.String("resource_namespace", resourceNamespace),
 		attribute.String("resource_request_operation", resourceRequestOperation),
+		attribute.Bool("request_allowed", allowed),
 	}
 
 	m.admissionReviewDurationMetric.Record(ctx, admissionRequestLatency, commonLabels...)
