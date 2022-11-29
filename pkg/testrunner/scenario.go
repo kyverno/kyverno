@@ -2,6 +2,7 @@ package testrunner
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	ospath "path"
@@ -13,7 +14,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
@@ -147,7 +148,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		Policy:           policy,
 		NewResource:      *resource,
 		ExcludeGroupRole: []string{},
-		JSONContext:      context.NewContext(),
+		JSONContext:      enginecontext.NewContext(),
 	}
 
 	er := engine.Mutate(ctx)
@@ -164,7 +165,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		Policy:           policy,
 		NewResource:      *resource,
 		ExcludeGroupRole: []string{},
-		JSONContext:      context.NewContext(),
+		JSONContext:      enginecontext.NewContext(),
 	}
 
 	er = engine.Validate(ctx)
@@ -189,7 +190,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 				ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 					return false
 				},
-				JSONContext: context.NewContext(),
+				JSONContext: enginecontext.NewContext(),
 			}
 
 			er = engine.ApplyBackgroundChecks(policyContext)
@@ -203,7 +204,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 }
 
 func createNamespace(client dclient.Interface, ns *unstructured.Unstructured) error {
-	_, err := client.CreateResource("", "Namespace", "", ns, false)
+	_, err := client.CreateResource(context.TODO(), "", "Namespace", "", ns, false)
 	return err
 }
 
@@ -212,7 +213,7 @@ func validateGeneratedResources(t *testing.T, client dclient.Interface, policy k
 	t.Log("--validate if resources are generated---")
 	// list of expected generated resources
 	for _, resource := range expected {
-		if _, err := client.GetResource("", resource.Kind, namespace, resource.Name); err != nil {
+		if _, err := client.GetResource(context.TODO(), "", resource.Kind, namespace, resource.Name); err != nil {
 			t.Errorf("generated resource %s/%s/%s not found. %v", resource.Kind, namespace, resource.Name, err)
 		}
 	}

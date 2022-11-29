@@ -275,7 +275,7 @@ func (c *controller) checkIfCleanupRequired(ur *kyvernov1beta1.UpdateRequest) er
 
 // cleanupDataResource deletes resource if sync is enabled for data policy
 func (c *controller) cleanupDataResource(targetSpec kyvernov1.ResourceSpec) error {
-	target, err := c.client.GetResource(targetSpec.APIVersion, targetSpec.Kind, targetSpec.Namespace, targetSpec.Name)
+	target, err := c.client.GetResource(context.TODO(), targetSpec.APIVersion, targetSpec.Kind, targetSpec.Namespace, targetSpec.Name)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to find generated resource %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
@@ -291,7 +291,7 @@ func (c *controller) cleanupDataResource(targetSpec kyvernov1.ResourceSpec) erro
 	clone := labels["generate.kyverno.io/clone-policy-name"] != ""
 
 	if syncEnabled && !clone {
-		if err := c.client.DeleteResource(target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), false); err != nil {
+		if err := c.client.DeleteResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), false); err != nil {
 			return fmt.Errorf("failed to delete data resource %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
 		}
 	}
