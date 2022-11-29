@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"context"
@@ -8,13 +8,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 )
 
+type Controller interface {
+	Run(context.Context, logr.Logger, *sync.WaitGroup)
+}
+
 type controller struct {
 	name       string
 	controller controllers.Controller
 	workers    int
 }
 
-func newController(name string, c controllers.Controller, w int) controller {
+func NewController(name string, c controllers.Controller, w int) Controller {
 	return controller{
 		name:       name,
 		controller: c,
@@ -22,7 +26,7 @@ func newController(name string, c controllers.Controller, w int) controller {
 	}
 }
 
-func (c controller) run(ctx context.Context, logger logr.Logger, wg *sync.WaitGroup) {
+func (c controller) Run(ctx context.Context, logger logr.Logger, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func(logger logr.Logger) {
 		logger.Info("starting controller", "workers", c.workers)
