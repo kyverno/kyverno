@@ -45,22 +45,17 @@ func main() {
 	// start profiling
 	// setup signals
 	// setup maxprocs
-	ctx, logger, sdown := internal.Setup()
+	ctx, logger, _, sdown := internal.Setup()
 	defer sdown()
 	// create clients
 	kubeClient := internal.CreateKubernetesClient(logger)
 	dynamicClient := internal.CreateDynamicClient(logger)
 	kyvernoClient := internal.CreateKyvernoClient(logger)
-	client, err := dclient.NewClient(ctx, dynamicClient, kubeClient, 15*time.Minute)
-	if err != nil {
-		logger.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
+	client := internal.CreateDClient(logger, ctx, dynamicClient, kubeClient, 15*time.Minute)
 	// Exit for unsupported version of kubernetes cluster
 	if !utils.HigherThanKubernetesVersion(kubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
 		os.Exit(1)
 	}
-
 	requests := []request{
 		{policyReportKind},
 		{clusterPolicyReportKind},
@@ -78,7 +73,7 @@ func main() {
 
 	run := func(context.Context) {
 		name := tls.GenerateRootCASecretName()
-		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
+		_, err := kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			logging.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
