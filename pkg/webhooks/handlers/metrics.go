@@ -38,6 +38,10 @@ func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig conf
 		namespace := request.Namespace
 		if metricsConfig.CheckNamespace(namespace) {
 			operation := strings.ToLower(string(request.Operation))
+			allowed := true
+			if response != nil {
+				allowed = response.Allowed
+			}
 			if admissionReviewDurationMetric != nil {
 				defer func() {
 					latency := int64(time.Since(startTime))
@@ -48,7 +52,7 @@ func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig conf
 						attribute.String("resource_kind", request.Kind.Kind),
 						attribute.String("resource_namespace", namespace),
 						attribute.String("resource_request_operation", operation),
-						attribute.Bool("request_allowed", response.Allowed),
+						attribute.Bool("request_allowed", allowed),
 					)
 				}()
 			}
@@ -59,7 +63,7 @@ func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig conf
 					attribute.String("resource_kind", request.Kind.Kind),
 					attribute.String("resource_namespace", namespace),
 					attribute.String("resource_request_operation", operation),
-					attribute.Bool("request_allowed", response.Allowed),
+					attribute.Bool("request_allowed", allowed),
 				)
 			}
 		}
