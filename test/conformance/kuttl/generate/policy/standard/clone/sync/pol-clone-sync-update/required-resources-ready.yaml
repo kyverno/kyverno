@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: regcred
+  namespace: poltest
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: poltest
+status:
+  phase: Active

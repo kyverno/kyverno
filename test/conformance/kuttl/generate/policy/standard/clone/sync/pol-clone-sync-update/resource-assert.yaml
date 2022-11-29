@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm-2
+  namespace: poltest
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: myclonedsecret
+  namespace: poltest
