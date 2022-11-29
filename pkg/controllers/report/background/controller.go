@@ -85,7 +85,11 @@ func NewController(
 	}
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, resource resource.Resource) {
+	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
+		// if it's a deletion, nothing to do
+		if eventType == resource.Deleted {
+			return
+		}
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
 			logger.Error(err, "failed to create label selector")
@@ -93,10 +97,10 @@ func NewController(
 		if err := c.enqueue(selector); err != nil {
 			logger.Error(err, "failed to enqueue")
 		}
-		if resource.Namespace == "" {
+		if res.Namespace == "" {
 			c.queue.Add(string(uid))
 		} else {
-			c.queue.Add(resource.Namespace + "/" + string(uid))
+			c.queue.Add(res.Namespace + "/" + string(uid))
 		}
 	})
 	return &c
