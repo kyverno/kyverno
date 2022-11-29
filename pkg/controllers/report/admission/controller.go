@@ -29,6 +29,7 @@ const (
 	Workers        = 2
 	ControllerName = "admission-report-controller"
 	maxRetries     = 10
+	deletionGrace  = time.Minute * 2
 )
 
 type controller struct {
@@ -61,7 +62,14 @@ func NewController(
 		queue:         queue,
 		metadataCache: metadataCache,
 	}
-	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, _ resource.Resource) { queue.Add(cache.ExplicitKey(uid)) })
+	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, _ resource.Resource) {
+		// if it's a deletion, give some time to native garbage collection
+		if eventType == resource.Deleted {
+			queue.AddAfter(cache.ExplicitKey(uid), time.Minute)
+		} else {
+			queue.Add(cache.ExplicitKey(uid))
+		}
+	})
 	controllerutils.AddEventHandlersT(
 		admrInformer.Informer(),
 		func(obj metav1.Object) { queue.Add(cache.ExplicitKey(reportutils.GetResourceUid(obj))) },
@@ -205,10 +213,10 @@ func (c *controller) cleanupReports(ctx context.Context, uid types.UID, hash str
 	var toDelete []metav1.Object
 	for _, report := range reports {
 		if report.GetName() != string(uid) {
-			if reportutils.GetResourceHash(report) == hash || report.GetCreationTimestamp().Add(time.Minute*2).Before(time.Now()) {
+			if reportutils.GetResourceHash(report) == hash || report.GetCreationTimestamp().Add(deletionGrace).Before(time.Now()) {
 				toDelete = append(toDelete, report)
 			} else {
-				c.queue.AddAfter(cache.ExplicitKey(uid), time.Minute*2)
+				c.queue.AddAfter(cache.ExplicitKey(uid), deletionGrace)
 			}
 		}
 	}

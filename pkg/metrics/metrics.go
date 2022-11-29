@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	meterName = "kyverno"
+	MeterName = "kyverno"
 )
 
 type MetricsConfig struct {
@@ -37,8 +37,6 @@ type MetricsConfig struct {
 	policyResultsMetric           syncint64.Counter
 	policyRuleInfoMetric          asyncfloat64.Gauge
 	policyExecutionDurationMetric syncfloat64.Histogram
-	admissionRequestsMetric       syncint64.Counter
-	admissionReviewDurationMetric syncfloat64.Histogram
 	clientQueriesMetric           syncint64.Counter
 
 	// config
@@ -51,14 +49,12 @@ type MetricsConfigManager interface {
 	RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
 	RecordPolicyRuleInfo(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleType RuleType, status string, metricValue float64)
 	RecordPolicyExecutionDuration(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64)
-	RecordAdmissionRequests(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, allowed bool)
-	RecordAdmissionReviewDuration(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64, allowed bool)
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 }
 
 func (m *MetricsConfig) initializeMetrics() error {
 	var err error
-	meter := global.MeterProvider().Meter(meterName)
+	meter := global.MeterProvider().Meter(MeterName)
 
 	m.policyResultsMetric, err = meter.SyncInt64().Counter("kyverno_policy_results_total", instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"))
 	if err != nil {
@@ -72,21 +68,9 @@ func (m *MetricsConfig) initializeMetrics() error {
 		return err
 	}
 
-	m.admissionRequestsMetric, err = meter.SyncInt64().Counter("kyverno_admission_requests_total", instrument.WithDescription("can be used to track the number of admission requests encountered by Kyverno in the cluster"))
-	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_admission_requests_total")
-		return err
-	}
-
 	m.policyExecutionDurationMetric, err = meter.SyncFloat64().Histogram("kyverno_policy_execution_duration_seconds", instrument.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_policy_execution_duration_seconds")
-		return err
-	}
-
-	m.admissionReviewDurationMetric, err = meter.SyncFloat64().Histogram("kyverno_admission_review_duration_seconds", instrument.WithDescription("can be used to track the latencies (in seconds) associated with the entire individual admission review. For example, if an incoming request trigger, say, five policies, this metric will track the e2e latency associated with the execution of all those policies"))
-	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_admission_review_duration_seconds")
 		return err
 	}
 
@@ -270,16 +254,6 @@ func (m *MetricsConfig) RecordPolicyRuleInfo(ctx context.Context, policyValidati
 	m.policyRuleInfoMetric.Observe(ctx, metricValue, commonLabels...)
 }
 
-func (m *MetricsConfig) RecordAdmissionRequests(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, allowed bool) {
-	commonLabels := []attribute.KeyValue{
-		attribute.String("resource_kind", resourceKind),
-		attribute.String("resource_namespace", resourceNamespace),
-		attribute.String("resource_request_operation", string(resourceRequestOperation)),
-		attribute.Bool("request_allowed", allowed),
-	}
-	m.admissionRequestsMetric.Add(ctx, 1, commonLabels...)
-}
-
 func (m *MetricsConfig) RecordPolicyExecutionDuration(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
 	ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64,
 ) {
@@ -295,16 +269,6 @@ func (m *MetricsConfig) RecordPolicyExecutionDuration(ctx context.Context, polic
 		attribute.String("rule_execution_cause", string(ruleExecutionCause)),
 	}
 	m.policyExecutionDurationMetric.Record(ctx, ruleExecutionLatency, commonLabels...)
-}
-
-func (m *MetricsConfig) RecordAdmissionReviewDuration(ctx context.Context, resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64, allowed bool) {
-	commonLabels := []attribute.KeyValue{
-		attribute.String("resource_kind", resourceKind),
-		attribute.String("resource_namespace", resourceNamespace),
-		attribute.String("resource_request_operation", resourceRequestOperation),
-		attribute.Bool("request_allowed", allowed),
-	}
-	m.admissionReviewDurationMetric.Record(ctx, admissionRequestLatency, commonLabels...)
 }
 
 func (m *MetricsConfig) RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string) {

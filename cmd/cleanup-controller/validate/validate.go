@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
-	"github.com/kyverno/kyverno/cmd/cleanup-controller/logger"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
@@ -57,7 +56,7 @@ func (c *Cleanup) CanIDelete(kind, namespace string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface, client dclient.Interface, mock bool) error {
+func ValidateCleanupPolicy(logger logr.Logger, cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface, client dclient.Interface, mock bool) error {
 	// namespace := cleanuppolicy.GetNamespace()
 	var res []*metav1.APIResourceList
 	clusterResources := sets.NewString()
@@ -68,7 +67,7 @@ func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface,
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			err := err.(*discovery.ErrGroupDiscoveryFailed)
 			for gv, err := range err.Groups {
-				logger.Logger.Error(err, "failed to list api resources", "group", gv)
+				logger.Error(err, "failed to list api resources", "group", gv)
 			}
 		} else {
 			return err

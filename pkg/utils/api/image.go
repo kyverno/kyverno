@@ -21,13 +21,14 @@ var (
 	podControllerExtractors     = BuildStandardExtractors("spec", "template", "spec")
 	cronjobControllerExtractors = BuildStandardExtractors("spec", "jobTemplate", "spec", "template", "spec")
 	registeredExtractors        = map[string][]imageExtractor{
-		"Pod":         podExtractors,
-		"DaemonSet":   podControllerExtractors,
-		"Deployment":  podControllerExtractors,
-		"ReplicaSet":  podControllerExtractors,
-		"StatefulSet": podControllerExtractors,
-		"CronJob":     cronjobControllerExtractors,
-		"Job":         podControllerExtractors,
+		"Pod":                   podExtractors,
+		"DaemonSet":             podControllerExtractors,
+		"Deployment":            podControllerExtractors,
+		"ReplicaSet":            podControllerExtractors,
+		"ReplicationController": podControllerExtractors,
+		"StatefulSet":           podControllerExtractors,
+		"CronJob":               cronjobControllerExtractors,
+		"Job":                   podControllerExtractors,
 	}
 )
 
