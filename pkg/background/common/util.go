@@ -23,6 +23,7 @@ func Update(client versioned.Interface, urLister kyvernov1beta1listers.UpdateReq
 		}
 		ur = ur.DeepCopy()
 		mutator(ur)
+		ur.SetResourceVersion(ur.GetResourceVersion())
 		_, err = client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "[ATTEMPT] failed to update update request", "name", name)

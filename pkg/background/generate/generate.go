@@ -189,7 +189,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		return nil, false, err
 	}
 
-	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, &policy, &resource, c.configuration, namespaceLabels, logger)
+	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, policy, &resource, c.configuration, namespaceLabels, logger)
 	if err != nil {
 		return nil, precreatedResource, err
 	}
@@ -259,8 +259,8 @@ func (c *GenerateController) cleanupClonedResource(targetSpec kyvernov1.Resource
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy
-func (c *GenerateController) getPolicySpec(ur kyvernov1beta1.UpdateRequest) (kyvernov1.ClusterPolicy, error) {
-	var policy kyvernov1.ClusterPolicy
+func (c *GenerateController) getPolicySpec(ur kyvernov1beta1.UpdateRequest) (kyvernov1.PolicyInterface, error) {
+	var policy kyvernov1.PolicyInterface
 
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
 	if err != nil {
@@ -272,18 +272,13 @@ func (c *GenerateController) getPolicySpec(ur kyvernov1beta1.UpdateRequest) (kyv
 		if err != nil {
 			return policy, err
 		}
-		return *policyObj, err
+		return policyObj, err
 	}
 	npolicyObj, err := c.npolicyLister.Policies(pNamespace).Get(pName)
 	if err != nil {
 		return policy, err
 	}
-	return kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pName,
-		},
-		Spec: npolicyObj.Spec,
-	}, nil
+	return npolicyObj, nil
 }
 
 func updateStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec, precreatedResource bool) error {

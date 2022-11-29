@@ -24,6 +24,7 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -191,12 +192,20 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissio
 	targetSourceName := newRes.GetName()
 	targetSourceKind := newRes.GetKind()
 
-	policy, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
+	var policy kyvernov1.PolicyInterface
+	policy, err = h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
 	if err != nil {
-		h.log.Error(err, "failed to get policy from kyverno client.", "policy name", policyName)
-		return
+		if apierrors.IsNotFound(err) {
+			policy, err = h.kyvernoClient.KyvernoV1().Policies(newRes.GetNamespace()).Get(context.TODO(), policyName, metav1.GetOptions{})
+			if err != nil {
+				h.log.Error(err, "failed to get policy from kyverno client.", "policy name", policyName)
+				return
+			}
+		} else {
+			h.log.Error(err, "failed to get clusterpolicy from kyverno client.", "policy name", policyName)
+			return
+		}
 	}
-
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 			updatedRule, err := getGeneratedByResource(newRes, resLabels, h.client, rule, h.log)
