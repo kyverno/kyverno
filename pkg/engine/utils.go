@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -270,7 +271,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 					return true
 				}
 			case "User", "Group":
-				if utils.ContainsString(userGroups, subject.Name) {
+				if slices.Contains(userGroups, subject.Name) {
 					return true
 				}
 			}
