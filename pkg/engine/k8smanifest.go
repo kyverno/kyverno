@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/x509"
 	_ "embed"
@@ -399,7 +400,7 @@ func checkManifestAnnotations(mnfstAnnotations map[string]string, annotations ma
 
 func checkDryRunPermission(dclient dclient.Interface, kind, namespace string) (bool, error) {
 	canI := auth.NewCanI(dclient, kind, namespace, "create")
-	ok, err := canI.RunAccessCheck()
+	ok, err := canI.RunAccessCheck(context.TODO())
 	if err != nil {
 		return false, err
 	}

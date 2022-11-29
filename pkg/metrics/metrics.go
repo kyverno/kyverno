@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	meterName = "kyverno"
+	MeterName = "kyverno"
 )
 
 type MetricsConfig struct {
@@ -54,7 +54,7 @@ type MetricsConfigManager interface {
 
 func (m *MetricsConfig) initializeMetrics() error {
 	var err error
-	meter := global.MeterProvider().Meter(meterName)
+	meter := global.MeterProvider().Meter(MeterName)
 
 	m.policyResultsMetric, err = meter.SyncInt64().Counter("kyverno_policy_results_total", instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"))
 	if err != nil {

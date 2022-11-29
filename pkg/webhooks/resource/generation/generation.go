@@ -213,7 +213,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissio
 
 				cloneName := updatedRule.Generation.Clone.Name
 				if cloneName != "" {
-					obj, err := h.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+					obj, err := h.client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 					if err != nil {
 						h.log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 						continue

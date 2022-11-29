@@ -38,11 +38,15 @@ func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig conf
 		namespace := request.Namespace
 		if metricsConfig.CheckNamespace(namespace) {
 			operation := strings.ToLower(string(request.Operation))
+			allowed := true
+			if response != nil {
+				allowed = response.Allowed
+			}
 			attributes := []attribute.KeyValue{
 				attribute.String("resource_kind", request.Kind.Kind),
 				attribute.String("resource_namespace", namespace),
 				attribute.String("resource_request_operation", operation),
-				attribute.Bool("request_allowed", response.Allowed),
+				attribute.Bool("request_allowed", allowed),
 			}
 			attributes = append(attributes, attrs...)
 			if admissionReviewDurationMetric != nil {

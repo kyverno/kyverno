@@ -40,7 +40,16 @@ type Resource struct {
 	Hash      string
 }
 
-type EventHandler func(types.UID, schema.GroupVersionKind, Resource)
+type EventType string
+
+const (
+	Added    EventType = "ADDED"
+	Modified EventType = "MODIFIED"
+	Deleted  EventType = "DELETED"
+	Stopped  EventType = "STOPPED"
+)
+
+type EventHandler func(EventType, types.UID, schema.GroupVersionKind, Resource)
 
 type MetadataCache interface {
 	GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool)
@@ -118,7 +127,7 @@ func (c *controller) AddEventHandler(eventHandler EventHandler) {
 	c.eventHandlers = append(c.eventHandlers, eventHandler)
 	for _, watcher := range c.dynamicWatchers {
 		for uid, resource := range watcher.hashes {
-			eventHandler(uid, watcher.gvk, resource)
+			eventHandler(Added, uid, watcher.gvk, resource)
 		}
 	}
 }
@@ -176,7 +185,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 						Namespace: obj.GetNamespace(),
 						Name:      obj.GetName(),
 					}
-					c.notify(uid, gvk, hashes[uid])
+					c.notify(Added, uid, gvk, hashes[uid])
 				}
 				logger := logger.WithValues("resourceVersion", resourceVersion)
 				logger.Info("start watcher ...")
@@ -202,9 +211,9 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 						for event := range watchInterface.ResultChan() {
 							switch event.Type {
 							case watch.Added:
-								c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
+								c.updateHash(Added, event.Object.(*unstructured.Unstructured), gvr)
 							case watch.Modified:
-								c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
+								c.updateHash(Modified, event.Object.(*unstructured.Unstructured), gvr)
 							case watch.Deleted:
 								c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
 							}
@@ -222,7 +231,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		watcher.watcher.Stop()
 		delete(oldDynamicWatcher, gvr)
 		for uid, resource := range watcher.hashes {
-			c.notify(uid, watcher.gvk, resource)
+			c.notify(Stopped, uid, watcher.gvk, resource)
 		}
 	}
 	return nil
@@ -237,13 +246,13 @@ func (c *controller) stopDynamicWatchers() {
 	c.dynamicWatchers = map[schema.GroupVersionResource]*watcher{}
 }
 
-func (c *controller) notify(uid types.UID, gvk schema.GroupVersionKind, obj Resource) {
+func (c *controller) notify(eventType EventType, uid types.UID, gvk schema.GroupVersionKind, obj Resource) {
 	for _, handler := range c.eventHandlers {
-		handler(uid, gvk, obj)
+		handler(eventType, uid, gvk, obj)
 	}
 }
 
-func (c *controller) updateHash(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
+func (c *controller) updateHash(eventType EventType, obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	watcher, exists := c.dynamicWatchers[gvr]
@@ -256,7 +265,7 @@ func (c *controller) updateHash(obj *unstructured.Unstructured, gvr schema.Group
 				Namespace: obj.GetNamespace(),
 				Name:      obj.GetName(),
 			}
-			c.notify(uid, watcher.gvk, watcher.hashes[uid])
+			c.notify(eventType, uid, watcher.gvk, watcher.hashes[uid])
 		}
 	}
 }
@@ -269,7 +278,7 @@ func (c *controller) deleteHash(obj *unstructured.Unstructured, gvr schema.Group
 		uid := obj.GetUID()
 		hash := watcher.hashes[uid]
 		delete(watcher.hashes, uid)
-		c.notify(uid, watcher.gvk, hash)
+		c.notify(Deleted, uid, watcher.gvk, hash)
 	}
 }
 
