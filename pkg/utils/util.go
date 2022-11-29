@@ -86,21 +86,12 @@ func ContainsNamepace(patterns []string, ns string) bool {
 	return contains(patterns, ns, comparePatterns)
 }
 
-// ContainsString checks if the string is contained in the list
-func ContainsString(list []string, element string) bool {
-	return contains(list, element, compareString)
-}
-
 func ContainsWildcardPatterns(patterns []string, key string) bool {
 	return contains(patterns, key, comparePatterns)
 }
 
 func comparePatterns(pattern, ns string) bool {
 	return wildcard.Match(pattern, ns)
-}
-
-func compareString(str, name string) bool {
-	return str == name
 }
 
 // CRDsInstalled checks if the Kyverno CRDs are installed or not
@@ -328,13 +319,11 @@ func SliceContains(slice []string, values ...string) bool {
 	for _, sliceElement := range slice {
 		sliceElementsMap[sliceElement] = true
 	}
-
 	for _, value := range values {
 		if sliceElementsMap[value] {
 			return true
 		}
 	}
-
 	return false
 }
 
