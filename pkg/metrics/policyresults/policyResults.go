@@ -10,7 +10,7 @@ import (
 
 func registerPolicyResultsMetric(
 	ctx context.Context,
-	m *metrics.MetricsConfig,
+	m metrics.MetricsConfigManager,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
@@ -25,14 +25,14 @@ func registerPolicyResultsMetric(
 	if policyType == metrics.Cluster {
 		policyNamespace = "-"
 	}
-	if m.Config.CheckNamespace(policyNamespace) {
+	if m.Config().CheckNamespace(policyNamespace) {
 		m.RecordPolicyResults(ctx, policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, ruleName, ruleResult, ruleType, ruleExecutionCause)
 	}
 }
 
 // policy - policy related data
 // engineResponse - resource and rule related data
-func ProcessEngineResponse(ctx context.Context, m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponse(ctx context.Context, m metrics.MetricsConfigManager, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err

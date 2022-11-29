@@ -24,7 +24,7 @@ import (
 
 type ImageVerificationHandler interface {
 	Handle(
-		*metrics.MetricsConfig,
+		metrics.MetricsConfigManager,
 		*admissionv1.AdmissionRequest,
 		[]kyvernov1.PolicyInterface,
 		*engine.PolicyContext,
@@ -53,7 +53,7 @@ type imageVerificationHandler struct {
 }
 
 func (h *imageVerificationHandler) Handle(
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
