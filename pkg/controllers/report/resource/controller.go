@@ -12,10 +12,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
-	pkgutils "github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -146,7 +146,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			if !reportutils.IsGvkSupported(gvk) {
 				logger.Info("kind is not supported", "gvk", gvk)
 			} else {
-				if pkgutils.ContainsString(apiResource.Verbs, "list") && pkgutils.ContainsString(apiResource.Verbs, "watch") {
+				if slices.Contains(apiResource.Verbs, "list") && slices.Contains(apiResource.Verbs, "watch") {
 					gvrs[gvk] = gvr
 				} else {
 					logger.Info("list/watch not supported for kind", "kind", kind)
