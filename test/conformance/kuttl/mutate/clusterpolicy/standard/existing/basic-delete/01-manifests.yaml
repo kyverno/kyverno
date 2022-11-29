@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: staging
+  name: staging-2
   labels:
     app-type: corp
   annotations:
@@ -12,41 +12,47 @@ data:
   foo: bar
 kind: ConfigMap
 metadata:
-  name: dictionary-1
-  namespace: staging
+  name: dictionary-2
+  namespace: staging-2
 ---
 apiVersion: v1
 data:
   foo: YmFy
 kind: Secret
 metadata:
-  name: secret-1
-  namespace: staging
+  name: test-secret-2
+  namespace: staging-2
 type: Opaque
 ---
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: "mutate-existing-secret"
+  name: test-post-mutation-delete-trigger
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
-    - name: "mutate-secret-on-configmap-event"
+    - name: mutate-secret-on-configmap-delete
       match:
         any:
         - resources:
             kinds:
             - ConfigMap
             names:
-            - dictionary-1
+            - dictionary-2
             namespaces:
-            - staging
+            - staging-2
+      preconditions:
+        any:
+        - key: "{{ request.operation }}"
+          operator: Equals
+          value: DELETE
       mutate:
         targets:
         - apiVersion: v1
           kind: Secret
-          name: secret-1
+          name: test-secret-2
           namespace: "{{ request.object.metadata.namespace }}"
         patchStrategicMerge:
           metadata:
             labels:
-              foo: bar
+              foo: "{{ request.object.metadata.name }}"
