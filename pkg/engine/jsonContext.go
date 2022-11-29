@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -316,7 +317,7 @@ func fetchAPIData(log logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyCont
 }
 
 func getResource(ctx *PolicyContext, p string) ([]byte, error) {
-	return ctx.Client.RawAbsPath(p)
+	return ctx.Client.RawAbsPath(context.TODO(), p)
 }
 
 func loadConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
@@ -350,7 +351,7 @@ func fetchConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 		namespace = "default"
 	}
 
-	obj, err := ctx.Client.GetResource("v1", "ConfigMap", namespace.(string), name.(string))
+	obj, err := ctx.Client.GetResource(context.TODO(), "v1", "ConfigMap", namespace.(string), name.(string))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespace, name, err)
 	}
