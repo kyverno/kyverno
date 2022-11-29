@@ -24,8 +24,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -441,7 +441,7 @@ func missingAutoGenRules(policy kyvernov1.PolicyInterface, log logr.Logger) bool
 			ruleCount = 2
 		}
 		if len(res) > 1 {
-			if utils.ContainsString(res, "CronJob") {
+			if slices.Contains(res, "CronJob") {
 				ruleCount = 3
 			} else {
 				ruleCount = 2
