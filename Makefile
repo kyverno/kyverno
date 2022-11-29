@@ -60,7 +60,7 @@ HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
-KUTTL_VERSION                      := v0.14.0
+KUTTL_VERSION                      := main
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
@@ -122,7 +122,7 @@ $(KO):
 
 $(KUTTL):
 	@echo Install kuttl... >&2
-	@GOBIN=$(TOOLS_DIR) go install github.com/kudobuilder/kuttl/cmd/kubectl-kuttl@$(KUTTL_VERSION)
+	@GOBIN=$(TOOLS_DIR) go install github.com/kyverno/kuttl/cmd/kubectl-kuttl@$(KUTTL_VERSION)
 
 .PHONY: install-tools
 install-tools: $(TOOLS) ## Install tools
