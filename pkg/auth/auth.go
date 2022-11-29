@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -18,7 +19,7 @@ type CanIOptions interface {
 	// - group version resource is determined from the kind using the discovery client REST mapper
 	// - If disallowed, the reason and evaluationError is available in the logs
 	// - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-	RunAccessCheck() (bool, error)
+	RunAccessCheck(context.Context) (bool, error)
 }
 
 type canIOptions struct {
@@ -44,7 +45,7 @@ func NewCanI(client dclient.Interface, kind, namespace, verb string) CanIOptions
 // - group version resource is determined from the kind using the discovery client REST mapper
 // - If disallowed, the reason and evaluationError is available in the logs
 // - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-func (o *canIOptions) RunAccessCheck() (bool, error) {
+func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
 	gvr, err := o.client.Discovery().GetGVRFromKind(o.kind)
@@ -75,7 +76,7 @@ func (o *canIOptions) RunAccessCheck() (bool, error) {
 	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
 	// Create the Resource
-	resp, err := o.client.CreateResource("", "SelfSubjectAccessReview", "", sar, false)
+	resp, err := o.client.CreateResource(ctx, "", "SelfSubjectAccessReview", "", sar, false)
 	if err != nil {
 		logger.Error(err, "failed to create resource")
 		return false, err

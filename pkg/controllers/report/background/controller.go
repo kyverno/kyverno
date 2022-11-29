@@ -220,7 +220,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			return nil
 		}
 		report := reportutils.DeepCopy(before)
-		resource, err := c.client.GetResource(gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
+		resource, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
 		if err != nil {
 			return err
 		}
@@ -301,7 +301,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		// creations
 		if len(toCreate) > 0 {
 			scanner := utils.NewScanner(logger, c.client)
-			resource, err := c.client.GetResource(gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
+			resource, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
 			if err != nil {
 				return err
 			}
