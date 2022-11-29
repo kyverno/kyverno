@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/utils"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -146,7 +146,7 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyvernov1.Spec) ([]string, []
 	// filter supported controllers, keeping only those that have been requested
 	var activated []string
 	for _, controller := range supported {
-		if utils.ContainsString(requested, controller) {
+		if slices.Contains(requested, controller) {
 			activated = append(activated, controller)
 		}
 	}
