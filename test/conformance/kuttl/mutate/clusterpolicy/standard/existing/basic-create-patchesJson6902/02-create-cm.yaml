@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  foo: bar
+kind: ConfigMap
+metadata:
+  name: dictionary-4
+  namespace: staging-4
