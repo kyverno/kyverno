@@ -22,19 +22,14 @@ func NewHandlers(client dclient.Interface) CleanupPolicyHandlers {
 }
 
 func (h *cleanupPolicyHandlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	if request.SubResource != "" {
-		logger.V(4).Info("skip policy validation on status update")
-		return admissionutils.ResponseSuccess()
-	}
 	policy, _, err := admissionutils.GetCleanupPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(err)
 	}
-	err = validate.ValidateCleanupPolicy(policy, h.client, false)
+	err = validate.ValidateCleanupPolicy(logger, policy, h.client, false)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
-		return admissionutils.Response(err)
 	}
 	return admissionutils.Response(err)
 }
