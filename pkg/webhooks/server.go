@@ -90,7 +90,7 @@ func NewServer(
 				WithProtection(toggle.ProtectManagedResources.Enabled()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
-				WithMetrics(metricsConfig).
+				WithMetrics(resourceLogger, metricsConfig.Config).
 				WithAdmission(resourceLogger.WithName("mutate"))
 		},
 	)
@@ -104,7 +104,7 @@ func NewServer(
 				WithFilter(configuration).
 				WithProtection(toggle.ProtectManagedResources.Enabled()).
 				WithDump(debugModeOpts.DumpPayload).
-				WithMetrics(metricsConfig).
+				WithMetrics(resourceLogger, metricsConfig.Config).
 				WithAdmission(resourceLogger.WithName("validate"))
 		},
 	)
@@ -113,7 +113,7 @@ func NewServer(
 		config.PolicyMutatingWebhookServicePath,
 		handlers.FromAdmissionFunc("MUTATE", policyHandlers.Mutate).
 			WithDump(debugModeOpts.DumpPayload).
-			WithMetrics(metricsConfig).
+			WithMetrics(policyLogger, metricsConfig.Config).
 			WithAdmission(policyLogger.WithName("mutate")).
 			ToHandlerFunc(),
 	)
@@ -123,7 +123,7 @@ func NewServer(
 		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
-			WithMetrics(metricsConfig).
+			WithMetrics(policyLogger, metricsConfig.Config).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)

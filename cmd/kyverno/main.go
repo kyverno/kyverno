@@ -117,12 +117,13 @@ func parseFlags(config internal.Configuration) {
 	flag.Parse()
 }
 
-func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
+func setupMetrics(ctx context.Context, logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
 	logger = logger.WithName("metrics")
 	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
 	metricsConfiguration := internal.GetMetricsConfiguration(logger, kubeClient)
 	metricsAddr := ":" + metricsPort
 	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
+		ctx,
 		disableMetricsExport,
 		otel,
 		metricsAddr,
@@ -425,8 +426,11 @@ func main() {
 	internal.SetupProfiling(logger)
 	// create raw client
 	rawClient := internal.CreateKubernetesClient(logger)
+	// setup signals
+	signalCtx, signalCancel := internal.SetupSignals(logger)
+	defer signalCancel()
 	// setup metrics
-	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
+	metricsConfig, metricsShutdown, err := setupMetrics(signalCtx, logger, rawClient)
 	if err != nil {
 		logger.Error(err, "failed to setup metrics")
 		os.Exit(1)
@@ -434,9 +438,6 @@ func main() {
 	if metricsShutdown != nil {
 		defer metricsShutdown()
 	}
-	// setup signals
-	signalCtx, signalCancel := internal.SetupSignals(logger)
-	defer signalCancel()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
