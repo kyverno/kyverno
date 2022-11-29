@@ -57,16 +57,8 @@ type Response struct {
 
 type CosignError struct{}
 
-func Verify(opts Options) (*Response, error) {
-	if opts.FetchAttestations {
-		return fetchAttestations(opts)
-	} else {
-		return verifySignature(opts)
-	}
-}
-
-// verifySignature verifies that the image has the expected signatures
-func verifySignature(opts Options) (*Response, error) {
+// VerifySignature verifies that the image has the expected signatures
+func VerifySignature(opts Options) (*Response, error) {
 	ref, err := name.ParseReference(opts.ImageRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
@@ -256,9 +248,9 @@ func loadCertChain(pem []byte) ([]*x509.Certificate, error) {
 	return cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(pem))
 }
 
-// fetchAttestations retrieves signed attestations and decodes them into in-toto statements
+// FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func fetchAttestations(opts Options) (*Response, error) {
+func FetchAttestations(opts Options) (*Response, error) {
 	cosignOpts, err := buildCosignOptions(opts)
 	if err != nil {
 		return nil, err
