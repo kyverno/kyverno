@@ -5,3 +5,5 @@ testDirs:
 startKIND: false
 # timeout: 15
 parallel: 1
+fullName: true
+skipTestRegex: '_.+'
