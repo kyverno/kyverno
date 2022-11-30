@@ -48,16 +48,16 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	cleanupController := cleanup.NewController(
-		kubeClient,
-		kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies(),
-		kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies(),
-		kubeInformer.Batch().V1().CronJobs(),
-	)
 	// controllers
-	controller := newController(cleanup.ControllerName, *cleanupController, cleanup.Workers)
-	policyHandlers := NewHandlers(
-		dClient,
+	controller := internal.NewController(
+		cleanup.ControllerName,
+		cleanup.NewController(
+			kubeClient,
+			kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies(),
+			kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies(),
+			kubeInformer.Batch().V1().CronJobs(),
+		),
+		cleanup.Workers,
 	)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
 	// start informers and wait for cache sync
@@ -65,9 +65,9 @@ func main() {
 		os.Exit(1)
 	}
 	var wg sync.WaitGroup
-	controller.run(ctx, logger.WithName("cleanup-controller"), &wg)
+	controller.Run(ctx, logger.WithName("cleanup-controller"), &wg)
 	server := NewServer(
-		policyHandlers,
+		NewHandlers(dClient),
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get("cleanup-controller-tls")
 			if err != nil {
