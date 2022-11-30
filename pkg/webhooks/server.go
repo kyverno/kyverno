@@ -67,7 +67,7 @@ func NewServer(
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
 	configuration config.Configuration,
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts DebugModeOptions,
 	tlsProvider TlsProvider,
 	mwcClient controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration],
@@ -90,7 +90,7 @@ func NewServer(
 				WithProtection(toggle.ProtectManagedResources.Enabled()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
-				WithMetrics(resourceLogger, metricsConfig.Config).
+				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
 				WithAdmission(resourceLogger.WithName("mutate"))
 		},
 	)
@@ -104,7 +104,7 @@ func NewServer(
 				WithFilter(configuration).
 				WithProtection(toggle.ProtectManagedResources.Enabled()).
 				WithDump(debugModeOpts.DumpPayload).
-				WithMetrics(resourceLogger, metricsConfig.Config).
+				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
 				WithAdmission(resourceLogger.WithName("validate"))
 		},
 	)
@@ -113,7 +113,7 @@ func NewServer(
 		config.PolicyMutatingWebhookServicePath,
 		handlers.FromAdmissionFunc("MUTATE", policyHandlers.Mutate).
 			WithDump(debugModeOpts.DumpPayload).
-			WithMetrics(policyLogger, metricsConfig.Config).
+			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookMutating).
 			WithAdmission(policyLogger.WithName("mutate")).
 			ToHandlerFunc(),
 	)
@@ -123,7 +123,7 @@ func NewServer(
 		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
-			WithMetrics(policyLogger, metricsConfig.Config).
+			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)
