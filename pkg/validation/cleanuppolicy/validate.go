@@ -42,23 +42,23 @@ func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface,
 	if err != nil {
 		return err
 	}
-	if err := ValidatePolicy(clusteredResources, policy); err != nil {
+	if err := validatePolicy(clusteredResources, policy); err != nil {
 		return err
 	}
-	if err := ValidateAuth(ctx, client, policy); err != nil {
+	if err := validateAuth(ctx, client, policy); err != nil {
 		return err
 	}
 	return nil
 }
 
-// ValidatePolicy checks the policy and rules declarations for required configurations
-func ValidatePolicy(clusterResources sets.String, policy kyvernov1alpha1.CleanupPolicyInterface) error {
+// validatePolicy checks the policy and rules declarations for required configurations
+func validatePolicy(clusterResources sets.String, policy kyvernov1alpha1.CleanupPolicyInterface) error {
 	errs := policy.Validate(clusterResources)
 	return errs.ToAggregate()
 }
 
-// ValidateAuth checks the the delete action is allowed
-func ValidateAuth(ctx context.Context, client dclient.Interface, policy kyvernov1alpha1.CleanupPolicyInterface) error {
+// validateAuth checks the the delete action is allowed
+func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov1alpha1.CleanupPolicyInterface) error {
 	namespace := policy.GetNamespace()
 	spec := policy.GetSpec()
 	kinds := sets.NewString(spec.MatchResources.GetKinds()...)
