@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	otelLogger "go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel"
 	"k8s.io/client-go/kubernetes"
 )
 
