@@ -20,6 +20,7 @@ metadata:
       HostPath volumes let Pods use host directories and volumes in containers.
       Using host resources can be used to access shared data or escalate privileges
       and should not be allowed. This policy ensures no hostPath volumes are in use.
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   {{- with index .Values "validationFailureActionByPolicy" $name }}
   validationFailureAction: {{ toYaml . }}
