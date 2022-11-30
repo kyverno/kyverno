@@ -5,10 +5,10 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
-	"github.com/kyverno/kyverno/cmd/cleanup-controller/logger"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
+	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
@@ -36,12 +36,12 @@ func NewCleanup(client dclient.Interface, cleanup kyvernov1alpha1.CleanupPolicyS
 }
 
 // canIDelete returns a error if kyverno cannot perform operations
-func (c *Cleanup) CanIDelete(kind, namespace string) error {
+func (c *Cleanup) CanIDelete(ctx context.Context, kind, namespace string) error {
 	// Skip if there is variable defined
 	authCheck := c.authCheck
 	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
 		// DELETE
-		ok, err := authCheck.CanIDelete(kind, namespace)
+		ok, err := authCheck.CanIDelete(ctx, kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
@@ -57,7 +57,7 @@ func (c *Cleanup) CanIDelete(kind, namespace string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface, client dclient.Interface, mock bool) error {
+func ValidateCleanupPolicy(logger logr.Logger, cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface, client dclient.Interface, mock bool) error {
 	// namespace := cleanuppolicy.GetNamespace()
 	var res []*metav1.APIResourceList
 	clusterResources := sets.NewString()
@@ -68,7 +68,7 @@ func ValidateCleanupPolicy(cleanuppolicy kyvernov1alpha1.CleanupPolicyInterface,
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			err := err.(*discovery.ErrGroupDiscoveryFailed)
 			for gv, err := range err.Groups {
-				logger.Logger.Error(err, "failed to list api resources", "group", gv)
+				logger.Error(err, "failed to list api resources", "group", gv)
 			}
 		} else {
 			return err

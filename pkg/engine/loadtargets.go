@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -75,7 +76,7 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 
 	if namespace != "" && name != "" &&
 		!wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
-		obj, err := ctx.Client.GetResource(target.APIVersion, target.Kind, namespace, name)
+		obj, err := ctx.Client.GetResource(context.TODO(), target.APIVersion, target.Kind, namespace, name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get target %s/%s %s/%s : %v", target.APIVersion, target.Kind, namespace, name, err)
 		}
@@ -84,7 +85,7 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 	}
 
 	// list all targets if wildcard is specified
-	objList, err := ctx.Client.ListResource(target.APIVersion, target.Kind, "", nil)
+	objList, err := ctx.Client.ListResource(context.TODO(), target.APIVersion, target.Kind, "", nil)
 	if err != nil {
 		return nil, err
 	}

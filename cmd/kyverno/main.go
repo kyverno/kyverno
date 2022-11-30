@@ -117,12 +117,13 @@ func parseFlags(config internal.Configuration) {
 	flag.Parse()
 }
 
-func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
+func setupMetrics(ctx context.Context, logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
 	logger = logger.WithName("metrics")
 	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
 	metricsConfiguration := internal.GetMetricsConfiguration(logger, kubeClient)
 	metricsAddr := ":" + metricsPort
 	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
+		ctx,
 		disableMetricsExport,
 		otel,
 		metricsAddr,
@@ -217,7 +218,7 @@ func createNonLeaderControllers(
 	policyCache policycache.Cache,
 	eventGenerator event.Interface,
 	manager openapi.Manager,
-) ([]controller, func() error) {
+) ([]internal.Controller, func() error) {
 	policyCacheController := policycachecontroller.NewController(
 		policyCache,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
@@ -242,11 +243,11 @@ func createNonLeaderControllers(
 		eventGenerator,
 		configuration,
 	)
-	return []controller{
-			newController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
-			newController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
-			newController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
-			newController("update-request-controller", updateRequestController, genWorkers),
+	return []internal.Controller{
+			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
+			internal.NewController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
+			internal.NewController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
+			internal.NewController("update-request-controller", updateRequestController, genWorkers),
 		},
 		func() error {
 			return policyCacheController.WarmUp()
@@ -261,8 +262,8 @@ func createReportControllers(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-) ([]controller, func(context.Context) error) {
-	var ctrls []controller
+) ([]internal.Controller, func(context.Context) error) {
+	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	if backgroundScan || admissionReports {
@@ -274,12 +275,12 @@ func createReportControllers(
 		warmups = append(warmups, func(ctx context.Context) error {
 			return resourceReportController.Warmup(ctx)
 		})
-		ctrls = append(ctrls, newController(
+		ctrls = append(ctrls, internal.NewController(
 			resourcereportcontroller.ControllerName,
 			resourceReportController,
 			resourcereportcontroller.Workers,
 		))
-		ctrls = append(ctrls, newController(
+		ctrls = append(ctrls, internal.NewController(
 			aggregatereportcontroller.ControllerName,
 			aggregatereportcontroller.NewController(
 				kyvernoClient,
@@ -292,7 +293,7 @@ func createReportControllers(
 			aggregatereportcontroller.Workers,
 		))
 		if admissionReports {
-			ctrls = append(ctrls, newController(
+			ctrls = append(ctrls, internal.NewController(
 				admissionreportcontroller.ControllerName,
 				admissionreportcontroller.NewController(
 					kyvernoClient,
@@ -303,7 +304,7 @@ func createReportControllers(
 			))
 		}
 		if backgroundScan {
-			ctrls = append(ctrls, newController(
+			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
 				backgroundscancontroller.NewController(
 					client,
@@ -341,7 +342,7 @@ func createrLeaderControllers(
 	eventGenerator event.Interface,
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
-) ([]controller, func(context.Context) error, error) {
+) ([]internal.Controller, func(context.Context) error, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
 		dynamicClient,
@@ -392,10 +393,10 @@ func createrLeaderControllers(
 		kyvernoInformer,
 	)
 	return append(
-			[]controller{
-				newController("policy-controller", policyCtrl, 2),
-				newController(certmanager.ControllerName, certManager, certmanager.Workers),
-				newController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
+			[]internal.Controller{
+				internal.NewController("policy-controller", policyCtrl, 2),
+				internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
+				internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
 			},
 			reportControllers...,
 		),
@@ -425,8 +426,11 @@ func main() {
 	internal.SetupProfiling(logger)
 	// create raw client
 	rawClient := internal.CreateKubernetesClient(logger)
+	// setup signals
+	signalCtx, signalCancel := internal.SetupSignals(logger)
+	defer signalCancel()
 	// setup metrics
-	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
+	metricsConfig, metricsShutdown, err := setupMetrics(signalCtx, logger, rawClient)
 	if err != nil {
 		logger.Error(err, "failed to setup metrics")
 		os.Exit(1)
@@ -434,9 +438,6 @@ func main() {
 	if metricsShutdown != nil {
 		defer metricsShutdown()
 	}
-	// setup signals
-	signalCtx, signalCancel := internal.SetupSignals(logger)
-	defer signalCancel()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
@@ -590,7 +591,7 @@ func main() {
 			// start leader controllers
 			var wg sync.WaitGroup
 			for _, controller := range leaderControllers {
-				controller.run(signalCtx, logger.WithName("controllers"), &wg)
+				controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 			}
 			// wait all controllers shut down
 			wg.Wait()
@@ -604,7 +605,7 @@ func main() {
 	// start non leader controllers
 	var wg sync.WaitGroup
 	for _, controller := range nonLeaderControllers {
-		controller.run(signalCtx, logger.WithName("controllers"), &wg)
+		controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 	}
 	// start leader election
 	go func() {

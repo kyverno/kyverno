@@ -3095,3 +3095,54 @@ func Test_block_bypass(t *testing.T) {
 		executeTest(t, testcase)
 	}
 }
+
+func Test_ValidatePattern_anyPattern(t *testing.T) {
+	var policy kyverno.ClusterPolicy
+	rawPolicy := []byte(`{"apiVersion":"kyverno.io\/v1","kind":"ClusterPolicy","metadata":{"name":"validate-service-loadbalancer"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"check-loadbalancer-public","match":{"resources":{"kinds":["Service"]}},"validate":{"message":"Service of type 'LoadBalancer' is public and does not explicitly define network security. To use a public LB you must supply either spec[loadBalancerSourceRanges] or the 'service.beta.kubernetes.io\/aws-load-balancer-security-groups' annotation.","anyPattern":[{"spec":{"<(type)":"LoadBalancer"},"metadata":{"annotations":{"service.beta.kubernetes.io\/aws-load-balancer-security-groups":"?*"}}},{"spec":{"<(type)":"LoadBalancer","loadBalancerSourceRanges":"*"}}]}},{"name":"check-loadbalancer-internal","match":{"resources":{"kinds":["Service"]}},"validate":{"message":"Service of type 'LoadBalancer' is internal and does not explicitly define network security. To set the LB to internal, use annotation 'service.beta.kubernetes.io\/aws-load-balancer-internal' with value 'true' or '0.0.0.0\/0' ","pattern":{"spec":{"<(type)":"LoadBalancer"},"metadata":{"annotations":{"=(service.beta.kubernetes.io\/aws-load-balancer-internal)":"0.0.0.0\/0|true"}}}}}]}}`)
+	testCases := []struct {
+		description     string
+		rawPolicy       []byte
+		rawResource     []byte
+		expectedFailed  bool
+		expectedSkipped bool
+		expectedSuccess bool
+	}{
+		{
+			description:     "skip",
+			rawPolicy:       rawPolicy,
+			rawResource:     []byte(`{"apiVersion":"v1","kind":"Service","metadata":{"labels":{"app.kubernetes.io\/managed-by":"Helm"},"name":"service-clusterip-pass"},"spec":{"type":"ClusterIP","ports":[{"name":"http","port":80,"protocol":"TCP","targetPort":3000}]}}`),
+			expectedSkipped: true,
+		},
+		{
+			description:    "fail",
+			rawPolicy:      rawPolicy,
+			rawResource:    []byte(`{"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"service.beta.kubernetes.io\/aws-load-balancer-internal":"anything"},"labels":{"app.kubernetes.io\/managed-by":"Helm"},"name":"service-internal-fail"},"spec":{"type":"LoadBalancer","clusterIP":"10.96.0.2","ports":[{"name":"http","nodePort":31207,"port":80,"protocol":"TCP","targetPort":3000}]}}`),
+			expectedFailed: true,
+		},
+		{
+			description:     "success",
+			rawPolicy:       rawPolicy,
+			rawResource:     []byte(`{"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"service.beta.kubernetes.io\/aws-load-balancer-internal":"0.0.0.0\/0"},"labels":{"app.kubernetes.io\/managed-by":"Helm"},"name":"service-internal-pass"},"spec":{"type":"LoadBalancer","clusterIP":"100.69.148.11","loadBalancerSourceRanges":["3.224.166.65\/32","3.210.193.151\/32","3.226.136.65\/32","10.0.0.0\/8"]}}`),
+			expectedSuccess: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			err := json.Unmarshal(tc.rawPolicy, &policy)
+			assert.NilError(t, err)
+
+			resourceUnstructured, err := utils.ConvertToUnstructured(tc.rawResource)
+			assert.NilError(t, err)
+
+			er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+			if tc.expectedFailed {
+				assert.Assert(t, er.IsFailed())
+			} else if tc.expectedSkipped {
+				assert.Assert(t, er.IsSkipped())
+			} else if tc.expectedSuccess {
+				assert.Assert(t, er.IsSuccessful())
+			}
+		})
+	}
+}

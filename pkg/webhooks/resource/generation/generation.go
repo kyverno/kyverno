@@ -108,9 +108,9 @@ func (h *generationHandler) Handle(
 			}
 
 			// registering the kyverno_policy_results_total metric concurrently
-			go webhookutils.RegisterPolicyResultsMetricGeneration(h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
+			go webhookutils.RegisterPolicyResultsMetricGeneration(context.TODO(), h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
 			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
+			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(context.TODO(), h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
 		}
 
 		if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Generate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
@@ -213,7 +213,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissio
 
 				cloneName := updatedRule.Generation.Clone.Name
 				if cloneName != "" {
-					obj, err := h.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+					obj, err := h.client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 					if err != nil {
 						h.log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 						continue
