@@ -32,7 +32,7 @@ spec:
       {{- end }}
       {{- if or .Values.antiAffinity.enable .Values.podAffinity .Values.nodeAffinity }}
       affinity:
-        {{- if and .Values.antiAffinity.enable }}
+        {{- if .Values.antiAffinity.enable }}
         {{- with .Values.podAntiAffinity }}
         podAntiAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
