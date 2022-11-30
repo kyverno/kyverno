@@ -5,6 +5,9 @@ kind: ClusterPolicy
 metadata:
   name: {{ $name }}
   annotations:
+    {{- with .Values.autogenControllers }}
+    pod-policies.kyverno.io/autogen-controllers: {{ . }}
+    {{- end }}
     policies.kyverno.io/title: Disallow procMount
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     {{- if .Values.podSecuritySeverity }}

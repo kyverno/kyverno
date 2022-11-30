@@ -6,6 +6,9 @@ kind: ClusterPolicy
 metadata:
   name: {{ $name }}
   annotations:
+    {{- with .Values.autogenControllers }}
+    pod-policies.kyverno.io/autogen-controllers: {{ . }}
+    {{- end }}
     policies.kyverno.io/title: Disallow Capabilities (Strict)
     policies.kyverno.io/category: Pod Security Standards (Restricted)
     {{- if .Values.podSecuritySeverity }}
