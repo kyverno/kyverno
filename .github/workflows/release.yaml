@@ -59,7 +59,7 @@ jobs:
     steps:
       - name: Set version
         id: version
-        run: echo version=${GITHUB_REF#refs/*/} >> $GITHUB_OUTPUT
+        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
       - name: Checkout
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2.4.0
@@ -112,7 +112,7 @@ jobs:
     steps:
       - name: Set version
         id: version
-        run: echo version=${GITHUB_REF#refs/*/} >> $GITHUB_OUTPUT
+        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
       - name: Checkout
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2.4.0
@@ -186,7 +186,7 @@ jobs:
         id: check-tag
         run: |
           if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo match=true >> $GITHUB_OUTPUT
+              echo "match=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Update new version in krew-index

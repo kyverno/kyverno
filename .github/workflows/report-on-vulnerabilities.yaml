@@ -30,10 +30,10 @@ jobs:
         VULNS=$(cat scan.json | jq '.Results[] | has("Vulnerabilities")')
         if echo $VULNS | grep -q 'true'; then
           echo "Vulnerabilities found, creating issue"
-          echo results=$(cat scan.json) >> $GITHUB_OUTPUT
+          echo "results=$(cat scan.json)" >> $GITHUB_OUTPUT
         else
           echo "No vulnerabilities found, halting"
-          echo results=$(echo nothing) >> $GITHUB_OUTPUT
+          echo "results=$(echo nothing)" >> $GITHUB_OUTPUT
         fi
 
     - name: Upload vulnerability scan report
@@ -58,7 +58,7 @@ jobs:
 
       - name: Set scan output
         id: set-scan-output
-        run: echo results=$(cat scan.json) >> $GITHUB_OUTPUT
+        run: echo "results=$(cat scan.json)" >> $GITHUB_OUTPUT
 
       - uses: JasonEtco/create-an-issue@1a16035489d05041b9af40b970f02e301c52ffba # v2.8.0
         env:

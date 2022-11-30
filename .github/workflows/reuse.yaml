@@ -117,7 +117,7 @@ jobs:
         id: check-branch
         run: |
           if [[ ${{ steps.extract_branch.outputs.branch }} =~ ^release-[0-9]+\.[0-9]$ ]]; then
-              echo match=true >> $GITHUB_OUTPUT
+              echo "match=true" >> $GITHUB_OUTPUT
           fi
 
       - name: ko build dev image
