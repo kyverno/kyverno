@@ -33,7 +33,7 @@ jobs:
           echo "results=$(cat scan.json)" >> $GITHUB_OUTPUT
         else
           echo "No vulnerabilities found, halting"
-          echo "results=$(echo nothing)" >> $GITHUB_OUTPUT
+          echo "results=nothing" >> $GITHUB_OUTPUT
         fi
 
     - name: Upload vulnerability scan report
