@@ -11,7 +11,7 @@ import (
 
 func registerPolicyRuleInfoMetric(
 	ctx context.Context,
-	m *metrics.MetricsConfig,
+	m metrics.MetricsConfigManager,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
@@ -29,7 +29,7 @@ func registerPolicyRuleInfoMetric(
 	default:
 		return fmt.Errorf("unknown metric change type found:  %s", metricChangeType)
 	}
-	if m.Config.CheckNamespace(policyNamespace) {
+	if m.Config().CheckNamespace(policyNamespace) {
 		if policyType == metrics.Cluster {
 			policyNamespace = "-"
 		}
@@ -42,7 +42,7 @@ func registerPolicyRuleInfoMetric(
 	return nil
 }
 
-func AddPolicy(ctx context.Context, m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface) error {
+func AddPolicy(ctx context.Context, m metrics.MetricsConfigManager, policy kyvernov1.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func AddPolicy(ctx context.Context, m *metrics.MetricsConfig, policy kyvernov1.P
 	return nil
 }
 
-func RemovePolicy(ctx context.Context, m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface) error {
+func RemovePolicy(ctx context.Context, m metrics.MetricsConfigManager, policy kyvernov1.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err

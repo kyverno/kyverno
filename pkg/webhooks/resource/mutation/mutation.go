@@ -30,7 +30,7 @@ type MutationHandler interface {
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
 	HandleMutation(
-		*metrics.MetricsConfig,
+		metrics.MetricsConfigManager,
 		*admissionv1.AdmissionRequest,
 		[]kyvernov1.PolicyInterface,
 		*engine.PolicyContext,
@@ -61,7 +61,7 @@ type mutationHandler struct {
 }
 
 func (h *mutationHandler) HandleMutation(
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -78,7 +78,7 @@ func (h *mutationHandler) HandleMutation(
 // applyMutations handles mutating webhook admission request
 // return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
 func (v *mutationHandler) applyMutations(
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,

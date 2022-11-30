@@ -26,19 +26,19 @@ func registerMetric(logger logr.Logger, m string, requestOperation string, r rep
 
 // POLICY RESULTS
 
-func RegisterPolicyResultsMetricMutation(ctx context.Context, logger logr.Logger, metricsConfig *metrics.MetricsConfig, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
+func RegisterPolicyResultsMetricMutation(ctx context.Context, logger logr.Logger, metricsConfig metrics.MetricsConfigManager, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
 		return policyResults.ProcessEngineResponse(ctx, metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
 	})
 }
 
-func RegisterPolicyResultsMetricValidation(ctx context.Context, logger logr.Logger, metricsConfig *metrics.MetricsConfig, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
+func RegisterPolicyResultsMetricValidation(ctx context.Context, logger logr.Logger, metricsConfig metrics.MetricsConfigManager, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
 		return policyResults.ProcessEngineResponse(ctx, metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
 	})
 }
 
-func RegisterPolicyResultsMetricGeneration(ctx context.Context, logger logr.Logger, metricsConfig *metrics.MetricsConfig, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
+func RegisterPolicyResultsMetricGeneration(ctx context.Context, logger logr.Logger, metricsConfig metrics.MetricsConfigManager, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
 		return policyResults.ProcessEngineResponse(ctx, metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
 	})
@@ -46,19 +46,19 @@ func RegisterPolicyResultsMetricGeneration(ctx context.Context, logger logr.Logg
 
 // POLICY EXECUTION
 
-func RegisterPolicyExecutionDurationMetricMutate(ctx context.Context, logger logr.Logger, metricsConfig *metrics.MetricsConfig, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
+func RegisterPolicyExecutionDurationMetricMutate(ctx context.Context, logger logr.Logger, metricsConfig metrics.MetricsConfigManager, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_execution_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
 		return policyExecutionDuration.ProcessEngineResponse(ctx, metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
 	})
 }
 
-func RegisterPolicyExecutionDurationMetricValidate(ctx context.Context, logger logr.Logger, metricsConfig *metrics.MetricsConfig, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
+func RegisterPolicyExecutionDurationMetricValidate(ctx context.Context, logger logr.Logger, metricsConfig metrics.MetricsConfigManager, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_execution_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
 		return policyExecutionDuration.ProcessEngineResponse(ctx, metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
 	})
 }
 
-func RegisterPolicyExecutionDurationMetricGenerate(ctx context.Context, logger logr.Logger, metricsConfig *metrics.MetricsConfig, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
+func RegisterPolicyExecutionDurationMetricGenerate(ctx context.Context, logger logr.Logger, metricsConfig metrics.MetricsConfigManager, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_execution_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
 		return policyExecutionDuration.ProcessEngineResponse(ctx, metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
 	})
