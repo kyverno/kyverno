@@ -398,7 +398,14 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		}
 
 		attestorSet.Entries = append(attestorSet.Entries, attestor)
-		copy.Attestors = append(copy.Attestors, attestorSet)
+		if len(iv.Attestations) > 0 {
+			for i := range iv.Attestations {
+				copy.Attestations[i].Attestors = append(copy.Attestations[i].Attestors, attestorSet)
+			}
+		} else {
+			copy.Attestors = append(copy.Attestors, attestorSet)
+		}
+
 	}
 
 	copy.Attestations = iv.Attestations
