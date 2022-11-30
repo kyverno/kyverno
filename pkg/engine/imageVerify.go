@@ -307,12 +307,10 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil), ""
 	}
 
-	var ruleResp *response.RuleResponse
-	var cosignResp *cosign.Response
 	if len(imageVerify.Attestors) > 0 {
-		ruleResp, cosignResp, _ = iv.verifyAttestors(imageVerify.Attestors, imageVerify, imageInfo, "")
+		ruleResp, _, _ := iv.verifyAttestors(imageVerify.Attestors, imageVerify, imageInfo, "")
 		if ruleResp.Status != response.RuleStatusPass {
-			return ruleResp, cosignResp.Digest
+			return ruleResp, ""
 		}
 	}
 
@@ -363,10 +361,14 @@ func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerificat
 		for j, attestor := range attestation.Attestors {
 			attestorPath := fmt.Sprintf("%s.attestors[%d]", path, j)
 
+			requiredCount := getRequiredCount(attestor)
+			verifiedCount := 0
+
 			entries := attestor.Entries
 			if len(entries) == 0 {
 				entries = []kyvernov1.Attestor{{}}
 			}
+
 			for _, a := range entries {
 				entryPath := fmt.Sprintf("%s.entries[%d]", attestorPath, i)
 				opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, attestation)
@@ -383,10 +385,17 @@ func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerificat
 					return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), ""
 				}
 
+				verifiedCount++
 				attestationError = iv.verifyAttestation(cosignResp.Statements, attestation, imageInfo)
 				if attestationError != nil {
 					attestationError = errors.Wrapf(attestationError, entryPath+subPath)
 					return ruleResponse(*iv.rule, response.ImageVerify, attestationError.Error(), response.RuleStatusFail, nil), ""
+				}
+
+				if verifiedCount >= requiredCount {
+					msg := fmt.Sprintf("image attestations verification succeeded, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
+					iv.logger.V(2).Info(msg)
+					return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), ""
 				}
 			}
 		}
@@ -394,7 +403,7 @@ func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerificat
 	}
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
-	iv.logger.V(3).Info(msg)
+	iv.logger.V(2).Info(msg)
 	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), ""
 }
 
@@ -577,9 +586,8 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]interface{}, 
 		return fmt.Errorf("predicate type %s not found", attestation.PredicateType)
 	}
 
-	iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
-
 	for _, s := range statements {
+		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
 		val, err := iv.checkAttestations(attestation, s)
 		if err != nil {
 			return errors.Wrap(err, "failed to check attestations")
