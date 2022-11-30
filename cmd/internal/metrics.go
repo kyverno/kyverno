@@ -38,7 +38,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, kubeClient kubernetes
 	)
 	checkError(logger, err, "failed to init metrics")
 	// Pass logger to opentelemetry so JSON format is used (when configured)
-	otelLogger.SetLogger(logger)
+	otel.SetLogger(logger)
 	var cancel context.CancelFunc
 	if otel == "grpc" {
 		cancel = func() {
