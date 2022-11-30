@@ -40,7 +40,7 @@ type handlers struct {
 
 	// config
 	configuration config.Configuration
-	metricsConfig *metrics.MetricsConfig
+	metricsConfig metrics.MetricsConfigManager
 
 	// cache
 	pCache policycache.Cache
@@ -64,7 +64,7 @@ func NewHandlers(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	configuration config.Configuration,
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
 	nsLister corev1listers.NamespaceLister,
 	rbLister rbacv1listers.RoleBindingLister,

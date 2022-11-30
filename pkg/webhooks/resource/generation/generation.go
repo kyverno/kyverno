@@ -33,7 +33,7 @@ type GenerationHandler interface {
 	// TODO: why do we need to expose that ?
 	HandleUpdatesForGenerateRules(*admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface)
 	Handle(
-		*metrics.MetricsConfig,
+		metrics.MetricsConfigManager,
 		*admissionv1.AdmissionRequest,
 		[]kyvernov1.PolicyInterface,
 		*engine.PolicyContext,
@@ -76,7 +76,7 @@ type generationHandler struct {
 
 // Handle handles admission-requests for policies with generate rules
 func (h *generationHandler) Handle(
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
