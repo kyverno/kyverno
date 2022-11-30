@@ -214,7 +214,7 @@ type Attestation struct {
 	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
 
 	// Attestors specified the required attestors (i.e. authorities)
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	Attestors []AttestorSet `json:"attestors" yaml:"attestors"`
 
 	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified

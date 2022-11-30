@@ -339,10 +339,10 @@ func decodeStatements(sigs []oci.Signature) ([]map[string]interface{}, string, e
 	}
 
 	var digest string
+	var statement map[string]interface{}
 	decodedStatements := make([]map[string]interface{}, len(sigs))
 	for i, sig := range sigs {
 		var err error
-		statement := make(map[string]interface{})
 		statement, digest, err = decodeStatement(sig)
 		if err != nil {
 			return nil, "", err

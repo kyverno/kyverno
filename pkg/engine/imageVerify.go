@@ -311,11 +311,9 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 	var cosignResp *cosign.Response
 	if len(imageVerify.Attestors) > 0 {
 		ruleResp, cosignResp, _ = iv.verifyAttestors(imageVerify.Attestors, imageVerify, imageInfo, "")
-		if cosignResp == nil {
-			return ruleResp, ""
+		if ruleResp.Status != response.RuleStatusPass {
+			return ruleResp, cosignResp.Digest
 		}
-
-		return ruleResp, cosignResp.Digest
 	}
 
 	return iv.verifyAttestations(imageVerify, imageInfo)
@@ -365,7 +363,11 @@ func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerificat
 		for j, attestor := range attestation.Attestors {
 			attestorPath := fmt.Sprintf("%s.attestors[%d]", path, j)
 
-			for _, a := range attestor.Entries {
+			entries := attestor.Entries
+			if len(entries) == 0 {
+				entries = []kyvernov1.Attestor{{}}
+			}
+			for _, a := range entries {
 				entryPath := fmt.Sprintf("%s.entries[%d]", attestorPath, i)
 				opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, attestation)
 				cosignResp, err := cosign.FetchAttestations(*opts)

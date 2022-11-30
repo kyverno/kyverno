@@ -2825,8 +2825,6 @@ spec:
                                   description: PredicateType defines the type of Predicate
                                     contained within the Statement.
                                   type: string
-                              required:
-                              - attestors
                               type: object
                             type: array
                           attestors:
@@ -5959,8 +5957,6 @@ spec:
                                       description: PredicateType defines the type
                                         of Predicate contained within the Statement.
                                       type: string
-                                  required:
-                                  - attestors
                                   type: object
                                 type: array
                               attestors:
@@ -8884,8 +8880,6 @@ spec:
                                   description: PredicateType defines the type of Predicate
                                     contained within the Statement.
                                   type: string
-                              required:
-                              - attestors
                               type: object
                             type: array
                           attestors:
@@ -11993,8 +11987,6 @@ spec:
                                       description: PredicateType defines the type
                                         of Predicate contained within the Statement.
                                       type: string
-                                  required:
-                                  - attestors
                                   type: object
                                 type: array
                               attestors:
