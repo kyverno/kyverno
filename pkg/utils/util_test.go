@@ -21,21 +21,6 @@ func Test_OriginalMapMustNotBeChanged(t *testing.T) {
 	assert.Equal(t, originalMap["r"], 2138)
 }
 
-func Test_OriginalSliceMustNotBeChanged(t *testing.T) {
-	// no variables
-	originalSlice := []interface{}{
-		3711,
-		2138,
-		1908,
-		912,
-	}
-
-	sliceCopy := CopySlice(originalSlice)
-	sliceCopy[0] = 1
-
-	assert.Equal(t, originalSlice[0], 3711)
-}
-
 func Test_containsNs(t *testing.T) {
 	var patterns []string
 	var res bool
