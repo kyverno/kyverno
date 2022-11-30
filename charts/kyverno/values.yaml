@@ -128,10 +128,10 @@ podAntiAffinity:
       podAffinityTerm:
         labelSelector:
           matchExpressions:
-          - key: app.kubernetes.io/name
-            operator: In
-            values:
-            - kyverno
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - '{{ template "kyverno.name" . }}'
         topologyKey: kubernetes.io/hostname
 
 # -- Pod affinity constraints.
