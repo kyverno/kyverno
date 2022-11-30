@@ -13,11 +13,11 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func (inner AdmissionHandler) WithMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration) AdmissionHandler {
+func (inner AdmissionHandler) WithMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration, attrs ...attribute.KeyValue) AdmissionHandler {
 	return inner.withMetrics(logger, metricsConfig).WithTrace("METRICS")
 }
 
-func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration) AdmissionHandler {
+func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration, attrs ...attribute.KeyValue) AdmissionHandler {
 	meter := global.MeterProvider().Meter("kyverno")
 	admissionRequestsMetric, err := meter.SyncInt64().Counter(
 		"kyverno_admission_requests_total",
@@ -42,29 +42,22 @@ func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig conf
 			if response != nil {
 				allowed = response.Allowed
 			}
+			attributes := []attribute.KeyValue{
+				attribute.String("resource_kind", request.Kind.Kind),
+				attribute.String("resource_namespace", namespace),
+				attribute.String("resource_request_operation", operation),
+				attribute.Bool("request_allowed", allowed),
+			}
+			attributes = append(attributes, attrs...)
 			if admissionReviewDurationMetric != nil {
 				defer func() {
 					latency := int64(time.Since(startTime))
 					admissionReviewLatencyDurationInSeconds := float64(latency) / float64(1000*1000*1000)
-					admissionReviewDurationMetric.Record(
-						ctx,
-						admissionReviewLatencyDurationInSeconds,
-						attribute.String("resource_kind", request.Kind.Kind),
-						attribute.String("resource_namespace", namespace),
-						attribute.String("resource_request_operation", operation),
-						attribute.Bool("request_allowed", allowed),
-					)
+					admissionReviewDurationMetric.Record(ctx, admissionReviewLatencyDurationInSeconds, attributes...)
 				}()
 			}
 			if admissionRequestsMetric != nil {
-				admissionRequestsMetric.Add(
-					ctx,
-					1,
-					attribute.String("resource_kind", request.Kind.Kind),
-					attribute.String("resource_namespace", namespace),
-					attribute.String("resource_request_operation", operation),
-					attribute.Bool("request_allowed", allowed),
-				)
+				admissionRequestsMetric.Add(ctx, 1, attributes...)
 			}
 		}
 		return response
