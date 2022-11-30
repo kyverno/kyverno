@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -61,107 +60,7 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
-var (
-	// TODO: this has been added to backward support command line arguments
-	// will be removed in future and the configuration will be set only via configmaps
-	serverIP                   string
-	metricsPort                string
-	webhookTimeout             int
-	genWorkers                 int
-	maxQueuedEvents            int
-	disableMetricsExport       bool
-	otel                       string
-	otelCollector              string
-	transportCreds             string
-	autoUpdateWebhooks         bool
-	imagePullSecrets           string
-	imageSignatureRepository   string
-	allowInsecureRegistry      bool
-	webhookRegistrationTimeout time.Duration
-	backgroundScan             bool
-	admissionReports           bool
-	reportsChunkSize           int
-	backgroundScanWorkers      int
-	dumpPayload                bool
-	leaderElectionRetryPeriod  time.Duration
-	// DEPRECATED: remove in 1.9
-	splitPolicyReport bool
-)
-
-func parseFlags(config internal.Configuration) {
-	internal.InitFlags(config)
-	flag.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
-	flag.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
-	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
-	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
-	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
-	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
-	flag.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
-	flag.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local", "Set this flag to the OpenTelemetry Collector Service Address. Kyverno will try to connect to this on the metrics port.")
-	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
-	flag.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
-	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
-	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
-	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
-	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
-	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
-	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
-	flag.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
-	flag.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
-	flag.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
-	flag.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
-	flag.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
-	flag.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
-	// DEPRECATED: remove in 1.9
-	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
-	flag.Parse()
-}
-
-func setupMetrics(ctx context.Context, logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
-	logger = logger.WithName("metrics")
-	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
-	metricsConfiguration := internal.GetMetricsConfiguration(logger, kubeClient)
-	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
-		ctx,
-		disableMetricsExport,
-		otel,
-		metricsAddr,
-		otelCollector,
-		metricsConfiguration,
-		transportCreds,
-		kubeClient,
-		logging.WithName("metrics"),
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	var cancel context.CancelFunc
-	if otel == "grpc" {
-		cancel = func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			defer cancel()
-			metrics.ShutDownController(ctx, metricsPusher)
-		}
-	}
-	if otel == "prometheus" {
-		go func() {
-			metricsServer := http.Server{
-				Addr:              metricsAddr,
-				Handler:           metricsServerMux,
-				ErrorLog:          logging.StdLogger(logger, ""),
-				ReadHeaderTimeout: 30 * time.Second,
-			}
-			if err := metricsServer.ListenAndServe(); err != nil {
-				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
-				os.Exit(1)
-			}
-		}()
-	}
-	return metricsConfig, cancel, nil
-}
-
-func setupRegistryClient(logger logr.Logger, kubeClient kubernetes.Interface) error {
+func setupRegistryClient(logger logr.Logger, kubeClient kubernetes.Interface, imagePullSecrets string, allowInsecureRegistry bool) error {
 	logger = logger.WithName("registry-client")
 	logger.Info("setup registry client...", "secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
 	var registryOptions []registryclient.Option
@@ -180,7 +79,7 @@ func setupRegistryClient(logger logr.Logger, kubeClient kubernetes.Interface) er
 	return nil
 }
 
-func setupCosign(logger logr.Logger) {
+func setupCosign(logger logr.Logger, imageSignatureRepository string) {
 	logger = logger.WithName("cosign")
 	logger.Info("setup cosign...", "repository", imageSignatureRepository)
 	if imageSignatureRepository != "" {
@@ -188,7 +87,7 @@ func setupCosign(logger logr.Logger) {
 	}
 }
 
-func showWarnings(logger logr.Logger) {
+func showWarnings(logger logr.Logger, splitPolicyReport bool) {
 	logger = logger.WithName("warnings")
 	// DEPRECATED: remove in 1.9
 	if splitPolicyReport {
@@ -208,6 +107,7 @@ func sanityChecks(dynamicClient dclient.Interface) error {
 }
 
 func createNonLeaderControllers(
+	genWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -257,6 +157,8 @@ func createNonLeaderControllers(
 func createReportControllers(
 	backgroundScan bool,
 	admissionReports bool,
+	reportsChunkSize int,
+	backgroundScanWorkers int,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
@@ -330,6 +232,13 @@ func createReportControllers(
 }
 
 func createrLeaderControllers(
+	backgroundScan bool,
+	admissionReports bool,
+	reportsChunkSize int,
+	backgroundScanWorkers int,
+	serverIP string,
+	webhookTimeout int,
+	autoUpdateWebhooks bool,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -338,7 +247,7 @@ func createrLeaderControllers(
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
 	configuration config.Configuration,
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
@@ -386,6 +295,8 @@ func createrLeaderControllers(
 	reportControllers, warmup := createReportControllers(
 		backgroundScan,
 		admissionReports,
+		reportsChunkSize,
+		backgroundScanWorkers,
 		dynamicClient,
 		kyvernoClient,
 		metadataInformer,
@@ -405,39 +316,67 @@ func createrLeaderControllers(
 }
 
 func main() {
+	var (
+		// TODO: this has been added to backward support command line arguments
+		// will be removed in future and the configuration will be set only via configmaps
+		serverIP                   string
+		webhookTimeout             int
+		genWorkers                 int
+		maxQueuedEvents            int
+		autoUpdateWebhooks         bool
+		imagePullSecrets           string
+		imageSignatureRepository   string
+		allowInsecureRegistry      bool
+		webhookRegistrationTimeout time.Duration
+		backgroundScan             bool
+		admissionReports           bool
+		reportsChunkSize           int
+		backgroundScanWorkers      int
+		dumpPayload                bool
+		leaderElectionRetryPeriod  time.Duration
+		// DEPRECATED: remove in 1.9
+		splitPolicyReport bool
+	)
+	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
+	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
+	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
+	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
+	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
+	flagset.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
+	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
+	flagset.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
+	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
+	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
+	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
+	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
+	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
+	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
+	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
+	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
+	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
+	// DEPRECATED: remove in 1.9
+	flagset.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
 		internal.WithTracing(),
+		internal.WithMetrics(),
 		internal.WithKubeconfig(),
+		internal.WithFlagSets(flagset),
 	)
 	// parse flags
-	parseFlags(appConfig)
+	internal.ParseFlags(appConfig)
 	// setup logger
-	logger := internal.SetupLogger()
-	// setup maxprocs
-	undo := internal.SetupMaxProcs(logger)
-	defer undo()
 	// show version
-	showWarnings(logger)
-	// show version
-	internal.ShowVersion(logger)
 	// start profiling
-	internal.SetupProfiling(logger)
-	// create raw client
-	rawClient := internal.CreateKubernetesClient(logger)
 	// setup signals
-	signalCtx, signalCancel := internal.SetupSignals(logger)
-	defer signalCancel()
+	// setup maxprocs
 	// setup metrics
-	metricsConfig, metricsShutdown, err := setupMetrics(signalCtx, logger, rawClient)
-	if err != nil {
-		logger.Error(err, "failed to setup metrics")
-		os.Exit(1)
-	}
-	if metricsShutdown != nil {
-		defer metricsShutdown()
-	}
+	signalCtx, logger, metricsConfig, sdown := internal.Setup()
+	defer sdown()
+	// show version
+	showWarnings(logger, splitPolicyReport)
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
@@ -449,16 +388,13 @@ func main() {
 		logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
 	}
-	// setup tracing
-	tracingShutdown := internal.SetupTracing(logger, "kyverno", kubeClient)
-	defer tracingShutdown()
 	// setup registry client
-	if err := setupRegistryClient(logger, kubeClient); err != nil {
+	if err := setupRegistryClient(logger, kubeClient, imagePullSecrets, allowInsecureRegistry); err != nil {
 		logger.Error(err, "failed to setup registry client")
 		os.Exit(1)
 	}
 	// setup cosign
-	setupCosign(logger)
+	setupCosign(logger, imageSignatureRepository)
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
@@ -510,6 +446,7 @@ func main() {
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
+		genWorkers,
 		kubeInformer,
 		kubeKyvernoInformer,
 		kyvernoInformer,
@@ -557,6 +494,13 @@ func main() {
 			metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
+				backgroundScan,
+				admissionReports,
+				reportsChunkSize,
+				backgroundScanWorkers,
+				serverIP,
+				webhookTimeout,
+				autoUpdateWebhooks,
 				kubeInformer,
 				kubeKyvernoInformer,
 				kyvernoInformer,

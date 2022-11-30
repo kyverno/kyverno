@@ -25,11 +25,11 @@ func (h *cleanupPolicyHandlers) Validate(ctx context.Context, logger logr.Logger
 	policy, _, err := admissionutils.GetCleanupPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
-		return admissionutils.Response(err)
+		return admissionutils.Response(request.UID, err)
 	}
 	err = validate.ValidateCleanupPolicy(logger, policy, h.client, false)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 	}
-	return admissionutils.Response(err)
+	return admissionutils.Response(request.UID, err)
 }
