@@ -174,11 +174,6 @@ func Test_ImageVerification(t *testing.T) {
 					},
 				},
 			},
-			errors: func(i *ImageVerification) field.ErrorList {
-				return field.ErrorList{
-					field.Invalid(path.Child("attestations").Index(0), &i.Attestations[0], "An attestor is required"),
-				}
-			},
 		},
 		{
 			name: "multiple entries",

@@ -248,7 +248,7 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 
 func (a *Attestation) Validate(path *field.Path) (errs field.ErrorList) {
 	if len(a.Attestors) == 0 {
-		errs = append(errs, field.Invalid(path, a, "An attestor is required"))
+		return
 	}
 
 	attestorsPath := path.Child("attestors")
@@ -405,7 +405,6 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		} else {
 			copy.Attestors = append(copy.Attestors, attestorSet)
 		}
-
 	}
 
 	copy.Attestations = iv.Attestations
