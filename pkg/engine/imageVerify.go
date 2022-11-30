@@ -358,7 +358,12 @@ func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerificat
 		var attestationError error
 		path := fmt.Sprintf(".attestations[%d]", i)
 
-		for j, attestor := range attestation.Attestors {
+		attestors := attestation.Attestors
+		if len(attestation.Attestors) == 0 {
+			attestors = []kyvernov1.AttestorSet{{}}
+		}
+
+		for j, attestor := range attestors {
 			attestorPath := fmt.Sprintf("%s.attestors[%d]", path, j)
 
 			requiredCount := getRequiredCount(attestor)
