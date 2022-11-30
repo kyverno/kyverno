@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: check-slsa-attestations-pass-1
+  name: check-slsa-attestations-pass-4
 status:
   conditions:
   - reason: Succeeded
