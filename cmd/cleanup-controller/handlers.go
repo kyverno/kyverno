@@ -29,7 +29,7 @@ func (h *cleanupPolicyHandlers) Validate(ctx context.Context, logger logr.Logger
 	}
 	if err := validation.Validate(ctx, logger, h.client, policy); err != nil {
 		logger.Error(err, "policy validation errors")
-    return admissionutils.Response(request.UID, err)
+		return admissionutils.Response(request.UID, err)
 	}
-  return nil
+	return nil
 }
