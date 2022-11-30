@@ -11,6 +11,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type updateRequestResponse struct {
@@ -18,9 +19,9 @@ type updateRequestResponse struct {
 	err error
 }
 
-func errorResponse(logger logr.Logger, err error, message string) *admissionv1.AdmissionResponse {
+func errorResponse(logger logr.Logger, uid types.UID, err error, message string) *admissionv1.AdmissionResponse {
 	logger.Error(err, message)
-	return admissionutils.Response(errors.New(message + ": " + err.Error()))
+	return admissionutils.Response(uid, errors.New(message+": "+err.Error()))
 }
 
 func patchRequest(patches []byte, request *admissionv1.AdmissionRequest, logger logr.Logger) *admissionv1.AdmissionRequest {
