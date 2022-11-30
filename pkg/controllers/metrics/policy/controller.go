@@ -12,13 +12,13 @@ import (
 
 type controller struct {
 	// config
-	metricsConfig *metrics.MetricsConfig
+	metricsConfig metrics.MetricsConfigManager
 }
 
 // TODO: this is a very strange controller, it only processes events, this should be changed to a real controller
 // but this is difficult as we currently can't remove existing metrics. To be reviewed when we implement a more
 // solid metrics system.
-func NewController(metricsConfig *metrics.MetricsConfig, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) {
+func NewController(metricsConfig metrics.MetricsConfigManager, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) {
 	c := controller{
 		metricsConfig: metricsConfig,
 	}
