@@ -7,7 +7,7 @@ import (
 
 func NewFakeMetricsConfig() *MetricsConfig {
 	mc := &MetricsConfig{
-		Config: config.NewDefaultMetricsConfiguration(),
+		config: config.NewDefaultMetricsConfiguration(),
 		Log:    klog.NewKlogr(),
 	}
 	_ = mc.initializeMetrics()
