@@ -524,7 +524,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 	}
 
 	opts.PredicateType = attestation.PredicateType
-	if len(attestation.Attestors) > 0 {
+	if attestation.PredicateType != "" {
 		opts.FetchAttestations = true
 	}
 
