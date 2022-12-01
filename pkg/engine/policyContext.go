@@ -170,7 +170,7 @@ func NewPolicyContextFromAdmissionRequest(
 	if err := ctx.AddImageInfos(&newResource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
-	policyContext := NewPolicyContextWithJsonContext(context.NewContext()).
+	policyContext := NewPolicyContextWithJsonContext(ctx).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
