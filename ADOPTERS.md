@@ -23,6 +23,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Bloomberg](https://www.techatbloomberg.com/) | Use Kyverno for replacing custom validation and mutation webhooks in their internal Kubernetes based platforms |
 | [Techcombank](https://www.techcombank.com.vn/trang-chu) | Use Kyverno to enforce security policies rules, Kubernetes best practices for their internal container based workload on Kubernetes|
 | [Rafay Systems](https://rafay.co/) | Platform supports centralized deployment of Kyverno across clusters|
+| [Wayfair](https://wayfair.com) | Policy enforcement and mutations on multi-tenant managed clusters | 
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 
