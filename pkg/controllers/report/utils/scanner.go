@@ -80,7 +80,7 @@ func (s *scanner) validateResource(resource unstructured.Unstructured, nsLabels 
 		WithPolicy(policy).
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
-		WithExcludeGroupRole(s.excludeGroupRole)
+		WithExcludeGroupRole(s.excludeGroupRole...)
 	return engine.Validate(policyCtx), nil
 }
 
@@ -103,7 +103,7 @@ func (s *scanner) validateImages(resource unstructured.Unstructured, nsLabels ma
 		WithPolicy(policy).
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
-		WithExcludeGroupRole(s.excludeGroupRole)
+		WithExcludeGroupRole(s.excludeGroupRole...)
 	response, _ := engine.VerifyAndPatchImages(policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)

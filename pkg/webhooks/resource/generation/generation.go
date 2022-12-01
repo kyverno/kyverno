@@ -113,7 +113,7 @@ func (h *generationHandler) Handle(
 			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(context.TODO(), h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
 		}
 
-		if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Generate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
+		if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Generate, h.urGenerator, policyContext.AdmissionInfo(), request.Operation, engineResponses...); failedResponse != nil {
 			// report failure event
 			for _, failedUR := range failedResponse {
 				err := fmt.Errorf("failed to create Update Request: %v", failedUR.err)
