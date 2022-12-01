@@ -100,8 +100,8 @@ func (v *mutationHandler) applyMutations(
 			continue
 		}
 		v.log.V(3).Info("applying policy mutate rules", "policy", policy.GetName())
-		policyContext := policyContext.WithPolicy(policy)
-		engineResponse, policyPatches, err := v.applyMutation(request, policyContext)
+		currentContext := policyContext.WithPolicy(policy)
+		engineResponse, policyPatches, err := v.applyMutation(request, currentContext)
 		if err != nil {
 			return nil, nil, fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
 		}
@@ -114,7 +114,7 @@ func (v *mutationHandler) applyMutations(
 			}
 		}
 
-		policyContext = policyContext.WithNewResource(engineResponse.PatchedResource)
+		policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
 		engineResponses = append(engineResponses, engineResponse)
 
 		// registering the kyverno_policy_results_total metric concurrently
