@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"go.opentelemetry.io/otel"
+	otlp "go.opentelemetry.io/otel"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -38,7 +38,7 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, kubeClient kubernetes
 	)
 	checkError(logger, err, "failed to init metrics")
 	// Pass logger to opentelemetry so JSON format is used (when configured)
-	otel.SetLogger(logger)
+	otlp.SetLogger(logger)
 	var cancel context.CancelFunc
 	if otel == "grpc" {
 		cancel = func() {
