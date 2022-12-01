@@ -6725,7 +6725,7 @@ spec:
                                 them into a list of Statements.
                               properties:
                                 attestors:
-                                  description: Attestors specified the required attestors
+                                  description: Attestors specify the required attestors
                                     (i.e. authorities)
                                   items:
                                     properties:
@@ -9837,7 +9837,7 @@ spec:
                                     and decodes them into a list of Statements.
                                   properties:
                                     attestors:
-                                      description: Attestors specified the required
+                                      description: Attestors specify the required
                                         attestors (i.e. authorities)
                                       items:
                                         properties:
@@ -12780,7 +12780,7 @@ spec:
                                 them into a list of Statements.
                               properties:
                                 attestors:
-                                  description: Attestors specified the required attestors
+                                  description: Attestors specify the required attestors
                                     (i.e. authorities)
                                   items:
                                     properties:
@@ -15867,7 +15867,7 @@ spec:
                                     and decodes them into a list of Statements.
                                   properties:
                                     attestors:
-                                      description: Attestors specified the required
+                                      description: Attestors specify the required
                                         attestors (i.e. authorities)
                                       items:
                                         properties:
@@ -19642,7 +19642,7 @@ spec:
                                 them into a list of Statements.
                               properties:
                                 attestors:
-                                  description: Attestors specified the required attestors
+                                  description: Attestors specify the required attestors
                                     (i.e. authorities)
                                   items:
                                     properties:
@@ -22755,7 +22755,7 @@ spec:
                                     and decodes them into a list of Statements.
                                   properties:
                                     attestors:
-                                      description: Attestors specified the required
+                                      description: Attestors specify the required
                                         attestors (i.e. authorities)
                                       items:
                                         properties:
@@ -25699,7 +25699,7 @@ spec:
                                 them into a list of Statements.
                               properties:
                                 attestors:
-                                  description: Attestors specified the required attestors
+                                  description: Attestors specify the required attestors
                                     (i.e. authorities)
                                   items:
                                     properties:
@@ -28786,7 +28786,7 @@ spec:
                                     and decodes them into a list of Statements.
                                   properties:
                                     attestors:
-                                      description: Attestors specified the required
+                                      description: Attestors specify the required
                                         attestors (i.e. authorities)
                                       items:
                                         properties:
