@@ -84,6 +84,10 @@ policyPreconditions: {}
   #     operator: NotEquals
   #     value: "dcgm-exporter*"
 
+# -- Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`)
+# For more info https://kyverno.io/docs/writing-policies/autogen/.
+autogenControllers: ""
+
 # -- Name override.
 nameOverride:
 

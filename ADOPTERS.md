@@ -22,6 +22,7 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [VSHN AG - APPUiO Cloud](https://www.vshn.ch/) | OpenShift Multi-Tenancy Self-Service for [APPUiO Cloud](https://www.appuio.ch), managed with [Project Syn](https://syn.tools). Kyverno policies are available on [GitHub](https://github.com/appuio/component-appuio-cloud). |
 | [Bloomberg](https://www.techatbloomberg.com/) | Use Kyverno for replacing custom validation and mutation webhooks in their internal Kubernetes based platforms |
 | [Techcombank](https://www.techcombank.com.vn/trang-chu) | Use Kyverno to enforce security policies rules, Kubernetes best practices for their internal container based workload on Kubernetes|
+| [Rafay Systems](https://rafay.co/) | Platform supports centralized deployment of Kyverno across clusters|
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 
