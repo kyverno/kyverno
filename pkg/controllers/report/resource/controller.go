@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -165,6 +166,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	}
 	dynamicWatchers := map[schema.GroupVersionResource]*watcher{}
 	for gvk, gvr := range gvrs {
+		gvr := gvr
+		gvk := gvk
 		logger := logger.WithValues("gvr", gvr, "gvk", gvk)
 		// if we already have one, transfer it to the new map
 		if c.dynamicWatchers[gvr] != nil {
@@ -190,6 +193,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 				logger := logger.WithValues("resourceVersion", resourceVersion)
 				logger.Info("start watcher ...")
 				watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
+					logger.Info("creating watcher...")
 					watch, err := c.client.GetDynamicInterface().Resource(gvr).Watch(context.Background(), options)
 					if err != nil {
 						logger.Error(err, "failed to watch")
@@ -206,7 +210,6 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 						hashes:  hashes,
 					}
 					go func() {
-						gvr := gvr
 						defer logger.Info("watcher stopped")
 						for event := range watchInterface.ResultChan() {
 							switch event.Type {
@@ -216,6 +219,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 								c.updateHash(Modified, event.Object.(*unstructured.Unstructured), gvr)
 							case watch.Deleted:
 								c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
+							case watch.Error:
+								logger.Error(errors.New("watch error event received"), "watch error event received", "event", event.Object)
 							}
 						}
 					}()
