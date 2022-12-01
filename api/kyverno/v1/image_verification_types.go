@@ -213,7 +213,7 @@ type Attestation struct {
 	// PredicateType defines the type of Predicate contained within the Statement.
 	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
 
-	// Attestors specified the required attestors (i.e. authorities)
+	// Attestors specify the required attestors (i.e. authorities)
 	// +kubebuilder:validation:Optional
 	Attestors []AttestorSet `json:"attestors" yaml:"attestors"`
 
