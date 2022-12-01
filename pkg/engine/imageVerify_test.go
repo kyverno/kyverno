@@ -150,7 +150,9 @@ func Test_CosignMockAttest(t *testing.T) {
 
 	er, ivm := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			response.RuleStatusPass, er.PolicyResponse.Rules[0].Status, er.PolicyResponse.Rules[0].Message))
 	assert.Equal(t, ivm.IsEmpty(), false)
 	assert.Equal(t, ivm.isVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 }
