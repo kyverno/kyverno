@@ -179,9 +179,9 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &cpol,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &cpol,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	if oldResource != "" {
@@ -191,7 +191,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 		err = context.AddOldResource(ctx, []byte(oldResource))
 		assert.NilError(t, err)
 
-		policyContext.OldResource = *oldResourceUnstructured
+		policyContext.oldResource = *oldResourceUnstructured
 	}
 
 	if err := ctx.AddImageInfos(resourceUnstructured); err != nil {
@@ -416,7 +416,7 @@ func Test_ConfigMapMissingSuccess(t *testing.T) {
 func Test_ConfigMapMissingFailure(t *testing.T) {
 	ghcrImage := strings.Replace(testConfigMapMissingResource, "nginx:latest", "ghcr.io/kyverno/test-verify-image:signed", -1)
 	policyContext := buildContext(t, testConfigMapMissing, ghcrImage, "")
-	policyContext.Client = client.NewEmptyFakeClient()
+	policyContext.client = client.NewEmptyFakeClient()
 	cosign.ClearMock()
 	err, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
@@ -497,7 +497,7 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	rule := newStaticKeyRule("match-all", "*", testOtherKey)
-	spec := policyContext.Policy.GetSpec()
+	spec := policyContext.policy.GetSpec()
 	spec.Rules = append(spec.Rules, *rule)
 
 	applyAll := kyverno.ApplyAll

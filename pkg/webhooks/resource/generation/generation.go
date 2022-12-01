@@ -88,9 +88,9 @@ func (h *generationHandler) Handle(
 	if (request.Operation == admissionv1.Create || request.Operation == admissionv1.Update) && len(policies) != 0 {
 		for _, policy := range policies {
 			var rules []response.RuleResponse
-			policyContext.Policy = policy
+			policyContext := policyContext.WithPolicy(policy)
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-				policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log)
+				policyContext = policyContext.WithNamespaceLabels(common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 			}
 			engineResponse := engine.ApplyBackgroundChecks(policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
@@ -117,7 +117,8 @@ func (h *generationHandler) Handle(
 			// report failure event
 			for _, failedUR := range failedResponse {
 				err := fmt.Errorf("failed to create Update Request: %v", failedUR.err)
-				e := event.NewBackgroundFailedEvent(err, failedUR.ur.Policy, "", event.GeneratePolicyController, &policyContext.NewResource)
+				newResource := policyContext.NewResource()
+				e := event.NewBackgroundFailedEvent(err, failedUR.ur.Policy, "", event.GeneratePolicyController, &newResource)
 				h.eventGen.Add(e...)
 			}
 		}

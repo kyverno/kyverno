@@ -100,7 +100,7 @@ func (v *mutationHandler) applyMutations(
 			continue
 		}
 		v.log.V(3).Info("applying policy mutate rules", "policy", policy.GetName())
-		policyContext.Policy = policy
+		policyContext := policyContext.WithPolicy(policy)
 		engineResponse, policyPatches, err := v.applyMutation(request, policyContext)
 		if err != nil {
 			return nil, nil, fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
@@ -114,7 +114,7 @@ func (v *mutationHandler) applyMutations(
 			}
 		}
 
-		policyContext.NewResource = engineResponse.PatchedResource
+		policyContext = policyContext.WithNewResource(engineResponse.PatchedResource)
 		engineResponses = append(engineResponses, engineResponse)
 
 		// registering the kyverno_policy_results_total metric concurrently
@@ -141,20 +141,20 @@ func (v *mutationHandler) applyMutations(
 
 func (h *mutationHandler) applyMutation(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (*response.EngineResponse, [][]byte, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log)
+		policyContext = policyContext.WithNamespaceLabels(common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
 
 	engineResponse := engine.Mutate(policyContext)
 	policyPatches := engineResponse.GetPatches()
 
 	if !engineResponse.IsSuccessful() {
-		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy.GetName(), engineResponse.GetFailedRules())
+		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRules())
 	}
 
-	if policyContext.Policy.ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
+	if policyContext.Policy().ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
 		err := h.openApiManager.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy.GetName())
+			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy().GetName())
 		}
 	}
 
@@ -175,9 +175,11 @@ func logMutationResponse(patches [][]byte, engineResponses []*response.EngineRes
 func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 	var deletionTimeStamp *metav1.Time
 	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
+		resource := policyContext.NewResource()
+		deletionTimeStamp = resource.GetDeletionTimestamp()
 	} else {
-		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
+		resource := policyContext.OldResource()
+		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 	return deletionTimeStamp != nil
 }

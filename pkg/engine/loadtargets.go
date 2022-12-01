@@ -36,22 +36,22 @@ func loadTargets(targets []kyvernov1.ResourceSpec, ctx *PolicyContext, logger lo
 }
 
 func resolveSpec(i int, target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.Logger) (kyvernov1.ResourceSpec, error) {
-	kind, err := variables.SubstituteAll(logger, ctx.JSONContext, target.Kind)
+	kind, err := variables.SubstituteAll(logger, ctx.jsonContext, target.Kind)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s: %v", i, target.Kind, err)
 	}
 
-	apiversion, err := variables.SubstituteAll(logger, ctx.JSONContext, target.APIVersion)
+	apiversion, err := variables.SubstituteAll(logger, ctx.jsonContext, target.APIVersion)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].APIVersion %s: %v", i, target.APIVersion, err)
 	}
 
-	namespace, err := variables.SubstituteAll(logger, ctx.JSONContext, target.Namespace)
+	namespace, err := variables.SubstituteAll(logger, ctx.jsonContext, target.Namespace)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Namespace %s: %v", i, target.Namespace, err)
 	}
 
-	name, err := variables.SubstituteAll(logger, ctx.JSONContext, target.Name)
+	name, err := variables.SubstituteAll(logger, ctx.jsonContext, target.Name)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Name %s: %v", i, target.Name, err)
 	}
@@ -70,13 +70,13 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 	name := target.Name
 
 	// if it's namespaced policy, targets has to be loaded only from the policy's namespace
-	if ctx.Policy.IsNamespaced() {
-		namespace = ctx.Policy.GetNamespace()
+	if ctx.policy.IsNamespaced() {
+		namespace = ctx.policy.GetNamespace()
 	}
 
 	if namespace != "" && name != "" &&
 		!wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
-		obj, err := ctx.Client.GetResource(context.TODO(), target.APIVersion, target.Kind, namespace, name)
+		obj, err := ctx.client.GetResource(context.TODO(), target.APIVersion, target.Kind, namespace, name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get target %s/%s %s/%s : %v", target.APIVersion, target.Kind, namespace, name, err)
 		}
@@ -85,7 +85,7 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 	}
 
 	// list all targets if wildcard is specified
-	objList, err := ctx.Client.ListResource(context.TODO(), target.APIVersion, target.Kind, "", nil)
+	objList, err := ctx.client.ListResource(context.TODO(), target.APIVersion, target.Kind, "", nil)
 	if err != nil {
 		return nil, err
 	}
