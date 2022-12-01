@@ -194,6 +194,10 @@ type Attestation struct {
 	// PredicateType defines the type of Predicate contained within the Statement.
 	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
 
+	// Attestors specify the required attestors (i.e. authorities)
+	// +kubebuilder:validation:Optional
+	Attestors []AttestorSet `json:"attestors" yaml:"attestors"`
+
 	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
 	// +optional
@@ -208,11 +212,10 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))
 	}
 
-	hasAttestors := len(copy.Attestors) > 0
-	hasAttestations := len(copy.Attestations) > 0
-
-	if hasAttestations && !hasAttestors {
-		errs = append(errs, field.Invalid(path, iv, "An attestor is required"))
+	asPath := path.Child("attestations")
+	for i, attestation := range copy.Attestations {
+		attestationErrors := attestation.Validate(asPath.Index(i))
+		errs = append(errs, attestationErrors...)
 	}
 
 	attestorsPath := path.Child("attestors")
@@ -221,6 +224,19 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, attestorErrors...)
 	}
 
+	return errs
+}
+
+func (a *Attestation) Validate(path *field.Path) (errs field.ErrorList) {
+	if len(a.Attestors) == 0 {
+		return
+	}
+
+	attestorsPath := path.Child("attestors")
+	for i, as := range a.Attestors {
+		attestorErrors := as.Validate(attestorsPath.Index(i))
+		errs = append(errs, attestorErrors...)
+	}
 	return errs
 }
 
@@ -361,7 +377,13 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		}
 
 		attestorSet.Entries = append(attestorSet.Entries, attestor)
-		copy.Attestors = append(copy.Attestors, attestorSet)
+		if len(iv.Attestations) > 0 {
+			for i := range iv.Attestations {
+				copy.Attestations[i].Attestors = append(copy.Attestations[i].Attestors, attestorSet)
+			}
+		} else {
+			copy.Attestors = append(copy.Attestors, attestorSet)
+		}
 	}
 
 	copy.Attestations = iv.Attestations
