@@ -974,103 +974,115 @@ func Test_Divide(t *testing.T) {
 
 func Test_Modulo(t *testing.T) {
 	testCases := []struct {
+		name           string
 		test           string
 		expectedResult interface{}
 		err            bool
 		retFloat       bool
 	}{
-		// {
-		// 	test: "modulo('12', '13s')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12Ki', '13s')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12s', '13')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12s', '13Ki')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12s', `0`)",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12s', '0s')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo(`12`, '0s')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12M', '0Mi')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12K', `0`)",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12K', '0m')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12Ki', '0G')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12Mi', '0Gi')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12Mi', `0`)",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo(`12`, '0Gi')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo(`12`, '0K')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo(`12`, `0`)",
-		// 	err:  true,
-		// },
-		// {
-		// 	test:           "modulo(`25`, `2`)",
-		// 	expectedResult: 1.0,
-		// 	retFloat:       true,
-		// },
+		// Quantity
 		{
-			test:           "modulo(`13`, '2s')",
+			name: "Quantity % Duration -> error",
+			test: "modulo('12', '13s')",
+			err:  true,
+		},
+		{
+			name: "Quantity % Duration -> error",
+			test: "modulo('12Ki', '13s')",
+			err:  true,
+		},
+		{
+			name: "Quantity % Scalar -> error",
+			test: "modulo('12Ki', `13`)",
+			err:  true,
+		},
+		{
+			name:           "Quantity % Quantity -> Quantity",
+			test:           "modulo('12Ki', '5Ki')",
+			expectedResult: `2Ki`,
+		},
+		// Duration
+		{
+			name: "Duration % Quantity -> error",
+			test: "modulo('13s', '12')",
+			err:  true,
+		},
+		{
+			name: "Duration % Quantity -> error",
+			test: "modulo('13s', '12Ki')",
+			err:  true,
+		},
+		{
+			name:           "Duration % Duration -> Duration",
+			test:           "modulo('13s', '2s')",
 			expectedResult: `1s`,
 		},
 		{
-			test:           "modulo('25m13s', '32s')",
-			expectedResult: `9s`,
+			name: "Duration % Scalar -> error",
+			test: "modulo('13s', `2`)",
+			err:  true,
+		},
+		// Scalar
+		{
+			name: "Scalar % Quantity -> error",
+			test: "modulo(`13`, '12')",
+			err:  true,
 		},
 		{
-			test:           "modulo(`371`, '-13s')",
-			expectedResult: `7s`,
+			name: "Scalar % Quantity -> error",
+			test: "modulo(`13`, '12Ki')",
+			err:  true,
 		},
 		{
-			test:           "modulo(`13312`, '513')",
-			expectedResult: `487`,
+			name: "Scalar % Duration -> error",
+			test: "modulo(`13`, '5s')",
+			err:  true,
 		},
 		{
-			test:           "modulo('26Gi', '12Ki')",
-			expectedResult: `8Ki`,
+			name:           "Scalar % Scalar -> Scalar",
+			test:           "modulo(`13`, `5`)",
+			expectedResult: 3.0,
+			retFloat:       true,
+		},
+		// Modulo by 0
+		{
+			name: "Scalar % Zero -> error",
+			test: "modulo(`14`, `0`)",
+			err:  true,
+		},
+		{
+			name: "Quantity % Zero -> error",
+			test: "modulo('4Ki', `0`)",
+			err:  true,
+		},
+		{
+			name: "Quantity % Zero -> error",
+			test: "modulo('4Ki', '0Ki')",
+			err:  true,
+		},
+		{
+			name: "Quantity % Zero -> error",
+			test: "modulo('4', `0`)",
+			err:  true,
+		},
+		{
+			name: "Quantity % Zero -> error",
+			test: "modulo('4', '0')",
+			err:  true,
+		},
+		{
+			name: "Duration % Zero -> error",
+			test: "modulo('4s', `0`)",
+			err:  true,
+		},
+		{
+			name: "Duration % Zero -> error",
+			test: "modulo('4s', '0s')",
+			err:  true,
 		},
 	}
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("case %s", tc.test), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			jp, err := New(tc.test)
 			assert.NilError(t, err)
 

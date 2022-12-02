@@ -251,64 +251,47 @@ func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
 	}
 }
 
+// Quantity % Duration|Scalar	-> error
+// Quantity % Quantity			-> Quantity
+
+// Duration % Quantity|Scalar	-> error
+// Duration % Duration			-> Duration
+
+// Scalar   % Quantity|Duration	-> error
+// Scalar   % Scalar            -> Scalar
+
 func (op1 Quantity) Modulo(op2 interface{}) (interface{}, error) {
-	quo, err := op1.Divide(op2)
-	if err != nil {
-		return nil, err
+	switch v := op2.(type) {
+	case Quantity:
+		f1 := op1.ToDec().AsApproximateFloat64()
+		f2 := v.ToDec().AsApproximateFloat64()
+		i1 := int64(f1)
+		i2 := int64(f2)
+		if f1 != float64(i1) {
+			return nil, fmt.Errorf(nonIntModuloError, modulo)
+		}
+		if f2 != float64(i2) {
+			return nil, fmt.Errorf(nonIntModuloError, modulo)
+		}
+		if i2 == 0 {
+			return nil, fmt.Errorf(zeroDivisionError, modulo)
+		}
+		return resource.NewQuantity(i1%i2, op1.Quantity.Format).String(), nil
+	default:
+		return nil, errTypeMismatch
 	}
-
-	var x resource.Quantity
-	switch y := quo.(type) {
-	case float64:
-		x, err = resource.ParseQuantity(fmt.Sprintf("%.9f", y))
-	case string:
-		x, err = resource.ParseQuantity(y)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	mul, err := op2.(Operand).Multiply(Quantity{x})
-	if err != nil {
-		return nil, err
-	}
-
-	y, err := resource.ParseQuantity(mul.(string))
-	if err != nil {
-		return nil, err
-	}
-
-	return op1.Subtract(Quantity{y})
 }
 
 func (op1 Duration) Modulo(op2 interface{}) (interface{}, error) {
-	quo, err := op1.Divide(op2)
-	if err != nil {
-		return nil, err
+	switch v := op2.(type) {
+	case Duration:
+		if v.Duration == 0 {
+			return nil, fmt.Errorf(zeroDivisionError, modulo)
+		}
+		return (op1.Duration % v.Duration).String(), nil
+	default:
+		return nil, errTypeMismatch
 	}
-
-	var x time.Duration
-	switch y := quo.(type) {
-	case float64:
-		x, err = time.ParseDuration(fmt.Sprintf("%.9fs", y))
-	case string:
-		x, err = time.ParseDuration(y)
-	}
-	if err != nil {
-		return nil, err
-	}
-	x = x.Truncate(time.Second)
-
-	mul, err := op2.(Operand).Multiply(Duration{x})
-	if err != nil {
-		return nil, err
-	}
-	y, err := time.ParseDuration(mul.(string))
-	if err != nil {
-		return nil, err
-	}
-
-	return op1.Subtract(Duration{y})
 }
 
 func (op1 Scalar) Modulo(op2 interface{}) (interface{}, error) {
@@ -316,65 +299,17 @@ func (op1 Scalar) Modulo(op2 interface{}) (interface{}, error) {
 	case Scalar:
 		val1 := int64(op1.float64)
 		val2 := int64(v.float64)
-
 		if op1.float64 != float64(val1) {
 			return nil, fmt.Errorf(nonIntModuloError, modulo)
 		}
-
 		if v.float64 != float64(val2) {
 			return nil, fmt.Errorf(nonIntModuloError, modulo)
 		}
-
 		if val2 == 0 {
 			return nil, fmt.Errorf(zeroDivisionError, modulo)
 		}
-
 		return float64(val1 % val2), nil
-	case Quantity:
-		quo, err := op1.Divide(op2)
-		if err != nil {
-			return nil, err
-		}
-
-		x, err := resource.ParseQuantity(quo.(string))
-		if err != nil {
-			return nil, err
-		}
-
-		mul, err := op2.(Operand).Multiply(Quantity{x})
-		if err != nil {
-			return nil, err
-		}
-
-		y, err := resource.ParseQuantity(mul.(string))
-		if err != nil {
-			return nil, err
-		}
-
-		return op1.Subtract(Quantity{y})
-	case Duration:
-		quo, err := op1.Divide(op2)
-		if err != nil {
-			return nil, err
-		}
-
-		x, err := time.ParseDuration(quo.(string))
-		if err != nil {
-			return nil, err
-		}
-		x = x.Truncate(time.Second)
-
-		mul, err := op2.(Operand).Multiply(Duration{x})
-		if err != nil {
-			return nil, err
-		}
-		y, err := time.ParseDuration(mul.(string))
-		if err != nil {
-			return nil, err
-		}
-
-		return op1.Subtract(Duration{y})
+	default:
+		return nil, errTypeMismatch
 	}
-
-	return nil, nil
 }
