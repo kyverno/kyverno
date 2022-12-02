@@ -75,14 +75,12 @@ func (s *scanner) validateResource(resource unstructured.Unstructured, nsLabels 
 	if err := ctx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
-	policyCtx := &engine.PolicyContext{
-		Policy:           policy,
-		NewResource:      resource,
-		JSONContext:      ctx,
-		Client:           s.client,
-		NamespaceLabels:  nsLabels,
-		ExcludeGroupRole: s.excludeGroupRole,
-	}
+	policyCtx := engine.NewPolicyContextWithJsonContext(ctx).
+		WithNewResource(resource).
+		WithPolicy(policy).
+		WithClient(s.client).
+		WithNamespaceLabels(nsLabels).
+		WithExcludeGroupRole(s.excludeGroupRole...)
 	return engine.Validate(policyCtx), nil
 }
 
@@ -100,14 +98,12 @@ func (s *scanner) validateImages(resource unstructured.Unstructured, nsLabels ma
 	if err := ctx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
-	policyCtx := &engine.PolicyContext{
-		Policy:           policy,
-		NewResource:      resource,
-		JSONContext:      ctx,
-		Client:           s.client,
-		NamespaceLabels:  nsLabels,
-		ExcludeGroupRole: s.excludeGroupRole,
-	}
+	policyCtx := engine.NewPolicyContextWithJsonContext(ctx).
+		WithNewResource(resource).
+		WithPolicy(policy).
+		WithClient(s.client).
+		WithNamespaceLabels(nsLabels).
+		WithExcludeGroupRole(s.excludeGroupRole...)
 	response, _ := engine.VerifyAndPatchImages(policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)

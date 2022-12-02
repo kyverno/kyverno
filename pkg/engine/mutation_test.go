@@ -90,9 +90,9 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 		t.Error(err)
 	}
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured}
 	er := Mutate(policyContext)
 	t.Log(string(expectedPatch))
 
@@ -163,9 +163,9 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured}
 	er := Mutate(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
@@ -258,9 +258,9 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	er := Mutate(policyContext)
@@ -361,9 +361,9 @@ func Test_chained_rules(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resource,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resource,
 	}
 
 	err = ctx.AddImageInfos(resource)
@@ -455,9 +455,9 @@ func Test_precondition(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	er := Mutate(policyContext)
@@ -552,9 +552,9 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	er := Mutate(policyContext)
@@ -640,9 +640,9 @@ func Test_foreach(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resource,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resource,
 	}
 
 	err = ctx.AddImageInfos(resource)
@@ -747,9 +747,9 @@ func Test_foreach_element_mutation(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resource,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resource,
 	}
 
 	err = ctx.AddImageInfos(resource)
@@ -873,9 +873,9 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resource,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resource,
 	}
 
 	err = ctx.AddImageInfos(resource)
@@ -1000,9 +1000,9 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resource,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resource,
 	}
 
 	err = ctx.AddImageInfos(resource)
@@ -1451,10 +1451,10 @@ func Test_mutate_existing_resources(t *testing.T) {
 			assert.NilError(t, err)
 
 			policyContext = &PolicyContext{
-				Client:      dclient,
-				Policy:      &policy,
-				JSONContext: ctx,
-				NewResource: *trigger,
+				client:      dclient,
+				policy:      &policy,
+				jsonContext: ctx,
+				newResource: *trigger,
 			}
 		}
 		er := Mutate(policyContext)
@@ -1560,9 +1560,9 @@ func Test_RuleSelectorMutate(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	er := Mutate(policyContext)
@@ -1578,7 +1578,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 	}
 
 	applyOne := kyverno.ApplyOne
-	policyContext.Policy.GetSpec().ApplyRules = &applyOne
+	policyContext.policy.GetSpec().ApplyRules = &applyOne
 
 	er = Mutate(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
@@ -1941,9 +1941,9 @@ func Test_SpecialCharacters(t *testing.T) {
 
 			// Create policy context.
 			policyContext := &PolicyContext{
-				Policy:      &policy,
-				JSONContext: ctx,
-				NewResource: *resource,
+				policy:      &policy,
+				jsonContext: ctx,
+				newResource: *resource,
 			}
 
 			// Mutate and make sure that we got the expected amount of rules.

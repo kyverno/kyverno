@@ -306,13 +306,12 @@ func updateStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1
 func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, ur kyvernov1beta1.UpdateRequest, applicableRules []string) (genResources []kyvernov1.ResourceSpec, processExisting bool, err error) {
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
-	policy := policyContext.Policy
-	resource := policyContext.NewResource
-
-	jsonContext := policyContext.JSONContext
+	policy := policyContext.Policy()
+	resource := policyContext.NewResource()
+	jsonContext := policyContext.JSONContext()
 	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
 	ruleNameToProcessingTime := make(map[string]time.Duration)
-	applyRules := policyContext.Policy.GetSpec().GetApplyRules()
+	applyRules := policy.GetSpec().GetApplyRules()
 	applyCount := 0
 
 	for _, rule := range autogen.ComputeRules(policy) {
@@ -347,7 +346,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			return nil, processExisting, err
 		}
 
-		if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext, rule); err != nil {
+		if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
 			log.Error(err, "variable substitution failed for rule %s", rule.Name)
 			return nil, processExisting, err
 		}
