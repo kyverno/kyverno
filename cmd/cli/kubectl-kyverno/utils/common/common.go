@@ -450,14 +450,12 @@ OuterLoop:
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
-	policyContext := &engine.PolicyContext{
-		Policy:          c.Policy,
-		NewResource:     *updatedResource,
-		JSONContext:     ctx,
-		NamespaceLabels: namespaceLabels,
-		AdmissionInfo:   c.UserInfo,
-		Client:          c.Client,
-	}
+	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(c.Policy).
+		WithNewResource(*updatedResource).
+		WithNamespaceLabels(namespaceLabels).
+		WithAdmissionInfo(c.UserInfo).
+		WithClient(c.Client)
 
 	mutateResponse := engine.Mutate(policyContext)
 	if mutateResponse != nil {
@@ -478,7 +476,7 @@ OuterLoop:
 		}
 	}
 
-	policyContext.NewResource = mutateResponse.PatchedResource
+	policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
 
 	var info Info
 	var validateResponse *response.EngineResponse
@@ -505,16 +503,6 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		policyContext := &engine.PolicyContext{
-			NewResource:      *c.Resource,
-			Policy:           c.Policy,
-			ExcludeGroupRole: []string{},
-			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
-				return false
-			},
-			JSONContext:     ctx,
-			NamespaceLabels: namespaceLabels,
-		}
 		generateResponse := engine.ApplyBackgroundChecks(policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
@@ -1011,7 +999,8 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 
 // handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
 func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
-	objects := []runtime.Object{&policyContext.NewResource}
+	resource := policyContext.NewResource()
+	objects := []runtime.Object{&resource}
 	resources := []*unstructured.Unstructured{}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		if path, ok := ruleToCloneSourceResource[rule.Name]; ok {

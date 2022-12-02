@@ -117,7 +117,7 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
-	policyContext, err := h.pcBuilder.Build(request, generatePolicies...)
+	policyContext, err := h.pcBuilder.Build(request)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed create policy context")
 	}
@@ -152,13 +152,13 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 		return admissionutils.ResponseSuccess(request.UID)
 	}
 	logger.V(4).Info("processing policies for mutate admission request", "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
-	policyContext, err := h.pcBuilder.Build(request, mutatePolicies...)
+	policyContext, err := h.pcBuilder.Build(request)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
 	// update container images to a canonical form
-	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext); err != nil {
+	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext()); err != nil {
 		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
 	mh := mutation.NewMutationHandler(logger, h.eventGen, h.openApiManager, h.nsLister)
@@ -169,7 +169,7 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 	}
 	newRequest := patchRequest(mutatePatches, request, logger)
 	// rebuild context to process images updated via mutate policies
-	policyContext, err = h.pcBuilder.Build(newRequest, mutatePolicies...)
+	policyContext, err = h.pcBuilder.Build(newRequest)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
