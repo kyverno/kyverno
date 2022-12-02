@@ -5,6 +5,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -16,10 +17,11 @@ type PolicyContextBuilder interface {
 }
 
 type policyContextBuilder struct {
-	configuration config.Configuration
-	client        dclient.Interface
-	rbLister      rbacv1listers.RoleBindingLister
-	crbLister     rbacv1listers.ClusterRoleBindingLister
+	configuration          config.Configuration
+	client                 dclient.Interface
+	rbLister               rbacv1listers.RoleBindingLister
+	crbLister              rbacv1listers.ClusterRoleBindingLister
+	informerCacheResolvers resolvers.ConfigmapResolver
 }
 
 func NewPolicyContextBuilder(
@@ -27,12 +29,14 @@ func NewPolicyContextBuilder(
 	client dclient.Interface,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 ) PolicyContextBuilder {
 	return &policyContextBuilder{
-		configuration: configuration,
-		client:        client,
-		rbLister:      rbLister,
-		crbLister:     crbLister,
+		configuration:          configuration,
+		client:                 client,
+		rbLister:               rbLister,
+		crbLister:              crbLister,
+		informerCacheResolvers: informerCacheResolvers,
 	}
 }
 
@@ -46,5 +50,5 @@ func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest) (*en
 		userRequestInfo.Roles = roles
 		userRequestInfo.ClusterRoles = clusterRoles
 	}
-	return engine.NewPolicyContextFromAdmissionRequest(request, userRequestInfo, b.configuration, b.client)
+	return engine.NewPolicyContextFromAdmissionRequest(request, userRequestInfo, b.configuration, b.client, b.informerCacheResolvers)
 }
