@@ -27,7 +27,6 @@ func Test_Compare(t *testing.T) {
 			expectedResult: 1,
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := New(tc.jmesPath)
@@ -55,7 +54,6 @@ func Test_ParseJsonSerde(t *testing.T) {
 		`1.2`,
 		`[1.2,true,{"a":{"a":"b"}}]`,
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc, func(t *testing.T) {
 			jp, err := New(fmt.Sprintf(`to_string(parse_json('%s'))`, tc))
@@ -87,7 +85,6 @@ func Test_ParseJsonComplex(t *testing.T) {
 			expectedResult: 2.0,
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
 			jp, err := New(tc.input)
@@ -165,7 +162,6 @@ bar: null
 			},
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
 			jp, err := New(fmt.Sprintf(`parse_yaml('%s')`, tc.input))
@@ -195,7 +191,6 @@ func Test_EqualFold(t *testing.T) {
 			expectedResult: false,
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := New(tc.jmesPath)
@@ -216,7 +211,6 @@ func Test_Replace(t *testing.T) {
 	// https://github.com/jmespath/go-jmespath/issues/27
 	//
 	// TODO: fix this in https://github.com/kyverno/go-jmespath
-
 	testCases := []struct {
 		jmesPath       string
 		expectedResult string
@@ -234,7 +228,6 @@ func Test_Replace(t *testing.T) {
 			expectedResult: "Lorem muspi ipsum ipsum dolor sit amet",
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := New(tc.jmesPath)
@@ -280,7 +273,6 @@ func Test_ToUpper(t *testing.T) {
 			expectedResult: "A#%&123BC",
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := New(tc.jmesPath)
@@ -314,7 +306,6 @@ func Test_ToLower(t *testing.T) {
 			expectedResult: "a#%&123bc",
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := New(tc.jmesPath)
@@ -500,7 +491,6 @@ func Test_LabelMatch(t *testing.T) {
 		}
 	}
 	`)
-
 	testCases := []struct {
 		resource       []byte
 		test           string
@@ -527,7 +517,6 @@ func Test_LabelMatch(t *testing.T) {
 			expectedResult: false,
 		},
 	}
-
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			var resource interface{}
@@ -621,7 +610,6 @@ func Test_Add(t *testing.T) {
 			err:  true,
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			jp, err := New(tc.test)
@@ -721,7 +709,6 @@ func Test_Subtract(t *testing.T) {
 			err:  true,
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			jp, err := New(tc.test)
@@ -821,7 +808,6 @@ func Test_Multiply(t *testing.T) {
 			expectedResult: "1m40s",
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			jp, err := New(tc.test)
@@ -960,7 +946,6 @@ func Test_Divide(t *testing.T) {
 			err:  true,
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			jp, err := New(tc.test)
