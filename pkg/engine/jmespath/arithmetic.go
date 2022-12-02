@@ -1,6 +1,7 @@
 package jmespath
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -30,6 +31,8 @@ type Duration struct {
 type Scalar struct {
 	float64
 }
+
+var errTypeMismatch = errors.New("types mismatch")
 
 func ParseArithemticOperands(arguments []interface{}, operator string) (Operand, Operand, error) {
 	op := [2]Operand{nil, nil}
@@ -68,53 +71,39 @@ func ParseArithemticOperands(arguments []interface{}, operator string) (Operand,
 	return op[0], op[1], nil
 }
 
+// Quantity +|- Quantity          -> Quantity
+// Quantity +|- Duration|Scalar   -> error
+// Duration +|- Duration          -> Duration
+// Duration +|- Quantity|Scalar   -> error
+// Scalar   +|- Scalar            -> Scalar
+// Scalar   +|- Quantity|Duration -> error
+
 func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
 		op1.Quantity.Add(v.Quantity)
 		return op1.String(), nil
-	case Scalar:
-		q, err := resource.ParseQuantity(fmt.Sprintf("%v", v.float64))
-		if err != nil {
-			return nil, err
-		}
-		op1.Quantity.Add(q)
-		return op1.String(), nil
+	default:
+		return nil, errTypeMismatch
 	}
-
-	return nil, nil
 }
 
 func (op1 Duration) Add(op2 interface{}) (interface{}, error) {
-	var sum int64
-
 	switch v := op2.(type) {
 	case Duration:
-		sum = op1.Nanoseconds() + v.Nanoseconds()
-	case Scalar:
-		// Converting the duration to nanoseconds for more precision
-		sum = op1.Nanoseconds() + int64(v.float64*math.Pow10(9))
+		return (op1.Duration + v.Duration).String(), nil
+	default:
+		return nil, errTypeMismatch
 	}
-
-	res, err := time.ParseDuration(fmt.Sprintf("%vns", sum))
-	if err != nil {
-		return nil, err
-	}
-
-	return res.String(), nil
 }
 
 func (op1 Scalar) Add(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Scalar:
 		return op1.float64 + v.float64, nil
-	case Quantity:
-		return v.Add(op1)
-	case Duration:
-		return v.Add(op1)
+	default:
+		return nil, errTypeMismatch
 	}
-
-	return nil, nil
 }
 
 func (op1 Quantity) Subtract(op2 interface{}) (interface{}, error) {
@@ -122,56 +111,27 @@ func (op1 Quantity) Subtract(op2 interface{}) (interface{}, error) {
 	case Quantity:
 		op1.Quantity.Sub(v.Quantity)
 		return op1.String(), nil
-	case Scalar:
-		q, err := resource.ParseQuantity(fmt.Sprintf("%v", v.float64))
-		if err != nil {
-			return nil, err
-		}
-		op1.Quantity.Sub(q)
-		return op1.String(), nil
+	default:
+		return nil, errTypeMismatch
 	}
-
-	return nil, nil
 }
 
 func (op1 Duration) Subtract(op2 interface{}) (interface{}, error) {
-	var diff int64
-
 	switch v := op2.(type) {
 	case Duration:
-		diff = op1.Nanoseconds() - v.Nanoseconds()
-	case Scalar:
-		// Converting the duration to nanoseconds for more precision
-		diff = op1.Nanoseconds() - int64(v.float64*math.Pow10(9))
+		return (op1.Duration - v.Duration).String(), nil
+	default:
+		return nil, errTypeMismatch
 	}
-
-	res, err := time.ParseDuration(fmt.Sprintf("%vns", diff))
-	if err != nil {
-		return nil, err
-	}
-
-	return res.String(), nil
 }
 
 func (op1 Scalar) Subtract(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Scalar:
 		return op1.float64 - v.float64, nil
-	case Quantity:
-		v.Neg()
-		return v.Add(op1)
-	case Duration:
-		// Converting the duration to nanoseconds for more precision
-		diff := int64(op1.float64*math.Pow10(9)) - v.Nanoseconds()
-		res, err := time.ParseDuration(fmt.Sprintf("%vns", diff))
-		if err != nil {
-			return nil, err
-		}
-
-		return res.String(), nil
+	default:
+		return nil, errTypeMismatch
 	}
-
-	return nil, nil
 }
 
 func (op1 Quantity) Multiply(op2 interface{}) (interface{}, error) {
