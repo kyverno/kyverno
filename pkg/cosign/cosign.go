@@ -47,6 +47,8 @@ type Options struct {
 	Annotations          map[string]string
 	Repository           string
 	RekorURL             string
+	SignatureAlgorithm   string
+	PredicateType        string
 }
 
 type Response struct {
@@ -56,16 +58,8 @@ type Response struct {
 
 type CosignError struct{}
 
-func Verify(opts Options) (*Response, error) {
-	if opts.FetchAttestations {
-		return fetchAttestations(opts)
-	} else {
-		return verifySignature(opts)
-	}
-}
-
-// verifySignature verifies that the image has the expected signatures
-func verifySignature(opts Options) (*Response, error) {
+// VerifySignature verifies that the image has the expected signatures
+func VerifySignature(opts Options) (*Response, error) {
 	ref, err := name.ParseReference(opts.ImageRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
@@ -105,9 +99,12 @@ func verifySignature(opts Options) (*Response, error) {
 		return nil, err
 	}
 
-	digest, err := extractDigest(opts.ImageRef, payload)
-	if err != nil {
-		return nil, err
+	var digest string
+	if opts.PredicateType == "" {
+		digest, err = extractDigest(opts.ImageRef, payload)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &Response{Digest: digest}, nil
@@ -250,9 +247,9 @@ func loadCertChain(pem []byte) ([]*x509.Certificate, error) {
 	return cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(pem))
 }
 
-// fetchAttestations retrieves signed attestations and decodes them into in-toto statements
+// FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func fetchAttestations(opts Options) (*Response, error) {
+func FetchAttestations(opts Options) (*Response, error) {
 	cosignOpts, err := buildCosignOptions(opts)
 	if err != nil {
 		return nil, err
@@ -285,8 +282,20 @@ func fetchAttestations(opts Options) (*Response, error) {
 		return nil, err
 	}
 
-	if err := matchSignatures(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
-		return nil, err
+	for _, signature := range signatures {
+		match, predicateType, err := matchPredicateType(signature, opts.PredicateType)
+		if err != nil {
+			return nil, err
+		}
+
+		if !match {
+			logger.V(4).Info("predicateType doesn't match, continue", "expected", opts.PredicateType, "received", predicateType)
+			continue
+		}
+
+		if err := matchSignatures([]oci.Signature{signature}, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+			return nil, err
+		}
 	}
 
 	err = checkAnnotations(payload, opts.Annotations)
@@ -303,49 +312,78 @@ func fetchAttestations(opts Options) (*Response, error) {
 	return &Response{Digest: digest, Statements: inTotoStatements}, nil
 }
 
+func matchPredicateType(sig oci.Signature, expectedPredicateType string) (bool, string, error) {
+	if expectedPredicateType != "" {
+		statement, _, err := decodeStatement(sig)
+		if err != nil {
+			return false, "", errors.Wrapf(err, "failed to decode predicateType")
+		}
+
+		if pType, ok := statement["predicateType"]; ok {
+			if pType.(string) == expectedPredicateType {
+				return true, pType.(string), nil
+			}
+		}
+	}
+	return false, "", nil
+}
+
 func decodeStatements(sigs []oci.Signature) ([]map[string]interface{}, string, error) {
 	if len(sigs) == 0 {
 		return []map[string]interface{}{}, "", nil
 	}
 
 	var digest string
+	var statement map[string]interface{}
 	decodedStatements := make([]map[string]interface{}, len(sigs))
 	for i, sig := range sigs {
-		pld, err := sig.Payload()
+		var err error
+		statement, digest, err = decodeStatement(sig)
 		if err != nil {
-			return nil, "", errors.Wrap(err, "failed to decode payload")
+			return nil, "", err
 		}
 
-		sci := payload.SimpleContainerImage{}
-		if err := json.Unmarshal(pld, &sci); err != nil {
-			return nil, "", errors.Wrap(err, "error decoding the payload")
-		}
-
-		if d := sci.Critical.Image.DockerManifestDigest; d != "" {
-			digest = d
-		}
-
-		data := make(map[string]interface{})
-		if err := json.Unmarshal(pld, &data); err != nil {
-			return nil, "", errors.Wrapf(err, "failed to unmarshal JSON payload: %v", sig)
-		}
-
-		if dataPayload, ok := data["payload"]; !ok {
-			return nil, "", fmt.Errorf("missing payload in %v", data)
-		} else {
-			decodedStatement, err := decodeStatement(dataPayload.(string))
-			if err != nil {
-				return nil, "", errors.Wrapf(err, "failed to decode statement %s", string(pld))
-			}
-
-			decodedStatements[i] = decodedStatement
-		}
+		decodedStatements[i] = statement
 	}
 
 	return decodedStatements, digest, nil
 }
 
-func decodeStatement(payloadBase64 string) (map[string]interface{}, error) {
+func decodeStatement(sig oci.Signature) (map[string]interface{}, string, error) {
+	var digest string
+
+	pld, err := sig.Payload()
+	if err != nil {
+		return nil, "", errors.Wrap(err, "failed to decode payload")
+	}
+
+	sci := payload.SimpleContainerImage{}
+	if err := json.Unmarshal(pld, &sci); err != nil {
+		return nil, "", errors.Wrap(err, "error decoding the payload")
+	}
+
+	if d := sci.Critical.Image.DockerManifestDigest; d != "" {
+		digest = d
+	}
+
+	data := make(map[string]interface{})
+	if err := json.Unmarshal(pld, &data); err != nil {
+		return nil, "", errors.Wrapf(err, "failed to unmarshal JSON payload: %v", sig)
+	}
+
+	if dataPayload, ok := data["payload"]; !ok {
+		return nil, "", fmt.Errorf("missing payload in %v", data)
+	} else {
+		decodedStatement, err := decodePayload(dataPayload.(string))
+		if err != nil {
+			return nil, "", errors.Wrapf(err, "failed to decode statement %s", string(pld))
+		}
+
+		return decodedStatement, digest, nil
+	}
+}
+
+func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 	statementRaw, err := base64.StdEncoding.DecodeString(payloadBase64)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to base64 decode payload for %v", statementRaw)
