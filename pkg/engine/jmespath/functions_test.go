@@ -651,56 +651,80 @@ func Test_Add(t *testing.T) {
 
 func Test_Subtract(t *testing.T) {
 	testCases := []struct {
+		name           string
 		test           string
 		expectedResult interface{}
 		err            bool
 		retFloat       bool
 	}{
+		// Scalar
 		{
-			test: "subtract('12', '13s')",
-			err:  true,
-		},
-		{
-			test: "subtract('12Ki', '13s')",
-			err:  true,
-		},
-		{
-			test: "subtract('12s', '13')",
-			err:  true,
-		},
-		{
-			test: "subtract('12s', '13Ki')",
-			err:  true,
-		},
-		{
+			name:           "Scalar - Scalar -> Scalar",
 			test:           "subtract(`12`, `13`)",
 			expectedResult: -1.0,
 			retFloat:       true,
 		},
 		{
-			test:           "subtract(`12`, '13s')",
-			expectedResult: `-1s`,
+			name: "Scalar - Duration -> error",
+			test: "subtract('12', '13s')",
+			err:  true,
 		},
 		{
+			name: "Scalar - Quantity -> error",
+			test: "subtract(`12`, '13Ki')",
+			err:  true,
+		},
+		{
+			name: "Scalar - Quantity -> error",
+			test: "subtract(`12`, '13')",
+			err:  true,
+		},
+		// Quantity
+		{
+			name:           "Quantity - Quantity -> Quantity",
+			test:           "subtract('12Ki', '13Ki')",
+			expectedResult: `-1Ki`,
+		},
+		{
+			name:           "Quantity - Quantity -> Quantity",
+			test:           "subtract('12Ki', '13')",
+			expectedResult: `12275`,
+		},
+		{
+			name: "Quantity - Duration -> error",
+			test: "subtract('12Ki', '13s')",
+			err:  true,
+		},
+		{
+			name: "Quantity - Scalar -> error",
+			test: "subtract('12Ki', `13`)",
+			err:  true,
+		},
+		// Duration
+		{
+			name:           "Duration - Duration -> Duration",
 			test:           "subtract('12s', '13s')",
 			expectedResult: `-1s`,
 		},
 		{
-			test:           "subtract(`12`, '-13s')",
-			expectedResult: `25s`,
+			name: "Duration - Scalar -> error",
+			test: "subtract('12s', '13')",
+			err:  true,
 		},
 		{
-			test:           "subtract(`12`, '13Ki')",
-			expectedResult: `-13300`,
+			name: "Duration - Quantity -> error",
+			test: "subtract('12s', '13Ki')",
+			err:  true,
 		},
 		{
-			test:           "subtract('12Ki', '13Ki')",
-			expectedResult: `-1Ki`,
+			name: "Duration - Quantity -> error",
+			test: "subtract('12s', '13')",
+			err:  true,
 		},
 	}
 
-	for i, tc := range testCases {
-		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			jp, err := New(tc.test)
 			assert.NilError(t, err)
 
