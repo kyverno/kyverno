@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -49,6 +50,9 @@ type PolicyContext struct {
 
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
+
+	// informerCacheResolvers - used to get resources from informer cache
+	informerCacheResolvers resolvers.ConfigmapResolver
 }
 
 // Getters
@@ -137,6 +141,12 @@ func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyC
 	return copy
 }
 
+func (c *PolicyContext) WithInformerCacheResolver(informerCacheResolver resolvers.ConfigmapResolver) *PolicyContext {
+	copy := c.Copy()
+	copy.informerCacheResolvers = informerCacheResolver
+	return copy
+}
+
 // Constructors
 
 func NewPolicyContextWithJsonContext(jsonContext context.Interface) *PolicyContext {
@@ -158,6 +168,7 @@ func NewPolicyContextFromAdmissionRequest(
 	admissionInfo kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 	client dclient.Interface,
+	informerCacheResolver resolvers.ConfigmapResolver,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
 	if err != nil {
@@ -176,7 +187,8 @@ func NewPolicyContextFromAdmissionRequest(
 		WithAdmissionInfo(admissionInfo).
 		WithConfiguration(configuration).
 		WithClient(client).
-		WithAdmissionOperation(true)
+		WithAdmissionOperation(true).
+		WithInformerCacheResolver(informerCacheResolver)
 	return policyContext, nil
 }
 
