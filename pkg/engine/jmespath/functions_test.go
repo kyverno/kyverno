@@ -551,56 +551,80 @@ func Test_LabelMatch(t *testing.T) {
 
 func Test_Add(t *testing.T) {
 	testCases := []struct {
+		name           string
 		test           string
 		expectedResult interface{}
 		err            bool
 		retFloat       bool
 	}{
+		// Scalar
 		{
-			test: "add('12', '13s')",
-			err:  true,
-		},
-		{
-			test: "add('12Ki', '13s')",
-			err:  true,
-		},
-		{
-			test: "add('12s', '13')",
-			err:  true,
-		},
-		{
-			test: "add('12s', '13Ki')",
-			err:  true,
-		},
-		{
+			name:           "Scalar + Scalar -> Scalar",
 			test:           "add(`12`, `13`)",
 			expectedResult: 25.0,
 			retFloat:       true,
 		},
 		{
-			test:           "add(`12`, '13s')",
-			expectedResult: `25s`,
+			name: "Scalar + Duration -> error",
+			test: "add('12', '13s')",
+			err:  true,
 		},
 		{
+			name: "Scalar + Quantity -> error",
+			test: "add(`12`, '13Ki')",
+			err:  true,
+		},
+		{
+			name: "Scalar + Quantity -> error",
+			test: "add(`12`, '13')",
+			err:  true,
+		},
+		// Quantity
+		{
+			name:           "Quantity + Quantity -> Quantity",
+			test:           "add('12Ki', '13Ki')",
+			expectedResult: `25Ki`,
+		},
+		{
+			name:           "Quantity + Quantity -> Quantity",
+			test:           "add('12Ki', '13')",
+			expectedResult: `12301`,
+		},
+		{
+			name: "Quantity + Duration -> error",
+			test: "add('12Ki', '13s')",
+			err:  true,
+		},
+		{
+			name: "Quantity + Scalar -> error",
+			test: "add('12Ki', `13`)",
+			err:  true,
+		},
+		// Duration
+		{
+			name:           "Duration + Duration -> Duration",
 			test:           "add('12s', '13s')",
 			expectedResult: `25s`,
 		},
 		{
-			test:           "add(`12`, '-13s')",
-			expectedResult: `-1s`,
+			name: "Duration + Scalar -> error",
+			test: "add('12s', '13')",
+			err:  true,
 		},
 		{
-			test:           "add(`12`, '13Ki')",
-			expectedResult: `13324`,
+			name: "Duration + Quantity -> error",
+			test: "add('12s', '13Ki')",
+			err:  true,
 		},
 		{
-			test:           "add('12Ki', '13Ki')",
-			expectedResult: `25Ki`,
+			name: "Duration + Quantity -> error",
+			test: "add('12s', '13')",
+			err:  true,
 		},
 	}
 
-	for i, tc := range testCases {
-		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			jp, err := New(tc.test)
 			assert.NilError(t, err)
 
