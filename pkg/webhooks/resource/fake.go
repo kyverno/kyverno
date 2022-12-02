@@ -7,6 +7,7 @@ import (
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -14,7 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
-	"k8s.io/client-go/informers"
+	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -22,11 +23,12 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	client := fake.NewSimpleClientset()
 	metricsConfig := metrics.NewFakeMetricsConfig()
 
-	informers := informers.NewSharedInformerFactory(client, 0)
+	informers := kubeinformers.NewSharedInformerFactory(client, 0)
 	informers.Start(ctx.Done())
 
 	kyvernoclient := fakekyvernov1.NewSimpleClientset()
 	kyvernoInformers := kyvernoinformers.NewSharedInformerFactory(kyvernoclient, 0)
+	configMapResolver, _ := resolvers.NewClientBasedResolver(client)
 	kyvernoInformers.Start(ctx.Done())
 
 	dclient := dclient.NewEmptyFakeClient()
@@ -47,7 +49,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		urGenerator:    updaterequest.NewFake(),
 		eventGen:       event.NewFake(),
 		openApiManager: openapi.NewFake(),
-		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister),
+		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister, configMapResolver),
 		urUpdater:      webhookutils.NewUpdateRequestUpdater(kyvernoclient, urLister),
 	}
 }

@@ -72,7 +72,7 @@ jobs:
           fi
 
       - name: Run chart-releaser
-        uses: stefanprodan/helm-gh-pages@b43a8719cc63fdb3aa943cc57359ab19118eab3f #v1.5.0
+        uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 #v1.7.0
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
           linting: off

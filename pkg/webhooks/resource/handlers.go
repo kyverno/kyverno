@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	engineutils2 "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -66,6 +67,7 @@ func NewHandlers(
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 	nsLister corev1listers.NamespaceLister,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
@@ -88,7 +90,7 @@ func NewHandlers(
 		urGenerator:      urGenerator,
 		eventGen:         eventGen,
 		openApiManager:   openApiManager,
-		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
+		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister, informerCacheResolvers),
 		urUpdater:        webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
 		admissionReports: admissionReports,
 	}

@@ -351,16 +351,14 @@ func fetchConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 		namespace = "default"
 	}
 
-	obj, err := ctx.client.GetResource(context.TODO(), "v1", "ConfigMap", namespace.(string), name.(string))
+	obj, err := ctx.informerCacheResolvers.Get(context.TODO(), namespace.(string), name.(string))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespace, name, err)
 	}
 
-	unstructuredObj := obj.DeepCopy().Object
-
 	// extract configmap data
-	contextData["data"] = unstructuredObj["data"]
-	contextData["metadata"] = unstructuredObj["metadata"]
+	contextData["data"] = obj.Data
+	contextData["metadata"] = obj.ObjectMeta
 	data, err := json.Marshal(contextData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal configmap %s/%s: %v", namespace, name, err)
