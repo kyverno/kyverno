@@ -961,24 +961,17 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	resources = filteredResources
 
 	noDuplicateResources := []*unstructured.Unstructured{}
-	var duplicateResources []string
-	for i, resource := range resources {
-		for j, dummy_resource := range resources {
-			if resource.GetName() == dummy_resource.GetName() && resource.GetKind() == dummy_resource.GetKind() && i != j {
-				fmt.Println("skipping duplicate resource, resource :", resource)
-				duplicateResources = append(duplicateResources, resource.GetName())
-			}
-		}
-	}
+
 	for _, resource := range resources {
-		flag := 0
-		for _, dupResource := range duplicateResources {
-			if resource.GetName() == dupResource {
-				flag = 1
+		duplicate := false
+		for _, unique := range noDuplicateResources {
+			if resource.GetKind() == unique.GetKind() && resource.GetName() == unique.GetName() && resource.GetNamespace() == unique.GetNamespace() {
+				duplicate = true
+				fmt.Println("skipping duplicate resource, resource :", resource)
 				break
 			}
 		}
-		if flag == 0 {
+		if !duplicate {
 			noDuplicateResources = append(noDuplicateResources, resource)
 		}
 	}
@@ -989,11 +982,11 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	msgResources := "1 resource"
-	if len(resources) > 1 {
-		msgResources = fmt.Sprintf("%d resources", len(resources))
+	if len(noDuplicateResources) > 1 {
+		msgResources = fmt.Sprintf("%d resources", len(noDuplicateResources))
 	}
 
-	if len(policies) > 0 && len(resources) > 0 {
+	if len(policies) > 0 && len(noDuplicateResources) > 0 {
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
 
