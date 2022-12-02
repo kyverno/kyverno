@@ -851,110 +851,119 @@ func Test_Multiply(t *testing.T) {
 
 func Test_Divide(t *testing.T) {
 	testCases := []struct {
+		name           string
 		test           string
 		expectedResult interface{}
 		err            bool
 		retFloat       bool
 	}{
+		// Quantity
 		{
-			test: "divide('12', '13s')",
-			err:  true,
+			name:           "Quantity / Scalar -> Quantity",
+			test:           "divide('12Ki', `3`)",
+			expectedResult: "4Ki",
 		},
 		{
-			test: "divide('12Ki', '13s')",
-			err:  true,
-		},
-		{
-			test: "divide('12s', '13')",
-			err:  true,
-		},
-		{
-			test: "divide('12s', '13Ki')",
-			err:  true,
-		},
-		{
-			test: "divide('12s', `0`)",
-			err:  true,
-		},
-		{
-			test: "divide('12s', '0s')",
-			err:  true,
-		},
-		{
-			test: "divide(`12`, '0s')",
-			err:  true,
-		},
-		{
-			test: "divide('12M', '0Mi')",
-			err:  true,
-		},
-		{
-			test: "divide('12K', `0`)",
-			err:  true,
-		},
-		{
-			test: "divide('12K', '0m')",
-			err:  true,
-		},
-		{
-			test: "divide('12Ki', '0G')",
-			err:  true,
-		},
-		{
-			test: "divide('12Mi', '0Gi')",
-			err:  true,
-		},
-		{
-			test: "divide('12Mi', `0`)",
-			err:  true,
-		},
-		{
-			test: "divide(`12`, '0Gi')",
-			err:  true,
-		},
-		{
-			test: "divide(`12`, '0K')",
-			err:  true,
-		},
-		{
-			test: "divide(`12`, `0`)",
-			err:  true,
-		},
-		{
-			test:           "divide(`25`, `2`)",
-			expectedResult: 12.5,
+			name:           "Quantity / Quantity -> Scalar",
+			test:           "divide('12Ki', '2Ki')",
+			expectedResult: 6.0,
 			retFloat:       true,
 		},
 		{
-			test:           "divide(`12`, '2s')",
-			expectedResult: `6s`,
-		},
-		{
-			test:           "divide('25m0s', '2s')",
-			expectedResult: 750.0,
+			name:           "Quantity / Quantity -> Scalar",
+			test:           "divide('12Ki', '200')",
+			expectedResult: 61.0,
 			retFloat:       true,
 		},
 		{
-			test:           "divide(`360`, '-2s')",
-			expectedResult: `-3m0s`,
+			name: "Quantity / Duration -> error",
+			test: "divide('12Ki', '2s')",
+			err:  true,
+		},
+		// Duration
+		{
+			name:           "Duration / Scalar -> Duration",
+			test:           "divide('12s', `3`)",
+			expectedResult: "4s",
 		},
 		{
-			test:           "divide(`13312`, '1Ki')",
-			expectedResult: `13`,
-		},
-		{
-			test:           "divide('26Gi', '13Ki')",
-			expectedResult: 2097152.0,
+			name:           "Duration / Duration -> Scalar",
+			test:           "divide('12s', '5s')",
+			expectedResult: 2.4,
 			retFloat:       true,
 		},
 		{
-			test:           "divide('500m', `2`)",
-			expectedResult: `250m`,
+			name: "Duration / Quantity -> error",
+			test: "divide('12s', '4Ki')",
+			err:  true,
+		},
+		{
+			name: "Duration / Quantity -> error",
+			test: "divide('12s', '4')",
+			err:  true,
+		},
+		// Scalar
+		{
+			name:           "Scalar / Scalar -> Scalar",
+			test:           "divide(`14`, `3`)",
+			expectedResult: 4.666666666666667,
+			retFloat:       true,
+		},
+		{
+			name: "Scalar / Duration -> error",
+			test: "divide(`14`, '5s')",
+			err:  true,
+		},
+		{
+			name: "Scalar / Quantity -> error",
+			test: "divide(`14`, '5Ki')",
+			err:  true,
+		},
+		{
+			name: "Scalar / Quantity -> error",
+			test: "divide(`14`, '5')",
+			err:  true,
+		},
+		// Divide by 0
+		{
+			name: "Scalar / Zero -> error",
+			test: "divide(`14`, `0`)",
+			err:  true,
+		},
+		{
+			name: "Quantity / Zero -> error",
+			test: "divide('4Ki', `0`)",
+			err:  true,
+		},
+		{
+			name: "Quantity / Zero -> error",
+			test: "divide('4Ki', '0Ki')",
+			err:  true,
+		},
+		{
+			name: "Quantity / Zero -> error",
+			test: "divide('4', `0`)",
+			err:  true,
+		},
+		{
+			name: "Quantity / Zero -> error",
+			test: "divide('4', '0')",
+			err:  true,
+		},
+		{
+			name: "Duration / Zero -> error",
+			test: "divide('4s', `0`)",
+			err:  true,
+		},
+		{
+			name: "Duration / Zero -> error",
+			test: "divide('4s', '0s')",
+			err:  true,
 		},
 	}
 
-	for i, tc := range testCases {
-		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			jp, err := New(tc.test)
 			assert.NilError(t, err)
 

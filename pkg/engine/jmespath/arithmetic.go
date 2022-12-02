@@ -182,6 +182,18 @@ func (op1 Scalar) Multiply(op2 interface{}) (interface{}, error) {
 	return nil, nil
 }
 
+// Quantity / Duration			-> error
+// Quantity / Quantity			-> Scalar
+// Quantity / Scalar   			-> Quantity
+
+// Duration / Quantity			-> error
+// Duration / Duration			-> Scalar
+// Duration / Scalar   			-> Duration
+
+// Scalar   / Scalar            -> Scalar
+// Scalar   / Quantity			-> error
+// Scalar   / Duration			-> error
+
 func (op1 Quantity) Divide(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
@@ -200,42 +212,31 @@ func (op1 Quantity) Divide(op2 interface{}) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		var quo inf.Dec
 		scale := inf.Scale(math.Max(float64(op1.AsDec().Scale()), float64(q.AsDec().Scale())))
 		quo.QuoRound(op1.AsDec(), q.AsDec(), scale, inf.RoundDown)
 		return resource.NewDecimalQuantity(quo, op1.Quantity.Format).String(), nil
+	default:
+		return nil, errTypeMismatch
 	}
-
-	return nil, nil
 }
 
 func (op1 Duration) Divide(op2 interface{}) (interface{}, error) {
-	var quo float64
-
 	switch v := op2.(type) {
 	case Duration:
 		if v.Seconds() == 0 {
 			return nil, fmt.Errorf(undefinedQuoError, divide)
 		}
-
-		quo = op1.Seconds() / v.Seconds()
-		return quo, nil
+		return op1.Seconds() / v.Seconds(), nil
 	case Scalar:
 		if v.float64 == 0 {
 			return nil, fmt.Errorf(undefinedQuoError, divide)
 		}
-
-		quo = op1.Seconds() / v.float64
-		res, err := time.ParseDuration(fmt.Sprintf("%.9fs", quo))
-		if err != nil {
-			return nil, err
-		}
-
-		return res.String(), nil
+		seconds := op1.Seconds() / v.float64
+		return time.Duration(seconds * float64(time.Second)).String(), nil
+	default:
+		return nil, errTypeMismatch
 	}
-
-	return nil, nil
 }
 
 func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
@@ -244,39 +245,10 @@ func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
 		if v.float64 == 0 {
 			return nil, fmt.Errorf(zeroDivisionError, divide)
 		}
-
 		return op1.float64 / v.float64, nil
-	case Quantity:
-		if v.ToDec().AsApproximateFloat64() == 0 {
-			return nil, fmt.Errorf(zeroDivisionError, divide)
-		}
-		q, err := resource.ParseQuantity(fmt.Sprintf("%v", op1.float64))
-		if err != nil {
-			return nil, err
-		}
-
-		var quo inf.Dec
-		scale := inf.Scale(math.Max(float64(q.AsDec().Scale()), float64(v.AsDec().Scale())))
-		quo.QuoRound(q.AsDec(), v.AsDec(), scale, inf.RoundDown)
-
-		return resource.NewDecimalQuantity(quo, v.Format).String(), nil
-	case Duration:
-		var quo float64
-		if op1.float64 == 0 {
-			return nil, fmt.Errorf(undefinedQuoError, divide)
-		}
-
-		quo = op1.float64 / v.Seconds()
-
-		res, err := time.ParseDuration(fmt.Sprintf("%.9fs", quo))
-		if err != nil {
-			return nil, err
-		}
-
-		return res.String(), nil
+	default:
+		return nil, errTypeMismatch
 	}
-
-	return nil, nil
 }
 
 func (op1 Quantity) Modulo(op2 interface{}) (interface{}, error) {
