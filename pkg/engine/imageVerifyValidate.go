@@ -19,6 +19,13 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 	}
 
 	log = log.WithValues("rule", rule.Name)
+	matchingImages, _, err := extractMatchingImages(ctx, rule)
+	if err != nil {
+		return ruleResponse(*rule, response.Validation, err.Error(), response.RuleStatusError, nil)
+	}
+	if len(matchingImages) == 0 {
+		return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusSkip, nil)
+	}
 	if err := LoadContext(log, rule.Context, ctx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
@@ -35,7 +42,7 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 	}
 
 	if !preconditionsPassed {
-		if ctx.Policy.GetSpec().ValidationFailureAction == kyvernov1.Audit {
+		if ctx.policy.GetSpec().ValidationFailureAction.Audit() {
 			return nil
 		}
 
@@ -44,7 +51,7 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
-		for _, infoMap := range ctx.JSONContext.ImageInfo() {
+		for _, infoMap := range ctx.jsonContext.ImageInfo() {
 			for name, imageInfo := range infoMap {
 				image := imageInfo.String()
 				log = log.WithValues("rule", rule.Name)
@@ -73,8 +80,8 @@ func validateImage(ctx *PolicyContext, imageVerify *kyvernov1.ImageVerification,
 		return fmt.Errorf("missing digest for %s", image)
 	}
 
-	if imageVerify.Required && !reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
-		verified, err := isImageVerified(ctx.NewResource, image, log)
+	if imageVerify.Required && !reflect.DeepEqual(ctx.newResource, unstructured.Unstructured{}) {
+		verified, err := isImageVerified(ctx.newResource, image, log)
 		if err != nil {
 			return err
 		}

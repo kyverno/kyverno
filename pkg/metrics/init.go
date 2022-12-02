@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -10,43 +11,55 @@ import (
 )
 
 func InitMetrics(
+	ctx context.Context,
 	disableMetricsExport bool,
 	otel string,
 	metricsAddr string,
 	otelCollector string,
-	metricsConfigData *config.MetricsConfigData,
+	metricsConfiguration config.MetricsConfiguration,
 	transportCreds string,
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
-) (*MetricsConfig, *http.ServeMux, *controller.Controller, error) {
-	var metricsConfig *MetricsConfig
+) (MetricsConfigManager, *http.ServeMux, *controller.Controller, error) {
 	var err error
 	var metricsServerMux *http.ServeMux
 	var pusher *controller.Controller
+
+	metricsConfig := MetricsConfig{
+		Log:    log,
+		config: metricsConfiguration,
+	}
+
+	err = metricsConfig.initializeMetrics()
+	if err != nil {
+		log.Error(err, "Failed initializing metrics")
+		return nil, nil, nil, err
+	}
+
 	if !disableMetricsExport {
 		if otel == "grpc" {
 			// Otlpgrpc metrics will be served on port 4317: default port for otlpgrpcmetrics
 			log.V(2).Info("Enabling Metrics for Kyverno", "address", metricsAddr)
 
 			endpoint := otelCollector + metricsAddr
-			metricsConfig, pusher, err = NewOTLPGRPCConfig(
+			pusher, err = NewOTLPGRPCConfig(
+				ctx,
 				endpoint,
-				metricsConfigData,
 				transportCreds,
 				kubeClient,
 				log,
 			)
 			if err != nil {
-				return nil, nil, pusher, err
+				return nil, nil, nil, err
 			}
 		} else if otel == "prometheus" {
 			// Prometheus Server will serve metrics on metrics-port
-			metricsConfig, metricsServerMux, err = NewPrometheusConfig(metricsConfigData, log)
+			metricsServerMux, err = NewPrometheusConfig(ctx, log)
 
 			if err != nil {
 				return nil, nil, pusher, err
 			}
 		}
 	}
-	return metricsConfig, metricsServerMux, pusher, nil
+	return &metricsConfig, metricsServerMux, pusher, nil
 }

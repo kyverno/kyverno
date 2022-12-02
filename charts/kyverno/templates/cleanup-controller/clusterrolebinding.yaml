@@ -1,0 +1,16 @@
+{{- if .Values.cleanupController.enabled -}}
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+{{- end -}}

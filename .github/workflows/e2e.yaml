@@ -18,6 +18,10 @@ on:
 
 permissions: read-all
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e-test:
     strategy:
@@ -87,3 +91,4 @@ jobs:
           kubectl -n kyverno describe pod | grep -i events -A10
           kubectl -n kyverno logs deploy/kyverno -p || true
           kubectl -n kyverno logs deploy/kyverno
+          kubectl -n kube-system logs kube-apiserver-kind-control-plane

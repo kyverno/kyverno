@@ -1,0 +1,4 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl -n qa create cm foo --from-literal=foo=bar --kubeconfig chip-kubeconfig

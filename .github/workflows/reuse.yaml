@@ -19,6 +19,17 @@ on:
         required: true
       registry_password:
         required: true
+    outputs:
+      init_sha256_digest:
+        description: "sha256 digest of kyverno init docker image"
+        value: ${{ jobs.build.outputs.init-container-digest }}
+      kyverno_sha256_digest:
+        description: "sha256 digest of kyverno docker image"
+        value: ${{ jobs.build.outputs.kyverno-digest }}
+      cli_sha256_digest:
+        description: "sha256 digest of kyverno docker image"
+        value: ${{ jobs.build.outputs.cli-digest }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,6 +37,10 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    outputs:
+      init-container-digest: ${{ steps.set-sha256sum-digest.outputs.init-container-digest }}
+      kyverno-digest: ${{ steps.set-sha256sum-digest.outputs.kyverno-digest }}
+      cli-digest: ${{ steps.set-sha256sum-digest.outputs.cli-digest }}
     steps:
       - name: Checkout release
         if: ${{ inputs.tag == 'release'}}
@@ -47,7 +62,7 @@ jobs:
           go-version: ~1.18.6
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@7cc35d7fdbe70d4278a0c96779081e6fac665f88 # v2.8.0
+        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
         with:
           cosign-release: 'v1.13.0'
 
@@ -86,7 +101,7 @@ jobs:
 
       - name: Upload SBOM JSON
         if: ${{inputs.tag == 'release'}}
-        uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
+        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # v2.3.1
         with:
           name: ${{inputs.image_name}}-bom-cdx
           path: ${{inputs.image_name}}-v*-bom.cdx.json
@@ -102,7 +117,7 @@ jobs:
         id: check-branch
         run: |
           if [[ ${{ steps.extract_branch.outputs.branch }} =~ ^release-[0-9]+\.[0-9]$ ]]; then
-              echo ::set-output name=match::true
+              echo "match=true" >> $GITHUB_OUTPUT
           fi
 
       - name: ko build dev image
@@ -112,7 +127,7 @@ jobs:
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         run: |
           set -e
-          echo "::set-output name=digest::$(REGISTRY=ghcr.io REPO=${{ github.repository_owner }} REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}}-dev)"
+          echo "digest=$(REGISTRY=ghcr.io REPO=${{ github.repository_owner }} REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}}-dev)" >> $GITHUB_OUTPUT
 
       - name: ko build release image
         id: ko-publish
@@ -121,7 +136,7 @@ jobs:
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         run: |
           set -e
-          echo "::set-output name=digest::$(REGISTRY=ghcr.io REPO=${{ github.repository_owner }} REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}})"
+          echo "digest=$(REGISTRY=ghcr.io REPO=${{ github.repository_owner }} REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}})" >> $GITHUB_OUTPUT
 
       - name: Sign dev image
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
@@ -154,3 +169,18 @@ jobs:
         env:
           COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
         run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }}
+
+      - name: get sha256sum image digest
+        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
+        id: set-sha256sum-digest
+        run: |
+          echo "The image generated is: ${{ steps.ko-publish.outputs.digest }}"
+          DIGEST=$(echo ${{ steps.ko-publish.outputs.digest }} | cut -d '@' -f2)
+          echo "Digest from image is: $DIGEST"
+          if [[ "${{inputs.publish_command}}" = "ko-publish-kyvernopre" ]]; then
+            echo "init-container-digest=$DIGEST" >> $GITHUB_OUTPUT
+          elif [[ "${{inputs.publish_command}}" = "ko-publish-kyverno" ]]; then
+            echo "kyverno-digest=$DIGEST" >> $GITHUB_OUTPUT
+          else
+            echo "name=cli-digest=$DIGEST" >> $GITHUB_OUTPUT
+          fi

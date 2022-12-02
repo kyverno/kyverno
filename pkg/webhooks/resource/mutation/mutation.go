@@ -1,6 +1,7 @@
 package mutation
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -29,7 +30,7 @@ type MutationHandler interface {
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
 	HandleMutation(
-		*metrics.MetricsConfig,
+		metrics.MetricsConfigManager,
 		*admissionv1.AdmissionRequest,
 		[]kyvernov1.PolicyInterface,
 		*engine.PolicyContext,
@@ -60,7 +61,7 @@ type mutationHandler struct {
 }
 
 func (h *mutationHandler) HandleMutation(
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -70,20 +71,14 @@ func (h *mutationHandler) HandleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-
 	h.log.V(6).Info("", "generated patches", string(mutatePatches))
-
-	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
-	go webhookutils.RegisterAdmissionReviewDurationMetricMutate(h.log, metricsConfig, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
-	go webhookutils.RegisterAdmissionRequestsMetricMutate(h.log, metricsConfig, string(request.Operation), mutateEngineResponses)
-
 	return mutatePatches, webhookutils.GetWarningMessages(mutateEngineResponses), nil
 }
 
 // applyMutations handles mutating webhook admission request
 // return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
 func (v *mutationHandler) applyMutations(
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -105,8 +100,8 @@ func (v *mutationHandler) applyMutations(
 			continue
 		}
 		v.log.V(3).Info("applying policy mutate rules", "policy", policy.GetName())
-		policyContext.Policy = policy
-		engineResponse, policyPatches, err := v.applyMutation(request, policyContext)
+		currentContext := policyContext.WithPolicy(policy)
+		engineResponse, policyPatches, err := v.applyMutation(request, currentContext)
 		if err != nil {
 			return nil, nil, fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
 		}
@@ -119,13 +114,13 @@ func (v *mutationHandler) applyMutations(
 			}
 		}
 
-		policyContext.NewResource = engineResponse.PatchedResource
+		policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
 		engineResponses = append(engineResponses, engineResponse)
 
 		// registering the kyverno_policy_results_total metric concurrently
-		go webhookutils.RegisterPolicyResultsMetricMutation(v.log, metricsConfig, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), v.log, metricsConfig, string(request.Operation), policy, *engineResponse)
 		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(v.log, metricsConfig, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), v.log, metricsConfig, string(request.Operation), policy, *engineResponse)
 	}
 
 	// generate annotations
@@ -146,20 +141,20 @@ func (v *mutationHandler) applyMutations(
 
 func (h *mutationHandler) applyMutation(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (*response.EngineResponse, [][]byte, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log)
+		policyContext = policyContext.WithNamespaceLabels(common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
 
 	engineResponse := engine.Mutate(policyContext)
 	policyPatches := engineResponse.GetPatches()
 
-	if !engineResponse.IsSuccessful() && len(engineResponse.GetFailedRules()) > 0 {
-		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy.GetName(), engineResponse.GetFailedRules())
+	if !engineResponse.IsSuccessful() {
+		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRules())
 	}
 
-	if engineResponse.PatchedResource.GetKind() != "*" {
+	if policyContext.Policy().ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
 		err := h.openApiManager.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy.GetName())
+			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy().GetName())
 		}
 	}
 
@@ -180,9 +175,11 @@ func logMutationResponse(patches [][]byte, engineResponses []*response.EngineRes
 func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 	var deletionTimeStamp *metav1.Time
 	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
+		resource := policyContext.NewResource()
+		deletionTimeStamp = resource.GetDeletionTimestamp()
 	} else {
-		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
+		resource := policyContext.OldResource()
+		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 	return deletionTimeStamp != nil
 }

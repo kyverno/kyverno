@@ -282,18 +282,18 @@ func Test_AdmissionResponseValid(t *testing.T) {
 		},
 	}
 
-	response := handlers.Mutate(logger, request, "", time.Now())
+	response := handlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Assert(t, response != nil)
 	assert.Equal(t, response.Allowed, true)
 
-	response = handlers.Validate(logger, request, "", time.Now())
+	response = handlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0)
 
-	validPolicy.Spec.ValidationFailureAction = kyverno.Enforce
+	validPolicy.Spec.ValidationFailureAction = "Enforce"
 	policyCache.Set(key, &validPolicy)
 
-	response = handlers.Validate(logger, request, "", time.Now())
+	response = handlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
@@ -323,10 +323,10 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	}
 
 	keyInvalid := makeKey(&invalidPolicy)
-	invalidPolicy.Spec.ValidationFailureAction = kyverno.Enforce
+	invalidPolicy.Spec.ValidationFailureAction = "Enforce"
 	policyCache.Set(keyInvalid, &invalidPolicy)
 
-	response := handlers.Validate(logger, request, "", time.Now())
+	response := handlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
@@ -334,7 +334,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	invalidPolicy.Spec.FailurePolicy = &ignore
 	policyCache.Set(keyInvalid, &invalidPolicy)
 
-	response = handlers.Validate(logger, request, "", time.Now())
+	response = handlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 1)
 }
@@ -364,10 +364,10 @@ func Test_ImageVerify(t *testing.T) {
 		},
 	}
 
-	policy.Spec.ValidationFailureAction = kyverno.Enforce
+	policy.Spec.ValidationFailureAction = "Enforce"
 	policyCache.Set(key, &policy)
 
-	response := handlers.Mutate(logger, request, "", time.Now())
+	response := handlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
@@ -375,7 +375,7 @@ func Test_ImageVerify(t *testing.T) {
 	policy.Spec.FailurePolicy = &ignore
 	policyCache.Set(key, &policy)
 
-	response = handlers.Mutate(logger, request, "", time.Now())
+	response = handlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 }
@@ -405,7 +405,7 @@ func Test_MutateAndVerify(t *testing.T) {
 		},
 	}
 
-	response := handlers.Mutate(logger, request, "", time.Now())
+	response := handlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0)
 }

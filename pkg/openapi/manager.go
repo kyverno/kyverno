@@ -33,7 +33,7 @@ type Manager interface {
 
 type manager struct {
 	// definitions holds the map of {definitionName: *openapiv2.Schema}
-	definitions cmap.ConcurrentMap[*openapiv2.Schema]
+	definitions cmap.ConcurrentMap[string, *openapiv2.Schema]
 
 	// kindToDefinitionName holds the map of {(group/version/)kind: definitionName}
 	// i.e. with k8s 1.20.2
@@ -41,13 +41,13 @@ type manager struct {
 	// - networking.k8s.io/v1/Ingress: io.k8s.api.networking.v1.Ingress
 	// - networking.k8s.io/v1beta1/Ingress: io.k8s.api.networking.v1beta1.Ingress
 	// - extension/v1beta1/Ingress: io.k8s.api.extensions.v1beta1.Ingress
-	gvkToDefinitionName cmap.ConcurrentMap[string]
+	gvkToDefinitionName cmap.ConcurrentMap[string, string]
 
 	crdList []string
 	models  proto.Models
 
 	// kindToAPIVersions stores the Kind and all its available apiVersions, {kind: apiVersions}
-	kindToAPIVersions cmap.ConcurrentMap[apiVersions]
+	kindToAPIVersions cmap.ConcurrentMap[string, apiVersions]
 }
 
 // apiVersions stores all available gvks for a kind, a gvk is "/" separated string
@@ -123,6 +123,16 @@ func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error
 		if rule.HasMutate() {
 			for _, kind := range rule.MatchResources.Kinds {
 				kindToRules[kind] = append(kindToRules[kind], rule)
+			}
+			for _, resourceFilter := range rule.MatchResources.Any {
+				for _, kind := range resourceFilter.Kinds {
+					kindToRules[kind] = append(kindToRules[kind], rule)
+				}
+			}
+			for _, resourceFilter := range rule.MatchResources.All {
+				for _, kind := range resourceFilter.Kinds {
+					kindToRules[kind] = append(kindToRules[kind], rule)
+				}
 			}
 		}
 	}
