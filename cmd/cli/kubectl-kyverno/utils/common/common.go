@@ -1120,3 +1120,31 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 	}
 	return *userInfo, *subjectInfo, nil
 }
+
+func IsGitSourcePath(policyPaths []string) bool {
+	return strings.Contains(policyPaths[0], "https://")
+}
+
+func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) (string, string) {
+	var gitPathToYamls string
+	if gitBranch == "" {
+		gitPathToYamls = "/"
+		if string(policyPaths[0][len(policyPaths[0])-1]) == "/" {
+			gitBranch = strings.ReplaceAll(policyPaths[0], repoURL+"/", "")
+		} else {
+			gitBranch = strings.ReplaceAll(policyPaths[0], repoURL, "")
+		}
+		if gitBranch == "" {
+			gitBranch = "main"
+		} else if string(gitBranch[0]) == "/" {
+			gitBranch = gitBranch[1:]
+		}
+		return gitBranch, gitPathToYamls
+	}
+	if string(policyPaths[0][len(policyPaths[0])-1]) == "/" {
+		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL+"/", "/")
+	} else {
+		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL, "/")
+	}
+	return gitBranch, gitPathToYamls
+}

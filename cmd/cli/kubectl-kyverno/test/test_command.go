@@ -404,14 +404,14 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 			}
 		}
 
-		_, cloneErr := clone(repoURL, fs, gitBranch)
+		_, cloneErr := Clone(repoURL, fs, gitBranch)
 		if cloneErr != nil {
 			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
 			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
 			os.Exit(1)
 		}
 
-		policyYamls, err := listYAMLs(fs, gitPathToYamls)
+		policyYamls, err := ListYAMLs(fs, gitPathToYamls)
 		if err != nil {
 			return rc, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
 		}
