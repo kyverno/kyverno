@@ -10,8 +10,9 @@ import (
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"github.com/spf13/cobra"
-	"sigs.k8s.io/yaml"
 )
 
 var dir string
@@ -58,12 +59,7 @@ kyverno oci pull -i <imgref> -d policies`,
 				return fmt.Errorf("parsing image reference: %v", err)
 			}
 
-			do := []remote.Option{
-				remote.WithContext(cmd.Context()),
-				remote.WithAuthFromKeychain(keychain),
-			}
-
-			rmt, err := Get(ref, do...)
+			rmt, err := remote.Get(ref, remote.WithContext(cmd.Context()), remote.WithAuthFromKeychain(keychain))
 			if err != nil {
 				return fmt.Errorf("getting image: %v", err)
 			}
@@ -91,18 +87,22 @@ kyverno oci pull -i <imgref> -d policies`,
 					}
 					defer blob.Close()
 
-					var policy map[string]interface{}
-					b, err := io.ReadAll(blob)
+					layerBytes, err := io.ReadAll(blob)
 					if err != nil {
 						return fmt.Errorf("reading layer blob: %v", err)
 					}
-					if err := yaml.Unmarshal(b, &policy); err != nil {
+					policies, err := yamlutils.GetPolicy(layerBytes)
+					if err != nil {
 						return fmt.Errorf("unmarshaling layer blob: %v", err)
 					}
-
-					fn := policy["metadata"].(map[string]interface{})["name"].(string) + ".yaml"
-					if err := os.WriteFile(filepath.Join(dir, fn), b, 0o600); err != nil {
-						return fmt.Errorf("creating file: %v", err)
+					for _, policy := range policies {
+						policyBytes, err := policyutils.ToYaml(policy)
+						if err != nil {
+							return fmt.Errorf("converting policy to yaml: %v", err)
+						}
+						if err := os.WriteFile(filepath.Join(dir, policy.GetName()+".yaml"), policyBytes, 0o600); err != nil {
+							return fmt.Errorf("creating file: %v", err)
+						}
 					}
 				}
 			}

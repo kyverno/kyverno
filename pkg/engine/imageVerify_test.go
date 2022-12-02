@@ -150,7 +150,9 @@ func Test_CosignMockAttest(t *testing.T) {
 
 	er, ivm := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			response.RuleStatusPass, er.PolicyResponse.Rules[0].Status, er.PolicyResponse.Rules[0].Message))
 	assert.Equal(t, ivm.IsEmpty(), false)
 	assert.Equal(t, ivm.isVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 }
@@ -179,9 +181,9 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &cpol,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &cpol,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	if oldResource != "" {
@@ -191,7 +193,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 		err = context.AddOldResource(ctx, []byte(oldResource))
 		assert.NilError(t, err)
 
-		policyContext.OldResource = *oldResourceUnstructured
+		policyContext.oldResource = *oldResourceUnstructured
 	}
 
 	if err := ctx.AddImageInfos(resourceUnstructured); err != nil {
@@ -416,7 +418,7 @@ func Test_ConfigMapMissingSuccess(t *testing.T) {
 func Test_ConfigMapMissingFailure(t *testing.T) {
 	ghcrImage := strings.Replace(testConfigMapMissingResource, "nginx:latest", "ghcr.io/kyverno/test-verify-image:signed", -1)
 	policyContext := buildContext(t, testConfigMapMissing, ghcrImage, "")
-	policyContext.Client = client.NewEmptyFakeClient()
+	policyContext.client = client.NewEmptyFakeClient()
 	cosign.ClearMock()
 	err, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
@@ -497,7 +499,7 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	rule := newStaticKeyRule("match-all", "*", testOtherKey)
-	spec := policyContext.Policy.GetSpec()
+	spec := policyContext.policy.GetSpec()
 	spec.Rules = append(spec.Rules, *rule)
 
 	applyAll := kyverno.ApplyAll

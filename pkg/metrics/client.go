@@ -1,5 +1,7 @@
 package metrics
 
+import "context"
+
 type Recorder interface {
 	Record(clientQueryOperation ClientQueryOperation)
 }
@@ -29,5 +31,9 @@ func ClusteredClientQueryRecorder(m MetricsConfigManager, kind string, client Cl
 }
 
 func (r *clientQueryRecorder) Record(clientQueryOperation ClientQueryOperation) {
-	r.manager.RecordClientQueries(clientQueryOperation, r.client, r.kind, r.ns)
+	r.RecordWithContext(context.TODO(), clientQueryOperation)
+}
+
+func (r *clientQueryRecorder) RecordWithContext(ctx context.Context, clientQueryOperation ClientQueryOperation) {
+	r.manager.RecordClientQueries(ctx, clientQueryOperation, r.client, r.kind, r.ns)
 }

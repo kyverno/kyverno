@@ -10,6 +10,10 @@ permissions:
   packages: write
   id-token: write 
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   push-init-kyverno:
     uses: ./.github/workflows/reuse.yaml
@@ -48,7 +52,7 @@ jobs:
       packages: write # To upload assets to release.
       actions: read #To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.3.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyvernopre
       digest: "${{ needs.push-init-kyverno.outputs.init-container-digest }}"
@@ -63,7 +67,7 @@ jobs:
       packages: write # To upload assets to release.
       actions: read #To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.3.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno
       digest: "${{ needs.push-kyverno.outputs.kyverno-digest }}"
@@ -78,7 +82,7 @@ jobs:
       packages: write # To upload assets to release.
       actions: read #To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.3.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno-cli
       digest: "${{ needs.push-kyverno-cli.outputs.cli-digest }}"

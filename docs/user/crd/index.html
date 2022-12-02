@@ -812,6 +812,19 @@ string
 </tr>
 <tr>
 <td>
+<code>attestors</code><br/>
+<em>
+<a href="#kyverno.io/v1.AttestorSet">
+[]AttestorSet
+</a>
+</em>
+</td>
+<td>
+<p>Attestors specify the required attestors (i.e. authorities)</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>conditions</code><br/>
 <em>
 <a href="#kyverno.io/v1.AnyAllConditions">
@@ -929,6 +942,7 @@ If specified Repository will override other OCI image repository locations for t
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.Attestation">Attestation</a>, 
 <a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v1.Manifests">Manifests</a>, 
 <a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)

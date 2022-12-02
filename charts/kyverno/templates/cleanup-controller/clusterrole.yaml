@@ -22,4 +22,15 @@ rules:
     - update
     - watch
     - deletecollection
+- apiGroups:
+    - batch
+  resources:
+    - cronjobs
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - update
+    - watch
 {{- end }}

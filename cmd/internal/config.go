@@ -1,9 +1,13 @@
 package internal
 
+import "flag"
+
 type Configuration interface {
+	UsesMetrics() bool
 	UsesTracing() bool
 	UsesProfiling() bool
 	UsesKubeconfig() bool
+	FlagSets() []*flag.FlagSet
 }
 
 func NewConfiguration(options ...ConfigurationOption) Configuration {
@@ -15,6 +19,12 @@ func NewConfiguration(options ...ConfigurationOption) Configuration {
 }
 
 type ConfigurationOption func(c *configuration)
+
+func WithMetrics() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesMetrics = true
+	}
+}
 
 func WithTracing() ConfigurationOption {
 	return func(c *configuration) {
@@ -34,10 +44,22 @@ func WithKubeconfig() ConfigurationOption {
 	}
 }
 
+func WithFlagSets(flagsets ...*flag.FlagSet) ConfigurationOption {
+	return func(c *configuration) {
+		c.flagSets = append(c.flagSets, flagsets...)
+	}
+}
+
 type configuration struct {
+	usesMetrics    bool
 	usesTracing    bool
 	usesProfiling  bool
 	usesKubeconfig bool
+	flagSets       []*flag.FlagSet
+}
+
+func (c *configuration) UsesMetrics() bool {
+	return c.usesMetrics
 }
 
 func (c *configuration) UsesTracing() bool {
@@ -50,4 +72,8 @@ func (c *configuration) UsesProfiling() bool {
 
 func (c *configuration) UsesKubeconfig() bool {
 	return c.usesKubeconfig
+}
+
+func (c *configuration) FlagSets() []*flag.FlagSet {
+	return c.flagSets
 }

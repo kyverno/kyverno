@@ -8,8 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/multierr"
 	k8s_io_api_events_v1beta1 "k8s.io/api/events/v1beta1"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -234,17 +232,14 @@ func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyco
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Apply"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Apply"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Apply"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Apply(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_events_v1beta1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_events_v1beta1.Event, error) {
@@ -252,17 +247,14 @@ func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_events_v1bet
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Create"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Create"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) CreateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event) (*k8s_io_api_events_v1beta1.Event, error) {
@@ -270,16 +262,13 @@ func (c *withTracing) CreateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.E
 		context.TODO(),
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "CreateWithEventNamespace"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "CreateWithEventNamespace"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("CreateWithEventNamespace"),
 	)
 	defer span.End()
 	ret0, ret1 := c.inner.CreateWithEventNamespace(arg0)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
@@ -287,17 +276,14 @@ func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apim
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Delete"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Delete"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Delete"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0 := c.inner.Delete(arg0, arg1, arg2)
-	if ret0 != nil {
-		span.RecordError(ret0)
-		span.SetStatus(codes.Error, ret0.Error())
-	}
+	tracing.SetSpanStatus(span, ret0)
 	return ret0
 }
 func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
@@ -305,17 +291,14 @@ func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "DeleteCollection"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "DeleteCollection"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("DeleteCollection"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
-	if ret0 != nil {
-		span.RecordError(ret0)
-		span.SetStatus(codes.Error, ret0.Error())
-	}
+	tracing.SetSpanStatus(span, ret0)
 	return ret0
 }
 func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_events_v1beta1.Event, error) {
@@ -323,17 +306,14 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Get"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Get"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Get"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_events_v1beta1.EventList, error) {
@@ -341,17 +321,14 @@ func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "List"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "List"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("List"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.List(arg0, arg1)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_events_v1beta1.Event, error) {
@@ -359,17 +336,14 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Patch"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Patch"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Patch"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) PatchWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event, arg1 []uint8) (*k8s_io_api_events_v1beta1.Event, error) {
@@ -377,16 +351,13 @@ func (c *withTracing) PatchWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Ev
 		context.TODO(),
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "PatchWithEventNamespace"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "PatchWithEventNamespace"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("PatchWithEventNamespace"),
 	)
 	defer span.End()
 	ret0, ret1 := c.inner.PatchWithEventNamespace(arg0, arg1)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_events_v1beta1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_events_v1beta1.Event, error) {
@@ -394,17 +365,14 @@ func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_events_v1bet
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Update"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Update"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Update"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) UpdateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Event) (*k8s_io_api_events_v1beta1.Event, error) {
@@ -412,16 +380,13 @@ func (c *withTracing) UpdateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.E
 		context.TODO(),
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "UpdateWithEventNamespace"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "UpdateWithEventNamespace"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("UpdateWithEventNamespace"),
 	)
 	defer span.End()
 	ret0, ret1 := c.inner.UpdateWithEventNamespace(arg0)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }
 func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
@@ -429,16 +394,13 @@ func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_a
 		arg0,
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Watch"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Watch"),
+		tracing.KubeClientGroupKey.String(c.client),
+		tracing.KubeClientKindKey.String(c.kind),
+		tracing.KubeClientOperationKey.String("Watch"),
 	)
 	defer span.End()
 	arg0 = ctx
 	ret0, ret1 := c.inner.Watch(arg0, arg1)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
+	tracing.SetSpanStatus(span, ret1)
 	return ret0, ret1
 }

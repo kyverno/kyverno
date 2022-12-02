@@ -67,7 +67,7 @@ func TestResponse(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Response(tt.args.err, tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
+			if got := Response("", tt.args.err, tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Response() = %v, want %v", got, tt.want)
 			}
 		})
@@ -102,7 +102,7 @@ func TestResponseSuccess(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ResponseSuccess(tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
+			if got := ResponseSuccess("", tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ResponseSuccess() = %v, want %v", got, tt.want)
 			}
 		})
@@ -144,8 +144,9 @@ func TestMutationResponse(t *testing.T) {
 			warnings: nil,
 		},
 		want: &admissionv1.AdmissionResponse{
-			Allowed: true,
-			Patch:   []byte{1, 2, 3, 4},
+			Allowed:   true,
+			Patch:     []byte{1, 2, 3, 4},
+			PatchType: &patchTypeJSONPatch,
 		},
 	}, {
 		name: "patch, warnings",
@@ -154,14 +155,15 @@ func TestMutationResponse(t *testing.T) {
 			warnings: []string{"foo", "bar"},
 		},
 		want: &admissionv1.AdmissionResponse{
-			Allowed:  true,
-			Patch:    []byte{1, 2, 3, 4},
-			Warnings: []string{"foo", "bar"},
+			Allowed:   true,
+			Patch:     []byte{1, 2, 3, 4},
+			Warnings:  []string{"foo", "bar"},
+			PatchType: &patchTypeJSONPatch,
 		},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := MutationResponse(tt.args.patch, tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
+			if got := MutationResponse("", tt.args.patch, tt.args.warnings...); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("MutationResponse() = %v, want %v", got, tt.want)
 			}
 		})
