@@ -546,7 +546,6 @@ func Test_LabelMatch(t *testing.T) {
 			assert.Equal(t, result, tc.expectedResult)
 		})
 	}
-
 }
 
 func Test_Add(t *testing.T) {
@@ -1085,7 +1084,6 @@ func Test_Modulo(t *testing.T) {
 			expectedResult: `8Ki`,
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("case %s", tc.test), func(t *testing.T) {
 			jp, err := New(tc.test)
@@ -1139,23 +1137,22 @@ func Test_Base64Encode(t *testing.T) {
 func Test_Base64Decode_Secret(t *testing.T) {
 	resourceRaw := []byte(`
 	{
-    "apiVersion": "v1",
-    "kind": "Secret",
-    "metadata": {
-        "name": "example",
-        "namespace": "default"
-    },
-    "type": "Opaque",
-    "data": {
-        "example1": "SGVsbG8sIHdvcmxkIQ==",
-        "example2": "Rm9vQmFy"
-    }
-	}
-	`)
-
+		"apiVersion": "v1",
+		"kind": "Secret",
+		"metadata": {
+			"name": "example",
+			"namespace": "default"
+		},
+		"type": "Opaque",
+		"data": {
+			"example1": "SGVsbG8sIHdvcmxkIQ==",
+			"example2": "Rm9vQmFy"
+		}
+	}`)
 	var resource interface{}
 	err := json.Unmarshal(resourceRaw, &resource)
 	assert.NilError(t, err)
+
 	query, err := New(`base64_decode(data.example1)`)
 	assert.NilError(t, err)
 
@@ -1181,7 +1178,6 @@ func Test_TimeSince(t *testing.T) {
 			expectedResult: "180h10m11s",
 		},
 	}
-
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			query, err := New(tc.test)
@@ -1236,7 +1232,6 @@ func Test_PathCanonicalize(t *testing.T) {
 			expectedResult: "/",
 		},
 	}
-
 	testCasesForWindows := []struct {
 		jmesPath       string
 		expectedResult string
@@ -1258,11 +1253,9 @@ func Test_PathCanonicalize(t *testing.T) {
 			expectedResult: "C:\\Users\\Downloads",
 		},
 	}
-
 	if runtime.GOOS == "windows" {
 		testCases = testCasesForWindows
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := New(tc.jmesPath)
@@ -1283,7 +1276,6 @@ func Test_Truncate(t *testing.T) {
 	// https://github.com/jmespath/go-jmespath/issues/27
 	//
 	// TODO: fix this in https://github.com/kyverno/go-jmespath
-
 	testCases := []struct {
 		jmesPath       string
 		expectedResult string
@@ -1313,7 +1305,6 @@ func Test_Truncate(t *testing.T) {
 			expectedResult: "",
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := New(tc.jmesPath)
@@ -1367,7 +1358,6 @@ func Test_SemverCompare(t *testing.T) {
 }
 
 func Test_Items(t *testing.T) {
-
 	testCases := []struct {
 		object         string
 		keyName        string
@@ -1393,7 +1383,6 @@ func Test_Items(t *testing.T) {
 			expectedResult: `[{ "myKey": "key1", "myValue": "value1" }, { "myKey": "key2", "myValue": "value2" }]`,
 		},
 	}
-
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 
@@ -1413,11 +1402,9 @@ func Test_Items(t *testing.T) {
 			assert.DeepEqual(t, result, resource)
 		})
 	}
-
 }
 
 func Test_ObjectFromLists(t *testing.T) {
-
 	testCases := []struct {
 		keys           string
 		values         string
@@ -1448,7 +1435,6 @@ func Test_ObjectFromLists(t *testing.T) {
 			},
 		},
 	}
-
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			query, err := New("object_from_lists(`" + tc.keys + "`,`" + tc.values + "`)")
@@ -1460,7 +1446,6 @@ func Test_ObjectFromLists(t *testing.T) {
 			assert.DeepEqual(t, result, tc.expectedResult)
 		})
 	}
-
 }
 
 func Test_x509Decode(t *testing.T) {
@@ -1515,12 +1500,10 @@ UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 		`{"Raw":"MIIDSjCCAjKgAwIBAgIUWxmj40l+TDVJq98Xy7c6Leo3np8wDQYJKoZIhvcNAQELBQAwPTELMAkGA1UEBhMCeHgxCjAIBgNVBAgTAXgxCjAIBgNVBAcTAXgxCjAIBgNVBAoTAXgxCjAIBgNVBAsTAXgwHhcNMTgwMjAyMTIzODAwWhcNMjMwMjAxMTIzODAwWjA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UEChMBeDEKMAgGA1UECxMBeDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANHkqOmVf23KMXdaZU2eFUx1h4wb09JINBB8x/HL7UE0KFJcnOoVnNQB0gRukUopiYCzrzMFyGWWmB/pAEKool+ZiI2uMy6mcYBDtOi4pOm7U0TQQMV6L/5Yfi65xRz3RTMd/tYAoFi4aCZbJAGjxU6UWNYDzTy8E/cP6ZnlNbVHRiA6/wHsoWcXtWTXYP5yn9cf7EWQi1hOBM4BWmOIyB1f6LEgQipZWMOMPPHO3hsuSBn0rk7jovSt5XTlbgRrtxqAJiNjJUykWzIF+lLnZCioippGv5vkdGvE83JoACXvZTUwzA+MLu49fkw3bweqkbhrer8kacjfGlw3aJN37eECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgEGMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFKXcb52bv6oqnD+D9fTNFHZL8IWxMA0GCSqGSIb3DQEBCwUAA4IBAQADvKvv3ym0XAYwKxPLLl3Lc6sJYHDbTN0donduG7PXeb1dhuukJ2lfufUYp2IGSAxuLecTYeeByOVp1gaMb5LsIGt2BVDmlMMkiH29LUHsvbyi85CpJo7A5RJG6AWW2VBCiDjz5v8JFM6pMkBRFfXH+pwIge65CE+MTSQcfb1/aIIoQ226P7E/3uUGX4k4pDXG/O7GNvykF40v1DB5y7DDBTQ4JWiJfyGkT69TmdOGLFAmjwxUjWyvEey4qJex/EGEm5RQcMv9iy7tba1wK7sykNGn5uDELGPGIIEAa5rIHm1FUFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/","RawTBSCertificate":"MIICMqADAgECAhRbGaPjSX5MNUmr3xfLtzot6jeenzANBgkqhkiG9w0BAQsFADA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UEChMBeDEKMAgGA1UECxMBeDAeFw0xODAyMDIxMjM4MDBaFw0yMzAyMDExMjM4MDBaMD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0eSo6ZV/bcoxd1plTZ4VTHWHjBvT0kg0EHzH8cvtQTQoUlyc6hWc1AHSBG6RSimJgLOvMwXIZZaYH+kAQqiiX5mIja4zLqZxgEO06Lik6btTRNBAxXov/lh+LrnFHPdFMx3+1gCgWLhoJlskAaPFTpRY1gPNPLwT9w/pmeU1tUdGIDr/AeyhZxe1ZNdg/nKf1x/sRZCLWE4EzgFaY4jIHV/osSBCKllYw4w88c7eGy5IGfSuTuOi9K3ldOVuBGu3GoAmI2MlTKRbMgX6UudkKKiKmka/m+R0a8TzcmgAJe9lNTDMD4wu7j1+TDdvB6qRuGt6vyRpyN8aXDdok3ft4QIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUpdxvnZu/qiqcP4P19M0UdkvwhbE=","RawSubjectPublicKeyInfo":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0eSo6ZV/bcoxd1plTZ4VTHWHjBvT0kg0EHzH8cvtQTQoUlyc6hWc1AHSBG6RSimJgLOvMwXIZZaYH+kAQqiiX5mIja4zLqZxgEO06Lik6btTRNBAxXov/lh+LrnFHPdFMx3+1gCgWLhoJlskAaPFTpRY1gPNPLwT9w/pmeU1tUdGIDr/AeyhZxe1ZNdg/nKf1x/sRZCLWE4EzgFaY4jIHV/osSBCKllYw4w88c7eGy5IGfSuTuOi9K3ldOVuBGu3GoAmI2MlTKRbMgX6UudkKKiKmka/m+R0a8TzcmgAJe9lNTDMD4wu7j1+TDdvB6qRuGt6vyRpyN8aXDdok3ft4QIDAQAB","RawSubject":"MD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4","RawIssuer":"MD0xCzAJBgNVBAYTAnh4MQowCAYDVQQIEwF4MQowCAYDVQQHEwF4MQowCAYDVQQKEwF4MQowCAYDVQQLEwF4","Signature":"A7yr798ptFwGMCsTyy5dy3OrCWBw20zdHaJ3bhuz13m9XYbrpCdpX7n1GKdiBkgMbi3nE2HngcjladYGjG+S7CBrdgVQ5pTDJIh9vS1B7L28ovOQqSaOwOUSRugFltlQQog48+b/CRTOqTJAURX1x/qcCIHuuQhPjE0kHH29f2iCKENtuj+xP97lBl+JOKQ1xvzuxjb8pBeNL9QwecuwwwU0OCVoiX8hpE+vU5nThixQJo8MVI1srxHsuKiXsfxBhJuUUHDL/Ysu7W2tcCu7MpDRp+bgxCxjxiCBAGuayB5tRVBTmWVaBC2mrFkuefcMvKIN/RKttXQzMp2/AZ3Z/w==","SignatureAlgorithm":4,"PublicKeyAlgorithm":1,"PublicKey":{"N":"26496562094779491076553211809422098021949952483515703281510813808490953126660362388109632773224118754702902108388229193869554055094778177099185065933983949693842239539154549752097759985799130804083586220803335221114269832081649712810220640441076536231140807229028981655981643835428138719795509959624793308640711388215921808921435203036357847686892066058381787405708754578605922703585581205444932036212009496723589206933777338978604488048677611723712498345752655171502746679687404543368933776929978831813434358099337112479727796701588293884856604804625411358577626503349165930794262171211166398339413648296787152727521","E":65537},"Version":3,"SerialNumber":520089955419326249038486015063014459614455897759,"Issuer":{"Country":["xx"],"Organization":["x"],"OrganizationalUnit":["x"],"Locality":["x"],"Province":["x"],"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"","Names":[{"Type":[2,5,4,6],"Value":"xx"},{"Type":[2,5,4,8],"Value":"x"},{"Type":[2,5,4,7],"Value":"x"},{"Type":[2,5,4,10],"Value":"x"},{"Type":[2,5,4,11],"Value":"x"}],"ExtraNames":null},"Subject":{"Country":["xx"],"Organization":["x"],"OrganizationalUnit":["x"],"Locality":["x"],"Province":["x"],"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"","Names":[{"Type":[2,5,4,6],"Value":"xx"},{"Type":[2,5,4,8],"Value":"x"},{"Type":[2,5,4,7],"Value":"x"},{"Type":[2,5,4,10],"Value":"x"},{"Type":[2,5,4,11],"Value":"x"}],"ExtraNames":null},"NotBefore":"2018-02-02T12:38:00Z","NotAfter":"2023-02-01T12:38:00Z","KeyUsage":96,"Extensions":[{"Id":[2,5,29,15],"Critical":true,"Value":"AwIBBg=="},{"Id":[2,5,29,19],"Critical":true,"Value":"MAMBAf8="},{"Id":[2,5,29,14],"Critical":false,"Value":"BBSl3G+dm7+qKpw/g/X0zRR2S/CFsQ=="}],"ExtraExtensions":null,"UnhandledCriticalExtensions":null,"ExtKeyUsage":null,"UnknownExtKeyUsage":null,"BasicConstraintsValid":true,"IsCA":true,"MaxPathLen":-1,"MaxPathLenZero":false,"SubjectKeyId":"pdxvnZu/qiqcP4P19M0UdkvwhbE=","AuthorityKeyId":null,"OCSPServer":null,"IssuingCertificateURL":null,"DNSNames":null,"EmailAddresses":null,"IPAddresses":null,"URIs":null,"PermittedDNSDomainsCritical":false,"PermittedDNSDomains":null,"ExcludedDNSDomains":null,"PermittedIPRanges":null,"ExcludedIPRanges":null,"PermittedEmailAddresses":null,"ExcludedEmailAddresses":null,"PermittedURIDomains":null,"ExcludedURIDomains":null,"CRLDistributionPoints":null,"PolicyIdentifiers":null}`,
 	}
 	resExpected := make([]map[string]interface{}, 2)
-
 	for i, v := range resList {
 		err := json.Unmarshal([]byte(v), &resExpected[i])
 		assert.NilError(t, err)
 	}
-
 	testCases := []struct {
 		jmesPath       string
 		expectedResult map[string]interface{}
@@ -1554,7 +1537,6 @@ UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 			expectedResult: map[string]interface{}{},
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := New(tc.jmesPath)
