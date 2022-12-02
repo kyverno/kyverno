@@ -960,7 +960,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 	resources = filteredResources
 
-	var noDuplicateResources = []*unstructured.Unstructured{}
+	noDuplicateResources := []*unstructured.Unstructured{}
 	var duplicateResources []string
 	for i, resource := range resources {
 		for j, dummy_resource := range resources {
