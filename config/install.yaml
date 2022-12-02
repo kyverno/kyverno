@@ -5942,6 +5942,9 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -6255,6 +6258,9 @@ spec:
                                   scope within the foreach block to allow referencing
                                   other elements in the subtree.
                                 type: boolean
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -8836,6 +8842,10 @@ spec:
                                           type: object
                                       type: object
                                     type: array
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -9161,6 +9171,10 @@ spec:
                                       as the validation scope within the foreach block
                                       to allow referencing other elements in the subtree.
                                     type: boolean
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -11443,6 +11457,9 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -11924,6 +11941,9 @@ spec:
                                   scope within the foreach block to allow referencing
                                   other elements in the subtree.
                                 type: boolean
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -14465,6 +14485,10 @@ spec:
                                           type: object
                                       type: object
                                     type: array
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -14790,6 +14814,10 @@ spec:
                                       as the validation scope within the foreach block
                                       to allow referencing other elements in the subtree.
                                     type: boolean
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -18057,6 +18085,9 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -18370,6 +18401,9 @@ spec:
                                   scope within the foreach block to allow referencing
                                   other elements in the subtree.
                                 type: boolean
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -20952,6 +20986,10 @@ spec:
                                           type: object
                                       type: object
                                     type: array
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -21277,6 +21315,10 @@ spec:
                                       as the validation scope within the foreach block
                                       to allow referencing other elements in the subtree.
                                     type: boolean
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -23560,6 +23602,9 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -24041,6 +24086,9 @@ spec:
                                   scope within the foreach block to allow referencing
                                   other elements in the subtree.
                                 type: boolean
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -26582,6 +26630,10 @@ spec:
                                           type: object
                                       type: object
                                     type: array
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -26907,6 +26959,10 @@ spec:
                                       as the validation scope within the foreach block
                                       to allow referencing other elements in the subtree.
                                     type: boolean
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which

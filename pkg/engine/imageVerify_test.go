@@ -737,7 +737,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, len(patches), 2)
 
-	resource := applyPatches(t, patches)
+	resource := testApplyPatches(t, patches)
 	patchedAnnotations := resource.GetAnnotations()
 	assert.Equal(t, len(patchedAnnotations), 1)
 
@@ -749,7 +749,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.Equal(t, verified, true)
 }
 
-func applyPatches(t *testing.T, patches [][]byte) unstructured.Unstructured {
+func testApplyPatches(t *testing.T, patches [][]byte) unstructured.Unstructured {
 	patchedResource, err := utils.ApplyPatches([]byte(testResource), patches)
 	assert.NilError(t, err)
 	assert.Assert(t, patchedResource != nil)

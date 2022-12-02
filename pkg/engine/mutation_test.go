@@ -987,6 +987,29 @@ func Test_foreach_order_mutation_(t *testing.T) {
       ]
     }
   }`)
+
+	er := testApplyPolicyToResource(t, policyRaw, resourceRaw)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+
+	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
+	assert.NilError(t, err)
+
+	for i, c := range containers {
+		ctnr := c.(map[string]interface{})
+		switch i {
+		case 0:
+			assert.Equal(t, ctnr["name"], "mongod")
+		case 1:
+			assert.Equal(t, ctnr["name"], "nginx")
+		case 3:
+			assert.Equal(t, ctnr["name"], "mongodb-agent")
+		}
+	}
+}
+
+func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *response.EngineResponse {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
@@ -1011,22 +1034,127 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	assert.NilError(t, err)
 
 	er := Mutate(policyContext)
+	return er
+}
 
+func Test_mutate_nested_foreach(t *testing.T) {
+	policyRaw := []byte(`{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+      "name": "replace-image-registry"
+    },
+    "spec": {
+      "background": false,
+      "rules": [
+        {
+          "name": "replace-dns-suffix",
+          "match": {
+            "any": [
+              {
+                "resources": {
+                  "kinds": [
+                    "Ingress"
+                  ]
+                }
+              }
+            ]
+          },
+          "mutate": {
+            "foreach": [
+              {
+                "list": "request.object.spec.tls",
+                "foreach": [
+                  {
+                    "list": "element.hosts",
+                    "patchesJson6902": "- path: /spec/tls/{{elementIndex0}}/hosts/{{elementIndex1}}\n  op: replace\n  value: {{replace_all('{{element}}', '.foo.com', '.newfoo.com')}}"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }`)
+
+	resourceRaw := []byte(`{
+    "apiVersion": "networking.k8s.io/v1",
+    "kind": "Ingress",
+    "metadata": {
+      "name": "tls-example-ingress"
+    },
+    "spec": {
+      "tls": [
+        {
+          "hosts": [
+            "https-example.foo.com"
+          ],
+          "secretName": "testsecret-tls"
+        },
+        {
+          "hosts": [
+            "https-example2.foo.com"
+          ],
+          "secretName": "testsecret-tls-2"
+        }
+      ],
+      "rules": [
+        {
+          "host": "https-example.foo.com",
+          "http": {
+            "paths": [
+              {
+                "path": "/",
+                "pathType": "Prefix",
+                "backend": {
+                  "service": {
+                    "name": "service1",
+                    "port": {
+                      "number": 80
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "host": "https-example2.foo.com",
+          "http": {
+            "paths": [
+              {
+                "path": "/",
+                "pathType": "Prefix",
+                "backend": {
+                  "service": {
+                    "name": "service2",
+                    "port": {
+                      "number": 80
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }`)
+
+	er := testApplyPolicyToResource(t, policyRaw, resourceRaw)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 2)
 
-	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
+	tlsArr, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "tls")
 	assert.NilError(t, err)
-
-	for i, c := range containers {
-		ctnr := c.(map[string]interface{})
-		switch i {
-		case 0:
-			assert.Equal(t, ctnr["name"], "mongod")
-		case 1:
-			assert.Equal(t, ctnr["name"], "nginx")
-		case 3:
-			assert.Equal(t, ctnr["name"], "mongodb-agent")
+	for _, e := range tlsArr {
+		tls := e.(map[string]interface{})
+		hosts := tls["hosts"].([]interface{})
+		for _, h := range hosts {
+			s := h.(string)
+			assert.Assert(t, strings.HasSuffix(s, ".newfoo.com"))
 		}
 	}
 }

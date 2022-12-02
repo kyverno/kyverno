@@ -2990,6 +2990,103 @@ func Test_foreach_skip_initContainer_pass(t *testing.T) {
 	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
 }
 
+func Test_foreach_validate_nested(t *testing.T) {
+
+	resourceRaw := []byte(`{
+		"apiVersion": "networking.k8s.io/v1",
+		"kind": "Ingress",
+		"metadata": {
+		  "name": "name-virtual-host-ingress"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "host": "foo.bar.com",
+			  "http": {
+				"paths": [
+				  {
+					"pathType": "Prefix",
+					"path": "/",
+					"backend": {
+					  "service": {
+						"name": "service1",
+						"port": {
+						  "number": 80
+						}
+					  }
+					}
+				  }
+				]
+			  }
+			},
+			{
+			  "host": "bar.foo.com",
+			  "http": {
+				"paths": [
+				  {
+					"pathType": "Prefix",
+					"path": "/",
+					"backend": {
+					  "service": {
+						"name": "service2",
+						"port": {
+						  "number": 80
+						}
+					  }
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "replace-image-registry"
+		},
+		"spec": {
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "replace-dns-suffix",
+			  "match": {
+				"any": [
+				  {
+					"resources": {
+					  "kinds": [
+						"Ingress"
+					  ]
+					}
+				  }
+				]
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.rules",
+					"foreach": [
+					  {
+						"list": "element.http.paths",
+						"pattern": {
+						  "path": "/"
+						}
+					  }
+					]
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	testForEach(t, policyraw, resourceRaw, "", response.RuleStatusPass)
+}
+
 func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string, status response.RuleStatus) {
 	var policy kyverno.ClusterPolicy
 	assert.NilError(t, json.Unmarshal(policyraw, &policy))
