@@ -20,8 +20,22 @@ func Test_Test(t *testing.T) {
 	}
 
 	testcases := []TestCase{
+		// {
+		// 	DirPath: []string{"../../../../test/cli/test/wildcard_mutate_targets"},
+		// 	// DirPath: []string{"../../../../test/cli/test/wildcard_mutate"},
+
+		// 	FileName:  "kyverno-test.yaml",
+		// 	GitBranch: "",
+		// 	TestCase:  "",
+		// 	FailOnly:  true,
+		// 	ExpectedResultCount: resultCounts{
+		// 		Skip: 0,
+		// 		Pass: 2,
+		// 		Fail: 0,
+		// 	},
+		// },
 		{
-			DirPath: []string{"../../../../test/cli/test/wildcard_mutate_targets"},
+			DirPath: []string{"../../../../test/cli/test-generate/sync-spot-controller-data-TODO"},
 			// DirPath: []string{"../../../../test/cli/test/wildcard_mutate"},
 
 			FileName:  "kyverno-test.yaml",
