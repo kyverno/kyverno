@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"reflect"
 	"strings"
 
@@ -44,8 +45,8 @@ func MergeResources(a, b map[string]unstructured.Unstructured) {
 }
 
 func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) *unstructured.UnstructuredList {
-	_, k := kubeutils.GetKindFromGVK(kind)
-	resourceList, err := pc.client.ListResource("", k, namespace, labelSelector)
+	gv, k := kubeutils.GetKindFromGVK(kind)
+	resourceList, err := pc.client.ListResource(context.TODO(), gv, k, namespace, labelSelector)
 	if err != nil {
 		log.Error(err, "failed to list resources", "kind", k, "namespace", namespace)
 		return nil

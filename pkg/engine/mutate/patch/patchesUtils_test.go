@@ -178,6 +178,10 @@ func Test_ignorePath(t *testing.T) {
 			ignore: false,
 		},
 		{
+			path:   "/metadata/generateName",
+			ignore: false,
+		},
+		{
 			path:   "/metadata/creationTimestamp",
 			ignore: true,
 		},
@@ -199,6 +203,10 @@ func Test_ignorePath(t *testing.T) {
 		},
 		{
 			path:   "/kind",
+			ignore: false,
+		},
+		{
+			path:   "/spec/triggers/0/metadata/serverAddress",
 			ignore: false,
 		},
 	}

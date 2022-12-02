@@ -76,11 +76,7 @@ func initRecorder(client dclient.Interface, eventSource Source, log logr.Logger)
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventInterface, err := client.GetEventsInterface()
-	if err != nil {
-		log.Error(err, "failed to get event interface for logging")
-		return nil
-	}
+	eventInterface := client.GetEventsInterface()
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{
 			Interface: eventInterface,
@@ -193,7 +189,7 @@ func (gen *Generator) syncHandler(key Info) error {
 			return err
 		}
 	default:
-		robj, err = gen.client.GetResource("", key.Kind, key.Namespace, key.Name)
+		robj, err = gen.client.GetResource(context.TODO(), "", key.Kind, key.Namespace, key.Name)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)

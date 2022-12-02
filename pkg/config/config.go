@@ -73,10 +73,16 @@ var (
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
 	// defaultExcludeGroupRole ...
 	defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-system", "system:nodes", "system:kube-scheduler"}
+	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
+	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
 )
 
 func KyvernoNamespace() string {
 	return kyvernoNamespace
+}
+
+func KyvernoDryRunNamespace() string {
+	return kyvernoDryrunNamespace
 }
 
 func KyvernoServiceAccountName() string {
@@ -109,8 +115,6 @@ type Configuration interface {
 	GetExcludeUsername() []string
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
-	// RestrictDevelopmentUsername return exclude development username
-	RestrictDevelopmentUsername() []string
 	// FilterNamespaces filters exclude namespace
 	FilterNamespaces(namespaces []string) []string
 	// GetWebhooks returns the webhook configs
@@ -121,20 +125,18 @@ type Configuration interface {
 
 // configuration stores the configuration
 type configuration struct {
-	mux                         sync.RWMutex
-	filters                     []filter
-	excludeGroupRole            []string
-	excludeUsername             []string
-	restrictDevelopmentUsername []string
-	webhooks                    []WebhookConfig
-	generateSuccessEvents       bool
+	mux                   sync.RWMutex
+	filters               []filter
+	excludeGroupRole      []string
+	excludeUsername       []string
+	webhooks              []WebhookConfig
+	generateSuccessEvents bool
 }
 
-// NewConfiguration ...
+// NewDefaultConfiguration ...
 func NewDefaultConfiguration() *configuration {
 	return &configuration{
-		restrictDevelopmentUsername: []string{"minikube-user", "kubernetes-admin"},
-		excludeGroupRole:            defaultExcludeGroupRole,
+		excludeGroupRole: defaultExcludeGroupRole,
 	}
 }
 
@@ -172,12 +174,6 @@ func (cd *configuration) GetExcludeGroupRole() []string {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.excludeGroupRole
-}
-
-func (cd *configuration) RestrictDevelopmentUsername() []string {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	return cd.restrictDevelopmentUsername
 }
 
 func (cd *configuration) GetExcludeUsername() []string {

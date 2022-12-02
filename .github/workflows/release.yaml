@@ -59,7 +59,7 @@ jobs:
     steps:
       - name: Set version
         id: version
-        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
+        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
       - name: Checkout
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2.4.0
@@ -112,7 +112,7 @@ jobs:
     steps:
       - name: Set version
         id: version
-        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
+        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
       - name: Checkout
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2.4.0
@@ -130,7 +130,7 @@ jobs:
           version: 0.35.0
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@7cc35d7fdbe70d4278a0c96779081e6fac665f88 # v2.8.0
+        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
         with:
           cosign-release: 'v1.13.0'
 
@@ -186,7 +186,7 @@ jobs:
         id: check-tag
         run: |
           if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo ::set-output name=match::true
+              echo "match=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Update new version in krew-index

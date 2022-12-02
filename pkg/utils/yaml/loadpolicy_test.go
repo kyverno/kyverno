@@ -230,6 +230,73 @@ spec:
 			{"ClusterPolicy", ""},
 		},
 		wantErr: false,
+	}, {
+		name: "policy and cluster policy in list",
+		args: args{
+			[]byte(`
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: kyverno.io/v1
+    kind: Policy
+    metadata:
+      name: generate-policy
+      namespace: ns-1
+    spec:
+      rules:
+        - name: copy-game-demo
+          match:
+            resources:
+              kinds:
+                - Namespace
+          exclude:
+            resources:
+              namespaces:
+                - kube-system
+                - default
+                - kube-public
+                - kyverno
+          generate:
+            kind: ConfigMap
+            name: game-demo
+            namespace: "{{request.object.metadata.name}}"
+            synchronize: true
+            clone:
+              namespace: default
+              name: game-demo
+  - apiVersion: kyverno.io/v1
+    kind: ClusterPolicy
+    metadata:
+      name: generate-policy
+    spec:
+      rules:
+        - name: copy-game-demo
+          match:
+            resources:
+              kinds:
+                - Namespace
+          exclude:
+            resources:
+              namespaces:
+                - kube-system
+                - default
+                - kube-public
+                - kyverno
+          generate:
+            kind: ConfigMap
+            name: game-demo
+            namespace: "{{request.object.metadata.name}}"
+            synchronize: true
+            clone:
+              namespace: default
+              name: game-demo
+`),
+		},
+		wantPolicies: []policy{
+			{"Policy", "ns-1"},
+			{"ClusterPolicy", ""},
+		},
+		wantErr: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

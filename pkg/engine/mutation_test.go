@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -9,7 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
@@ -77,8 +78,8 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	}
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
-	ctx := context.NewContext()
-	err = context.AddResource(ctx, resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
 	}
@@ -89,9 +90,9 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 		t.Error(err)
 	}
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured}
 	er := Mutate(policyContext)
 	t.Log(string(expectedPatch))
 
@@ -157,14 +158,14 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	err = context.AddResource(ctx, resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured}
 	er := Mutate(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
@@ -252,14 +253,14 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	err = context.AddResource(ctx, resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	er := Mutate(policyContext)
@@ -355,20 +356,20 @@ func Test_chained_rules(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := enginecontext.NewContext()
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resource,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resource,
 	}
 
 	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
-	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
+	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := Mutate(policyContext)
@@ -449,14 +450,14 @@ func Test_precondition(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	err = context.AddResource(ctx, resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	er := Mutate(policyContext)
@@ -546,14 +547,14 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	err = context.AddResource(ctx, resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	er := Mutate(policyContext)
@@ -634,20 +635,20 @@ func Test_foreach(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := enginecontext.NewContext()
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resource,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resource,
 	}
 
 	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
-	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
+	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := Mutate(policyContext)
@@ -741,20 +742,20 @@ func Test_foreach_element_mutation(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := enginecontext.NewContext()
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resource,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resource,
 	}
 
 	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
-	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
+	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := Mutate(policyContext)
@@ -867,20 +868,20 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := enginecontext.NewContext()
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resource,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resource,
 	}
 
 	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
-	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
+	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := Mutate(policyContext)
@@ -994,20 +995,20 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
+	ctx := enginecontext.NewContext()
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resource,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resource,
 	}
 
 	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
-	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
+	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := Mutate(policyContext)
@@ -1432,7 +1433,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 			target, err := utils.ConvertToUnstructured(target)
 			assert.NilError(t, err)
 
-			ctx := context.NewContext()
+			ctx := enginecontext.NewContext()
 			err = ctx.AddResource(trigger.Object)
 			assert.NilError(t, err)
 
@@ -1446,14 +1447,14 @@ func Test_mutate_existing_resources(t *testing.T) {
 			assert.NilError(t, err)
 			dclient.SetDiscovery(client.NewFakeDiscoveryClient(nil))
 
-			_, err = dclient.GetResource(target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
+			_, err = dclient.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
 			assert.NilError(t, err)
 
 			policyContext = &PolicyContext{
-				Client:      dclient,
-				Policy:      &policy,
-				JSONContext: ctx,
-				NewResource: *trigger,
+				client:      dclient,
+				policy:      &policy,
+				jsonContext: ctx,
+				newResource: *trigger,
 			}
 		}
 		er := Mutate(policyContext)
@@ -1549,8 +1550,8 @@ func Test_RuleSelectorMutate(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
-	ctx := context.NewContext()
-	err = context.AddResource(ctx, resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1559,9 +1560,9 @@ func Test_RuleSelectorMutate(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &policy,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	er := Mutate(policyContext)
@@ -1577,7 +1578,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 	}
 
 	applyOne := kyverno.ApplyOne
-	policyContext.Policy.GetSpec().ApplyRules = &applyOne
+	policyContext.policy.GetSpec().ApplyRules = &applyOne
 
 	er = Mutate(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
@@ -1585,5 +1586,371 @@ func Test_RuleSelectorMutate(t *testing.T) {
 
 	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches[0]) {
 		t.Error("rule 1 patches dont match")
+	}
+}
+
+func Test_SpecialCharacters(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		policyRaw   []byte
+		documentRaw []byte
+		want        [][]byte
+	}{
+		{
+			name: "regex_replace",
+			policyRaw: []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "regex-replace-all-demo"
+  },
+  "spec": {
+    "background": false,
+    "rules": [
+      {
+        "name": "retention-adjust",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Deployment"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "retention": "{{ regex_replace_all('([0-9])([0-9])', '{{ @ }}', '${1}0') }}"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`),
+			documentRaw: []byte(`{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "busybox",
+    "labels": {
+      "app": "busybox",
+      "retention": "days_37"
+    }
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": {
+      "matchLabels": {
+        "app": "busybox"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "busybox"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "busybox:1.28",
+            "name": "busybox",
+            "command": [
+              "sleep",
+              "9999"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}`),
+			want: [][]byte{
+				[]byte(`{"op":"replace","path":"/metadata/labels/retention","value":"days_30"}`),
+			},
+		},
+		{
+			name: "regex_replace_with_slash",
+			policyRaw: []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "regex-replace-all-demo"
+  },
+  "spec": {
+    "background": false,
+    "rules": [
+      {
+        "name": "retention-adjust",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Deployment"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "corp.com/retention": "{{ regex_replace_all('([0-9])([0-9])', '{{ @ }}', '${1}0') }}"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`),
+			documentRaw: []byte(`{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "busybox",
+    "labels": {
+      "app": "busybox",
+      "corp.com/retention": "days_37"
+    }
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": {
+      "matchLabels": {
+        "app": "busybox"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "busybox"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "busybox:1.28",
+            "name": "busybox",
+            "command": [
+              "sleep",
+              "9999"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}`),
+			want: [][]byte{
+				[]byte(`{"op":"replace","path":"/metadata/labels/corp.com~1retention","value":"days_30"}`),
+			},
+		},
+		{
+			name: "regex_replace_with_hyphen",
+			policyRaw: []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "regex-replace-all-demo"
+  },
+  "spec": {
+    "background": false,
+    "rules": [
+      {
+        "name": "retention-adjust",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Deployment"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "corp-retention": "{{ regex_replace_all('([0-9])([0-9])', '{{ @ }}', '${1}0') }}"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`),
+			documentRaw: []byte(`{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "busybox",
+    "labels": {
+      "app": "busybox",
+      "corp-retention": "days_37"
+    }
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": {
+      "matchLabels": {
+        "app": "busybox"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "busybox"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "busybox:1.28",
+            "name": "busybox",
+            "command": [
+              "sleep",
+              "9999"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}`),
+			want: [][]byte{
+				[]byte(`{"op":"replace","path":"/metadata/labels/corp-retention","value":"days_30"}`),
+			},
+		},
+		{
+			name: "to_upper_with_hyphen",
+			policyRaw: []byte(`{
+  "apiVersion": "kyverno.io/v1",
+  "kind": "ClusterPolicy",
+  "metadata": {
+    "name": "to-upper-demo"
+  },
+  "spec": {
+    "rules": [
+      {
+        "name": "format-deploy-zone",
+        "match": {
+          "any": [
+            {
+              "resources": {
+                "kinds": [
+                  "Deployment"
+                ]
+              }
+            }
+          ]
+        },
+        "mutate": {
+          "patchStrategicMerge": {
+            "metadata": {
+              "labels": {
+                "deploy-zone": "{{ to_upper('{{@}}') }}"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}`),
+			documentRaw: []byte(`{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "busybox",
+    "labels": {
+      "app": "busybox",
+      "deploy-zone": "eu-central-1"
+    }
+  },
+  "spec": {
+    "replicas": 3,
+    "selector": {
+      "matchLabels": {
+        "app": "busybox"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "busybox"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "image": "busybox:1.28",
+            "name": "busybox",
+            "command": [
+              "sleep",
+              "9999"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}`),
+			want: [][]byte{
+				[]byte(`{"op":"replace","path":"/metadata/labels/deploy-zone","value":"EU-CENTRAL-1"}`),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Parse policy document.
+			var policy kyverno.ClusterPolicy
+			if err := json.Unmarshal(tt.policyRaw, &policy); err != nil {
+				t.Error(err)
+			}
+
+			// Parse resource document.
+			resource, err := utils.ConvertToUnstructured(tt.documentRaw)
+			if err != nil {
+				t.Fatalf("ConvertToUnstructured() error = %v", err)
+			}
+
+			// Create JSON context and add the resource.
+			ctx := enginecontext.NewContext()
+			err = ctx.AddResource(resource.Object)
+			if err != nil {
+				t.Fatalf("ctx.AddResource() error = %v", err)
+			}
+
+			// Create policy context.
+			policyContext := &PolicyContext{
+				policy:      &policy,
+				jsonContext: ctx,
+				newResource: *resource,
+			}
+
+			// Mutate and make sure that we got the expected amount of rules.
+			patches := Mutate(policyContext).GetPatches()
+			if !reflect.DeepEqual(patches, tt.want) {
+				t.Errorf("Mutate() got patches %s, expected %s", patches, tt.want)
+			}
+		})
 	}
 }
