@@ -33,6 +33,7 @@ import (
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/cosign"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -407,6 +408,26 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	cacheInformer, err := resolvers.GetCacheInformerFactory(kubeClient, resyncPeriod)
+	if err != nil {
+		logger.Error(err, "failed to create cache informer factory")
+		os.Exit(1)
+	}
+	informerBasedResolver, err := resolvers.NewInformerBasedResolver(cacheInformer.Core().V1().ConfigMaps().Lister())
+	if err != nil {
+		logger.Error(err, "failed to create informer based resolver")
+		os.Exit(1)
+	}
+	clientBasedResolver, err := resolvers.NewClientBasedResolver(kubeClient)
+	if err != nil {
+		logger.Error(err, "failed to create client based resolver")
+		os.Exit(1)
+	}
+	configMapResolver, err := resolvers.NewResolverChain(informerBasedResolver, clientBasedResolver)
+	if err != nil {
+		logger.Error(err, "failed to create config map resolver")
+		os.Exit(1)
+	}
 	configuration, err := config.NewConfiguration(kubeClient)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
@@ -459,7 +480,7 @@ func main() {
 		openApiManager,
 	)
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
 		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
@@ -575,6 +596,7 @@ func main() {
 		configuration,
 		metricsConfig,
 		policyCache,
+		configMapResolver,
 		kubeInformer.Core().V1().Namespaces().Lister(),
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
@@ -607,7 +629,7 @@ func main() {
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
 		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
