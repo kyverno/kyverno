@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"time"
@@ -109,7 +110,7 @@ func ProcessDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, c
 }
 
 func updateSourceResource(pName string, rule kyvernov1.Rule, client dclient.Interface, log logr.Logger) error {
-	obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+	obj, err := client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	if err != nil {
 		return errors.Wrapf(err, "source resource %s/%s/%s not found", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	}
@@ -122,7 +123,7 @@ func updateSourceResource(pName string, rule kyvernov1.Rule, client dclient.Inte
 	}
 
 	obj.SetLabels(labels)
-	_, err = client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
+	_, err = client.UpdateResource(context.TODO(), obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
 	return err
 }
 

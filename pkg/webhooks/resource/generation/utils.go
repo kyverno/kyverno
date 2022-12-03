@@ -1,6 +1,7 @@
 package generation
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -24,7 +25,7 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 	if kind != "Namespace" {
 		namespace = resLabels["kyverno.io/generated-by-namespace"]
 	}
-	obj, err := client.GetResource(apiVersion, kind, namespace, name)
+	obj, err := client.GetResource(context.TODO(), apiVersion, kind, namespace, name)
 	if err != nil {
 		logger.Error(err, "source resource not found.")
 		return rule, err

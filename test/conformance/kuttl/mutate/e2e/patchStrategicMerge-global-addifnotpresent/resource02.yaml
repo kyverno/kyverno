@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-hostpath
+  namespace: default
+  labels:
+    foo: bar
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    volumeMounts:
+    - mountPath: /usr/share/nginx/html
+      name: test-volume
+  volumes:
+  - hostPath:
+      path: /var/local/aaa
+      type: DirectoryOrCreate
+    name: test-volume

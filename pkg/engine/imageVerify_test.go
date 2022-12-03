@@ -8,11 +8,12 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
@@ -150,7 +151,9 @@ func Test_CosignMockAttest(t *testing.T) {
 
 	er, ivm := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass,
+		fmt.Sprintf("expected: %v, got: %v, failure: %v",
+			response.RuleStatusPass, er.PolicyResponse.Rules[0].Status, er.PolicyResponse.Rules[0].Message))
 	assert.Equal(t, ivm.IsEmpty(), false)
 	assert.Equal(t, ivm.isVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 }
@@ -179,9 +182,9 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      &cpol,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured,
+		policy:      &cpol,
+		jsonContext: ctx,
+		newResource: *resourceUnstructured,
 	}
 
 	if oldResource != "" {
@@ -191,7 +194,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 		err = context.AddOldResource(ctx, []byte(oldResource))
 		assert.NilError(t, err)
 
-		policyContext.OldResource = *oldResourceUnstructured
+		policyContext.oldResource = *oldResourceUnstructured
 	}
 
 	if err := ctx.AddImageInfos(resourceUnstructured); err != nil {
@@ -416,11 +419,13 @@ func Test_ConfigMapMissingSuccess(t *testing.T) {
 func Test_ConfigMapMissingFailure(t *testing.T) {
 	ghcrImage := strings.Replace(testConfigMapMissingResource, "nginx:latest", "ghcr.io/kyverno/test-verify-image:signed", -1)
 	policyContext := buildContext(t, testConfigMapMissing, ghcrImage, "")
-	policyContext.Client = client.NewEmptyFakeClient()
+	resolver, err := resolvers.NewClientBasedResolver(kubefake.NewSimpleClientset())
+	assert.NilError(t, err)
+	policyContext.informerCacheResolvers = resolver
 	cosign.ClearMock()
-	err, _ := VerifyAndPatchImages(policyContext)
-	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusError, err.PolicyResponse.Rules[0].Message)
+	resp, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
+	assert.Equal(t, resp.PolicyResponse.Rules[0].Status, response.RuleStatusError, resp.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignatureGoodSigned(t *testing.T) {
@@ -497,7 +502,7 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	rule := newStaticKeyRule("match-all", "*", testOtherKey)
-	spec := policyContext.Policy.GetSpec()
+	spec := policyContext.policy.GetSpec()
 	spec.Rules = append(spec.Rules, *rule)
 
 	applyAll := kyverno.ApplyAll

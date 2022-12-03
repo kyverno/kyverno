@@ -25,6 +25,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -277,7 +278,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if wildcardErr != nil {
 				return warnings, wildcardErr
 			}
-			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
 					return warnings, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
@@ -289,7 +290,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if wildcardErr != nil {
 				return warnings, wildcardErr
 			}
-			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
 					return warnings, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
@@ -301,7 +302,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if wildcardErr != nil {
 				return warnings, wildcardErr
 			}
-			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
 					return warnings, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
@@ -313,7 +314,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if wildcardErr != nil {
 				return warnings, wildcardErr
 			}
-			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
 					return warnings, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
@@ -321,7 +322,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 		}
 
-		if !utils.ContainsString(rule.MatchResources.Kinds, "*") {
+		if !slices.Contains(rule.MatchResources.Kinds, "*") {
 			err := validateKinds(rule.MatchResources.Kinds, mock, client, policy)
 			if err != nil {
 				return warnings, errors.Wrapf(err, "match resource kind is invalid")
@@ -348,7 +349,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 
 		// add label to source mentioned in policy
 		if !mock && rule.Generation.Clone.Name != "" {
-			obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+			obj, err := client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 			if err != nil {
 				logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 				continue
@@ -363,13 +364,13 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		if !mock && len(rule.Generation.CloneList.Kinds) != 0 {
 			for _, kind := range rule.Generation.CloneList.Kinds {
 				apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-				resources, err := client.ListResource(apiVersion, kind, rule.Generation.CloneList.Namespace, rule.Generation.CloneList.Selector)
+				resources, err := client.ListResource(context.TODO(), apiVersion, kind, rule.Generation.CloneList.Namespace, rule.Generation.CloneList.Selector)
 				if err != nil {
 					logging.Error(err, fmt.Sprintf("failed to list resources %s/%s.", kind, rule.Generation.CloneList.Namespace))
 					continue
 				}
 				for _, rName := range resources.Items {
-					obj, err := client.GetResource(apiVersion, kind, rule.Generation.CloneList.Namespace, rName.GetName())
+					obj, err := client.GetResource(context.TODO(), apiVersion, kind, rule.Generation.CloneList.Namespace, rName.GetName())
 					if err != nil {
 						logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 						continue
@@ -417,7 +418,7 @@ func UpdateSourceResource(client dclient.Interface, kind, namespace string, poli
 		obj.SetLabels(label)
 		obj.SetResourceVersion("")
 
-		_, err := client.UpdateResource(obj.GetAPIVersion(), kind, namespace, obj, false)
+		_, err := client.UpdateResource(context.TODO(), obj.GetAPIVersion(), kind, namespace, obj, false)
 		if err != nil {
 			logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
 			return err
@@ -1139,7 +1140,7 @@ func jsonPatchOnPod(rule kyvernov1.Rule) bool {
 		return false
 	}
 
-	if utils.ContainsString(rule.MatchResources.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
+	if slices.Contains(rule.MatchResources.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
 		return true
 	}
 
@@ -1163,13 +1164,13 @@ func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 
 // validateWildcard check for an Match/Exclude block contains "*"
 func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule) error {
-	if utils.ContainsString(kinds, "*") && spec.BackgroundProcessingEnabled() {
+	if slices.Contains(kinds, "*") && spec.BackgroundProcessingEnabled() {
 		return fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
 	}
-	if utils.ContainsString(kinds, "*") && len(kinds) > 1 {
+	if slices.Contains(kinds, "*") && len(kinds) > 1 {
 		return fmt.Errorf("wildard policy can not deal more than one kind")
 	}
-	if utils.ContainsString(kinds, "*") {
+	if slices.Contains(kinds, "*") {
 		if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
 			return fmt.Errorf("wildcard policy does not support rule type")
 		}

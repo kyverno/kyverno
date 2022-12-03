@@ -6,6 +6,9 @@ kind: ClusterPolicy
 metadata:
   name: {{ $name }}
   annotations:
+    {{- with .Values.autogenControllers }}
+    pod-policies.kyverno.io/autogen-controllers: {{ . }}
+    {{- end }}
     policies.kyverno.io/title: Disallow Capabilities
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     {{- if .Values.podSecuritySeverity }}
@@ -17,6 +20,7 @@ metadata:
     policies.kyverno.io/subject: Pod
     policies.kyverno.io/description: >-
       Adding capabilities beyond those listed in the policy must be disallowed.
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   {{- with index .Values "validationFailureActionByPolicy" $name }}
   validationFailureAction: {{ toYaml . }}

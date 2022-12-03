@@ -9,6 +9,7 @@ import (
 	kyvernov1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
 	kyvernov1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	batchv1 "k8s.io/api/batch/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,7 +20,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-type Controller struct {
+type controller struct {
 	// clients
 	client kubernetes.Interface
 
@@ -29,7 +30,9 @@ type Controller struct {
 	cjLister   batchv1listers.CronJobLister
 
 	// queue
-	queue workqueue.RateLimitingInterface
+	queue       workqueue.RateLimitingInterface
+	cpolEnqueue controllerutils.EnqueueFuncT[*kyvernov1alpha1.ClusterCleanupPolicy]
+	polEnqueue  controllerutils.EnqueueFuncT[*kyvernov1alpha1.CleanupPolicy]
 }
 
 const (
@@ -43,109 +46,58 @@ func NewController(
 	cpolInformer kyvernov1alpha1informers.ClusterCleanupPolicyInformer,
 	polInformer kyvernov1alpha1informers.CleanupPolicyInformer,
 	cjInformer batchv1informers.CronJobInformer,
-) *Controller {
-	c := &Controller{
-		client:     client,
-		cpolLister: cpolInformer.Lister(),
-		polLister:  polInformer.Lister(),
-		cjLister:   cjInformer.Lister(),
-		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+) controllers.Controller {
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	c := &controller{
+		client:      client,
+		cpolLister:  cpolInformer.Lister(),
+		polLister:   polInformer.Lister(),
+		cjLister:    cjInformer.Lister(),
+		queue:       queue,
+		cpolEnqueue: controllerutils.AddDefaultEventHandlersT[*kyvernov1alpha1.ClusterCleanupPolicy](logger, cpolInformer.Informer(), queue),
+		polEnqueue:  controllerutils.AddDefaultEventHandlersT[*kyvernov1alpha1.CleanupPolicy](logger, polInformer.Informer(), queue),
 	}
-	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
-	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
-	cpolEnqueue := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
-	polEnqueue := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
 	controllerutils.AddEventHandlersT(
 		cjInformer.Informer(),
-		func(n *batchv1.CronJob) {
-			if len(n.OwnerReferences) == 1 {
-				if n.OwnerReferences[0].Kind == "ClusterCleanupPolicy" {
-					cpol := kyvernov1alpha1.ClusterCleanupPolicy{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: n.OwnerReferences[0].Name,
-						},
-					}
-					err := cpolEnqueue(&cpol)
-					if err != nil {
-						logger.Error(err, "failed to enqueue ClusterCleanupPolicy object", cpol)
-					}
-				} else if n.OwnerReferences[0].Kind == "CleanupPolicy" {
-					pol := kyvernov1alpha1.CleanupPolicy{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      n.OwnerReferences[0].Name,
-							Namespace: n.Namespace,
-						},
-					}
-					err := polEnqueue(&pol)
-					if err != nil {
-						logger.Error(err, "failed to enqueue CleanupPolicy object", pol)
-					}
-				}
-			}
-		},
-		func(o *batchv1.CronJob, n *batchv1.CronJob) {
-			if o.GetResourceVersion() != n.GetResourceVersion() {
-				for _, owner := range n.OwnerReferences {
-					if owner.Kind == "ClusterCleanupPolicy" {
-						cpol := kyvernov1alpha1.ClusterCleanupPolicy{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: owner.Name,
-							},
-						}
-						err := cpolEnqueue(&cpol)
-						if err != nil {
-							logger.Error(err, "failed to enqueue ClusterCleanupPolicy object", cpol)
-						}
-					} else if owner.Kind == "CleanupPolicy" {
-						pol := kyvernov1alpha1.CleanupPolicy{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      owner.Name,
-								Namespace: n.Namespace,
-							},
-						}
-						err := polEnqueue(&pol)
-						if err != nil {
-							logger.Error(err, "failed to enqueue CleanupPolicy object", pol)
-						}
-					}
-				}
-			}
-		},
-		func(n *batchv1.CronJob) {
-			if len(n.OwnerReferences) == 1 {
-				if n.OwnerReferences[0].Kind == "ClusterCleanupPolicy" {
-					cpol := kyvernov1alpha1.ClusterCleanupPolicy{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: n.OwnerReferences[0].Name,
-						},
-					}
-					err := cpolEnqueue(&cpol)
-					if err != nil {
-						logger.Error(err, "failed to enqueue ClusterCleanupPolicy object", cpol)
-					}
-				} else if n.OwnerReferences[0].Kind == "CleanupPolicy" {
-					pol := kyvernov1alpha1.CleanupPolicy{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      n.OwnerReferences[0].Name,
-							Namespace: n.Namespace,
-						},
-					}
-					err := polEnqueue(&pol)
-					if err != nil {
-						logger.Error(err, "failed to enqueue CleanupPolicy object", pol)
-					}
-				}
-			}
-		},
+		func(n *batchv1.CronJob) { c.enqueueCronJob(n) },
+		func(o *batchv1.CronJob, n *batchv1.CronJob) { c.enqueueCronJob(o) },
+		func(n *batchv1.CronJob) { c.enqueueCronJob(n) },
 	)
 	return c
 }
 
-func (c *Controller) Run(ctx context.Context, workers int) {
+func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger.V(3), ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *Controller) getPolicy(namespace, name string) (kyvernov1alpha1.CleanupPolicyInterface, error) {
+func (c *controller) enqueueCronJob(n *batchv1.CronJob) {
+	if len(n.OwnerReferences) == 1 {
+		if n.OwnerReferences[0].Kind == "ClusterCleanupPolicy" {
+			cpol := &kyvernov1alpha1.ClusterCleanupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: n.OwnerReferences[0].Name,
+				},
+			}
+			err := c.cpolEnqueue(cpol)
+			if err != nil {
+				logger.Error(err, "failed to enqueue ClusterCleanupPolicy object", cpol)
+			}
+		} else if n.OwnerReferences[0].Kind == "CleanupPolicy" {
+			pol := &kyvernov1alpha1.CleanupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      n.OwnerReferences[0].Name,
+					Namespace: n.Namespace,
+				},
+			}
+			err := c.polEnqueue(pol)
+			if err != nil {
+				logger.Error(err, "failed to enqueue CleanupPolicy object", pol)
+			}
+		}
+	}
+}
+
+func (c *controller) getPolicy(namespace, name string) (kyvernov1alpha1.CleanupPolicyInterface, error) {
 	if namespace == "" {
 		cpolicy, err := c.cpolLister.Get(name)
 		if err != nil {
@@ -161,7 +113,7 @@ func (c *Controller) getPolicy(namespace, name string) (kyvernov1alpha1.CleanupP
 	}
 }
 
-func (c *Controller) getCronjob(namespace, name string) (*batchv1.CronJob, error) {
+func (c *controller) getCronjob(namespace, name string) (*batchv1.CronJob, error) {
 	cj, err := c.cjLister.CronJobs(namespace).Get(name)
 	if err != nil {
 		return nil, err
@@ -169,7 +121,7 @@ func (c *Controller) getCronjob(namespace, name string) (*batchv1.CronJob, error
 	return cj, nil
 }
 
-func (c *Controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	policy, err := c.getPolicy(namespace, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
