@@ -1177,3 +1177,32 @@ func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 
 	assert.Equal(t, fmt.Sprintf("%v", pattern), "{{request.object.metadata.annotations.target}}")
 }
+
+func Test_RegexVariables(t *testing.T) {
+	vars := RegexVariables.FindAllString("tag: {{ value }}", -1)
+	assert.Equal(t, len(vars), 1)
+	assert.Equal(t, vars[0], " {{ value }}")
+
+	res := RegexVariables.ReplaceAllString("tag: {{ value }}", "${1}test")
+	assert.Equal(t, res, "tag: test")
+}
+
+func Test_IsVariable(t *testing.T) {
+	assert.Equal(t, IsVariable("{{ foo }}"), true)
+	assert.Equal(t, IsVariable("{{ foo {{foo2}} }}"), true)
+	assert.Equal(t, IsVariable("\\{{ foo }}"), false)
+}
+
+func Test_ReplaceAllVars(t *testing.T) {
+	result := ReplaceAllVars("{{ foo }}", func(s string) string { return "test" })
+	assert.Equal(t, result, "test")
+
+	result = ReplaceAllVars("{{ foo }} {{foo}} {{foo}}", func(s string) string { return "test" })
+	assert.Equal(t, result, "test test test")
+
+	result = ReplaceAllVars("{{ foo }} \\{{foo}} {{foo}}", func(s string) string { return "test" })
+	assert.Equal(t, result, "test \\{{foo}} test")
+
+	result = ReplaceAllVars("{{ foo {{foo}} }}", func(s string) string { return "test" })
+	assert.Equal(t, result, "{{ foo test }}")
+}

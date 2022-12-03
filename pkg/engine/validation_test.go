@@ -2975,7 +2975,7 @@ func Test_foreach_skip_initContainer_pass(t *testing.T) {
 					}
 				  },
 				  {
-					"list": "request.object.spec.template.spec..initContainers",
+					"list": "request.object.spec.template.spec.initContainers",
 					"pattern": {
 					  "image": "trusted-registry.io/*"
 					}

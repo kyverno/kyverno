@@ -19,7 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 )
 
-var RegexVariables = regexp.MustCompile(`(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
+var RegexVariables = regexp.MustCompile(`(^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
 
 var RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
@@ -571,7 +571,7 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 			break
 		}
 
-		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`placeholderValue`))
+		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`${1}placeholderValue`))
 	}
 
 	var output interface{}

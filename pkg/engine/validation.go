@@ -299,8 +299,8 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	for _, foreach := range v.foreach {
 		elements, err := evaluateList(foreach.List, v.ctx.JSONContext)
 		if err != nil {
-			msg := fmt.Sprintf("failed to evaluate list %v", foreach.List)
-			return ruleError(v.rule, response.Validation, msg, err)
+			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
+			continue
 		}
 
 		resp, count := v.validateElements(foreach, elements, foreach.ElementScope)
