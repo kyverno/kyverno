@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -44,6 +45,7 @@ type CertRenewer interface {
 // renews RootCA at the given interval
 type certRenewer struct {
 	client              controllerutils.ObjectClient[*corev1.Secret]
+	lister              corev1listers.SecretNamespaceLister
 	certRenewalInterval time.Duration
 	caValidityDuration  time.Duration
 	tlsValidityDuration time.Duration
@@ -53,9 +55,17 @@ type certRenewer struct {
 }
 
 // NewCertRenewer returns an instance of CertRenewer
-func NewCertRenewer(client controllerutils.ObjectClient[*corev1.Secret], certRenewalInterval, caValidityDuration, tlsValidityDuration time.Duration, server string) *certRenewer {
+func NewCertRenewer(
+	client controllerutils.ObjectClient[*corev1.Secret],
+	lister corev1listers.SecretNamespaceLister,
+	certRenewalInterval,
+	caValidityDuration,
+	tlsValidityDuration time.Duration,
+	server string,
+) *certRenewer {
 	return &certRenewer{
 		client:              client,
+		lister:              lister,
 		certRenewalInterval: certRenewalInterval,
 		caValidityDuration:  caValidityDuration,
 		tlsValidityDuration: tlsValidityDuration,
@@ -144,7 +154,7 @@ func (c *certRenewer) ValidateCert() (bool, error) {
 }
 
 func (c *certRenewer) getSecret(name string) (*corev1.Secret, error) {
-	if s, err := c.client.Get(context.TODO(), name, metav1.GetOptions{}); err != nil {
+	if s, err := c.lister.Get(name); err != nil {
 		return nil, err
 	} else {
 		return s, nil
