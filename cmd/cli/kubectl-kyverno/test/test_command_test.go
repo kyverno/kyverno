@@ -34,8 +34,22 @@ func Test_Test(t *testing.T) {
 		// 		Fail: 0,
 		// 	},
 		// },
+		// {
+		// 	DirPath: []string{"../../../../test/cli/test-generate/sync-spot-controller-data-TODO"},
+		// 	// DirPath: []string{"../../../../test/cli/test/wildcard_mutate"},
+
+		// 	FileName:  "kyverno-test.yaml",
+		// 	GitBranch: "",
+		// 	TestCase:  "",
+		// 	FailOnly:  true,
+		// 	ExpectedResultCount: resultCounts{
+		// 		Skip: 0,
+		// 		Pass: 2,
+		// 		Fail: 0,
+		// 	},
+		// },
 		{
-			DirPath: []string{"../../../../test/cli/test-generate/sync-spot-controller-data-TODO"},
+			DirPath: []string{"../../../../test/cli/test/pod-default-resources-based-on-ports"},
 			// DirPath: []string{"../../../../test/cli/test/wildcard_mutate"},
 
 			FileName:  "kyverno-test.yaml",
