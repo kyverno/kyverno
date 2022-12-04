@@ -61,23 +61,24 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
-func setupRegistryClient(logger logr.Logger, kubeClient kubernetes.Interface, imagePullSecrets string, allowInsecureRegistry bool) error {
+func setupRegistryClient(logger logr.Logger, kubeClient kubernetes.Interface, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
 	logger = logger.WithName("registry-client")
 	logger.Info("setup registry client...", "secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
 	var registryOptions []registryclient.Option
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
-		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(kubeClient, config.KyvernoNamespace(), "", secrets))
+		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(
+			context.TODO(),
+			kubeClient,
+			config.KyvernoNamespace(),
+			"",
+			secrets...,
+		))
 	}
 	if allowInsecureRegistry {
 		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
 	}
-	client, err := registryclient.InitClient(registryOptions...)
-	if err != nil {
-		return err
-	}
-	registryclient.DefaultClient = client
-	return nil
+	return registryclient.New(registryOptions...)
 }
 
 func setupCosign(logger logr.Logger, imageSignatureRepository string) {
@@ -115,6 +116,7 @@ func createNonLeaderControllers(
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
+	rclient registryclient.Client,
 	configuration config.Configuration,
 	policyCache policycache.Cache,
 	eventGenerator event.Interface,
@@ -136,6 +138,7 @@ func createNonLeaderControllers(
 	updateRequestController := background.NewController(
 		kyvernoClient,
 		dynamicClient,
+		rclient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -162,6 +165,7 @@ func createReportControllers(
 	backgroundScanWorkers int,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
+	rclient registryclient.Client,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -212,6 +216,7 @@ func createReportControllers(
 				backgroundscancontroller.NewController(
 					client,
 					kyvernoClient,
+					rclient,
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
@@ -247,6 +252,7 @@ func createrLeaderControllers(
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
+	rclient registryclient.Client,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
@@ -256,6 +262,7 @@ func createrLeaderControllers(
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
 		dynamicClient,
+		rclient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -300,6 +307,7 @@ func createrLeaderControllers(
 		backgroundScanWorkers,
 		dynamicClient,
 		kyvernoClient,
+		rclient,
 		metadataInformer,
 		kubeInformer,
 		kyvernoInformer,
@@ -390,7 +398,8 @@ func main() {
 		os.Exit(1)
 	}
 	// setup registry client
-	if err := setupRegistryClient(logger, kubeClient, imagePullSecrets, allowInsecureRegistry); err != nil {
+	rclient, err := setupRegistryClient(logger, kubeClient, imagePullSecrets, allowInsecureRegistry)
+	if err != nil {
 		logger.Error(err, "failed to setup registry client")
 		os.Exit(1)
 	}
@@ -413,6 +422,7 @@ func main() {
 		logger.Error(err, "failed to create cache informer factory")
 		os.Exit(1)
 	}
+	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	informerBasedResolver, err := resolvers.NewInformerBasedResolver(cacheInformer.Core().V1().ConfigMaps().Lister())
 	if err != nil {
 		logger.Error(err, "failed to create informer based resolver")
@@ -440,6 +450,7 @@ func main() {
 	}
 	certRenewer := tls.NewCertRenewer(
 		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+		secretLister,
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
@@ -474,6 +485,7 @@ func main() {
 		kubeClient,
 		kyvernoClient,
 		dClient,
+		rclient,
 		configuration,
 		policyCache,
 		eventGenerator,
@@ -529,6 +541,7 @@ func main() {
 				kubeClient,
 				kyvernoClient,
 				dClient,
+				rclient,
 				configuration,
 				metricsConfig,
 				eventGenerator,
@@ -593,6 +606,7 @@ func main() {
 	resourceHandlers := webhooksresource.NewHandlers(
 		dClient,
 		kyvernoClient,
+		rclient,
 		configuration,
 		metricsConfig,
 		policyCache,
@@ -606,7 +620,6 @@ func main() {
 		openApiManager,
 		admissionReports,
 	)
-	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
 	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,
@@ -616,7 +629,7 @@ func main() {
 			DumpPayload: dumpPayload,
 		},
 		func() ([]byte, []byte, error) {
-			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
+			secret, err := secretLister.Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
 				return nil, nil, err
 			}

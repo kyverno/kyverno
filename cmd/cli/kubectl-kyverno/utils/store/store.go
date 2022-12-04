@@ -7,7 +7,7 @@ import (
 
 var (
 	Mock           bool
-	RegistryAccess bool
+	registryClient registryclient.Client
 	AllowApiCalls  bool
 	ContextVar     Context
 	ForeachElement int
@@ -32,13 +32,16 @@ func GetForeachElement() int {
 
 func SetRegistryAccess(access bool) {
 	if access {
-		registryclient.DefaultClient.UseLocalKeychain()
+		registryClient = registryclient.NewOrDie(registryclient.WithLocalKeychain())
 	}
-	RegistryAccess = access
 }
 
 func GetRegistryAccess() bool {
-	return RegistryAccess
+	return registryClient != nil
+}
+
+func GetRegistryClient() registryclient.Client {
+	return registryClient
 }
 
 func SetContext(context Context) {

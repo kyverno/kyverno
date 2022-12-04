@@ -1,4 +1,4 @@
-package main
+package admission
 
 import (
 	"context"
@@ -11,17 +11,17 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-type cleanupPolicyHandlers struct {
+type handlers struct {
 	client dclient.Interface
 }
 
-func NewHandlers(client dclient.Interface) CleanupPolicyHandlers {
-	return &cleanupPolicyHandlers{
+func New(client dclient.Interface) *handlers {
+	return &handlers{
 		client: client,
 	}
 }
 
-func (h *cleanupPolicyHandlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
 	policy, _, err := admissionutils.GetCleanupPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")

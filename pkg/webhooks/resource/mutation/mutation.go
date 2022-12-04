@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -41,12 +42,14 @@ type MutationHandler interface {
 
 func NewMutationHandler(
 	log logr.Logger,
+	rclient registryclient.Client,
 	eventGen event.Interface,
 	openApiManager openapi.ValidateInterface,
 	nsLister corev1listers.NamespaceLister,
 ) MutationHandler {
 	return &mutationHandler{
 		log:            log,
+		rclient:        rclient,
 		eventGen:       eventGen,
 		openApiManager: openApiManager,
 		nsLister:       nsLister,
@@ -55,6 +58,7 @@ func NewMutationHandler(
 
 type mutationHandler struct {
 	log            logr.Logger
+	rclient        registryclient.Client
 	eventGen       event.Interface
 	openApiManager openapi.ValidateInterface
 	nsLister       corev1listers.NamespaceLister
@@ -144,7 +148,7 @@ func (h *mutationHandler) applyMutation(request *admissionv1.AdmissionRequest, p
 		policyContext = policyContext.WithNamespaceLabels(common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
 
-	engineResponse := engine.Mutate(policyContext)
+	engineResponse := engine.Mutate(h.rclient, policyContext)
 	policyPatches := engineResponse.GetPatches()
 
 	if !engineResponse.IsSuccessful() {

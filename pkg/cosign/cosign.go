@@ -59,13 +59,13 @@ type Response struct {
 type CosignError struct{}
 
 // VerifySignature verifies that the image has the expected signatures
-func VerifySignature(opts Options) (*Response, error) {
+func VerifySignature(rclient registryclient.Client, opts Options) (*Response, error) {
 	ref, err := name.ParseReference(opts.ImageRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
 	}
 
-	cosignOpts, err := buildCosignOptions(opts)
+	cosignOpts, err := buildCosignOptions(rclient, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func VerifySignature(opts Options) (*Response, error) {
 	return &Response{Digest: digest}, nil
 }
 
-func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
+func buildCosignOptions(rclient registryclient.Client, opts Options) (*cosign.CheckOpts, error) {
 	var remoteOpts []remote.Option
 	var err error
 	signatureAlgorithmMap := map[string]crypto.Hash{
@@ -123,7 +123,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "constructing client options")
 	}
-	remoteOpts = append(remoteOpts, registryclient.BuildRemoteOption(registryclient.DefaultClient))
+	remoteOpts = append(remoteOpts, rclient.BuildRemoteOption())
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
@@ -254,8 +254,8 @@ func loadCertChain(pem []byte) ([]*x509.Certificate, error) {
 
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func FetchAttestations(opts Options) (*Response, error) {
-	cosignOpts, err := buildCosignOptions(opts)
+func FetchAttestations(rclient registryclient.Client, opts Options) (*Response, error) {
+	cosignOpts, err := buildCosignOptions(rclient, opts)
 	if err != nil {
 		return nil, err
 	}

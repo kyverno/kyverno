@@ -13,12 +13,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Mutate(rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.policy
 	resp = &response.EngineResponse{
@@ -70,7 +71,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			logger.Error(err, "failed to query resource object")
 		}
 
-		if err := LoadContext(logger, rule.Context, policyContext, rule.Name); err != nil {
+		if err := LoadContext(logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 			if _, ok := err.(gojmespath.NotFoundError); ok {
 				logger.V(3).Info("failed to load context", "reason", err.Error())
 			} else {
@@ -115,6 +116,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 					ctx:      policyContext,
 					resource: patchedResource,
 					log:      logger,
+					rclient:  rclient,
 					nesting:  0,
 				}
 
@@ -173,6 +175,7 @@ type forEachMutator struct {
 	foreach  []kyvernov1.ForEachMutation
 	resource unstructured.Unstructured
 	nesting  int
+	rclient  registryclient.Client
 	log      logr.Logger
 }
 
@@ -182,7 +185,7 @@ func (f *forEachMutator) mutateForEach() *mutate.Response {
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range f.foreach {
-		if err := LoadContext(f.log, f.rule.Context, f.ctx, f.rule.Name); err != nil {
+		if err := LoadContext(f.log, f.rclient, f.rule.Context, f.ctx, f.rule.Name); err != nil {
 			f.log.Error(err, "failed to load context")
 			return mutate.NewErrorResponse("failed to load context", err)
 		}
@@ -251,7 +254,7 @@ func (f *forEachMutator) mutateElements(foreach kyvernov1.ForEachMutation, eleme
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i), err)
 		}
 
-		if err := LoadContext(f.log, foreach.Context, ctx, f.rule.Name); err != nil {
+		if err := LoadContext(f.log, f.rclient, foreach.Context, ctx, f.rule.Name); err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", i), err)
 		}
 

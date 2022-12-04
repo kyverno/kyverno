@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/pss"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -32,7 +33,7 @@ import (
 )
 
 // Validate applies validation rules from policy on the resource
-func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Validate(rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
 
@@ -43,7 +44,7 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	resp = validateResource(logger, policyContext)
+	resp = validateResource(logger, rclient, policyContext)
 	return
 }
 
@@ -90,7 +91,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 }
 
-func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineResponse {
+func validateResource(log logr.Logger, rclient registryclient.Client, ctx *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
 	ctx.jsonContext.Checkpoint()
@@ -130,9 +131,9 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		var ruleResp *response.RuleResponse
 		if hasValidate && !hasYAMLSignatureVerify {
-			ruleResp = processValidationRule(log, ctx, rule)
+			ruleResp = processValidationRule(log, rclient, ctx, rule)
 		} else if hasValidateImage {
-			ruleResp = processImageValidationRule(log, ctx, rule)
+			ruleResp = processImageValidationRule(log, rclient, ctx, rule)
 		} else if hasYAMLSignatureVerify {
 			ruleResp = processYAMLValidationRule(log, ctx, rule)
 		}
@@ -148,7 +149,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	return resp
 }
 
-func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) (*response.RuleResponse, error) {
+func validateOldObject(log logr.Logger, rclient registryclient.Client, ctx *PolicyContext, rule *kyvernov1.Rule) (*response.RuleResponse, error) {
 	ctxCopy := ctx.Copy()
 	ctxCopy.newResource = *ctxCopy.oldResource.DeepCopy()
 	ctxCopy.oldResource = unstructured.Unstructured{}
@@ -161,11 +162,11 @@ func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule
 		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
 	}
 
-	return processValidationRule(log, ctxCopy, rule), nil
+	return processValidationRule(log, rclient, ctxCopy, rule), nil
 }
 
-func processValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
-	v := newValidator(log, ctx, rule)
+func processValidationRule(log logr.Logger, rclient registryclient.Client, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+	v := newValidator(log, rclient, ctx, rule)
 	return v.validate()
 }
 
@@ -194,10 +195,11 @@ type validator struct {
 	deny             *kyvernov1.Deny
 	podSecurity      *kyvernov1.PodSecurity
 	foreach          []kyvernov1.ForEachValidation
+	rclient          registryclient.Client
 	nesting          int
 }
 
-func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, rclient registryclient.Client, ctx *PolicyContext, rule *kyvernov1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
 	return &validator{
 		log:              log,
@@ -264,7 +266,7 @@ func (v *validator) validate() *response.RuleResponse {
 
 		ruleResponse := v.validateResourceWithRule()
 		if isUpdateRequest(v.ctx) {
-			priorResp, err := validateOldObject(v.log, v.ctx, v.rule)
+			priorResp, err := validateOldObject(v.log, v.rclient, v.ctx, v.rule)
 			if err != nil {
 				return ruleError(v.rule, response.Validation, "failed to validate old object", err)
 			}
@@ -407,7 +409,7 @@ func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex, nestin
 }
 
 func (v *validator) loadContext() error {
-	if err := LoadContext(v.log, v.contextEntries, v.ctx, v.rule.Name); err != nil {
+	if err := LoadContext(v.log, v.rclient, v.contextEntries, v.ctx, v.rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			v.log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {

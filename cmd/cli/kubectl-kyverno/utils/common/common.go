@@ -26,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	ut "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -457,7 +458,7 @@ OuterLoop:
 		WithAdmissionInfo(c.UserInfo).
 		WithClient(c.Client)
 
-	mutateResponse := engine.Mutate(policyContext)
+	mutateResponse := engine.Mutate(registryclient.NewOrDie(), policyContext)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -481,7 +482,7 @@ OuterLoop:
 	var info Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.Validate(policyContext)
+		validateResponse = engine.Validate(registryclient.NewOrDie(), policyContext)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
@@ -489,7 +490,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := engine.VerifyAndPatchImages(policyContext)
+	verifyImageResponse, _ := engine.VerifyAndPatchImages(registryclient.NewOrDie(), policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
@@ -503,7 +504,7 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		generateResponse := engine.ApplyBackgroundChecks(policyContext)
+		generateResponse := engine.ApplyBackgroundChecks(registryclient.NewOrDie(), policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
