@@ -180,7 +180,6 @@ type forEachMutator struct {
 }
 
 func (f *forEachMutator) mutateForEach() *mutate.Response {
-	patchedResource := f.resource
 	var applyCount int
 	allPatches := make([][]byte, 0)
 
@@ -214,7 +213,7 @@ func (f *forEachMutator) mutateForEach() *mutate.Response {
 		if mutateResp.Status != response.RuleStatusSkip {
 			applyCount++
 			if len(mutateResp.Patches) > 0 {
-				patchedResource = mutateResp.PatchedResource
+				f.resource = mutateResp.PatchedResource
 				allPatches = append(allPatches, mutateResp.Patches...)
 			}
 		}
@@ -222,10 +221,10 @@ func (f *forEachMutator) mutateForEach() *mutate.Response {
 
 	msg := fmt.Sprintf("%d elements processed", applyCount)
 	if applyCount == 0 {
-		return mutate.NewResponse(response.RuleStatusSkip, patchedResource, allPatches, msg)
+		return mutate.NewResponse(response.RuleStatusSkip, f.resource, allPatches, msg)
 	}
 
-	return mutate.NewResponse(response.RuleStatusPass, patchedResource, allPatches, msg)
+	return mutate.NewResponse(response.RuleStatusPass, f.resource, allPatches, msg)
 }
 
 func (f *forEachMutator) mutateElements(foreach kyvernov1.ForEachMutation, elements []interface{}) *mutate.Response {

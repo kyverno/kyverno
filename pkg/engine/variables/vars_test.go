@@ -1197,6 +1197,12 @@ func Test_ReplaceAllVars(t *testing.T) {
 	result := ReplaceAllVars("{{ foo }}", func(s string) string { return "test" })
 	assert.Equal(t, result, "test")
 
+	result = ReplaceAllVars("\"{{ foo }}\"", func(s string) string { return "test" })
+	assert.Equal(t, result, "\"test\"")
+
+	result = ReplaceAllVars("/s/{{elementIndex}}/r", func(s string) string { return "test" })
+	assert.Equal(t, result, "/s/test/r")
+
 	result = ReplaceAllVars("{{ foo }} {{foo}} {{foo}}", func(s string) string { return "test" })
 	assert.Equal(t, result, "test test test")
 
