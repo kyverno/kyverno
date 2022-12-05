@@ -28,7 +28,7 @@ spec:
       topologySpreadConstraints:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+      serviceAccountName: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
       containers:
         - name: controller
           image: {{ include "kyverno.cleanup-controller.image" (dict "image" .Values.cleanupController.image "defaultTag" .Chart.AppVersion) | quote }}
