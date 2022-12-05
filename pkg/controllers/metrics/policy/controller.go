@@ -25,9 +25,9 @@ func NewController(metricsConfig metrics.MetricsConfigManager, cpolInformer kyve
 	meter := meterProvider.Meter(metrics.MeterName)
 
 	// Register Async Callbacks
-	policyRuleInfoMetric, err := meter.AsyncFloat64().Gauge("kyverno_policy_rule_info", instrument.WithDescription("can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster"))
+	policyRuleInfoMetric, err := meter.AsyncFloat64().Gauge("kyverno_policy_rule_info_total", instrument.WithDescription("can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster"))
 	if err != nil {
-		logger.Error(err, "Failed to create instrument, kyverno_policy_rule_info")
+		logger.Error(err, "Failed to create instrument, kyverno_policy_rule_info_total")
 	}
 	// c := controller{
 	// 	metricsConfig: metricsConfig,

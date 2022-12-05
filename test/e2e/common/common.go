@@ -47,7 +47,7 @@ func ProcessMetrics(newStr, e2ePolicyName string) error {
 	splitByNewLine := strings.Split(newStr, "\n")
 	for _, lineSplitByNewLine := range splitByNewLine {
 		// kyverno_policy_rule_info_total{policy_background_mode=\"false\",policy_name=\"gen-cluster-policy\",policy_namespace=\"-\",policy_type=\"cluster\",policy_validation_mode=\"audit\",rule_name=\"gen-cluster-role\",rule_type=\"generate\",status_ready="false"} 1
-		if !strings.HasPrefix(lineSplitByNewLine, "kyverno_policy_rule_info{") {
+		if !strings.HasPrefix(lineSplitByNewLine, "kyverno_policy_rule_info_total{") {
 			continue
 		}
 
