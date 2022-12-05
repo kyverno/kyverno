@@ -64,6 +64,7 @@ type ApplyCommandConfig struct {
 	ResourcePaths   []string
 	PolicyPaths     []string
 	GitBranch       string
+	warnExitCode    int
 }
 
 var applyHelp = `
@@ -156,7 +157,7 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos)
+			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos, applyCommandConfig.warnExitCode)
 			return nil
 		},
 	}
@@ -175,6 +176,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.Context, "context", "", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().BoolVarP(&applyCommandConfig.AuditWarn, "audit-warn", "", false, "If set to true, will flag audit policies as warnings instead of failures")
+	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	return cmd
 }
 
@@ -445,7 +447,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // PrintReportOrViolation - printing policy report/violations
-func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []common.Info) {
+func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []common.Info, warnExitCode int) {
 	divider := "----------------------------------------------------------------------"
 
 	if len(skipInvalidPolicies.skipped) > 0 {
@@ -487,6 +489,8 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 
 	if rc.Fail > 0 || rc.Error > 0 {
 		os.Exit(1)
+	} else if rc.Warn > 0 && warnExitCode != 0 {
+		os.Exit(warnExitCode)
 	}
 }
 
