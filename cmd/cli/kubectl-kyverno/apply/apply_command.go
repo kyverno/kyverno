@@ -489,7 +489,7 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 
 	if rc.Fail > 0 || rc.Error > 0 {
 		os.Exit(1)
-	} else if rc.Warn > 0 {
+	} else if rc.Warn > 0 && warnExitCode != 0 {
 		os.Exit(warnExitCode)
 	}
 }
