@@ -1,11 +1,14 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dyn "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kube "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyverno "github.com/kyverno/kyverno/pkg/clients/kyverno"
@@ -65,5 +68,13 @@ func CreateMetadataClient(logger logr.Logger, opts ...meta.NewOption) metadata.I
 	logger.Info("create metadata client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := meta.NewForConfig(CreateClientConfig(logger), opts...)
 	checkError(logger, err, "failed to create metadata client")
+	return client
+}
+
+func CreateDClient(logger logr.Logger, ctx context.Context, dyn dynamic.Interface, kube kubernetes.Interface, resync time.Duration) dclient.Interface {
+	logger = logger.WithName("d-client")
+	logger.Info("create the kyverno dynamic client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	client, err := dclient.NewClient(ctx, dyn, kube, resync)
+	checkError(logger, err, "failed to create d client")
 	return client
 }

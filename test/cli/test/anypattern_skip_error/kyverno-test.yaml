@@ -1,0 +1,26 @@
+name: validate-service-loadbalancer
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: validate-service-loadbalancer
+    rule: check-loadbalancer-public
+    resource: service-public-pass
+    kind: Service
+    result: pass
+  - policy: validate-service-loadbalancer
+    rule: check-loadbalancer-public
+    resource: service-public-2-pass
+    kind: Service
+    result: pass
+  - policy: validate-service-loadbalancer
+    rule: check-loadbalancer-public
+    resource: service-public-fail
+    kind: Service
+    result: fail
+  - policy: validate-service-loadbalancer
+    rule: check-loadbalancer-public
+    resource: service-clusterip-skip
+    kind: Service
+    result: skip

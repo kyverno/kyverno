@@ -62,14 +62,12 @@ func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstruc
 		logger.Error(err, "failed to process mutation rule")
 	}
 
-	policyCtx := &engine.PolicyContext{
-		Policy:           policy,
-		NewResource:      resource,
-		ExcludeGroupRole: excludeGroupRole,
-		JSONContext:      ctx,
-		Client:           client,
-		NamespaceLabels:  namespaceLabels,
-	}
+	policyCtx := engine.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(policy).
+		WithNewResource(resource).
+		WithNamespaceLabels(namespaceLabels).
+		WithClient(client).
+		WithExcludeGroupRole(excludeGroupRole...)
 
 	engineResponseValidation = engine.Validate(context.TODO(), policyCtx)
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
@@ -77,13 +75,11 @@ func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstruc
 	return engineResponses
 }
 
-func mutation(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext enginecontext.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
-	policyContext := &engine.PolicyContext{
-		Policy:          policy,
-		NewResource:     resource,
-		JSONContext:     jsonContext,
-		NamespaceLabels: namespaceLabels,
-	}
+func mutation(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext context.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
+	policyContext := engine.NewPolicyContextWithJsonContext(jsonContext).
+		WithPolicy(policy).
+		WithNamespaceLabels(namespaceLabels).
+		WithNewResource(resource)
 
 	engineResponse := engine.Mutate(policyContext)
 	if !engineResponse.IsSuccessful() {

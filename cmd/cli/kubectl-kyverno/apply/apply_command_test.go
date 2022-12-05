@@ -10,7 +10,9 @@ import (
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
 		PolicyPaths           []string
+		GitBranch             string
 		ResourcePaths         []string
+		Cluster               bool
 		expectedPolicyReports []preport.PolicyReport
 		config                ApplyCommandConfig
 	}
@@ -66,6 +68,25 @@ func Test_Apply(t *testing.T) {
 						Skip:  8,
 						Error: 0,
 						Warn:  2,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:  []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+				GitBranch:    "main",
+				PolicyReport: true,
+				Cluster:      true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  9,
+						Fail:  0,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
 					},
 				},
 			},

@@ -85,7 +85,11 @@ func NewController(
 	}
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, resource resource.Resource) {
+	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
+		// if it's a deletion, nothing to do
+		if eventType == resource.Deleted {
+			return
+		}
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
 			logger.Error(err, "failed to create label selector")
@@ -93,10 +97,10 @@ func NewController(
 		if err := c.enqueue(selector); err != nil {
 			logger.Error(err, "failed to enqueue")
 		}
-		if resource.Namespace == "" {
+		if res.Namespace == "" {
 			c.queue.Add(string(uid))
 		} else {
-			c.queue.Add(resource.Namespace + "/" + string(uid))
+			c.queue.Add(res.Namespace + "/" + string(uid))
 		}
 	})
 	return &c
@@ -216,7 +220,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			return nil
 		}
 		report := reportutils.DeepCopy(before)
-		resource, err := c.client.GetResource(gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
+		resource, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
 		if err != nil {
 			return err
 		}
@@ -297,7 +301,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		// creations
 		if len(toCreate) > 0 {
 			scanner := utils.NewScanner(logger, c.client)
-			resource, err := c.client.GetResource(gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
+			resource, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
 			if err != nil {
 				return err
 			}

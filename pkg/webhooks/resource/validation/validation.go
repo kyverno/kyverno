@@ -73,7 +73,7 @@ func (v *validationHandler) HandleValidation(
 ) (bool, string, []string) {
 	if len(policies) == 0 {
 		// invoke handleAudit as we may have some policies in audit mode to consider
-		go v.handleAudit(ctx, policyContext.NewResource, request, namespaceLabels)
+		go v.handleAudit(policyContext.NewResource(), request, namespaceLabels)
 		return true, "", nil
 	}
 
@@ -82,9 +82,11 @@ func (v *validationHandler) HandleValidation(
 
 	var deletionTimeStamp *metav1.Time
 	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
+		resource := policyContext.NewResource()
+		deletionTimeStamp = resource.GetDeletionTimestamp()
 	} else {
-		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
+		resource := policyContext.OldResource()
+		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 
 	if deletionTimeStamp != nil && request.Operation == admissionv1.Update {
@@ -147,7 +149,7 @@ func (v *validationHandler) HandleValidation(
 
 func (v *validationHandler) buildAuditResponses(ctx context.Context, resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, namespaceLabels map[string]string) ([]*response.EngineResponse, error) {
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
-	policyContext, err := v.pcBuilder.Build(request, policies...)
+	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
 		return nil, err
 	}
