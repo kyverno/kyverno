@@ -93,7 +93,7 @@ jobs:
           cat release/release-notes.out
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@5df302e5e9e4c66310a6b6493a8865b12c555af2 # pin@v2.8.0
+        uses: goreleaser/goreleaser-action@b508e2e3ef3b19d4e4146d4f8fb3ba9db644a757 # pin@v3.2.0
         with:
           version: latest
           args: release --rm-dist --debug --release-notes=release/release-notes.out
