@@ -1,7 +1,8 @@
-package test
+package git
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -21,37 +22,31 @@ func Clone(path string, fs billy.Filesystem, branch string) (*git.Repository, er
 	})
 }
 
-func ListYAMLs(fs billy.Filesystem, path string) ([]string, error) {
+func ListFiles(fs billy.Filesystem, path string, predicate func(fs.FileInfo) bool) ([]string, error) {
 	path = filepath.Clean(path)
-
 	if _, err := fs.Stat(path); err != nil {
 		return nil, err
 	}
-
-	fis, err := fs.ReadDir(path)
+	files, err := fs.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
-	yamls := make([]string, 0)
-
-	for _, fi := range fis {
-		name := filepath.Join(path, fi.Name())
-		if fi.IsDir() {
-			moreYAMLs, err := ListYAMLs(fs, name)
+	var results []string
+	for _, file := range files {
+		name := filepath.Join(path, file.Name())
+		if file.IsDir() {
+			children, err := ListFiles(fs, name, predicate)
 			if err != nil {
 				return nil, err
 			}
-
-			yamls = append(yamls, moreYAMLs...)
-			continue
+			results = append(results, children...)
+		} else if predicate(file) {
+			results = append(results, name)
 		}
-
-		ext := filepath.Ext(name)
-		if ext != ".yml" && ext != ".yaml" {
-			continue
-		}
-
-		yamls = append(yamls, name)
 	}
-	return yamls, nil
+	return results, nil
+}
+
+func ListYamls(f billy.Filesystem, path string) ([]string, error) {
+	return ListFiles(f, path, IsYaml)
 }
