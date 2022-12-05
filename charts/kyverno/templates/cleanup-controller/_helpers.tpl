@@ -26,7 +26,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- else -}}
   {{ required "An image repository is required" .image.repository }}:{{ default .defaultTag .image.tag }}
 {{- end -}}
-{{- end }}
+{{- end -}}
 
 {{/* Create the name of the service account to use */}}
 {{- define "kyverno.cleanup-controller.serviceAccountName" -}}
@@ -34,4 +34,5 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     {{ default (include "kyverno.cleanup-controller.deploymentName" .) .Values.cleanupController.rbac.serviceAccount.name }}
 {{- else -}}
     {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.cleanupController.rbac.serviceAccount.name }}
+{{- end -}}
 {{- end -}}
