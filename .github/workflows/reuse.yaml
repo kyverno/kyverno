@@ -44,13 +44,13 @@ jobs:
     steps:
       - name: Checkout release
         if: ${{ inputs.tag == 'release'}}
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           fetch-depth: 0
 
       - name: Checkout image
         if: ${{ inputs.tag == 'image'}}
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
 
       - name: Unshallow
         if: ${{ inputs.tag == 'image'}}
@@ -67,7 +67,7 @@ jobs:
           cosign-release: 'v1.13.0'
 
       - name: Cache Go modules
-        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
+        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # pin@v3
         with:
           path: |
             ~/.cache/go-build
