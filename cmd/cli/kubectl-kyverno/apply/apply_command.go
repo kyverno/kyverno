@@ -176,7 +176,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.Context, "context", "", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().BoolVarP(&applyCommandConfig.AuditWarn, "audit-warn", "", false, "If set to true, will flag audit policies as warnings instead of failures")
-	cmd.Flags().IntVarP(&applyCommandConfig.WarnExitCode, "warn-exit-code", "", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
+	cmd.Flags().IntVar(&applyCommandConfig.WarnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	return cmd
 }
 
