@@ -39,7 +39,7 @@ jobs:
           go-version: ~1.18.6
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc # pin@v3
+        uses: golangci/golangci-lint-action@0ad9a0988b3973e851ab0a07adf248ec2e100376 # pin@v3
         with:
           version: v1.48
 
