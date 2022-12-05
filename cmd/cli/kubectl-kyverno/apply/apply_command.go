@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -65,7 +64,7 @@ type ApplyCommandConfig struct {
 	ResourcePaths   []string
 	PolicyPaths     []string
 	GitBranch       string
-	WarnExitCode    string
+	WarnExitCode    int
 }
 
 var applyHelp = `
@@ -177,7 +176,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.Context, "context", "", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().BoolVarP(&applyCommandConfig.AuditWarn, "audit-warn", "", false, "If set to true, will flag audit policies as warnings instead of failures")
-	cmd.Flags().StringVarP(&applyCommandConfig.WarnExitCode, "warn-exit-code", "", "", "Set the exit code for warnings; if failures or errors are found, will exit 1")
+	cmd.Flags().IntVarP(&applyCommandConfig.WarnExitCode, "warn-exit-code", "", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	return cmd
 }
 
@@ -448,7 +447,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // PrintReportOrViolation - printing policy report/violations
-func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []common.Info, warnExitCode string) {
+func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []common.Info, warnExitCode int) {
 	divider := "----------------------------------------------------------------------"
 
 	if len(skipInvalidPolicies.skipped) > 0 {
@@ -490,9 +489,8 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 
 	if rc.Fail > 0 || rc.Error > 0 {
 		os.Exit(1)
-	} else if rc.Warn > 0 && warnExitCode != "" {
-		warnCode, _ := strconv.Atoi(warnExitCode)
-		os.Exit(warnCode)
+	} else if rc.Warn > 0 {
+		os.Exit(warnExitCode)
 	}
 }
 
