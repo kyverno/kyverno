@@ -340,7 +340,7 @@ codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) --versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
 
 .PHONY: codegen-client-wrappers
-codegen-client-wrappers: $(GOIMPORTS) ## Generate client wrappers
+codegen-client-wrappers: codegen-client-clientset $(GOIMPORTS) ## Generate client wrappers
 	@echo Generate client wrappers... >&2
 	@go run ./hack/main.go
 	@$(GOIMPORTS) -w ./pkg/clients
@@ -448,6 +448,7 @@ codegen-all: codegen-quick codegen-slow ## Generate all generated code
 
 .PHONY: verify-crds
 verify-crds: codegen-crds-all ## Check CRDs are up to date
+	@echo Checking crds are up to date... >&2
 	@git --no-pager diff config
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".' >&2
 	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.' >&2
@@ -455,13 +456,19 @@ verify-crds: codegen-crds-all ## Check CRDs are up to date
 
 .PHONY: verify-client
 verify-client: codegen-client-all ## Check client is up to date
+	@echo Checking client is up to date... >&2
 	@git --no-pager diff --ignore-space-change pkg/client
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".' >&2
 	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.' >&2
 	@git diff --ignore-space-change --quiet --exit-code pkg/client
+	@git --no-pager diff --ignore-space-change pkg/clients
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".' >&2
+	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.' >&2
+	@git diff --ignore-space-change --quiet --exit-code pkg/clients
 
 .PHONY: verify-deepcopy
 verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
+	@echo Checking deepcopy functions are up to date... >&2
 	@git --no-pager diff api
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".' >&2
 	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.' >&2
@@ -469,6 +476,7 @@ verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
 
 .PHONY: verify-api-docs
 verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
+	@echo Checking api reference docs are up to date... >&2
 	@git --no-pager diff docs/user
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-api-docs".' >&2
 	@echo 'To correct this, locally run "make codegen-api-docs", commit the changes, and re-run tests.' >&2
@@ -476,9 +484,10 @@ verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
 
 .PHONY: verify-helm
 verify-helm: codegen-helm-all ## Check Helm charts are up to date
+	@echo Checking helm charts are up to date... >&2
 	@git --no-pager diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
-	@echo 'To correct this, locally run "make codegen-helm", commit the changes, and re-run tests.' >&2
+	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
 .PHONY: verify-codegen

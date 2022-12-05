@@ -24,8 +24,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -86,7 +86,7 @@ type PolicyController struct {
 
 	log logr.Logger
 
-	metricsConfig *metrics.MetricsConfig
+	metricsConfig metrics.MetricsConfigManager
 }
 
 // NewPolicyController create a new PolicyController
@@ -101,7 +101,7 @@ func NewPolicyController(
 	namespaces corev1informers.NamespaceInformer,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 ) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -139,8 +139,10 @@ func NewPolicyController(
 func (pc *PolicyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	logger := pc.log.WithValues("policy", p.GetName())
 	if !p.BackgroundProcessingEnabled() {
-		logger.V(4).Info("background processed is disabled")
-		return false
+		if !p.GetSpec().HasGenerate() && !p.GetSpec().IsMutateExisting() {
+			logger.V(4).Info("background processing is disabled")
+			return false
+		}
 	}
 
 	if err := ValidateVariables(p, true); err != nil {
@@ -378,7 +380,7 @@ func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Lo
 	kinds := fetchUniqueKinds(rule)
 
 	for _, kind := range kinds {
-		mlist, err := client.ListResource("", kind, "", rule.MatchResources.Selector)
+		mlist, err := client.ListResource(context.TODO(), "", kind, "", rule.MatchResources.Selector)
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
 			continue
@@ -439,7 +441,7 @@ func missingAutoGenRules(policy kyvernov1.PolicyInterface, log logr.Logger) bool
 			ruleCount = 2
 		}
 		if len(res) > 1 {
-			if utils.ContainsString(res, "CronJob") {
+			if slices.Contains(res, "CronJob") {
 				ruleCount = 3
 			} else {
 				ruleCount = 2

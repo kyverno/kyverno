@@ -1,10 +1,14 @@
 package utils
 
 import (
+	"reflect"
+
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/policy"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -49,4 +53,33 @@ func RemoveNonValidationPolicies(logger logr.Logger, policies ...kyvernov1.Polic
 		}
 	}
 	return validationPolicies
+}
+
+func ReportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
+	bLabels := sets.NewString()
+	aLabels := sets.NewString()
+	for key := range before.GetLabels() {
+		bLabels.Insert(key)
+	}
+	for key := range after.GetLabels() {
+		aLabels.Insert(key)
+	}
+	if !aLabels.Equal(bLabels) {
+		return false
+	}
+	b := before.GetResults()
+	a := after.GetResults()
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		a := a[i]
+		b := b[i]
+		a.Timestamp = metav1.Timestamp{}
+		b.Timestamp = metav1.Timestamp{}
+		if !reflect.DeepEqual(&a, &b) {
+			return false
+		}
+	}
+	return true
 }

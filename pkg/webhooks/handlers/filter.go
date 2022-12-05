@@ -2,33 +2,58 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/tracing"
-	"go.opentelemetry.io/otel/trace"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func (h AdmissionHandler) WithFilter(configuration config.Configuration) AdmissionHandler {
-	return withFilter(configuration, h)
+func (inner AdmissionHandler) WithFilter(configuration config.Configuration) AdmissionHandler {
+	return inner.withFilter(configuration).WithTrace("FILTER")
 }
 
-func withFilter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
+func (inner AdmissionHandler) WithOperationFilter(operations ...admissionv1.Operation) AdmissionHandler {
+	return inner.withOperationFilter(operations...).WithTrace("OPERATION")
+}
+
+func (inner AdmissionHandler) WithSubResourceFilter(subresources ...string) AdmissionHandler {
+	return inner.withSubResourceFilter(subresources...).WithTrace("SUBRESOURCE")
+}
+
+func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		return tracing.Span1(
-			ctx,
-			"webhooks/handlers",
-			fmt.Sprintf("FILTER %s %s", request.Operation, request.Kind),
-			func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
-				if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-					return nil
-				}
-				return inner(ctx, logger, request, startTime)
-			},
-			trace.WithAttributes(admissionRequestAttributes(request)...),
-		)
+		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+			return nil
+		}
+		if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
+			return nil
+		}
+		return inner(ctx, logger, request, startTime)
+	}
+}
+
+func (inner AdmissionHandler) withOperationFilter(operations ...admissionv1.Operation) AdmissionHandler {
+	allowed := sets.NewString()
+	for _, operation := range operations {
+		allowed.Insert(string(operation))
+	}
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		if allowed.Has(string(request.Operation)) {
+			return inner(ctx, logger, request, startTime)
+		}
+		return nil
+	}
+}
+
+func (inner AdmissionHandler) withSubResourceFilter(subresources ...string) AdmissionHandler {
+	allowed := sets.NewString(subresources...)
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		if request.SubResource == "" || allowed.Has(request.SubResource) {
+			return inner(ctx, logger, request, startTime)
+		}
+		return nil
 	}
 }

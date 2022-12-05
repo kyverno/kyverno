@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -10,24 +11,25 @@ import (
 )
 
 func InitMetrics(
+	ctx context.Context,
 	disableMetricsExport bool,
 	otel string,
 	metricsAddr string,
 	otelCollector string,
-	metricsConfigData *config.MetricsConfigData,
+	metricsConfiguration config.MetricsConfiguration,
 	transportCreds string,
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
-) (*MetricsConfig, *http.ServeMux, *metric.MeterProvider, error) {
+) (MetricsConfigManager, *http.ServeMux, *metric.MeterProvider, error) {
 	var err error
 	var metricsServerMux *http.ServeMux
-	var pusher *metric.MeterProvider
 
-	metricsConfig := new(MetricsConfig)
-	metricsConfig.Log = log
-	metricsConfig.Config = metricsConfigData
+	metricsConfig := MetricsConfig{
+		Log:    log,
+		config: metricsConfiguration,
+	}
 
-	metricsConfig, err = initializeMetrics(metricsConfig)
+	err = metricsConfig.initializeMetrics()
 	if err != nil {
 		log.Error(err, "Failed initializing metrics")
 		return nil, nil, nil, err
@@ -39,7 +41,8 @@ func InitMetrics(
 			log.V(2).Info("Enabling Metrics for Kyverno", "address", metricsAddr)
 
 			endpoint := otelCollector + metricsAddr
-			pusher, err = NewOTLPGRPCConfig(
+			_, err := NewOTLPGRPCConfig(
+				ctx,
 				endpoint,
 				transportCreds,
 				kubeClient,
@@ -50,12 +53,12 @@ func InitMetrics(
 			}
 		} else if otel == "prometheus" {
 			// Prometheus Server will serve metrics on metrics-port
-			metricsServerMux, err = NewPrometheusConfig(log)
+			metricsServerMux, err = NewPrometheusConfig(ctx, log)
 
 			if err != nil {
-				return nil, nil, pusher, err
+				return nil, nil, nil, err
 			}
 		}
 	}
-	return metricsConfig, metricsServerMux, pusher, nil
+	return &metricsConfig, metricsServerMux, nil, nil
 }

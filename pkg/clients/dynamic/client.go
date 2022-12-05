@@ -1,6 +1,7 @@
 package clientset
 
 import (
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/clients/dynamic/resource"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -19,6 +20,10 @@ func WrapWithTracing(inner dynamic.Interface) dynamic.Interface {
 	return &withTracing{inner}
 }
 
+func WrapWithLogging(inner dynamic.Interface, logger logr.Logger) dynamic.Interface {
+	return &withLogging{inner, logger}
+}
+
 type withMetrics struct {
 	inner      dynamic.Interface
 	metrics    metrics.MetricsConfigManager
@@ -26,10 +31,10 @@ type withMetrics struct {
 }
 
 type withMetricsNamespaceable struct {
+	inner      namespaceableInterface
 	metrics    metrics.MetricsConfigManager
 	resource   string
 	clientType metrics.ClientType
-	inner      namespaceableInterface
 }
 
 func (c *withMetricsNamespaceable) Namespace(namespace string) dynamic.ResourceInterface {
@@ -45,7 +50,7 @@ func (c *withMetrics) Resource(gvr schema.GroupVersionResource) dynamic.Namespac
 		namespaceableInterface
 	}{
 		resource.WithMetrics(inner, recorder),
-		&withMetricsNamespaceable{c.metrics, gvr.Resource, c.clientType, inner},
+		&withMetricsNamespaceable{inner, c.metrics, gvr.Resource, c.clientType},
 	}
 }
 
@@ -54,9 +59,9 @@ type withTracing struct {
 }
 
 type withTracingNamespaceable struct {
+	inner  namespaceableInterface
 	client string
 	kind   string
-	inner  namespaceableInterface
 }
 
 func (c *withTracingNamespaceable) Namespace(namespace string) dynamic.ResourceInterface {
@@ -72,6 +77,32 @@ func (c *withTracing) Resource(gvr schema.GroupVersionResource) dynamic.Namespac
 		namespaceableInterface
 	}{
 		resource.WithTracing(inner, client, kind),
-		&withTracingNamespaceable{client, kind, inner},
+		&withTracingNamespaceable{inner, client, kind},
+	}
+}
+
+type withLogging struct {
+	inner  dynamic.Interface
+	logger logr.Logger
+}
+
+type withLoggingNamespaceable struct {
+	inner  namespaceableInterface
+	logger logr.Logger
+}
+
+func (c *withLoggingNamespaceable) Namespace(namespace string) dynamic.ResourceInterface {
+	return resource.WithLogging(c.inner.Namespace(namespace), c.logger)
+}
+
+func (c *withLogging) Resource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
+	logger := c.logger.WithValues("group", gvr.Group, "version", gvr.Version, "resource", gvr.Resource)
+	inner := c.inner.Resource(gvr)
+	return struct {
+		dynamic.ResourceInterface
+		namespaceableInterface
+	}{
+		resource.WithLogging(inner, logger),
+		&withLoggingNamespaceable{inner, logger},
 	}
 }

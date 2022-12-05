@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	clusterrolebindings "github.com/kyverno/kyverno/pkg/clients/kube/rbacv1alpha1/clusterrolebindings"
 	clusterroles "github.com/kyverno/kyverno/pkg/clients/kube/rbacv1alpha1/clusterroles"
 	rolebindings "github.com/kyverno/kyverno/pkg/clients/kube/rbacv1alpha1/rolebindings"
@@ -16,6 +17,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RbacV1alp
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RbacV1alpha1Interface, client string) k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RbacV1alpha1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RbacV1alpha1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RbacV1alpha1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -63,4 +68,25 @@ func (c *withTracing) RoleBindings(namespace string) k8s_io_client_go_kubernetes
 }
 func (c *withTracing) Roles(namespace string) k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RoleInterface {
 	return roles.WithTracing(c.inner.Roles(namespace), c.client, "Role")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RbacV1alpha1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) ClusterRoleBindings() k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.ClusterRoleBindingInterface {
+	return clusterrolebindings.WithLogging(c.inner.ClusterRoleBindings(), c.logger.WithValues("resource", "ClusterRoleBindings"))
+}
+func (c *withLogging) ClusterRoles() k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.ClusterRoleInterface {
+	return clusterroles.WithLogging(c.inner.ClusterRoles(), c.logger.WithValues("resource", "ClusterRoles"))
+}
+func (c *withLogging) RoleBindings(namespace string) k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RoleBindingInterface {
+	return rolebindings.WithLogging(c.inner.RoleBindings(namespace), c.logger.WithValues("resource", "RoleBindings").WithValues("namespace", namespace))
+}
+func (c *withLogging) Roles(namespace string) k8s_io_client_go_kubernetes_typed_rbac_v1alpha1.RoleInterface {
+	return roles.WithLogging(c.inner.Roles(namespace), c.logger.WithValues("resource", "Roles").WithValues("namespace", namespace))
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
-	"github.com/kyverno/kyverno/cmd/cleanup-controller/logger"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -40,15 +39,15 @@ func NewServer(
 	policyHandlers CleanupPolicyHandlers,
 	tlsProvider TlsProvider,
 ) Server {
+	policyLogger := logging.WithName("cleanup-policy")
 	mux := httprouter.New()
 	mux.HandlerFunc(
 		"POST",
 		ValidatingWebhookServicePath,
-		http.HandlerFunc(
-			handlers.AdmissionHandler(policyHandlers.Validate).
-				WithAdmission(logger.Logger.WithName("validate")).
-				WithTrace(),
-		),
+		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
+			WithSubResourceFilter().
+			WithAdmission(policyLogger.WithName("validate")).
+			ToHandlerFunc(),
 	)
 	return &server{
 		server: &http.Server{
@@ -72,7 +71,7 @@ func NewServer(
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 30 * time.Second,
 			IdleTimeout:       5 * time.Minute,
-			// ErrorLog:          logging.StdLogger(logger.WithName("server"), ""),
+			ErrorLog:          logging.StdLogger(logging.WithName("server"), ""),
 		},
 	}
 }

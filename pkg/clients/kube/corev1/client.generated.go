@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/go-logr/logr"
 	componentstatuses "github.com/kyverno/kyverno/pkg/clients/kube/corev1/componentstatuses"
 	configmaps "github.com/kyverno/kyverno/pkg/clients/kube/corev1/configmaps"
 	endpoints "github.com/kyverno/kyverno/pkg/clients/kube/corev1/endpoints"
@@ -28,6 +29,10 @@ func WithMetrics(inner k8s_io_client_go_kubernetes_typed_core_v1.CoreV1Interface
 
 func WithTracing(inner k8s_io_client_go_kubernetes_typed_core_v1.CoreV1Interface, client string) k8s_io_client_go_kubernetes_typed_core_v1.CoreV1Interface {
 	return &withTracing{inner, client}
+}
+
+func WithLogging(inner k8s_io_client_go_kubernetes_typed_core_v1.CoreV1Interface, logger logr.Logger) k8s_io_client_go_kubernetes_typed_core_v1.CoreV1Interface {
+	return &withLogging{inner, logger}
 }
 
 type withMetrics struct {
@@ -159,4 +164,61 @@ func (c *withTracing) ServiceAccounts(namespace string) k8s_io_client_go_kuberne
 }
 func (c *withTracing) Services(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.ServiceInterface {
 	return services.WithTracing(c.inner.Services(namespace), c.client, "Service")
+}
+
+type withLogging struct {
+	inner  k8s_io_client_go_kubernetes_typed_core_v1.CoreV1Interface
+	logger logr.Logger
+}
+
+func (c *withLogging) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+func (c *withLogging) ComponentStatuses() k8s_io_client_go_kubernetes_typed_core_v1.ComponentStatusInterface {
+	return componentstatuses.WithLogging(c.inner.ComponentStatuses(), c.logger.WithValues("resource", "ComponentStatuses"))
+}
+func (c *withLogging) ConfigMaps(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.ConfigMapInterface {
+	return configmaps.WithLogging(c.inner.ConfigMaps(namespace), c.logger.WithValues("resource", "ConfigMaps").WithValues("namespace", namespace))
+}
+func (c *withLogging) Endpoints(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.EndpointsInterface {
+	return endpoints.WithLogging(c.inner.Endpoints(namespace), c.logger.WithValues("resource", "Endpoints").WithValues("namespace", namespace))
+}
+func (c *withLogging) Events(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.EventInterface {
+	return events.WithLogging(c.inner.Events(namespace), c.logger.WithValues("resource", "Events").WithValues("namespace", namespace))
+}
+func (c *withLogging) LimitRanges(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.LimitRangeInterface {
+	return limitranges.WithLogging(c.inner.LimitRanges(namespace), c.logger.WithValues("resource", "LimitRanges").WithValues("namespace", namespace))
+}
+func (c *withLogging) Namespaces() k8s_io_client_go_kubernetes_typed_core_v1.NamespaceInterface {
+	return namespaces.WithLogging(c.inner.Namespaces(), c.logger.WithValues("resource", "Namespaces"))
+}
+func (c *withLogging) Nodes() k8s_io_client_go_kubernetes_typed_core_v1.NodeInterface {
+	return nodes.WithLogging(c.inner.Nodes(), c.logger.WithValues("resource", "Nodes"))
+}
+func (c *withLogging) PersistentVolumeClaims(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.PersistentVolumeClaimInterface {
+	return persistentvolumeclaims.WithLogging(c.inner.PersistentVolumeClaims(namespace), c.logger.WithValues("resource", "PersistentVolumeClaims").WithValues("namespace", namespace))
+}
+func (c *withLogging) PersistentVolumes() k8s_io_client_go_kubernetes_typed_core_v1.PersistentVolumeInterface {
+	return persistentvolumes.WithLogging(c.inner.PersistentVolumes(), c.logger.WithValues("resource", "PersistentVolumes"))
+}
+func (c *withLogging) PodTemplates(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.PodTemplateInterface {
+	return podtemplates.WithLogging(c.inner.PodTemplates(namespace), c.logger.WithValues("resource", "PodTemplates").WithValues("namespace", namespace))
+}
+func (c *withLogging) Pods(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.PodInterface {
+	return pods.WithLogging(c.inner.Pods(namespace), c.logger.WithValues("resource", "Pods").WithValues("namespace", namespace))
+}
+func (c *withLogging) ReplicationControllers(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.ReplicationControllerInterface {
+	return replicationcontrollers.WithLogging(c.inner.ReplicationControllers(namespace), c.logger.WithValues("resource", "ReplicationControllers").WithValues("namespace", namespace))
+}
+func (c *withLogging) ResourceQuotas(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.ResourceQuotaInterface {
+	return resourcequotas.WithLogging(c.inner.ResourceQuotas(namespace), c.logger.WithValues("resource", "ResourceQuotas").WithValues("namespace", namespace))
+}
+func (c *withLogging) Secrets(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.SecretInterface {
+	return secrets.WithLogging(c.inner.Secrets(namespace), c.logger.WithValues("resource", "Secrets").WithValues("namespace", namespace))
+}
+func (c *withLogging) ServiceAccounts(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.ServiceAccountInterface {
+	return serviceaccounts.WithLogging(c.inner.ServiceAccounts(namespace), c.logger.WithValues("resource", "ServiceAccounts").WithValues("namespace", namespace))
+}
+func (c *withLogging) Services(namespace string) k8s_io_client_go_kubernetes_typed_core_v1.ServiceInterface {
+	return services.WithLogging(c.inner.Services(namespace), c.logger.WithValues("resource", "Services").WithValues("namespace", namespace))
 }
