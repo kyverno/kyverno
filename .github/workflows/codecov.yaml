@@ -33,7 +33,7 @@ jobs:
         run: make code-cov-report
 
       - name: Upload Report to Codecov
-        uses: codecov/codecov-action@f32b3a3741e1053eb607407145bc9619351dc93b # v2.1.0
+        uses: codecov/codecov-action@d9f34f8cd5cb3b3eb79b3e4b5dae3a16df499a70 # v3.1.1
         with:
           file: ./coverage.out
           fail_ci_if_error: true
