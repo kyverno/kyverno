@@ -125,7 +125,7 @@ jobs:
           go-version: ~1.18.6
 
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@1fa48bf916fa5ce5800190f8a0c9fdf7ae86559b # v0.35.0
+        uses: fluxcd/flux2/action@6ee34394621327101f33cb59289a4751325b10d8 # v0.35.0
         with:
           version: 0.35.0
 
