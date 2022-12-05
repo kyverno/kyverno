@@ -14,5 +14,4 @@ subjects:
 - kind: ServiceAccount
   name: {{ template "kyverno.serviceAccountName" . }}
   namespace: {{ template "kyverno.namespace" . }}
-
 {{- end }}
