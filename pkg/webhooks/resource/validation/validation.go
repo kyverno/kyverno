@@ -40,7 +40,7 @@ func NewValidationHandler(
 	pcBuilder webhookutils.PolicyContextBuilder,
 	eventGen event.Interface,
 	admissionReports bool,
-	metrics *metrics.MetricsConfig,
+	metrics metrics.MetricsConfigManager,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -60,7 +60,7 @@ type validationHandler struct {
 	pcBuilder        webhookutils.PolicyContextBuilder
 	eventGen         event.Interface
 	admissionReports bool
-	metrics          *metrics.MetricsConfig
+	metrics          metrics.MetricsConfigManager
 }
 
 func (v *validationHandler) HandleValidation(
@@ -101,8 +101,7 @@ func (v *validationHandler) HandleValidation(
 			"pkg/webhooks/resource/validate",
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
-				policyContext.Policy = policy
-				policyContext.NamespaceLabels = namespaceLabels
+				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
 				if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
 					failurePolicy = kyvernov1.Fail
 				}
@@ -114,8 +113,8 @@ func (v *validationHandler) HandleValidation(
 					return
 				}
 
-				go webhookutils.RegisterPolicyResultsMetricValidation(logger, v.metrics, string(request.Operation), policyContext.Policy, *engineResponse)
-				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(logger, v.metrics, string(request.Operation), policyContext.Policy, *engineResponse)
+				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), *engineResponse)
+				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), *engineResponse)
 
 				engineResponses = append(engineResponses, engineResponse)
 				if !engineResponse.IsSuccessful() {
@@ -160,8 +159,7 @@ func (v *validationHandler) buildAuditResponses(ctx context.Context, resource un
 			"pkg/webhooks/resource/validate",
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
-				policyContext.Policy = policy
-				policyContext.NamespaceLabels = namespaceLabels
+				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
 				responses = append(responses, engine.Validate(ctx, policyContext))
 			},
 		)
