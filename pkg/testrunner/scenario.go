@@ -157,7 +157,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 
 	policyContext = policyContext.WithNewResource(*resource)
 
-	er = engine.Validate(policyContext)
+	er = engine.Validate(context.TODO(), policyContext)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 

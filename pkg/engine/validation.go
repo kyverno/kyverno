@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -93,39 +94,27 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 func validateResource(ctx context.Context, log logr.Logger, polctx *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
-	ctx.jsonContext.Checkpoint()
-	defer ctx.jsonContext.Restore()
+	polctx.jsonContext.Checkpoint()
+	defer polctx.jsonContext.Restore()
 
-	rules := autogen.ComputeRules(ctx.policy)
+	rules := autogen.ComputeRules(polctx.policy)
 	matchCount := 0
-	applyRules := ctx.policy.GetSpec().GetApplyRules()
+	applyRules := polctx.policy.GetSpec().GetApplyRules()
 
-	if ctx.policy.IsNamespaced() {
-		polNs := ctx.policy.GetNamespace()
-		if ctx.newResource.Object != nil && (ctx.newResource.GetNamespace() != polNs || ctx.newResource.GetNamespace() == "") {
+	if polctx.policy.IsNamespaced() {
+		polNs := polctx.policy.GetNamespace()
+		if polctx.newResource.Object != nil && (polctx.newResource.GetNamespace() != polNs || polctx.newResource.GetNamespace() == "") {
 			return resp
 		}
-		if ctx.oldResource.Object != nil && (ctx.oldResource.GetNamespace() != polNs || ctx.oldResource.GetNamespace() == "") {
+		if polctx.oldResource.Object != nil && (polctx.oldResource.GetNamespace() != polNs || polctx.oldResource.GetNamespace() == "") {
 			return resp
 		}
 	}
 
 	for i := range rules {
 		rule := &rules[i]
-		hasValidate := rule.HasValidate()
-		hasValidateImage := rule.HasImagesValidationChecks()
-		hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
-		if !hasValidate && !hasValidateImage {
-			continue
-		}
-
-		log = log.WithValues("rule", rule.Name)
-		if !matches(log, rule, ctx) {
-			continue
-		}
-
 		log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
-		ctx.jsonContext.Reset()
+		polctx.jsonContext.Reset()
 		startTime := time.Now()
 		ruleResp := tracing.Span1(
 			ctx,
@@ -143,7 +132,7 @@ func validateResource(ctx context.Context, log logr.Logger, polctx *PolicyContex
 					return nil
 				}
 				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
-				polctx.JSONContext.Reset()
+				polctx.jsonContext.Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
 					return processValidationRule(log, polctx, rule)
 				} else if hasValidateImage {
@@ -170,11 +159,11 @@ func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule
 	ctxCopy.newResource = *ctxCopy.oldResource.DeepCopy()
 	ctxCopy.oldResource = unstructured.Unstructured{}
 
-	if err := context.ReplaceResource(ctxCopy.jsonContext, ctxCopy.newResource.Object); err != nil {
+	if err := enginecontext.ReplaceResource(ctxCopy.jsonContext, ctxCopy.newResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
 	}
 
-	if err := context.ReplaceOldResource(ctxCopy.jsonContext, ctxCopy.oldResource.Object); err != nil {
+	if err := enginecontext.ReplaceOldResource(ctxCopy.jsonContext, ctxCopy.oldResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
 	}
 

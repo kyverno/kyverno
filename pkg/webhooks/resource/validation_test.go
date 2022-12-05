@@ -531,6 +531,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			assert.NilError(t, err)
 
 			er := engine.Validate(
+				context.TODO(),
 				engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
 			)
 			if tc.blocked && tc.messages != nil {
@@ -592,7 +593,7 @@ func Test_RuleSelector(t *testing.T) {
 
 	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
-	resp := engine.Validate(ctx)
+	resp := engine.Validate(context.TODO(), ctx)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 2)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
