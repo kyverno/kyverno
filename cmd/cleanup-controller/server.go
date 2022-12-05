@@ -49,6 +49,15 @@ func NewServer(
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)
+	mux.HandlerFunc(
+		"GET",
+		"/cleanup",
+		func(w http.ResponseWriter, r *http.Request) {
+			polcicy := r.URL.Query().Get("policy")
+			policyLogger.Info("cleaning up...", "policy", polcicy)
+			w.WriteHeader(http.StatusOK)
+		},
+	)
 	return &server{
 		server: &http.Server{
 			Addr: ":9443",

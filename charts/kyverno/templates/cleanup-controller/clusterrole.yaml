@@ -33,4 +33,10 @@ rules:
     - list
     - update
     - watch
+- apiGroups:
+    - '*'
+  resources:
+    - '*'
+  verbs:
+    - delete
 {{- end }}

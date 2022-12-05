@@ -1,10 +1,13 @@
 package cleanup
 
 import (
+	"fmt"
+
 	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *batchv1.CronJob {
@@ -14,6 +17,8 @@ func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *b
 	if pol.GetNamespace() == "" {
 		kind = "ClusterCleanupPolicy"
 	}
+	// TODO: error
+	policyName, _ := cache.MetaNamespaceKeyFunc(pol)
 	cronjob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: string(pol.GetUID()),
@@ -36,11 +41,14 @@ func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *b
 							Containers: []corev1.Container{
 								{
 									Name:  "cleanup",
-									Image: "bitnami/kubectl:latest",
+									Image: "curlimages/curl:7.86.0",
 									Args: []string{
-										"/bin/sh",
-										"-c",
-										`echo "Hello World"`,
+										"-k",
+										// TODO: ca
+										// "--cacert",
+										// "/tmp/ca.crt",
+										// TODO: this should be configurable
+										fmt.Sprintf("https://cleanup-controller.kyverno.svc/cleanup?policy=%s", policyName),
 									},
 								},
 							},

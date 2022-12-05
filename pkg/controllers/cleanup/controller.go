@@ -134,16 +134,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if namespace == "" {
 		cronjobNs = config.KyvernoNamespace()
 	}
-	if cronjob, err := c.getCronjob(cronjobNs, string(policy.GetUID())); err != nil {
+	desired := getCronJobForTriggerResource(policy)
+	if observed, err := c.getCronjob(cronjobNs, string(policy.GetUID())); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		cronjob := getCronJobForTriggerResource(policy)
-		_, err = c.client.BatchV1().CronJobs(cronjobNs).Create(ctx, cronjob, metav1.CreateOptions{})
+		_, err = c.client.BatchV1().CronJobs(cronjobNs).Create(ctx, desired, metav1.CreateOptions{})
 		return err
 	} else {
-		_, err = controllerutils.Update(ctx, cronjob, c.client.BatchV1().CronJobs(cronjobNs), func(cronjob *batchv1.CronJob) error {
-			cronjob.Spec.Schedule = policy.GetSpec().Schedule
+		_, err = controllerutils.Update(ctx, observed, c.client.BatchV1().CronJobs(cronjobNs), func(cronjob *batchv1.CronJob) error {
+			cronjob.Spec = desired.Spec
 			return nil
 		})
 		return err
