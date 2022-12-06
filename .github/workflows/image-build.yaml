@@ -123,7 +123,7 @@ jobs:
         run: make ko-build-kyverno
 
       - name: Trivy Scan Image
-        uses: aquasecurity/trivy-action@40c4ca9e7421287d0c5576712fdff370978f9c3c
+        uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5
         with:
           scan-type: 'fs'
           ignore-unfixed: true
