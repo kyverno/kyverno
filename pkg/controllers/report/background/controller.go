@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,6 +42,7 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
+	rclient       registryclient.Client
 
 	// listers
 	polLister      kyvernov1listers.PolicyLister
@@ -61,6 +63,7 @@ type controller struct {
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
+	rclient registryclient.Client,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
@@ -73,6 +76,7 @@ func NewController(
 	c := controller{
 		client:         client,
 		kyvernoClient:  kyvernoClient,
+		rclient:        rclient,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
 		bgscanrLister:  bgscanr.Lister(),
@@ -214,7 +218,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 	}
 	//	if the resource changed, we need to rebuild the report
 	if !reportutils.CompareHash(meta, resource.Hash) {
-		scanner := utils.NewScanner(logger, c.client)
+		scanner := utils.NewScanner(logger, c.client, c.rclient)
 		before, err := c.getReport(ctx, meta.GetNamespace(), meta.GetName())
 		if err != nil {
 			return nil
@@ -300,7 +304,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		}
 		// creations
 		if len(toCreate) > 0 {
-			scanner := utils.NewScanner(logger, c.client)
+			scanner := utils.NewScanner(logger, c.client, c.rclient)
 			resource, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
 			if err != nil {
 				return err

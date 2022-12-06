@@ -14,7 +14,7 @@ import (
 )
 
 // LoadContext - Fetches and adds external data to the Context.
-func LoadContext(logger logr.Logger, contextEntries []kyvernov1.ContextEntry, ctx *PolicyContext, ruleName string) error {
+func LoadContext(logger logr.Logger, rclient registryclient.Client, contextEntries []kyvernov1.ContextEntry, ctx *PolicyContext, ruleName string) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
@@ -36,7 +36,8 @@ func LoadContext(logger logr.Logger, contextEntries []kyvernov1.ContextEntry, ct
 		// Context Variable should be loaded after the values loaded from values file
 		for _, entry := range contextEntries {
 			if entry.ImageRegistry != nil && hasRegistryAccess {
-				if err := loadImageData(logger, entry, ctx); err != nil {
+				rclient := store.GetRegistryClient()
+				if err := loadImageData(rclient, logger, entry, ctx); err != nil {
 					return err
 				}
 			} else if entry.Variable != nil {
@@ -68,7 +69,7 @@ func LoadContext(logger logr.Logger, contextEntries []kyvernov1.ContextEntry, ct
 					return err
 				}
 			} else if entry.ImageRegistry != nil {
-				if err := loadImageData(logger, entry, ctx); err != nil {
+				if err := loadImageData(rclient, logger, entry, ctx); err != nil {
 					return err
 				}
 			} else if entry.Variable != nil {
@@ -140,11 +141,11 @@ func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyC
 	}
 }
 
-func loadImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
-	if err := registryclient.DefaultClient.RefreshKeychainPullSecrets(); err != nil {
+func loadImageData(rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
+	if err := rclient.RefreshKeychainPullSecrets(context.TODO()); err != nil {
 		return fmt.Errorf("unable to load image registry credentials, %w", err)
 	}
-	imageData, err := fetchImageData(logger, entry, ctx)
+	imageData, err := fetchImageData(rclient, logger, entry, ctx)
 	if err != nil {
 		return err
 	}
@@ -158,7 +159,7 @@ func loadImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Policy
 	return nil
 }
 
-func fetchImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) (interface{}, error) {
+func fetchImageData(rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) (interface{}, error) {
 	ref, err := variables.SubstituteAll(logger, ctx.jsonContext, entry.ImageRegistry.Reference)
 	if err != nil {
 		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.Reference, err)
@@ -171,7 +172,7 @@ func fetchImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
 	}
-	imageData, err := fetchImageDataMap(refString)
+	imageData, err := fetchImageDataMap(rclient, refString)
 	if err != nil {
 		return nil, err
 	}
@@ -185,8 +186,8 @@ func fetchImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 }
 
 // FetchImageDataMap fetches image information from the remote registry.
-func fetchImageDataMap(ref string) (interface{}, error) {
-	desc, err := registryclient.DefaultClient.FetchImageDescriptor(ref)
+func fetchImageDataMap(rclient registryclient.Client, ref string) (interface{}, error) {
+	desc, err := rclient.FetchImageDescriptor(context.TODO(), ref)
 	if err != nil {
 		return nil, err
 	}

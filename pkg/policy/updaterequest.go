@@ -105,7 +105,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		return false, errors.Wrapf(err, "failed to build policy context for rule %s", rule.Name)
 	}
 
-	engineResponse := engine.ApplyBackgroundChecks(policyContext)
+	engineResponse := engine.ApplyBackgroundChecks(pc.rclient, policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		return true, nil
 	}

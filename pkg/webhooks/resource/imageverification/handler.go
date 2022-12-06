@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -76,7 +77,7 @@ func (h *imageVerificationHandler) handleVerifyImages(logger logr.Logger, reques
 	verifiedImageData := &engine.ImageVerificationMetadata{}
 	for _, p := range policies {
 		policyContext := policyContext.WithPolicy(p)
-		resp, ivm := engine.VerifyAndPatchImages(policyContext)
+		resp, ivm := engine.VerifyAndPatchImages(registryclient.NewOrDie(), policyContext)
 
 		engineResponses = append(engineResponses, resp)
 		patches = append(patches, resp.GetPatches()...)
