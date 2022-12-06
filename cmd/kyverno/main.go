@@ -116,6 +116,7 @@ func createNonLeaderControllers(
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
+	rclient registryclient.Client,
 	configuration config.Configuration,
 	policyCache policycache.Cache,
 	eventGenerator event.Interface,
@@ -137,6 +138,7 @@ func createNonLeaderControllers(
 	updateRequestController := background.NewController(
 		kyvernoClient,
 		dynamicClient,
+		rclient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -481,6 +483,7 @@ func main() {
 		kubeClient,
 		kyvernoClient,
 		dClient,
+		rclient,
 		configuration,
 		policyCache,
 		eventGenerator,

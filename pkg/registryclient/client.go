@@ -18,9 +18,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// // DefaultClient is default registry client.
-// var DefaultClient, _ = InitClient()
-
 var baseKeychain = authn.NewMultiKeychain(
 	authn.DefaultKeychain,
 	google.Keychain,
