@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 const (
@@ -64,7 +65,11 @@ func NewServer(
 			if err == nil {
 				w.WriteHeader(http.StatusOK)
 			} else {
-				w.WriteHeader(http.StatusInternalServerError)
+				if apierrors.IsNotFound(err) {
+					w.WriteHeader(http.StatusNotFound)
+				} else {
+					w.WriteHeader(http.StatusInternalServerError)
+				}
 			}
 		},
 	)

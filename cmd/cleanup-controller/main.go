@@ -62,6 +62,8 @@ func main() {
 		cleanup.Workers,
 	)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
+	cpolLister := kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies().Lister()
+	polLister := kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies().Lister()
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
@@ -70,7 +72,7 @@ func main() {
 	controller.Run(ctx, logger.WithName("cleanup-controller"), &wg)
 	// create handlers
 	admissionHandlers := admissionhandlers.New(dClient)
-	cleanupHandlers := cleanuphandlers.New(dClient)
+	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister)
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
