@@ -67,7 +67,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # pin@v2.1.5
+        uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613 # pin@v3.4.0
         with:
           go-version: ~1.18.6
 
@@ -120,7 +120,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # pin@v2.1.5
+        uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613 # pin@v3.4.0
         with:
           go-version: ~1.18.6
 
@@ -191,4 +191,4 @@ jobs:
 
       - name: Update new version in krew-index
         if: steps.check-tag.outputs.match == 'true'
-        uses: rajatjindal/krew-release-bot@3320c0b546b5d2320613c46762bd3f73e2801bdc # pin@v0.0.38
+        uses: rajatjindal/krew-release-bot@92da038bbf995803124a8e50ebd438b2f37bbbb0 # pin@v0.0.43
