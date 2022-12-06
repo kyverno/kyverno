@@ -11020,6 +11020,7 @@ spec:
   names:
     categories:
     - kyverno
+    - all
     kind: Policy
     listKind: PolicyList
     plural: policies
