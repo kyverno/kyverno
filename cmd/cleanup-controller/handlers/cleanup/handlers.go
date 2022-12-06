@@ -8,6 +8,7 @@ import (
 	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
 	kyvernov1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 )
@@ -61,9 +62,11 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 		if err != nil {
 			return err
 		}
-		for _, item := range list.Items {
-			logger := logger.WithValues("name", item.GetName(), "namespace", item.GetNamespace())
-			logger.Info("item...")
+		for i := range list.Items {
+			if !controllerutils.IsManagedByKyverno(&list.Items[i]) {
+				logger := logger.WithValues("name", list.Items[i].GetName(), "namespace", list.Items[i].GetNamespace())
+				logger.Info("item...")
+			}
 		}
 	}
 	return nil

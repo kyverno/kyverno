@@ -223,6 +223,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | cleanupController.image.pullSecrets | list | `[]` | Image pull secrets |
+| cleanupController.args | list | `["--cleanupService={{ template \"kyverno.cleanup-controller.deploymentName\" . }}"]` | Arguments passed to the container on the command line |
 | cleanupController.service.port | int | `443` | Service port. |
 | cleanupController.service.type | string | `"ClusterIP"` | Service type. |
 | cleanupController.service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
