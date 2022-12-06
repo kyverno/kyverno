@@ -13,8 +13,12 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-// ValidatingWebhookServicePath is the path for validation webhook
-const ValidatingWebhookServicePath = "/validate"
+const (
+	// validatingWebhookServicePath is the path for validation webhook
+	validatingWebhookServicePath = "/validate"
+	// cleanupServicePath is the path for triggering cleanup
+	cleanupServicePath = "/cleanup"
+)
 
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
@@ -23,39 +27,45 @@ type Server interface {
 	Stop(context.Context)
 }
 
-type CleanupPolicyHandlers interface {
-	// Validate performs the validation check on policy resources
-	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
-}
-
 type server struct {
 	server *http.Server
 }
 
-type TlsProvider func() ([]byte, []byte, error)
+type (
+	TlsProvider       = func() ([]byte, []byte, error)
+	ValidationHandler = func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	CleanupHandler    = func(context.Context, logr.Logger, string, time.Time) error
+)
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
-	policyHandlers CleanupPolicyHandlers,
 	tlsProvider TlsProvider,
+	validationHandler ValidationHandler,
+	cleanup CleanupHandler,
 ) Server {
 	policyLogger := logging.WithName("cleanup-policy")
+	cleanupLogger := logging.WithName("cleanup")
 	mux := httprouter.New()
 	mux.HandlerFunc(
 		"POST",
-		ValidatingWebhookServicePath,
-		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
+		validatingWebhookServicePath,
+		handlers.FromAdmissionFunc("VALIDATE", validationHandler).
 			WithSubResourceFilter().
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
 		"GET",
-		"/cleanup",
+		cleanupServicePath,
 		func(w http.ResponseWriter, r *http.Request) {
-			polcicy := r.URL.Query().Get("policy")
-			policyLogger.Info("cleaning up...", "policy", polcicy)
-			w.WriteHeader(http.StatusOK)
+			policy := r.URL.Query().Get("policy")
+			logger := cleanupLogger.WithValues("policy", policy)
+			err := cleanup(r.Context(), logger, policy, time.Now())
+			if err == nil {
+				w.WriteHeader(http.StatusOK)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
 		},
 	)
 	return &server{

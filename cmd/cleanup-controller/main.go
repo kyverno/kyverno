@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	admissionhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission"
+	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
 	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
@@ -66,8 +68,11 @@ func main() {
 	}
 	var wg sync.WaitGroup
 	controller.Run(ctx, logger.WithName("cleanup-controller"), &wg)
+	// create handlers
+	admissionHandlers := admissionhandlers.New(dClient)
+	cleanupHandlers := cleanuphandlers.New(dClient)
+	// create server
 	server := NewServer(
-		NewHandlers(dClient),
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get("cleanup-controller-tls")
 			if err != nil {
@@ -75,8 +80,10 @@ func main() {
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
+		admissionHandlers.Validate,
+		cleanupHandlers.Cleanup,
 	)
-	// start webhooks server
+	// start server
 	server.Run(ctx.Done())
 	// wait for termination signal
 	wg.Wait()
