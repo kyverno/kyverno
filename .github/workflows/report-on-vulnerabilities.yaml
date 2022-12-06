@@ -15,7 +15,7 @@ jobs:
       results: ${{ steps.parse-results.outputs.results }}
     steps:
     - name: Scan for vulnerabilities
-      uses: aquasecurity/trivy-action@d63413b0a4a4482237085319f7f4a1ce99a8f2ac # v0.7.1 (Trivy v0.31.2)
+      uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5 # v0.8.0 (Trivy v0.34.0)
       with: 
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         format: json
@@ -30,14 +30,14 @@ jobs:
         VULNS=$(cat scan.json | jq '.Results[] | has("Vulnerabilities")')
         if echo $VULNS | grep -q 'true'; then
           echo "Vulnerabilities found, creating issue"
-          echo ::set-output name=results::$(cat scan.json)
+          echo "results=$(cat scan.json)" >> $GITHUB_OUTPUT
         else
           echo "No vulnerabilities found, halting"
-          echo ::set-output name=results::$(echo nothing)
+          echo "results=nothing" >> $GITHUB_OUTPUT
         fi
 
     - name: Upload vulnerability scan report
-      uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
+      uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # v3.1.1
       if: contains(steps.parse-results.outputs.results, 'SchemaVersion')
       with:
         name: scan.json
@@ -58,9 +58,9 @@ jobs:
 
       - name: Set scan output
         id: set-scan-output
-        run: echo ::set-output name=results::$(cat scan.json)
+        run: echo "results=$(cat scan.json)" >> $GITHUB_OUTPUT
 
-      - uses: JasonEtco/create-an-issue@1a16035489d05041b9af40b970f02e301c52ffba # v2.8.0
+      - uses: JasonEtco/create-an-issue@77399b6110ef82b94c1c9f9f615acf9e604f7f56 # v2.8.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RESULTS: ${{ steps.set-scan-output.outputs.results }}

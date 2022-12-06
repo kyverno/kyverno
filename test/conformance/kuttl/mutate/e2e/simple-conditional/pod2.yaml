@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: footwo
+  namespace: default
+  labels:
+    app: foo
+spec:
+  containers:
+  - image: abc:1.28
+    name: busybox
+  initContainers:
+  - image: bcd:1.29
+    name: nginx

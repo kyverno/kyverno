@@ -20,8 +20,8 @@ func NewFakeClient(scheme *runtime.Scheme, gvrToListKind map[schema.GroupVersion
 	// the typed and dynamic client are initialized with similar resources
 	kclient := kubefake.NewSimpleClientset(objects...)
 	return &client{
-		client:  c,
-		kclient: kclient,
+		dyn:  c,
+		kube: kclient,
 	}, nil
 }
 
@@ -29,11 +29,11 @@ func NewEmptyFakeClient() Interface {
 	gvrToListKind := map[schema.GroupVersionResource]string{}
 	objects := []runtime.Object{}
 	scheme := runtime.NewScheme()
-
+	kclient := kubefake.NewSimpleClientset(objects...)
 	return &client{
-		client:          fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...),
-		kclient:         kubefake.NewSimpleClientset(objects...),
-		discoveryClient: NewFakeDiscoveryClient(nil),
+		dyn:   fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...),
+		disco: NewFakeDiscoveryClient(nil),
+		kube:  kclient,
 	}
 }
 

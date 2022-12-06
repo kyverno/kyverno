@@ -1,4 +1,5 @@
 {{- if .Values.cleanupController.enabled -}}
+{{- if .Values.cleanupController.rbac.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -6,20 +7,41 @@ metadata:
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
 rules:
-- apiGroups:
-    - kyverno.io
-  resources:
-    - clustercleanuppolicies
-    - cleanuppolicies
-    - clustercleanuppolicies/*
-    - cleanuppolicies/*
-  verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-    - deletecollection
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - clustercleanuppolicies
+      - cleanuppolicies
+      - clustercleanuppolicies/*
+      - cleanuppolicies/*
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - batch
+    resources:
+      - cronjobs
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - watch
+  {{- with .Values.cleanupController.rbac.clusterRole.extraResources }}
+  - apiGroups:
+      {{- toYaml .apiGroups | nindent 6 }}
+    resources:
+      {{- toYaml .resources | nindent 6 }}
+    verbs:
+      - delete
+      - list
+  {{- end }}
+{{- end }}
 {{- end }}

@@ -20,6 +20,8 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/api"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/manifest"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -29,9 +31,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
-	util "github.com/kyverno/kyverno/pkg/utils"
+	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/lensesio/tableprinter"
 	"github.com/spf13/cobra"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -154,9 +157,8 @@ For more information visit https://kyverno.io/docs/kyverno-cli/#test
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var testCase string
-	var testFile []byte
 	var fileName, gitBranch string
-	var registryAccess, failOnly, removeColor bool
+	var registryAccess, failOnly, removeColor, manifestValidate, manifestMutate bool
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
@@ -172,119 +174,30 @@ func Command() *cobra.Command {
 					}
 				}
 			}()
-
-			mStatus, _ := cmd.Flags().GetBool("manifest-mutate")
-			vStatus, _ := cmd.Flags().GetBool("manifest-validate")
-			if mStatus {
-				testFile = []byte(`name: <test_name>
-policies:
-- <path/to/policy1.yaml>
-- <path/to/policy2.yaml>
-resources:
-- <path/to/resource1.yaml>
-- <path/to/resource2.yaml>
-variables: <variable_file> (OPTIONAL)
-results:
-- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
-  rule: <name>
-  resource: <name>
-  namespace: <name> (OPTIONAL)
-  kind: <name>
-  patchedResource: <path/to/patched/resource.yaml>
-  result: <pass|fail|skip>`)
-				fmt.Println(string(testFile))
-				return nil
+			if manifestMutate {
+				manifest.PrintMutate()
+			} else if manifestValidate {
+				manifest.PrintValidate()
+			} else {
+				store.SetRegistryAccess(registryAccess)
+				_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, removeColor)
+				if err != nil {
+					log.Log.V(3).Info("a directory is required")
+					return err
+				}
 			}
-			if vStatus {
-				testFile = []byte(`name: <test_name>
-policies:
-- <path/to/policy1.yaml>
-- <path/to/policy2.yaml>
-resources:
-- <path/to/resource1.yaml>
-- <path/to/resource2.yaml>
-variables: <variable_file> (OPTIONAL)
-results:
-- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
-  rule: <name>
-  resource: <name>
-  namespace: <name> (OPTIONAL)
-  kind: <name>
-  result: <pass|fail|skip>`)
-				fmt.Println(string(testFile))
-				return nil
-			}
-			store.SetRegistryAccess(registryAccess)
-			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, removeColor)
-			if err != nil {
-				log.Log.V(3).Info("a directory is required")
-				return err
-			}
-
 			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "test filename")
 	cmd.Flags().StringVarP(&gitBranch, "git-branch", "b", "", "test github repository branch")
 	cmd.Flags().StringVarP(&testCase, "test-case-selector", "t", "", `run some specific test cases by passing a string argument in double quotes to this flag like - "policy=<policy_name>, rule=<rule_name>, resource=<resource_name". The argument could be any combination of policy, rule and resource.`)
-	cmd.Flags().BoolP("manifest-mutate", "", false, "prints out a template test manifest for a mutate policy")
-	cmd.Flags().BoolP("manifest-validate", "", false, "prints out a template test manifest for a validate policy")
+	cmd.Flags().BoolVarP(&manifestMutate, "manifest-mutate", "", false, "prints out a template test manifest for a mutate policy")
+	cmd.Flags().BoolVarP(&manifestValidate, "manifest-validate", "", false, "prints out a template test manifest for a validate policy")
 	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVarP(&failOnly, "fail-only", "", false, "If set to true, display all the failing test only as output for the test command")
 	cmd.Flags().BoolVarP(&removeColor, "remove-color", "", false, "Remove any color from output")
 	return cmd
-}
-
-type Test struct {
-	Name      string        `json:"name"`
-	Policies  []string      `json:"policies"`
-	Resources []string      `json:"resources"`
-	Variables string        `json:"variables"`
-	UserInfo  string        `json:"userinfo"`
-	Results   []TestResults `json:"results"`
-}
-
-type TestResults struct {
-	// Policy mentions the name of the policy.
-	Policy string `json:"policy"`
-	// Rule mentions the name of the rule in the policy.
-	Rule string `json:"rule"`
-	// Result mentions the result that the user is expecting.
-	// Possible values are pass, fail and skip.
-	Result policyreportv1alpha2.PolicyResult `json:"result"`
-	// Status mentions the status that the user is expecting.
-	// Possible values are pass, fail and skip.
-	Status policyreportv1alpha2.PolicyResult `json:"status"`
-	// Resource mentions the name of the resource on which the policy is to be applied.
-	Resource string `json:"resource"`
-	// Resources gives us the list of resources on which the policy is going to be applied.
-	Resources []string `json:"resources"`
-	// Kind mentions the kind of the resource on which the policy is to be applied.
-	Kind string `json:"kind"`
-	// Namespace mentions the namespace of the policy which has namespace scope.
-	Namespace string `json:"namespace"`
-	// PatchedResource takes a resource configuration file in yaml format from
-	// the user to compare it against the Kyverno mutated resource configuration.
-	PatchedResource string `json:"patchedResource"`
-	// AutoGeneratedRule is internally set by the CLI command. It takes values either
-	// autogen or autogen-cronjob.
-	AutoGeneratedRule string `json:"auto_generated_rule"`
-	// GeneratedResource takes a resource configuration file in yaml format from
-	// the user to compare it against the Kyverno generated resource configuration.
-	GeneratedResource string `json:"generatedResource"`
-	// CloneSourceResource takes the resource configuration file in yaml format
-	// from the user which is meant to be cloned by the generate rule.
-	CloneSourceResource string `json:"cloneSourceResource"`
-}
-
-type ReportResult struct {
-	TestResults
-	Resources []*corev1.ObjectReference `json:"resources"`
-}
-
-type Resource struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
 }
 
 type Table struct {
@@ -293,14 +206,6 @@ type Table struct {
 	Rule     string `header:"rule"`
 	Resource string `header:"resource"`
 	Result   string `header:"result"`
-}
-type Policy struct {
-	Name      string     `json:"name"`
-	Resources []Resource `json:"resources"`
-}
-
-type Values struct {
-	Policies []Policy `json:"policies"`
 }
 
 type resultCounts struct {
@@ -404,14 +309,14 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 			}
 		}
 
-		_, cloneErr := clone(repoURL, fs, gitBranch)
+		_, cloneErr := gitutils.Clone(repoURL, fs, gitBranch)
 		if cloneErr != nil {
 			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
 			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
 			os.Exit(1)
 		}
 
-		policyYamls, err := listYAMLs(fs, gitPathToYamls)
+		policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 		if err != nil {
 			return rc, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
 		}
@@ -513,7 +418,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	return errors
 }
 
-func buildPolicyResults(engineResponses []*response.EngineResponse, testResults []TestResults, infos []common.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) (map[string]policyreportv1alpha2.PolicyReportResult, []TestResults) {
+func buildPolicyResults(engineResponses []*response.EngineResponse, testResults []api.TestResults, infos []common.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) (map[string]policyreportv1alpha2.PolicyReportResult, []api.TestResults) {
 	results := make(map[string]policyreportv1alpha2.PolicyReportResult)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
@@ -566,9 +471,9 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 						if resource == resourceName {
 							var resultsKey string
 							resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, resource)
-							if !util.ContainsString(rules, test.Rule) {
-								if !util.ContainsString(rules, "autogen-"+test.Rule) {
-									if !util.ContainsString(rules, "autogen-cronjob-"+test.Rule) {
+							if !slices.Contains(rules, test.Rule) {
+								if !slices.Contains(rules, "autogen-"+test.Rule) {
+									if !slices.Contains(rules, "autogen-cronjob-"+test.Rule) {
 										result.Result = policyreportv1alpha2.StatusSkip
 									} else {
 										testResults[i].AutoGeneratedRule = "autogen-cronjob"
@@ -599,9 +504,9 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 				if test.Policy == policyName && test.Resource == resourceName {
 					var resultsKey string
 					resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
-					if !util.ContainsString(rules, test.Rule) {
-						if !util.ContainsString(rules, "autogen-"+test.Rule) {
-							if !util.ContainsString(rules, "autogen-cronjob-"+test.Rule) {
+					if !slices.Contains(rules, test.Rule) {
+						if !slices.Contains(rules, "autogen-"+test.Rule) {
+							if !slices.Contains(rules, "autogen-cronjob-"+test.Rule) {
 								result.Result = policyreportv1alpha2.StatusSkip
 							} else {
 								testResults[i].AutoGeneratedRule = "autogen-cronjob"
@@ -819,7 +724,7 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openApiManager openapi.Manager, tf *testFilter, failOnly, removeColor bool) (err error) {
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient dclient.Interface
-	values := &Test{}
+	values := &api.Test{}
 	var variablesString string
 	var pvInfos []common.Info
 	var resultCounts common.ResultCounts
@@ -830,7 +735,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	if tf.enabled {
-		var filteredResults []TestResults
+		var filteredResults []api.TestResults
 		for _, res := range values.Results {
 			if (len(tf.policy) == 0 || tf.policy == res.Policy) && (len(tf.resource) == 0 || tf.resource == res.Resource) && (len(tf.rule) == 0 || tf.rule == res.Rule) {
 				filteredResults = append(filteredResults, res)
@@ -960,17 +865,33 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 	resources = filteredResources
 
+	noDuplicateResources := []*unstructured.Unstructured{}
+
+	for _, resource := range resources {
+		duplicate := false
+		for _, unique := range noDuplicateResources {
+			if resource.GetKind() == unique.GetKind() && resource.GetName() == unique.GetName() && resource.GetNamespace() == unique.GetNamespace() {
+				duplicate = true
+				fmt.Println("skipping duplicate resource, resource :", resource)
+				break
+			}
+		}
+		if !duplicate {
+			noDuplicateResources = append(noDuplicateResources, resource)
+		}
+	}
+
 	msgPolicies := "1 policy"
 	if len(policies) > 1 {
 		msgPolicies = fmt.Sprintf("%d policies", len(policies))
 	}
 
 	msgResources := "1 resource"
-	if len(resources) > 1 {
-		msgResources = fmt.Sprintf("%d resources", len(resources))
+	if len(noDuplicateResources) > 1 {
+		msgResources = fmt.Sprintf("%d resources", len(noDuplicateResources))
 	}
 
-	if len(policies) > 0 && len(resources) > 0 {
+	if len(policies) > 0 && len(noDuplicateResources) > 0 {
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
 
@@ -995,7 +916,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 
-		for _, resource := range resources {
+		for _, resource := range noDuplicateResources {
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
@@ -1029,7 +950,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	return
 }
 
-func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []TestResults, rc *resultCounts, failOnly, removeColor bool) error {
+func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []api.TestResults, rc *resultCounts, failOnly, removeColor bool) error {
 	printer := tableprinter.New(os.Stdout)
 	table := []Table{}
 	boldGreen := color.New(color.FgGreen).Add(color.Bold)

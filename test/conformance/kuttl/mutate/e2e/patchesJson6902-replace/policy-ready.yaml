@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-ingress-host
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

@@ -128,10 +128,10 @@ podAntiAffinity:
       podAffinityTerm:
         labelSelector:
           matchExpressions:
-          - key: app.kubernetes.io/name
-            operator: In
-            values:
-            - kyverno
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - '{{ template "kyverno.name" . }}'
         topologyKey: kubernetes.io/hostname
 
 # -- Pod affinity constraints.
@@ -477,6 +477,18 @@ grafana:
   annotations: {}
 
 cleanupController:
+  rbac:
+    # -- Create RBAC resources
+    create: true
+
+    serviceAccount:
+      # -- Service account name
+      name:
+
+    clusterRole:
+      # -- Extra resource permissions to add in the cluster role
+      extraResources: []
+
   # -- Enable cleanup controller.
   enabled: true
 

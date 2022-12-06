@@ -15,6 +15,21 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+func (inner AdmissionHandler) WithDump(enabled bool) AdmissionHandler {
+	if !enabled {
+		return inner
+	}
+	return inner.withDump().WithTrace("DUMP")
+}
+
+func (inner AdmissionHandler) withDump() AdmissionHandler {
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		response := inner(ctx, logger, request, startTime)
+		dumpPayload(logger, request, response)
+		return response
+	}
+}
+
 func dumpPayload(logger logr.Logger, request *admissionv1.AdmissionRequest, response *admissionv1.AdmissionResponse) {
 	reqPayload, err := newAdmissionRequestPayload(request)
 	if err != nil {
@@ -92,19 +107,4 @@ func redactPayload(payload *admissionRequestPayload) (*admissionRequestPayload, 
 		}
 	}
 	return payload, nil
-}
-
-func (h AdmissionHandler) WithDump(enabled bool) AdmissionHandler {
-	if !enabled {
-		return h
-	}
-	return withDump(h)
-}
-
-func withDump(inner AdmissionHandler) AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		response := inner(ctx, logger, request, startTime)
-		dumpPayload(logger, request, response)
-		return response
-	}
 }
