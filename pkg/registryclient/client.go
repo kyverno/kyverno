@@ -57,13 +57,11 @@ func InitClient(options ...Option) (Client, error) {
 		baseKeychain: baseKeychain,
 		transport:    gcrremote.DefaultTransport.(*http.Transport),
 	}
-
 	for _, opt := range options {
 		if err := opt(c); err != nil {
 			return nil, err
 		}
 	}
-
 	return c, nil
 }
 
