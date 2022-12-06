@@ -191,4 +191,4 @@ jobs:
 
       - name: Update new version in krew-index
         if: steps.check-tag.outputs.match == 'true'
-        uses: rajatjindal/krew-release-bot@3320c0b546b5d2320613c46762bd3f73e2801bdc # pin@v0.0.38
+        uses: rajatjindal/krew-release-bot@92da038bbf995803124a8e50ebd438b2f37bbbb0 # pin@v0.0.43
