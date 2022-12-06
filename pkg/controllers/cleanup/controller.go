@@ -20,6 +20,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
+const (
+	// CleanupServicePath is the path for triggering cleanup
+	CleanupServicePath = "/cleanup"
+)
+
 type controller struct {
 	// clients
 	client kubernetes.Interface
@@ -33,6 +38,9 @@ type controller struct {
 	queue       workqueue.RateLimitingInterface
 	cpolEnqueue controllerutils.EnqueueFuncT[*kyvernov1alpha1.ClusterCleanupPolicy]
 	polEnqueue  controllerutils.EnqueueFuncT[*kyvernov1alpha1.CleanupPolicy]
+
+	// config
+	cleanupService string
 }
 
 const (
@@ -46,16 +54,18 @@ func NewController(
 	cpolInformer kyvernov1alpha1informers.ClusterCleanupPolicyInformer,
 	polInformer kyvernov1alpha1informers.CleanupPolicyInformer,
 	cjInformer batchv1informers.CronJobInformer,
+	cleanupService string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := &controller{
-		client:      client,
-		cpolLister:  cpolInformer.Lister(),
-		polLister:   polInformer.Lister(),
-		cjLister:    cjInformer.Lister(),
-		queue:       queue,
-		cpolEnqueue: controllerutils.AddDefaultEventHandlersT[*kyvernov1alpha1.ClusterCleanupPolicy](logger, cpolInformer.Informer(), queue),
-		polEnqueue:  controllerutils.AddDefaultEventHandlersT[*kyvernov1alpha1.CleanupPolicy](logger, polInformer.Informer(), queue),
+		client:         client,
+		cpolLister:     cpolInformer.Lister(),
+		polLister:      polInformer.Lister(),
+		cjLister:       cjInformer.Lister(),
+		queue:          queue,
+		cpolEnqueue:    controllerutils.AddDefaultEventHandlersT[*kyvernov1alpha1.ClusterCleanupPolicy](logger, cpolInformer.Informer(), queue),
+		polEnqueue:     controllerutils.AddDefaultEventHandlersT[*kyvernov1alpha1.CleanupPolicy](logger, polInformer.Informer(), queue),
+		cleanupService: cleanupService,
 	}
 	controllerutils.AddEventHandlersT(
 		cjInformer.Informer(),
@@ -134,7 +144,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if namespace == "" {
 		cronjobNs = config.KyvernoNamespace()
 	}
-	desired := getCronJobForTriggerResource(policy)
+	desired, err := getCronJobForTriggerResource(policy, c.cleanupService)
+	if err != nil {
+		return err
+	}
 	if observed, err := c.getCronjob(cronjobNs, string(policy.GetUID())); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err

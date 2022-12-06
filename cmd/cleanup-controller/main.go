@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"sync"
 	"time"
@@ -24,12 +25,16 @@ const (
 )
 
 func main() {
+	var cleanupService string
+	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
+	flagset.StringVar(&cleanupService, "cleanupService", "https://cleanup-controller.kyverno.svc", "The url to join the cleanup service.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
 		internal.WithMetrics(),
 		internal.WithTracing(),
 		internal.WithKubeconfig(),
+		internal.WithFlagSets(flagset),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -58,6 +63,7 @@ func main() {
 			kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies(),
 			kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies(),
 			kubeInformer.Batch().V1().CronJobs(),
+			cleanupService,
 		),
 		cleanup.Workers,
 	)

@@ -10,15 +10,17 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *batchv1.CronJob {
+func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface, cleanupService string) (*batchv1.CronJob, error) {
 	// TODO: find a better way to do that, it looks like resources returned by WATCH don't have the GVK
 	apiVersion := "kyverno.io/v1alpha1"
 	kind := "CleanupPolicy"
 	if pol.GetNamespace() == "" {
 		kind = "ClusterCleanupPolicy"
 	}
-	// TODO: error
-	policyName, _ := cache.MetaNamespaceKeyFunc(pol)
+	policyName, err := cache.MetaNamespaceKeyFunc(pol)
+	if err != nil {
+		return nil, err
+	}
 	cronjob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: string(pol.GetUID()),
@@ -47,8 +49,7 @@ func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *b
 										// TODO: ca
 										// "--cacert",
 										// "/tmp/ca.crt",
-										// TODO: this should be configurable
-										fmt.Sprintf("https://cleanup-controller.kyverno.svc/cleanup?policy=%s", policyName),
+										fmt.Sprintf("%s%s?policy=%s", cleanupService, CleanupServicePath, policyName),
 									},
 								},
 							},
@@ -58,5 +59,5 @@ func getCronJobForTriggerResource(pol kyvernov1alpha1.CleanupPolicyInterface) *b
 			},
 		},
 	}
-	return cronjob
+	return cronjob, nil
 }

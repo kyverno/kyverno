@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -17,8 +18,6 @@ import (
 const (
 	// validatingWebhookServicePath is the path for validation webhook
 	validatingWebhookServicePath = "/validate"
-	// cleanupServicePath is the path for triggering cleanup
-	cleanupServicePath = "/cleanup"
 )
 
 type Server interface {
@@ -42,7 +41,7 @@ type (
 func NewServer(
 	tlsProvider TlsProvider,
 	validationHandler ValidationHandler,
-	cleanup CleanupHandler,
+	cleanupHandler CleanupHandler,
 ) Server {
 	policyLogger := logging.WithName("cleanup-policy")
 	cleanupLogger := logging.WithName("cleanup")
@@ -57,11 +56,11 @@ func NewServer(
 	)
 	mux.HandlerFunc(
 		"GET",
-		cleanupServicePath,
+		cleanup.CleanupServicePath,
 		func(w http.ResponseWriter, r *http.Request) {
 			policy := r.URL.Query().Get("policy")
 			logger := cleanupLogger.WithValues("policy", policy)
-			err := cleanup(r.Context(), logger, policy, time.Now())
+			err := cleanupHandler(r.Context(), logger, policy, time.Now())
 			if err == nil {
 				w.WriteHeader(http.StatusOK)
 			} else {
