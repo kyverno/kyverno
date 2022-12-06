@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/version"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -15,7 +16,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/client-go/kubernetes"
 )
@@ -105,20 +106,22 @@ func NewTraceConfig(log logr.Logger, name, address, certs string, kubeClient kub
 		return nil, err
 	}
 
-	res, err := resource.New(context.Background(),
-		resource.WithAttributes(semconv.ServiceNameKey.String(name)),
-		resource.WithSchemaURL(semconv.SchemaURL),
+	res, err := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("kyverno"),
+			semconv.ServiceVersionKey.String(version.BuildVersion),
+		),
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
 		return nil, err
 	}
 
-	bsp := sdktrace.NewBatchSpanProcessor(traceExp)
 	// create controller and bind the exporter with it
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithSpanProcessor(bsp),
+		sdktrace.WithBatcher(traceExp),
 		sdktrace.WithResource(res),
 	)
 
