@@ -442,6 +442,13 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 		var err error
 		var mode ResourceMode
 
+		list := evaluateList(fe.List, ctx)
+
+		// list = strings.Split(fe.List, ",")
+		// for i, listString := range list {
+		// 	list[i] = strings.TrimSpace(listString)
+		// }
+
 		genKind, genName, genNamespace, genAPIVersion, err := forEachGetResourceInfoForDataAndClone(fe)
 		logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 		if err != nil {
