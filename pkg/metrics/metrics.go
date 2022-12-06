@@ -55,7 +55,6 @@ func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
-
 	m.policyResultsMetric, err = meter.SyncInt64().Counter("kyverno_policy_results", instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_policy_results")
@@ -210,22 +209,6 @@ func (m *MetricsConfig) RecordPolicyChanges(ctx context.Context, policyValidatio
 	}
 	m.policyChangesMetric.Add(ctx, 1, commonLabels...)
 }
-
-// func (m *MetricsConfig) RecordPolicyRuleInfo(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
-// 	ruleName string, ruleType RuleType, status string, metricValue float64,
-// ) {
-// 	commonLabels := []attribute.KeyValue{
-// 		attribute.String("policy_validation_mode", string(policyValidationMode)),
-// 		attribute.String("policy_type", string(policyType)),
-// 		attribute.String("policy_background_mode", string(policyBackgroundMode)),
-// 		attribute.String("policy_namespace", policyNamespace),
-// 		attribute.String("policy_name", policyName),
-// 		attribute.String("rule_name", ruleName),
-// 		attribute.String("rule_type", string(ruleType)),
-// 		attribute.String("status_ready", status),
-// 	}
-// 	m.policyRuleInfoMetric.Observe(ctx, metricValue, commonLabels...)
-// }
 
 func (m *MetricsConfig) RecordPolicyExecutionDuration(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
 	ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64,
