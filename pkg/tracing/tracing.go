@@ -18,7 +18,6 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -97,7 +96,6 @@ func NewTraceConfig(log logr.Logger, name, address, certs string, kubeClient kub
 		client = otlptracegrpc.NewClient(
 			otlptracegrpc.WithEndpoint(address),
 			otlptracegrpc.WithInsecure(),
-			otlptracegrpc.WithDialOption(grpc.WithBlock()),
 		)
 	}
 
