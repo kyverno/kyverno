@@ -69,6 +69,7 @@ type controller struct {
 func NewController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
+	rclient registryclient.Client,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
@@ -81,6 +82,7 @@ func NewController(
 	c := controller{
 		client:        client,
 		kyvernoClient: kyvernoClient,
+		rclient:       rclient,
 		cpolLister:    cpolInformer.Lister(),
 		polLister:     polInformer.Lister(),
 		urLister:      urLister,
