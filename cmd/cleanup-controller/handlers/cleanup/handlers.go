@@ -57,6 +57,14 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 	for kind := range kinds {
 		logger := logger.WithValues("kind", kind)
 		logger.Info("processing...")
+		list, err := h.client.ListResource(ctx, "", kind, policy.GetNamespace(), nil)
+		if err != nil {
+			return err
+		}
+		for _, item := range list.Items {
+			logger := logger.WithValues("name", item.GetName(), "namespace", item.GetNamespace())
+			logger.Info("item...")
+		}
 	}
 	return nil
 }
