@@ -23,6 +23,12 @@ type UserInfo struct {
 	Subjects []rbacv1.Subject `json:"subjects,omitempty" yaml:"subjects,omitempty"`
 }
 
+func (r UserInfo) IsEmpty() bool {
+	return len(r.Roles) == 0 &&
+		len(r.ClusterRoles) == 0 &&
+		len(r.Subjects) == 0
+}
+
 // ValidateSubjects implements programmatic validation of Subjects
 func (u *UserInfo) ValidateSubjects(path *field.Path) (errs field.ErrorList) {
 	for index, subject := range u.Subjects {

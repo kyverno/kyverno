@@ -159,7 +159,7 @@ type CleanupPolicySpec struct {
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the name or role.
 	// +optional
-	ExcludeResources kyvernov2beta1.MatchResources `json:"exclude,omitempty"`
+	ExcludeResources *kyvernov2beta1.MatchResources `json:"exclude,omitempty"`
 
 	// The schedule in Cron format
 	Schedule string `json:"schedule"`
@@ -178,7 +178,9 @@ type CleanupPolicyStatus struct {
 func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.String, namespaced bool) (errs field.ErrorList) {
 	errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
 	errs = append(errs, p.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
-	errs = append(errs, p.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+	if p.ExcludeResources != nil {
+		errs = append(errs, p.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+	}
 	errs = append(errs, p.ValidateMatchExcludeConflict(path)...)
 	return errs
 }
@@ -193,7 +195,7 @@ func ValidateSchedule(path *field.Path, schedule string) (errs field.ErrorList) 
 
 // ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
 func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
-	if len(spec.ExcludeResources.All) > 0 || len(spec.MatchResources.All) > 0 {
+	if spec.ExcludeResources == nil || len(spec.ExcludeResources.All) > 0 || len(spec.MatchResources.All) > 0 {
 		return errs
 	}
 	// if both have any then no resource should be common

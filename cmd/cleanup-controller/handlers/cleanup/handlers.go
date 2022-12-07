@@ -65,18 +65,22 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 		for i := range list.Items {
 			if !controllerutils.IsManagedByKyverno(&list.Items[i]) {
 				logger := logger.WithValues("name", list.Items[i].GetName(), "namespace", list.Items[i].GetNamespace())
-
 				// match resource with match/exclude clause
 				matched := checkMatchesResources(list.Items[i], spec.MatchResources, nil, nil)
 				if matched != nil {
 					logger.Info("resource/match didn't match", "result", matched)
 					continue
 				}
-				excluded := checkMatchesResources(list.Items[i], spec.ExcludeResources, nil, nil)
-				if matches != nil {
-					logger.Info("resource/exclude didn't match", "result", excluded)
-					continue
+				if spec.ExcludeResources != nil {
+					excluded := checkMatchesResources(list.Items[i], *spec.ExcludeResources, nil, nil)
+					if excluded == nil {
+						logger.Info("resource/exclude matched")
+						continue
+					} else {
+						logger.Info("resource/exclude didn't match", "result", excluded)
+					}
 				}
+				logger.Info("resource matched...")
 			}
 		}
 	}

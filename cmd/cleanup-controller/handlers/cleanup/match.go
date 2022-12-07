@@ -2,7 +2,6 @@ package cleanup
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -68,7 +67,7 @@ func checkMatchesResources(
 }
 
 func checkResourceFilter(
-	rmr kyvernov1.ResourceFilter,
+	statement kyvernov1.ResourceFilter,
 	// admissionInfo kyvernov1beta1.RequestInfo,
 	resource unstructured.Unstructured,
 	dynamicConfig []string,
@@ -79,12 +78,12 @@ func checkResourceFilter(
 	// 	rmr.UserInfo = kyvernov1.UserInfo{}
 	// }
 	// checking if the block is empty
-	if reflect.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) && reflect.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
-		errs = append(errs, fmt.Errorf("match cannot be empty"))
+	if statement.IsEmpty() {
+		errs = append(errs, fmt.Errorf("statement cannot be empty"))
 		return errs
 	}
 	matchErrs := checkResourceDescription(
-		rmr.ResourceDescription,
+		statement.ResourceDescription,
 		/* rmr.UserInfo,*/ /*admissionInfo,*/
 		resource,
 		dynamicConfig,

@@ -90,7 +90,11 @@ func (in *CleanupPolicyList) DeepCopyObject() runtime.Object {
 func (in *CleanupPolicySpec) DeepCopyInto(out *CleanupPolicySpec) {
 	*out = *in
 	in.MatchResources.DeepCopyInto(&out.MatchResources)
-	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
+	if in.ExcludeResources != nil {
+		in, out := &in.ExcludeResources, &out.ExcludeResources
+		*out = new(v2beta1.MatchResources)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = new(v2beta1.AnyAllConditions)
