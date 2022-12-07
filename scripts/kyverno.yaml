@@ -7,3 +7,12 @@ extraArgs:
   - --enableTracing
   - --tracingAddress=tempo.monitoring
   - --tracingPort=4317
+
+cleanupController:
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - ''
+          resources:
+            - pods

@@ -344,7 +344,7 @@ func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]
 			return nil, err
 		}
 		for i := range list.Items {
-			if controllerutils.CheckLabel(&list.Items[i], kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp) {
+			if controllerutils.IsManagedByKyverno(&list.Items[i]) {
 				reports = append(reports, &list.Items[i])
 			}
 		}
@@ -354,7 +354,7 @@ func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]
 			return nil, err
 		}
 		for i := range list.Items {
-			if controllerutils.CheckLabel(&list.Items[i], kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp) {
+			if controllerutils.IsManagedByKyverno(&list.Items[i]) {
 				reports = append(reports, &list.Items[i])
 			}
 		}
