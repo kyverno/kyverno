@@ -146,7 +146,7 @@ KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
 CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
 CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
 PACKAGE        ?= github.com/kyverno/kyverno
-CGO_ENABLED    ?= 0 
+CGO_ENABLED    ?= 0
 LD_FLAGS        = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 LD_FLAGS_DEV    = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 
@@ -395,7 +395,7 @@ codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
 	@echo Create temp folder for kustomization... >&2
 	@mkdir -p config/.helm
 	@echo Create kustomization... >&2
-	@VERSION='"{{.Chart.AppVersion}}"' TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.helm/labels.yaml
+	@VERSION='"{{.Chart.AppVersion}}"' TOP_PATH=".." envsubst < config/templates/helm-labels.yaml.envsubst > config/.helm/labels.yaml
 	@VERSION=dummy TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.helm/kustomization.yaml
 	@echo Generate helm crds... >&2
 	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}' > ./charts/kyverno/templates/crds.yaml
@@ -730,8 +730,7 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
-		--set initContainer.extraArgs={--loggingFormat=text} \
-		--set "extraArgs={--loggingFormat=text}"
+		--values ./scripts/kyverno.yaml
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno
 

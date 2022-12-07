@@ -8,13 +8,17 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-// ValidatingWebhookServicePath is the path for validation webhook
-const ValidatingWebhookServicePath = "/validate"
+const (
+	// validatingWebhookServicePath is the path for validation webhook
+	validatingWebhookServicePath = "/validate"
+)
 
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
@@ -23,31 +27,50 @@ type Server interface {
 	Stop(context.Context)
 }
 
-type CleanupPolicyHandlers interface {
-	// Validate performs the validation check on policy resources
-	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
-}
-
 type server struct {
 	server *http.Server
 }
 
-type TlsProvider func() ([]byte, []byte, error)
+type (
+	TlsProvider       = func() ([]byte, []byte, error)
+	ValidationHandler = func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	CleanupHandler    = func(context.Context, logr.Logger, string, time.Time) error
+)
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
-	policyHandlers CleanupPolicyHandlers,
 	tlsProvider TlsProvider,
+	validationHandler ValidationHandler,
+	cleanupHandler CleanupHandler,
 ) Server {
 	policyLogger := logging.WithName("cleanup-policy")
+	cleanupLogger := logging.WithName("cleanup")
 	mux := httprouter.New()
 	mux.HandlerFunc(
 		"POST",
-		ValidatingWebhookServicePath,
-		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
+		validatingWebhookServicePath,
+		handlers.FromAdmissionFunc("VALIDATE", validationHandler).
 			WithSubResourceFilter().
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc(),
+	)
+	mux.HandlerFunc(
+		"GET",
+		cleanup.CleanupServicePath,
+		func(w http.ResponseWriter, r *http.Request) {
+			policy := r.URL.Query().Get("policy")
+			logger := cleanupLogger.WithValues("policy", policy)
+			err := cleanupHandler(r.Context(), logger, policy, time.Now())
+			if err == nil {
+				w.WriteHeader(http.StatusOK)
+			} else {
+				if apierrors.IsNotFound(err) {
+					w.WriteHeader(http.StatusNotFound)
+				} else {
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+			}
+		},
 	)
 	return &server{
 		server: &http.Server{
