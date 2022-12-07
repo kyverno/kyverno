@@ -13,11 +13,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Mutate(rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.policy
 	resp = &response.EngineResponse{
@@ -69,7 +70,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			logger.Error(err, "failed to query resource object")
 		}
 
-		if err := LoadContext(logger, rule.Context, policyContext, rule.Name); err != nil {
+		if err := LoadContext(logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 			if _, ok := err.(gojmespath.NotFoundError); ok {
 				logger.V(3).Info("failed to load context", "reason", err.Error())
 			} else {
@@ -108,7 +109,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			logger.V(4).Info("apply rule to resource", "rule", rule.Name, "resource namespace", patchedResource.GetNamespace(), "resource name", patchedResource.GetName())
 			var ruleResp *response.RuleResponse
 			if rule.Mutation.ForEachMutation != nil {
-				ruleResp, patchedResource = mutateForEach(ruleCopy, policyContext, patchedResource, logger)
+				ruleResp, patchedResource = mutateForEach(rclient, ruleCopy, policyContext, patchedResource, logger)
 			} else {
 				ruleResp, patchedResource = mutateResource(ruleCopy, policyContext, patchedResource, logger)
 			}
@@ -158,7 +159,7 @@ func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructu
 	return ruleResp, mutateResp.PatchedResource
 }
 
-func mutateForEach(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
+func mutateForEach(rclient registryclient.Client, rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
 	foreachList := rule.Mutation.ForEachMutation
 	if foreachList == nil {
 		return nil, resource
@@ -169,7 +170,7 @@ func mutateForEach(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructur
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range foreachList {
-		if err := LoadContext(logger, rule.Context, ctx, rule.Name); err != nil {
+		if err := LoadContext(logger, rclient, rule.Context, ctx, rule.Name); err != nil {
 			logger.Error(err, "failed to load context")
 			return ruleError(rule, response.Mutation, "failed to load context", err), resource
 		}
@@ -189,7 +190,7 @@ func mutateForEach(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructur
 			return ruleError(rule, response.Mutation, msg, err), resource
 		}
 
-		mutateResp := mutateElements(rule.Name, foreach, ctx, elements, patchedResource, logger)
+		mutateResp := mutateElements(rclient, rule.Name, foreach, ctx, elements, patchedResource, logger)
 		if mutateResp.Status == response.RuleStatusError {
 			logger.Error(err, "failed to mutate elements")
 			return buildRuleResponse(rule, mutateResp, nil), resource
@@ -213,7 +214,7 @@ func mutateForEach(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructur
 	return r, patchedResource
 }
 
-func mutateElements(name string, foreach kyvernov1.ForEachMutation, ctx *PolicyContext, elements []interface{}, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
+func mutateElements(rclient registryclient.Client, name string, foreach kyvernov1.ForEachMutation, ctx *PolicyContext, elements []interface{}, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
 	ctx.jsonContext.Checkpoint()
 	defer ctx.jsonContext.Restore()
 
@@ -235,7 +236,7 @@ func mutateElements(name string, foreach kyvernov1.ForEachMutation, ctx *PolicyC
 			return mutateError(err, fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i))
 		}
 
-		if err := LoadContext(logger, foreach.Context, ctx, name); err != nil {
+		if err := LoadContext(logger, rclient, foreach.Context, ctx, name); err != nil {
 			return mutateError(err, fmt.Sprintf("failed to load to mutate.foreach[%d].context", i))
 		}
 
