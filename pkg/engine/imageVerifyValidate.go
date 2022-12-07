@@ -8,12 +8,13 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+func processImageValidationRule(log logr.Logger, rclient registryclient.Client, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
 	if isDeleteRequest(ctx) {
 		return nil
 	}
@@ -26,7 +27,7 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 	if len(matchingImages) == 0 {
 		return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusSkip, nil)
 	}
-	if err := LoadContext(log, rule.Context, ctx, rule.Name); err != nil {
+	if err := LoadContext(log, rclient, rule.Context, ctx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {

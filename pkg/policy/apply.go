@@ -14,14 +14,20 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // applyPolicy applies policy on a resource
-func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured,
-	logger logr.Logger, excludeGroupRole []string,
-	client dclient.Interface, namespaceLabels map[string]string,
+func applyPolicy(
+	policy kyvernov1.PolicyInterface,
+	resource unstructured.Unstructured,
+	logger logr.Logger,
+	excludeGroupRole []string,
+	client dclient.Interface,
+	rclient registryclient.Client,
+	namespaceLabels map[string]string,
 ) (responses []*response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
@@ -57,7 +63,7 @@ func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstruc
 		logger.Error(err, "unable to set operation in context")
 	}
 
-	engineResponseMutation, err = mutation(policy, resource, logger, ctx, namespaceLabels)
+	engineResponseMutation, err = mutation(policy, resource, logger, ctx, rclient, namespaceLabels)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
 	}
@@ -81,7 +87,7 @@ func mutation(policy kyvernov1.PolicyInterface, resource unstructured.Unstructur
 		WithNamespaceLabels(namespaceLabels).
 		WithNewResource(resource)
 
-	engineResponse := engine.Mutate(policyContext)
+	engineResponse := engine.Mutate(rclient, policyContext)
 	if !engineResponse.IsSuccessful() {
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil

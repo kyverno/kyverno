@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
@@ -53,8 +54,10 @@ const (
 type PolicyController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	pInformer     kyvernov1informers.ClusterPolicyInformer
-	npInformer    kyvernov1informers.PolicyInformer
+	rclient       registryclient.Client
+
+	pInformer  kyvernov1informers.ClusterPolicyInformer
+	npInformer kyvernov1informers.PolicyInformer
 
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
@@ -93,6 +96,7 @@ type PolicyController struct {
 func NewPolicyController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
+	rclient registryclient.Client,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
@@ -112,6 +116,7 @@ func NewPolicyController(
 	pc := PolicyController{
 		client:          client,
 		kyvernoClient:   kyvernoClient,
+		rclient:         rclient,
 		pInformer:       pInformer,
 		npInformer:      npInformer,
 		eventGen:        eventGen,

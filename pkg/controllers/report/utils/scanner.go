@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -16,6 +17,7 @@ import (
 type scanner struct {
 	logger           logr.Logger
 	client           dclient.Interface
+	rclient          registryclient.Client
 	excludeGroupRole []string
 }
 
@@ -28,10 +30,11 @@ type Scanner interface {
 	ScanResource(context.Context, unstructured.Unstructured, map[string]string, ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult
 }
 
-func NewScanner(logger logr.Logger, client dclient.Interface, excludeGroupRole ...string) Scanner {
+func NewScanner(logger logr.Logger, client dclient.Interface, rclient registryclient.Client, excludeGroupRole ...string) Scanner {
 	return &scanner{
 		logger:           logger,
 		client:           client,
+		rclient:          rclient,
 		excludeGroupRole: excludeGroupRole,
 	}
 }
@@ -83,7 +86,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...)
-	return engine.Validate(ctx, policyCtx), nil
+	return engine.Validate(ctx, s.rclient, policyCtx), nil
 }
 
 func (s *scanner) validateImages(resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
@@ -106,7 +109,7 @@ func (s *scanner) validateImages(resource unstructured.Unstructured, nsLabels ma
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...)
-	response, _ := engine.VerifyAndPatchImages(policyCtx)
+	response, _ := engine.VerifyAndPatchImages(s.rclient, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}

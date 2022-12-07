@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -36,6 +37,7 @@ type ValidationHandler interface {
 func NewValidationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
+	rclient registryclient.Client,
 	pCache policycache.Cache,
 	pcBuilder webhookutils.PolicyContextBuilder,
 	eventGen event.Interface,
@@ -45,6 +47,7 @@ func NewValidationHandler(
 	return &validationHandler{
 		log:              log,
 		kyvernoClient:    kyvernoClient,
+		rclient:          rclient,
 		pCache:           pCache,
 		pcBuilder:        pcBuilder,
 		eventGen:         eventGen,
@@ -56,6 +59,7 @@ func NewValidationHandler(
 type validationHandler struct {
 	log              logr.Logger
 	kyvernoClient    versioned.Interface
+	rclient          registryclient.Client
 	pCache           policycache.Cache
 	pcBuilder        webhookutils.PolicyContextBuilder
 	eventGen         event.Interface
@@ -106,7 +110,7 @@ func (v *validationHandler) HandleValidation(
 					failurePolicy = kyvernov1.Fail
 				}
 
-				engineResponse := engine.Validate(ctx, policyContext)
+				engineResponse := engine.Validate(ctx, v.rclient, policyContext)
 				if engineResponse.IsNil() {
 					// we get an empty response if old and new resources created the same response
 					// allow updates if resource update doesnt change the policy evaluation
@@ -160,7 +164,7 @@ func (v *validationHandler) buildAuditResponses(ctx context.Context, resource un
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
-				responses = append(responses, engine.Validate(ctx, policyContext))
+				responses = append(responses, engine.Validate(ctx, v.rclient, policyContext))
 			},
 		)
 	}
