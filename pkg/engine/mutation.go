@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -70,7 +71,7 @@ func Mutate(rclient registryclient.Client, policyContext *PolicyContext) (resp *
 			logger.Error(err, "failed to query resource object")
 		}
 
-		if err := LoadContext(logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+		if err := LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 			if _, ok := err.(gojmespath.NotFoundError); ok {
 				logger.V(3).Info("failed to load context", "reason", err.Error())
 			} else {
@@ -170,7 +171,7 @@ func mutateForEach(rclient registryclient.Client, rule *kyvernov1.Rule, ctx *Pol
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range foreachList {
-		if err := LoadContext(logger, rclient, rule.Context, ctx, rule.Name); err != nil {
+		if err := LoadContext(context.TODO(), logger, rclient, rule.Context, ctx, rule.Name); err != nil {
 			logger.Error(err, "failed to load context")
 			return ruleError(rule, response.Mutation, "failed to load context", err), resource
 		}
@@ -236,7 +237,7 @@ func mutateElements(rclient registryclient.Client, name string, foreach kyvernov
 			return mutateError(err, fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i))
 		}
 
-		if err := LoadContext(logger, rclient, foreach.Context, ctx, name); err != nil {
+		if err := LoadContext(context.TODO(), logger, rclient, foreach.Context, ctx, name); err != nil {
 			return mutateError(err, fmt.Sprintf("failed to load to mutate.foreach[%d].context", i))
 		}
 

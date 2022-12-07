@@ -14,18 +14,18 @@ import (
 )
 
 // LoadContext - Fetches and adds external data to the Context.
-func LoadContext(logger logr.Logger, rclient registryclient.Client, contextEntries []kyvernov1.ContextEntry, ctx *PolicyContext, ruleName string) error {
+func LoadContext(ctx context.Context, logger logr.Logger, rclient registryclient.Client, contextEntries []kyvernov1.ContextEntry, polCtx *PolicyContext, ruleName string) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
 
-	policyName := ctx.policy.GetName()
+	policyName := polCtx.policy.GetName()
 	if store.GetMock() {
 		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
 		if rule != nil && len(rule.Values) > 0 {
 			variables := rule.Values
 			for key, value := range variables {
-				if err := ctx.jsonContext.AddVariable(key, value); err != nil {
+				if err := polCtx.jsonContext.AddVariable(key, value); err != nil {
 					return err
 				}
 			}
@@ -36,16 +36,16 @@ func LoadContext(logger logr.Logger, rclient registryclient.Client, contextEntri
 		// Context Variable should be loaded after the values loaded from values file
 		for _, entry := range contextEntries {
 			if entry.ImageRegistry != nil && hasRegistryAccess {
-				// rclient := store.GetRegistryClient()
-				if err := loadImageData(rclient, logger, entry, ctx); err != nil {
+				rclient := store.GetRegistryClient()
+				if err := loadImageData(ctx, rclient, logger, entry, polCtx); err != nil {
 					return err
 				}
 			} else if entry.Variable != nil {
-				if err := loadVariable(logger, entry, ctx); err != nil {
+				if err := loadVariable(logger, entry, polCtx); err != nil {
 					return err
 				}
 			} else if entry.APICall != nil && store.IsAllowApiCall() {
-				if err := loadAPIData(logger, entry, ctx); err != nil {
+				if err := loadAPIData(logger, entry, polCtx); err != nil {
 					return err
 				}
 			}
@@ -53,7 +53,7 @@ func LoadContext(logger logr.Logger, rclient registryclient.Client, contextEntri
 
 		if rule != nil && len(rule.ForeachValues) > 0 {
 			for key, value := range rule.ForeachValues {
-				if err := ctx.jsonContext.AddVariable(key, value[store.ForeachElement]); err != nil {
+				if err := polCtx.jsonContext.AddVariable(key, value[store.ForeachElement]); err != nil {
 					return err
 				}
 			}
@@ -61,19 +61,19 @@ func LoadContext(logger logr.Logger, rclient registryclient.Client, contextEntri
 	} else {
 		for _, entry := range contextEntries {
 			if entry.ConfigMap != nil {
-				if err := loadConfigMap(logger, entry, ctx); err != nil {
+				if err := loadConfigMap(logger, entry, polCtx); err != nil {
 					return err
 				}
 			} else if entry.APICall != nil {
-				if err := loadAPIData(logger, entry, ctx); err != nil {
+				if err := loadAPIData(logger, entry, polCtx); err != nil {
 					return err
 				}
 			} else if entry.ImageRegistry != nil {
-				if err := loadImageData(rclient, logger, entry, ctx); err != nil {
+				if err := loadImageData(ctx, rclient, logger, entry, polCtx); err != nil {
 					return err
 				}
 			} else if entry.Variable != nil {
-				if err := loadVariable(logger, entry, ctx); err != nil {
+				if err := loadVariable(logger, entry, polCtx); err != nil {
 					return err
 				}
 			}
@@ -141,11 +141,11 @@ func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyC
 	}
 }
 
-func loadImageData(rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
-	if err := rclient.RefreshKeychainPullSecrets(context.TODO()); err != nil {
+func loadImageData(ctx context.Context, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, polCtx *PolicyContext) error {
+	if err := rclient.RefreshKeychainPullSecrets(ctx); err != nil {
 		return fmt.Errorf("unable to load image registry credentials, %w", err)
 	}
-	imageData, err := fetchImageData(rclient, logger, entry, ctx)
+	imageData, err := fetchImageData(ctx, rclient, logger, entry, polCtx)
 	if err != nil {
 		return err
 	}
@@ -153,14 +153,14 @@ func loadImageData(rclient registryclient.Client, logger logr.Logger, entry kyve
 	if err != nil {
 		return err
 	}
-	if err := ctx.jsonContext.AddContextEntry(entry.Name, jsonBytes); err != nil {
+	if err := polCtx.jsonContext.AddContextEntry(entry.Name, jsonBytes); err != nil {
 		return fmt.Errorf("failed to add resource data to context: contextEntry: %v, error: %v", entry, err)
 	}
 	return nil
 }
 
-func fetchImageData(rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) (interface{}, error) {
-	ref, err := variables.SubstituteAll(logger, ctx.jsonContext, entry.ImageRegistry.Reference)
+func fetchImageData(ctx context.Context, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, polCtx *PolicyContext) (interface{}, error) {
+	ref, err := variables.SubstituteAll(logger, polCtx.jsonContext, entry.ImageRegistry.Reference)
 	if err != nil {
 		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.Reference, err)
 	}
@@ -168,11 +168,11 @@ func fetchImageData(rclient registryclient.Client, logger logr.Logger, entry kyv
 	if !ok {
 		return nil, fmt.Errorf("invalid image reference %s, image reference must be a string", ref)
 	}
-	path, err := variables.SubstituteAll(logger, ctx.jsonContext, entry.ImageRegistry.JMESPath)
+	path, err := variables.SubstituteAll(logger, polCtx.jsonContext, entry.ImageRegistry.JMESPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
 	}
-	imageData, err := fetchImageDataMap(rclient, refString)
+	imageData, err := fetchImageDataMap(ctx, rclient, refString)
 	if err != nil {
 		return nil, err
 	}
@@ -186,8 +186,8 @@ func fetchImageData(rclient registryclient.Client, logger logr.Logger, entry kyv
 }
 
 // FetchImageDataMap fetches image information from the remote registry.
-func fetchImageDataMap(rclient registryclient.Client, ref string) (interface{}, error) {
-	desc, err := rclient.FetchImageDescriptor(context.TODO(), ref)
+func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref string) (interface{}, error) {
+	desc, err := rclient.FetchImageDescriptor(ctx, ref)
 	if err != nil {
 		return nil, err
 	}

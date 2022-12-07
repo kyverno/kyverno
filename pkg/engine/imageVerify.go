@@ -63,7 +63,7 @@ func extractMatchingImages(policyContext *PolicyContext, rule *kyvernov1.Rule) (
 	return matchingImages, imageRefs, nil
 }
 
-func VerifyAndPatchImages(rclient registryclient.Client, policyContext *PolicyContext) (*response.EngineResponse, *ImageVerificationMetadata) {
+func VerifyAndPatchImages(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext) (*response.EngineResponse, *ImageVerificationMetadata) {
 	resp := &response.EngineResponse{}
 
 	policy := policyContext.policy
@@ -83,7 +83,7 @@ func VerifyAndPatchImages(rclient registryclient.Client, policyContext *PolicyCo
 	defer policyContext.jsonContext.Restore()
 
 	// update image registry secrets
-	if err := rclient.RefreshKeychainPullSecrets(context.TODO()); err != nil {
+	if err := rclient.RefreshKeychainPullSecrets(ctx); err != nil {
 		logger.Error(err, "failed to update image pull secrets")
 	}
 
@@ -117,7 +117,7 @@ func VerifyAndPatchImages(rclient registryclient.Client, policyContext *PolicyCo
 		}
 
 		policyContext.jsonContext.Restore()
-		if err := LoadContext(logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+		if err := LoadContext(ctx, logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 			appendResponse(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), response.RuleStatusError)
 			continue
 		}

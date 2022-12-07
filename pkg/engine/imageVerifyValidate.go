@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -27,7 +28,7 @@ func processImageValidationRule(log logr.Logger, rclient registryclient.Client, 
 	if len(matchingImages) == 0 {
 		return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusSkip, nil)
 	}
-	if err := LoadContext(log, rclient, rule.Context, ctx, rule.Name); err != nil {
+	if err := LoadContext(context.TODO(), log, rclient, rule.Context, ctx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
