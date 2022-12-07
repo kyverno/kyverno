@@ -18,6 +18,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+func checkNamespace(statement string, resource unstructured.Unstructured) error {
+	if statement == "" {
+		return nil
+	}
+	if resource.GetNamespace() == statement {
+		return nil
+	}
+	return fmt.Errorf("resource namespace (%s) doesn't match statement (%s)", resource.GetNamespace(), statement)
+}
+
 func checkMatchesResources(
 	resource unstructured.Unstructured,
 	statement kyvernov2beta1.MatchResources,

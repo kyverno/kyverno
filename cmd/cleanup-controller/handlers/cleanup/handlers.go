@@ -66,16 +66,21 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 			errs = append(errs, err)
 		} else {
 			for i := range list.Items {
-				if !controllerutils.IsManagedByKyverno(&list.Items[i]) {
-					logger := logger.WithValues("name", list.Items[i].GetName(), "namespace", list.Items[i].GetNamespace())
+				resource := list.Items[i]
+				if !controllerutils.IsManagedByKyverno(&resource) {
+					logger := logger.WithValues("name", resource.GetName(), "namespace", resource.GetNamespace())
+					// match namespaces
+					if err := checkNamespace(policy.GetNamespace(), resource); err != nil {
+						logger.Info("resource namespace didn't match policy namespace", "result", err)
+					}
 					// match resource with match/exclude clause
-					matched := checkMatchesResources(list.Items[i], spec.MatchResources, nil, nil)
+					matched := checkMatchesResources(resource, spec.MatchResources, nil, nil)
 					if matched != nil {
 						logger.Info("resource/match didn't match", "result", matched)
 						continue
 					}
 					if spec.ExcludeResources != nil {
-						excluded := checkMatchesResources(list.Items[i], *spec.ExcludeResources, nil, nil)
+						excluded := checkMatchesResources(resource, *spec.ExcludeResources, nil, nil)
 						if excluded == nil {
 							logger.Info("resource/exclude matched")
 							continue
@@ -86,10 +91,10 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 					logger.Info("resource matched, it will be deleted...")
 					if err := h.client.DeleteResource(
 						ctx,
-						list.Items[i].GetAPIVersion(),
-						list.Items[i].GetKind(),
-						list.Items[i].GetNamespace(),
-						list.Items[i].GetName(),
+						resource.GetAPIVersion(),
+						resource.GetKind(),
+						resource.GetNamespace(),
+						resource.GetName(),
 						false,
 					); err != nil {
 						logger.Error(err, "failed to delete resource")
