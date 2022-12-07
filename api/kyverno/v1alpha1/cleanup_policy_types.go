@@ -17,11 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
 	"reflect"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/robfig/cron"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -154,20 +153,20 @@ type CleanupPolicySpec struct {
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources kyvernov1.MatchResources `json:"match,omitempty"`
+	MatchResources kyvernov2beta1.MatchResources `json:"match,omitempty"`
 
 	// ExcludeResources defines when cleanuppolicy should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the name or role.
 	// +optional
-	ExcludeResources kyvernov1.MatchResources `json:"exclude,omitempty"`
+	ExcludeResources kyvernov2beta1.MatchResources `json:"exclude,omitempty"`
 
 	// The schedule in Cron format
 	Schedule string `json:"schedule"`
 
 	// Conditions defines conditions used to select resources which user needs to delete
 	// +optional
-	Conditions *kyvernov1.AnyAllConditions `json:"conditions,omitempty"`
+	Conditions *kyvernov2beta1.AnyAllConditions `json:"conditions,omitempty"`
 }
 
 // CleanupPolicyStatus stores the status of the policy.
@@ -206,152 +205,6 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 				}
 			}
 		}
-		return errs
-	}
-	if reflect.DeepEqual(spec.ExcludeResources, kyvernov1.MatchResources{}) {
-		return errs
-	}
-	excludeRoles := sets.NewString(spec.ExcludeResources.Roles...)
-	excludeClusterRoles := sets.NewString(spec.ExcludeResources.ClusterRoles...)
-	excludeKinds := sets.NewString(spec.ExcludeResources.Kinds...)
-	excludeNamespaces := sets.NewString(spec.ExcludeResources.Namespaces...)
-	excludeSubjects := sets.NewString()
-	for _, subject := range spec.ExcludeResources.Subjects {
-		subjectRaw, _ := json.Marshal(subject)
-		excludeSubjects.Insert(string(subjectRaw))
-	}
-	excludeSelectorMatchExpressions := sets.NewString()
-	if spec.ExcludeResources.Selector != nil {
-		for _, matchExpression := range spec.ExcludeResources.Selector.MatchExpressions {
-			matchExpressionRaw, _ := json.Marshal(matchExpression)
-			excludeSelectorMatchExpressions.Insert(string(matchExpressionRaw))
-		}
-	}
-	excludeNamespaceSelectorMatchExpressions := sets.NewString()
-	if spec.ExcludeResources.NamespaceSelector != nil {
-		for _, matchExpression := range spec.ExcludeResources.NamespaceSelector.MatchExpressions {
-			matchExpressionRaw, _ := json.Marshal(matchExpression)
-			excludeNamespaceSelectorMatchExpressions.Insert(string(matchExpressionRaw))
-		}
-	}
-	if len(excludeRoles) > 0 {
-		if len(spec.MatchResources.Roles) == 0 || !excludeRoles.HasAll(spec.MatchResources.Roles...) {
-			return errs
-		}
-	}
-	if len(excludeClusterRoles) > 0 {
-		if len(spec.MatchResources.ClusterRoles) == 0 || !excludeClusterRoles.HasAll(spec.MatchResources.ClusterRoles...) {
-			return errs
-		}
-	}
-	if len(excludeSubjects) > 0 {
-		if len(spec.MatchResources.Subjects) == 0 {
-			return errs
-		}
-		for _, subject := range spec.MatchResources.UserInfo.Subjects {
-			subjectRaw, _ := json.Marshal(subject)
-			if !excludeSubjects.Has(string(subjectRaw)) {
-				return errs
-			}
-		}
-	}
-	if spec.ExcludeResources.Name != "" {
-		if !wildcard.Match(spec.ExcludeResources.Name, spec.MatchResources.Name) {
-			return errs
-		}
-	}
-	if len(spec.ExcludeResources.Names) > 0 {
-		excludeSlice := spec.ExcludeResources.Names
-		matchSlice := spec.MatchResources.Names
-
-		// if exclude block has something and match doesn't it means we
-		// have a non empty set
-		if len(spec.MatchResources.Names) == 0 {
-			return errs
-		}
-
-		// if *any* name in match and exclude conflicts
-		// we want user to fix that
-		for _, matchName := range matchSlice {
-			for _, excludeName := range excludeSlice {
-				if wildcard.Match(excludeName, matchName) {
-					return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))
-				}
-			}
-		}
-		return errs
-	}
-	if len(excludeNamespaces) > 0 {
-		if len(spec.MatchResources.Namespaces) == 0 || !excludeNamespaces.HasAll(spec.MatchResources.Namespaces...) {
-			return errs
-		}
-	}
-	if len(excludeKinds) > 0 {
-		if len(spec.MatchResources.Kinds) == 0 || !excludeKinds.HasAll(spec.MatchResources.Kinds...) {
-			return errs
-		}
-	}
-	if spec.MatchResources.Selector != nil && spec.ExcludeResources.Selector != nil {
-		if len(excludeSelectorMatchExpressions) > 0 {
-			if len(spec.MatchResources.Selector.MatchExpressions) == 0 {
-				return errs
-			}
-			for _, matchExpression := range spec.MatchResources.Selector.MatchExpressions {
-				matchExpressionRaw, _ := json.Marshal(matchExpression)
-				if !excludeSelectorMatchExpressions.Has(string(matchExpressionRaw)) {
-					return errs
-				}
-			}
-		}
-		if len(spec.ExcludeResources.Selector.MatchLabels) > 0 {
-			if len(spec.MatchResources.Selector.MatchLabels) == 0 {
-				return errs
-			}
-			for label, value := range spec.MatchResources.Selector.MatchLabels {
-				if spec.ExcludeResources.Selector.MatchLabels[label] != value {
-					return errs
-				}
-			}
-		}
-	}
-	if spec.MatchResources.NamespaceSelector != nil && spec.ExcludeResources.NamespaceSelector != nil {
-		if len(excludeNamespaceSelectorMatchExpressions) > 0 {
-			if len(spec.MatchResources.NamespaceSelector.MatchExpressions) == 0 {
-				return errs
-			}
-			for _, matchExpression := range spec.MatchResources.NamespaceSelector.MatchExpressions {
-				matchExpressionRaw, _ := json.Marshal(matchExpression)
-				if !excludeNamespaceSelectorMatchExpressions.Has(string(matchExpressionRaw)) {
-					return errs
-				}
-			}
-		}
-		if len(spec.ExcludeResources.NamespaceSelector.MatchLabels) > 0 {
-			if len(spec.MatchResources.NamespaceSelector.MatchLabels) == 0 {
-				return errs
-			}
-			for label, value := range spec.MatchResources.NamespaceSelector.MatchLabels {
-				if spec.ExcludeResources.NamespaceSelector.MatchLabels[label] != value {
-					return errs
-				}
-			}
-		}
-	}
-	if (spec.MatchResources.Selector == nil && spec.ExcludeResources.Selector != nil) ||
-		(spec.MatchResources.Selector != nil && spec.ExcludeResources.Selector == nil) {
-		return errs
-	}
-	if (spec.MatchResources.NamespaceSelector == nil && spec.ExcludeResources.NamespaceSelector != nil) ||
-		(spec.MatchResources.NamespaceSelector != nil && spec.ExcludeResources.NamespaceSelector == nil) {
-		return errs
-	}
-	if spec.MatchResources.Annotations != nil && spec.ExcludeResources.Annotations != nil {
-		if !(reflect.DeepEqual(spec.MatchResources.Annotations, spec.ExcludeResources.Annotations)) {
-			return errs
-		}
-	}
-	if (spec.MatchResources.Annotations == nil && spec.ExcludeResources.Annotations != nil) ||
-		(spec.MatchResources.Annotations != nil && spec.ExcludeResources.Annotations == nil) {
 		return errs
 	}
 	return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))

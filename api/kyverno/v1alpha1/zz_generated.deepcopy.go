@@ -22,8 +22,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -93,7 +93,7 @@ func (in *CleanupPolicySpec) DeepCopyInto(out *CleanupPolicySpec) {
 	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = new(v1.AnyAllConditions)
+		*out = new(v2beta1.AnyAllConditions)
 		(*in).DeepCopyInto(*out)
 	}
 }
@@ -113,7 +113,7 @@ func (in *CleanupPolicyStatus) DeepCopyInto(out *CleanupPolicyStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]metav1.Condition, len(*in))
+		*out = make([]v1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
