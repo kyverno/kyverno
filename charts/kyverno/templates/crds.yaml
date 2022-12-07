@@ -10,9 +10,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: admissionreports.kyverno.io
 spec:
@@ -275,9 +275,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: backgroundscanreports.kyverno.io
 spec:
@@ -506,9 +506,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: cleanuppolicies.kyverno.io
 spec:
@@ -1457,9 +1457,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: clusteradmissionreports.kyverno.io
 spec:
@@ -1722,9 +1722,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: clusterbackgroundscanreports.kyverno.io
 spec:
@@ -1953,9 +1953,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: clustercleanuppolicies.kyverno.io
 spec:
@@ -2904,9 +2904,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: clusterpolicies.kyverno.io
 spec:
@@ -10561,9 +10561,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
@@ -10834,9 +10834,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: generaterequests.kyverno.io
 spec:
@@ -11010,9 +11010,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: policies.kyverno.io
 spec:
@@ -18668,9 +18668,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: policyreports.wgpolicyk8s.io
 spec:
@@ -18941,9 +18941,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: updaterequests.kyverno.io
 spec:
