@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -33,6 +34,7 @@ type ValidationHandler interface {
 func NewValidationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
+	rclient registryclient.Client,
 	pCache policycache.Cache,
 	pcBuilder webhookutils.PolicyContextBuilder,
 	eventGen event.Interface,
@@ -41,6 +43,7 @@ func NewValidationHandler(
 	return &validationHandler{
 		log:              log,
 		kyvernoClient:    kyvernoClient,
+		rclient:          rclient,
 		pCache:           pCache,
 		pcBuilder:        pcBuilder,
 		eventGen:         eventGen,
@@ -51,6 +54,7 @@ func NewValidationHandler(
 type validationHandler struct {
 	log              logr.Logger
 	kyvernoClient    versioned.Interface
+	rclient          registryclient.Client
 	pCache           policycache.Cache
 	pcBuilder        webhookutils.PolicyContextBuilder
 	eventGen         event.Interface
@@ -95,7 +99,7 @@ func (v *validationHandler) HandleValidation(
 			failurePolicy = kyvernov1.Fail
 		}
 
-		engineResponse := engine.Validate(policyContext)
+		engineResponse := engine.Validate(v.rclient, policyContext)
 		if engineResponse.IsNil() {
 			// we get an empty response if old and new resources created the same response
 			// allow updates if resource update doesnt change the policy evaluation
@@ -142,7 +146,7 @@ func (v *validationHandler) buildAuditResponses(resource unstructured.Unstructur
 	var responses []*response.EngineResponse
 	for _, policy := range policies {
 		policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
-		responses = append(responses, engine.Validate(policyContext))
+		responses = append(responses, engine.Validate(v.rclient, policyContext))
 	}
 	return responses, nil
 }
