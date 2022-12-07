@@ -1,10 +1,13 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"sync"
 	"time"
 
+	admissionhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission"
+	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
 	"github.com/kyverno/kyverno/cmd/internal"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
@@ -22,12 +25,16 @@ const (
 )
 
 func main() {
+	var cleanupService string
+	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
+	flagset.StringVar(&cleanupService, "cleanupService", "https://cleanup-controller.kyverno.svc", "The url to join the cleanup service.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
 		internal.WithMetrics(),
 		internal.WithTracing(),
 		internal.WithKubeconfig(),
+		internal.WithFlagSets(flagset),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -56,18 +63,24 @@ func main() {
 			kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies(),
 			kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies(),
 			kubeInformer.Batch().V1().CronJobs(),
+			cleanupService,
 		),
 		cleanup.Workers,
 	)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
+	cpolLister := kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies().Lister()
+	polLister := kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies().Lister()
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
 	}
 	var wg sync.WaitGroup
 	controller.Run(ctx, logger.WithName("cleanup-controller"), &wg)
+	// create handlers
+	admissionHandlers := admissionhandlers.New(dClient)
+	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister)
+	// create server
 	server := NewServer(
-		NewHandlers(dClient),
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get("cleanup-controller-tls")
 			if err != nil {
@@ -75,8 +88,10 @@ func main() {
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
+		admissionHandlers.Validate,
+		cleanupHandlers.Cleanup,
 	)
-	// start webhooks server
+	// start server
 	server.Run(ctx.Done())
 	// wait for termination signal
 	wg.Wait()
