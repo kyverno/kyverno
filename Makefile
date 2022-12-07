@@ -617,7 +617,7 @@ test-e2e:
 
 test-e2e-local:
 	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
-	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
+	kubectl port-forward -n kyverno service/kyverno-svc-metrics 8000:8000 &
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/verifyimages -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v

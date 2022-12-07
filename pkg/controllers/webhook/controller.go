@@ -359,7 +359,7 @@ func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Con
 }
 
 func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func([]byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error)) error {
-	caData, err := tls.ReadRootCASecret(c.secretClient)
+	caData, err := tls.ReadRootCASecret(c.secretLister.Secrets(config.KyvernoNamespace()))
 	if err != nil {
 		return err
 	}
@@ -388,7 +388,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 }
 
 func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func([]byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error)) error {
-	caData, err := tls.ReadRootCASecret(c.secretClient)
+	caData, err := tls.ReadRootCASecret(c.secretLister.Secrets(config.KyvernoNamespace()))
 	if err != nil {
 		return err
 	}
