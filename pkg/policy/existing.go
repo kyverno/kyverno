@@ -81,7 +81,7 @@ func (pc *PolicyController) applyPolicy(policy kyvernov1.PolicyInterface, resour
 	}
 
 	namespaceLabels := common.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), pc.nsLister, logger)
-	engineResponse := applyPolicy(policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.client, namespaceLabels)
+	engineResponse := applyPolicy(policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.client, pc.rclient, namespaceLabels)
 	engineResponses = append(engineResponses, engineResponse...)
 
 	// post-processing, register the resource as processed
