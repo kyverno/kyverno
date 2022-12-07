@@ -413,6 +413,7 @@ func main() {
 		logger.Error(err, "failed to create cache informer factory")
 		os.Exit(1)
 	}
+	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	informerBasedResolver, err := resolvers.NewInformerBasedResolver(cacheInformer.Core().V1().ConfigMaps().Lister())
 	if err != nil {
 		logger.Error(err, "failed to create informer based resolver")
@@ -440,6 +441,7 @@ func main() {
 	}
 	certRenewer := tls.NewCertRenewer(
 		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+		secretLister,
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
@@ -606,7 +608,6 @@ func main() {
 		openApiManager,
 		admissionReports,
 	)
-	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
 	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,
@@ -616,7 +617,7 @@ func main() {
 			DumpPayload: dumpPayload,
 		},
 		func() ([]byte, []byte, error) {
-			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
+			secret, err := secretLister.Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
 				return nil, nil, err
 			}

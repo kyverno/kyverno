@@ -1,0 +1,28 @@
+name: validate-service-loadbalancer
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: add-safe-to-evict
+    rule: annotate-empty-dir
+    resource: pod-without-emptydir-hostpath
+    kind: Pod
+    result: skip
+  - policy: add-safe-to-evict
+    rule: annotate-empty-dir
+    resource: pod-with-emptydir-hostpath
+    patchedResource: patchedResource.yaml
+    kind: Pod
+    result: pass
+  - policy: add-safe-to-evict
+    rule: annotate-empty-dir
+    resource: pod-with-emptydir-hostpath-1
+    patchedResource: patchedResourceWithVolume.yaml
+    kind: Pod
+    result: pass
+  - policy: add-safe-to-evict
+    rule: annotate-empty-dir
+    resource: pod-without-emptydir-hostpath-1
+    kind: Pod
+    result: skip
