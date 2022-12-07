@@ -193,6 +193,7 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 }
 
 func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
+	meta = meta.DeepCopy()
 	namespace := meta.GetNamespace()
 	labels := meta.GetLabels()
 	// load all policies
@@ -346,13 +347,13 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 		if err != nil {
 			return nil, err
 		}
-		return obj.(metav1.Object), err
+		return obj.DeepCopyObject().(metav1.Object), err
 	} else {
 		obj, err := c.bgscanrLister.ByNamespace(namespace).Get(name)
 		if err != nil {
 			return nil, err
 		}
-		return obj.(metav1.Object), err
+		return obj.DeepCopyObject().(metav1.Object), err
 	}
 }
 
