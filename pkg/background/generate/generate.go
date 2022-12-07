@@ -433,7 +433,7 @@ func forEachGetResourceInfoForDataAndClone(fe kyvernov1.ForEachGeneration) (kind
 	return
 }
 
-func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
 	var noGenResource kyvernov1.ResourceSpec
 	var newGenResources []kyvernov1.ResourceSpec
 	for _, fe := range rule.Generation.ForEachGeneration {
@@ -539,7 +539,7 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 				newResource.SetLabels(label)
 
 				// Create the resource
-				_, err = client.CreateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
+				_, err = client.CreateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 				if err != nil {
 					if !apierrors.IsAlreadyExists(err) {
 						logger.Error(err, "failed to create resource")
@@ -550,11 +550,11 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 				logger.V(2).Info("created generate target resource")
 				newGenResources = append(newGenResources, newGenResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName))
 			} else if rdata.Action == Update {
-				generatedObj, err := client.GetResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName)
+				generatedObj, err := client.GetResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName)
 				if err != nil {
 					logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
 					logger.V(2).Info(fmt.Sprintf("creating generate resource name:name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
-					_, err = client.CreateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
+					_, err = client.CreateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 					if err != nil {
 						logger.Error(err, "failed to update resource")
 						newGenResources = append(newGenResources, noGenResource)
@@ -577,7 +577,7 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 						}
 
 						if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
-							_, err = client.UpdateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
+							_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 							if err != nil {
 								logger.Error(err, "failed to update resource")
 								newGenResources = append(newGenResources, noGenResource)
@@ -595,7 +595,7 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 							currentGeneratedResourcelabel["policy.kyverno.io/synchronize"] = "disable"
 							generatedObj.SetLabels(currentGeneratedResourcelabel)
 
-							_, err = client.UpdateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, generatedObj, false)
+							_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, generatedObj, false)
 							if err != nil {
 								logger.Error(err, "failed to update label in existing resource")
 								newGenResources = append(newGenResources, noGenResource)
