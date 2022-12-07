@@ -11,6 +11,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -18,17 +19,20 @@ type handlers struct {
 	client     dclient.Interface
 	cpolLister kyvernov1alpha1listers.ClusterCleanupPolicyLister
 	polLister  kyvernov1alpha1listers.CleanupPolicyLister
+	nsLister   corev1listers.NamespaceLister
 }
 
 func New(
 	client dclient.Interface,
 	cpolLister kyvernov1alpha1listers.ClusterCleanupPolicyLister,
 	polLister kyvernov1alpha1listers.CleanupPolicyLister,
+	nsLister corev1listers.NamespaceLister,
 ) *handlers {
 	return &handlers{
 		client:     client,
 		cpolLister: cpolLister,
 		polLister:  polLister,
+		nsLister:   nsLister,
 	}
 }
 
@@ -67,20 +71,31 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 		} else {
 			for i := range list.Items {
 				resource := list.Items[i]
+				namespace := resource.GetNamespace()
+				name := resource.GetName()
+				logger := logger.WithValues("name", name, "namespace", namespace)
 				if !controllerutils.IsManagedByKyverno(&resource) {
-					logger := logger.WithValues("name", resource.GetName(), "namespace", resource.GetNamespace())
+					var nsLabels map[string]string
+					if namespace != "" {
+						ns, err := h.nsLister.Get(namespace)
+						if err != nil {
+							logger.Error(err, "failed to get namespace labels")
+							errs = append(errs, err)
+						}
+						nsLabels = ns.GetLabels()
+					}
 					// match namespaces
 					if err := checkNamespace(policy.GetNamespace(), resource); err != nil {
 						logger.Info("resource namespace didn't match policy namespace", "result", err)
 					}
 					// match resource with match/exclude clause
-					matched := checkMatchesResources(resource, spec.MatchResources, nil, nil)
+					matched := checkMatchesResources(resource, spec.MatchResources, nil, nsLabels)
 					if matched != nil {
 						logger.Info("resource/match didn't match", "result", matched)
 						continue
 					}
 					if spec.ExcludeResources != nil {
-						excluded := checkMatchesResources(resource, *spec.ExcludeResources, nil, nil)
+						excluded := checkMatchesResources(resource, *spec.ExcludeResources, nil, nsLabels)
 						if excluded == nil {
 							logger.Info("resource/exclude matched")
 							continue
@@ -89,14 +104,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						}
 					}
 					logger.Info("resource matched, it will be deleted...")
-					if err := h.client.DeleteResource(
-						ctx,
-						resource.GetAPIVersion(),
-						resource.GetKind(),
-						resource.GetNamespace(),
-						resource.GetName(),
-						false,
-					); err != nil {
+					if err := h.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 						logger.Error(err, "failed to delete resource")
 						errs = append(errs, err)
 					}
