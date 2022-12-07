@@ -193,9 +193,8 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 }
 
 func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
-	meta = meta.DeepCopy()
 	namespace := meta.GetNamespace()
-	labels := meta.GetLabels()
+	metaLabels := meta.GetLabels()
 	// load all policies
 	policies, err := c.fetchClusterPolicies(logger)
 	if err != nil {
@@ -257,7 +256,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			expected[reportutils.PolicyLabel(policy)] = policy
 		}
 		toDelete := map[string]string{}
-		for label := range labels {
+		for label := range metaLabels {
 			if reportutils.IsPolicyLabel(label) {
 				// if the policy doesn't exist anymore
 				if expected[label] == nil {
@@ -272,7 +271,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		var toCreate []kyvernov1.PolicyInterface
 		for label, policy := range expected {
 			// if the background policy changed, we need to recreate entries
-			if labels[label] != policy.GetResourceVersion() {
+			if metaLabels[label] != policy.GetResourceVersion() {
 				if name, err := reportutils.PolicyNameFromLabel(namespace, label); err != nil {
 					return err
 				} else {
@@ -291,8 +290,11 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		report := reportutils.DeepCopy(before)
 		var ruleResults []policyreportv1alpha2.PolicyReportResult
 		// deletions
-		for _, label := range toDelete {
-			delete(labels, label)
+		reportLabels := report.GetLabels()
+		if reportLabels != nil {
+			for _, label := range toDelete {
+				delete(reportLabels, label)
+			}
 		}
 		for _, result := range report.GetResults() {
 			if _, ok := toDelete[result.Policy]; !ok {
@@ -347,13 +349,13 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 		if err != nil {
 			return nil, err
 		}
-		return obj.DeepCopyObject().(metav1.Object), err
+		return obj.(metav1.Object), err
 	} else {
 		obj, err := c.bgscanrLister.ByNamespace(namespace).Get(name)
 		if err != nil {
 			return nil, err
 		}
-		return obj.DeepCopyObject().(metav1.Object), err
+		return obj.(metav1.Object), err
 	}
 }
 
