@@ -619,3 +619,9 @@ loki-stack:
     config:
       clients:
         - url: http://kyverno-loki:3100/loki/api/v1/push
+
+tempo:
+  enabled: true
+
+  tempo:
+    searchEnabled: true

@@ -20,13 +20,17 @@ maintainers:
 kubeVersion: ">=1.16.0-0"
 dependencies:
   - name: kube-prometheus-stack
-    version: 42.2.1
+    version: '*'
     repository: https://prometheus-community.github.io/helm-charts
     condition: kube-prometheus-stack.enabled
   - name: loki-stack
-    version:  2.8.7
+    version:  '*'
     repository: https://grafana.github.io/helm-charts
     condition: loki-stack.enabled
+  - name: tempo
+    version:  '*'
+    repository: https://grafana.github.io/helm-charts
+    condition: tempo.enabled
 annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"

@@ -5,7 +5,7 @@ initContainer:
 extraArgs:
   - --loggingFormat=json
   - --enableTracing
-  - --tracingAddress=tempo.monitoring
+  - --tracingAddress=kyverno-tempo.kyverno
   - --tracingPort=4317
 
 cleanupController:

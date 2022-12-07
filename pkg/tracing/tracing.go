@@ -76,7 +76,7 @@ const (
 )
 
 // NewTraceConfig generates the initial tracing configuration with 'address' as the endpoint to connect to the Opentelemetry Collector
-func NewTraceConfig(log logr.Logger, name, address, certs string, kubeClient kubernetes.Interface) (func(), error) {
+func NewTraceConfig(log logr.Logger, address, certs string, kubeClient kubernetes.Interface) (func(), error) {
 	ctx := context.Background()
 
 	var client otlptrace.Client
