@@ -555,3 +555,67 @@ cleanupController:
 
   # -- Topology spread constraints.
   topologySpreadConstraints: []
+
+# Addons
+
+kube-prometheus-stack:
+  enabled: true
+
+  kubeEtcd:
+    service:
+      enabled: true
+      targetPort: 2381
+  defaultRules:
+    create: true
+  alertmanager:
+    alertmanagerSpec:
+      routePrefix: /alertmanager
+      alertmanagerConfigSelector:
+        matchLabels: {}
+      alertmanagerConfigNamespaceSelector:
+        matchLabels: {}
+    ingress:
+      enabled: true
+      pathType: Prefix
+  prometheus:
+    prometheusSpec:
+      externalUrl: /prometheus
+      routePrefix: /prometheus
+      ruleSelectorNilUsesHelmValues: false
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      probeSelectorNilUsesHelmValues: false
+    ingress:
+      enabled: true
+      pathType: Prefix
+  grafana:
+    enabled: true
+    adminPassword: admin
+    sidecar:
+      enableUniqueFilenames: true
+      dashboards:
+        enabled: true
+        searchNamespace: ALL
+        provider:
+          foldersFromFilesStructure: true
+      datasources:
+        enabled: true
+        searchNamespace: ALL
+    grafana.ini:
+      server:
+        root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana"
+        serve_from_sub_path: true
+    ingress:
+      enabled: true
+      path: /grafana
+
+loki-stack:
+  enabled: true
+
+  loki:
+    isDefault: false
+
+  promtail:
+    config:
+      clients:
+        - url: http://kyverno-loki:3100/loki/api/v1/push

@@ -723,6 +723,13 @@ kind-load-all: kind-load-kyvernopre kind-load-kyverno kind-load-cleanup-controll
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@echo Install kyverno chart... >&2
+	@kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+	@sleep 15
+	@kubectl wait --namespace ingress-nginx \
+		--for=condition=ready pod \
+		--selector=app.kubernetes.io/component=controller \
+		--timeout=3m
+	@$(HELM) dependency update ./charts/kyverno
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
 		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \

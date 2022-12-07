@@ -15,3 +15,5 @@ cmd/cleanup-controller/cleanup-controller
 /config/.helm
 /config/.release
 .dist
+# Chart dependencies
+/charts/*/charts
