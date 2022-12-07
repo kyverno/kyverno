@@ -488,6 +488,11 @@ cleanupController:
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []
+      # - apiGroups:
+      #     - ''
+      #   resources:
+      #     - pods
+
 
   # -- Enable cleanup controller.
   enabled: true
@@ -508,6 +513,10 @@ cleanupController:
     # -- Image pull secrets
     pullSecrets: []
     # - secretName
+
+  # -- Arguments passed to the container on the command line
+  args:
+    - --cleanupService=https://{{ template "kyverno.cleanup-controller.deploymentName" . }}.{{ template "kyverno.namespace" . }}.svc
 
   service:
     # -- Service port.
