@@ -39,6 +39,10 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
+          {{- with .Values.cleanupController.args }}
+          args:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           env:
           - name: KYVERNO_NAMESPACE
             valueFrom:
