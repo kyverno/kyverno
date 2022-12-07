@@ -215,7 +215,7 @@ func newValidator(log logr.Logger, rclient registryclient.Client, ctx *PolicyCon
 	}
 }
 
-func newForeachValidator(foreach kyvernov1.ForEachValidation, rule *kyvernov1.Rule, ctx *PolicyContext, log logr.Logger) *validator {
+func newForeachValidator(log logr.Logger, rclient registryclient.Client, foreach kyvernov1.ForEachValidation, rule *kyvernov1.Rule, ctx *PolicyContext) *validator {
 	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := utils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
@@ -231,6 +231,7 @@ func newForeachValidator(foreach kyvernov1.ForEachValidation, rule *kyvernov1.Ru
 		pattern:          foreach.GetPattern(),
 		anyPattern:       foreach.GetAnyPattern(),
 		deny:             foreach.Deny,
+		rclient:          rclient,
 	}
 }
 
@@ -341,7 +342,7 @@ func (v *validator) validateElements(foreach kyvernov1.ForEachValidation, elemen
 			return ruleError(v.rule, response.Validation, "failed to process foreach", err), applyCount
 		}
 
-		foreachValidator := newForeachValidator(foreach, v.rule, ctx, v.log)
+		foreachValidator := newForeachValidator(v.log, v.rclient, foreach, v.rule, ctx)
 		r := foreachValidator.validate()
 		if r == nil {
 			v.log.V(2).Info("skip rule due to empty result")

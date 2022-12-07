@@ -32,10 +32,7 @@ func GetForeachElement() int {
 
 func SetRegistryAccess(access bool) {
 	if access {
-		rclient, err := registryclient.New(registryclient.WithLocalKeychain())
-		if err != nil {
-			registryClient = rclient
-		}
+		registryClient = registryclient.NewOrDie(registryclient.WithLocalKeychain())
 	}
 }
 

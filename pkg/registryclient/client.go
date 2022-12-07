@@ -47,9 +47,8 @@ type Client interface {
 }
 
 type client struct {
-	keychain  authn.Keychain
-	transport *http.Transport
-	// baseKeychain        authn.Keychain
+	keychain            authn.Keychain
+	transport           *http.Transport
 	pullSecretRefresher func(context.Context, *client) error
 }
 
@@ -82,7 +81,7 @@ func NewOrDie(options ...Option) Client {
 // WithKeychainPullSecrets provides initialize registry client option that allows to use pull secrets.
 func WithKeychainPullSecrets(ctx context.Context, kubClient kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets ...string) Option {
 	return func(c *client) error {
-		refresher := func(ctx context.Context, c *client) error {
+		c.pullSecretRefresher = func(ctx context.Context, c *client) error {
 			freshKeychain, err := generateKeychainForPullSecrets(ctx, kubClient, namespace, serviceAccount, imagePullSecrets...)
 			if err != nil {
 				return err
@@ -93,8 +92,7 @@ func WithKeychainPullSecrets(ctx context.Context, kubClient kubernetes.Interface
 			)
 			return nil
 		}
-		c.pullSecretRefresher = refresher
-		return refresher(ctx, c)
+		return c.pullSecretRefresher(ctx, c)
 	}
 }
 
