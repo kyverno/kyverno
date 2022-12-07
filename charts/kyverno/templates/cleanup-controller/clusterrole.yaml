@@ -35,6 +35,7 @@ rules:
       - update
       - watch
   {{- with .Values.cleanupController.rbac.clusterRole.extraResources }}
+  {{- range . }}
   - apiGroups:
       {{- toYaml .apiGroups | nindent 6 }}
     resources:
@@ -42,6 +43,7 @@ rules:
     verbs:
       - delete
       - list
+  {{- end }}
   {{- end }}
 {{- end }}
 {{- end }}
