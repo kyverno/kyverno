@@ -9,6 +9,7 @@ import (
 	kyvernov1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 )
@@ -55,34 +56,48 @@ func (h *handlers) lookupPolicy(namespace, name string) (kyvernov1alpha1.Cleanup
 func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy kyvernov1alpha1.CleanupPolicyInterface) error {
 	spec := policy.GetSpec()
 	kinds := sets.NewString(spec.MatchResources.GetKinds()...)
+	var errs []error
 	for kind := range kinds {
 		logger := logger.WithValues("kind", kind)
 		logger.Info("processing...")
 		list, err := h.client.ListResource(ctx, "", kind, policy.GetNamespace(), nil)
 		if err != nil {
-			return err
-		}
-		for i := range list.Items {
-			if !controllerutils.IsManagedByKyverno(&list.Items[i]) {
-				logger := logger.WithValues("name", list.Items[i].GetName(), "namespace", list.Items[i].GetNamespace())
-				// match resource with match/exclude clause
-				matched := checkMatchesResources(list.Items[i], spec.MatchResources, nil, nil)
-				if matched != nil {
-					logger.Info("resource/match didn't match", "result", matched)
-					continue
-				}
-				if spec.ExcludeResources != nil {
-					excluded := checkMatchesResources(list.Items[i], *spec.ExcludeResources, nil, nil)
-					if excluded == nil {
-						logger.Info("resource/exclude matched")
+			logger.Error(err, "failed to list resources")
+			errs = append(errs, err)
+		} else {
+			for i := range list.Items {
+				if !controllerutils.IsManagedByKyverno(&list.Items[i]) {
+					logger := logger.WithValues("name", list.Items[i].GetName(), "namespace", list.Items[i].GetNamespace())
+					// match resource with match/exclude clause
+					matched := checkMatchesResources(list.Items[i], spec.MatchResources, nil, nil)
+					if matched != nil {
+						logger.Info("resource/match didn't match", "result", matched)
 						continue
-					} else {
-						logger.Info("resource/exclude didn't match", "result", excluded)
+					}
+					if spec.ExcludeResources != nil {
+						excluded := checkMatchesResources(list.Items[i], *spec.ExcludeResources, nil, nil)
+						if excluded == nil {
+							logger.Info("resource/exclude matched")
+							continue
+						} else {
+							logger.Info("resource/exclude didn't match", "result", excluded)
+						}
+					}
+					logger.Info("resource matched, it will be deleted...")
+					if err := h.client.DeleteResource(
+						ctx,
+						list.Items[i].GetAPIVersion(),
+						list.Items[i].GetKind(),
+						list.Items[i].GetNamespace(),
+						list.Items[i].GetName(),
+						false,
+					); err != nil {
+						logger.Error(err, "failed to delete resource")
+						errs = append(errs, err)
 					}
 				}
-				logger.Info("resource matched...")
 			}
 		}
 	}
-	return nil
+	return multierr.Combine(errs...)
 }
