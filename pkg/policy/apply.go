@@ -75,13 +75,20 @@ func applyPolicy(
 		WithClient(client).
 		WithExcludeGroupRole(excludeGroupRole...)
 
-	engineResponseValidation = engine.Validate(context.TODO(), policyCtx)
+	engineResponseValidation = engine.Validate(context.TODO(), rclient, policyCtx)
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	return engineResponses
 }
 
-func mutation(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext enginecontext.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
+func mutation(
+	policy kyvernov1.PolicyInterface,
+	resource unstructured.Unstructured,
+	log logr.Logger,
+	jsonContext enginecontext.Interface,
+	rclient registryclient.Client,
+	namespaceLabels map[string]string,
+) (*response.EngineResponse, error) {
 	policyContext := engine.NewPolicyContextWithJsonContext(jsonContext).
 		WithPolicy(policy).
 		WithNamespaceLabels(namespaceLabels).
