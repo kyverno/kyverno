@@ -31,9 +31,6 @@ func checkNamespace(statement string, resource unstructured.Unstructured) error 
 func checkMatchesResources(
 	resource unstructured.Unstructured,
 	statement kyvernov2beta1.MatchResources,
-	// ruleRef kyvernov1.Rule,
-	//  admissionInfoRef kyvernov1beta1.RequestInfo,
-	dynamicConfig []string,
 	namespaceLabels map[string]string,
 	// policyNamespace string,
 ) error {
@@ -46,9 +43,7 @@ func checkMatchesResources(
 			// if there are no errors it means it was a match
 			if len(checkResourceFilter(
 				rmr,
-				//  admissionInfo,
 				resource,
-				dynamicConfig,
 				namespaceLabels,
 			)) == 0 {
 				oneMatched = true
@@ -65,9 +60,7 @@ func checkMatchesResources(
 				errs,
 				checkResourceFilter(
 					rmr,
-					// admissionInfo,
 					resource,
-					dynamicConfig,
 					namespaceLabels,
 				)...,
 			)
@@ -78,15 +71,10 @@ func checkMatchesResources(
 
 func checkResourceFilter(
 	statement kyvernov1.ResourceFilter,
-	// admissionInfo kyvernov1beta1.RequestInfo,
 	resource unstructured.Unstructured,
-	dynamicConfig []string,
 	namespaceLabels map[string]string,
 ) []error {
 	var errs []error
-	// if reflect.DeepEqual(admissionInfo, kyvernov1.RequestInfo{}) {
-	// 	rmr.UserInfo = kyvernov1.UserInfo{}
-	// }
 	// checking if the block is empty
 	if statement.IsEmpty() {
 		errs = append(errs, fmt.Errorf("statement cannot be empty"))
@@ -94,9 +82,7 @@ func checkResourceFilter(
 	}
 	matchErrs := checkResourceDescription(
 		statement.ResourceDescription,
-		/* rmr.UserInfo,*/ /*admissionInfo,*/
 		resource,
-		dynamicConfig,
 		namespaceLabels,
 	)
 	errs = append(errs, matchErrs...)
@@ -106,7 +92,6 @@ func checkResourceFilter(
 func checkResourceDescription(
 	conditionBlock kyvernov1.ResourceDescription,
 	resource unstructured.Unstructured,
-	dynamicConfig []string,
 	namespaceLabels map[string]string,
 ) []error {
 	var errs []error
@@ -166,26 +151,6 @@ func checkResourceDescription(
 			}
 		}
 	}
-	// keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
-	// var userInfoErrors []error
-	// if len(userInfo.Roles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
-	// 	if !utils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
-	// 		userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match roles for the given conditionBlock"))
-	// 	}
-	// }
-
-	// if len(userInfo.ClusterRoles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
-	// 	if !utils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
-	// 		userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
-	// 	}
-	// }
-
-	// if len(userInfo.Subjects) > 0 {
-	// 	if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, dynamicConfig) {
-	// 		userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match subject for the given conditionBlock"))
-	// 	}
-	// }
-	// return append(errs, userInfoErrors...)
 	return errs
 }
 

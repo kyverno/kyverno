@@ -63,7 +63,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 	var errs []error
 	for kind := range kinds {
 		logger := logger.WithValues("kind", kind)
-		logger.Info("processing...")
+		logger.V(5).Info("processing...")
 		list, err := h.client.ListResource(ctx, "", kind, policy.GetNamespace(), nil)
 		if err != nil {
 			logger.Error(err, "failed to list resources")
@@ -86,24 +86,24 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 					}
 					// match namespaces
 					if err := checkNamespace(policy.GetNamespace(), resource); err != nil {
-						logger.Info("resource namespace didn't match policy namespace", "result", err)
+						logger.V(5).Info("resource namespace didn't match policy namespace", "result", err)
 					}
 					// match resource with match/exclude clause
-					matched := checkMatchesResources(resource, spec.MatchResources, nil, nsLabels)
+					matched := checkMatchesResources(resource, spec.MatchResources, nsLabels)
 					if matched != nil {
-						logger.Info("resource/match didn't match", "result", matched)
+						logger.V(5).Info("resource/match didn't match", "result", matched)
 						continue
 					}
 					if spec.ExcludeResources != nil {
-						excluded := checkMatchesResources(resource, *spec.ExcludeResources, nil, nsLabels)
+						excluded := checkMatchesResources(resource, *spec.ExcludeResources, nsLabels)
 						if excluded == nil {
-							logger.Info("resource/exclude matched")
+							logger.V(5).Info("resource/exclude matched")
 							continue
 						} else {
-							logger.Info("resource/exclude didn't match", "result", excluded)
+							logger.V(5).Info("resource/exclude didn't match", "result", excluded)
 						}
 					}
-					logger.Info("resource matched, it will be deleted...")
+					logger.V(5).Info("resource matched, it will be deleted...")
 					if err := h.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 						logger.Error(err, "failed to delete resource")
 						errs = append(errs, err)
