@@ -1,6 +1,7 @@
 package cosign
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"io"
@@ -80,15 +81,15 @@ func TestCosignKeyless(t *testing.T) {
 	client, err := registryclient.New()
 	assert.NilError(t, err)
 
-	_, err = VerifySignature(client, opts)
+	_, err = VerifySignature(context.Background(), client, opts)
 	assert.ErrorContains(t, err, "subject mismatch: expected jim, received jim@nirmata.com")
 
 	opts.Subject = "jim@nirmata.com"
-	_, err = VerifySignature(client, opts)
+	_, err = VerifySignature(context.Background(), client, opts)
 	assert.ErrorContains(t, err, "issuer mismatch: expected https://github.com/, received https://github.com/login/oauth")
 
 	opts.Issuer = "https://github.com/login/oauth"
-	_, err = VerifySignature(client, opts)
+	_, err = VerifySignature(context.Background(), client, opts)
 	assert.NilError(t, err)
 }
 

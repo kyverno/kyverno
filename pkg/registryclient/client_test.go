@@ -28,7 +28,7 @@ func TestInitClientWithInsecureRegistryOption(t *testing.T) {
 	}
 	c, err := New(WithAllowInsecureRegistry())
 
-	expInsecureSkipVerify := expClient.transport.TLSClientConfig.InsecureSkipVerify
+	expInsecureSkipVerify := expClient.transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify
 	gotInsecureSkipVerify := c.getTransport().(*http.Transport).TLSClientConfig.InsecureSkipVerify
 
 	assert.NilError(t, err)

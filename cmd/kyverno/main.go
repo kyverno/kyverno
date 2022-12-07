@@ -64,7 +64,9 @@ const (
 func setupRegistryClient(logger logr.Logger, kubeClient kubernetes.Interface, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
 	logger = logger.WithName("registry-client")
 	logger.Info("setup registry client...", "secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
-	var registryOptions []registryclient.Option
+	registryOptions := []registryclient.Option{
+		registryclient.WithTracing(),
+	}
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
 		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(
