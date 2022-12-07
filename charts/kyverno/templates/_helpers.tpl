@@ -35,7 +35,7 @@ helm.sh/chart: {{ template "kyverno.chart" . }}
 app.kubernetes.io/component: kyverno
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-app.kubernetes.io/version: "{{ .Chart.Version }}"
+app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 {{- if .Values.customLabels }}
 {{ toYaml .Values.customLabels }}
 {{- end }}
@@ -48,7 +48,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/name: {{ template "kyverno.name" . }}-test
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-app.kubernetes.io/version: "{{ .Chart.Version }}"
+app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 helm.sh/chart: {{ template "kyverno.chart" . }}
 {{- end -}}
 
