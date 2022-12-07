@@ -447,7 +447,7 @@ OuterLoop:
 		}
 	}
 
-	if err := engineContext.MutateResourceWithImageInfo(resourceRaw, ctx); err != nil {
+	if err := engineContext.MutateResourceWithImageInfo(context.TODO(), resourceRaw, ctx); err != nil {
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
@@ -458,7 +458,7 @@ OuterLoop:
 		WithAdmissionInfo(c.UserInfo).
 		WithClient(c.Client)
 
-	mutateResponse := engine.Mutate(registryclient.NewOrDie(), policyContext)
+	mutateResponse := engine.Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}

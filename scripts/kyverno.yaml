@@ -8,6 +8,9 @@ extraArgs:
   - --tracingAddress=kyverno-tempo.kyverno
   - --tracingPort=4317
 
+# grafana:
+#   enabled: true
+
 cleanupController:
   rbac:
     clusterRole:

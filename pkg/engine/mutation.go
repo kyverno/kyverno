@@ -19,14 +19,14 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.policy
 	resp = &response.EngineResponse{
 		Policy: policy,
 	}
 	matchedResource := policyContext.newResource
-	ctx := policyContext.jsonContext
+	engineCtx := policyContext.jsonContext
 	var skippedRules []string
 
 	logger := logging.WithName("EngineMutate").WithValues("policy", policy.GetName(), "kind", matchedResource.GetKind(),
@@ -64,14 +64,14 @@ func Mutate(rclient registryclient.Client, policyContext *PolicyContext) (resp *
 		resource, err := policyContext.jsonContext.Query("request.object")
 		policyContext.jsonContext.Reset()
 		if err == nil && resource != nil {
-			if err := ctx.AddResource(resource.(map[string]interface{})); err != nil {
+			if err := engineCtx.AddResource(resource.(map[string]interface{})); err != nil {
 				logger.Error(err, "unable to update resource object")
 			}
 		} else {
 			logger.Error(err, "failed to query resource object")
 		}
 
-		if err := LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+		if err := LoadContext(ctx, logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 			if _, ok := err.(gojmespath.NotFoundError); ok {
 				logger.V(3).Info("failed to load context", "reason", err.Error())
 			} else {
