@@ -82,11 +82,6 @@ func VerifyAndPatchImages(rclient registryclient.Client, policyContext *PolicyCo
 	policyContext.jsonContext.Checkpoint()
 	defer policyContext.jsonContext.Restore()
 
-	// update image registry secrets
-	if err := rclient.RefreshKeychainPullSecrets(context.TODO()); err != nil {
-		logger.Error(err, "failed to update image pull secrets")
-	}
-
 	ivm := &ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.policy)
 	applyRules := policy.GetSpec().GetApplyRules()
