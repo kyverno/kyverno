@@ -716,8 +716,7 @@ Kubernetes admission/v1.Operation
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Attestation">Attestation</a>, 
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
-<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
-<a href="#kyverno.io/v1alpha1.CleanupPolicySpec">CleanupPolicySpec</a>)
+<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
 </p>
 <p>
 <p>AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -2412,8 +2411,7 @@ The repository can be overridden per Attestor or Attestation.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.Rule">Rule</a>, 
-<a href="#kyverno.io/v1alpha1.CleanupPolicySpec">CleanupPolicySpec</a>)
+<a href="#kyverno.io/v1.Rule">Rule</a>)
 </p>
 <p>
 <p>MatchResources is used to specify resource and admission review request data for
@@ -4053,7 +4051,7 @@ CleanupPolicySpec
 <td>
 <code>match</code><br/>
 <em>
-<a href="#kyverno.io/v1.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -4069,7 +4067,7 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v1.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -4096,7 +4094,7 @@ string
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="#kyverno.io/v1.AnyAllConditions">
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
 AnyAllConditions
 </a>
 </em>
@@ -4188,7 +4186,7 @@ CleanupPolicySpec
 <td>
 <code>match</code><br/>
 <em>
-<a href="#kyverno.io/v1.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -4204,7 +4202,7 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v1.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -4231,7 +4229,7 @@ string
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="#kyverno.io/v1.AnyAllConditions">
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
 AnyAllConditions
 </a>
 </em>
@@ -4289,7 +4287,7 @@ and schedule when the matching resources needs deleted.</p>
 <td>
 <code>match</code><br/>
 <em>
-<a href="#kyverno.io/v1.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -4305,7 +4303,7 @@ At least one kind is required.</p>
 <td>
 <code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v1.MatchResources">
+<a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
 </a>
 </em>
@@ -4332,7 +4330,7 @@ string
 <td>
 <code>conditions</code><br/>
 <em>
-<a href="#kyverno.io/v1.AnyAllConditions">
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
 AnyAllConditions
 </a>
 </em>
@@ -5802,6 +5800,7 @@ PolicyStatus
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
@@ -6074,6 +6073,7 @@ bool
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>
