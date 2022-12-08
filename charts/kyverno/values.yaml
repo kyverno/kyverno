@@ -205,11 +205,11 @@ imagePullSecrets: {}
 
 # -- Existing Image pull secrets for image verify and imageData policies.
 # This will define the `--imagePullSecrets` Kyverno argument.
-# existingImagePullSecrets: []
+existingImagePullSecrets: []
   # Define an existing image pull secret
   # existingImagePullSecrets:
-  # - private-registry
   # - test-registry
+  # - other-test-registry
 
 resources:
   # -- Pod resource limits
