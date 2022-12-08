@@ -87,72 +87,626 @@ func Test_doesMatchExcludeConflict(t *testing.T) {
 	}{
 		{
 			description: "Same match and exclude",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}, "schedule": "* * * * *"}`),
+			policySpec: []byte(`
+{
+    "match": {
+		"any": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "exclude": {
+		"any": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "schedule": "* * * * *"
+}`),
 			errors: func(r *CleanupPolicySpec) (errs field.ErrorList) {
 				return append(errs, field.Invalid(path, r, "CleanupPolicy is matching an empty set"))
 			},
 		},
 		{
 			description: "Failed to exclude kind",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}, "schedule": "* * * * *"}`),
+			policySpec: []byte(`
+{
+	"match": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+	},
+	"exclude": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+	},
+	"schedule": "* * * * *"
+}`),
 		},
 		{
 			description: "Failed to exclude name",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something-*","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}, "schedule": "* * * * *"}`),
+			policySpec: []byte(`
+{
+    "match": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "exclude": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something-*",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "schedule": "* * * * *"
+}`),
 		},
 		{
 			description: "Failed to exclude namespace",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something3","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}, "schedule": "* * * * *"}`),
+			policySpec: []byte(`
+{
+    "match": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "exclude": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something3",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "schedule": "* * * * *"
+}`),
 		},
 		{
 			description: "Failed to exclude labels",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"higha"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}, "schedule": "* * * * *"}`),
+			policySpec: []byte(`
+{
+    "match": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "exclude": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "higha"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "schedule": "* * * * *"
+}`),
 		},
 		{
 			description: "Failed to exclude expression",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["databases"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}, "schedule": "* * * * *"}`),
+			policySpec: []byte(`
+{
+    "match": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "exclude": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"databases"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "schedule": "* * * * *"
+}`),
 		},
 		{
 			description: "Failed to exclude subjects",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something2","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}, "schedule": "* * * * *"}`),
+			policySpec: []byte(`
+{
+    "match": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "exclude": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "schedule": "* * * * *"
+}`),
 		},
 		{
 			description: "Failed to exclude clusterroles",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something3","something1"],"roles":["something","something1"]}, "schedule": "* * * * *"}`),
+			policySpec: []byte(`
+{
+    "match": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "exclude": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "schedule": "* * * * *"
+}`),
 		},
 		{
 			description: "Failed to exclude roles",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something3","something1"]}, "schedule": "* * * * *"}`),
-		},
-		{
-			description: "simple",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"]}},"exclude":{"resources":{"kinds":["Pod","Namespace","Job"],"name":"some*","namespaces":["something","something1","something2"]}}, "schedule": "* * * * *"}`),
-			errors: func(r *CleanupPolicySpec) (errs field.ErrorList) {
-				return append(errs, field.Invalid(path, r, "CleanupPolicy is matching an empty set"))
-			},
-		},
-		{
-			description: "simple - fail",
-			policySpec:  []byte(`{"match":{"resources":{"kinds":["Pod","Namespace"],"name":"somxething","namespaces":["something","something1"]}},"exclude":{"resources":{"kinds":["Pod","Namespace","Job"],"name":"some*","namespaces":["something","something1","something2"]}}, "schedule": "* * * * *"}`),
+			policySpec: []byte(`
+{
+    "match": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "exclude": {
+		"all": [{
+			"resources": {
+				"kinds": [
+					"Pod",
+					"Namespace"
+				],
+				"name": "something",
+				"namespaces": [
+					"something",
+					"something1"
+				],
+				"selector": {
+					"matchLabels": {
+						"memory": "high"
+					},
+					"matchExpressions": [
+						{
+							"key": "tier",
+							"operator": "In",
+							"values": [
+								"database"
+							]
+						}
+					]
+				}
+			}
+		}]
+    },
+    "schedule": "* * * * *"
+}`),
 		},
 		{
 			description: "empty case",
-			policySpec:  []byte(`{"match":{"resources":{"selector":{"matchLabels":{"allow-deletes":"false"}}}},"exclude":{"clusterRoles":["random"]},"validate":{"message":"Deleting {{request.object.kind}}/{{request.object.metadata.name}} is not allowed","deny":{"conditions":{"all":[{"key":"{{request.operation}}","operator":"Equal","value":"DELETE"}]}}}, "schedule": "* * * * *"}`),
+			policySpec: []byte(`
+{
+    "match": {
+		"all": [{
+			"resources": {
+				"selector": {
+					"matchLabels": {
+						"allow-deletes": "false"
+					}
+				}
+			}
+		}]
+    },
+    "exclude": {},
+    "schedule": "* * * * *"
+}`),
 		},
 	}
 	for _, testcase := range testcases {
-		var policySpec CleanupPolicySpec
-		err := json.Unmarshal(testcase.policySpec, &policySpec)
-		assert.NilError(t, err)
-		errs := policySpec.ValidateMatchExcludeConflict(path)
-		var expectedErrs field.ErrorList
-		if testcase.errors != nil {
-			expectedErrs = testcase.errors(&policySpec)
-		}
-		assert.Equal(t, len(errs), len(expectedErrs))
-		for i := range errs {
-			fmt.Println(i)
-			assert.Equal(t, errs[i].Error(), expectedErrs[i].Error())
-		}
+		t.Run(testcase.description, func(t *testing.T) {
+			var policySpec CleanupPolicySpec
+			err := json.Unmarshal(testcase.policySpec, &policySpec)
+			assert.NilError(t, err)
+			errs := policySpec.ValidateMatchExcludeConflict(path)
+			var expectedErrs field.ErrorList
+			if testcase.errors != nil {
+				expectedErrs = testcase.errors(&policySpec)
+			}
+			assert.Equal(t, len(errs), len(expectedErrs))
+			for i := range errs {
+				fmt.Println(i)
+				assert.Equal(t, errs[i].Error(), expectedErrs[i].Error())
+			}
+		})
 	}
 }

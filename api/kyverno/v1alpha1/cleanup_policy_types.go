@@ -209,5 +209,8 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 		}
 		return errs
 	}
+	if reflect.DeepEqual(spec.ExcludeResources, kyvernov2beta1.MatchResources{}) {
+		return errs
+	}
 	return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))
 }
