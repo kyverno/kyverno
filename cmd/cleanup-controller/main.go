@@ -29,6 +29,7 @@ const (
 // - implement probes
 // - better certs management
 // - supports certs in cronjob
+// - leader election support
 // - helm service monitor
 // - helm name and fullname
 // - helm review labels / selectors
