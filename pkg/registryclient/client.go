@@ -18,7 +18,7 @@ import (
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/sigstore/cosign/pkg/oci/remote"
-	"k8s.io/client-go/kubernetes"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 var (
@@ -57,10 +57,6 @@ type Client interface {
 	// FetchImageDescriptor fetches Descriptor from registry with given imageRef
 	// and provides access to metadata about remote artifact.
 	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
-
-	// // RefreshKeychainPullSecrets loads fresh data from pull secrets and updates Keychain.
-	// // If pull secrets are empty - returns.
-	RefreshKeychainPullSecrets(context.Context) error
 
 	// BuildRemoteOption builds remote.Option based on client.
 	BuildRemoteOption(context.Context) remote.Option
@@ -101,9 +97,6 @@ func New(options ...Option) (Client, error) {
 	if cfg.tracing {
 		c.transport = tracing.Transport(cfg.transport)
 	}
-	if err := c.RefreshKeychainPullSecrets(context.TODO()); err != nil {
-		return nil, err
-	}
 	return c, nil
 }
 
@@ -117,10 +110,10 @@ func NewOrDie(options ...Option) Client {
 }
 
 // WithKeychainPullSecrets provides initialize registry client option that allows to use pull secrets.
-func WithKeychainPullSecrets(ctx context.Context, kubClient kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets ...string) Option {
+func WithKeychainPullSecrets(ctx context.Context, lister corev1listers.SecretNamespaceLister, imagePullSecrets ...string) Option {
 	return func(c *config) error {
 		c.pullSecretRefresher = func(ctx context.Context, c *client) error {
-			freshKeychain, err := generateKeychainForPullSecrets(ctx, kubClient, namespace, serviceAccount, imagePullSecrets...)
+			freshKeychain, err := generateKeychainForPullSecrets(ctx, lister, imagePullSecrets...)
 			if err != nil {
 				return err
 			}
@@ -158,15 +151,6 @@ func WithLocalKeychain() Option {
 	}
 }
 
-// RefreshKeychainPullSecrets loads fresh data from pull secrets and updates Keychain.
-// If pull secrets are empty - returns.
-func (c *client) RefreshKeychainPullSecrets(ctx context.Context) error {
-	if c.pullSecretRefresher == nil {
-		return nil
-	}
-	return c.pullSecretRefresher(ctx, c)
-}
-
 // BuildRemoteOption builds remote.Option based on client.
 func (c *client) BuildRemoteOption(ctx context.Context) remote.Option {
 	return remote.WithRemoteOptions(
@@ -179,6 +163,9 @@ func (c *client) BuildRemoteOption(ctx context.Context) remote.Option {
 // FetchImageDescriptor fetches Descriptor from registry with given imageRef
 // and provides access to metadata about remote artifact.
 func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gcrremote.Descriptor, error) {
+	if err := c.refreshKeychainPullSecrets(ctx); err != nil {
+		return nil, fmt.Errorf("failed to refresh image pull secrets, error: %v", err)
+	}
 	parsedRef, err := name.ParseReference(imageRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", imageRef, err)
@@ -188,6 +175,15 @@ func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gc
 		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", imageRef, err)
 	}
 	return desc, nil
+}
+
+// refreshKeychainPullSecrets loads fresh data from pull secrets and updates Keychain.
+// If pull secrets are empty - returns.
+func (c *client) refreshKeychainPullSecrets(ctx context.Context) error {
+	if c.pullSecretRefresher == nil {
+		return nil
+	}
+	return c.pullSecretRefresher(ctx, c)
 }
 
 func (c *client) getKeychain() authn.Keychain {

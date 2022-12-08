@@ -53,6 +53,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -61,7 +62,7 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
-func setupRegistryClient(logger logr.Logger, kubeClient kubernetes.Interface, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
+func setupRegistryClient(logger logr.Logger, lister corev1listers.SecretNamespaceLister, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
 	logger = logger.WithName("registry-client")
 	logger.Info("setup registry client...", "secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
 	registryOptions := []registryclient.Option{
@@ -71,9 +72,7 @@ func setupRegistryClient(logger logr.Logger, kubeClient kubernetes.Interface, im
 	if imagePullSecrets != "" && len(secrets) > 0 {
 		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(
 			context.TODO(),
-			kubeClient,
-			config.KyvernoNamespace(),
-			"",
+			lister,
 			secrets...,
 		))
 	}
@@ -399,14 +398,6 @@ func main() {
 		logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
 	}
-	// setup registry client
-	rclient, err := setupRegistryClient(logger, kubeClient, imagePullSecrets, allowInsecureRegistry)
-	if err != nil {
-		logger.Error(err, "failed to setup registry client")
-		os.Exit(1)
-	}
-	// setup cosign
-	setupCosign(logger, imageSignatureRepository)
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
@@ -425,6 +416,14 @@ func main() {
 		os.Exit(1)
 	}
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
+	// setup registry client
+	rclient, err := setupRegistryClient(logger, secretLister, imagePullSecrets, allowInsecureRegistry)
+	if err != nil {
+		logger.Error(err, "failed to setup registry client")
+		os.Exit(1)
+	}
+	// setup cosign
+	setupCosign(logger, imageSignatureRepository)
 	informerBasedResolver, err := resolvers.NewInformerBasedResolver(cacheInformer.Core().V1().ConfigMaps().Lister())
 	if err != nil {
 		logger.Error(err, "failed to create informer based resolver")

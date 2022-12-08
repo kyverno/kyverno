@@ -142,9 +142,6 @@ func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyC
 }
 
 func loadImageData(ctx context.Context, rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, polCtx *PolicyContext) error {
-	if err := rclient.RefreshKeychainPullSecrets(ctx); err != nil {
-		return fmt.Errorf("unable to load image registry credentials, %w", err)
-	}
 	imageData, err := fetchImageData(ctx, rclient, logger, entry, polCtx)
 	if err != nil {
 		return err
