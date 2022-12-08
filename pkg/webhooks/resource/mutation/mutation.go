@@ -1,6 +1,7 @@
 package mutation
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -29,7 +31,7 @@ type MutationHandler interface {
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
 	HandleMutation(
-		*metrics.MetricsConfig,
+		metrics.MetricsConfigManager,
 		*admissionv1.AdmissionRequest,
 		[]kyvernov1.PolicyInterface,
 		*engine.PolicyContext,
@@ -40,12 +42,14 @@ type MutationHandler interface {
 
 func NewMutationHandler(
 	log logr.Logger,
+	rclient registryclient.Client,
 	eventGen event.Interface,
 	openApiManager openapi.ValidateInterface,
 	nsLister corev1listers.NamespaceLister,
 ) MutationHandler {
 	return &mutationHandler{
 		log:            log,
+		rclient:        rclient,
 		eventGen:       eventGen,
 		openApiManager: openApiManager,
 		nsLister:       nsLister,
@@ -54,13 +58,14 @@ func NewMutationHandler(
 
 type mutationHandler struct {
 	log            logr.Logger
+	rclient        registryclient.Client
 	eventGen       event.Interface
 	openApiManager openapi.ValidateInterface
 	nsLister       corev1listers.NamespaceLister
 }
 
 func (h *mutationHandler) HandleMutation(
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -77,7 +82,7 @@ func (h *mutationHandler) HandleMutation(
 // applyMutations handles mutating webhook admission request
 // return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
 func (v *mutationHandler) applyMutations(
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -99,8 +104,8 @@ func (v *mutationHandler) applyMutations(
 			continue
 		}
 		v.log.V(3).Info("applying policy mutate rules", "policy", policy.GetName())
-		policyContext.Policy = policy
-		engineResponse, policyPatches, err := v.applyMutation(request, policyContext)
+		currentContext := policyContext.WithPolicy(policy)
+		engineResponse, policyPatches, err := v.applyMutation(request, currentContext)
 		if err != nil {
 			return nil, nil, fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
 		}
@@ -113,13 +118,13 @@ func (v *mutationHandler) applyMutations(
 			}
 		}
 
-		policyContext.NewResource = engineResponse.PatchedResource
+		policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
 		engineResponses = append(engineResponses, engineResponse)
 
 		// registering the kyverno_policy_results_total metric concurrently
-		go webhookutils.RegisterPolicyResultsMetricMutation(v.log, metricsConfig, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), v.log, metricsConfig, string(request.Operation), policy, *engineResponse)
 		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(v.log, metricsConfig, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), v.log, metricsConfig, string(request.Operation), policy, *engineResponse)
 	}
 
 	// generate annotations
@@ -140,20 +145,20 @@ func (v *mutationHandler) applyMutations(
 
 func (h *mutationHandler) applyMutation(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (*response.EngineResponse, [][]byte, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log)
+		policyContext = policyContext.WithNamespaceLabels(common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
 
-	engineResponse := engine.Mutate(policyContext)
+	engineResponse := engine.Mutate(h.rclient, policyContext)
 	policyPatches := engineResponse.GetPatches()
 
 	if !engineResponse.IsSuccessful() {
-		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy.GetName(), engineResponse.GetFailedRules())
+		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRules())
 	}
 
-	if policyContext.Policy.ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
+	if policyContext.Policy().ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
 		err := h.openApiManager.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy.GetName())
+			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy().GetName())
 		}
 	}
 
@@ -174,9 +179,11 @@ func logMutationResponse(patches [][]byte, engineResponses []*response.EngineRes
 func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 	var deletionTimeStamp *metav1.Time
 	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
+		resource := policyContext.NewResource()
+		deletionTimeStamp = resource.GetDeletionTimestamp()
 	} else {
-		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
+		resource := policyContext.OldResource()
+		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 	return deletionTimeStamp != nil
 }

@@ -1,6 +1,7 @@
 package mutate
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -27,7 +29,7 @@ type MutateExistingController struct {
 	// clients
 	client        dclient.Interface
 	statusControl common.StatusControlInterface
-
+	rclient       registryclient.Client
 	// listers
 	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
@@ -42,6 +44,7 @@ type MutateExistingController struct {
 func NewMutateExistingController(
 	client dclient.Interface,
 	statusControl common.StatusControlInterface,
+	rclient registryclient.Client,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	dynamicConfig config.Configuration,
@@ -51,6 +54,7 @@ func NewMutateExistingController(
 	c := MutateExistingController{
 		client:        client,
 		statusControl: statusControl,
+		rclient:       rclient,
 		policyLister:  policyLister,
 		npolicyLister: npolicyLister,
 		configuration: dynamicConfig,
@@ -89,7 +93,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			continue
 		}
 
-		er := engine.Mutate(policyContext)
+		er := engine.Mutate(c.rclient, policyContext)
 		for _, r := range er.PolicyResponse.Rules {
 			patched := r.PatchedTarget
 			switch r.Status {
@@ -119,7 +123,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 				if r.Status == response.RuleStatusPass {
 					patchedNew.SetResourceVersion("")
-					_, updateErr := c.client.UpdateResource(patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+					_, updateErr := c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
 					if updateErr != nil {
 						errs = append(errs, updateErr)
 						logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
@@ -154,7 +158,7 @@ func (c *MutateExistingController) report(err error, policy, rule string, target
 	var events []event.Info
 
 	if target == nil {
-		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule, "err", err.Error())
+		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule)
 	}
 
 	if err != nil {

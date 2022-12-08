@@ -11,7 +11,7 @@ import (
 	openapiv2 "github.com/google/gnostic/openapiv2"
 	"github.com/kyverno/kyverno/data"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/utils"
+	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -204,7 +204,7 @@ func setPreferredVersions(kindToAPIVersions map[string]apiVersions, preferredAPI
 				preferredGV := preferredAPIResourcesList.GroupVersion
 				preferredGVK := preferredGV + "/" + resource.Kind
 
-				if utils.ContainsString(versions.gvks, preferredGVK) {
+				if slices.Contains(versions.gvks, preferredGVK) {
 					v := kindToAPIVersions[kind]
 
 					// if a Kind belongs to multiple groups, the first group/version

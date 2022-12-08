@@ -359,7 +359,7 @@ func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Con
 }
 
 func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func([]byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error)) error {
-	caData, err := tls.ReadRootCASecret(c.secretClient)
+	caData, err := tls.ReadRootCASecret(c.secretLister.Secrets(config.KyvernoNamespace()))
 	if err != nil {
 		return err
 	}
@@ -388,7 +388,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 }
 
 func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, autoUpdateWebhooks bool, build func([]byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error)) error {
-	caData, err := tls.ReadRootCASecret(c.secretClient)
+	caData, err := tls.ReadRootCASecret(c.secretLister.Secrets(config.KyvernoNamespace()))
 	if err != nil {
 		return err
 	}
@@ -526,7 +526,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(caBundle []byte) (*
 				FailurePolicy:           &ignore,
 				SideEffects:             &noneOnDryRun,
 				ReinvocationPolicy:      &ifNeeded,
-				AdmissionReviewVersions: []string{"v1beta1"},
+				AdmissionReviewVersions: []string{"v1"},
 				ObjectSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
@@ -553,7 +553,7 @@ func (c *controller) buildPolicyMutatingWebhookConfiguration(caBundle []byte) (*
 				FailurePolicy:           &ignore,
 				SideEffects:             &noneOnDryRun,
 				ReinvocationPolicy:      &ifNeeded,
-				AdmissionReviewVersions: []string{"v1beta1"},
+				AdmissionReviewVersions: []string{"v1"},
 			}},
 		},
 		nil
@@ -574,7 +574,7 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(caBundle []byte) 
 				}},
 				FailurePolicy:           &ignore,
 				SideEffects:             &none,
-				AdmissionReviewVersions: []string{"v1beta1"},
+				AdmissionReviewVersions: []string{"v1"},
 			}},
 		},
 		nil
@@ -599,7 +599,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(caBundle [
 				}},
 				FailurePolicy:           &ignore,
 				SideEffects:             &noneOnDryRun,
-				AdmissionReviewVersions: []string{"v1beta1"},
+				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 				ReinvocationPolicy:      &ifNeeded,
 			}},
@@ -651,7 +651,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 					Rules:                   ignore.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             &noneOnDryRun,
-					AdmissionReviewVersions: []string{"v1beta1"},
+					AdmissionReviewVersions: []string{"v1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &ignore.maxWebhookTimeout,
@@ -668,7 +668,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 					Rules:                   fail.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             &noneOnDryRun,
-					AdmissionReviewVersions: []string{"v1beta1"},
+					AdmissionReviewVersions: []string{"v1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &fail.maxWebhookTimeout,
@@ -707,7 +707,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(caBundle
 				}},
 				FailurePolicy:           &ignore,
 				SideEffects:             sideEffects,
-				AdmissionReviewVersions: []string{"v1beta1"},
+				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 			}},
 		},
@@ -762,7 +762,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 					Rules:                   ignore.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             sideEffects,
-					AdmissionReviewVersions: []string{"v1beta1"},
+					AdmissionReviewVersions: []string{"v1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &ignore.maxWebhookTimeout,
@@ -778,7 +778,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 					Rules:                   fail.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             sideEffects,
-					AdmissionReviewVersions: []string{"v1beta1"},
+					AdmissionReviewVersions: []string{"v1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
 					TimeoutSeconds:          &fail.maxWebhookTimeout,

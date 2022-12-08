@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -24,7 +25,7 @@ import (
 
 type ImageVerificationHandler interface {
 	Handle(
-		*metrics.MetricsConfig,
+		metrics.MetricsConfigManager,
 		*admissionv1.AdmissionRequest,
 		[]kyvernov1.PolicyInterface,
 		*engine.PolicyContext,
@@ -53,7 +54,7 @@ type imageVerificationHandler struct {
 }
 
 func (h *imageVerificationHandler) Handle(
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -75,15 +76,15 @@ func (h *imageVerificationHandler) handleVerifyImages(logger logr.Logger, reques
 	var patches [][]byte
 	verifiedImageData := &engine.ImageVerificationMetadata{}
 	for _, p := range policies {
-		policyContext.Policy = p
-		resp, ivm := engine.VerifyAndPatchImages(policyContext)
+		policyContext := policyContext.WithPolicy(p)
+		resp, ivm := engine.VerifyAndPatchImages(registryclient.NewOrDie(), policyContext)
 
 		engineResponses = append(engineResponses, resp)
 		patches = append(patches, resp.GetPatches()...)
 		verifiedImageData.Merge(ivm)
 	}
 
-	failurePolicy := policyContext.Policy.GetSpec().GetFailurePolicy()
+	failurePolicy := policies[0].GetSpec().GetFailurePolicy()
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 	if !isResourceDeleted(policyContext) {
 		events := webhookutils.GenerateEvents(engineResponses, blocked)
@@ -106,23 +107,26 @@ func (h *imageVerificationHandler) handleVerifyImages(logger logr.Logger, reques
 		}
 	}
 
-	go h.handleAudit(policyContext.NewResource, request, nil, engineResponses...)
+	go h.handleAudit(policyContext.NewResource(), request, nil, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", jsonutils.JoinPatches(patches...), warnings
 }
 
 func hasAnnotations(context *engine.PolicyContext) bool {
-	annotations := context.NewResource.GetAnnotations()
+	newResource := context.NewResource()
+	annotations := newResource.GetAnnotations()
 	return len(annotations) != 0
 }
 
 func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 	var deletionTimeStamp *metav1.Time
 	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
+		resource := policyContext.NewResource()
+		deletionTimeStamp = resource.GetDeletionTimestamp()
 	} else {
-		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
+		resource := policyContext.OldResource()
+		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 	return deletionTimeStamp != nil
 }
@@ -147,7 +151,7 @@ func (v *imageVerificationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		return
 	}
-	report := reportutils.NewAdmissionReport(resource, request, request.Kind, engineResponses...)
+	report := reportutils.BuildAdmissionReport(resource, request, request.Kind, engineResponses...)
 	// if it's not a creation, the resource already exists, we can set the owner
 	if request.Operation != admissionv1.Create {
 		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}

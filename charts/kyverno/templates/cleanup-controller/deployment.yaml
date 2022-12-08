@@ -28,7 +28,7 @@ spec:
       topologySpreadConstraints:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+      serviceAccountName: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
       containers:
         - name: controller
           image: {{ include "kyverno.cleanup-controller.image" (dict "image" .Values.cleanupController.image "defaultTag" .Chart.AppVersion) | quote }}
@@ -39,6 +39,10 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
+          {{- with .Values.cleanupController.args }}
+          args:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           env:
           - name: KYVERNO_NAMESPACE
             valueFrom:

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+  name: pod-with-emptydir-hostpath
+  namespace: default
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+  volumes:
+  - name: demo-volume
+    emptyDir: {}
