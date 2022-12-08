@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
-	kyvernov1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"go.uber.org/multierr"
@@ -17,15 +17,15 @@ import (
 
 type handlers struct {
 	client     dclient.Interface
-	cpolLister kyvernov1alpha1listers.ClusterCleanupPolicyLister
-	polLister  kyvernov1alpha1listers.CleanupPolicyLister
+	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
+	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
 }
 
 func New(
 	client dclient.Interface,
-	cpolLister kyvernov1alpha1listers.ClusterCleanupPolicyLister,
-	polLister kyvernov1alpha1listers.CleanupPolicyLister,
+	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister,
+	polLister kyvernov2alpha1listers.CleanupPolicyLister,
 	nsLister corev1listers.NamespaceLister,
 ) *handlers {
 	return &handlers{
@@ -49,7 +49,7 @@ func (h *handlers) Cleanup(ctx context.Context, logger logr.Logger, name string,
 	return h.executePolicy(ctx, logger, policy)
 }
 
-func (h *handlers) lookupPolicy(namespace, name string) (kyvernov1alpha1.CleanupPolicyInterface, error) {
+func (h *handlers) lookupPolicy(namespace, name string) (kyvernov2alpha1.CleanupPolicyInterface, error) {
 	if namespace == "" {
 		return h.cpolLister.Get(name)
 	} else {
@@ -57,7 +57,7 @@ func (h *handlers) lookupPolicy(namespace, name string) (kyvernov1alpha1.Cleanup
 	}
 }
 
-func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy kyvernov1alpha1.CleanupPolicyInterface) error {
+func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface) error {
 	spec := policy.GetSpec()
 	kinds := sets.NewString(spec.MatchResources.GetKinds()...)
 	var errs []error
