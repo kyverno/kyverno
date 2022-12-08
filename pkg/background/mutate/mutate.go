@@ -154,7 +154,7 @@ func (c *MutateExistingController) report(err error, policy, rule string, target
 	var events []event.Info
 
 	if target == nil {
-		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule, "err", err.Error())
+		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule)
 	}
 
 	if err != nil {
