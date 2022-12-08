@@ -31,6 +31,8 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+// +kubebuilder:resource:shortName=cleanpol,categories=kyverno
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -58,20 +60,21 @@ func (p *CleanupPolicy) GetStatus() *CleanupPolicyStatus {
 	return &p.Status
 }
 
-// GetSchedule returns the schedule from the policy spec
-func (p *CleanupPolicy) GetSchedule() string {
-	return p.Spec.Schedule
-}
-
-func (p *CleanupPolicy) GetKind() string {
-	return p.Kind
-}
-
 // Validate implements programmatic validation
 func (p *CleanupPolicy) Validate(clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("metadata").Child("name"), p.Name)...)
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), clusterResources, true)...)
 	return errs
+}
+
+// GetKind returns the resource kind
+func (p *CleanupPolicy) GetKind() string {
+	return p.Kind
+}
+
+// GetAPIVersion returns the resource kind
+func (p *CleanupPolicy) GetAPIVersion() string {
+	return p.APIVersion
 }
 
 // +kubebuilder:object:root=true
@@ -88,6 +91,8 @@ type CleanupPolicyList struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+// +kubebuilder:resource:scope=Cluster,shortName=ccleanpol,categories=kyverno
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -115,13 +120,14 @@ func (p *ClusterCleanupPolicy) GetStatus() *CleanupPolicyStatus {
 	return &p.Status
 }
 
-// GetSchedule returns the schedule from the policy spec
-func (p *ClusterCleanupPolicy) GetSchedule() string {
-	return p.Spec.Schedule
-}
-
+// GetKind returns the resource kind
 func (p *ClusterCleanupPolicy) GetKind() string {
 	return p.Kind
+}
+
+// GetAPIVersion returns the resource kind
+func (p *ClusterCleanupPolicy) GetAPIVersion() string {
+	return p.APIVersion
 }
 
 // Validate implements programmatic validation

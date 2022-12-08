@@ -21,54 +21,6 @@ func Test_OriginalMapMustNotBeChanged(t *testing.T) {
 	assert.Equal(t, originalMap["r"], 2138)
 }
 
-func Test_OriginalSliceMustNotBeChanged(t *testing.T) {
-	// no variables
-	originalSlice := []interface{}{
-		3711,
-		2138,
-		1908,
-		912,
-	}
-
-	sliceCopy := CopySlice(originalSlice)
-	sliceCopy[0] = 1
-
-	assert.Equal(t, originalSlice[0], 3711)
-}
-
-func Test_allEmpty(t *testing.T) {
-	var list []string
-	var element string
-	res := ContainsString(list, element)
-	assert.Assert(t, res == false)
-}
-
-func Test_emptyList(t *testing.T) {
-	var list []string
-	element := "foo"
-	res := ContainsString(list, element)
-	assert.Assert(t, res == false)
-}
-
-func Test_emptyElement(t *testing.T) {
-	list := []string{"foo", "bar"}
-	var element string
-	res := ContainsString(list, element)
-	assert.Assert(t, res == false)
-}
-
-func Test_emptyElementInList(t *testing.T) {
-	list := []string{"foo", "bar", ""}
-	var element string
-	res := ContainsString(list, element)
-	assert.Assert(t, res == true)
-
-	list = []string{"foo", "bar", "bar"}
-	element = "bar"
-	res = ContainsString(list, element)
-	assert.Assert(t, res == true)
-}
-
 func Test_containsNs(t *testing.T) {
 	var patterns []string
 	var res bool

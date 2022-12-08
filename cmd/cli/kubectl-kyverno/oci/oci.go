@@ -8,13 +8,16 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/spf13/cobra"
 )
 
 const (
 	policyConfigMediaType = "application/vnd.cncf.kyverno.config.v1+json"
 	policyLayerMediaType  = "application/vnd.cncf.kyverno.policy.layer.v1+yaml"
+	annotationKind        = "io.kyverno.image.kind"
+	annotationName        = "io.kyverno.image.name"
+	annotationApiVersion  = "io.kyverno.image.apiVersion"
 )
 
 var (
@@ -27,11 +30,21 @@ var (
 		amazonKeychain,
 		azureKeychain,
 	)
-
-	Get      = remote.Get
-	Write    = remote.Write
 	imageRef string
 )
+
+func annotations(policy kyvernov1.PolicyInterface) map[string]string {
+	kind := "ClusterPolicy"
+	if policy.IsNamespaced() {
+		kind = "Policy"
+	}
+	return map[string]string{
+		annotationKind: kind,
+		annotationName: policy.GetName(),
+		// TODO: we need a way to get apiVersion
+		annotationApiVersion: "kyverno.io/v1",
+	}
+}
 
 func Command() *cobra.Command {
 	cmd := &cobra.Command{

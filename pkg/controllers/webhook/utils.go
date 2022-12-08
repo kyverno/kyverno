@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/utils"
 	"golang.org/x/exp/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -91,7 +90,7 @@ func hasWildcard(policies ...kyvernov1.PolicyInterface) bool {
 	for _, policy := range policies {
 		spec := policy.GetSpec()
 		for _, rule := range spec.Rules {
-			if kinds := rule.MatchResources.GetKinds(); utils.ContainsString(kinds, "*") {
+			if kinds := rule.MatchResources.GetKinds(); slices.Contains(kinds, "*") {
 				return true
 			}
 		}

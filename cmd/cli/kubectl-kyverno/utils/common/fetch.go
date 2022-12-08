@@ -193,7 +193,7 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient dclient.Inter
 	r := make(map[string]*unstructured.Unstructured)
 
 	for _, kind := range resourceTypes {
-		resourceList, err := dClient.ListResource("", kind, namespace, nil)
+		resourceList, err := dClient.ListResource(context.TODO(), "", kind, namespace, nil)
 		if err != nil {
 			continue
 		}

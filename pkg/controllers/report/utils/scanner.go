@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -14,6 +15,7 @@ import (
 type scanner struct {
 	logger           logr.Logger
 	client           dclient.Interface
+	rclient          registryclient.Client
 	excludeGroupRole []string
 }
 
@@ -26,10 +28,11 @@ type Scanner interface {
 	ScanResource(unstructured.Unstructured, map[string]string, ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult
 }
 
-func NewScanner(logger logr.Logger, client dclient.Interface, excludeGroupRole ...string) Scanner {
+func NewScanner(logger logr.Logger, client dclient.Interface, rclient registryclient.Client, excludeGroupRole ...string) Scanner {
 	return &scanner{
 		logger:           logger,
 		client:           client,
+		rclient:          rclient,
 		excludeGroupRole: excludeGroupRole,
 	}
 }
@@ -75,15 +78,13 @@ func (s *scanner) validateResource(resource unstructured.Unstructured, nsLabels 
 	if err := ctx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
-	policyCtx := &engine.PolicyContext{
-		Policy:           policy,
-		NewResource:      resource,
-		JSONContext:      ctx,
-		Client:           s.client,
-		NamespaceLabels:  nsLabels,
-		ExcludeGroupRole: s.excludeGroupRole,
-	}
-	return engine.Validate(policyCtx), nil
+	policyCtx := engine.NewPolicyContextWithJsonContext(ctx).
+		WithNewResource(resource).
+		WithPolicy(policy).
+		WithClient(s.client).
+		WithNamespaceLabels(nsLabels).
+		WithExcludeGroupRole(s.excludeGroupRole...)
+	return engine.Validate(s.rclient, policyCtx), nil
 }
 
 func (s *scanner) validateImages(resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
@@ -100,15 +101,13 @@ func (s *scanner) validateImages(resource unstructured.Unstructured, nsLabels ma
 	if err := ctx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
-	policyCtx := &engine.PolicyContext{
-		Policy:           policy,
-		NewResource:      resource,
-		JSONContext:      ctx,
-		Client:           s.client,
-		NamespaceLabels:  nsLabels,
-		ExcludeGroupRole: s.excludeGroupRole,
-	}
-	response, _ := engine.VerifyAndPatchImages(policyCtx)
+	policyCtx := engine.NewPolicyContextWithJsonContext(ctx).
+		WithNewResource(resource).
+		WithPolicy(policy).
+		WithClient(s.client).
+		WithNamespaceLabels(nsLabels).
+		WithExcludeGroupRole(s.excludeGroupRole...)
+	response, _ := engine.VerifyAndPatchImages(s.rclient, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}

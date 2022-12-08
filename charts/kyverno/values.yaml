@@ -128,10 +128,10 @@ podAntiAffinity:
       podAffinityTerm:
         labelSelector:
           matchExpressions:
-          - key: app.kubernetes.io/name
-            operator: In
-            values:
-            - kyverno
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - '{{ template "kyverno.name" . }}'
         topologyKey: kubernetes.io/hostname
 
 # -- Pod affinity constraints.
@@ -486,8 +486,25 @@ grafana:
   annotations: {}
 
 cleanupController:
+  rbac:
+    # -- Create RBAC resources
+    create: true
+
+    serviceAccount:
+      # -- Service account name
+      name:
+
+    clusterRole:
+      # -- Extra resource permissions to add in the cluster role
+      extraResources: []
+      # - apiGroups:
+      #     - ''
+      #   resources:
+      #     - pods
+
+
   # -- Enable cleanup controller.
-  enabled: false
+  enabled: true
 
   image:
     # -- Image registry
@@ -505,6 +522,10 @@ cleanupController:
     # -- Image pull secrets
     pullSecrets: []
     # - secretName
+
+  # -- Arguments passed to the container on the command line
+  args:
+    - --cleanupService=https://{{ template "kyverno.cleanup-controller.deploymentName" . }}.{{ template "kyverno.namespace" . }}.svc
 
   service:
     # -- Service port.

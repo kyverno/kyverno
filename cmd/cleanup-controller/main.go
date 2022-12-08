@@ -1,94 +1,85 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"fmt"
 	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
+	"sync"
 	"time"
 
-	"github.com/go-logr/logr"
+	admissionhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission"
+	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
+	"github.com/kyverno/kyverno/cmd/internal"
+	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
+	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-)
-
-var (
-	kubeconfig           string
-	clientRateLimitQPS   float64
-	clientRateLimitBurst int
-	logFormat            string
 )
 
 const (
 	resyncPeriod = 15 * time.Minute
 )
 
-func parseFlags() error {
-	logging.Init(nil)
-	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
-	if err := flag.Set("v", "2"); err != nil {
-		return err
-	}
-	flag.Parse()
-	return nil
-}
-
-func createKubeClients(logger logr.Logger) (*rest.Config, *kubernetes.Clientset, error) {
-	logger = logger.WithName("kube-clients")
-	logger.Info("create kube clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
-	if err != nil {
-		return nil, nil, err
-	}
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-	return clientConfig, kubeClient, nil
-}
-
-func setupSignals() (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-}
-
 func main() {
+	var cleanupService string
+	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
+	flagset.StringVar(&cleanupService, "cleanupService", "https://cleanup-controller.kyverno.svc", "The url to join the cleanup service.")
+	// config
+	appConfig := internal.NewConfiguration(
+		internal.WithProfiling(),
+		internal.WithMetrics(),
+		internal.WithTracing(),
+		internal.WithKubeconfig(),
+		internal.WithFlagSets(flagset),
+	)
 	// parse flags
-	if err := parseFlags(); err != nil {
-		fmt.Println("failed to parse flags", err)
-		os.Exit(1)
-	}
+	internal.ParseFlags(appConfig)
 	// setup logger
-	logLevel, err := strconv.Atoi(flag.Lookup("v").Value.String())
-	if err != nil {
-		fmt.Println("failed to setup logger", err)
-		os.Exit(1)
-	}
-	if err := logging.Setup(logFormat, logLevel); err != nil {
-		fmt.Println("failed to setup logger", err)
-		os.Exit(1)
-	}
-	logger := logging.WithName("setup")
-	// create client config and kube clients
-	_, kubeClient, err := createKubeClients(logger)
-	if err != nil {
-		os.Exit(1)
-	}
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-
+	// show version
+	// start profiling
 	// setup signals
-	signalCtx, signalCancel := setupSignals()
-	defer signalCancel()
+	// setup maxprocs
+	// setup metrics
+	ctx, logger, metricsConfig, sdown := internal.Setup()
+	defer sdown()
+	// create instrumented clients
+	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
+	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
+	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KubeClient), kyvernoclient.WithTracing())
+	dClient := internal.CreateDClient(logger, ctx, dynamicClient, kubeClient, 15*time.Minute)
+	// informer factories
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	// controllers
+	controller := internal.NewController(
+		cleanup.ControllerName,
+		cleanup.NewController(
+			kubeClient,
+			kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies(),
+			kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies(),
+			kubeInformer.Batch().V1().CronJobs(),
+			cleanupService,
+		),
+		cleanup.Workers,
+	)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
+	cpolLister := kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies().Lister()
+	polLister := kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies().Lister()
+	// start informers and wait for cache sync
+	if !internal.StartInformersAndWaitForCacheSync(ctx, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
+		os.Exit(1)
+	}
+	var wg sync.WaitGroup
+	controller.Run(ctx, logger.WithName("cleanup-controller"), &wg)
+	// create handlers
+	admissionHandlers := admissionhandlers.New(dClient)
+	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister)
+	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get("cleanup-controller-tls")
@@ -97,14 +88,11 @@ func main() {
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
+		admissionHandlers.Validate,
+		cleanupHandlers.Cleanup,
 	)
-	// start informers and wait for cache sync
-	// we need to call start again because we potentially registered new informers
-	if !startInformersAndWaitForCacheSync(signalCtx, kubeKyvernoInformer) {
-		os.Exit(1)
-	}
-	// start webhooks server
-	server.Run(signalCtx.Done())
+	// start server
+	server.Run(ctx.Done())
 	// wait for termination signal
-	<-signalCtx.Done()
+	wg.Wait()
 }

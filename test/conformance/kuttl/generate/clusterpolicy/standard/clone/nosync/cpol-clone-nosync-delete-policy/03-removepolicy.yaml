@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+- apiVersion: kyverno.io/v2beta1
+  kind: ClusterPolicy
+  name: cpol-nosync-clone-delete-policy
+assert:
+- check.yaml

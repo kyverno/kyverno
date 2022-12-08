@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -14,29 +15,29 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (h AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
+func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 	if !enabled {
-		return h
+		return inner
 	}
-	return withProtection(h)
+	return inner.withProtection().WithTrace("PROTECT")
 }
 
-func withProtection(inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+func (inner AdmissionHandler) withProtection() AdmissionHandler {
+	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		newResource, oldResource, err := utils.ExtractResources(nil, request)
 		if err != nil {
 			logger.Error(err, "Failed to extract resources")
-			return admissionutils.Response(err)
+			return admissionutils.Response(request.UID, err)
 		}
 		for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
 			resLabels := resource.GetLabels()
 			if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
 				if request.UserInfo.Username != fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName()) {
 					logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
-					return admissionutils.Response(errors.New("A kyverno managed resource can only be modified by kyverno"))
+					return admissionutils.Response(request.UID, errors.New("A kyverno managed resource can only be modified by kyverno"))
 				}
 			}
 		}
-		return inner(logger, request, startTime)
+		return inner(ctx, logger, request, startTime)
 	}
 }
