@@ -16,7 +16,7 @@ limitations under the License.
 
 // +kubebuilder:object:generate=true
 // +groupName=kyverno.io
-package v1alpha1
+package v2alpha1
 
 import (
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -26,7 +26,7 @@ import (
 )
 
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = schema.GroupVersion{Group: kyverno.GroupName, Version: "v1alpha1"}
+var SchemeGroupVersion = schema.GroupVersion{Group: kyverno.GroupName, Version: "v2alpha1"}
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {

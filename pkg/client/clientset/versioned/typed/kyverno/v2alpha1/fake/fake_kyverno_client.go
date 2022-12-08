@@ -19,26 +19,26 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
+	v2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeKyvernoV1alpha1 struct {
+type FakeKyvernoV2alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeKyvernoV1alpha1) CleanupPolicies(namespace string) v1alpha1.CleanupPolicyInterface {
+func (c *FakeKyvernoV2alpha1) CleanupPolicies(namespace string) v2alpha1.CleanupPolicyInterface {
 	return &FakeCleanupPolicies{c, namespace}
 }
 
-func (c *FakeKyvernoV1alpha1) ClusterCleanupPolicies() v1alpha1.ClusterCleanupPolicyInterface {
+func (c *FakeKyvernoV2alpha1) ClusterCleanupPolicies() v2alpha1.ClusterCleanupPolicyInterface {
 	return &FakeClusterCleanupPolicies{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeKyvernoV1alpha1) RESTClient() rest.Interface {
+func (c *FakeKyvernoV2alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }
