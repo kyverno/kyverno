@@ -136,7 +136,7 @@ func (c *controller) getCronjob(namespace, name string) (*batchv1.CronJob, error
 
 func (c *controller) buildCronJob(cronJob *batchv1.CronJob, pol kyvernov2alpha1.CleanupPolicyInterface) error {
 	// TODO: find a better way to do that, it looks like resources returned by WATCH don't have the GVK
-	apiVersion := "kyverno.io/v1alpha1"
+	apiVersion := "kyverno.io/v2alpha1"
 	kind := "CleanupPolicy"
 	if pol.GetNamespace() == "" {
 		kind = "ClusterCleanupPolicy"
