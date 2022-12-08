@@ -36,7 +36,7 @@ func LoadContext(logger logr.Logger, rclient registryclient.Client, contextEntri
 		// Context Variable should be loaded after the values loaded from values file
 		for _, entry := range contextEntries {
 			if entry.ImageRegistry != nil && hasRegistryAccess {
-				// rclient := store.GetRegistryClient()
+				rclient := store.GetRegistryClient()
 				if err := loadImageData(rclient, logger, entry, ctx); err != nil {
 					return err
 				}
