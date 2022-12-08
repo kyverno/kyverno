@@ -286,18 +286,7 @@ func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Even
 	return ret0, ret1
 }
 func (c *withTracing) CreateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "CreateWithEventNamespace"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("CreateWithEventNamespace"),
-	)
-	defer span.End()
-	ret0, ret1 := c.inner.CreateWithEventNamespace(arg0)
-	tracing.SetSpanStatus(span, ret1)
-	return ret0, ret1
+	return c.inner.CreateWithEventNamespace(arg0)
 }
 func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	ctx, span := tracing.StartSpan(
@@ -345,17 +334,7 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	return ret0, ret1
 }
 func (c *withTracing) GetFieldSelector(arg0 *string, arg1 *string, arg2 *string, arg3 *string) k8s_io_apimachinery_pkg_fields.Selector {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "GetFieldSelector"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("GetFieldSelector"),
-	)
-	defer span.End()
-	ret0 := c.inner.GetFieldSelector(arg0, arg1, arg2, arg3)
-	return ret0
+	return c.inner.GetFieldSelector(arg0, arg1, arg2, arg3)
 }
 func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_core_v1.EventList, error) {
 	ctx, span := tracing.StartSpan(
@@ -388,32 +367,10 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	return ret0, ret1
 }
 func (c *withTracing) PatchWithEventNamespace(arg0 *k8s_io_api_core_v1.Event, arg1 []uint8) (*k8s_io_api_core_v1.Event, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "PatchWithEventNamespace"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("PatchWithEventNamespace"),
-	)
-	defer span.End()
-	ret0, ret1 := c.inner.PatchWithEventNamespace(arg0, arg1)
-	tracing.SetSpanStatus(span, ret1)
-	return ret0, ret1
+	return c.inner.PatchWithEventNamespace(arg0, arg1)
 }
 func (c *withTracing) Search(arg0 *k8s_io_apimachinery_pkg_runtime.Scheme, arg1 k8s_io_apimachinery_pkg_runtime.Object) (*k8s_io_api_core_v1.EventList, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Search"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("Search"),
-	)
-	defer span.End()
-	ret0, ret1 := c.inner.Search(arg0, arg1)
-	tracing.SetSpanStatus(span, ret1)
-	return ret0, ret1
+	return c.inner.Search(arg0, arg1)
 }
 func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Event, error) {
 	ctx, span := tracing.StartSpan(
@@ -431,18 +388,7 @@ func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Even
 	return ret0, ret1
 }
 func (c *withTracing) UpdateWithEventNamespace(arg0 *k8s_io_api_core_v1.Event) (*k8s_io_api_core_v1.Event, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "UpdateWithEventNamespace"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("UpdateWithEventNamespace"),
-	)
-	defer span.End()
-	ret0, ret1 := c.inner.UpdateWithEventNamespace(arg0)
-	tracing.SetSpanStatus(span, ret1)
-	return ret0, ret1
+	return c.inner.UpdateWithEventNamespace(arg0)
 }
 func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	ctx, span := tracing.StartSpan(
