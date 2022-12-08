@@ -21,6 +21,7 @@ import (
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -45,6 +46,7 @@ func NewGenerationHandler(
 	log logr.Logger,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
+	rclient registryclient.Client,
 	nsLister corev1listers.NamespaceLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	urGenerator webhookgenerate.Generator,
@@ -55,6 +57,7 @@ func NewGenerationHandler(
 		log:           log,
 		client:        client,
 		kyvernoClient: kyvernoClient,
+		rclient:       rclient,
 		nsLister:      nsLister,
 		urLister:      urLister,
 		urGenerator:   urGenerator,
@@ -67,6 +70,7 @@ type generationHandler struct {
 	log           logr.Logger
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
+	rclient       registryclient.Client
 	nsLister      corev1listers.NamespaceLister
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
 	urGenerator   webhookgenerate.Generator
@@ -92,7 +96,7 @@ func (h *generationHandler) Handle(
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 				policyContext = policyContext.WithNamespaceLabels(common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 			}
-			engineResponse := engine.ApplyBackgroundChecks(policyContext)
+			engineResponse := engine.ApplyBackgroundChecks(h.rclient, policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if rule.Status != response.RuleStatusPass {
 					h.deleteGR(engineResponse)
