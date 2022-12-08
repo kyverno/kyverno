@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"gotest.tools/assert"
 )
 
@@ -13,12 +12,9 @@ import (
 var _ Client = &client{}
 
 func TestInitClientWithEmptyOptions(t *testing.T) {
-	expClient := &client{
-		transport: remote.DefaultTransport.(*http.Transport),
-	}
 	c, err := New()
 	assert.NilError(t, err)
-	assert.Assert(t, expClient.transport == c.getTransport())
+	assert.Assert(t, defaultTransport == c.getTransport())
 	assert.Assert(t, c.getKeychain() != nil)
 }
 
@@ -27,10 +23,8 @@ func TestInitClientWithInsecureRegistryOption(t *testing.T) {
 		transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}
 	c, err := New(WithAllowInsecureRegistry())
-
-	expInsecureSkipVerify := expClient.transport.TLSClientConfig.InsecureSkipVerify
+	expInsecureSkipVerify := expClient.transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify
 	gotInsecureSkipVerify := c.getTransport().(*http.Transport).TLSClientConfig.InsecureSkipVerify
-
 	assert.NilError(t, err)
 	assert.Assert(t, expInsecureSkipVerify == gotInsecureSkipVerify)
 	assert.Assert(t, c.getKeychain() != nil)
