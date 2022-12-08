@@ -73,7 +73,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "kyverno.pullsecretlist" -}}
 {{- $pullsecrets := list -}}
 {{- range .Values.existingImagePullSecrets -}}
-{{-   $pullsecrets = .name | append $pullsecrets -}}
+{{-   $pullsecrets = . | append $pullsecrets -}}
 {{- end }}
 {{- join "," (concat (keys .Values.imagePullSecrets) $pullsecrets) -}}
 {{- end -}}
