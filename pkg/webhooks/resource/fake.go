@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
@@ -39,6 +40,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 
 	return &handlers{
 		client:         dclient,
+		rclient:        registryclient.NewOrDie(),
 		configuration:  configuration,
 		metricsConfig:  metricsConfig,
 		pCache:         policyCache,
