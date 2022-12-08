@@ -29,6 +29,10 @@ const (
 // - implement probes
 // - better certs management
 // - supports certs in cronjob
+// - helm service monitor
+// - helm name and fullname
+// - helm review labels / selectors
+// - helm metrics service
 
 type probes struct{}
 
