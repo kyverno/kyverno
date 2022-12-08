@@ -60,16 +60,16 @@ func main() {
 		cleanup.ControllerName,
 		cleanup.NewController(
 			kubeClient,
-			kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies(),
-			kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies(),
+			kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
+			kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
 			kubeInformer.Batch().V1().CronJobs(),
 			cleanupService,
 		),
 		cleanup.Workers,
 	)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
-	cpolLister := kyvernoInformer.Kyverno().V1alpha1().ClusterCleanupPolicies().Lister()
-	polLister := kyvernoInformer.Kyverno().V1alpha1().CleanupPolicies().Lister()
+	cpolLister := kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies().Lister()
+	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {

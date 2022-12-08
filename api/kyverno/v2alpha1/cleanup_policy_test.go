@@ -1,4 +1,4 @@
-package v1alpha1
+package v2alpha1
 
 import (
 	"encoding/json"

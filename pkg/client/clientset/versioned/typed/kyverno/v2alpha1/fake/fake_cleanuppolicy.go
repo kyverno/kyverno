@@ -21,7 +21,7 @@ package fake
 import (
 	"context"
 
-	v1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
+	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,29 +32,29 @@ import (
 
 // FakeCleanupPolicies implements CleanupPolicyInterface
 type FakeCleanupPolicies struct {
-	Fake *FakeKyvernoV1alpha1
+	Fake *FakeKyvernoV2alpha1
 	ns   string
 }
 
-var cleanuppoliciesResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v1alpha1", Resource: "cleanuppolicies"}
+var cleanuppoliciesResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v2alpha1", Resource: "cleanuppolicies"}
 
-var cleanuppoliciesKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1alpha1", Kind: "CleanupPolicy"}
+var cleanuppoliciesKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v2alpha1", Kind: "CleanupPolicy"}
 
 // Get takes name of the cleanupPolicy, and returns the corresponding cleanupPolicy object, and an error if there is any.
-func (c *FakeCleanupPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.CleanupPolicy, err error) {
+func (c *FakeCleanupPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CleanupPolicy, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(cleanuppoliciesResource, c.ns, name), &v1alpha1.CleanupPolicy{})
+		Invokes(testing.NewGetAction(cleanuppoliciesResource, c.ns, name), &v2alpha1.CleanupPolicy{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.CleanupPolicy), err
+	return obj.(*v2alpha1.CleanupPolicy), err
 }
 
 // List takes label and field selectors, and returns the list of CleanupPolicies that match those selectors.
-func (c *FakeCleanupPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.CleanupPolicyList, err error) {
+func (c *FakeCleanupPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CleanupPolicyList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(cleanuppoliciesResource, cleanuppoliciesKind, c.ns, opts), &v1alpha1.CleanupPolicyList{})
+		Invokes(testing.NewListAction(cleanuppoliciesResource, cleanuppoliciesKind, c.ns, opts), &v2alpha1.CleanupPolicyList{})
 
 	if obj == nil {
 		return nil, err
@@ -64,8 +64,8 @@ func (c *FakeCleanupPolicies) List(ctx context.Context, opts v1.ListOptions) (re
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1alpha1.CleanupPolicyList{ListMeta: obj.(*v1alpha1.CleanupPolicyList).ListMeta}
-	for _, item := range obj.(*v1alpha1.CleanupPolicyList).Items {
+	list := &v2alpha1.CleanupPolicyList{ListMeta: obj.(*v2alpha1.CleanupPolicyList).ListMeta}
+	for _, item := range obj.(*v2alpha1.CleanupPolicyList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -81,43 +81,43 @@ func (c *FakeCleanupPolicies) Watch(ctx context.Context, opts v1.ListOptions) (w
 }
 
 // Create takes the representation of a cleanupPolicy and creates it.  Returns the server's representation of the cleanupPolicy, and an error, if there is any.
-func (c *FakeCleanupPolicies) Create(ctx context.Context, cleanupPolicy *v1alpha1.CleanupPolicy, opts v1.CreateOptions) (result *v1alpha1.CleanupPolicy, err error) {
+func (c *FakeCleanupPolicies) Create(ctx context.Context, cleanupPolicy *v2alpha1.CleanupPolicy, opts v1.CreateOptions) (result *v2alpha1.CleanupPolicy, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(cleanuppoliciesResource, c.ns, cleanupPolicy), &v1alpha1.CleanupPolicy{})
+		Invokes(testing.NewCreateAction(cleanuppoliciesResource, c.ns, cleanupPolicy), &v2alpha1.CleanupPolicy{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.CleanupPolicy), err
+	return obj.(*v2alpha1.CleanupPolicy), err
 }
 
 // Update takes the representation of a cleanupPolicy and updates it. Returns the server's representation of the cleanupPolicy, and an error, if there is any.
-func (c *FakeCleanupPolicies) Update(ctx context.Context, cleanupPolicy *v1alpha1.CleanupPolicy, opts v1.UpdateOptions) (result *v1alpha1.CleanupPolicy, err error) {
+func (c *FakeCleanupPolicies) Update(ctx context.Context, cleanupPolicy *v2alpha1.CleanupPolicy, opts v1.UpdateOptions) (result *v2alpha1.CleanupPolicy, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(cleanuppoliciesResource, c.ns, cleanupPolicy), &v1alpha1.CleanupPolicy{})
+		Invokes(testing.NewUpdateAction(cleanuppoliciesResource, c.ns, cleanupPolicy), &v2alpha1.CleanupPolicy{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.CleanupPolicy), err
+	return obj.(*v2alpha1.CleanupPolicy), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCleanupPolicies) UpdateStatus(ctx context.Context, cleanupPolicy *v1alpha1.CleanupPolicy, opts v1.UpdateOptions) (*v1alpha1.CleanupPolicy, error) {
+func (c *FakeCleanupPolicies) UpdateStatus(ctx context.Context, cleanupPolicy *v2alpha1.CleanupPolicy, opts v1.UpdateOptions) (*v2alpha1.CleanupPolicy, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(cleanuppoliciesResource, "status", c.ns, cleanupPolicy), &v1alpha1.CleanupPolicy{})
+		Invokes(testing.NewUpdateSubresourceAction(cleanuppoliciesResource, "status", c.ns, cleanupPolicy), &v2alpha1.CleanupPolicy{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.CleanupPolicy), err
+	return obj.(*v2alpha1.CleanupPolicy), err
 }
 
 // Delete takes name of the cleanupPolicy and deletes it. Returns an error if one occurs.
 func (c *FakeCleanupPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(cleanuppoliciesResource, c.ns, name, opts), &v1alpha1.CleanupPolicy{})
+		Invokes(testing.NewDeleteActionWithOptions(cleanuppoliciesResource, c.ns, name, opts), &v2alpha1.CleanupPolicy{})
 
 	return err
 }
@@ -126,17 +126,17 @@ func (c *FakeCleanupPolicies) Delete(ctx context.Context, name string, opts v1.D
 func (c *FakeCleanupPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	action := testing.NewDeleteCollectionAction(cleanuppoliciesResource, c.ns, listOpts)
 
-	_, err := c.Fake.Invokes(action, &v1alpha1.CleanupPolicyList{})
+	_, err := c.Fake.Invokes(action, &v2alpha1.CleanupPolicyList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched cleanupPolicy.
-func (c *FakeCleanupPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.CleanupPolicy, err error) {
+func (c *FakeCleanupPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CleanupPolicy, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(cleanuppoliciesResource, c.ns, name, pt, data, subresources...), &v1alpha1.CleanupPolicy{})
+		Invokes(testing.NewPatchSubresourceAction(cleanuppoliciesResource, c.ns, name, pt, data, subresources...), &v2alpha1.CleanupPolicy{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.CleanupPolicy), err
+	return obj.(*v2alpha1.CleanupPolicy), err
 }
