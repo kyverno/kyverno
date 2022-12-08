@@ -222,6 +222,10 @@ type ResourceFilter struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
+func (r ResourceFilter) IsEmpty() bool {
+	return r.UserInfo.IsEmpty() && r.ResourceDescription.IsEmpty()
+}
+
 // Mutation defines how resource are modified.
 type Mutation struct {
 	// Targets defines the target resources to be mutated.

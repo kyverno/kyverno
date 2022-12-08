@@ -36,7 +36,7 @@ func LoadContext(logger logr.Logger, rclient registryclient.Client, contextEntri
 		// Context Variable should be loaded after the values loaded from values file
 		for _, entry := range contextEntries {
 			if entry.ImageRegistry != nil && hasRegistryAccess {
-				// rclient := store.GetRegistryClient()
+				rclient := store.GetRegistryClient()
 				if err := loadImageData(rclient, logger, entry, ctx); err != nil {
 					return err
 				}
@@ -142,9 +142,6 @@ func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyC
 }
 
 func loadImageData(rclient registryclient.Client, logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
-	if err := rclient.RefreshKeychainPullSecrets(context.TODO()); err != nil {
-		return fmt.Errorf("unable to load image registry credentials, %w", err)
-	}
 	imageData, err := fetchImageData(rclient, logger, entry, ctx)
 	if err != nil {
 		return err
