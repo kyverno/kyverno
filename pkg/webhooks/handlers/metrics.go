@@ -15,7 +15,7 @@ import (
 )
 
 func (inner AdmissionHandler) WithMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration, attrs ...attribute.KeyValue) AdmissionHandler {
-	return inner.withMetrics(logger, metricsConfig).WithTrace("METRICS")
+	return inner.withMetrics(logger, metricsConfig, attrs...).WithTrace("METRICS")
 }
 
 func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration, attrs ...attribute.KeyValue) AdmissionHandler {
