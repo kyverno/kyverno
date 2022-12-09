@@ -1,9 +1,40 @@
 package config
 
 import (
+	"encoding/json"
 	"regexp"
 	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type WebhookConfig struct {
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
+	ObjectSelector    *metav1.LabelSelector `json:"objectSelector,omitempty"`
+}
+
+func parseWebhooks(webhooks string) ([]WebhookConfig, error) {
+	webhookCfgs := make([]WebhookConfig, 0, 10)
+	if err := json.Unmarshal([]byte(webhooks), &webhookCfgs); err != nil {
+		return nil, err
+	}
+	return webhookCfgs, nil
+}
+
+func parseRbac(list string) []string {
+	return strings.Split(list, ",")
+}
+
+type namespacesConfig struct {
+	IncludeNamespaces []string `json:"include,omitempty"`
+	ExcludeNamespaces []string `json:"exclude,omitempty"`
+}
+
+func parseIncludeExcludeNamespacesFromNamespacesConfig(jsonStr string) (namespacesConfig, error) {
+	var namespacesConfigObject namespacesConfig
+	err := json.Unmarshal([]byte(jsonStr), &namespacesConfigObject)
+	return namespacesConfigObject, err
+}
 
 type filter struct {
 	Kind      string // TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added

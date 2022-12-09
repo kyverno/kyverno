@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"time"
 
@@ -29,15 +28,37 @@ type MetricsConfiguration interface {
 	CheckNamespace(string) bool
 }
 
-type namespacesConfig struct {
-	IncludeNamespaces []string `json:"include,omitempty"`
-	ExcludeNamespaces []string `json:"exclude,omitempty"`
-}
-
 // metricsConfig stores the config for metrics
 type metricsConfig struct {
 	namespaces             namespacesConfig
 	metricsRefreshInterval time.Duration
+}
+
+// NewDefaultMetricsConfiguration ...
+func NewDefaultMetricsConfiguration() *metricsConfig {
+	return &metricsConfig{
+		metricsRefreshInterval: 0,
+		namespaces: namespacesConfig{
+			IncludeNamespaces: []string{},
+			ExcludeNamespaces: []string{},
+		},
+	}
+}
+
+// NewMetricsConfiguration ...
+func NewMetricsConfiguration(client kubernetes.Interface) (MetricsConfiguration, error) {
+	configuration := NewDefaultMetricsConfiguration()
+	cmName := os.Getenv(metricsConfigEnvVar)
+	if cmName != "" {
+		if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), cmName, metav1.GetOptions{}); err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, err
+			}
+		} else {
+			configuration.load(cm)
+		}
+	}
+	return configuration, nil
 }
 
 // GetExcludeNamespaces returns the namespaces to ignore for metrics exposure
@@ -101,37 +122,4 @@ func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
 			cd.namespaces = namespaces
 		}
 	}
-}
-
-// NewDefaultMetricsConfiguration ...
-func NewDefaultMetricsConfiguration() *metricsConfig {
-	return &metricsConfig{
-		metricsRefreshInterval: 0,
-		namespaces: namespacesConfig{
-			IncludeNamespaces: []string{},
-			ExcludeNamespaces: []string{},
-		},
-	}
-}
-
-// NewMetricsConfiguration ...
-func NewMetricsConfiguration(client kubernetes.Interface) (MetricsConfiguration, error) {
-	configuration := NewDefaultMetricsConfiguration()
-	cmName := os.Getenv(metricsConfigEnvVar)
-	if cmName != "" {
-		if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), cmName, metav1.GetOptions{}); err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, err
-			}
-		} else {
-			configuration.load(cm)
-		}
-	}
-	return configuration, nil
-}
-
-func parseIncludeExcludeNamespacesFromNamespacesConfig(jsonStr string) (namespacesConfig, error) {
-	var namespacesConfigObject namespacesConfig
-	err := json.Unmarshal([]byte(jsonStr), &namespacesConfigObject)
-	return namespacesConfigObject, err
 }
