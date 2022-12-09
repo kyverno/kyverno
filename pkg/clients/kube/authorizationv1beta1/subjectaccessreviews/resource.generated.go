@@ -67,9 +67,11 @@ func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_authorizatio
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Create"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Create"),
+			),
 		)
 		defer span.End()
 	}

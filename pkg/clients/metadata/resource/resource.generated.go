@@ -143,9 +143,11 @@ func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apim
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Delete"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Delete"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Delete"),
+			),
 		)
 		defer span.End()
 	}
@@ -162,9 +164,11 @@ func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "DeleteCollection"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("DeleteCollection"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("DeleteCollection"),
+			),
 		)
 		defer span.End()
 	}
@@ -181,9 +185,11 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Get"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Get"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Get"),
+			),
 		)
 		defer span.End()
 	}
@@ -200,9 +206,11 @@ func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "List"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("List"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("List"),
+			),
 		)
 		defer span.End()
 	}
@@ -219,9 +227,11 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Patch"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Patch"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Patch"),
+			),
 		)
 		defer span.End()
 	}
@@ -238,9 +248,11 @@ func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_a
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Watch"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Watch"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Watch"),
+			),
 		)
 		defer span.End()
 	}

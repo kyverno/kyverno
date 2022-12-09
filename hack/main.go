@@ -171,9 +171,11 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, {{ Quote $operation.Method.Name }}),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String({{ Quote $operation.Method.Name }}),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String({{ Quote $operation.Method.Name }}),
+			),
 		)
 		defer span.End()
 	}
