@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
@@ -14,11 +15,11 @@ import (
 )
 
 func (inner AdmissionHandler) WithMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration, attrs ...attribute.KeyValue) AdmissionHandler {
-	return inner.withMetrics(logger, metricsConfig).WithTrace("METRICS")
+	return inner.withMetrics(logger, metricsConfig, attrs...).WithTrace("METRICS")
 }
 
 func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration, attrs ...attribute.KeyValue) AdmissionHandler {
-	meter := global.MeterProvider().Meter("kyverno")
+	meter := global.MeterProvider().Meter(metrics.MeterName)
 	admissionRequestsMetric, err := meter.SyncInt64().Counter(
 		"kyverno_admission_requests_total",
 		instrument.WithDescription("can be used to track the number of admission requests encountered by Kyverno in the cluster"),

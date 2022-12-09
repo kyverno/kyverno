@@ -93,7 +93,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			continue
 		}
 
-		er := engine.Mutate(c.rclient, policyContext)
+		er := engine.Mutate(context.TODO(), c.rclient, policyContext)
 		for _, r := range er.PolicyResponse.Rules {
 			patched := r.PatchedTarget
 			switch r.Status {

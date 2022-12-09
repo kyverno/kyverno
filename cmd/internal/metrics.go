@@ -49,7 +49,16 @@ func SetupMetrics(ctx context.Context, logger logr.Logger, kubeClient kubernetes
 	}
 	if otel == "prometheus" {
 		go func() {
-			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+			server := &http.Server{
+				Addr:              metricsAddr,
+				Handler:           metricsServerMux,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      30 * time.Second,
+				ReadHeaderTimeout: 30 * time.Second,
+				IdleTimeout:       5 * time.Minute,
+				ErrorLog:          logging.StdLogger(logging.WithName("prometheus-server"), ""),
+			}
+			if err := server.ListenAndServe(); err != nil {
 				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
 			}
 		}()

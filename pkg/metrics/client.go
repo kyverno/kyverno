@@ -3,7 +3,8 @@ package metrics
 import "context"
 
 type Recorder interface {
-	Record(clientQueryOperation ClientQueryOperation)
+	Record(ClientQueryOperation)
+	RecordWithContext(context.Context, ClientQueryOperation)
 }
 
 type clientQueryRecorder struct {

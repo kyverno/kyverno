@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -532,6 +533,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			assert.NilError(t, err)
 
 			er := engine.Validate(
+				context.TODO(),
 				registryclient.NewOrDie(),
 				engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
 			)
@@ -594,7 +596,7 @@ func Test_RuleSelector(t *testing.T) {
 
 	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
-	resp := engine.Validate(registryclient.NewOrDie(), ctx)
+	resp := engine.Validate(context.TODO(), registryclient.NewOrDie(), ctx)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 2)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
@@ -605,7 +607,7 @@ func Test_RuleSelector(t *testing.T) {
 	applyOne := kyvernov1.ApplyOne
 	policy.Spec.ApplyRules = &applyOne
 
-	resp = engine.Validate(registryclient.NewOrDie(), ctx)
+	resp = engine.Validate(context.TODO(), registryclient.NewOrDie(), ctx)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
