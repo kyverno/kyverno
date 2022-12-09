@@ -723,13 +723,6 @@ kind-load-all: kind-load-kyvernopre kind-load-kyverno kind-load-cleanup-controll
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@echo Install kyverno chart... >&2
-	@kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-	@sleep 15
-	@kubectl wait --namespace ingress-nginx \
-		--for=condition=ready pod \
-		--selector=app.kubernetes.io/component=controller \
-		--timeout=3m
-	@$(HELM) dependency update ./charts/kyverno
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
 		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
@@ -742,16 +735,16 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 	@kubectl rollout restart deployment -n kyverno
 
 .PHONY: kind-deploy-kyverno-policies
-kind-deploy-kyverno-policies: $(HELM) kind-deploy-kyverno ## Deploy kyverno-policies helm chart
+kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart	
 	@echo Install kyverno-policies chart... >&2
 	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace --wait ./charts/kyverno-policies \
 		--values ./scripts/kyverno-policies.yaml
 
 .PHONY: kind-deploy-all
-kind-deploy-all: kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
+kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts	kind-deploy-all: kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
 
 .PHONY: kind-deploy-reporter
-kind-deploy-reporter: $(HELM) kind-deploy-kyverno ## Deploy policy-reporter helm chart
+kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart	
 	@echo Install policy-reporter chart... >&2
 	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
