@@ -8,6 +8,14 @@ metadata:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
 rules:
   - apiGroups:
+      - ''
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - kyverno.io
     resources:
       - clustercleanuppolicies

@@ -24,5 +24,6 @@ func Setup() (context.Context, logr.Logger, metrics.MetricsConfigManager, contex
 	client := CreateKubernetesClient(logger)
 	ctx, sdownSignals := SetupSignals(logger)
 	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, client)
-	return ctx, logger, metricsManager, shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownSignals)
+	sdownTracing := SetupTracing(logger, client)
+	return ctx, logger, metricsManager, shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }
