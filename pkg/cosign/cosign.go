@@ -79,7 +79,6 @@ func VerifySignature(ctx context.Context, rclient registryclient.Client, opts Op
 			return client.VerifyImageSignatures(ctx, ref, cosignOpts)
 		},
 	)
-
 	if err != nil {
 		logger.Info("image verification failed", "error", err.Error())
 		return nil, err
@@ -273,7 +272,6 @@ func FetchAttestations(ctx context.Context, rclient registryclient.Client, opts 
 			return client.VerifyImageAttestations(ctx, ref, cosignOpts)
 		},
 	)
-
 	if err != nil {
 		msg := err.Error()
 		logger.Info("failed to fetch attestations", "error", msg)

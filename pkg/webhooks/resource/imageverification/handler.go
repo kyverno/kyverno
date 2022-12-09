@@ -119,7 +119,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 		}
 	}
 
-	go h.handleAudit(context.TODO(), policyContext.NewResource(), request, nil, engineResponses...)
+	go h.handleAudit(ctx, policyContext.NewResource(), request, nil, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", jsonutils.JoinPatches(patches...), warnings
@@ -164,16 +164,24 @@ func (v *imageVerificationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		return
 	}
-	report := reportutils.BuildAdmissionReport(resource, request, request.Kind, engineResponses...)
-	// if it's not a creation, the resource already exists, we can set the owner
-	if request.Operation != admissionv1.Create {
-		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
-		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
-	}
-	if len(report.GetResults()) > 0 {
-		_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
-		if err != nil {
-			v.log.Error(err, "failed to create report")
-		}
-	}
+	tracing.Span(
+		context.Background(),
+		"",
+		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
+		func(ctx context.Context, span trace.Span) {
+			report := reportutils.BuildAdmissionReport(resource, request, request.Kind, engineResponses...)
+			// if it's not a creation, the resource already exists, we can set the owner
+			if request.Operation != admissionv1.Create {
+				gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
+				controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
+			}
+			if len(report.GetResults()) > 0 {
+				_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+				if err != nil {
+					v.log.Error(err, "failed to create report")
+				}
+			}
+		},
+		trace.WithLinks(trace.LinkFromContext(ctx)),
+	)
 }

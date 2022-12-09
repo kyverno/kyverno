@@ -197,7 +197,7 @@ func (v *validationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		return
 	}
-	tracing.ChildSpan(
+	tracing.Span(
 		context.Background(),
 		"",
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
