@@ -1478,7 +1478,8 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	policyContext := &PolicyContext{
 		policy:      &policy,
 		jsonContext: ctx,
-		newResource: *resourceUnstructured}
+		newResource: *resourceUnstructured,
+	}
 	er := Validate(registryclient.NewOrDie(), policyContext)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
@@ -1571,7 +1572,8 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 	policyContext := &PolicyContext{
 		policy:      &policy,
 		jsonContext: ctx,
-		newResource: *resourceUnstructured}
+		newResource: *resourceUnstructured,
+	}
 	er := Validate(registryclient.NewOrDie(), policyContext)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
@@ -1632,7 +1634,8 @@ func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
 	policyContext := &PolicyContext{
 		policy:      &policy,
 		jsonContext: ctx,
-		newResource: *resourceUnstructured}
+		newResource: *resourceUnstructured,
+	}
 	er := Validate(registryclient.NewOrDie(), policyContext)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation error: rule not-operator-with-variable-should-alway-fail-validation failed at path /spec/content/")
@@ -1723,7 +1726,8 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 	policyContext := &PolicyContext{
 		policy:      &policy,
 		jsonContext: ctx,
-		newResource: *resourceUnstructured}
+		newResource: *resourceUnstructured,
+	}
 	er := Validate(registryclient.NewOrDie(), policyContext)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
@@ -1816,7 +1820,8 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 	policyContext := &PolicyContext{
 		policy:      &policy,
 		jsonContext: ctx,
-		newResource: *resourceUnstructured}
+		newResource: *resourceUnstructured,
+	}
 	er := Validate(registryclient.NewOrDie(), policyContext)
 
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
@@ -1921,7 +1926,8 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 	policyContext := &PolicyContext{
 		policy:      &policy,
 		jsonContext: ctx,
-		newResource: *resourceUnstructured}
+		newResource: *resourceUnstructured,
+	}
 	er := Validate(registryclient.NewOrDie(), policyContext)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "The animal cow is not in the allowed list of animals.")
@@ -1974,7 +1980,8 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 		policyContext := &PolicyContext{
 			policy:      &policy,
 			jsonContext: ctx,
-			newResource: *resourceUnstructured}
+			newResource: *resourceUnstructured,
+		}
 		er := Validate(registryclient.NewOrDie(), policyContext)
 
 		for i, rule := range er.PolicyResponse.Rules {
@@ -2657,7 +2664,6 @@ func Test_foreach_container_deny_error(t *testing.T) {
 }
 
 func Test_foreach_context_preconditions(t *testing.T) {
-
 	resourceRaw := []byte(`{
 		"apiVersion": "v1",
 		"kind": "Deployment",
@@ -2751,7 +2757,6 @@ func Test_foreach_context_preconditions(t *testing.T) {
 }
 
 func Test_foreach_context_preconditions_fail(t *testing.T) {
-
 	resourceRaw := []byte(`{
 		"apiVersion": "v1",
 		"kind": "Deployment",
@@ -2846,7 +2851,6 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 }
 
 func Test_foreach_element_validation(t *testing.T) {
-
 	resourceRaw := []byte(`{
         "apiVersion": "v1",
         "kind": "Pod",
@@ -2894,7 +2898,6 @@ func Test_foreach_element_validation(t *testing.T) {
 }
 
 func Test_outof_foreach_element_validation(t *testing.T) {
-
 	resourceRaw := []byte(`{
         "apiVersion": "v1",
         "kind": "Pod",
@@ -2937,7 +2940,6 @@ func Test_outof_foreach_element_validation(t *testing.T) {
 }
 
 func Test_foreach_skip_initContainer_pass(t *testing.T) {
-
 	resourceRaw := []byte(`{"apiVersion": "v1",
 	"kind": "Deployment",
 	"metadata": {"name": "test"},
@@ -2992,7 +2994,6 @@ func Test_foreach_skip_initContainer_pass(t *testing.T) {
 }
 
 func Test_foreach_validate_nested(t *testing.T) {
-
 	resourceRaw := []byte(`{
 		"apiVersion": "networking.k8s.io/v1",
 		"kind": "Ingress",
@@ -3101,7 +3102,8 @@ func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string,
 	policyContext := &PolicyContext{
 		policy:      &policy,
 		jsonContext: ctx,
-		newResource: *resourceUnstructured}
+		newResource: *resourceUnstructured,
+	}
 	er := Validate(registryclient.NewOrDie(), policyContext)
 
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, status)
@@ -3111,7 +3113,6 @@ func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string,
 }
 
 func Test_delete_ignore_pattern(t *testing.T) {
-
 	resourceRaw := []byte(`{
         "apiVersion": "v1",
         "kind": "Pod",
@@ -3165,7 +3166,8 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	policyContextCreate := &PolicyContext{
 		policy:      &policy,
 		jsonContext: ctx,
-		newResource: *resourceUnstructured}
+		newResource: *resourceUnstructured,
+	}
 	engineResponseCreate := Validate(registryclient.NewOrDie(), policyContextCreate)
 	assert.Equal(t, len(engineResponseCreate.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
@@ -3173,7 +3175,8 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	policyContextDelete := &PolicyContext{
 		policy:      &policy,
 		jsonContext: ctx,
-		oldResource: *resourceUnstructured}
+		oldResource: *resourceUnstructured,
+	}
 	engineResponseDelete := Validate(registryclient.NewOrDie(), policyContextDelete)
 	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
 }

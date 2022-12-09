@@ -192,7 +192,6 @@ func (f *forEachMutator) mutateForEach() *mutate.Response {
 		preconditionsPassed, err := checkPreconditions(f.log, f.ctx, f.rule.GetAnyAllConditions())
 		if err != nil {
 			return mutate.NewErrorResponse("failed to evaluate preconditions", err)
-
 		}
 
 		if !preconditionsPassed {
