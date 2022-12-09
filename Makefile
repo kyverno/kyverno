@@ -735,16 +735,16 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 	@kubectl rollout restart deployment -n kyverno
 
 .PHONY: kind-deploy-kyverno-policies
-kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart	
+kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
 	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace --wait ./charts/kyverno-policies \
 		--values ./scripts/kyverno-policies.yaml
 
 .PHONY: kind-deploy-all
-kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts	kind-deploy-all: kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
+kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
 
 .PHONY: kind-deploy-reporter
-kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart	
+kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
 	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
