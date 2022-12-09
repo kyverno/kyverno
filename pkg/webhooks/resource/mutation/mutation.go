@@ -15,11 +15,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -99,28 +101,41 @@ func (v *mutationHandler) applyMutations(
 		if !spec.HasMutate() {
 			continue
 		}
-		v.log.V(3).Info("applying policy mutate rules", "policy", policy.GetName())
-		currentContext := policyContext.WithPolicy(policy)
-		engineResponse, policyPatches, err := v.applyMutation(ctx, request, currentContext)
+
+		err := tracing.ChildSpan1(
+			ctx,
+			"",
+			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
+			func(ctx context.Context, span trace.Span) error {
+				v.log.V(3).Info("applying policy mutate rules", "policy", policy.GetName())
+				currentContext := policyContext.WithPolicy(policy)
+				engineResponse, policyPatches, err := v.applyMutation(ctx, request, currentContext)
+				if err != nil {
+					return fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
+				}
+
+				if len(policyPatches) > 0 {
+					patches = append(patches, policyPatches...)
+					rules := engineResponse.GetSuccessRules()
+					if len(rules) != 0 {
+						v.log.Info("mutation rules from policy applied successfully", "policy", policy.GetName(), "rules", rules)
+					}
+				}
+
+				policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
+				engineResponses = append(engineResponses, engineResponse)
+
+				// registering the kyverno_policy_results_total metric concurrently
+				go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
+				// registering the kyverno_policy_execution_duration_seconds metric concurrently
+				go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
+
+				return nil
+			},
+		)
 		if err != nil {
-			return nil, nil, fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
+			return nil, nil, err
 		}
-
-		if len(policyPatches) > 0 {
-			patches = append(patches, policyPatches...)
-			rules := engineResponse.GetSuccessRules()
-			if len(rules) != 0 {
-				v.log.Info("mutation rules from policy applied successfully", "policy", policy.GetName(), "rules", rules)
-			}
-		}
-
-		policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
-		engineResponses = append(engineResponses, engineResponse)
-
-		// registering the kyverno_policy_results_total metric concurrently
-		go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
-		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
 	}
 
 	// generate annotations

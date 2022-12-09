@@ -3,6 +3,7 @@ package imageverification
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -12,10 +13,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -74,17 +77,23 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	if len(policies) == 0 {
 		return true, "", nil, nil
 	}
-
 	var engineResponses []*response.EngineResponse
 	var patches [][]byte
 	verifiedImageData := &engine.ImageVerificationMetadata{}
-	for _, p := range policies {
-		policyContext := policyContext.WithPolicy(p)
-		resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext)
+	for _, policy := range policies {
+		tracing.ChildSpan(
+			ctx,
+			"",
+			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
+			func(ctx context.Context, span trace.Span) {
+				policyContext := policyContext.WithPolicy(policy)
+				resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext)
 
-		engineResponses = append(engineResponses, resp)
-		patches = append(patches, resp.GetPatches()...)
-		verifiedImageData.Merge(ivm)
+				engineResponses = append(engineResponses, resp)
+				patches = append(patches, resp.GetPatches()...)
+				verifiedImageData.Merge(ivm)
+			},
+		)
 	}
 
 	failurePolicy := policies[0].GetSpec().GetFailurePolicy()
