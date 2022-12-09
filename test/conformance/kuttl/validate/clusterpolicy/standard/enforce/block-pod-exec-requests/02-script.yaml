@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      if kubectl -n test-validate exec nginx -it -- sh 2>&1 | grep -q "Exec'ing into Pods protected with the label 'exec=false' is forbidden" 
+      then 
+        echo "Tested failed. Exec Request was not blocked."
+        exit 1 
+      else 
+        echo "Test succeeded. Exec Request was blocked."
+        exit 0
+      fi

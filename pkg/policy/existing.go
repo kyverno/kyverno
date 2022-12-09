@@ -209,7 +209,7 @@ func (pc *PolicyController) processExistingKinds(kinds []string, policy kyvernov
 		if err != nil {
 			gv, k := kubeutils.GetKindFromGVK(kind)
 			if !strings.Contains(k, "*") {
-				resourceSchema, _, err := pc.client.Discovery().FindResource(gv, k)
+				resourceSchema, _, _, err := pc.client.Discovery().FindResource(gv, k)
 				if err != nil {
 					logger.Error(err, "failed to find resource", "kind", k)
 					continue
