@@ -742,7 +742,7 @@ kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 		--values ./scripts/config/$(USE_CONFIG)/kyverno-policies.yaml
 
 .PHONY: kind-deploy-all
-kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
+kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
 
 .PHONY: kind-deploy-reporter
 kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
@@ -783,9 +783,17 @@ dev-lab-tempo: $(HELM) ## Deploy tempo helm chart
 	@$(HELM) upgrade --install tempo --namespace monitoring --create-namespace --wait \
 		--repo https://grafana.github.io/helm-charts tempo \
 		--values ./scripts/config/dev/tempo.yaml
+	@kubectl apply -f ./scripts/config/dev/tempo-datasource.yaml
+
+.PHONY: dev-lab-metrics-server
+dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
+	@echo Install metrics-server chart... >&2
+	@$(HELM) upgrade --install metrics-server --namespace kube-system --wait \
+		--repo https://charts.bitnami.com/bitnami metrics-server \
+		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all
-dev-lab-all: dev-lab-ingress-ngingx dev-lab-prometheus dev-lab-loki dev-lab-tempo
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo
 
 ########
 # HELP #
