@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -109,7 +110,7 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	policyContext.jsonContext.Checkpoint()
 	defer policyContext.jsonContext.Restore()
 
-	if err = LoadContext(logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+	if err = LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}

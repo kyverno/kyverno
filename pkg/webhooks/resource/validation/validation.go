@@ -28,7 +28,7 @@ type ValidationHandler interface {
 	// HandleValidation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleValidation(metrics.MetricsConfigManager, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
+	HandleValidation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
 }
 
 func NewValidationHandler(
@@ -39,6 +39,7 @@ func NewValidationHandler(
 	pcBuilder webhookutils.PolicyContextBuilder,
 	eventGen event.Interface,
 	admissionReports bool,
+	metrics metrics.MetricsConfigManager,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -48,6 +49,7 @@ func NewValidationHandler(
 		pcBuilder:        pcBuilder,
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
+		metrics:          metrics,
 	}
 }
 
@@ -59,10 +61,11 @@ type validationHandler struct {
 	pcBuilder        webhookutils.PolicyContextBuilder
 	eventGen         event.Interface
 	admissionReports bool
+	metrics          metrics.MetricsConfigManager
 }
 
 func (v *validationHandler) HandleValidation(
-	metricsConfig metrics.MetricsConfigManager,
+	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -71,7 +74,7 @@ func (v *validationHandler) HandleValidation(
 ) (bool, string, []string) {
 	if len(policies) == 0 {
 		// invoke handleAudit as we may have some policies in audit mode to consider
-		go v.handleAudit(policyContext.NewResource(), request, namespaceLabels)
+		go v.handleAudit(context.TODO(), policyContext.NewResource(), request, namespaceLabels)
 		return true, "", nil
 	}
 
@@ -99,15 +102,15 @@ func (v *validationHandler) HandleValidation(
 			failurePolicy = kyvernov1.Fail
 		}
 
-		engineResponse := engine.Validate(v.rclient, policyContext)
+		engineResponse := engine.Validate(ctx, v.rclient, policyContext)
 		if engineResponse.IsNil() {
 			// we get an empty response if old and new resources created the same response
 			// allow updates if resource update doesnt change the policy evaluation
 			continue
 		}
 
-		go webhookutils.RegisterPolicyResultsMetricValidation(context.TODO(), logger, metricsConfig, string(request.Operation), policyContext.Policy(), *engineResponse)
-		go webhookutils.RegisterPolicyExecutionDurationMetricValidate(context.TODO(), logger, metricsConfig, string(request.Operation), policyContext.Policy(), *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricValidation(context.TODO(), logger, v.metrics, string(request.Operation), policyContext.Policy(), *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricValidate(context.TODO(), logger, v.metrics, string(request.Operation), policyContext.Policy(), *engineResponse)
 
 		engineResponses = append(engineResponses, engineResponse)
 		if !engineResponse.IsSuccessful() {
@@ -131,13 +134,18 @@ func (v *validationHandler) HandleValidation(
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil
 	}
 
-	go v.handleAudit(policyContext.NewResource(), request, namespaceLabels, engineResponses...)
+	go v.handleAudit(context.TODO(), policyContext.NewResource(), request, namespaceLabels, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings
 }
 
-func (v *validationHandler) buildAuditResponses(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, namespaceLabels map[string]string) ([]*response.EngineResponse, error) {
+func (v *validationHandler) buildAuditResponses(
+	ctx context.Context,
+	resource unstructured.Unstructured,
+	request *admissionv1.AdmissionRequest,
+	namespaceLabels map[string]string,
+) ([]*response.EngineResponse, error) {
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
@@ -146,12 +154,13 @@ func (v *validationHandler) buildAuditResponses(resource unstructured.Unstructur
 	var responses []*response.EngineResponse
 	for _, policy := range policies {
 		policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
-		responses = append(responses, engine.Validate(v.rclient, policyContext))
+		responses = append(responses, engine.Validate(ctx, v.rclient, policyContext))
 	}
 	return responses, nil
 }
 
 func (v *validationHandler) handleAudit(
+	ctx context.Context,
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
@@ -171,7 +180,7 @@ func (v *validationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		return
 	}
-	responses, err := v.buildAuditResponses(resource, request, namespaceLabels)
+	responses, err := v.buildAuditResponses(ctx, resource, request, namespaceLabels)
 	if err != nil {
 		v.log.Error(err, "failed to build audit responses")
 	}
