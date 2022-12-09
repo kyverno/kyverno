@@ -5,8 +5,11 @@ initContainer:
 extraArgs:
   - --loggingFormat=json
   - --enableTracing
-  - --tracingAddress=kyverno-tempo.kyverno
+  - --tracingAddress=tempo.monitoring
   - --tracingPort=4317
+
+serviceMonitor:
+  enabled: true
 
 # grafana:
 #   enabled: true
