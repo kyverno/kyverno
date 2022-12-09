@@ -1,7 +1,6 @@
 package context
 
 import (
-	c "context"
 	"fmt"
 
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -10,8 +9,8 @@ import (
 // MutateResourceWithImageInfo will set images to their canonical form so that they can be compared
 // in a predictable manner. This sets the default registry as `docker.io` and the tag as `latest` if
 // these are missing.
-func MutateResourceWithImageInfo(ctx c.Context, raw []byte, engineCtx Interface) error {
-	images := engineCtx.ImageInfo()
+func MutateResourceWithImageInfo(raw []byte, ctx Interface) error {
+	images := ctx.ImageInfo()
 	if images == nil {
 		return nil
 	}
@@ -29,5 +28,5 @@ func MutateResourceWithImageInfo(ctx c.Context, raw []byte, engineCtx Interface)
 	if err != nil {
 		return err
 	}
-	return AddResource(engineCtx, patchedResource)
+	return AddResource(ctx, patchedResource)
 }

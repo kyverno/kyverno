@@ -357,20 +357,20 @@ func Test_chained_rules(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	enginectx := enginecontext.NewContext()
-	err = enginectx.AddResource(resource.Object)
+	ctx := enginecontext.NewContext()
+	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
 		policy:      &policy,
-		jsonContext: enginectx,
+		jsonContext: ctx,
 		newResource: *resource,
 	}
 
-	err = enginectx.AddImageInfos(resource)
+	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
-	err = enginecontext.MutateResourceWithImageInfo(context.TODO(), resourceRaw, enginectx)
+	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
@@ -649,7 +649,7 @@ func Test_foreach(t *testing.T) {
 	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
-	err = enginecontext.MutateResourceWithImageInfo(context.TODO(), resourceRaw, ctx)
+	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
@@ -756,7 +756,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
-	err = enginecontext.MutateResourceWithImageInfo(context.TODO(), resourceRaw, ctx)
+	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
@@ -882,7 +882,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
-	err = enginecontext.MutateResourceWithImageInfo(context.TODO(), resourceRaw, ctx)
+	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
@@ -1009,7 +1009,7 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
-	err = enginecontext.MutateResourceWithImageInfo(context.TODO(), resourceRaw, ctx)
+	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
