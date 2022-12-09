@@ -167,7 +167,7 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 	{{- else }}
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, {{ Quote $operation.Method.Name }}),

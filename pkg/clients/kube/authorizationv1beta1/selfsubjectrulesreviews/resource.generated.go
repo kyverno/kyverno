@@ -63,7 +63,7 @@ type withTracing struct {
 func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_authorization_v1beta1.SelfSubjectRulesReview, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_authorization_v1beta1.SelfSubjectRulesReview, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),

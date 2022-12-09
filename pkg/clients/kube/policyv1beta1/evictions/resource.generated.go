@@ -62,7 +62,7 @@ type withTracing struct {
 func (c *withTracing) Evict(arg0 context.Context, arg1 *k8s_io_api_policy_v1beta1.Eviction) error {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Evict"),

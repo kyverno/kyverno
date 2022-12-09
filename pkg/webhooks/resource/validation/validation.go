@@ -100,7 +100,7 @@ func (v *validationHandler) HandleValidation(
 	var engineResponses []*response.EngineResponse
 	failurePolicy := kyvernov1.Ignore
 	for _, policy := range policies {
-		tracing.Span(
+		tracing.ChildSpan(
 			ctx,
 			"pkg/webhooks/resource/validate",
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
@@ -163,7 +163,7 @@ func (v *validationHandler) buildAuditResponses(
 	}
 	var responses []*response.EngineResponse
 	for _, policy := range policies {
-		tracing.Span(
+		tracing.ChildSpan(
 			ctx,
 			"pkg/webhooks/resource/validate",
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
@@ -197,7 +197,7 @@ func (v *validationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		return
 	}
-	tracing.Span(
+	tracing.ChildSpan(
 		context.Background(),
 		"",
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),

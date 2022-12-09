@@ -231,7 +231,7 @@ type withTracing struct {
 func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_events_v1beta1.EventApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_events_v1beta1.Event, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Apply"),
@@ -250,7 +250,7 @@ func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyco
 func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_events_v1beta1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_events_v1beta1.Event, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),
@@ -272,7 +272,7 @@ func (c *withTracing) CreateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.E
 func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Delete"),
@@ -291,7 +291,7 @@ func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apim
 func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "DeleteCollection"),
@@ -310,7 +310,7 @@ func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimach
 func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_events_v1beta1.Event, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Get"),
@@ -329,7 +329,7 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_events_v1beta1.EventList, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "List"),
@@ -348,7 +348,7 @@ func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_events_v1beta1.Event, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Patch"),
@@ -370,7 +370,7 @@ func (c *withTracing) PatchWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.Ev
 func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_events_v1beta1.Event, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_events_v1beta1.Event, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Update"),
@@ -392,7 +392,7 @@ func (c *withTracing) UpdateWithEventNamespace(arg0 *k8s_io_api_events_v1beta1.E
 func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Watch"),

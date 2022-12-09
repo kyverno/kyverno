@@ -117,7 +117,7 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 		log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 		enginectx.jsonContext.Reset()
 		startTime := time.Now()
-		ruleResp := tracing.Span1(
+		ruleResp := tracing.ChildSpan1(
 			ctx,
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),

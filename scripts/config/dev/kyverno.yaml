@@ -11,8 +11,8 @@ extraArgs:
 serviceMonitor:
   enabled: true
 
-# grafana:
-#   enabled: true
+grafana:
+  enabled: true
 
 cleanupController:
   rbac:
