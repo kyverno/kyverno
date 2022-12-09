@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -13,7 +14,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -31,7 +32,7 @@ import (
 )
 
 // Validate applies validation rules from policy on the resource
-func Validate(rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Validate(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
 
@@ -42,7 +43,7 @@ func Validate(rclient registryclient.Client, policyContext *PolicyContext) (resp
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	resp = validateResource(logger, rclient, policyContext)
+	resp = validateResource(ctx, logger, rclient, policyContext)
 	return
 }
 
@@ -89,22 +90,22 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 }
 
-func validateResource(log logr.Logger, rclient registryclient.Client, ctx *PolicyContext) *response.EngineResponse {
+func validateResource(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
-	ctx.jsonContext.Checkpoint()
-	defer ctx.jsonContext.Restore()
+	enginectx.jsonContext.Checkpoint()
+	defer enginectx.jsonContext.Restore()
 
-	rules := autogen.ComputeRules(ctx.policy)
+	rules := autogen.ComputeRules(enginectx.policy)
 	matchCount := 0
-	applyRules := ctx.policy.GetSpec().GetApplyRules()
+	applyRules := enginectx.policy.GetSpec().GetApplyRules()
 
-	if ctx.policy.IsNamespaced() {
-		polNs := ctx.policy.GetNamespace()
-		if ctx.newResource.Object != nil && (ctx.newResource.GetNamespace() != polNs || ctx.newResource.GetNamespace() == "") {
+	if enginectx.policy.IsNamespaced() {
+		polNs := enginectx.policy.GetNamespace()
+		if enginectx.newResource.Object != nil && (enginectx.newResource.GetNamespace() != polNs || enginectx.newResource.GetNamespace() == "") {
 			return resp
 		}
-		if ctx.oldResource.Object != nil && (ctx.oldResource.GetNamespace() != polNs || ctx.oldResource.GetNamespace() == "") {
+		if enginectx.oldResource.Object != nil && (enginectx.oldResource.GetNamespace() != polNs || enginectx.oldResource.GetNamespace() == "") {
 			return resp
 		}
 	}
@@ -119,21 +120,21 @@ func validateResource(log logr.Logger, rclient registryclient.Client, ctx *Polic
 		}
 
 		log = log.WithValues("rule", rule.Name)
-		if !matches(log, rule, ctx) {
+		if !matches(log, rule, enginectx) {
 			continue
 		}
 
 		log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
-		ctx.jsonContext.Reset()
+		enginectx.jsonContext.Reset()
 		startTime := time.Now()
 
 		var ruleResp *response.RuleResponse
 		if hasValidate && !hasYAMLSignatureVerify {
-			ruleResp = processValidationRule(log, rclient, ctx, rule)
+			ruleResp = processValidationRule(log, rclient, enginectx, rule)
 		} else if hasValidateImage {
-			ruleResp = processImageValidationRule(log, rclient, ctx, rule)
+			ruleResp = processImageValidationRule(log, rclient, enginectx, rule)
 		} else if hasYAMLSignatureVerify {
-			ruleResp = processYAMLValidationRule(log, ctx, rule)
+			ruleResp = processYAMLValidationRule(log, enginectx, rule)
 		}
 
 		if ruleResp != nil {
@@ -152,11 +153,11 @@ func validateOldObject(log logr.Logger, rclient registryclient.Client, ctx *Poli
 	ctxCopy.newResource = *ctxCopy.oldResource.DeepCopy()
 	ctxCopy.oldResource = unstructured.Unstructured{}
 
-	if err := context.ReplaceResource(ctxCopy.jsonContext, ctxCopy.newResource.Object); err != nil {
+	if err := enginecontext.ReplaceResource(ctxCopy.jsonContext, ctxCopy.newResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
 	}
 
-	if err := context.ReplaceOldResource(ctxCopy.jsonContext, ctxCopy.oldResource.Object); err != nil {
+	if err := enginecontext.ReplaceOldResource(ctxCopy.jsonContext, ctxCopy.oldResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
 	}
 

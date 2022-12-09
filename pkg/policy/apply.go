@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -11,7 +12,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -43,8 +44,8 @@ func applyPolicy(
 	var engineResponseMutation, engineResponseValidation *response.EngineResponse
 	var err error
 
-	ctx := context.NewContext()
-	err = context.AddResource(ctx, transformResource(resource))
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, transformResource(resource))
 	if err != nil {
 		logger.Error(err, "failed to add transform resource to ctx")
 	}
@@ -74,7 +75,7 @@ func applyPolicy(
 		WithClient(client).
 		WithExcludeGroupRole(excludeGroupRole...)
 
-	engineResponseValidation = engine.Validate(rclient, policyCtx)
+	engineResponseValidation = engine.Validate(context.TODO(), rclient, policyCtx)
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	return engineResponses
@@ -84,7 +85,7 @@ func mutation(
 	policy kyvernov1.PolicyInterface,
 	resource unstructured.Unstructured,
 	log logr.Logger,
-	jsonContext context.Interface,
+	jsonContext enginecontext.Interface,
 	rclient registryclient.Client,
 	namespaceLabels map[string]string,
 ) (*response.EngineResponse, error) {

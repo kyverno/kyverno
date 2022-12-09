@@ -43,7 +43,7 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 	results := map[kyvernov1.PolicyInterface]ScanResult{}
 	for _, policy := range policies {
 		var errors []error
-		response, err := s.validateResource(resource, nsLabels, policy)
+		response, err := s.validateResource(ctx, resource, nsLabels, policy)
 		if err != nil {
 			s.logger.Error(err, "failed to scan resource")
 			errors = append(errors, err)
@@ -66,27 +66,27 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 	return results
 }
 
-func (s *scanner) validateResource(resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
-	ctx := enginecontext.NewContext()
-	if err := ctx.AddResource(resource.Object); err != nil {
+func (s *scanner) validateResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
+	enginectx := enginecontext.NewContext()
+	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}
-	if err := ctx.AddNamespace(resource.GetNamespace()); err != nil {
+	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
 	}
-	if err := ctx.AddImageInfos(&resource); err != nil {
+	if err := enginectx.AddImageInfos(&resource); err != nil {
 		return nil, err
 	}
-	if err := ctx.AddOperation("CREATE"); err != nil {
+	if err := enginectx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
-	policyCtx := engine.NewPolicyContextWithJsonContext(ctx).
+	policyCtx := engine.NewPolicyContextWithJsonContext(enginectx).
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...)
-	return engine.Validate(s.rclient, policyCtx), nil
+	return engine.Validate(ctx, s.rclient, policyCtx), nil
 }
 
 func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
