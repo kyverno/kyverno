@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
-	kyvernov1alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha1"
-	kyvernov1alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -33,14 +33,14 @@ type controller struct {
 	client kubernetes.Interface
 
 	// listers
-	cpolLister kyvernov1alpha1listers.ClusterCleanupPolicyLister
-	polLister  kyvernov1alpha1listers.CleanupPolicyLister
+	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
+	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	cjLister   batchv1listers.CronJobLister
 
 	// queue
 	queue       workqueue.RateLimitingInterface
-	cpolEnqueue controllerutils.EnqueueFuncT[*kyvernov1alpha1.ClusterCleanupPolicy]
-	polEnqueue  controllerutils.EnqueueFuncT[*kyvernov1alpha1.CleanupPolicy]
+	cpolEnqueue controllerutils.EnqueueFuncT[*kyvernov2alpha1.ClusterCleanupPolicy]
+	polEnqueue  controllerutils.EnqueueFuncT[*kyvernov2alpha1.CleanupPolicy]
 
 	// config
 	cleanupService string
@@ -54,8 +54,8 @@ const (
 
 func NewController(
 	client kubernetes.Interface,
-	cpolInformer kyvernov1alpha1informers.ClusterCleanupPolicyInformer,
-	polInformer kyvernov1alpha1informers.CleanupPolicyInformer,
+	cpolInformer kyvernov2alpha1informers.ClusterCleanupPolicyInformer,
+	polInformer kyvernov2alpha1informers.CleanupPolicyInformer,
 	cjInformer batchv1informers.CronJobInformer,
 	cleanupService string,
 ) controllers.Controller {
@@ -66,8 +66,8 @@ func NewController(
 		polLister:      polInformer.Lister(),
 		cjLister:       cjInformer.Lister(),
 		queue:          queue,
-		cpolEnqueue:    controllerutils.AddDefaultEventHandlersT[*kyvernov1alpha1.ClusterCleanupPolicy](logger, cpolInformer.Informer(), queue),
-		polEnqueue:     controllerutils.AddDefaultEventHandlersT[*kyvernov1alpha1.CleanupPolicy](logger, polInformer.Informer(), queue),
+		cpolEnqueue:    controllerutils.AddDefaultEventHandlersT[*kyvernov2alpha1.ClusterCleanupPolicy](logger, cpolInformer.Informer(), queue),
+		polEnqueue:     controllerutils.AddDefaultEventHandlersT[*kyvernov2alpha1.CleanupPolicy](logger, polInformer.Informer(), queue),
 		cleanupService: cleanupService,
 	}
 	controllerutils.AddEventHandlersT(
@@ -86,7 +86,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 func (c *controller) enqueueCronJob(n *batchv1.CronJob) {
 	if len(n.OwnerReferences) == 1 {
 		if n.OwnerReferences[0].Kind == "ClusterCleanupPolicy" {
-			cpol := &kyvernov1alpha1.ClusterCleanupPolicy{
+			cpol := &kyvernov2alpha1.ClusterCleanupPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: n.OwnerReferences[0].Name,
 				},
@@ -96,7 +96,7 @@ func (c *controller) enqueueCronJob(n *batchv1.CronJob) {
 				logger.Error(err, "failed to enqueue ClusterCleanupPolicy object", cpol)
 			}
 		} else if n.OwnerReferences[0].Kind == "CleanupPolicy" {
-			pol := &kyvernov1alpha1.CleanupPolicy{
+			pol := &kyvernov2alpha1.CleanupPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      n.OwnerReferences[0].Name,
 					Namespace: n.Namespace,
@@ -110,7 +110,7 @@ func (c *controller) enqueueCronJob(n *batchv1.CronJob) {
 	}
 }
 
-func (c *controller) getPolicy(namespace, name string) (kyvernov1alpha1.CleanupPolicyInterface, error) {
+func (c *controller) getPolicy(namespace, name string) (kyvernov2alpha1.CleanupPolicyInterface, error) {
 	if namespace == "" {
 		cpolicy, err := c.cpolLister.Get(name)
 		if err != nil {
@@ -134,9 +134,9 @@ func (c *controller) getCronjob(namespace, name string) (*batchv1.CronJob, error
 	return cj, nil
 }
 
-func (c *controller) buildCronJob(cronJob *batchv1.CronJob, pol kyvernov1alpha1.CleanupPolicyInterface) error {
+func (c *controller) buildCronJob(cronJob *batchv1.CronJob, pol kyvernov2alpha1.CleanupPolicyInterface) error {
 	// TODO: find a better way to do that, it looks like resources returned by WATCH don't have the GVK
-	apiVersion := "kyverno.io/v1alpha1"
+	apiVersion := "kyverno.io/v2alpha1"
 	kind := "CleanupPolicy"
 	if pol.GetNamespace() == "" {
 		kind = "ClusterCleanupPolicy"

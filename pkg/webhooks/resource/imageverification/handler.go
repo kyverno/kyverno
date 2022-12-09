@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -25,7 +24,6 @@ import (
 
 type ImageVerificationHandler interface {
 	Handle(
-		metrics.MetricsConfigManager,
 		*admissionv1.AdmissionRequest,
 		[]kyvernov1.PolicyInterface,
 		*engine.PolicyContext,
@@ -35,11 +33,13 @@ type ImageVerificationHandler interface {
 func NewImageVerificationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
+	rclient registryclient.Client,
 	eventGen event.Interface,
 	admissionReports bool,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
+		rclient:          rclient,
 		log:              log,
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
@@ -48,13 +48,13 @@ func NewImageVerificationHandler(
 
 type imageVerificationHandler struct {
 	kyvernoClient    versioned.Interface
+	rclient          registryclient.Client
 	log              logr.Logger
 	eventGen         event.Interface
 	admissionReports bool
 }
 
 func (h *imageVerificationHandler) Handle(
-	metricsConfig metrics.MetricsConfigManager,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -77,7 +77,7 @@ func (h *imageVerificationHandler) handleVerifyImages(logger logr.Logger, reques
 	verifiedImageData := &engine.ImageVerificationMetadata{}
 	for _, p := range policies {
 		policyContext := policyContext.WithPolicy(p)
-		resp, ivm := engine.VerifyAndPatchImages(registryclient.NewOrDie(), policyContext)
+		resp, ivm := engine.VerifyAndPatchImages(h.rclient, policyContext)
 
 		engineResponses = append(engineResponses, resp)
 		patches = append(patches, resp.GetPatches()...)

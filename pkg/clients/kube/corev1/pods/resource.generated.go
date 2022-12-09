@@ -463,17 +463,7 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 	return ret0, ret1
 }
 func (c *withTracing) GetLogs(arg0 string, arg1 *k8s_io_api_core_v1.PodLogOptions) *k8s_io_client_go_rest.Request {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "GetLogs"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("GetLogs"),
-	)
-	defer span.End()
-	ret0 := c.inner.GetLogs(arg0, arg1)
-	return ret0
+	return c.inner.GetLogs(arg0, arg1)
 }
 func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_core_v1.PodList, error) {
 	ctx, span := tracing.StartSpan(
@@ -506,17 +496,7 @@ func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 	return ret0, ret1
 }
 func (c *withTracing) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 string, arg4 map[string]string) k8s_io_client_go_rest.ResponseWrapper {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ProxyGet"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("ProxyGet"),
-	)
-	defer span.End()
-	ret0 := c.inner.ProxyGet(arg0, arg1, arg2, arg3, arg4)
-	return ret0
+	return c.inner.ProxyGet(arg0, arg1, arg2, arg3, arg4)
 }
 func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Pod, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Pod, error) {
 	ctx, span := tracing.StartSpan(

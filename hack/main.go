@@ -149,13 +149,19 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 	{{ GoType $return }},
 	{{- end -}}
 ) {
-	{{- if $operation.HasContext }}
+	{{- if not $operation.HasContext }}
+	return c.inner.{{ $operation.Method.Name }}(
+		{{- range $i, $arg := Args $operation.Method -}}
+		{{- if $arg.IsVariadic -}}
+		arg{{ $i }}...,
+		{{- else -}}
+		arg{{ $i }},
+		{{- end -}}
+		{{- end -}}
+	)
+	{{- else }}
 	ctx, span := tracing.StartSpan(
 		arg0,
-	{{- else }}
-	_, span := tracing.StartSpan(
-		context.TODO(),
-	{{- end }}
 		"",
 		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, {{ Quote $operation.Method.Name }}),
 		tracing.KubeClientGroupKey.String(c.client),
@@ -163,9 +169,7 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 		tracing.KubeClientOperationKey.String({{ Quote $operation.Method.Name }}),
 	)
 	defer span.End()
-	{{- if $operation.HasContext }}
 	arg0 = ctx
-	{{- end }}
 	{{ range $i, $ret := Returns $operation.Method }}ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }} {{ end }} := c.inner.{{ $operation.Method.Name }}(
 		{{- range $i, $arg := Args $operation.Method -}}
 		{{- if $arg.IsVariadic -}}
@@ -184,6 +188,7 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 	{{- end }}
 	return	{{ range $i, $ret := Returns $operation.Method -}}
 	ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }}
+	{{- end }}
 	{{- end }}
 }
 {{- end }}

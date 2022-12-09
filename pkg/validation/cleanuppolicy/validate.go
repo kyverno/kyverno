@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -37,7 +37,7 @@ func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets
 }
 
 // Validate checks policy is valid
-func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface, policy kyvernov1alpha1.CleanupPolicyInterface) error {
+func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface, policy kyvernov2alpha1.CleanupPolicyInterface) error {
 	clusteredResources, err := FetchClusteredResources(logger, client)
 	if err != nil {
 		return err
@@ -52,13 +52,13 @@ func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface,
 }
 
 // validatePolicy checks the policy and rules declarations for required configurations
-func validatePolicy(clusterResources sets.String, policy kyvernov1alpha1.CleanupPolicyInterface) error {
+func validatePolicy(clusterResources sets.String, policy kyvernov2alpha1.CleanupPolicyInterface) error {
 	errs := policy.Validate(clusterResources)
 	return errs.ToAggregate()
 }
 
 // validateAuth checks the the delete action is allowed
-func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov1alpha1.CleanupPolicyInterface) error {
+func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov2alpha1.CleanupPolicyInterface) error {
 	namespace := policy.GetNamespace()
 	spec := policy.GetSpec()
 	kinds := sets.NewString(spec.MatchResources.GetKinds()...)
