@@ -18,19 +18,6 @@ maintainers:
   - name: Nirmata
     url: https://kyverno.io/
 kubeVersion: ">=1.16.0-0"
-dependencies:
-  - name: kube-prometheus-stack
-    version: '*'
-    repository: https://prometheus-community.github.io/helm-charts
-    condition: kube-prometheus-stack.enabled
-  - name: loki-stack
-    version:  '*'
-    repository: https://grafana.github.io/helm-charts
-    condition: loki-stack.enabled
-  - name: tempo
-    version:  '*'
-    repository: https://grafana.github.io/helm-charts
-    condition: tempo.enabled
 annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
