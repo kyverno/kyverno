@@ -74,7 +74,7 @@ func (v *validationHandler) HandleValidation(
 ) (bool, string, []string) {
 	if len(policies) == 0 {
 		// invoke handleAudit as we may have some policies in audit mode to consider
-		go v.handleAudit(ctx, policyContext.NewResource(), request, namespaceLabels)
+		go v.handleAudit(context.TODO(), policyContext.NewResource(), request, namespaceLabels)
 		return true, "", nil
 	}
 
@@ -134,7 +134,7 @@ func (v *validationHandler) HandleValidation(
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil
 	}
 
-	go v.handleAudit(ctx, policyContext.NewResource(), request, namespaceLabels, engineResponses...)
+	go v.handleAudit(context.TODO(), policyContext.NewResource(), request, namespaceLabels, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings

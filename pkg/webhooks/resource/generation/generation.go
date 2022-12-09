@@ -96,7 +96,7 @@ func (h *generationHandler) Handle(
 			engineResponse := engine.ApplyBackgroundChecks(h.rclient, policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if rule.Status != response.RuleStatusPass {
-					h.deleteGR(engineResponse)
+					h.deleteGR(ctx, engineResponse)
 					continue
 				}
 				rules = append(rules, rule)
@@ -114,7 +114,7 @@ func (h *generationHandler) Handle(
 			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(context.TODO(), h.log, h.metrics, string(request.Operation), policy, *engineResponse)
 		}
 
-		if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Generate, h.urGenerator, policyContext.AdmissionInfo(), request.Operation, engineResponses...); failedResponse != nil {
+		if failedResponse := applyUpdateRequest(ctx, request, kyvernov1beta1.Generate, h.urGenerator, policyContext.AdmissionInfo(), request.Operation, engineResponses...); failedResponse != nil {
 			// report failure event
 			for _, failedUR := range failedResponse {
 				err := fmt.Errorf("failed to create Update Request: %v", failedUR.err)
@@ -143,20 +143,20 @@ func (h *generationHandler) HandleUpdatesForGenerateRules(ctx context.Context, r
 
 	resLabels := resource.GetLabels()
 	if resLabels["generate.kyverno.io/clone-policy-name"] != "" {
-		h.handleUpdateGenerateSourceResource(resLabels)
+		h.handleUpdateGenerateSourceResource(ctx, resLabels)
 	}
 
 	if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == admissionv1.Update {
-		h.handleUpdateGenerateTargetResource(request, policies, resLabels)
+		h.handleUpdateGenerateTargetResource(ctx, request, policies, resLabels)
 	}
 }
 
 // handleUpdateGenerateSourceResource - handles update of clone source for generate policy
-func (h *generationHandler) handleUpdateGenerateSourceResource(resLabels map[string]string) {
+func (h *generationHandler) handleUpdateGenerateSourceResource(ctx context.Context, resLabels map[string]string) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
 		// check if the policy exists
-		_, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
+		_, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, policyName, metav1.GetOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				h.log.V(4).Info("skipping update of update request as policy is deleted")
@@ -182,7 +182,7 @@ func (h *generationHandler) handleUpdateGenerateSourceResource(resLabels map[str
 }
 
 // handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, resLabels map[string]string) {
+func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Context, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, resLabels map[string]string) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
@@ -193,7 +193,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissio
 	targetSourceName := newRes.GetName()
 	targetSourceKind := newRes.GetKind()
 
-	policy, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
+	policy, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, policyName, metav1.GetOptions{})
 	if err != nil {
 		h.log.Error(err, "failed to get policy from kyverno client.", "policy name", policyName)
 		return
@@ -201,7 +201,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissio
 
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
-			updatedRule, err := getGeneratedByResource(newRes, resLabels, h.client, rule, h.log)
+			updatedRule, err := getGeneratedByResource(ctx, newRes, resLabels, h.client, rule, h.log)
 			if err != nil {
 				h.log.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
 			} else {
@@ -215,7 +215,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissio
 
 				cloneName := updatedRule.Generation.Clone.Name
 				if cloneName != "" {
-					obj, err := h.client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+					obj, err := h.client.GetResource(ctx, "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 					if err != nil {
 						h.log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 						continue
@@ -243,7 +243,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissio
 	}
 }
 
-func (h *generationHandler) deleteGR(engineResponse *response.EngineResponse) {
+func (h *generationHandler) deleteGR(ctx context.Context, engineResponse *response.EngineResponse) {
 	h.log.V(4).Info("querying all update requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.PolicyResponse.Policy.Name,
@@ -259,7 +259,7 @@ func (h *generationHandler) deleteGR(engineResponse *response.EngineResponse) {
 	}
 
 	for _, v := range urList {
-		err := h.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+		err := h.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(ctx, v.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			h.log.Error(err, "failed to update ur")
 		}

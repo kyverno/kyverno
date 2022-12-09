@@ -110,7 +110,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 		}
 	}
 
-	go h.handleAudit(ctx, policyContext.NewResource(), request, nil, engineResponses...)
+	go h.handleAudit(context.TODO(), policyContext.NewResource(), request, nil, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", jsonutils.JoinPatches(patches...), warnings
