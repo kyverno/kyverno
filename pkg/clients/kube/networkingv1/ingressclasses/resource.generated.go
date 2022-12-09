@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	k8s_io_api_networking_v1 "k8s.io/api/networking/v1"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -140,39 +141,39 @@ type withMetrics struct {
 }
 
 func (c *withMetrics) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_networking_v1.IngressClassApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_networking_v1.IngressClass, error) {
-	defer c.recorder.Record("apply")
+	defer c.recorder.RecordWithContext(arg0, "apply")
 	return c.inner.Apply(arg0, arg1, arg2)
 }
 func (c *withMetrics) Create(arg0 context.Context, arg1 *k8s_io_api_networking_v1.IngressClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_networking_v1.IngressClass, error) {
-	defer c.recorder.Record("create")
+	defer c.recorder.RecordWithContext(arg0, "create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
 func (c *withMetrics) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
-	defer c.recorder.Record("delete")
+	defer c.recorder.RecordWithContext(arg0, "delete")
 	return c.inner.Delete(arg0, arg1, arg2)
 }
 func (c *withMetrics) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
-	defer c.recorder.Record("delete_collection")
+	defer c.recorder.RecordWithContext(arg0, "delete_collection")
 	return c.inner.DeleteCollection(arg0, arg1, arg2)
 }
 func (c *withMetrics) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_networking_v1.IngressClass, error) {
-	defer c.recorder.Record("get")
+	defer c.recorder.RecordWithContext(arg0, "get")
 	return c.inner.Get(arg0, arg1, arg2)
 }
 func (c *withMetrics) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_networking_v1.IngressClassList, error) {
-	defer c.recorder.Record("list")
+	defer c.recorder.RecordWithContext(arg0, "list")
 	return c.inner.List(arg0, arg1)
 }
 func (c *withMetrics) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_networking_v1.IngressClass, error) {
-	defer c.recorder.Record("patch")
+	defer c.recorder.RecordWithContext(arg0, "patch")
 	return c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
 }
 func (c *withMetrics) Update(arg0 context.Context, arg1 *k8s_io_api_networking_v1.IngressClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_networking_v1.IngressClass, error) {
-	defer c.recorder.Record("update")
+	defer c.recorder.RecordWithContext(arg0, "update")
 	return c.inner.Update(arg0, arg1, arg2)
 }
 func (c *withMetrics) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
-	defer c.recorder.Record("watch")
+	defer c.recorder.RecordWithContext(arg0, "watch")
 	return c.inner.Watch(arg0, arg1)
 }
 
@@ -183,137 +184,173 @@ type withTracing struct {
 }
 
 func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_networking_v1.IngressClassApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_networking_v1.IngressClass, error) {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Apply"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("Apply"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Apply"),
+			tracing.KubeClientGroupKey.String(c.client),
+			tracing.KubeClientKindKey.String(c.kind),
+			tracing.KubeClientOperationKey.String("Apply"),
+		)
+		defer span.End()
+	}
 	ret0, ret1 := c.inner.Apply(arg0, arg1, arg2)
-	tracing.SetSpanStatus(span, ret1)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_networking_v1.IngressClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_networking_v1.IngressClass, error) {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("Create"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),
+			tracing.KubeClientGroupKey.String(c.client),
+			tracing.KubeClientKindKey.String(c.kind),
+			tracing.KubeClientOperationKey.String("Create"),
+		)
+		defer span.End()
+	}
 	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
-	tracing.SetSpanStatus(span, ret1)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Delete"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("Delete"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Delete"),
+			tracing.KubeClientGroupKey.String(c.client),
+			tracing.KubeClientKindKey.String(c.kind),
+			tracing.KubeClientOperationKey.String("Delete"),
+		)
+		defer span.End()
+	}
 	ret0 := c.inner.Delete(arg0, arg1, arg2)
-	tracing.SetSpanStatus(span, ret0)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret0)
+	}
 	return ret0
 }
 func (c *withTracing) DeleteCollection(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) error {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "DeleteCollection"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("DeleteCollection"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "DeleteCollection"),
+			tracing.KubeClientGroupKey.String(c.client),
+			tracing.KubeClientKindKey.String(c.kind),
+			tracing.KubeClientOperationKey.String("DeleteCollection"),
+		)
+		defer span.End()
+	}
 	ret0 := c.inner.DeleteCollection(arg0, arg1, arg2)
-	tracing.SetSpanStatus(span, ret0)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret0)
+	}
 	return ret0
 }
 func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_networking_v1.IngressClass, error) {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Get"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("Get"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Get"),
+			tracing.KubeClientGroupKey.String(c.client),
+			tracing.KubeClientKindKey.String(c.kind),
+			tracing.KubeClientOperationKey.String("Get"),
+		)
+		defer span.End()
+	}
 	ret0, ret1 := c.inner.Get(arg0, arg1, arg2)
-	tracing.SetSpanStatus(span, ret1)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
 	return ret0, ret1
 }
 func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_networking_v1.IngressClassList, error) {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "List"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("List"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "List"),
+			tracing.KubeClientGroupKey.String(c.client),
+			tracing.KubeClientKindKey.String(c.kind),
+			tracing.KubeClientOperationKey.String("List"),
+		)
+		defer span.End()
+	}
 	ret0, ret1 := c.inner.List(arg0, arg1)
-	tracing.SetSpanStatus(span, ret1)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_networking_v1.IngressClass, error) {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Patch"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("Patch"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Patch"),
+			tracing.KubeClientGroupKey.String(c.client),
+			tracing.KubeClientKindKey.String(c.kind),
+			tracing.KubeClientOperationKey.String("Patch"),
+		)
+		defer span.End()
+	}
 	ret0, ret1 := c.inner.Patch(arg0, arg1, arg2, arg3, arg4, arg5...)
-	tracing.SetSpanStatus(span, ret1)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_networking_v1.IngressClass, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_networking_v1.IngressClass, error) {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Update"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("Update"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Update"),
+			tracing.KubeClientGroupKey.String(c.client),
+			tracing.KubeClientKindKey.String(c.kind),
+			tracing.KubeClientOperationKey.String("Update"),
+		)
+		defer span.End()
+	}
 	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
-	tracing.SetSpanStatus(span, ret1)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
 	return ret0, ret1
 }
 func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Watch"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("Watch"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Watch"),
+			tracing.KubeClientGroupKey.String(c.client),
+			tracing.KubeClientKindKey.String(c.kind),
+			tracing.KubeClientOperationKey.String("Watch"),
+		)
+		defer span.End()
+	}
 	ret0, ret1 := c.inner.Watch(arg0, arg1)
-	tracing.SetSpanStatus(span, ret1)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
 	return ret0, ret1
 }
