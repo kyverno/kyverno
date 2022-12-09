@@ -116,7 +116,7 @@ func VerifyAndPatchImages(
 		}
 
 		policyContext.jsonContext.Restore()
-		if err := LoadContext(logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+		if err := LoadContext(ctx, logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 			appendResponse(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), response.RuleStatusError)
 			continue
 		}

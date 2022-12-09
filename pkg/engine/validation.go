@@ -130,9 +130,9 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 
 		var ruleResp *response.RuleResponse
 		if hasValidate && !hasYAMLSignatureVerify {
-			ruleResp = processValidationRule(log, rclient, enginectx, rule)
+			ruleResp = processValidationRule(ctx, log, rclient, enginectx, rule)
 		} else if hasValidateImage {
-			ruleResp = processImageValidationRule(log, rclient, enginectx, rule)
+			ruleResp = processImageValidationRule(ctx, log, rclient, enginectx, rule)
 		} else if hasYAMLSignatureVerify {
 			ruleResp = processYAMLValidationRule(log, enginectx, rule)
 		}
@@ -148,8 +148,8 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 	return resp
 }
 
-func validateOldObject(log logr.Logger, rclient registryclient.Client, ctx *PolicyContext, rule *kyvernov1.Rule) (*response.RuleResponse, error) {
-	ctxCopy := ctx.Copy()
+func validateOldObject(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, rule *kyvernov1.Rule) (*response.RuleResponse, error) {
+	ctxCopy := enginectx.Copy()
 	ctxCopy.newResource = *ctxCopy.oldResource.DeepCopy()
 	ctxCopy.oldResource = unstructured.Unstructured{}
 
@@ -161,16 +161,16 @@ func validateOldObject(log logr.Logger, rclient registryclient.Client, ctx *Poli
 		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
 	}
 
-	return processValidationRule(log, rclient, ctxCopy, rule), nil
+	return processValidationRule(ctx, log, rclient, ctxCopy, rule), nil
 }
 
-func processValidationRule(log logr.Logger, rclient registryclient.Client, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
-	v := newValidator(log, rclient, ctx, rule)
+func processValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+	v := newValidator(log, rclient, enginectx, rule)
 	if rule.Validation.ForEachValidation != nil {
-		return v.validateForEach()
+		return v.validateForEach(ctx)
 	}
 
-	return v.validate()
+	return v.validate(ctx)
 }
 
 func addRuleResponse(log logr.Logger, resp *response.EngineResponse, ruleResp *response.RuleResponse, startTime time.Time) {
@@ -236,8 +236,8 @@ func newForeachValidator(log logr.Logger, rclient registryclient.Client, foreach
 	}
 }
 
-func (v *validator) validate() *response.RuleResponse {
-	if err := v.loadContext(); err != nil {
+func (v *validator) validate(ctx context.Context) *response.RuleResponse {
+	if err := v.loadContext(ctx); err != nil {
 		return ruleError(v.rule, response.Validation, "failed to load context", err)
 	}
 
@@ -261,7 +261,7 @@ func (v *validator) validate() *response.RuleResponse {
 
 		ruleResponse := v.validateResourceWithRule()
 		if isUpdateRequest(v.ctx) {
-			priorResp, err := validateOldObject(v.log, v.rclient, v.ctx, v.rule)
+			priorResp, err := validateOldObject(ctx, v.log, v.rclient, v.ctx, v.rule)
 			if err != nil {
 				return ruleError(v.rule, response.Validation, "failed to validate old object", err)
 			}
@@ -286,8 +286,8 @@ func (v *validator) validate() *response.RuleResponse {
 	return nil
 }
 
-func (v *validator) validateForEach() *response.RuleResponse {
-	if err := v.loadContext(); err != nil {
+func (v *validator) validateForEach(ctx context.Context) *response.RuleResponse {
+	if err := v.loadContext(ctx); err != nil {
 		return ruleError(v.rule, response.Validation, "failed to load context", err)
 	}
 
@@ -310,7 +310,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}
-		resp, count := v.validateElements(foreach, elements, foreach.ElementScope)
+		resp, count := v.validateElements(ctx, foreach, elements, foreach.ElementScope)
 		if resp.Status != response.RuleStatusPass {
 			return resp
 		}
@@ -325,7 +325,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(*v.rule, response.Validation, "rule passed", response.RuleStatusPass, nil)
 }
 
-func (v *validator) validateElements(foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
+func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
 	v.ctx.jsonContext.Checkpoint()
 	defer v.ctx.jsonContext.Restore()
 	applyCount := 0
@@ -337,14 +337,14 @@ func (v *validator) validateElements(foreach kyvernov1.ForEachValidation, elemen
 		store.SetForeachElement(i)
 		v.ctx.jsonContext.Reset()
 
-		ctx := v.ctx.Copy()
-		if err := addElementToContext(ctx, e, i, elementScope); err != nil {
+		enginectx := v.ctx.Copy()
+		if err := addElementToContext(enginectx, e, i, elementScope); err != nil {
 			v.log.Error(err, "failed to add element to context")
 			return ruleError(v.rule, response.Validation, "failed to process foreach", err), applyCount
 		}
 
-		foreachValidator := newForeachValidator(v.log, v.rclient, foreach, v.rule, ctx)
-		r := foreachValidator.validate()
+		foreachValidator := newForeachValidator(v.log, v.rclient, foreach, v.rule, enginectx)
+		r := foreachValidator.validate(ctx)
 		if r == nil {
 			v.log.V(2).Info("skip rule due to empty result")
 			continue
@@ -402,8 +402,8 @@ func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex int, el
 	return nil
 }
 
-func (v *validator) loadContext() error {
-	if err := LoadContext(v.log, v.rclient, v.contextEntries, v.ctx, v.rule.Name); err != nil {
+func (v *validator) loadContext(ctx context.Context) error {
+	if err := LoadContext(ctx, v.log, v.rclient, v.contextEntries, v.ctx, v.rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			v.log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {

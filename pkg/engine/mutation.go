@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -18,14 +19,14 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.policy
 	resp = &response.EngineResponse{
 		Policy: policy,
 	}
 	matchedResource := policyContext.newResource
-	ctx := policyContext.jsonContext
+	enginectx := policyContext.jsonContext
 	var skippedRules []string
 
 	logger := logging.WithName("EngineMutate").WithValues("policy", policy.GetName(), "kind", matchedResource.GetKind(),
@@ -63,14 +64,14 @@ func Mutate(rclient registryclient.Client, policyContext *PolicyContext) (resp *
 		resource, err := policyContext.jsonContext.Query("request.object")
 		policyContext.jsonContext.Reset()
 		if err == nil && resource != nil {
-			if err := ctx.AddResource(resource.(map[string]interface{})); err != nil {
+			if err := enginectx.AddResource(resource.(map[string]interface{})); err != nil {
 				logger.Error(err, "unable to update resource object")
 			}
 		} else {
 			logger.Error(err, "failed to query resource object")
 		}
 
-		if err := LoadContext(logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+		if err := LoadContext(ctx, logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 			if _, ok := err.(gojmespath.NotFoundError); ok {
 				logger.V(3).Info("failed to load context", "reason", err.Error())
 			} else {
@@ -109,7 +110,7 @@ func Mutate(rclient registryclient.Client, policyContext *PolicyContext) (resp *
 			logger.V(4).Info("apply rule to resource", "rule", rule.Name, "resource namespace", patchedResource.GetNamespace(), "resource name", patchedResource.GetName())
 			var ruleResp *response.RuleResponse
 			if rule.Mutation.ForEachMutation != nil {
-				ruleResp, patchedResource = mutateForEach(rclient, ruleCopy, policyContext, patchedResource, logger)
+				ruleResp, patchedResource = mutateForEach(ctx, rclient, ruleCopy, policyContext, patchedResource, logger)
 			} else {
 				ruleResp, patchedResource = mutateResource(ruleCopy, policyContext, patchedResource, logger)
 			}
@@ -159,7 +160,7 @@ func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructu
 	return ruleResp, mutateResp.PatchedResource
 }
 
-func mutateForEach(rclient registryclient.Client, rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
+func mutateForEach(ctx context.Context, rclient registryclient.Client, rule *kyvernov1.Rule, enginectx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
 	foreachList := rule.Mutation.ForEachMutation
 	if foreachList == nil {
 		return nil, resource
@@ -170,12 +171,12 @@ func mutateForEach(rclient registryclient.Client, rule *kyvernov1.Rule, ctx *Pol
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range foreachList {
-		if err := LoadContext(logger, rclient, rule.Context, ctx, rule.Name); err != nil {
+		if err := LoadContext(ctx, logger, rclient, rule.Context, enginectx, rule.Name); err != nil {
 			logger.Error(err, "failed to load context")
 			return ruleError(rule, response.Mutation, "failed to load context", err), resource
 		}
 
-		preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
+		preconditionsPassed, err := checkPreconditions(logger, enginectx, rule.GetAnyAllConditions())
 		if err != nil {
 			return ruleError(rule, response.Mutation, "failed to evaluate preconditions", err), resource
 		}
@@ -184,13 +185,13 @@ func mutateForEach(rclient registryclient.Client, rule *kyvernov1.Rule, ctx *Pol
 			return ruleResponse(*rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &patchedResource), resource
 		}
 
-		elements, err := evaluateList(foreach.List, ctx.jsonContext)
+		elements, err := evaluateList(foreach.List, enginectx.jsonContext)
 		if err != nil {
 			msg := fmt.Sprintf("failed to evaluate list %s", foreach.List)
 			return ruleError(rule, response.Mutation, msg, err), resource
 		}
 
-		mutateResp := mutateElements(rclient, rule.Name, foreach, ctx, elements, patchedResource, logger)
+		mutateResp := mutateElements(ctx, rclient, rule.Name, foreach, enginectx, elements, patchedResource, logger)
 		if mutateResp.Status == response.RuleStatusError {
 			logger.Error(err, "failed to mutate elements")
 			return buildRuleResponse(rule, mutateResp, nil), resource
@@ -214,9 +215,9 @@ func mutateForEach(rclient registryclient.Client, rule *kyvernov1.Rule, ctx *Pol
 	return r, patchedResource
 }
 
-func mutateElements(rclient registryclient.Client, name string, foreach kyvernov1.ForEachMutation, ctx *PolicyContext, elements []interface{}, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
-	ctx.jsonContext.Checkpoint()
-	defer ctx.jsonContext.Restore()
+func mutateElements(ctx context.Context, rclient registryclient.Client, name string, foreach kyvernov1.ForEachMutation, enginectx *PolicyContext, elements []interface{}, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
+	enginectx.jsonContext.Checkpoint()
+	defer enginectx.jsonContext.Restore()
 
 	patchedResource := resource
 	var allPatches [][]byte
@@ -228,19 +229,19 @@ func mutateElements(rclient registryclient.Client, name string, foreach kyvernov
 		if e == nil {
 			continue
 		}
-		ctx.jsonContext.Reset()
-		ctx := ctx.Copy()
+		enginectx.jsonContext.Reset()
+		enginectx := enginectx.Copy()
 		store.SetForeachElement(i)
 		falseVar := false
-		if err := addElementToContext(ctx, e, i, &falseVar); err != nil {
+		if err := addElementToContext(enginectx, e, i, &falseVar); err != nil {
 			return mutateError(err, fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i))
 		}
 
-		if err := LoadContext(logger, rclient, foreach.Context, ctx, name); err != nil {
+		if err := LoadContext(ctx, logger, rclient, foreach.Context, enginectx, name); err != nil {
 			return mutateError(err, fmt.Sprintf("failed to load to mutate.foreach[%d].context", i))
 		}
 
-		preconditionsPassed, err := checkPreconditions(logger, ctx, foreach.AnyAllConditions)
+		preconditionsPassed, err := checkPreconditions(logger, enginectx, foreach.AnyAllConditions)
 		if err != nil {
 			return mutateError(err, fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", i))
 		}
@@ -250,7 +251,7 @@ func mutateElements(rclient registryclient.Client, name string, foreach kyvernov
 			continue
 		}
 
-		mutateResp := mutate.ForEach(name, foreach, ctx.jsonContext, patchedResource, logger)
+		mutateResp := mutate.ForEach(name, foreach, enginectx.jsonContext, patchedResource, logger)
 		if mutateResp.Status == response.RuleStatusFail || mutateResp.Status == response.RuleStatusError {
 			return mutateResp
 		}

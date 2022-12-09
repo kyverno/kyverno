@@ -94,7 +94,7 @@ func mutation(
 		WithNamespaceLabels(namespaceLabels).
 		WithNewResource(resource)
 
-	engineResponse := engine.Mutate(rclient, policyContext)
+	engineResponse := engine.Mutate(context.TODO(), rclient, policyContext)
 	if !engineResponse.IsSuccessful() {
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil

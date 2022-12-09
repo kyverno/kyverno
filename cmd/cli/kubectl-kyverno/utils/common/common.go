@@ -458,7 +458,7 @@ OuterLoop:
 		WithAdmissionInfo(c.UserInfo).
 		WithClient(c.Client)
 
-	mutateResponse := engine.Mutate(registryclient.NewOrDie(), policyContext)
+	mutateResponse := engine.Mutate(context.Background(), registryclient.NewOrDie(), policyContext)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}

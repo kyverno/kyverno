@@ -146,7 +146,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 
 	policyContext := engine.NewPolicyContext().WithPolicy(policy).WithNewResource(*resource)
 
-	er := engine.Mutate(registryclient.NewOrDie(), policyContext)
+	er := engine.Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
