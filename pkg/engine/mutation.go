@@ -126,7 +126,7 @@ func Mutate(rclient registryclient.Client, policyContext *PolicyContext) (resp *
 			}
 
 			matchedResource = mutateResp.PatchedResource
-			ruleResponse := buildRuleResponse(ruleCopy, mutateResp, &patchedResource)
+			ruleResponse := buildRuleResponse(ruleCopy, mutateResp)
 
 			if ruleResponse != nil {
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResponse)
@@ -163,7 +163,7 @@ func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructu
 	}
 
 	if !preconditionsPassed {
-		return mutate.NewResponse(response.RuleStatusSkip, unstructured.Unstructured{}, nil, "preconditions not met")
+		return mutate.NewResponse(response.RuleStatusSkip, resource, nil, "preconditions not met")
 	}
 
 	return mutate.Mutate(rule, ctx.JSONContext(), resource, logger)
@@ -196,7 +196,7 @@ func (f *forEachMutator) mutateForEach() *mutate.Response {
 		}
 
 		if !preconditionsPassed {
-			return mutate.NewResponse(response.RuleStatusSkip, unstructured.Unstructured{}, nil, "preconditions not met")
+			return mutate.NewResponse(response.RuleStatusSkip, f.resource, nil, "preconditions not met")
 		}
 
 		elements, err := evaluateList(foreach.List, f.ctx.JSONContext())
@@ -301,8 +301,8 @@ func (f *forEachMutator) mutateElements(foreach kyvernov1.ForEachMutation, eleme
 	return mutate.NewResponse(response.RuleStatusPass, patchedResource, allPatches, "")
 }
 
-func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, patchedResource *unstructured.Unstructured) *response.RuleResponse {
-	resp := ruleResponse(*rule, response.Mutation, mutateResp.Message, mutateResp.Status, patchedResource)
+func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response) *response.RuleResponse {
+	resp := ruleResponse(*rule, response.Mutation, mutateResp.Message, mutateResp.Status, &mutateResp.PatchedResource)
 	if resp.Status == response.RuleStatusPass {
 		resp.Patches = mutateResp.Patches
 		resp.Message = buildSuccessMessage(mutateResp.PatchedResource)
