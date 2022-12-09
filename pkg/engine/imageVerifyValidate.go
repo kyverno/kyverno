@@ -15,20 +15,20 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func processImageValidationRule(log logr.Logger, rclient registryclient.Client, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
-	if isDeleteRequest(ctx) {
+func processImageValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+	if isDeleteRequest(enginectx) {
 		return nil
 	}
 
 	log = log.WithValues("rule", rule.Name)
-	matchingImages, _, err := extractMatchingImages(ctx, rule)
+	matchingImages, _, err := extractMatchingImages(enginectx, rule)
 	if err != nil {
 		return ruleResponse(*rule, response.Validation, err.Error(), response.RuleStatusError, nil)
 	}
 	if len(matchingImages) == 0 {
 		return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusSkip, nil)
 	}
-	if err := LoadContext(context.TODO(), log, rclient, rule.Context, ctx, rule.Name); err != nil {
+	if err := LoadContext(ctx, log, rclient, rule.Context, enginectx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
@@ -38,13 +38,13 @@ func processImageValidationRule(log logr.Logger, rclient registryclient.Client, 
 		return ruleError(rule, response.Validation, "failed to load context", err)
 	}
 
-	preconditionsPassed, err := checkPreconditions(log, ctx, rule.RawAnyAllConditions)
+	preconditionsPassed, err := checkPreconditions(log, enginectx, rule.RawAnyAllConditions)
 	if err != nil {
 		return ruleError(rule, response.Validation, "failed to evaluate preconditions", err)
 	}
 
 	if !preconditionsPassed {
-		if ctx.policy.GetSpec().ValidationFailureAction.Audit() {
+		if enginectx.policy.GetSpec().ValidationFailureAction.Audit() {
 			return nil
 		}
 
@@ -53,7 +53,7 @@ func processImageValidationRule(log logr.Logger, rclient registryclient.Client, 
 
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
-		for _, infoMap := range ctx.jsonContext.ImageInfo() {
+		for _, infoMap := range enginectx.jsonContext.ImageInfo() {
 			for name, imageInfo := range infoMap {
 				image := imageInfo.String()
 				log = log.WithValues("rule", rule.Name)
@@ -64,7 +64,7 @@ func processImageValidationRule(log logr.Logger, rclient registryclient.Client, 
 				}
 
 				log.V(4).Info("validating image", "image", image)
-				if err := validateImage(ctx, imageVerify, name, imageInfo, log); err != nil {
+				if err := validateImage(enginectx, imageVerify, name, imageInfo, log); err != nil {
 					return ruleResponse(*rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
 				}
 			}

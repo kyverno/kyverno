@@ -50,7 +50,7 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 		}
 		spec := policy.GetSpec()
 		if spec.HasVerifyImages() {
-			ivResponse, err := s.validateImages(resource, nsLabels, policy)
+			ivResponse, err := s.validateImages(ctx, resource, nsLabels, policy)
 			if err != nil {
 				s.logger.Error(err, "failed to scan images")
 				errors = append(errors, err)
@@ -89,27 +89,27 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 	return engine.Validate(ctx, s.rclient, policyCtx), nil
 }
 
-func (s *scanner) validateImages(resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
-	ctx := enginecontext.NewContext()
-	if err := ctx.AddResource(resource.Object); err != nil {
+func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
+	enginectx := enginecontext.NewContext()
+	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}
-	if err := ctx.AddNamespace(resource.GetNamespace()); err != nil {
+	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
 	}
-	if err := ctx.AddImageInfos(&resource); err != nil {
+	if err := enginectx.AddImageInfos(&resource); err != nil {
 		return nil, err
 	}
-	if err := ctx.AddOperation("CREATE"); err != nil {
+	if err := enginectx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
-	policyCtx := engine.NewPolicyContextWithJsonContext(ctx).
+	policyCtx := engine.NewPolicyContextWithJsonContext(enginectx).
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...)
-	response, _ := engine.VerifyAndPatchImages(context.TODO(), s.rclient, policyCtx)
+	response, _ := engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}

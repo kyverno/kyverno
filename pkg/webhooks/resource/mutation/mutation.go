@@ -30,14 +30,7 @@ type MutationHandler interface {
 	// HandleMutation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleMutation(
-		context.Context,
-		*admissionv1.AdmissionRequest,
-		[]kyvernov1.PolicyInterface,
-		*engine.PolicyContext,
-		// map[string]string,
-		time.Time,
-	) ([]byte, []string, error)
+	HandleMutation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time) ([]byte, []string, error)
 }
 
 func NewMutationHandler(

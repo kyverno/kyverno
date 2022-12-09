@@ -23,12 +23,7 @@ import (
 )
 
 type ImageVerificationHandler interface {
-	Handle(
-		context.Context,
-		*admissionv1.AdmissionRequest,
-		[]kyvernov1.PolicyInterface,
-		*engine.PolicyContext,
-	) ([]byte, []string, error)
+	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext) ([]byte, []string, error)
 }
 
 type imageVerificationHandler struct {
@@ -69,7 +64,13 @@ func (h *imageVerificationHandler) Handle(
 	return imagePatches, warnings, nil
 }
 
-func (h *imageVerificationHandler) handleVerifyImages(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) (bool, string, []byte, []string) {
+func (h *imageVerificationHandler) handleVerifyImages(
+	ctx context.Context,
+	logger logr.Logger,
+	request *admissionv1.AdmissionRequest,
+	policyContext *engine.PolicyContext,
+	policies []kyvernov1.PolicyInterface,
+) (bool, string, []byte, []string) {
 	if len(policies) == 0 {
 		return true, "", nil, nil
 	}
@@ -109,7 +110,7 @@ func (h *imageVerificationHandler) handleVerifyImages(ctx context.Context, logge
 		}
 	}
 
-	go h.handleAudit(policyContext.NewResource(), request, nil, engineResponses...)
+	go h.handleAudit(context.TODO(), policyContext.NewResource(), request, nil, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", jsonutils.JoinPatches(patches...), warnings
@@ -134,6 +135,7 @@ func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 }
 
 func (v *imageVerificationHandler) handleAudit(
+	ctx context.Context,
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,

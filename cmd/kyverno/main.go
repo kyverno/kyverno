@@ -62,7 +62,7 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
-func setupRegistryClient(logger logr.Logger, lister corev1listers.SecretNamespaceLister, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
+func setupRegistryClient(ctx context.Context, logger logr.Logger, lister corev1listers.SecretNamespaceLister, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
 	logger = logger.WithName("registry-client")
 	logger.Info("setup registry client...", "secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
 	registryOptions := []registryclient.Option{
@@ -70,11 +70,7 @@ func setupRegistryClient(logger logr.Logger, lister corev1listers.SecretNamespac
 	}
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
-		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(
-			context.TODO(),
-			lister,
-			secrets...,
-		))
+		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, lister, secrets...))
 	}
 	if allowInsecureRegistry {
 		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
@@ -417,7 +413,7 @@ func main() {
 	}
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	// setup registry client
-	rclient, err := setupRegistryClient(logger, secretLister, imagePullSecrets, allowInsecureRegistry)
+	rclient, err := setupRegistryClient(signalCtx, logger, secretLister, imagePullSecrets, allowInsecureRegistry)
 	if err != nil {
 		logger.Error(err, "failed to setup registry client")
 		os.Exit(1)
