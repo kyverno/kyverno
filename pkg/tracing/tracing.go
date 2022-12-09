@@ -189,3 +189,8 @@ func SetHttpStatus(ctx context.Context, err error, code int) {
 		span.SetStatus(codes.Ok, http.StatusText(code))
 	}
 }
+
+func IsInSpan(ctx context.Context) bool {
+	span := trace.SpanFromContext(ctx)
+	return span.IsRecording()
+}

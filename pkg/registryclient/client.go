@@ -18,6 +18,7 @@ import (
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/sigstore/cosign/pkg/oci/remote"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -95,7 +96,7 @@ func New(options ...Option) (Client, error) {
 		pullSecretRefresher: cfg.pullSecretRefresher,
 	}
 	if cfg.tracing {
-		c.transport = tracing.Transport(cfg.transport)
+		c.transport = tracing.Transport(cfg.transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan))
 	}
 	return c, nil
 }
@@ -135,18 +136,19 @@ func WithAllowInsecureRegistry() Option {
 	}
 }
 
-func WithTracing() Option {
-	return func(c *config) error {
-		c.tracing = true
-		return nil
-	}
-}
-
 // WithLocalKeychain provides initialize keychain with the default local keychain.
 func WithLocalKeychain() Option {
 	return func(c *config) error {
 		c.pullSecretRefresher = nil
 		c.keychain = authn.DefaultKeychain
+		return nil
+	}
+}
+
+// WithTracing enables tracing in the http client.
+func WithTracing() Option {
+	return func(c *config) error {
+		c.tracing = true
 		return nil
 	}
 }

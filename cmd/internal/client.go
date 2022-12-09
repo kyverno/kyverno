@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	meta "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -26,14 +26,7 @@ func CreateClientConfig(logger logr.Logger) *rest.Config {
 	checkError(logger, err, "failed to create rest client configuration")
 	clientConfig.Wrap(
 		func(base http.RoundTripper) http.RoundTripper {
-			return otelhttp.NewTransport(
-				base,
-				otelhttp.WithSpanNameFormatter(
-					func(_ string, request *http.Request) string {
-						return fmt.Sprintf("HTTP %s %s", request.Method, request.URL.Path)
-					},
-				),
-			)
+			return tracing.Transport(base, otelhttp.WithFilter(tracing.RequestFilterIsInSpan))
 		},
 	)
 	return clientConfig

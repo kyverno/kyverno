@@ -13,6 +13,10 @@ var defaultSpanFormatter = otelhttp.WithSpanNameFormatter(
 	},
 )
 
+func RequestFilterIsInSpan(request *http.Request) bool {
+	return IsInSpan(request.Context())
+}
+
 func Transport(base http.RoundTripper, opts ...otelhttp.Option) *otelhttp.Transport {
 	o := []otelhttp.Option{defaultSpanFormatter}
 	o = append(o, opts...)
