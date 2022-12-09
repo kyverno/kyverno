@@ -1867,7 +1867,6 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment", "Pods"},
@@ -1881,7 +1880,6 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
-
 }
 
 // Match resource name
@@ -1927,7 +1925,6 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -1986,7 +1983,6 @@ func TestResourceDescriptionMatch_GenerateName(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2046,7 +2042,6 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2105,7 +2100,6 @@ func TestResourceDescriptionMatch_GenerateName_Regex(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2165,7 +2159,6 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2233,7 +2226,6 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2303,7 +2295,6 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2331,8 +2322,10 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		},
 	}
 
-	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription},
-		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude}}
+	rule := v1.Rule{
+		MatchResources:   v1.MatchResources{ResourceDescription: resourceDescription},
+		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
+	}
 
 	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
@@ -2340,7 +2333,6 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 }
 
 func TestWildCardLabels(t *testing.T) {
-
 	testSelector(t, &metav1.LabelSelector{}, map[string]string{}, true)
 
 	testSelector(t, &metav1.LabelSelector{}, map[string]string{"foo": "bar"}, true)
@@ -2386,7 +2378,6 @@ func testSelector(t *testing.T, s *metav1.LabelSelector, l map[string]string, ma
 }
 
 func TestWildCardAnnotation(t *testing.T) {
-
 	// test single annotation values
 	testAnnotationMatch(t, map[string]string{}, map[string]string{}, true)
 	testAnnotationMatch(t, map[string]string{"test/*": "*"}, map[string]string{}, false)

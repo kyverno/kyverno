@@ -170,7 +170,6 @@ func Test_CosignMockAttest_fail(t *testing.T) {
 }
 
 func buildContext(t *testing.T, policy, resource string, oldResource string) *PolicyContext {
-
 	var cpol kyverno.ClusterPolicy
 	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
@@ -406,8 +405,10 @@ var testConfigMapMissingResource = `{
     }
 }`
 
-var testVerifyImageKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----\n`
-var testOtherKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpNlOGZ323zMlhs4bcKSpAKQvbcWi5ZLRmijm6SqXDy0Fp0z0Eal+BekFnLzs8rUXUaXlhZ3hNudlgFJH+nFNMw==\n-----END PUBLIC KEY-----\n`
+var (
+	testVerifyImageKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----\n`
+	testOtherKey       = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpNlOGZ323zMlhs4bcKSpAKQvbcWi5ZLRmijm6SqXDy0Fp0z0Eal+BekFnLzs8rUXUaXlhZ3hNudlgFJH+nFNMw==\n-----END PUBLIC KEY-----\n`
+)
 
 func Test_ConfigMapMissingSuccess(t *testing.T) {
 	policyContext := buildContext(t, testConfigMapMissing, testConfigMapMissingResource, "")

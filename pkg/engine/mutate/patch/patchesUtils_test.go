@@ -11,7 +11,6 @@ import (
 )
 
 func Test_GeneratePatches(t *testing.T) {
-
 	out, err := strategicMergePatch(logging.GlobalLogger(), string(baseBytes), string(overlayBytes))
 	assert.NilError(t, err)
 
@@ -225,7 +224,6 @@ func Test_GeneratePatches_sortRemovalPatches(t *testing.T) {
 	fmt.Println(patches)
 	assertnew.Nil(t, err)
 	assertnew.Equal(t, expectedPatches, patches)
-
 }
 
 func Test_sortRemovalPatches(t *testing.T) {

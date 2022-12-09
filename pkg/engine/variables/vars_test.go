@@ -365,7 +365,7 @@ func Test_subVars_withRegexReplaceAll(t *testing.T) {
 func Test_ReplacingPathWhenDeleting(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.annotations.target}}"`)
 
-	var resourceRaw = []byte(`
+	resourceRaw := []byte(`
 	{
 		"request": {
 			"operation": "DELETE",
@@ -408,7 +408,7 @@ func Test_ReplacingPathWhenDeleting(t *testing.T) {
 func Test_ReplacingNestedVariableWhenDeleting(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.annotations.{{request.object.metadata.annotations.targetnew}}}}"`)
 
-	var resourceRaw = []byte(`
+	resourceRaw := []byte(`
 	{
 		"request":{
 		   "operation":"DELETE",
@@ -468,8 +468,8 @@ func Test_SubstituteSuccess(t *testing.T) {
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
-		Path:     "/"})
-
+		Path:     "/",
+	})
 	if err != nil {
 		t.Errorf("substitution failed: %v", err.Error())
 		return
@@ -492,7 +492,8 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
-		Path:     "/"})
+		Path:     "/",
+	})
 
 	if err == nil {
 		t.Errorf("expected error but received: %v", results)
@@ -505,7 +506,8 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	results, err = action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
-		Path:     "/"})
+		Path:     "/",
+	})
 
 	if err == nil {
 		t.Errorf("expected error but received: %v", results)
@@ -524,8 +526,8 @@ func Test_SubstituteRecursive(t *testing.T) {
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
-		Path:     "/"})
-
+		Path:     "/",
+	})
 	if err != nil {
 		t.Errorf("substitution failed: %v", err.Error())
 		return
@@ -1146,7 +1148,7 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 	patternRaw := []byte(`"\\{{request.object.metadata.annotations.{{request.object.metadata.annotations.targetnew}}}}"`)
 
-	var resourceRaw = []byte(`
+	resourceRaw := []byte(`
 	{
 		"request":{
 		   "operation":"DELETE",
