@@ -381,13 +381,11 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 
 		matches := common.HasVariables(policy)
 		variable := common.RemoveDuplicateAndObjectVariables(matches)
-		if len(variable) > 0 {
-			if len(variables) == 0 {
-				// check policy in variable file
-				if c.ValuesFile == "" || valuesMap[policy.GetName()] == nil {
-					skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.GetName())
-					continue
-				}
+		if len(variables) == 0 {
+			// check policy in variable file
+			if c.ValuesFile == "" || valuesMap[policy.GetName()] == nil {
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, policy.GetName())
+				continue
 			}
 		}
 
