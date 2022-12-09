@@ -112,7 +112,7 @@ spec:
               {{ tpl (toYaml .Values.extraArgs) . | nindent 12 }}
             {{- end }}
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
-            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) -}}
+            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
           {{- end }}
           {{- with .Values.resources }}
