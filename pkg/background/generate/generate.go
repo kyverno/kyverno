@@ -442,7 +442,7 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 		var err error
 		var mode ResourceMode
 
-		list := engine.evaluateList(fe.List, ctx)
+		list := engine.RunEvaluateList(fe.List, ctx)
 
 		// list = strings.Split(fe.List, ",")
 		// for i, listString := range list {

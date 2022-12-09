@@ -338,6 +338,10 @@ func checkPreconditions(logger logr.Logger, ctx *PolicyContext, anyAllConditions
 	return pass, nil
 }
 
+func RunEvaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, error) {
+	return evaluateList(jmesPath, ctx)
+}
+
 func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, error) {
 	i, err := ctx.Query(jmesPath)
 	if err != nil {
