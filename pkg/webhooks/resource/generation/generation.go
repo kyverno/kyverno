@@ -32,14 +32,8 @@ import (
 
 type GenerationHandler interface {
 	// TODO: why do we need to expose that ?
-	HandleUpdatesForGenerateRules(*admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface)
-	Handle(
-		metrics.MetricsConfigManager,
-		*admissionv1.AdmissionRequest,
-		[]kyvernov1.PolicyInterface,
-		*engine.PolicyContext,
-		time.Time,
-	)
+	HandleUpdatesForGenerateRules(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface)
+	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time)
 }
 
 func NewGenerationHandler(
@@ -52,6 +46,7 @@ func NewGenerationHandler(
 	urGenerator webhookgenerate.Generator,
 	urUpdater webhookutils.UpdateRequestUpdater,
 	eventGen event.Interface,
+	metrics metrics.MetricsConfigManager,
 ) GenerationHandler {
 	return &generationHandler{
 		log:           log,
@@ -63,6 +58,7 @@ func NewGenerationHandler(
 		urGenerator:   urGenerator,
 		urUpdater:     urUpdater,
 		eventGen:      eventGen,
+		metrics:       metrics,
 	}
 }
 
@@ -76,11 +72,12 @@ type generationHandler struct {
 	urGenerator   webhookgenerate.Generator
 	urUpdater     webhookutils.UpdateRequestUpdater
 	eventGen      event.Interface
+	metrics       metrics.MetricsConfigManager
 }
 
 // Handle handles admission-requests for policies with generate rules
 func (h *generationHandler) Handle(
-	metricsConfig metrics.MetricsConfigManager,
+	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -112,9 +109,9 @@ func (h *generationHandler) Handle(
 			}
 
 			// registering the kyverno_policy_results_total metric concurrently
-			go webhookutils.RegisterPolicyResultsMetricGeneration(context.TODO(), h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
+			go webhookutils.RegisterPolicyResultsMetricGeneration(context.TODO(), h.log, h.metrics, string(request.Operation), policy, *engineResponse)
 			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(context.TODO(), h.log, metricsConfig, string(request.Operation), policy, *engineResponse)
+			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(context.TODO(), h.log, h.metrics, string(request.Operation), policy, *engineResponse)
 		}
 
 		if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Generate, h.urGenerator, policyContext.AdmissionInfo(), request.Operation, engineResponses...); failedResponse != nil {
@@ -129,12 +126,12 @@ func (h *generationHandler) Handle(
 	}
 
 	if request.Operation == admissionv1.Update {
-		h.HandleUpdatesForGenerateRules(request, policies)
+		h.HandleUpdatesForGenerateRules(ctx, request, policies)
 	}
 }
 
 // HandleUpdatesForGenerateRules handles admission-requests for update
-func (h *generationHandler) HandleUpdatesForGenerateRules(request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface) {
+func (h *generationHandler) HandleUpdatesForGenerateRules(ctx context.Context, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface) {
 	if request.Operation != admissionv1.Update {
 		return
 	}
