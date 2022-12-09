@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	TracerName = "kyverno"
 	// engine attributes
 	PolicyGroupKey     = attribute.Key("kyverno.policy.group")
 	PolicyVersionKey   = attribute.Key("kyverno.policy.version")
@@ -78,16 +79,13 @@ const (
 // NewTraceConfig generates the initial tracing configuration with 'address' as the endpoint to connect to the Opentelemetry Collector
 func NewTraceConfig(log logr.Logger, address, certs string, kubeClient kubernetes.Interface) (func(), error) {
 	ctx := context.Background()
-
 	var client otlptrace.Client
-
 	if certs != "" {
 		// here the certificates are stored as configmaps
 		transportCreds, err := kube.FetchCert(ctx, certs, kubeClient)
 		if err != nil {
 			log.Error(err, "Error fetching certificate from secret")
 		}
-
 		client = otlptracegrpc.NewClient(
 			otlptracegrpc.WithEndpoint(address),
 			otlptracegrpc.WithTLSCredentials(transportCreds),
@@ -98,19 +96,17 @@ func NewTraceConfig(log logr.Logger, address, certs string, kubeClient kubernete
 			otlptracegrpc.WithInsecure(),
 		)
 	}
-
 	// create New Exporter for exporting metrics
 	traceExp, err := otlptrace.New(ctx, client)
 	if err != nil {
 		log.Error(err, "Failed to create the collector exporter")
 		return nil, err
 	}
-
 	res, err := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("kyverno"),
+			semconv.ServiceNameKey.String(TracerName),
 			semconv.ServiceVersionKey.String(version.BuildVersion),
 		),
 	)
@@ -118,13 +114,11 @@ func NewTraceConfig(log logr.Logger, address, certs string, kubeClient kubernete
 		log.Error(err, "failed creating resource")
 		return nil, err
 	}
-
 	// create controller and bind the exporter with it
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(traceExp),
 		sdktrace.WithResource(res),
 	)
-
 	// set global propagator to tracecontext (the default is no-op).
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 	otel.SetTracerProvider(tp)
