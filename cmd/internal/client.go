@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -12,6 +13,8 @@ import (
 	kyverno "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	meta "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
@@ -21,6 +24,11 @@ import (
 func CreateClientConfig(logger logr.Logger) *rest.Config {
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	checkError(logger, err, "failed to create rest client configuration")
+	clientConfig.Wrap(
+		func(base http.RoundTripper) http.RoundTripper {
+			return tracing.Transport(base, otelhttp.WithFilter(tracing.RequestFilterIsInSpan))
+		},
+	)
 	return clientConfig
 }
 
