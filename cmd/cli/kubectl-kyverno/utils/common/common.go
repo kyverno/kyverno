@@ -447,7 +447,7 @@ OuterLoop:
 		}
 	}
 
-	if err := engineContext.MutateResourceWithImageInfo(context.TODO(), resourceRaw, ctx); err != nil {
+	if err := engineContext.MutateResourceWithImageInfo(resourceRaw, ctx); err != nil {
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 

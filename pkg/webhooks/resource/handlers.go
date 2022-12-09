@@ -164,7 +164,7 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 		return admissionutils.Response(request.UID, err)
 	}
 	// update container images to a canonical form
-	if err := enginectx.MutateResourceWithImageInfo(ctx, request.Object.Raw, policyContext.JSONContext()); err != nil {
+	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext()); err != nil {
 		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
 	mh := mutation.NewMutationHandler(logger, h.rclient, h.eventGen, h.openApiManager, h.nsLister, h.metricsConfig)
