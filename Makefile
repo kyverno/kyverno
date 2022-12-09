@@ -30,6 +30,7 @@ REPO_KYVERNOPRE      := $(REGISTRY)/$(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO         := $(REGISTRY)/$(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI             := $(REGISTRY)/$(REPO)/$(CLI_IMAGE)
 REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(KYVERNO_CLEANUP)
+USE_CONFIG           ?= standard
 
 #########
 # TOOLS #
@@ -695,7 +696,7 @@ test-perf: $(PACKAGE_SHIM)
 .PHONY: kind-create-cluster
 kind-create-cluster: $(KIND) ## Create kind cluster
 	@echo Create kind cluster... >&2
-	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/kind.yaml
+	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/config/kind.yaml
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: $(KIND) ## Delete kind cluster
@@ -730,7 +731,7 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
-		--values ./scripts/kyverno.yaml
+		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno
 
@@ -738,7 +739,7 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
 	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace --wait ./charts/kyverno-policies \
-		--values ./scripts/kyverno-policies.yaml
+		--values ./scripts/config/$(USE_CONFIG)/kyverno-policies.yaml
 
 .PHONY: kind-deploy-all
 kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
@@ -748,8 +749,43 @@ kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
 	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
-		--values ./scripts/kyverno-reporter.yaml
+		--values ./scripts/config/standard/kyverno-reporter.yaml
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
+
+###########
+# DEV LAB #
+###########
+
+.PHONY: dev-lab-ingress-ngingx
+dev-lab-ingress-ngingx: ## Deploy ingress-ngingx
+	@echo Install ingress-ngingx... >&2
+	@kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+	@sleep 15
+	@kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+
+.PHONY: dev-lab-prometheus
+dev-lab-prometheus: $(HELM) ## Deploy kube-prometheus-stack helm chart
+	@echo Install kube-prometheus-stack chart... >&2
+	@$(HELM) upgrade --install kube-prometheus-stack --namespace monitoring --create-namespace --wait \
+		--repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack \
+		--values ./scripts/config/dev/kube-prometheus-stack.yaml
+
+.PHONY: dev-lab-loki
+dev-lab-loki: $(HELM) ## Deploy loki-stack helm chart
+	@echo Install loki-stack chart... >&2
+	@$(HELM) upgrade --install loki-stack --namespace monitoring --create-namespace --wait \
+		--repo https://grafana.github.io/helm-charts loki-stack \
+		--values ./scripts/config/dev/loki-stack.yaml
+
+.PHONY: dev-lab-tempo
+dev-lab-tempo: $(HELM) ## Deploy tempo helm chart
+	@echo Install tempo chart... >&2
+	@$(HELM) upgrade --install tempo --namespace monitoring --create-namespace --wait \
+		--repo https://grafana.github.io/helm-charts tempo \
+		--values ./scripts/config/dev/tempo.yaml
+
+.PHONY: dev-lab-all
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-prometheus dev-lab-loki dev-lab-tempo
 
 ########
 # HELP #

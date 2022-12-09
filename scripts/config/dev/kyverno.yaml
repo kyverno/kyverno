@@ -1,6 +1,6 @@
 initContainer:
   extraArgs:
-    - --loggingFormat=text
+    - --loggingFormat=json
 
 extraArgs:
   - --loggingFormat=json

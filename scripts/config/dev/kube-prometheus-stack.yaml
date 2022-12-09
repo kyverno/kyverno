@@ -2,8 +2,10 @@ kubeEtcd:
   service:
     enabled: true
     targetPort: 2381
+
 defaultRules:
   create: true
+
 alertmanager:
   alertmanagerSpec:
     routePrefix: /alertmanager
@@ -14,6 +16,7 @@ alertmanager:
   ingress:
     enabled: true
     pathType: Prefix
+
 prometheus:
   prometheusSpec:
     externalUrl: /prometheus
@@ -25,6 +28,7 @@ prometheus:
   ingress:
     enabled: true
     pathType: Prefix
+
 grafana:
   enabled: true
   adminPassword: admin
@@ -45,30 +49,3 @@ grafana:
   ingress:
     enabled: true
     path: /grafana
-
-
-# kubectl apply -f - <<EOF
-# apiVersion: argoproj.io/v1alpha1
-# kind: Application
-# metadata:
-#   name: kube-prometheus-stack
-#   namespace: argocd
-# spec:
-#   destination:
-#     namespace: monitoring
-#     server: https://kubernetes.default.svc
-#   project: default
-#   source:
-#     chart: kube-prometheus-stack
-#     repoURL: https://prometheus-community.github.io/helm-charts
-#     targetRevision: 41.4.1
-#     helm:
-#       values: |
-#   syncPolicy:
-#     automated:
-#       prune: true
-#       selfHeal: true
-#     syncOptions:
-#       - CreateNamespace=true
-#       - Replace=true
-# EOF
