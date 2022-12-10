@@ -270,7 +270,6 @@ func FetchAttestations(ctx context.Context, rclient registryclient.Client, opts 
 			return client.VerifyImageAttestations(ctx, ref, cosignOpts)
 		},
 	)
-
 	if err != nil {
 		msg := err.Error()
 		logger.Info("failed to fetch attestations", "error", msg)
