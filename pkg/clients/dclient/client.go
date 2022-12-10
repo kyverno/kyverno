@@ -42,7 +42,7 @@ type Interface interface {
 	// CreateResource creates object for the specified resource/namespace
 	CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
 	// UpdateResource updates object for the specified resource/namespace
-	UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
+	UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error)
 	// UpdateStatusResource updates the resource "status" subresource
 	UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
 }
@@ -69,7 +69,7 @@ func NewClient(
 		rest: disco.RESTClient(),
 	}
 	// Set discovery client
-	discoveryClient := &serverPreferredResources{
+	discoveryClient := &serverResources{
 		cachedClient: memory.NewMemCacheClient(disco),
 	}
 	// client will invalidate registered resources cache every x seconds,
@@ -175,14 +175,14 @@ func (c *client) CreateResource(ctx context.Context, apiVersion string, kind str
 }
 
 // UpdateResource updates object for the specified resource/namespace
-func (c *client) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+func (c *client) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
 	options := metav1.UpdateOptions{}
 	if dryRun {
 		options = metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj, err := kubeutils.ConvertToUnstructured(obj); err == nil && unstructuredObj != nil {
-		return c.getResourceInterface(apiVersion, kind, namespace).Update(ctx, unstructuredObj, options)
+		return c.getResourceInterface(apiVersion, kind, namespace).Update(ctx, unstructuredObj, options, subresources...)
 	}
 	return nil, fmt.Errorf("unable to update resource ")
 }

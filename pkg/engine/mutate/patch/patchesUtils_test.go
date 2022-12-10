@@ -194,7 +194,7 @@ func Test_ignorePath(t *testing.T) {
 		},
 		{
 			path:   "/status",
-			ignore: true,
+			ignore: false,
 		},
 		{
 			path:   "/spec",

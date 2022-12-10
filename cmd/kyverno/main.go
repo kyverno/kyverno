@@ -34,7 +34,7 @@ import (
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
-	event "github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -110,7 +110,6 @@ func createNonLeaderControllers(
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
 	rclient registryclient.Client,
@@ -120,6 +119,7 @@ func createNonLeaderControllers(
 	manager openapi.Manager,
 ) ([]internal.Controller, func() error) {
 	policyCacheController := policycachecontroller.NewController(
+		dynamicClient,
 		policyCache,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
@@ -479,7 +479,6 @@ func main() {
 		kubeInformer,
 		kubeKyvernoInformer,
 		kyvernoInformer,
-		kubeClient,
 		kyvernoClient,
 		dClient,
 		rclient,
