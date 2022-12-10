@@ -441,8 +441,9 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 		var cresp, dresp map[string]interface{}
 		var err error
 		var mode ResourceMode
+		var list []interface{}
 
-		list := engine.RunEvaluateList(fe.List, ctx)
+		list, err = engine.RunEvaluateList(fe.List, ctx)
 
 		// list = strings.Split(fe.List, ",")
 		// for i, listString := range list {
