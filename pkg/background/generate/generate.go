@@ -440,7 +440,7 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 		rdatas := []GenerateResponse{}
 		var cresp, dresp map[string]interface{}
 		var mode ResourceMode
-		list, err := engine.RunEvaluateList(fe.List, ctx)
+		elements, err := engine.RunEvaluateList(fe.List, ctx)
 
 		genKind, genName, genNamespace, genAPIVersion, err := forEachGetResourceInfoForDataAndClone(fe)
 		logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
