@@ -19,10 +19,8 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/cli/kubectl-kyverno",
             "args": [
-                "apply",
-                "/tmp/policy.yaml",
-                "-r",
-                "/tmp/resource.yaml",
+                "test",
+                "${workspaceFolder}/test/cli/",
             ],
         }
     ]
