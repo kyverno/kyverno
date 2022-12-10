@@ -439,16 +439,8 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 	for _, fe := range rule.Generation.ForEachGeneration {
 		rdatas := []GenerateResponse{}
 		var cresp, dresp map[string]interface{}
-		var err error
 		var mode ResourceMode
-		var list []interface{}
-
-		list, err = engine.RunEvaluateList(fe.List, ctx)
-
-		// list = strings.Split(fe.List, ",")
-		// for i, listString := range list {
-		// 	list[i] = strings.TrimSpace(listString)
-		// }
+		list, err := engine.RunEvaluateList(fe.List, ctx)
 
 		genKind, genName, genNamespace, genAPIVersion, err := forEachGetResourceInfoForDataAndClone(fe)
 		logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
