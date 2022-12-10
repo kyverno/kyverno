@@ -38,7 +38,7 @@ func ForceMutate(ctx context.Interface, policy kyvernov1.PolicyInterface, resour
 		}
 
 		if r.Mutation.ForEachMutation != nil {
-			patchedResource, err = applyForeachMutate(r.Name, r.Mutation.ForEachMutation, patchedResource, ctx, logger)
+			patchedResource, err = applyForEachMutate(r.Name, r.Mutation.ForEachMutation, patchedResource, ctx, logger)
 			if err != nil {
 				return patchedResource, err
 			}
@@ -54,16 +54,16 @@ func ForceMutate(ctx context.Interface, policy kyvernov1.PolicyInterface, resour
 	return patchedResource, nil
 }
 
-func applyForeachMutate(name string, foreach []kyvernov1.ForEachMutation, resource unstructured.Unstructured, ctx context.Interface, logger logr.Logger) (patchedResource unstructured.Unstructured, err error) {
+func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resource unstructured.Unstructured, ctx context.Interface, logger logr.Logger) (patchedResource unstructured.Unstructured, err error) {
 	patchedResource = resource
 	for _, fe := range foreach {
 		if fe.ForEachMutation != nil {
-			nestedForeach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
+			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
 			if err != nil {
 				return patchedResource, errors.Wrapf(err, "failed to deserialize foreach")
 			}
 
-			return applyForeachMutate(name, nestedForeach, patchedResource, ctx, logger)
+			return applyForEachMutate(name, nestedForEach, patchedResource, ctx, logger)
 		}
 
 		patchedResource, err = applyPatches(name, fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, patchedResource, ctx, logger)

@@ -22,7 +22,7 @@ func GetMock() bool {
 	return Mock
 }
 
-func SetForeachElement(foreachElement int) {
+func SetForEachElement(foreachElement int) {
 	ForeachElement = foreachElement
 }
 
