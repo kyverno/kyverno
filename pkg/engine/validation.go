@@ -188,6 +188,7 @@ func newValidator(log logr.Logger, rclient registryclient.Client, ctx *PolicyCon
 		log:              log,
 		rule:             ruleCopy,
 		ctx:              ctx,
+		rclient:          rclient,
 		contextEntries:   ruleCopy.Context,
 		anyAllConditions: ruleCopy.GetAnyAllConditions(),
 		pattern:          ruleCopy.Validation.GetPattern(),
@@ -198,7 +199,7 @@ func newValidator(log logr.Logger, rclient registryclient.Client, ctx *PolicyCon
 	}
 }
 
-func newForeachValidator(foreach kyvernov1.ForEachValidation, nesting int, rule *kyvernov1.Rule, ctx *PolicyContext, log logr.Logger) (*validator, error) {
+func newForeachValidator(foreach kyvernov1.ForEachValidation, rclient registryclient.Client, nesting int, rule *kyvernov1.Rule, ctx *PolicyContext, log logr.Logger) (*validator, error) {
 	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := utils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
@@ -214,6 +215,7 @@ func newForeachValidator(foreach kyvernov1.ForEachValidation, nesting int, rule 
 		log:              log,
 		ctx:              ctx,
 		rule:             ruleCopy,
+		rclient:          rclient,
 		contextEntries:   foreach.Context,
 		anyAllConditions: anyAllConditions,
 		pattern:          foreach.GetPattern(),
@@ -276,7 +278,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 			continue
 		}
 
-		resp, count := v.validateElements(context.TODO(), foreach, elements, foreach.ElementScope)
+		resp, count := v.validateElements(context.TODO(), v.rclient, foreach, elements, foreach.ElementScope)
 		if resp.Status != response.RuleStatusPass {
 			return resp
 		}
@@ -295,7 +297,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(*v.rule, response.Validation, "rule passed", response.RuleStatusPass)
 }
 
-func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
+func (v *validator) validateElements(ctx context.Context, rclient registryclient.Client, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
 	v.ctx.jsonContext.Checkpoint()
 	defer v.ctx.jsonContext.Restore()
 	applyCount := 0
@@ -315,7 +317,7 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 			return ruleError(v.rule, response.Validation, "failed to process foreach", err), applyCount
 		}
 
-		foreachValidator, err := newForeachValidator(foreach, v.nesting+1, v.rule, ctx, v.log)
+		foreachValidator, err := newForeachValidator(foreach, rclient, v.nesting+1, v.rule, ctx, v.log)
 		if err != nil {
 			v.log.Error(err, "failed to create foreach validator")
 			return ruleError(v.rule, response.Validation, "failed to create foreach validator", err), applyCount
