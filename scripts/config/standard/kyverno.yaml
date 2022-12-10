@@ -1,9 +1,9 @@
 initContainer:
   extraArgs:
-    - --loggingFormat=text
+    - --loggingFormat=json
 
 extraArgs:
-  - --loggingFormat=text
+  - --loggingFormat=json
 
 cleanupController:
   rbac:
@@ -13,4 +13,3 @@ cleanupController:
             - ''
           resources:
             - pods
-
