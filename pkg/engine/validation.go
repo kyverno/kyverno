@@ -130,7 +130,7 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 
 		var ruleResp *response.RuleResponse
 		if hasValidate && !hasYAMLSignatureVerify {
-			ruleResp = processValidationRule(log, rclient, enginectx, rule)
+			ruleResp = processValidationRule(ctx, log, rclient, enginectx, rule)
 		} else if hasValidateImage {
 			ruleResp = processImageValidationRule(ctx, log, rclient, enginectx, rule)
 		} else if hasYAMLSignatureVerify {
@@ -148,9 +148,9 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 	return resp
 }
 
-func processValidationRule(log logr.Logger, rclient registryclient.Client, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
-	v := newValidator(log, rclient, ctx, rule)
-	return v.validate(context.TODO())
+func processValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, policyContext *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+	v := newValidator(log, rclient, policyContext, rule)
+	return v.validate(ctx)
 }
 
 func addRuleResponse(log logr.Logger, resp *response.EngineResponse, ruleResp *response.RuleResponse, startTime time.Time) {
@@ -169,7 +169,7 @@ func addRuleResponse(log logr.Logger, resp *response.EngineResponse, ruleResp *r
 
 type validator struct {
 	log              logr.Logger
-	ctx              *PolicyContext
+	policyContext    *PolicyContext
 	rule             *kyvernov1.Rule
 	contextEntries   []kyvernov1.ContextEntry
 	anyAllConditions apiextensions.JSON
@@ -187,7 +187,7 @@ func newValidator(log logr.Logger, rclient registryclient.Client, ctx *PolicyCon
 	return &validator{
 		log:              log,
 		rule:             ruleCopy,
-		ctx:              ctx,
+		policyContext:    ctx,
 		rclient:          rclient,
 		contextEntries:   ruleCopy.Context,
 		anyAllConditions: ruleCopy.GetAnyAllConditions(),
@@ -213,7 +213,7 @@ func newForeachValidator(foreach kyvernov1.ForEachValidation, rclient registrycl
 
 	return &validator{
 		log:              log,
-		ctx:              ctx,
+		policyContext:    ctx,
 		rule:             ruleCopy,
 		rclient:          rclient,
 		contextEntries:   foreach.Context,
@@ -231,7 +231,7 @@ func (v *validator) validate(ctx context.Context) *response.RuleResponse {
 		return ruleError(v.rule, response.Validation, "failed to load context", err)
 	}
 
-	preconditionsPassed, err := checkPreconditions(v.log, v.ctx, v.anyAllConditions)
+	preconditionsPassed, err := checkPreconditions(v.log, v.policyContext, v.anyAllConditions)
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "failed to evaluate preconditions", err)
 	}
@@ -254,14 +254,14 @@ func (v *validator) validate(ctx context.Context) *response.RuleResponse {
 	}
 
 	if v.podSecurity != nil {
-		if !isDeleteRequest(v.ctx) {
+		if !isDeleteRequest(v.policyContext) {
 			ruleResponse := v.validatePodSecurity()
 			return ruleResponse
 		}
 	}
 
 	if v.foreach != nil {
-		ruleResponse := v.validateForEach()
+		ruleResponse := v.validateForEach(ctx)
 		return ruleResponse
 	}
 
@@ -269,16 +269,16 @@ func (v *validator) validate(ctx context.Context) *response.RuleResponse {
 	return nil
 }
 
-func (v *validator) validateForEach() *response.RuleResponse {
+func (v *validator) validateForEach(ctx context.Context) *response.RuleResponse {
 	applyCount := 0
 	for _, foreach := range v.foreach {
-		elements, err := evaluateList(foreach.List, (v.ctx.JSONContext()))
+		elements, err := evaluateList(foreach.List, (v.policyContext.JSONContext()))
 		if err != nil {
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}
 
-		resp, count := v.validateElements(context.TODO(), v.rclient, foreach, elements, foreach.ElementScope)
+		resp, count := v.validateElements(ctx, v.rclient, foreach, elements, foreach.ElementScope)
 		if resp.Status != response.RuleStatusPass {
 			return resp
 		}
@@ -298,8 +298,8 @@ func (v *validator) validateForEach() *response.RuleResponse {
 }
 
 func (v *validator) validateElements(ctx context.Context, rclient registryclient.Client, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
-	v.ctx.jsonContext.Checkpoint()
-	defer v.ctx.jsonContext.Restore()
+	v.policyContext.jsonContext.Checkpoint()
+	defer v.policyContext.jsonContext.Restore()
 	applyCount := 0
 
 	for i, e := range elements {
@@ -310,20 +310,20 @@ func (v *validator) validateElements(ctx context.Context, rclient registryclient
 		// TODO - this needs to be refactored. The engine should not have a dependency to the CLI code
 		store.SetForeachElement(i)
 
-		v.ctx.JSONContext().Reset()
-		ctx := v.ctx.Copy()
-		if err := addElementToContext(ctx, e, i, v.nesting, elementScope); err != nil {
+		v.policyContext.JSONContext().Reset()
+		policyContext := v.policyContext.Copy()
+		if err := addElementToContext(policyContext, e, i, v.nesting, elementScope); err != nil {
 			v.log.Error(err, "failed to add element to context")
 			return ruleError(v.rule, response.Validation, "failed to process foreach", err), applyCount
 		}
 
-		foreachValidator, err := newForeachValidator(foreach, rclient, v.nesting+1, v.rule, ctx, v.log)
+		foreachValidator, err := newForeachValidator(foreach, rclient, v.nesting+1, v.rule, policyContext, v.log)
 		if err != nil {
 			v.log.Error(err, "failed to create foreach validator")
 			return ruleError(v.rule, response.Validation, "failed to create foreach validator", err), applyCount
 		}
 
-		r := foreachValidator.validate(context.TODO())
+		r := foreachValidator.validate(ctx)
 		if r == nil {
 			v.log.V(2).Info("skip rule due to empty result")
 			continue
@@ -382,7 +382,7 @@ func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex, nestin
 }
 
 func (v *validator) loadContext(ctx context.Context) error {
-	if err := LoadContext(ctx, v.log, v.rclient, v.contextEntries, v.ctx, v.rule.Name); err != nil {
+	if err := LoadContext(ctx, v.log, v.rclient, v.contextEntries, v.policyContext, v.rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			v.log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
@@ -397,7 +397,7 @@ func (v *validator) loadContext(ctx context.Context) error {
 
 func (v *validator) validateDeny() *response.RuleResponse {
 	anyAllCond := v.deny.GetAnyAllConditions()
-	anyAllCond, err := variables.SubstituteAll(v.log, v.ctx.jsonContext, anyAllCond)
+	anyAllCond, err := variables.SubstituteAll(v.log, v.policyContext.jsonContext, anyAllCond)
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "failed to substitute variables in deny conditions", err)
 	}
@@ -411,7 +411,7 @@ func (v *validator) validateDeny() *response.RuleResponse {
 		return ruleError(v.rule, response.Validation, "invalid deny conditions", err)
 	}
 
-	deny := variables.EvaluateConditions(v.log, v.ctx.jsonContext, denyConditions)
+	deny := variables.EvaluateConditions(v.log, v.policyContext.jsonContext, denyConditions)
 	if deny {
 		return ruleResponse(*v.rule, response.Validation, v.getDenyMessage(deny), response.RuleStatusFail)
 	}
@@ -429,7 +429,7 @@ func (v *validator) getDenyMessage(deny bool) string {
 		return fmt.Sprintf("validation error: rule %s failed", v.rule.Name)
 	}
 
-	raw, err := variables.SubstituteAll(v.log, v.ctx.jsonContext, msg)
+	raw, err := variables.SubstituteAll(v.log, v.policyContext.jsonContext, msg)
 	if err != nil {
 		return msg
 	}
@@ -438,12 +438,12 @@ func (v *validator) getDenyMessage(deny bool) string {
 }
 
 func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
-	kind := v.ctx.newResource.GetKind()
+	kind := v.policyContext.newResource.GetKind()
 
 	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
 		var deployment appsv1.Deployment
 
-		resourceBytes, err := v.ctx.newResource.MarshalJSON()
+		resourceBytes, err := v.policyContext.newResource.MarshalJSON()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -457,7 +457,7 @@ func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta
 	} else if kind == "CronJob" {
 		var cronJob batchv1.CronJob
 
-		resourceBytes, err := v.ctx.newResource.MarshalJSON()
+		resourceBytes, err := v.policyContext.newResource.MarshalJSON()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -470,7 +470,7 @@ func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta
 	} else if kind == "Pod" {
 		var pod corev1.Pod
 
-		resourceBytes, err := v.ctx.newResource.MarshalJSON()
+		resourceBytes, err := v.policyContext.newResource.MarshalJSON()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -515,16 +515,16 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 }
 
 func (v *validator) validateResourceWithRule() *response.RuleResponse {
-	if !isEmptyUnstructured(&v.ctx.element) {
-		return v.validatePatterns(v.ctx.element)
+	if !isEmptyUnstructured(&v.policyContext.element) {
+		return v.validatePatterns(v.policyContext.element)
 	}
 
-	if isDeleteRequest(v.ctx) {
+	if isDeleteRequest(v.policyContext) {
 		v.log.V(3).Info("skipping validation on deleted resource")
 		return nil
 	}
 
-	resp := v.validatePatterns(v.ctx.newResource)
+	resp := v.validatePatterns(v.policyContext.newResource)
 	return resp
 }
 
@@ -680,7 +680,7 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 		return fmt.Sprintf("validation error: rule %s execution error: %s", v.rule.Name, err.Error())
 	}
 
-	msgRaw, sErr := variables.SubstituteAll(v.log, v.ctx.jsonContext, v.rule.Validation.Message)
+	msgRaw, sErr := variables.SubstituteAll(v.log, v.policyContext.jsonContext, v.rule.Validation.Message)
 	if sErr != nil {
 		v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
 		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, err.Error())
@@ -711,7 +711,7 @@ func buildAnyPatternErrorMessage(rule *kyvernov1.Rule, errors []string) string {
 
 func (v *validator) substitutePatterns() error {
 	if v.pattern != nil {
-		i, err := variables.SubstituteAll(v.log, v.ctx.jsonContext, v.pattern)
+		i, err := variables.SubstituteAll(v.log, v.policyContext.jsonContext, v.pattern)
 		if err != nil {
 			return err
 		}
@@ -721,7 +721,7 @@ func (v *validator) substitutePatterns() error {
 	}
 
 	if v.anyPattern != nil {
-		i, err := variables.SubstituteAll(v.log, v.ctx.jsonContext, v.anyPattern)
+		i, err := variables.SubstituteAll(v.log, v.policyContext.jsonContext, v.anyPattern)
 		if err != nil {
 			return err
 		}
@@ -738,7 +738,7 @@ func (v *validator) substituteDeny() error {
 		return nil
 	}
 
-	i, err := variables.SubstituteAll(v.log, v.ctx.jsonContext, v.deny)
+	i, err := variables.SubstituteAll(v.log, v.policyContext.jsonContext, v.deny)
 	if err != nil {
 		return err
 	}
