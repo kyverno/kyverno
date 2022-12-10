@@ -66,7 +66,7 @@ func VerifySignature(ctx context.Context, rclient registryclient.Client, opts Op
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
 	}
 
-	signatures, bundleVerified, err := tracing.Span3(
+	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
 		"cosign",
 		"verify_image_signatures",
@@ -259,7 +259,7 @@ func FetchAttestations(ctx context.Context, rclient registryclient.Client, opts 
 		return nil, err
 	}
 
-	signatures, bundleVerified, err := tracing.Span3(
+	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
 		"cosign_operations",
 		"verify_image_signatures",
