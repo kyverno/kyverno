@@ -68,8 +68,8 @@ func VerifySignature(ctx context.Context, rclient registryclient.Client, opts Op
 
 	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
-		"cosign",
-		"verify_image_signatures",
+		"",
+		"VERIFY IMG SIGS",
 		func(ctx context.Context, span trace.Span) ([]oci.Signature, bool, error) {
 			cosignOpts, err := buildCosignOptions(ctx, rclient, opts)
 			if err != nil {
@@ -261,8 +261,8 @@ func FetchAttestations(ctx context.Context, rclient registryclient.Client, opts 
 
 	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
-		"cosign_operations",
-		"verify_image_signatures",
+		"",
+		"VERIFY IMG ATTS",
 		func(ctx context.Context, span trace.Span) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
 			ref, err := name.ParseReference(opts.ImageRef)
 			if err != nil {
