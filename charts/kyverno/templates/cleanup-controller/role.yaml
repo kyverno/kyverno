@@ -9,9 +9,10 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
 rules:
 - apiGroups:
-    - ""
+    - ''
   resources:
     - secrets
+    - configmaps
   verbs:
     - get
     - list
