@@ -30,19 +30,19 @@ type controllerMetrics struct {
 func newControllerMetrics(logger logr.Logger, controllerName string) *controllerMetrics {
 	meter := global.MeterProvider().Meter(metrics.MeterName)
 	reconcileTotal, err := meter.SyncInt64().Counter(
-		"kyverno_controller_reconcile_total",
+		"kyverno_controller_reconcile",
 		instrument.WithDescription("can be used to track number of reconciliation cycles"))
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_controller_reconcile_total")
 	}
 	requeueTotal, err := meter.SyncInt64().Counter(
-		"kyverno_controller_requeue_total",
+		"kyverno_controller_requeue",
 		instrument.WithDescription("can be used to track number of reconciliation errors"))
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_controller_requeue_total")
 	}
 	queueDropTotal, err := meter.SyncInt64().Counter(
-		"kyverno_controller_drop_total",
+		"kyverno_controller_drop",
 		instrument.WithDescription("can be used to track number of queue drops"))
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_controller_drop_total")
