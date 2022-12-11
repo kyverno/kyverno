@@ -63,13 +63,15 @@ type withTracing struct {
 func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_authentication_v1.TokenReview, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_authentication_v1.TokenReview, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Create"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Create"),
+			),
 		)
 		defer span.End()
 	}

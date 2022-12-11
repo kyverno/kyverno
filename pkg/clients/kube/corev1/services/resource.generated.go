@@ -213,13 +213,15 @@ type withTracing struct {
 func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.ServiceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_core_v1.Service, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Apply"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Apply"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Apply"),
+			),
 		)
 		defer span.End()
 	}
@@ -232,13 +234,15 @@ func (c *withTracing) Apply(arg0 context.Context, arg1 *k8s_io_client_go_applyco
 func (c *withTracing) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_applyconfigurations_core_v1.ServiceApplyConfiguration, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.ApplyOptions) (*k8s_io_api_core_v1.Service, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ApplyStatus"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("ApplyStatus"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("ApplyStatus"),
+			),
 		)
 		defer span.End()
 	}
@@ -251,13 +255,15 @@ func (c *withTracing) ApplyStatus(arg0 context.Context, arg1 *k8s_io_client_go_a
 func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Service, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_core_v1.Service, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Create"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Create"),
+			),
 		)
 		defer span.End()
 	}
@@ -270,13 +276,15 @@ func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_core_v1.Serv
 func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.DeleteOptions) error {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Delete"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Delete"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Delete"),
+			),
 		)
 		defer span.End()
 	}
@@ -289,13 +297,15 @@ func (c *withTracing) Delete(arg0 context.Context, arg1 string, arg2 k8s_io_apim
 func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.GetOptions) (*k8s_io_api_core_v1.Service, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Get"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Get"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Get"),
+			),
 		)
 		defer span.End()
 	}
@@ -308,13 +318,15 @@ func (c *withTracing) Get(arg0 context.Context, arg1 string, arg2 k8s_io_apimach
 func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (*k8s_io_api_core_v1.ServiceList, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "List"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("List"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("List"),
+			),
 		)
 		defer span.End()
 	}
@@ -327,13 +339,15 @@ func (c *withTracing) List(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_ap
 func (c *withTracing) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apimachinery_pkg_types.PatchType, arg3 []uint8, arg4 k8s_io_apimachinery_pkg_apis_meta_v1.PatchOptions, arg5 ...string) (*k8s_io_api_core_v1.Service, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Patch"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Patch"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Patch"),
+			),
 		)
 		defer span.End()
 	}
@@ -349,13 +363,15 @@ func (c *withTracing) ProxyGet(arg0 string, arg1 string, arg2 string, arg3 strin
 func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Service, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Service, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Update"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Update"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Update"),
+			),
 		)
 		defer span.End()
 	}
@@ -368,13 +384,15 @@ func (c *withTracing) Update(arg0 context.Context, arg1 *k8s_io_api_core_v1.Serv
 func (c *withTracing) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_core_v1.Service, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*k8s_io_api_core_v1.Service, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "UpdateStatus"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("UpdateStatus"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("UpdateStatus"),
+			),
 		)
 		defer span.End()
 	}
@@ -387,13 +405,15 @@ func (c *withTracing) UpdateStatus(arg0 context.Context, arg1 *k8s_io_api_core_v
 func (c *withTracing) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	var span trace.Span
 	if tracing.IsInSpan(arg0) {
-		arg0, span = tracing.StartSpan(
+		arg0, span = tracing.StartChildSpan(
 			arg0,
 			"",
 			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Watch"),
-			tracing.KubeClientGroupKey.String(c.client),
-			tracing.KubeClientKindKey.String(c.kind),
-			tracing.KubeClientOperationKey.String("Watch"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Watch"),
+			),
 		)
 		defer span.End()
 	}
