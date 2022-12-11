@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      if kubectl scale deployment nginx-test --replicas=1 -n test-validate 2>&1 | grep -q 'validation error: nginx-test needs to have 2 replicas' 
+      then 
+        echo "Test succeeded. Resource was blocked from scaling."
+        exit 0
+      else 
+        echo "Tested failed. Resource was allowed to scale."
+        exit 1 
+      fi

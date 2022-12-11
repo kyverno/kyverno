@@ -162,7 +162,7 @@ func VerifyAndPatchImages(
 }
 
 func appendResponse(resp *response.EngineResponse, rule *kyvernov1.Rule, msg string, status response.RuleStatus) {
-	rr := ruleResponse(*rule, response.ImageVerify, msg, status, nil)
+	rr := ruleResponse(*rule, response.ImageVerify, msg, status)
 	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 	incrementErrorCount(resp)
 }
@@ -209,7 +209,7 @@ func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.Image
 		if hasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
 			msg := imageVerifyAnnotationKey + " annotation cannot be changed"
 			iv.logger.Info("image verification error", "reason", msg)
-			ruleResp := ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
+			ruleResp := ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 			incrementAppliedCount(iv.resp)
 			continue
@@ -236,7 +236,7 @@ func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.Image
 				ruleResp = ruleError(iv.rule, response.ImageVerify, "failed to update digest", err)
 			} else if patch != nil {
 				if ruleResp == nil {
-					ruleResp = ruleResponse(*iv.rule, response.ImageVerify, "mutated image digest", response.RuleStatusPass, nil)
+					ruleResp = ruleResponse(*iv.rule, response.ImageVerify, "mutated image digest", response.RuleStatusPass)
 				}
 
 				ruleResp.Patches = append(ruleResp.Patches, patch)
@@ -323,7 +323,7 @@ func (iv *imageVerifier) verifyImage(
 	if err := iv.policyContext.jsonContext.AddImageInfo(imageInfo); err != nil {
 		iv.logger.Error(err, "failed to add image to context")
 		msg := fmt.Sprintf("failed to add image to context %s: %s", image, err.Error())
-		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil), ""
+		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError), ""
 	}
 
 	if len(imageVerify.Attestors) > 0 {
@@ -359,10 +359,10 @@ func (iv *imageVerifier) verifyAttestors(
 			// handle registry network errors as a rule error (instead of a policy failure)
 			var netErr *net.OpError
 			if errors.As(err, &netErr) {
-				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil), nil, nil
+				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError), nil, nil
 			}
 
-			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), nil, nil
+			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail), nil, nil
 		}
 		newAttestors = append(newAttestors, attestors[i])
 	}
@@ -372,7 +372,7 @@ func (iv *imageVerifier) verifyAttestors(
 	}
 
 	msg := fmt.Sprintf("verified image signatures for %s", image)
-	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), cosignResponse, newAttestors
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass), cosignResponse, newAttestors
 }
 
 func (iv *imageVerifier) verifyAttestations(
@@ -411,23 +411,23 @@ func (iv *imageVerifier) verifyAttestations(
 					// handle registry network errors as a rule error (instead of a policy failure)
 					var netErr *net.OpError
 					if errors.As(err, &netErr) {
-						return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil), ""
+						return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError), ""
 					}
 
-					return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), ""
+					return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail), ""
 				}
 
 				verifiedCount++
 				attestationError = iv.verifyAttestation(cosignResp.Statements, attestation, imageInfo)
 				if attestationError != nil {
 					attestationError = errors.Wrapf(attestationError, entryPath+subPath)
-					return ruleResponse(*iv.rule, response.ImageVerify, attestationError.Error(), response.RuleStatusFail, nil), ""
+					return ruleResponse(*iv.rule, response.ImageVerify, attestationError.Error(), response.RuleStatusFail), ""
 				}
 
 				if verifiedCount >= requiredCount {
 					msg := fmt.Sprintf("image attestations verification succeeded, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
 					iv.logger.V(2).Info(msg)
-					return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), ""
+					return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass), ""
 				}
 			}
 		}
@@ -436,7 +436,7 @@ func (iv *imageVerifier) verifyAttestations(
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
-	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), ""
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass), ""
 }
 
 func (iv *imageVerifier) verifyAttestorSet(
