@@ -7,7 +7,11 @@ metadata:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.cleanupController.replicas }}
+  {{- with .Values.cleanupController.updateStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "kyverno.cleanup-controller.matchLabels" . | nindent 6 }}
@@ -16,6 +20,14 @@ spec:
       labels:
         {{- include "kyverno.cleanup-controller.labels" . | nindent 8 }}
     spec:
+      {{- with .Values.cleanupController.image.pullSecrets }}
+      imagePullSecrets: 
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cleanupController.podSecurityContext }}
+      securityContext:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
       {{- with .Values.cleanupController.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
@@ -27,6 +39,32 @@ spec:
       {{- with .Values.cleanupController.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.cleanupController.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.cleanupController.hostNetwork }}
+      hostNetwork: {{ . }}
+      {{- end }}
+      {{- with .Values.cleanupController.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- if or .Values.cleanupController.antiAffinity.enabled .Values.cleanupController.podAffinity .Values.cleanupController.nodeAffinity }}
+      affinity:
+        {{- if .Values.cleanupController.antiAffinity.enabled }}
+        {{- with .Values.cleanupController.podAntiAffinity }}
+        podAntiAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- end }}
+        {{- with .Values.cleanupController.podAffinity }}
+        podAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- with .Values.cleanupController.nodeAffinity }}
+        nodeAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
       {{- end }}
       serviceAccountName: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
       containers:
@@ -44,10 +82,18 @@ spec:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           env:
+          - name: METRICS_CONFIG
+            value: {{ template "kyverno.metricsConfigMapName" . }}
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          {{- with .Values.cleanupController.resources }}
+          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- if .Values.cleanupController.securityContext }}
+          securityContext: {{ include "kyverno.cleanup-controller.securityContext" . | nindent 12 }}
+          {{- end }}
           {{- with .Values.cleanupController.startupProbe }}
           startupProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}

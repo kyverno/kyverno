@@ -92,7 +92,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/* Create the default PodDisruptionBudget to use */}}
-{{- define "podDisruptionBudget.spec" -}}
+{{- define "kyverno.podDisruptionBudget.spec" -}}
 {{- if and .Values.podDisruptionBudget.minAvailable .Values.podDisruptionBudget.maxUnavailable }}
 {{- fail "Cannot set both .Values.podDisruptionBudget.minAvailable and .Values.podDisruptionBudget.maxUnavailable" -}}
 {{- end }}

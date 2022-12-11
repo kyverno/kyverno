@@ -51,9 +51,9 @@ func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {
-		return ruleResponse(*rule, response.Validation, reason, response.RuleStatusFail, nil)
+		return ruleResponse(*rule, response.Validation, reason, response.RuleStatusFail)
 	}
-	return ruleResponse(*rule, response.Validation, reason, response.RuleStatusPass, nil)
+	return ruleResponse(*rule, response.Validation, reason, response.RuleStatusPass)
 }
 
 func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {

@@ -23,10 +23,10 @@ func processImageValidationRule(ctx context.Context, log logr.Logger, rclient re
 	log = log.WithValues("rule", rule.Name)
 	matchingImages, _, err := extractMatchingImages(enginectx, rule)
 	if err != nil {
-		return ruleResponse(*rule, response.Validation, err.Error(), response.RuleStatusError, nil)
+		return ruleResponse(*rule, response.Validation, err.Error(), response.RuleStatusError)
 	}
 	if len(matchingImages) == 0 {
-		return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusSkip, nil)
+		return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusSkip)
 	}
 	if err := LoadContext(ctx, log, rclient, rule.Context, enginectx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
@@ -48,7 +48,7 @@ func processImageValidationRule(ctx context.Context, log logr.Logger, rclient re
 			return nil
 		}
 
-		return ruleResponse(*rule, response.Validation, "preconditions not met", response.RuleStatusSkip, nil)
+		return ruleResponse(*rule, response.Validation, "preconditions not met", response.RuleStatusSkip)
 	}
 
 	for _, v := range rule.VerifyImages {
@@ -65,14 +65,14 @@ func processImageValidationRule(ctx context.Context, log logr.Logger, rclient re
 
 				log.V(4).Info("validating image", "image", image)
 				if err := validateImage(enginectx, imageVerify, name, imageInfo, log); err != nil {
-					return ruleResponse(*rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
+					return ruleResponse(*rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
 				}
 			}
 		}
 	}
 
 	log.V(4).Info("validated image", "rule", rule.Name)
-	return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusPass, nil)
+	return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusPass)
 }
 
 func validateImage(ctx *PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {
