@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/webhooks"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 )
@@ -24,10 +25,34 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
+// TODO:
+// - implement probes
+// - better certs management
+// - supports certs in cronjob
+// - leader election support
+// - helm service monitor
+// - helm name and fullname
+// - helm review labels / selectors
+// - helm metrics service
+
+type probes struct{}
+
+func (probes) IsReady() bool {
+	return true
+}
+
+func (probes) IsLive() bool {
+	return true
+}
+
 func main() {
-	var cleanupService string
+	var (
+		cleanupService string
+		dumpPayload    bool
+	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.StringVar(&cleanupService, "cleanupService", "https://cleanup-controller.kyverno.svc", "The url to join the cleanup service.")
+	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -91,6 +116,11 @@ func main() {
 		},
 		admissionHandlers.Validate,
 		cleanupHandlers.Cleanup,
+		metricsConfig,
+		webhooks.DebugModeOptions{
+			DumpPayload: dumpPayload,
+		},
+		probes{},
 	)
 	// start server
 	server.Run(ctx.Done())

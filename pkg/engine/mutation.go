@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -54,7 +55,9 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 			excludeResource = policyContext.excludeGroupRole
 		}
 
-		if err = MatchesResourceDescription(matchedResource, rule, policyContext.admissionInfo, excludeResource, policyContext.namespaceLabels, policyContext.policy.GetNamespace()); err != nil {
+		kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
+		subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+		if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.admissionInfo, excludeResource, policyContext.namespaceLabels, policyContext.policy.GetNamespace(), policyContext.subresource); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
 			skippedRules = append(skippedRules, rule.Name)
 			continue
@@ -81,17 +84,23 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 		}
 
 		ruleCopy := rule.DeepCopy()
-		var patchedResources []unstructured.Unstructured
+		var patchedResources []resourceInfo
 		if !policyContext.admissionOperation && rule.IsMutateExisting() {
 			targets, err := loadTargets(ruleCopy.Mutation.Targets, policyContext, logger)
 			if err != nil {
-				rr := ruleResponse(rule, response.Mutation, err.Error(), response.RuleStatusError, nil)
+				rr := ruleResponse(rule, response.Mutation, err.Error(), response.RuleStatusError)
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 			} else {
 				patchedResources = append(patchedResources, targets...)
 			}
 		} else {
-			patchedResources = append(patchedResources, matchedResource)
+			var parentResourceGVR metav1.GroupVersionResource
+			if policyContext.subresource != "" {
+				parentResourceGVR = policyContext.requestResource
+			}
+			patchedResources = append(patchedResources, resourceInfo{
+				unstructured: matchedResource, subresource: policyContext.subresource, parentResourceGVR: parentResourceGVR,
+			})
 		}
 
 		for _, patchedResource := range patchedResources {
@@ -101,21 +110,21 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 
 			if !policyContext.admissionOperation && rule.IsMutateExisting() {
 				policyContext := policyContext.Copy()
-				if err := policyContext.jsonContext.AddTargetResource(patchedResource.Object); err != nil {
+				if err := policyContext.jsonContext.AddTargetResource(patchedResource.unstructured.Object); err != nil {
 					logging.Error(err, "failed to add target resource to the context")
 					continue
 				}
 			}
 
-			logger.V(4).Info("apply rule to resource", "rule", rule.Name, "resource namespace", patchedResource.GetNamespace(), "resource name", patchedResource.GetName())
+			logger.V(4).Info("apply rule to resource", "rule", rule.Name, "resource namespace", patchedResource.unstructured.GetNamespace(), "resource name", patchedResource.unstructured.GetName())
 			var ruleResp *response.RuleResponse
 			if rule.Mutation.ForEachMutation != nil {
-				ruleResp, patchedResource = mutateForEach(ctx, rclient, ruleCopy, policyContext, patchedResource, logger)
+				ruleResp, patchedResource.unstructured = mutateForEach(ctx, rclient, ruleCopy, policyContext, patchedResource.unstructured, patchedResource.subresource, patchedResource.parentResourceGVR, logger)
 			} else {
-				ruleResp, patchedResource = mutateResource(ruleCopy, policyContext, patchedResource, logger)
+				ruleResp, patchedResource.unstructured = mutateResource(ruleCopy, policyContext, patchedResource.unstructured, patchedResource.subresource, patchedResource.parentResourceGVR, logger)
 			}
 
-			matchedResource = patchedResource
+			matchedResource = patchedResource.unstructured
 
 			if ruleResp != nil {
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
@@ -145,22 +154,22 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 	return resp
 }
 
-func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
+func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructured.Unstructured, subresourceName string, parentResourceGVR metav1.GroupVersionResource, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
 	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
 	if err != nil {
 		return ruleError(rule, response.Mutation, "failed to evaluate preconditions", err), resource
 	}
 
 	if !preconditionsPassed {
-		return ruleResponse(*rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &resource), resource
+		return ruleResponseWithPatchedTarget(*rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &resource, subresourceName, parentResourceGVR), resource
 	}
 
 	mutateResp := mutate.Mutate(rule, ctx.jsonContext, resource, logger)
-	ruleResp := buildRuleResponse(rule, mutateResp, &mutateResp.PatchedResource)
+	ruleResp := buildRuleResponse(rule, mutateResp, &mutateResp.PatchedResource, subresourceName, parentResourceGVR)
 	return ruleResp, mutateResp.PatchedResource
 }
 
-func mutateForEach(ctx context.Context, rclient registryclient.Client, rule *kyvernov1.Rule, enginectx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
+func mutateForEach(ctx context.Context, rclient registryclient.Client, rule *kyvernov1.Rule, enginectx *PolicyContext, resource unstructured.Unstructured, subresourceName string, parentResourceGVR metav1.GroupVersionResource, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
 	foreachList := rule.Mutation.ForEachMutation
 	if foreachList == nil {
 		return nil, resource
@@ -182,7 +191,7 @@ func mutateForEach(ctx context.Context, rclient registryclient.Client, rule *kyv
 		}
 
 		if !preconditionsPassed {
-			return ruleResponse(*rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &patchedResource), resource
+			return ruleResponseWithPatchedTarget(*rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &patchedResource, subresourceName, parentResourceGVR), resource
 		}
 
 		elements, err := evaluateList(foreach.List, enginectx.jsonContext)
@@ -194,7 +203,7 @@ func mutateForEach(ctx context.Context, rclient registryclient.Client, rule *kyv
 		mutateResp := mutateElements(ctx, rclient, rule.Name, foreach, enginectx, elements, patchedResource, logger)
 		if mutateResp.Status == response.RuleStatusError {
 			logger.Error(err, "failed to mutate elements")
-			return buildRuleResponse(rule, mutateResp, nil), resource
+			return buildRuleResponse(rule, mutateResp, nil, "", metav1.GroupVersionResource{}), resource
 		}
 
 		if mutateResp.Status != response.RuleStatusSkip {
@@ -207,10 +216,10 @@ func mutateForEach(ctx context.Context, rclient registryclient.Client, rule *kyv
 	}
 
 	if applyCount == 0 {
-		return ruleResponse(*rule, response.Mutation, "0 elements processed", response.RuleStatusSkip, &resource), resource
+		return ruleResponseWithPatchedTarget(*rule, response.Mutation, "0 elements processed", response.RuleStatusSkip, &resource, subresourceName, parentResourceGVR), resource
 	}
 
-	r := ruleResponse(*rule, response.Mutation, fmt.Sprintf("%d elements processed", applyCount), response.RuleStatusPass, &patchedResource)
+	r := ruleResponseWithPatchedTarget(*rule, response.Mutation, fmt.Sprintf("%d elements processed", applyCount), response.RuleStatusPass, &patchedResource, subresourceName, parentResourceGVR)
 	r.Patches = allPatches
 	return r, patchedResource
 }
@@ -279,8 +288,8 @@ func mutateError(err error, message string) *mutate.Response {
 	}
 }
 
-func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, patchedResource *unstructured.Unstructured) *response.RuleResponse {
-	resp := ruleResponse(*rule, response.Mutation, mutateResp.Message, mutateResp.Status, patchedResource)
+func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, patchedResource *unstructured.Unstructured, patchedSubresourceName string, parentResourceGVR metav1.GroupVersionResource) *response.RuleResponse {
+	resp := ruleResponseWithPatchedTarget(*rule, response.Mutation, mutateResp.Message, mutateResp.Status, patchedResource, patchedSubresourceName, parentResourceGVR)
 	if resp.Status == response.RuleStatusPass {
 		resp.Patches = mutateResp.Patches
 		resp.Message = buildSuccessMessage(mutateResp.PatchedResource)

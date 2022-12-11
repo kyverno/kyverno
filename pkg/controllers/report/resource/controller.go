@@ -206,7 +206,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	gvrs := map[schema.GroupVersionKind]schema.GroupVersionResource{}
 	for _, kind := range kinds.List() {
 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-		apiResource, gvr, err := c.client.Discovery().FindResource(apiVersion, kind)
+		apiResource, _, gvr, err := c.client.Discovery().FindResource(apiVersion, kind)
 		if err != nil {
 			logger.Error(err, "failed to get gvr from kind", "kind", kind)
 		} else {

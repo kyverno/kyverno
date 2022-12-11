@@ -1,0 +1,13 @@
+kind: PodExecOptions
+apiVersion: v1
+# PodExecOptions actually does not contain any metadata, but kyverno relies on the name and namespace of object
+# to perform CLI execution. So we add them as a hack to get this working.
+metadata:
+  name: execpod
+  namespace: default
+stdin: true
+stdout: true
+tty: true
+container: nginx
+command:
+  - sh
