@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	yaml1 "sigs.k8s.io/yaml"
 )
 
@@ -131,6 +131,16 @@ To apply policy with variables:
 			- name: <namespace2 name>
 			labels:
 				<label key>: <label value>
+        # If policy is matching on Kind/Subresource, then this is required
+        subresources:
+          - subresource:
+              name: <name of subresource>
+              kind: <kind of subresource>
+              version: <version of subresource>
+            parentResource:
+              name: <name of parent resource>
+              kind: <kind of parent resource>
+              version: <version of parent resource>
 
 More info: https://kyverno.io/docs/kyverno-cli/
 `
@@ -192,7 +202,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(c.VariablesString, c.ValuesFile, fs, false, "")
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.VariablesString, c.ValuesFile, fs, false, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -391,7 +401,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 			}
 		}
 
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
 
 		for _, resource := range resources {
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
@@ -412,6 +422,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 				PrintPatchResource:   true,
 				Client:               dClient,
 				AuditWarn:            c.AuditWarn,
+				Subresources:         subresources,
 			}
 			_, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {

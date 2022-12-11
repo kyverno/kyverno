@@ -614,6 +614,7 @@ test-e2e:
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/generate -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/validate -v
 
 test-e2e-local:
 	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
@@ -622,6 +623,7 @@ test-e2e-local:
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/generate -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/validate -v
 	kill  $!
 
 helm-test-values:

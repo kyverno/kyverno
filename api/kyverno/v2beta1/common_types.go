@@ -2,6 +2,7 @@ package v2beta1
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -96,6 +97,22 @@ type Condition struct {
 	// or can be variables declared using JMESPath.
 	// +optional
 	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+}
+
+func (c *Condition) GetKey() apiextensions.JSON {
+	return kyvernov1.FromJSON(c.RawKey)
+}
+
+func (c *Condition) SetKey(in apiextensions.JSON) {
+	c.RawKey = kyvernov1.ToJSON(in)
+}
+
+func (c *Condition) GetValue() apiextensions.JSON {
+	return kyvernov1.FromJSON(c.RawValue)
+}
+
+func (c *Condition) SetValue(in apiextensions.JSON) {
+	c.RawValue = kyvernov1.ToJSON(in)
 }
 
 type AnyAllConditions struct {

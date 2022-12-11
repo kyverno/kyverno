@@ -18,7 +18,7 @@ import (
 
 // Generator provides interface to manage update requests
 type Generator interface {
-	Apply(gr kyvernov1beta1.UpdateRequestSpec, action admissionv1.Operation) error
+	Apply(context.Context, kyvernov1beta1.UpdateRequestSpec, admissionv1.Operation) error
 }
 
 // generator defines the implementation to manage update request resource
@@ -39,16 +39,16 @@ func NewGenerator(client versioned.Interface, urInformer kyvernov1beta1informers
 }
 
 // Apply creates update request resource
-func (g *generator) Apply(ur kyvernov1beta1.UpdateRequestSpec, action admissionv1.Operation) error {
+func (g *generator) Apply(ctx context.Context, ur kyvernov1beta1.UpdateRequestSpec, action admissionv1.Operation) error {
 	logger.V(4).Info("reconcile Update Request", "request", ur)
 	if action == admissionv1.Delete && ur.Type == kyvernov1beta1.Generate {
 		return nil
 	}
-	go g.applyResource(ur)
+	go g.applyResource(context.TODO(), ur)
 	return nil
 }
 
-func (g *generator) applyResource(urSpec kyvernov1beta1.UpdateRequestSpec) {
+func (g *generator) applyResource(ctx context.Context, urSpec kyvernov1beta1.UpdateRequestSpec) {
 	exbackoff := &backoff.ExponentialBackOff{
 		InitialInterval:     500 * time.Millisecond,
 		RandomizationFactor: 0.5,
@@ -58,12 +58,12 @@ func (g *generator) applyResource(urSpec kyvernov1beta1.UpdateRequestSpec) {
 		Clock:               backoff.SystemClock,
 	}
 	exbackoff.Reset()
-	if err := backoff.Retry(func() error { return g.tryApplyResource(urSpec) }, exbackoff); err != nil {
+	if err := backoff.Retry(func() error { return g.tryApplyResource(ctx, urSpec) }, exbackoff); err != nil {
 		logger.Error(err, "failed to update request CR")
 	}
 }
 
-func (g *generator) tryApplyResource(urSpec kyvernov1beta1.UpdateRequestSpec) error {
+func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.UpdateRequestSpec) error {
 	l := logger.WithValues("ruleType", urSpec.Type, "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
 	var queryLabels labels.Set
 
@@ -103,7 +103,7 @@ func (g *generator) tryApplyResource(urSpec kyvernov1beta1.UpdateRequestSpec) er
 			},
 			Spec: urSpec,
 		}
-		if new, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), &ur, metav1.CreateOptions{}); err != nil {
+		if new, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(ctx, &ur, metav1.CreateOptions{}); err != nil {
 			l.V(4).Error(err, "failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
 			return err
 		} else {

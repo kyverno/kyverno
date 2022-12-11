@@ -23,11 +23,7 @@ import (
 )
 
 type ImageVerificationHandler interface {
-	Handle(
-		*admissionv1.AdmissionRequest,
-		[]kyvernov1.PolicyInterface,
-		*engine.PolicyContext,
-	) ([]byte, []string, error)
+	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext) ([]byte, []string, error)
 }
 
 func NewImageVerificationHandler(
@@ -55,11 +51,12 @@ type imageVerificationHandler struct {
 }
 
 func (h *imageVerificationHandler) Handle(
+	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) ([]byte, []string, error) {
-	ok, message, imagePatches, warnings := h.handleVerifyImages(h.log, request, policyContext, policies)
+	ok, message, imagePatches, warnings := h.handleVerifyImages(ctx, h.log, request, policyContext, policies)
 	if !ok {
 		return nil, nil, errors.New(message)
 	}
@@ -67,7 +64,13 @@ func (h *imageVerificationHandler) Handle(
 	return imagePatches, warnings, nil
 }
 
-func (h *imageVerificationHandler) handleVerifyImages(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) (bool, string, []byte, []string) {
+func (h *imageVerificationHandler) handleVerifyImages(
+	ctx context.Context,
+	logger logr.Logger,
+	request *admissionv1.AdmissionRequest,
+	policyContext *engine.PolicyContext,
+	policies []kyvernov1.PolicyInterface,
+) (bool, string, []byte, []string) {
 	if len(policies) == 0 {
 		return true, "", nil, nil
 	}
@@ -77,7 +80,7 @@ func (h *imageVerificationHandler) handleVerifyImages(logger logr.Logger, reques
 	verifiedImageData := &engine.ImageVerificationMetadata{}
 	for _, p := range policies {
 		policyContext := policyContext.WithPolicy(p)
-		resp, ivm := engine.VerifyAndPatchImages(h.rclient, policyContext)
+		resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext)
 
 		engineResponses = append(engineResponses, resp)
 		patches = append(patches, resp.GetPatches()...)
@@ -107,7 +110,7 @@ func (h *imageVerificationHandler) handleVerifyImages(logger logr.Logger, reques
 		}
 	}
 
-	go h.handleAudit(policyContext.NewResource(), request, nil, engineResponses...)
+	go h.handleAudit(context.TODO(), policyContext.NewResource(), request, nil, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", jsonutils.JoinPatches(patches...), warnings
@@ -132,6 +135,7 @@ func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 }
 
 func (v *imageVerificationHandler) handleAudit(
+	ctx context.Context,
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,

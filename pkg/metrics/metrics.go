@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/config"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/version"
@@ -95,7 +96,6 @@ func NewOTLPGRPCConfig(
 	log logr.Logger,
 ) (metric.MeterProvider, error) {
 	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint)}
-
 	if certs != "" {
 		// here the certificates are stored as configmaps
 		transportCreds, err := kube.FetchCert(ctx, certs, kubeClient)
@@ -107,7 +107,6 @@ func NewOTLPGRPCConfig(
 	} else {
 		options = append(options, otlpmetricgrpc.WithInsecure())
 	}
-
 	// create new exporter for exporting metrics
 	exporter, err := otlpmetricgrpc.New(ctx, options...)
 	if err != nil {
@@ -118,7 +117,7 @@ func NewOTLPGRPCConfig(
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("kyverno"),
+			semconv.ServiceNameKey.String(MeterName),
 			semconv.ServiceVersionKey.String(version.BuildVersion),
 		),
 	)
@@ -135,7 +134,6 @@ func NewOTLPGRPCConfig(
 		sdkmetric.WithReader(reader),
 		sdkmetric.WithResource(res),
 	)
-
 	return provider, nil
 }
 
@@ -156,7 +154,6 @@ func NewPrometheusConfig(
 		log.Error(err, "failed creating resource")
 		return nil, nil, err
 	}
-
 	exporter, err := prometheus.New(
 		prometheus.WithoutUnits(),
 		prometheus.WithoutTargetInfo(),
@@ -165,15 +162,12 @@ func NewPrometheusConfig(
 		log.Error(err, "failed to initialize prometheus exporter")
 		return nil, nil, err
 	}
-
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(exporter),
 		sdkmetric.WithResource(res),
 	)
-
 	metricsServerMux := http.NewServeMux()
-	metricsServerMux.Handle("/metrics", promhttp.Handler())
-
+	metricsServerMux.Handle(config.MetricsPath, promhttp.Handler())
 	return provider, metricsServerMux, nil
 }
 

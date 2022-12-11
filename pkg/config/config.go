@@ -56,6 +56,8 @@ const (
 	LivenessServicePath = "/health/liveness"
 	// ReadinessServicePath is the path for check readness health
 	ReadinessServicePath = "/health/readiness"
+	// MetricsPath is the path for exposing metrics
+	MetricsPath = "/metrics"
 )
 
 var (

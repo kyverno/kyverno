@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -87,10 +88,13 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	logger := logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
-	if err = MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, ""); err != nil {
+	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
+	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+
+	if err = MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err != nil {
 		if ruleType == response.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, ""); err == nil {
+			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err == nil {
 				return &response.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,
@@ -109,7 +113,7 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	policyContext.jsonContext.Checkpoint()
 	defer policyContext.jsonContext.Restore()
 
-	if err = LoadContext(logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+	if err = LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
