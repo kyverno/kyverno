@@ -35,5 +35,5 @@ jobs:
           kubectl -n kyverno describe pod | grep -i events -A10
           kubectl -n kyverno logs deploy/kyverno --all-containers -p || true
           kubectl -n kyverno logs deploy/kyverno --all-containers
-          kubectl -n kyverno logs deploy/cleanup-controller --all-containers -p || true
-          kubectl -n kyverno logs deploy/cleanup-controller --all-containers
+          kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers -p || true
+          kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers

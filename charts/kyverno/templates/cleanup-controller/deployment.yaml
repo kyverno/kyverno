@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+  name: {{ template "kyverno.cleanup-controller.name" . }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
@@ -77,17 +77,43 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
-          {{- with .Values.cleanupController.args }}
           args:
-            {{- tpl (toYaml .) $ | nindent 12 }}
-          {{- end }}
+            - --loggingFormat={{ .Values.cleanupController.logging.format }}
+            {{- if .Values.cleanupController.tracing.enabled }}
+            - --enableTracing
+            - --tracingAddress={{ .Values.cleanupController.tracing.address }}
+            - --tracingPort={{ .Values.cleanupController.tracing.port }}
+            {{- with .Values.cleanupController.tracing.creds }}
+            - --tracingCreds={{ . }}
+            {{- end }}
+            {{- end }}
+            - --disableMetrics={{ .Values.cleanupController.metering.disabled }}
+            {{- if not .Values.cleanupController.metering.disabled }}
+            - --otelConfig={{ .Values.cleanupController.metering.config }}
+            - --metricsPort={{ .Values.cleanupController.metering.port }}
+            {{- with .Values.cleanupController.metering.collector }}
+            - --otelCollector={{ . }}
+            {{- end }}
+            {{- with .Values.cleanupController.metering.creds }}
+            - --transportCreds={{ . }}
+            {{- end }}
+            {{- end }}
+            {{- range .Values.cleanupController.extraArgs }}
+            - {{ . }}
+            {{- end }}
           env:
           - name: METRICS_CONFIG
             value: {{ template "kyverno.metricsConfigMapName" . }}
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: KYVERNO_SVC
+            value: {{ template "kyverno.cleanup-controller.name" . }}
           {{- with .Values.cleanupController.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
