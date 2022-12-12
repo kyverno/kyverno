@@ -257,7 +257,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		policyContext := f.policyContext.Copy()
 
 		// TODO - this needs to be refactored. The engine should not have a dependency to the CLI code
-		store.SetForeachElement(i)
+		store.SetForEachElement(i)
 
 		falseVar := false
 		if err := addElementToContext(policyContext, e, i, f.nesting, &falseVar); err != nil {
@@ -280,7 +280,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 
 		var mutateResp *mutate.Response
 		if foreach.ForEachMutation != nil {
-			nestedForeach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](foreach.ForEachMutation)
+			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](foreach.ForEachMutation)
 			if err != nil {
 				return mutate.NewErrorResponse("failed to deserialize foreach", err)
 			}
@@ -290,7 +290,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 				policyContext: f.policyContext,
 				resource:      patchedResource,
 				log:           f.log,
-				foreach:       nestedForeach,
+				foreach:       nestedForEach,
 				nesting:       f.nesting + 1,
 			}
 

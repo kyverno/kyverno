@@ -177,7 +177,7 @@ type validator struct {
 	anyPattern       apiextensions.JSON
 	deny             *kyvernov1.Deny
 	podSecurity      *kyvernov1.PodSecurity
-	foreach          []kyvernov1.ForEachValidation
+	forEach          []kyvernov1.ForEachValidation
 	rclient          registryclient.Client
 	nesting          int
 }
@@ -195,18 +195,18 @@ func newValidator(log logr.Logger, rclient registryclient.Client, ctx *PolicyCon
 		anyPattern:       ruleCopy.Validation.GetAnyPattern(),
 		deny:             ruleCopy.Validation.Deny,
 		podSecurity:      ruleCopy.Validation.PodSecurity,
-		foreach:          ruleCopy.Validation.ForEachValidation,
+		forEach:          ruleCopy.Validation.ForEachValidation,
 	}
 }
 
-func newForeachValidator(foreach kyvernov1.ForEachValidation, rclient registryclient.Client, nesting int, rule *kyvernov1.Rule, ctx *PolicyContext, log logr.Logger) (*validator, error) {
+func newForEachValidator(foreach kyvernov1.ForEachValidation, rclient registryclient.Client, nesting int, rule *kyvernov1.Rule, ctx *PolicyContext, log logr.Logger) (*validator, error) {
 	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := utils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
 	}
 
-	nestedForeach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](foreach.ForEachValidation)
+	nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](foreach.ForEachValidation)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
 	}
@@ -221,7 +221,7 @@ func newForeachValidator(foreach kyvernov1.ForEachValidation, rclient registrycl
 		pattern:          foreach.GetPattern(),
 		anyPattern:       foreach.GetAnyPattern(),
 		deny:             foreach.Deny,
-		foreach:          nestedForeach,
+		forEach:          nestedForEach,
 		nesting:          nesting,
 	}, nil
 }
@@ -260,7 +260,7 @@ func (v *validator) validate(ctx context.Context) *response.RuleResponse {
 		}
 	}
 
-	if v.foreach != nil {
+	if v.forEach != nil {
 		ruleResponse := v.validateForEach(ctx)
 		return ruleResponse
 	}
@@ -271,7 +271,7 @@ func (v *validator) validate(ctx context.Context) *response.RuleResponse {
 
 func (v *validator) validateForEach(ctx context.Context) *response.RuleResponse {
 	applyCount := 0
-	for _, foreach := range v.foreach {
+	for _, foreach := range v.forEach {
 		elements, err := evaluateList(foreach.List, (v.policyContext.JSONContext()))
 		if err != nil {
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
@@ -287,7 +287,7 @@ func (v *validator) validateForEach(ctx context.Context) *response.RuleResponse 
 	}
 
 	if applyCount == 0 {
-		if v.foreach == nil {
+		if v.forEach == nil {
 			return nil
 		}
 
@@ -308,7 +308,7 @@ func (v *validator) validateElements(ctx context.Context, rclient registryclient
 		}
 
 		// TODO - this needs to be refactored. The engine should not have a dependency to the CLI code
-		store.SetForeachElement(i)
+		store.SetForEachElement(i)
 
 		v.policyContext.JSONContext().Reset()
 		policyContext := v.policyContext.Copy()
@@ -317,7 +317,7 @@ func (v *validator) validateElements(ctx context.Context, rclient registryclient
 			return ruleError(v.rule, response.Validation, "failed to process foreach", err), applyCount
 		}
 
-		foreachValidator, err := newForeachValidator(foreach, rclient, v.nesting+1, v.rule, policyContext, v.log)
+		foreachValidator, err := newForEachValidator(foreach, rclient, v.nesting+1, v.rule, policyContext, v.log)
 		if err != nil {
 			v.log.Error(err, "failed to create foreach validator")
 			return ruleError(v.rule, response.Validation, "failed to create foreach validator", err), applyCount
