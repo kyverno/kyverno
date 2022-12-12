@@ -433,15 +433,14 @@ func forEachGetResourceInfoForDataAndClone(fe kyvernov1.ForEachGeneration) (kind
 	return
 }
 
-func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+func generateElements(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, fe kyvernov1.ForEachGeneration, elements []interface{}) ([]kyvernov1.ResourceSpec, error) {
 	var noGenResource kyvernov1.ResourceSpec
 	var newGenResources []kyvernov1.ResourceSpec
-	for _, fe := range rule.Generation.ForEachGeneration {
-		rdatas := []GenerateResponse{}
-		var cresp, dresp map[string]interface{}
-		var mode ResourceMode
-		elements, err := engine.RunEvaluateList(fe.List, ctx)
+	rdatas := []GenerateResponse{}
+	var cresp, dresp map[string]interface{}
+	var mode ResourceMode
 
+	for _, element := range elements {
 		genKind, genName, genNamespace, genAPIVersion, err := forEachGetResourceInfoForDataAndClone(fe)
 		logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 		if err != nil {
@@ -600,7 +599,24 @@ func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule k
 				logger.V(3).Info("updated generate target resource")
 			}
 		}
+	}
+	return newGenResources, nil
+}
 
+func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+	var newGenResources []kyvernov1.ResourceSpec
+	var tempNewGenResources []kyvernov1.ResourceSpec
+	for _, fe := range rule.Generation.ForEachGeneration {
+		elements, err := engine.RunEvaluateList(fe.List, ctx)
+		if err != nil {
+			log.Error(err, "failed to generate resource")
+			continue
+		}
+
+		tempNewGenResources, err = generateElements(log, client, rule, resource, ctx, policy, ur, fe, elements)
+		for _, genResource := range tempNewGenResources {
+			newGenResources = append(newGenResources, genResource)
+		}
 	}
 	return newGenResources, nil
 }
