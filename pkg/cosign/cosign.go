@@ -262,7 +262,7 @@ func FetchAttestations(ctx context.Context, rclient registryclient.Client, opts 
 	signatures, bundleVerified, err := tracing.ChildSpan3(
 		ctx,
 		"",
-		"VERIFY IMG ATTS",
+		"VERIFY IMG ATTESTATIONS",
 		func(ctx context.Context, span trace.Span) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
 			ref, err := name.ParseReference(opts.ImageRef)
 			if err != nil {
