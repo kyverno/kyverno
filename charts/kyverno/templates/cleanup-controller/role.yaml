@@ -3,7 +3,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+  name: {{ template "kyverno.cleanup-controller.name" . }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
@@ -17,5 +17,15 @@ rules:
     - get
     - list
     - watch
+- apiGroups:
+    - coordination.k8s.io
+  resources:
+    - leases
+  verbs:
+    - create
+    - delete
+    - get
+    - patch
+    - update
 {{- end -}}
 {{- end -}}
