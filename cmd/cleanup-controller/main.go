@@ -27,11 +27,11 @@ const (
 )
 
 // TODO:
+// - leader election support
+// - helm review labels / selectors
 // - implement probes
 // - better certs management
 // - supports certs in cronjob
-// - leader election support
-// - helm review labels / selectors
 
 type probes struct{}
 

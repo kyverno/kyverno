@@ -25,7 +25,7 @@ func checkAnyAllConditions(logger logr.Logger, ctx enginecontext.Interface, cond
 			return true, nil
 		}
 	}
-	return true, nil
+	return len(condition.AnyConditions) == 0, nil
 }
 
 func checkCondition(logger logr.Logger, ctx enginecontext.Interface, condition kyvernov2beta1.Condition) (bool, error) {
