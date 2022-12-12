@@ -36,6 +36,10 @@ func (c *FakeKyvernoV2alpha1) ClusterCleanupPolicies() v2alpha1.ClusterCleanupPo
 	return &FakeClusterCleanupPolicies{c}
 }
 
+func (c *FakeKyvernoV2alpha1) PolicyExceptions(namespace string) v2alpha1.PolicyExceptionInterface {
+	return &FakePolicyExceptions{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeKyvernoV2alpha1) RESTClient() rest.Interface {
