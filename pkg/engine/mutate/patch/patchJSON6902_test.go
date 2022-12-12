@@ -182,7 +182,6 @@ spec:
 
 	for _, testCase := range testCases {
 		t.Run(testCase.testName, func(t *testing.T) {
-
 			expectedBytes, err := yaml.YAMLToJSON(testCase.expected)
 			assert.Nil(t, err)
 

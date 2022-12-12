@@ -51,7 +51,8 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	userRequestInfo := urkyverno.RequestInfo{
 		Roles:             nil,
 		ClusterRoles:      nil,
-		AdmissionUserInfo: userInfo}
+		AdmissionUserInfo: userInfo,
+	}
 
 	var expectedResult string
 	ctx := NewContext()
