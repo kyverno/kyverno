@@ -468,22 +468,6 @@ func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, s
 	return resp
 }
 
-func ruleResponseWithPatchedTarget(rule kyvernov1.Rule, ruleType response.RuleType, msg string, status response.RuleStatus, patchedResource *unstructured.Unstructured, patchedSubresourceName string, parentResourceGVR metav1.GroupVersionResource) *response.RuleResponse {
-	resp := &response.RuleResponse{
-		Name:    rule.Name,
-		Type:    ruleType,
-		Message: msg,
-		Status:  status,
-	}
-
-	if rule.Mutation.Targets != nil {
-		resp.PatchedTarget = patchedResource
-		resp.PatchedTargetSubresourceName = patchedSubresourceName
-		resp.PatchedTargetParentResourceGVR = parentResourceGVR
-	}
-	return resp
-}
-
 func incrementAppliedCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
