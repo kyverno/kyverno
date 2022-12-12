@@ -22,7 +22,7 @@ func GetMock() bool {
 	return Mock
 }
 
-func SetForeachElement(foreachElement int) {
+func SetForEachElement(foreachElement int) {
 	ForeachElement = foreachElement
 }
 
@@ -86,7 +86,7 @@ type Policy struct {
 type Rule struct {
 	Name          string                   `json:"name"`
 	Values        map[string]interface{}   `json:"values"`
-	ForeachValues map[string][]interface{} `json:"foreachValues"`
+	ForEachValues map[string][]interface{} `json:"foreachValues"`
 }
 
 func SetSubjects(subjects Subject) {

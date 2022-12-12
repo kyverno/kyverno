@@ -7,7 +7,7 @@ apiVersion: policy/v1beta1
 {{- end }}
 kind: PodDisruptionBudget
 metadata:
-  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+  name: {{ template "kyverno.cleanup-controller.name" . }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}

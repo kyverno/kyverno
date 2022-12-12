@@ -1382,7 +1382,6 @@ func Test_Items(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-
 			query, err := New("items(`" + tc.object + "`,`" + tc.keyName + "`,`" + tc.valName + "`)")
 			assert.NilError(t, err)
 

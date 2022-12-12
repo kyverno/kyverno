@@ -22,11 +22,11 @@ type Response struct {
 	Message         string
 }
 
-func newErrorResponse(msg string, err error) *Response {
-	return newResponse(response.RuleStatusError, unstructured.Unstructured{}, nil, fmt.Sprintf("%s: %v", msg, err))
+func NewErrorResponse(msg string, err error) *Response {
+	return NewResponse(response.RuleStatusError, unstructured.Unstructured{}, nil, fmt.Sprintf("%s: %v", msg, err))
 }
 
-func newResponse(status response.RuleStatus, resource unstructured.Unstructured, patches [][]byte, msg string) *Response {
+func NewResponse(status response.RuleStatus, resource unstructured.Unstructured, patches [][]byte, msg string) *Response {
 	return &Response{
 		Status:          status,
 		PatchedResource: resource,
@@ -38,56 +38,56 @@ func newResponse(status response.RuleStatus, resource unstructured.Unstructured,
 func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.Unstructured, logger logr.Logger) *Response {
 	updatedRule, err := variables.SubstituteAllInRule(logger, ctx, *rule)
 	if err != nil {
-		return newErrorResponse("variable substitution failed", err)
+		return NewErrorResponse("variable substitution failed", err)
 	}
 
 	m := updatedRule.Mutation
 	patcher := NewPatcher(updatedRule.Name, m.GetPatchStrategicMerge(), m.PatchesJSON6902, resource, ctx, logger)
 	if patcher == nil {
-		return newResponse(response.RuleStatusError, resource, nil, "empty mutate rule")
+		return NewResponse(response.RuleStatusError, resource, nil, "empty mutate rule")
 	}
 
 	resp, patchedResource := patcher.Patch()
 	if resp.Status != response.RuleStatusPass {
-		return newResponse(resp.Status, resource, nil, resp.Message)
+		return NewResponse(resp.Status, resource, nil, resp.Message)
 	}
 
 	if resp.Patches == nil {
-		return newResponse(response.RuleStatusSkip, resource, nil, "no patches applied")
+		return NewResponse(response.RuleStatusSkip, resource, nil, "no patches applied")
 	}
 
 	if err := ctx.AddResource(patchedResource.Object); err != nil {
-		return newErrorResponse("failed to update patched resource in the JSON context", err)
+		return NewErrorResponse("failed to update patched resource in the JSON context", err)
 	}
 
-	return newResponse(response.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
+	return NewResponse(response.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
 }
 
 func ForEach(name string, foreach kyvernov1.ForEachMutation, ctx context.Interface, resource unstructured.Unstructured, logger logr.Logger) *Response {
 	fe, err := substituteAllInForEach(foreach, ctx, logger)
 	if err != nil {
-		return newErrorResponse("variable substitution failed", err)
+		return NewErrorResponse("variable substitution failed", err)
 	}
 
 	patcher := NewPatcher(name, fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, resource, ctx, logger)
 	if patcher == nil {
-		return newResponse(response.RuleStatusError, unstructured.Unstructured{}, nil, "no patches found")
+		return NewResponse(response.RuleStatusError, unstructured.Unstructured{}, nil, "no patches found")
 	}
 
 	resp, patchedResource := patcher.Patch()
 	if resp.Status != response.RuleStatusPass {
-		return newResponse(resp.Status, unstructured.Unstructured{}, nil, resp.Message)
+		return NewResponse(resp.Status, unstructured.Unstructured{}, nil, resp.Message)
 	}
 
 	if resp.Patches == nil {
-		return newResponse(response.RuleStatusSkip, unstructured.Unstructured{}, nil, "no patches applied")
+		return NewResponse(response.RuleStatusSkip, unstructured.Unstructured{}, nil, "no patches applied")
 	}
 
 	if err := ctx.AddResource(patchedResource.Object); err != nil {
-		return newErrorResponse("failed to update patched resource in the JSON context", err)
+		return NewErrorResponse("failed to update patched resource in the JSON context", err)
 	}
 
-	return newResponse(response.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
+	return NewResponse(response.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
 }
 
 func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyvernov1.ForEachMutation, error) {

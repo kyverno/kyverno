@@ -106,7 +106,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		return rule
 	}
 	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
-		var newForeachMutation []kyvernov1.ForEachMutation
+		var newForEachMutation []kyvernov1.ForEachMutation
 		for _, foreach := range rule.Mutation.ForEachMutation {
 			temp := kyvernov1.ForEachMutation{
 				List:             foreach.List,
@@ -120,10 +120,10 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 					},
 				},
 			)
-			newForeachMutation = append(newForeachMutation, temp)
+			newForEachMutation = append(newForEachMutation, temp)
 		}
 		rule.Mutation = kyvernov1.Mutation{
-			ForEachMutation: newForeachMutation,
+			ForEachMutation: newForEachMutation,
 		}
 		return rule
 	}
