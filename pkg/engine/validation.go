@@ -20,9 +20,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -112,31 +114,36 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 
 	for i := range rules {
 		rule := &rules[i]
-		hasValidate := rule.HasValidate()
-		hasValidateImage := rule.HasImagesValidationChecks()
-		hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
-		if !hasValidate && !hasValidateImage {
-			continue
-		}
-
-		log = log.WithValues("rule", rule.Name)
-		if !matches(log, rule, enginectx) {
-			continue
-		}
-
 		log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 		enginectx.jsonContext.Reset()
 		startTime := time.Now()
-
-		var ruleResp *response.RuleResponse
-		if hasValidate && !hasYAMLSignatureVerify {
-			ruleResp = processValidationRule(ctx, log, rclient, enginectx, rule)
-		} else if hasValidateImage {
-			ruleResp = processImageValidationRule(ctx, log, rclient, enginectx, rule)
-		} else if hasYAMLSignatureVerify {
-			ruleResp = processYAMLValidationRule(log, enginectx, rule)
-		}
-
+		ruleResp := tracing.ChildSpan1(
+			ctx,
+			"pkg/engine",
+			fmt.Sprintf("RULE %s", rule.Name),
+			func(ctx context.Context, span trace.Span) *response.RuleResponse {
+				hasValidate := rule.HasValidate()
+				hasValidateImage := rule.HasImagesValidationChecks()
+				hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
+				if !hasValidate && !hasValidateImage {
+					return nil
+				}
+				log = log.WithValues("rule", rule.Name)
+				if !matches(log, rule, enginectx) {
+					return nil
+				}
+				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
+				enginectx.jsonContext.Reset()
+				if hasValidate && !hasYAMLSignatureVerify {
+					return processValidationRule(ctx, log, rclient, enginectx, rule)
+				} else if hasValidateImage {
+					return processImageValidationRule(ctx, log, rclient, enginectx, rule)
+				} else if hasYAMLSignatureVerify {
+					return processYAMLValidationRule(log, enginectx, rule)
+				}
+				return nil
+			},
+		)
 		if ruleResp != nil {
 			addRuleResponse(log, resp, ruleResp, startTime)
 			if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
