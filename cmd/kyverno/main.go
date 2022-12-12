@@ -34,7 +34,7 @@ import (
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
-	event "github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -62,17 +62,15 @@ const (
 	resyncPeriod = 15 * time.Minute
 )
 
-func setupRegistryClient(logger logr.Logger, lister corev1listers.SecretNamespaceLister, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
+func setupRegistryClient(ctx context.Context, logger logr.Logger, lister corev1listers.SecretNamespaceLister, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
 	logger = logger.WithName("registry-client")
 	logger.Info("setup registry client...", "secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
-	var registryOptions []registryclient.Option
+	registryOptions := []registryclient.Option{
+		registryclient.WithTracing(),
+	}
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
-		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(
-			context.TODO(),
-			lister,
-			secrets...,
-		))
+		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(ctx, lister, secrets...))
 	}
 	if allowInsecureRegistry {
 		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
@@ -112,7 +110,6 @@ func createNonLeaderControllers(
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
 	rclient registryclient.Client,
@@ -122,6 +119,7 @@ func createNonLeaderControllers(
 	manager openapi.Manager,
 ) ([]internal.Controller, func() error) {
 	policyCacheController := policycachecontroller.NewController(
+		dynamicClient,
 		policyCache,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
@@ -415,7 +413,7 @@ func main() {
 	}
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	// setup registry client
-	rclient, err := setupRegistryClient(logger, secretLister, imagePullSecrets, allowInsecureRegistry)
+	rclient, err := setupRegistryClient(signalCtx, logger, secretLister, imagePullSecrets, allowInsecureRegistry)
 	if err != nil {
 		logger.Error(err, "failed to setup registry client")
 		os.Exit(1)
@@ -481,7 +479,6 @@ func main() {
 		kubeInformer,
 		kubeKyvernoInformer,
 		kyvernoInformer,
-		kubeClient,
 		kyvernoClient,
 		dClient,
 		rclient,

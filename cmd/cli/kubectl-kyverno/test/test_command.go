@@ -36,7 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var longHelp = `
@@ -140,6 +140,16 @@ policies:
   - name: <resource_name_2>
     values:
       foo: bin
+# If policy is matching on Kind/Subresource, then this is required
+subresources:
+  - subresource:
+      name: <name of subresource>
+      kind: <kind of subresource>
+      version: <version of subresource>
+    parentResource:
+      name: <name of parent resource>
+      kind: <kind of parent resource>
+      version: <version of parent resource>
 
 **RESULT DESCRIPTIONS**:
 
@@ -748,7 +758,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	valuesFile := values.Variables
 	userInfoFile := values.UserInfo
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
@@ -911,7 +921,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 			}
 		}
 
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
 
 		for _, resource := range noDuplicateResources {
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
@@ -929,6 +939,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				Rc:                        &resultCounts,
 				RuleToCloneSourceResource: ruleToCloneSourceResource,
 				Client:                    dClient,
+				Subresources:              subresources,
 			}
 			ers, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
