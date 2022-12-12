@@ -23,7 +23,7 @@ func (inner AdmissionHandler) WithMetrics(logger logr.Logger, metricsConfig conf
 func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration, attrs ...attribute.KeyValue) AdmissionHandler {
 	meter := global.MeterProvider().Meter(metrics.MeterName)
 	requestsMetric, err := meter.SyncInt64().Counter(
-		"kyverno_admission_requests_total",
+		"kyverno_admission_requests",
 		instrument.WithDescription("can be used to track the number of admission requests encountered by Kyverno in the cluster"),
 	)
 	if err != nil {

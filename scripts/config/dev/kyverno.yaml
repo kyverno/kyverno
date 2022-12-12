@@ -1,0 +1,24 @@
+initContainer:
+  extraArgs:
+    - --loggingFormat=json
+
+extraArgs:
+  - --loggingFormat=json
+  - --enableTracing
+  - --tracingAddress=tempo.monitoring
+  - --tracingPort=4317
+
+serviceMonitor:
+  enabled: true
+
+grafana:
+  enabled: true
+
+cleanupController:
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - ''
+          resources:
+            - pods
