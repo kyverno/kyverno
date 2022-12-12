@@ -117,6 +117,7 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 					logging.Error(err, "failed to add target resource to the context")
 					continue
 				}
+			}
 
 			logger.V(4).Info("apply rule to resource", "rule", rule.Name, "resource namespace", patchedResource.unstructured.GetNamespace(), "resource name", patchedResource.unstructured.GetName())
 			var mutateResp *mutate.Response
@@ -144,72 +145,10 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 				if ruleResponse.Status == response.RuleStatusError {
 					incrementErrorCount(resp)
 				} else {
-					logger.Error(err, "failed to query resource object")
+					incrementAppliedCount(resp)
 				}
-
-				if err := LoadContext(ctx, logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
-					if _, ok := err.(gojmespath.NotFoundError); ok {
-						logger.V(3).Info("failed to load context", "reason", err.Error())
-					} else {
-						logger.Error(err, "failed to load context")
-					}
-					return
-				}
-
-				ruleCopy := rule.DeepCopy()
-				var patchedResources []resourceInfo
-				if !policyContext.admissionOperation && rule.IsMutateExisting() {
-					targets, err := loadTargets(ruleCopy.Mutation.Targets, policyContext, logger)
-					if err != nil {
-						rr := ruleResponse(rule, response.Mutation, err.Error(), response.RuleStatusError)
-						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
-					} else {
-						patchedResources = append(patchedResources, targets...)
-					}
-				} else {
-					var parentResourceGVR metav1.GroupVersionResource
-					if policyContext.subresource != "" {
-						parentResourceGVR = policyContext.requestResource
-					}
-					patchedResources = append(patchedResources, resourceInfo{
-						unstructured: matchedResource, subresource: policyContext.subresource, parentResourceGVR: parentResourceGVR,
-					})
-				}
-
-				for _, patchedResource := range patchedResources {
-					if reflect.DeepEqual(patchedResource, unstructured.Unstructured{}) {
-						continue
-					}
-
-					if !policyContext.admissionOperation && rule.IsMutateExisting() {
-						policyContext := policyContext.Copy()
-						if err := policyContext.jsonContext.AddTargetResource(patchedResource.unstructured.Object); err != nil {
-							logging.Error(err, "failed to add target resource to the context")
-							continue
-						}
-					}
-
-					logger.V(4).Info("apply rule to resource", "rule", rule.Name, "resource namespace", patchedResource.unstructured.GetNamespace(), "resource name", patchedResource.unstructured.GetName())
-					var ruleResp *response.RuleResponse
-					if rule.Mutation.ForEachMutation != nil {
-						ruleResp, patchedResource.unstructured = mutateForEach(ctx, rclient, ruleCopy, policyContext, patchedResource.unstructured, patchedResource.subresource, patchedResource.parentResourceGVR, logger)
-					} else {
-						ruleResp, patchedResource.unstructured = mutateResource(ruleCopy, policyContext, patchedResource.unstructured, patchedResource.subresource, patchedResource.parentResourceGVR, logger)
-					}
-
-					matchedResource = patchedResource.unstructured
-
-					if ruleResp != nil {
-						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-						if ruleResp.Status == response.RuleStatusError {
-							incrementErrorCount(resp)
-						} else {
-							incrementAppliedCount(resp)
-						}
-					}
-				}
-			},
-		)
+			}
+		}
 
 		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
 			break
