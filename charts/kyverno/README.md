@@ -249,6 +249,18 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.service.type | string | `"ClusterIP"` | Service type. |
 | cleanupController.service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
 | cleanupController.service.annotations | object | `{}` | Service annotations. |
+| cleanupController.metricsService.create | bool | `true` | Create service. |
+| cleanupController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
+| cleanupController.metricsService.type | string | `"ClusterIP"` | Service type. |
+| cleanupController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
+| cleanupController.metricsService.annotations | object | `{}` | Service annotations. |
+| cleanupController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| cleanupController.serviceMonitor.additionalLabels | string | `nil` | Additional labels |
+| cleanupController.serviceMonitor.namespace | string | `nil` | Override namespace (default is the same as kyverno) |
+| cleanupController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
+| cleanupController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
+| cleanupController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
+| cleanupController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
 
 ## TLS Configuration
 

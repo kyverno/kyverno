@@ -30,10 +30,8 @@ const (
 // - better certs management
 // - supports certs in cronjob
 // - leader election support
-// - helm service monitor
-// - helm name and fullname
 // - helm review labels / selectors
-// - helm metrics service
+// - helm name and fullname
 
 type probes struct{}
 
