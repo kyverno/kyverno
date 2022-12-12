@@ -65,6 +65,11 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 			policy:      []byte(`{"apiVersion":"kyverno.io\/v1","kind":"ClusterPolicy","metadata":{"name":"set-image-pull-policy"},"spec":{"rules":[{"name":"set-image-pull-policy","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"mutate":{"patchStrategicMerge":{"spec":{"containers":[{"(image)":"*:latest","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
 			mustSucceed: true,
 		},
+		{
+			description: "Policy with nested foreach and patchesJson6902",
+			policy:      []byte(`{"apiVersion":"kyverno.io/v2beta1","kind":"ClusterPolicy","metadata":{"name":"replace-image-registry"},"spec":{"background":false,"validationFailureAction":"Enforce","rules":[{"name":"replace-dns-suffix","match":{"any":[{"resources":{"kinds":["Ingress"]}}]},"mutate":{"foreach":[{"list":"request.object.spec.tls","foreach":[{"list":"element.hosts","patchesJson6902":"- path: \"/spec/tls/{{elementIndex0}}/hosts/{{elementIndex1}}\"\n  op: replace\n  value: \"{{replace_all('{{element}}', '.foo.com', '.newfoo.com')}}\""}]}]}}]}}`),
+			mustSucceed: true,
+		},
 	}
 
 	o, _ := NewManager()
