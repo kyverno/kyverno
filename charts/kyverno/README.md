@@ -228,7 +228,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.priorityClassName | string | `""` | Optional priority class |
 | cleanupController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | cleanupController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| cleanupController.args | list | `["--cleanupService=https://{{ template \"kyverno.cleanup-controller.deploymentName\" . }}.{{ template \"kyverno.namespace\" . }}.svc"]` | Arguments passed to the container on the command line |
+| cleanupController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
 | cleanupController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | cleanupController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
@@ -261,6 +261,16 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
 | cleanupController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
 | cleanupController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| cleanupController.tracing.enabled | bool | `false` | Enable tracing |
+| cleanupController.tracing.address | string | `nil` | Traces receiver address |
+| cleanupController.tracing.port | string | `nil` | Traces receiver port |
+| cleanupController.tracing.creds | string | `""` | Traces receiver credentials |
+| cleanupController.logging.format | string | `"text"` | Logging format |
+| cleanupController.metering.disabled | bool | `false` | Disable metrics export |
+| cleanupController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
+| cleanupController.metering.port | int | `8000` | Prometheus endpoint port |
+| cleanupController.metering.collector | string | `""` | Otel collector endpoint |
+| cleanupController.metering.creds | string | `""` | Otel collector credentials |
 
 ## TLS Configuration
 

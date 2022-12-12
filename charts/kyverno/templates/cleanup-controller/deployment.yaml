@@ -77,13 +77,38 @@ spec:
           - containerPort: 8000
             name: metrics
             protocol: TCP
-          {{- with .Values.cleanupController.args }}
           args:
-            {{- tpl (toYaml .) $ | nindent 12 }}
-          {{- end }}
+            - --cleanupService=https://{{ template "kyverno.cleanup-controller.deploymentName" . }}.{{ template "kyverno.namespace" . }}.svc
+            - --loggingFormat={{ .Values.cleanupController.logging.format }}
+            {{- if .Values.cleanupController.tracing.enabled }}
+            - --enableTracing
+            - --tracingAddress={{ .Values.cleanupController.tracing.address }}
+            - --tracingPort={{ .Values.cleanupController.tracing.port }}
+            {{- with .Values.cleanupController.tracing.creds }}
+            - --tracingCreds={{ . }}
+            {{- end }}
+            {{- end }}
+            - --disableMetrics={{ .Values.cleanupController.metering.disabled }}
+            {{- if not .Values.cleanupController.metering.disabled }}
+            - --otelConfig={{ .Values.cleanupController.metering.config }}
+            - --metricsPort={{ .Values.cleanupController.metering.port }}
+            {{- with .Values.cleanupController.metering.collector }}
+            - --otelCollector={{ . }}
+            {{- end }}
+            {{- with .Values.cleanupController.metering.creds }}
+            - --transportCreds={{ . }}
+            {{- end }}
+            {{- end }}
+            {{- range .Values.cleanupController.extraArgs }}
+            - {{ . }}
+            {{- end }}
           env:
           - name: METRICS_CONFIG
             value: {{ template "kyverno.metricsConfigMapName" . }}
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
           - name: KYVERNO_NAMESPACE
             valueFrom:
               fieldRef:

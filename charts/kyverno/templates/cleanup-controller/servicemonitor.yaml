@@ -1,6 +1,6 @@
 {{- if .Values.cleanupController.enabled -}}
-{{- if .Values.cleanupController.serviceMonitor.enabled }}
-apiVersion: "monitoring.coreos.com/v1"
+{{- if .Values.cleanupController.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: {{ template "kyverno.cleanup-controller.deploymentName" . }}

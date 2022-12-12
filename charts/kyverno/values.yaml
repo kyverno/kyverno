@@ -539,9 +539,8 @@ cleanupController:
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
   dnsPolicy: ClusterFirst
 
-  # -- Arguments passed to the container on the command line
-  args:
-    - --cleanupService=https://{{ template "kyverno.cleanup-controller.deploymentName" . }}.{{ template "kyverno.namespace" . }}.svc
+  # -- Extra arguments passed to the container on the command line
+  extraArgs: []
 
   resources:
     # -- Pod resource limits
@@ -693,3 +692,29 @@ cleanupController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+
+  tracing:
+    # -- Enable tracing
+    enabled: false
+    # -- Traces receiver address
+    address:
+    # -- Traces receiver port
+    port:
+    # -- Traces receiver credentials
+    creds: ''
+
+  logging:
+    # -- Logging format
+    format: text
+
+  metering:
+    # -- Disable metrics export
+    disabled: false
+    # -- Otel configuration, can be `prometheus` or `grpc`
+    config: prometheus
+    # -- Prometheus endpoint port
+    port: 8000
+    # -- Otel collector endpoint
+    collector: ''
+    # -- Otel collector credentials
+    creds: ''
