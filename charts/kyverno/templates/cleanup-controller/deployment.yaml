@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+  name: {{ template "kyverno.cleanup-controller.name" . }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
@@ -78,7 +78,6 @@ spec:
             name: metrics
             protocol: TCP
           args:
-            - --cleanupService=https://{{ template "kyverno.cleanup-controller.deploymentName" . }}.{{ template "kyverno.namespace" . }}.svc
             - --loggingFormat={{ .Values.cleanupController.logging.format }}
             {{- if .Values.cleanupController.tracing.enabled }}
             - --enableTracing
@@ -113,6 +112,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: KYVERNO_SVC
+            value: {{ template "kyverno.cleanup-controller.name" . }}
           {{- with .Values.cleanupController.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}

@@ -3,7 +3,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ template "kyverno.cleanup-controller.deploymentName" . }}
+  name: {{ template "kyverno.cleanup-controller.name" . }}
   {{- if .Values.cleanupController.serviceMonitor.namespace }}
   namespace: {{ .Values.cleanupController.serviceMonitor.namespace }}
   {{- else }}

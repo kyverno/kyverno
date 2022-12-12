@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
@@ -31,7 +32,6 @@ const (
 // - supports certs in cronjob
 // - leader election support
 // - helm review labels / selectors
-// - helm name and fullname
 
 type probes struct{}
 
@@ -44,12 +44,8 @@ func (probes) IsLive() bool {
 }
 
 func main() {
-	var (
-		cleanupService string
-		dumpPayload    bool
-	)
+	var dumpPayload bool
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
-	flagset.StringVar(&cleanupService, "cleanupService", "https://cleanup-controller.kyverno.svc", "The url to join the cleanup service.")
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	// config
 	appConfig := internal.NewConfiguration(
@@ -86,11 +82,11 @@ func main() {
 			kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
 			kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
 			kubeInformer.Batch().V1().CronJobs(),
-			cleanupService,
+			"https://"+config.KyvernoServiceName()+"."+config.KyvernoNamespace()+".svc",
 		),
 		cleanup.Workers,
 	)
-	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
+	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	cpolLister := kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies().Lister()
 	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
@@ -106,7 +102,7 @@ func main() {
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
-			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get("cleanup-controller-tls")
+			secret, err := secretLister.Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
 				return nil, nil, err
 			}
