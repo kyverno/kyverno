@@ -12,6 +12,15 @@ rules:
     - ''
   resources:
     - secrets
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+- apiGroups:
+    - ''
+  resources:
     - configmaps
   verbs:
     - get
