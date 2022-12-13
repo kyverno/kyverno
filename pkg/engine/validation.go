@@ -430,18 +430,20 @@ func (v *validator) getDenyMessage(deny bool) string {
 	if !deny {
 		return fmt.Sprintf("validation rule '%s' passed.", v.rule.Name)
 	}
-
 	msg := v.rule.Validation.Message
 	if msg == "" {
 		return fmt.Sprintf("validation error: rule %s failed", v.rule.Name)
 	}
-
 	raw, err := variables.SubstituteAll(v.log, v.policyContext.jsonContext, msg)
 	if err != nil {
 		return msg
 	}
-
-	return raw.(string)
+	switch typed := raw.(type) {
+	case string:
+		return typed
+	default:
+		return "the produced message didn't resolve to a string, check your policy definition."
+	}
 }
 
 func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
