@@ -61,7 +61,8 @@ import (
 )
 
 const (
-	resyncPeriod = 15 * time.Minute
+	resyncPeriod                   = 15 * time.Minute
+	exceptionWebhookControllerName = "exception-webhook-controller"
 )
 
 func setupRegistryClient(ctx context.Context, logger logr.Logger, lister corev1listers.SecretNamespaceLister, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
@@ -298,25 +299,19 @@ func createrLeaderControllers(
 		admissionReports,
 		runtime,
 	)
-	exceptionwebhookcontroller := genericwebhookcontroller.NewController(
-		"exception-webhook-controller",
+	exceptionWebhookController := genericwebhookcontroller.NewController(
+		exceptionWebhookControllerName,
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kubeKyvernoInformer.Core().V1().Secrets(),
-		"/exceptionvalidate",
-		"kyverno-policy-exception",
+		config.ExceptionValidatingWebhookConfigurationName,
+		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
-				APIGroups: []string{
-					"kyverno.io",
-				},
-				APIVersions: []string{
-					"v2alpha1",
-				},
-				Resources: []string{
-					"policyexceptions",
-				},
+				APIGroups:   []string{"kyverno.io"},
+				APIVersions: []string{"v2alpha1"},
+				Resources:   []string{"policyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Create,
@@ -343,7 +338,7 @@ func createrLeaderControllers(
 				internal.NewController("policy-controller", policyCtrl, 2),
 				internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
 				internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
-				internal.NewController("exception-webhook-controller", exceptionwebhookcontroller, 1),
+				internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1),
 			},
 			reportControllers...,
 		),
