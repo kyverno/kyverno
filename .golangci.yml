@@ -45,6 +45,7 @@ linters:
 run:
   timeout: 10m
   skip-files:
+    - ".+\\.generated.go"
     - ".+_test.go"
     - ".+_test_.+.go"
 

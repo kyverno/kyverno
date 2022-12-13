@@ -59,20 +59,20 @@ jobs:
     steps:
       - name: Set version
         id: version
-        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
+        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2.4.0
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # pin@v2.1.5
+        uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613 # pin@v3.4.0
         with:
           go-version: ~1.18.6
 
       - name: Cache Go modules
-        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
+        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # pin@v3
         with:
           path: |
             ~/.cache/go-build
@@ -93,7 +93,7 @@ jobs:
           cat release/release-notes.out
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@5df302e5e9e4c66310a6b6493a8865b12c555af2 # pin@v2.8.0
+        uses: goreleaser/goreleaser-action@b508e2e3ef3b19d4e4146d4f8fb3ba9db644a757 # pin@v3.2.0
         with:
           version: latest
           args: release --rm-dist --debug --release-notes=release/release-notes.out
@@ -112,25 +112,25 @@ jobs:
     steps:
       - name: Set version
         id: version
-        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
+        run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2.4.0
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # pin@v2.1.5
+        uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613 # pin@v3.4.0
         with:
           go-version: ~1.18.6
 
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@1fa48bf916fa5ce5800190f8a0c9fdf7ae86559b # v0.35.0
+        uses: fluxcd/flux2/action@8674f31874b23ec1d03fc51efde27d1280d116db # v0.37.0
         with:
           version: 0.35.0
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@7cc35d7fdbe70d4278a0c96779081e6fac665f88 # v2.8.0
+        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
         with:
           cosign-release: 'v1.13.0'
 
@@ -177,7 +177,7 @@ jobs:
       - create-release
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2.4.0
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
 
       - name: Unshallow
         run: git fetch --prune --unshallow
@@ -186,9 +186,9 @@ jobs:
         id: check-tag
         run: |
           if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo ::set-output name=match::true
+              echo "match=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Update new version in krew-index
         if: steps.check-tag.outputs.match == 'true'
-        uses: rajatjindal/krew-release-bot@3320c0b546b5d2320613c46762bd3f73e2801bdc # pin@v0.0.38
+        uses: rajatjindal/krew-release-bot@92da038bbf995803124a8e50ebd438b2f37bbbb0 # pin@v0.0.43

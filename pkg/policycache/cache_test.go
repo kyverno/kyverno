@@ -12,7 +12,7 @@ import (
 
 func setPolicy(store store, policy kyvernov1.PolicyInterface) {
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
-	store.set(key, policy)
+	store.set(key, policy, make(map[string]string))
 }
 
 func unsetPolicy(store store, policy kyvernov1.PolicyInterface) {
@@ -1164,7 +1164,7 @@ func Test_Get_Policies(t *testing.T) {
 	cache := NewCache()
 	policy := newPolicy(t)
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
-	cache.Set(key, policy)
+	cache.Set(key, policy, make(map[string]string))
 
 	validateAudit := cache.GetPolicies(ValidateAudit, "Namespace", "")
 	if len(validateAudit) != 0 {
@@ -1197,7 +1197,7 @@ func Test_Get_Policies_Ns(t *testing.T) {
 	cache := NewCache()
 	policy := newNsPolicy(t)
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
-	cache.Set(key, policy)
+	cache.Set(key, policy, make(map[string]string))
 	nspace := policy.GetNamespace()
 
 	validateAudit := cache.GetPolicies(ValidateAudit, "Pod", nspace)
@@ -1226,9 +1226,9 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 	policy1 := newValidateAuditPolicy(t)
 	policy2 := newValidateEnforcePolicy(t)
 	key1, _ := kubecache.MetaNamespaceKeyFunc(policy1)
-	cache.Set(key1, policy1)
+	cache.Set(key1, policy1, make(map[string]string))
 	key2, _ := kubecache.MetaNamespaceKeyFunc(policy2)
-	cache.Set(key2, policy2)
+	cache.Set(key2, policy2, make(map[string]string))
 
 	validateAudit := cache.GetPolicies(ValidateAudit, "Pod", "")
 	if len(validateAudit) != 1 {

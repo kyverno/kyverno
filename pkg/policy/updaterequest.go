@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
@@ -106,7 +105,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		return false, errors.Wrapf(err, "failed to build policy context for rule %s", rule.Name)
 	}
 
-	engineResponse := engine.ApplyBackgroundChecks(policyContext)
+	engineResponse := engine.ApplyBackgroundChecks(pc.rclient, policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		return true, nil
 	}
@@ -129,7 +128,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 func (pc *PolicyController) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
 	mutateURs, err := pc.urLister.List(labels.SelectorFromSet(common.MutateLabelsSet(policyKey, trigger)))
 	if err != nil {
-		logger.Error(err, "failed to list update request for mutate policy")
+		pc.log.Error(err, "failed to list update request for mutate policy")
 	}
 	return mutateURs
 }
@@ -137,7 +136,7 @@ func (pc *PolicyController) listMutateURs(policyKey string, trigger *unstructure
 func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
 	generateURs, err := pc.urLister.List(labels.SelectorFromSet(common.GenerateLabelsSet(policyKey, trigger)))
 	if err != nil {
-		logger.Error(err, "failed to list update request for generate policy")
+		pc.log.Error(err, "failed to list update request for generate policy")
 	}
 	return generateURs
 }

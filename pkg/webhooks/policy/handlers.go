@@ -1,7 +1,7 @@
 package policy
 
 import (
-	"fmt"
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -25,27 +25,19 @@ func NewHandlers(client dclient.Interface, openApiManager openapi.Manager) webho
 	}
 }
 
-func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	if request.SubResource != "" {
-		logger.V(4).Info("skip policy validation on status update")
-		return admissionutils.Response(true)
-	}
+func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
 	policy, _, err := admissionutils.GetPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
-		return admissionutils.ResponseWithMessage(true, fmt.Sprintf("failed to validate policy, check kyverno controller logs for details: %v", err))
+		return admissionutils.Response(request.UID, err)
 	}
-	response, err := policyvalidate.Validate(policy, h.client, false, h.openApiManager)
+	warnings, err := policyvalidate.Validate(policy, h.client, false, h.openApiManager)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
-		return admissionutils.ResponseWithMessage(false, err.Error())
 	}
-	if response != nil && len(response.Warnings) != 0 {
-		return response
-	}
-	return admissionutils.Response(true)
+	return admissionutils.Response(request.UID, err, warnings...)
 }
 
-func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	return admissionutils.Response(true)
+func (h *handlers) Mutate(_ context.Context, _ logr.Logger, _ *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
+	return nil
 }

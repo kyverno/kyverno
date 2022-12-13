@@ -1,6 +1,7 @@
 package controller
 
 import (
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -13,6 +14,31 @@ func SetLabel(obj metav1.Object, key, value string) map[string]string {
 	labels[key] = value
 	obj.SetLabels(labels)
 	return labels
+}
+
+func CheckLabel(obj metav1.Object, key, value string) bool {
+	labels := obj.GetLabels()
+	if labels == nil {
+		return false
+	}
+	return labels[key] == value
+}
+
+func SetManagedByKyvernoLabel(obj metav1.Object) {
+	SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
+}
+
+func IsManagedByKyverno(obj metav1.Object) bool {
+	return CheckLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
+}
+
+func HasLabel(obj metav1.Object, key string) bool {
+	labels := obj.GetLabels()
+	if labels == nil {
+		return false
+	}
+	_, exists := labels[key]
+	return exists
 }
 
 func SetAnnotation(obj metav1.Object, key, value string) {

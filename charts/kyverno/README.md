@@ -164,6 +164,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | extraInitContainers | list | `[]` | Array of extra init containers |
 | extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
+| existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
 | resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | initResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
@@ -205,11 +206,73 @@ The command removes all the Kubernetes components associated with the chart and 
 | serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
 | createSelfSignedCert | bool | `false` | Kyverno requires a certificate key pair and corresponding certificate authority to properly register its webhooks. This can be done in one of 3 ways: 1) Use kube-controller-manager to generate a CA-signed certificate (preferred) 2) Provide your own CA and cert.    In this case, you will need to create a certificate with a specific name and data structure.    As long as you follow the naming scheme, it will be automatically picked up.    kyverno-svc.(namespace).svc.kyverno-tls-ca (with data entries named tls.key and tls.crt)    kyverno-svc.kyverno.svc.kyverno-tls-pair (with data entries named tls.key and tls.crt) 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false |
 | installCRDs | bool | `true` | Whether to have Helm install the Kyverno CRDs. If the CRDs are not installed by Helm, they must be added before policies can be created. |
+| crds.annotations | object | `{}` | Additional CRDs annotations. |
 | networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | webhooksCleanup.enable | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
-| tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization |
+| tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
+| grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
+| grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
+| grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
+| cleanupController.enabled | bool | `true` | Enable cleanup controller. |
+| cleanupController.rbac.create | bool | `true` | Create RBAC resources |
+| cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
+| cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
+| cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
+| cleanupController.image.registry | string | `nil` | Image registry |
+| cleanupController.image.repository | string | `"ghcr.io/kyverno/cleanup-controller"` | Image repository |
+| cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| cleanupController.image.pullSecrets | list | `[]` | Image pull secrets |
+| cleanupController.replicas | int | `nil` | Desired number of pods |
+| cleanupController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
+| cleanupController.priorityClassName | string | `""` | Optional priority class |
+| cleanupController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
+| cleanupController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
+| cleanupController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| cleanupController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
+| cleanupController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
+| cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| cleanupController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| cleanupController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| cleanupController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| cleanupController.tolerations | list | `[]` | List of node taints to tolerate |
+| cleanupController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
+| cleanupController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
+| cleanupController.podAffinity | object | `{}` | Pod affinity constraints. |
+| cleanupController.nodeAffinity | object | `{}` | Node affinity constraints. |
+| cleanupController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
+| cleanupController.podSecurityContext | object | `{}` | Security context for the pod |
+| cleanupController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| cleanupController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
+| cleanupController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
+| cleanupController.service.port | int | `443` | Service port. |
+| cleanupController.service.type | string | `"ClusterIP"` | Service type. |
+| cleanupController.service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
+| cleanupController.service.annotations | object | `{}` | Service annotations. |
+| cleanupController.metricsService.create | bool | `true` | Create service. |
+| cleanupController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
+| cleanupController.metricsService.type | string | `"ClusterIP"` | Service type. |
+| cleanupController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
+| cleanupController.metricsService.annotations | object | `{}` | Service annotations. |
+| cleanupController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| cleanupController.serviceMonitor.additionalLabels | string | `nil` | Additional labels |
+| cleanupController.serviceMonitor.namespace | string | `nil` | Override namespace (default is the same as kyverno) |
+| cleanupController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
+| cleanupController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
+| cleanupController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
+| cleanupController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| cleanupController.tracing.enabled | bool | `false` | Enable tracing |
+| cleanupController.tracing.address | string | `nil` | Traces receiver address |
+| cleanupController.tracing.port | string | `nil` | Traces receiver port |
+| cleanupController.tracing.creds | string | `""` | Traces receiver credentials |
+| cleanupController.logging.format | string | `"text"` | Logging format |
+| cleanupController.metering.disabled | bool | `false` | Disable metrics export |
+| cleanupController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
+| cleanupController.metering.port | int | `8000` | Prometheus endpoint port |
+| cleanupController.metering.collector | string | `""` | Otel collector endpoint |
+| cleanupController.metering.creds | string | `""` | Otel collector credentials |
 
 ## TLS Configuration
 

@@ -12,7 +12,7 @@ import (
 
 type store interface {
 	// set inserts a policy in the cache
-	set(string, kyvernov1.PolicyInterface)
+	set(string, kyvernov1.PolicyInterface, map[string]string)
 	// unset removes a policy from the cache
 	unset(string)
 	// get finds policies that match a given type, gvk and namespace
@@ -30,10 +30,10 @@ func newPolicyCache() store {
 	}
 }
 
-func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface) {
+func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface, subresourceGVKToKind map[string]string) {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
-	pc.store.set(key, policy)
+	pc.store.set(key, policy, subresourceGVKToKind)
 	logger.V(4).Info("policy is added to cache", "key", key)
 }
 
@@ -74,11 +74,11 @@ func computeKind(gvk string) string {
 }
 
 func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
-	if spec.GetValidationFailureAction() == kyvernov1.Enforce {
+	if spec.ValidationFailureAction.Enforce() {
 		return true
 	}
 	for _, k := range spec.ValidationFailureActionOverrides {
-		if k.Action == kyvernov1.Enforce {
+		if k.Action.Enforce() {
 			return true
 		}
 	}
@@ -93,7 +93,7 @@ func set(set sets.String, item string, value bool) sets.String {
 	}
 }
 
-func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
+func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, subresourceGVKToKind map[string]string) {
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	m.policies[key] = policy
 	type state struct {
@@ -102,13 +102,16 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
 	kindStates := map[string]state{}
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, gvk := range rule.MatchResources.GetKinds() {
-			kind := computeKind(gvk)
+			kind, ok := subresourceGVKToKind[gvk]
+			if !ok {
+				kind = computeKind(gvk)
+			}
 			entry := kindStates[kind]
-			entry.hasMutate = (entry.hasMutate || rule.HasMutate())
-			entry.hasValidate = (entry.hasValidate || rule.HasValidate())
-			entry.hasGenerate = (entry.hasGenerate || rule.HasGenerate())
-			entry.hasVerifyImages = (entry.hasVerifyImages || rule.HasVerifyImages())
-			entry.hasImagesValidationChecks = (entry.hasImagesValidationChecks || rule.HasImagesValidationChecks())
+			entry.hasMutate = entry.hasMutate || rule.HasMutate()
+			entry.hasValidate = entry.hasValidate || rule.HasValidate()
+			entry.hasGenerate = entry.hasGenerate || rule.HasGenerate()
+			entry.hasVerifyImages = entry.hasVerifyImages || rule.HasVerifyImages()
+			entry.hasImagesValidationChecks = entry.hasImagesValidationChecks || rule.HasImagesValidationChecks()
 			kindStates[kind] = entry
 		}
 	}

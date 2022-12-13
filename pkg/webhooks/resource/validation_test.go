@@ -1,15 +1,16 @@
 package resource
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
 
 	log "github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
@@ -17,7 +18,6 @@ import (
 )
 
 func TestValidate_failure_action_overrides(t *testing.T) {
-
 	testcases := []struct {
 		rawPolicy   []byte
 		rawResource []byte
@@ -531,7 +531,11 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			resourceUnstructured, err := utils.ConvertToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
-			er := engine.Validate(&engine.PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+			er := engine.Validate(
+				context.TODO(),
+				registryclient.NewOrDie(),
+				engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
+			)
 			if tc.blocked && tc.messages != nil {
 				for _, r := range er.PolicyResponse.Rules {
 					msg := tc.messages[r.Name]
@@ -589,8 +593,9 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, resourceUnstructured != nil)
 
-	ctx := &engine.PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()}
-	resp := engine.Validate(ctx)
+	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+
+	resp := engine.Validate(context.TODO(), registryclient.NewOrDie(), ctx)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 2)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
@@ -601,7 +606,7 @@ func Test_RuleSelector(t *testing.T) {
 	applyOne := kyvernov1.ApplyOne
 	policy.Spec.ApplyRules = &applyOne
 
-	resp = engine.Validate(ctx)
+	resp = engine.Validate(context.TODO(), registryclient.NewOrDie(), ctx)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 

@@ -1,8 +1,18 @@
+## v1.9.0-rc.2
+
+### Note
+
+- Webhook is no longer updated to match `pods/ephemeralcontainers` when policy only specifies `pods`. If users want to match on `pods/ephemeralcontainers`, they must specify `pods/ephemeralcontainers` in the policy.
+- Webhook is no longer updated to match `services/status` when policy only specifies `services`. If users want to match on `services/status`, they must specify `services/status` in the policy.
+
 ## v1.9.0-rc.1
 
 ### Note
 
 - Flag `autogenInternals` was removed, policy mutation has been removed.
+- Flag `leaderElectionRetryPeriod` was added to control leader election renewal frequency (default value is `2s`).
+- Support upper case `Audit` and `Enforce` in `.spec.validationFailureAction` of the Kyverno policy, failure actions `audit` and `enforce` are deprecated and will be removed in `v1.11.0`.
+- Flag `profileAddress` was added to configure address of profiling server (default value is `""`).
 
 ## v1.8.1-rc3
 

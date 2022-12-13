@@ -5,6 +5,9 @@ kind: ClusterPolicy
 metadata:
   name: {{ $name }}
   annotations:
+    {{- with .Values.autogenControllers }}
+    pod-policies.kyverno.io/autogen-controllers: {{ . }}
+    {{- end }}
     policies.kyverno.io/title: Disallow hostProcess
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     {{- if .Values.podSecuritySeverity }}
@@ -18,6 +21,7 @@ metadata:
       access to the Windows node. Privileged access to the host is disallowed in the baseline
       policy. HostProcess pods are an alpha feature as of Kubernetes v1.22. This policy ensures
       the `hostProcess` field, if present, is set to `false`.
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   {{- with index .Values "validationFailureActionByPolicy" $name }}
   validationFailureAction: {{ toYaml . }}

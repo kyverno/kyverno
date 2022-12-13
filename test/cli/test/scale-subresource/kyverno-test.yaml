@@ -1,0 +1,13 @@
+name: enforce-replicas-for-scale-subresource
+policies:
+  - enforce-replicas-for-scale-subresource.yml
+resources:
+  - resource.yaml
+variables: values.yaml
+results:
+  - policy: enforce-replicas-for-scale-subresource
+    rule: validate-nginx-test
+    resource: nginx-test
+    namespace: default
+    kind: Scale
+    result: fail

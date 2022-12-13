@@ -24,8 +24,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -53,8 +54,10 @@ const (
 type PolicyController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	pInformer     kyvernov1informers.ClusterPolicyInformer
-	npInformer    kyvernov1informers.PolicyInformer
+	rclient       registryclient.Client
+
+	pInformer  kyvernov1informers.ClusterPolicyInformer
+	npInformer kyvernov1informers.PolicyInformer
 
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
@@ -86,13 +89,14 @@ type PolicyController struct {
 
 	log logr.Logger
 
-	metricsConfig *metrics.MetricsConfig
+	metricsConfig metrics.MetricsConfigManager
 }
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
+	rclient registryclient.Client,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
@@ -101,20 +105,18 @@ func NewPolicyController(
 	namespaces corev1informers.NamespaceInformer,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 ) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.V(5).Info)
-	eventInterface, err := client.GetEventsInterface()
-	if err != nil {
-		return nil, err
-	}
+	eventInterface := client.GetEventsInterface()
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
 		client:          client,
 		kyvernoClient:   kyvernoClient,
+		rclient:         rclient,
 		pInformer:       pInformer,
 		npInformer:      npInformer,
 		eventGen:        eventGen,
@@ -142,8 +144,10 @@ func NewPolicyController(
 func (pc *PolicyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	logger := pc.log.WithValues("policy", p.GetName())
 	if !p.BackgroundProcessingEnabled() {
-		logger.V(4).Info("background processed is disabled")
-		return false
+		if !p.GetSpec().HasGenerate() && !p.GetSpec().IsMutateExisting() {
+			logger.V(4).Info("background processing is disabled")
+			return false
+		}
 	}
 
 	if err := ValidateVariables(p, true); err != nil {
@@ -381,7 +385,7 @@ func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Lo
 	kinds := fetchUniqueKinds(rule)
 
 	for _, kind := range kinds {
-		mlist, err := client.ListResource("", kind, "", rule.MatchResources.Selector)
+		mlist, err := client.ListResource(context.TODO(), "", kind, "", rule.MatchResources.Selector)
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
 			continue
@@ -442,7 +446,7 @@ func missingAutoGenRules(policy kyvernov1.PolicyInterface, log logr.Logger) bool
 			ruleCount = 2
 		}
 		if len(res) > 1 {
-			if utils.ContainsString(res, "CronJob") {
+			if slices.Contains(res, "CronJob") {
 				ruleCount = 3
 			} else {
 				ruleCount = 2

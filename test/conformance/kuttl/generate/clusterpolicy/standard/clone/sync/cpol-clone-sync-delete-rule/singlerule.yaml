@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: cpol-clone-sync-delete-rule
+spec:
+  rules:
+  - name: cpol-clone-sync-delete-rule-cm
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: mytestcm
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      clone:
+        namespace: default
+        name: mytestcm

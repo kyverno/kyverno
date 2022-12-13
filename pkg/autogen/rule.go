@@ -106,7 +106,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		return rule
 	}
 	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
-		var newForeachMutation []kyvernov1.ForEachMutation
+		var newForEachMutation []kyvernov1.ForEachMutation
 		for _, foreach := range rule.Mutation.ForEachMutation {
 			temp := kyvernov1.ForEachMutation{
 				List:             foreach.List,
@@ -120,10 +120,10 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 					},
 				},
 			)
-			newForeachMutation = append(newForeachMutation, temp)
+			newForEachMutation = append(newForEachMutation, temp)
 		}
 		rule.Mutation = kyvernov1.Mutation{
-			ForEachMutation: newForeachMutation,
+			ForEachMutation: newForEachMutation,
 		}
 		return rule
 	}
@@ -242,7 +242,14 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 	if controllers == "all" {
 		skipAutoGeneration = true
 	} else if controllers != "none" && controllers != "all" {
-		controllersList := map[string]int{"DaemonSet": 1, "Deployment": 1, "Job": 1, "StatefulSet": 1}
+		controllersList := map[string]int{
+			"DaemonSet":             1,
+			"Deployment":            1,
+			"Job":                   1,
+			"StatefulSet":           1,
+			"ReplicaSet":            1,
+			"ReplicationController": 1,
+		}
 		for _, value := range strings.Split(controllers, ",") {
 			if _, ok := controllersList[value]; ok {
 				controllersValidated = append(controllersValidated, value)
@@ -254,7 +261,7 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 	}
 	if skipAutoGeneration {
 		if controllers == "all" {
-			controllers = "DaemonSet,Deployment,Job,StatefulSet"
+			controllers = "DaemonSet,Deployment,Job,StatefulSet,ReplicaSet,ReplicationController"
 		} else {
 			controllers = strings.Join(controllersValidated, ",")
 		}

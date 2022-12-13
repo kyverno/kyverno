@@ -1,0 +1,7 @@
+apiVersion: kyverno.io/v1alpha2
+kind: BackgroundScanReport
+metadata:
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: badpod01

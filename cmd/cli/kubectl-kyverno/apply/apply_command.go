@@ -3,12 +3,15 @@ package apply
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
@@ -17,11 +20,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
-	"github.com/kyverno/kyverno/pkg/policyreport"
+	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	yaml1 "sigs.k8s.io/yaml"
 )
 
@@ -56,8 +60,11 @@ type ApplyCommandConfig struct {
 	PolicyReport    bool
 	Stdin           bool
 	RegistryAccess  bool
+	AuditWarn       bool
 	ResourcePaths   []string
 	PolicyPaths     []string
+	GitBranch       string
+	warnExitCode    int
 }
 
 var applyHelp = `
@@ -71,6 +78,9 @@ To apply on a folder of resources:
 To apply on a cluster:
         kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
 
+To apply policies from a gitSourceURL on a cluster:
+	Example: Taking github.com as a gitSourceURL here. Some other standards  gitSourceURL are: gitlab.com , bitbucket.org , etc.
+		kyverno apply https://github.com/kyverno/policies/openshift/ --git-branch main --cluster
 
 To apply policy with variables:
 
@@ -121,6 +131,16 @@ To apply policy with variables:
 			- name: <namespace2 name>
 			labels:
 				<label key>: <label value>
+        # If policy is matching on Kind/Subresource, then this is required
+        subresources:
+          - subresource:
+              name: <name of subresource>
+              kind: <kind of subresource>
+              version: <version of subresource>
+            parentResource:
+              name: <name of parent resource>
+              kind: <kind of parent resource>
+              version: <version of parent resource>
 
 More info: https://kyverno.io/docs/kyverno-cli/
 `
@@ -147,7 +167,7 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos)
+			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos, applyCommandConfig.warnExitCode)
 			return nil
 		},
 	}
@@ -164,10 +184,13 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.RegistryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().StringVarP(&applyCommandConfig.KubeConfig, "kubeconfig", "", "", "path to kubeconfig file with authorization and master location information")
 	cmd.Flags().StringVarP(&applyCommandConfig.Context, "context", "", "", "The name of the kubeconfig context to use")
+	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
+	cmd.Flags().BoolVarP(&applyCommandConfig.AuditWarn, "audit-warn", "", false, "If set to true, will flag audit policies as warnings instead of failures")
+	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	return cmd
 }
 
-func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
+func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []common.Info, err error) {
 	store.SetMock(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
@@ -179,7 +202,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(c.VariablesString, c.ValuesFile, fs, false, "")
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.VariablesString, c.ValuesFile, fs, false, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -202,7 +225,11 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
-		dClient, err = dclient.NewClient(context.Background(), restConfig, kubeClient, nil, 15*time.Minute)
+		dynamicClient, err := dynamic.NewForConfig(restConfig)
+		if err != nil {
+			return rc, resources, skipInvalidPolicies, pvInfos, err
+		}
+		dClient, err = dclient.NewClient(context.Background(), dynamicClient, kubeClient, 15*time.Minute)
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
@@ -216,7 +243,40 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("a stdin pipe can be used for either policies or resources, not both", err)
 	}
 
-	policies, err := common.GetPoliciesFromPaths(fs, c.PolicyPaths, false, "")
+	isGit := common.IsGitSourcePath(c.PolicyPaths)
+	var policies []kyvernov1.PolicyInterface
+	gitSourceURL, err := url.Parse(c.PolicyPaths[0])
+	if err != nil {
+		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
+		os.Exit(1)
+	}
+
+	pathElems := strings.Split(gitSourceURL.Path[1:], "/")
+	if len(pathElems) <= 1 {
+		err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
+		fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
+		os.Exit(1)
+	}
+
+	gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
+	repoURL := gitSourceURL.String()
+	var gitPathToYamls string
+	if isGit {
+		c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, c.PolicyPaths)
+		_, cloneErr := gitutils.Clone(repoURL, fs, c.GitBranch)
+		if cloneErr != nil {
+			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
+			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
+			os.Exit(1)
+		}
+		policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
+		if err != nil {
+			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
+		}
+		c.PolicyPaths = policyYamls
+		sort.Strings(policyYamls)
+	}
+	policies, err = common.GetPoliciesFromPaths(fs, c.PolicyPaths, isGit, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
@@ -341,7 +401,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 			}
 		}
 
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
 
 		for _, resource := range resources {
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
@@ -361,6 +421,8 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 				Rc:                   rc,
 				PrintPatchResource:   true,
 				Client:               dClient,
+				AuditWarn:            c.AuditWarn,
+				Subresources:         subresources,
 			}
 			_, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
@@ -396,7 +458,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // PrintReportOrViolation - printing policy report/violations
-func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []policyreport.Info) {
+func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []common.Info, warnExitCode int) {
 	divider := "----------------------------------------------------------------------"
 
 	if len(skipInvalidPolicies.skipped) > 0 {
@@ -438,6 +500,8 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 
 	if rc.Fail > 0 || rc.Error > 0 {
 		os.Exit(1)
+	} else if rc.Warn > 0 && warnExitCode != 0 {
+		os.Exit(warnExitCode)
 	}
 }
 

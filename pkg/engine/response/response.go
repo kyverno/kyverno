@@ -7,6 +7,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -114,6 +115,14 @@ type RuleResponse struct {
 
 	// PatchedTarget is the patched resource for mutate.targets
 	PatchedTarget *unstructured.Unstructured
+
+	// PatchedTargetSubresourceName is the name of the subresource which is patched, empty if the resource patched is
+	// not a subresource.
+	PatchedTargetSubresourceName string
+
+	// PatchedTargetParentResourceGVR is the GVR of the parent resource of the PatchedTarget. This is only populated
+	// when PatchedTarget is a subresource.
+	PatchedTargetParentResourceGVR metav1.GroupVersionResource
 }
 
 // ToString ...
@@ -196,12 +205,12 @@ func (er EngineResponse) GetPatches() [][]byte {
 
 // GetFailedRules returns failed rules
 func (er EngineResponse) GetFailedRules() []string {
-	return er.getRules(RuleStatusFail)
+	return er.getRules(func(status RuleStatus) bool { return status == RuleStatusFail || status == RuleStatusError })
 }
 
 // GetSuccessRules returns success rules
 func (er EngineResponse) GetSuccessRules() []string {
-	return er.getRules(RuleStatusPass)
+	return er.getRules(func(status RuleStatus) bool { return status == RuleStatusPass })
 }
 
 // GetResourceSpec returns resourceSpec of er
@@ -215,10 +224,10 @@ func (er EngineResponse) GetResourceSpec() ResourceSpec {
 	}
 }
 
-func (er EngineResponse) getRules(status RuleStatus) []string {
+func (er EngineResponse) getRules(predicate func(RuleStatus) bool) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Status == status {
+		if predicate(r.Status) {
 			rules = append(rules, r.Name)
 		}
 	}
@@ -228,9 +237,6 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 
 func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
 	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
-		if v.Action != kyvernov1.Enforce && v.Action != kyvernov1.Audit {
-			continue
-		}
 		for _, ns := range v.Namespaces {
 			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
 				return v.Action
