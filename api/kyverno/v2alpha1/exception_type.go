@@ -40,9 +40,9 @@ type PolicyExceptionSpec struct {
 }
 
 type Exception struct {
-	// PolicyName defines the excepted policy.
+	// PolicyName identifies the policy to which the exception is applied.
 	PolicyName string `json:"policyName" yaml:"policyName"`
-	// RuleName is a list which contains the target excepted rules.
+	// RuleNames identifies the rules to which the exception is applied.
 	RuleNames []string `json:"ruleNames" yaml:"ruleNames"`
 }
 
