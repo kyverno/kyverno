@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
+	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -50,6 +51,7 @@ import (
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -279,7 +281,6 @@ func createrLeaderControllers(
 	)
 	webhookController := webhookcontroller.NewController(
 		dynamicClient.Discovery(),
-		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 		kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
@@ -296,6 +297,34 @@ func createrLeaderControllers(
 		autoUpdateWebhooks,
 		admissionReports,
 		runtime,
+	)
+	exceptionwebhookcontroller := genericwebhookcontroller.NewController(
+		"exception-webhook-controller",
+		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+		kubeKyvernoInformer.Core().V1().Secrets(),
+		"/exceptionvalidate",
+		"kyverno-policy-exception",
+		serverIP,
+		[]admissionregistrationv1.RuleWithOperations{{
+			Rule: admissionregistrationv1.Rule{
+				APIGroups: []string{
+					"kyverno.io",
+				},
+				APIVersions: []string{
+					"v2alpha1",
+				},
+				Resources: []string{
+					"policyexceptions",
+				},
+			},
+			Operations: []admissionregistrationv1.OperationType{
+				admissionregistrationv1.Create,
+				admissionregistrationv1.Update,
+			},
+		}},
+		genericwebhookcontroller.Fail,
+		genericwebhookcontroller.None,
 	)
 	reportControllers, warmup := createReportControllers(
 		backgroundScan,
@@ -314,6 +343,7 @@ func createrLeaderControllers(
 				internal.NewController("policy-controller", policyCtrl, 2),
 				internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
 				internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
+				internal.NewController("exception-webhook-controller", exceptionwebhookcontroller, 1),
 			},
 			reportControllers...,
 		),

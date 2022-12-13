@@ -38,12 +38,14 @@ type PolicyException struct {
 
 // PolicyExceptionSpec stores policy exception spec
 type PolicyExceptionSpec struct {
-	Exclude kyvernov2beta1.MatchResources `json:"exclude"`
+	// Match defines match clause used to check if a resource applies to the exception
+	Match kyvernov2beta1.MatchResources `json:"match"`
 
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions"`
 }
 
+// Exception stores infos about a policy and rules
 type Exception struct {
 	// PolicyName identifies the policy to which the exception is applied.
 	PolicyName string `json:"policyName"`
