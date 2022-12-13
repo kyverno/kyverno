@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"os"
 	"sync"
@@ -15,7 +17,9 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
+	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
@@ -26,14 +30,10 @@ const (
 )
 
 // TODO:
+// - helm review labels / selectors
 // - implement probes
 // - better certs management
 // - supports certs in cronjob
-// - leader election support
-// - helm service monitor
-// - helm name and fullname
-// - helm review labels / selectors
-// - helm metrics service
 
 type probes struct{}
 
@@ -47,12 +47,12 @@ func (probes) IsLive() bool {
 
 func main() {
 	var (
-		cleanupService string
-		dumpPayload    bool
+		leaderElectionRetryPeriod time.Duration
+		dumpPayload               bool
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
-	flagset.StringVar(&cleanupService, "cleanupService", "https://cleanup-controller.kyverno.svc", "The url to join the cleanup service.")
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
+	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -73,26 +73,58 @@ func main() {
 	defer sdown()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
-	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
+	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KubeClient), kyvernoclient.WithTracing())
+	// setup leader election
+	le, err := leaderelection.New(
+		logger.WithName("leader-election"),
+		"kyverno-cleanup-controller",
+		config.KyvernoNamespace(),
+		leaderElectionClient,
+		config.KyvernoPodName(),
+		leaderElectionRetryPeriod,
+		func(ctx context.Context) {
+			logger := logger.WithName("leader")
+			// informer factories
+			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+			// controllers
+			controller := internal.NewController(
+				cleanup.ControllerName,
+				cleanup.NewController(
+					kubeClient,
+					kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
+					kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
+					kubeInformer.Batch().V1().CronJobs(),
+					"https://"+config.KyvernoServiceName()+"."+config.KyvernoNamespace()+".svc",
+				),
+				cleanup.Workers,
+			)
+			// start informers and wait for cache sync
+			if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeInformer) {
+				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+				os.Exit(1)
+			}
+			// start leader controllers
+			var wg sync.WaitGroup
+			controller.Run(ctx, logger.WithName("cleanup-controller"), &wg)
+			// wait all controllers shut down
+			wg.Wait()
+		},
+		nil,
+	)
+	if err != nil {
+		logger.Error(err, "failed to initialize leader election")
+		os.Exit(1)
+	}
+	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
 	dClient := internal.CreateDClient(logger, ctx, dynamicClient, kubeClient, 15*time.Minute)
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	// controllers
-	controller := internal.NewController(
-		cleanup.ControllerName,
-		cleanup.NewController(
-			kubeClient,
-			kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
-			kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
-			kubeInformer.Batch().V1().CronJobs(),
-			cleanupService,
-		),
-		cleanup.Workers,
-	)
-	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
+	// listers
+	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	cpolLister := kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies().Lister()
 	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
@@ -100,15 +132,13 @@ func main() {
 	if !internal.StartInformersAndWaitForCacheSync(ctx, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
 	}
-	var wg sync.WaitGroup
-	controller.Run(ctx, logger.WithName("cleanup-controller"), &wg)
 	// create handlers
 	admissionHandlers := admissionhandlers.New(dClient)
 	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister, nsLister)
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {
-			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get("cleanup-controller-tls")
+			secret, err := secretLister.Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
 				return nil, nil, err
 			}
@@ -124,6 +154,13 @@ func main() {
 	)
 	// start server
 	server.Run(ctx.Done())
-	// wait for termination signal
-	wg.Wait()
+	// wait for termination signal and run leader election loop
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			le.Run(ctx)
+		}
+	}
 }

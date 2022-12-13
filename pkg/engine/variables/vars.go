@@ -15,10 +15,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 )
 
-var RegexVariables = regexp.MustCompile(`(?:^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
+var RegexVariables = regexp.MustCompile(`(^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
 
 var RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
@@ -30,7 +31,7 @@ var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 var regexVariableInit = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
-var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\s*}}`)
+var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\d*\s*}}`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
@@ -569,12 +570,13 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 			break
 		}
 
-		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`placeholderValue`))
+		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`${1}placeholderValue`))
 	}
 
 	var output interface{}
 	err = json.Unmarshal(rawDocument, &output)
 	if err != nil {
+		logging.Error(err, "failed to unmarshall JSON: %s", string(rawDocument))
 		return document
 	}
 

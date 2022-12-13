@@ -18,10 +18,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -92,53 +94,64 @@ func VerifyAndPatchImages(
 
 	for i := range rules {
 		rule := &rules[i]
-		if len(rule.VerifyImages) == 0 {
-			continue
-		}
 
-		if !matches(logger, rule, policyContext) {
-			continue
-		}
+		tracing.ChildSpan(
+			ctx,
+			"pkg/engine",
+			fmt.Sprintf("RULE %s", rule.Name),
+			func(ctx context.Context, span trace.Span) {
+				if len(rule.VerifyImages) == 0 {
+					return
+				}
 
-		logger.V(3).Info("processing image verification rule", "ruleSelector", applyRules)
+				if !matches(logger, rule, policyContext) {
+					return
+				}
 
-		var err error
-		ruleImages, imageRefs, err := extractMatchingImages(policyContext, rule)
-		if err != nil {
-			appendResponse(resp, rule, fmt.Sprintf("failed to extract images: %s", err.Error()), response.RuleStatusError)
-			continue
-		}
-		if len(ruleImages) == 0 {
-			appendResponse(resp, rule,
-				fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'",
-					imageRefs), response.RuleStatusSkip)
-			continue
-		}
+				logger.V(3).Info("processing image verification rule", "ruleSelector", applyRules)
 
-		policyContext.jsonContext.Restore()
-		if err := LoadContext(ctx, logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
-			appendResponse(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), response.RuleStatusError)
-			continue
-		}
+				var err error
+				ruleImages, imageRefs, err := extractMatchingImages(policyContext, rule)
+				if err != nil {
+					appendResponse(resp, rule, fmt.Sprintf("failed to extract images: %s", err.Error()), response.RuleStatusError)
+					return
+				}
+				if len(ruleImages) == 0 {
+					appendResponse(
+						resp,
+						rule,
+						fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
+						response.RuleStatusSkip,
+					)
+					return
+				}
 
-		ruleCopy, err := substituteVariables(rule, policyContext.jsonContext, logger)
-		if err != nil {
-			appendResponse(resp, rule, fmt.Sprintf("failed to substitute variables: %s", err.Error()), response.RuleStatusError)
-			continue
-		}
+				policyContext.jsonContext.Restore()
+				if err := LoadContext(ctx, logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+					appendResponse(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), response.RuleStatusError)
+					return
+				}
 
-		iv := &imageVerifier{
-			logger:        logger,
-			rclient:       rclient,
-			policyContext: policyContext,
-			rule:          ruleCopy,
-			resp:          resp,
-			ivm:           ivm,
-		}
+				ruleCopy, err := substituteVariables(rule, policyContext.jsonContext, logger)
+				if err != nil {
+					appendResponse(resp, rule, fmt.Sprintf("failed to substitute variables: %s", err.Error()), response.RuleStatusError)
+					return
+				}
 
-		for _, imageVerify := range ruleCopy.VerifyImages {
-			iv.verify(ctx, imageVerify, ruleImages)
-		}
+				iv := &imageVerifier{
+					logger:        logger,
+					rclient:       rclient,
+					policyContext: policyContext,
+					rule:          ruleCopy,
+					resp:          resp,
+					ivm:           ivm,
+				}
+
+				for _, imageVerify := range ruleCopy.VerifyImages {
+					iv.verify(ctx, imageVerify, ruleImages)
+				}
+			},
+		)
 
 		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
 			break

@@ -353,7 +353,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			storeRules = append(storeRules, store.Rule{
 				Name:          rule.Name,
 				Values:        rule.Values,
-				ForeachValues: rule.ForeachValues,
+				ForEachValues: rule.ForeachValues,
 			})
 		}
 		storePolicies = append(storePolicies, store.Policy{

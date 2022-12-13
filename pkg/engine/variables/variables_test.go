@@ -189,6 +189,7 @@ func Test_variablesub_multiple(t *testing.T) {
 		t.Error("result does not match")
 	}
 }
+
 func Test_variablesubstitution(t *testing.T) {
 	patternMap := []byte(`
 	{
@@ -277,7 +278,6 @@ func Test_variablesubstitution(t *testing.T) {
 }
 
 func Test_variableSubstitutionValue(t *testing.T) {
-
 	resourceRaw := []byte(`
 	{
 		"metadata": {
@@ -336,7 +336,6 @@ func Test_variableSubstitutionValue(t *testing.T) {
 }
 
 func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
-
 	resourceRaw := []byte(`
 	{
 		"metadata": {
@@ -396,7 +395,6 @@ func Test_variableSubstitutionValueOperatorNotEqual(t *testing.T) {
 }
 
 func Test_variableSubstitutionValueFail(t *testing.T) {
-
 	resourceRaw := []byte(`
 	{
 		"metadata": {
@@ -444,7 +442,6 @@ func Test_variableSubstitutionValueFail(t *testing.T) {
 		t.Log("expected to fails")
 		t.Fail()
 	}
-
 }
 
 func Test_variableSubstitutionObject(t *testing.T) {
