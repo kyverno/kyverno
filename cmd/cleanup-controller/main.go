@@ -16,6 +16,7 @@ import (
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -32,7 +33,6 @@ const (
 // TODO:
 // - helm review labels / selectors
 // - implement probes
-// - better certs management
 // - supports certs in cronjob
 
 type probes struct{}
@@ -88,8 +88,38 @@ func main() {
 			// informer factories
 			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+			// listers
+			secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 			// controllers
-			controller := internal.NewController(
+			renewer := tls.NewCertRenewer(
+				kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+				secretLister,
+				tls.CertRenewalInterval,
+				tls.CAValidityDuration,
+				tls.TLSValidityDuration,
+				"",
+			)
+			certController := internal.NewController(
+				certmanager.ControllerName,
+				certmanager.NewController(
+					kubeKyvernoInformer.Core().V1().Secrets(),
+					renewer,
+				),
+				certmanager.Workers,
+			)
+			webhookController := internal.NewController(
+				ControllerName,
+				NewController(
+					kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+					kubeKyvernoInformer.Core().V1().Secrets(),
+					"kyverno-cleanup-policies",
+					"",
+				),
+				Workers,
+			)
+			cleanupController := internal.NewController(
 				cleanup.ControllerName,
 				cleanup.NewController(
 					kubeClient,
@@ -101,13 +131,15 @@ func main() {
 				cleanup.Workers,
 			)
 			// start informers and wait for cache sync
-			if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeInformer) {
+			if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 				os.Exit(1)
 			}
 			// start leader controllers
 			var wg sync.WaitGroup
-			controller.Run(ctx, logger.WithName("cleanup-controller"), &wg)
+			certController.Run(ctx, logger, &wg)
+			webhookController.Run(ctx, logger, &wg)
+			cleanupController.Run(ctx, logger, &wg)
 			// wait all controllers shut down
 			wg.Wait()
 		},
