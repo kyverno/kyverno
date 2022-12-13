@@ -14,11 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # pin@v3.1.0
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
       - name: Unshallow
         run: git fetch --prune --unshallow
       - name: Setup go
-        uses: actions/setup-go@c4a742cab115ed795e34d4513e2cf7d472deb55f # pin@v3.3.1
+        uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613 # pin@v3.3.1
         with:
           go-version: ~1.18.6
       - name: Prepare environment
@@ -33,5 +33,7 @@ jobs:
           kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations
           kubectl -n kyverno get pod
           kubectl -n kyverno describe pod | grep -i events -A10
-          kubectl -n kyverno logs deploy/kyverno -p || true
-          kubectl -n kyverno logs deploy/kyverno
+          kubectl -n kyverno logs deploy/kyverno --all-containers -p || true
+          kubectl -n kyverno logs deploy/kyverno --all-containers
+          kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers -p || true
+          kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers

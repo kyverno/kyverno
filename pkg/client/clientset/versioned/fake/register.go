@@ -20,9 +20,9 @@ package fake
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -36,23 +36,23 @@ var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
 	kyvernov1.AddToScheme,
-	kyvernov1beta1.AddToScheme,
 	kyvernov1alpha2.AddToScheme,
-	kyvernov1alpha1.AddToScheme,
+	kyvernov1beta1.AddToScheme,
+	kyvernov2alpha1.AddToScheme,
 	wgpolicyk8sv1alpha2.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition
 // of clientsets, like in:
 //
-//	import (
-//	  "k8s.io/client-go/kubernetes"
-//	  clientsetscheme "k8s.io/client-go/kubernetes/scheme"
-//	  aggregatorclientsetscheme "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme"
-//	)
+//   import (
+//     "k8s.io/client-go/kubernetes"
+//     clientsetscheme "k8s.io/client-go/kubernetes/scheme"
+//     aggregatorclientsetscheme "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme"
+//   )
 //
-//	kclientset, _ := kubernetes.NewForConfig(c)
-//	_ = aggregatorclientsetscheme.AddToScheme(clientsetscheme.Scheme)
+//   kclientset, _ := kubernetes.NewForConfig(c)
+//   _ = aggregatorclientsetscheme.AddToScheme(clientsetscheme.Scheme)
 //
 // After this, RawExtensions in Kubernetes types will serialize kube-aggregator types
 // correctly.

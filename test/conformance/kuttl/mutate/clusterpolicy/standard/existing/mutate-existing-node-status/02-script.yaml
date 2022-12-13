@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: ./modify-resource-filters.sh removeNode
+  # Send an update request to the node
+  - command: kubectl label nodes kind-control-plane abc=xyz

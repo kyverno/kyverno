@@ -15,11 +15,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	cache "k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 )
 
 var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
@@ -28,7 +30,7 @@ type MutateExistingController struct {
 	// clients
 	client        dclient.Interface
 	statusControl common.StatusControlInterface
-
+	rclient       registryclient.Client
 	// listers
 	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
@@ -43,6 +45,7 @@ type MutateExistingController struct {
 func NewMutateExistingController(
 	client dclient.Interface,
 	statusControl common.StatusControlInterface,
+	rclient registryclient.Client,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	dynamicConfig config.Configuration,
@@ -52,6 +55,7 @@ func NewMutateExistingController(
 	c := MutateExistingController{
 		client:        client,
 		statusControl: statusControl,
+		rclient:       rclient,
 		policyLister:  policyLister,
 		npolicyLister: npolicyLister,
 		configuration: dynamicConfig,
@@ -90,9 +94,10 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			continue
 		}
 
-		er := engine.Mutate(policyContext)
+		er := engine.Mutate(context.TODO(), c.rclient, policyContext)
 		for _, r := range er.PolicyResponse.Rules {
 			patched := r.PatchedTarget
+			patchedTargetSubresourceName := r.PatchedTargetSubresourceName
 			switch r.Status {
 			case response.RuleStatusFail, response.RuleStatusError, response.RuleStatusWarn:
 				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status, r.Message)
@@ -120,7 +125,22 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 				if r.Status == response.RuleStatusPass {
 					patchedNew.SetResourceVersion("")
-					_, updateErr := c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+					var updateErr error
+					if patchedTargetSubresourceName == "status" {
+						_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+					} else if patchedTargetSubresourceName != "" {
+						parentResourceGVR := r.PatchedTargetParentResourceGVR
+						parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
+						parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.String(), parentResourceGVR.Resource)
+						if err != nil {
+							logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR)
+							errs = append(errs, err)
+							continue
+						}
+						_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedTargetSubresourceName)
+					} else {
+						_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+					}
 					if updateErr != nil {
 						errs = append(errs, updateErr)
 						logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
@@ -155,7 +175,7 @@ func (c *MutateExistingController) report(err error, policy, rule string, target
 	var events []event.Info
 
 	if target == nil {
-		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule, "err", err.Error())
+		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule)
 	}
 
 	if err != nil {

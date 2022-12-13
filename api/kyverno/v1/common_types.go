@@ -222,6 +222,10 @@ type ResourceFilter struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
+func (r ResourceFilter) IsEmpty() bool {
+	return r.UserInfo.IsEmpty() && r.ResourceDescription.IsEmpty()
+}
+
 // Mutation defines how resource are modified.
 type Mutation struct {
 	// Targets defines the target resources to be mutated.
@@ -279,6 +283,10 @@ type ForEachMutation struct {
 	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
 	// +optional
 	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
+
+	// Foreach declares a nested foreach iterator
+	// +optional
+	ForEachMutation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
 func (m *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
@@ -394,6 +402,14 @@ func (v *Validation) SetAnyPattern(in apiextensions.JSON) {
 	v.RawAnyPattern = ToJSON(in)
 }
 
+func (v *Validation) GetForeach() apiextensions.JSON {
+	return FromJSON(v.RawPattern)
+}
+
+func (v *Validation) SetForeach(in apiextensions.JSON) {
+	v.RawPattern = ToJSON(in)
+}
+
 // Deny specifies a list of conditions used to pass or fail a validation rule.
 type Deny struct {
 	// Multiple conditions can be declared under an `any` or `all` statement. A direct list
@@ -446,6 +462,10 @@ type ForEachValidation struct {
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+
+	// Foreach declares a nested foreach iterator
+	// +optional
+	ForEachValidation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
 func (v *ForEachValidation) GetPattern() apiextensions.JSON {

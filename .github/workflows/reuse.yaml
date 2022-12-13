@@ -44,20 +44,20 @@ jobs:
     steps:
       - name: Checkout release
         if: ${{ inputs.tag == 'release'}}
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
         with:
           fetch-depth: 0
 
       - name: Checkout image
         if: ${{ inputs.tag == 'image'}}
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
 
       - name: Unshallow
         if: ${{ inputs.tag == 'image'}}
         run: git fetch --prune --unshallow --tags
 
       - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
+        uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613 # v3.4.0
         with:
           go-version: ~1.18.6
 
@@ -67,7 +67,7 @@ jobs:
           cosign-release: 'v1.13.0'
 
       - name: Cache Go modules
-        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
+        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # pin@v3
         with:
           path: |
             ~/.cache/go-build
@@ -79,7 +79,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner in repo mode
         if: ${{inputs.tag == 'release'}}
-        uses: aquasecurity/trivy-action@40c4ca9e7421287d0c5576712fdff370978f9c3c
+        uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -94,7 +94,7 @@ jobs:
 
       - name: Generate SBOM JSON
         if: ${{inputs.tag == 'release'}}
-        uses: CycloneDX/gh-gomod-generate-sbom@c18e41a4e3defe6dbf69b594e4d831a89db82ead # v1.0.0
+        uses: CycloneDX/gh-gomod-generate-sbom@d4aee0cf5133055dbd98899978246c10c18c440f # v1.1.0
         with:
           version: v1
           args: app -licenses -json -output ${{inputs.image_name}}-${{ env.KYVERNO_VERSION }}-bom.cdx.json -main ${{inputs.main}}

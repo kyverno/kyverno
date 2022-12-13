@@ -82,7 +82,7 @@ func Test_Apply(t *testing.T) {
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
-						Pass:  9,
+						Pass:  6,
 						Fail:  0,
 						Skip:  0,
 						Error: 0,

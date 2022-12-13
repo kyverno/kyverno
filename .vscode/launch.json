@@ -11,6 +11,17 @@
                 "--kubeconfig=${userHome}/.kube/config",
                 "--serverIP=<local ip>:9443",
             ],
+        },
+        {
+            "name": "Launch CLI",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/cli/kubectl-kyverno",
+            "args": [
+                "test",
+                "${workspaceFolder}/test/cli/",
+            ],
         }
     ]
 }

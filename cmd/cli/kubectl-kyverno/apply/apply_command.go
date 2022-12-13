@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	yaml1 "sigs.k8s.io/yaml"
 )
 
@@ -64,6 +64,7 @@ type ApplyCommandConfig struct {
 	ResourcePaths   []string
 	PolicyPaths     []string
 	GitBranch       string
+	warnExitCode    int
 }
 
 var applyHelp = `
@@ -130,6 +131,16 @@ To apply policy with variables:
 			- name: <namespace2 name>
 			labels:
 				<label key>: <label value>
+        # If policy is matching on Kind/Subresource, then this is required
+        subresources:
+          - subresource:
+              name: <name of subresource>
+              kind: <kind of subresource>
+              version: <version of subresource>
+            parentResource:
+              name: <name of parent resource>
+              kind: <kind of parent resource>
+              version: <version of parent resource>
 
 More info: https://kyverno.io/docs/kyverno-cli/
 `
@@ -156,7 +167,7 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos)
+			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos, applyCommandConfig.warnExitCode)
 			return nil
 		},
 	}
@@ -175,6 +186,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.Context, "context", "", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().BoolVarP(&applyCommandConfig.AuditWarn, "audit-warn", "", false, "If set to true, will flag audit policies as warnings instead of failures")
+	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	return cmd
 }
 
@@ -190,7 +202,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("pass the values either using set flag or values_file flag", err)
 	}
 
-	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(c.VariablesString, c.ValuesFile, fs, false, "")
+	variables, globalValMap, valuesMap, namespaceSelectorMap, subresources, err := common.GetVariable(c.VariablesString, c.ValuesFile, fs, false, "")
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -389,7 +401,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 			}
 		}
 
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
 
 		for _, resource := range resources {
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
@@ -410,6 +422,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 				PrintPatchResource:   true,
 				Client:               dClient,
 				AuditWarn:            c.AuditWarn,
+				Subresources:         subresources,
 			}
 			_, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
@@ -445,7 +458,7 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // PrintReportOrViolation - printing policy report/violations
-func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []common.Info) {
+func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []common.Info, warnExitCode int) {
 	divider := "----------------------------------------------------------------------"
 
 	if len(skipInvalidPolicies.skipped) > 0 {
@@ -487,6 +500,8 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 
 	if rc.Fail > 0 || rc.Error > 0 {
 		os.Exit(1)
+	} else if rc.Warn > 0 && warnExitCode != 0 {
+		os.Exit(warnExitCode)
 	}
 }
 

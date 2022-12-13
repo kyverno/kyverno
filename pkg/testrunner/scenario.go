@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -145,7 +146,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 
 	policyContext := engine.NewPolicyContext().WithPolicy(policy).WithNewResource(*resource)
 
-	er := engine.Mutate(policyContext)
+	er := engine.Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -157,7 +158,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 
 	policyContext = policyContext.WithNewResource(*resource)
 
-	er = engine.Validate(policyContext)
+	er = engine.Validate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -173,7 +174,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		} else {
 			policyContext := policyContext.WithClient(client)
 
-			er = engine.ApplyBackgroundChecks(policyContext)
+			er = engine.ApplyBackgroundChecks(registryclient.NewOrDie(), policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namespaces as resource

@@ -1,3 +1,10 @@
+## v1.9.0-rc.2
+
+### Note
+
+- Webhook is no longer updated to match `pods/ephemeralcontainers` when policy only specifies `pods`. If users want to match on `pods/ephemeralcontainers`, they must specify `pods/ephemeralcontainers` in the policy.
+- Webhook is no longer updated to match `services/status` when policy only specifies `services`. If users want to match on `services/status`, they must specify `services/status` in the policy.
+
 ## v1.9.0-rc.1
 
 ### Note

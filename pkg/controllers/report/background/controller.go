@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,6 +42,7 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
+	rclient       registryclient.Client
 
 	// listers
 	polLister      kyvernov1listers.PolicyLister
@@ -61,6 +63,7 @@ type controller struct {
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
+	rclient registryclient.Client,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
@@ -73,6 +76,7 @@ func NewController(
 	c := controller{
 		client:         client,
 		kyvernoClient:  kyvernoClient,
+		rclient:        rclient,
 		polLister:      polInformer.Lister(),
 		cpolLister:     cpolInformer.Lister(),
 		bgscanrLister:  bgscanr.Lister(),
@@ -194,7 +198,7 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 
 func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
 	namespace := meta.GetNamespace()
-	labels := meta.GetLabels()
+	metaLabels := meta.GetLabels()
 	// load all policies
 	policies, err := c.fetchClusterPolicies(logger)
 	if err != nil {
@@ -214,7 +218,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 	}
 	//	if the resource changed, we need to rebuild the report
 	if !reportutils.CompareHash(meta, resource.Hash) {
-		scanner := utils.NewScanner(logger, c.client)
+		scanner := utils.NewScanner(logger, c.client, c.rclient)
 		before, err := c.getReport(ctx, meta.GetNamespace(), meta.GetName())
 		if err != nil {
 			return nil
@@ -237,7 +241,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			nsLabels = ns.GetLabels()
 		}
 		var responses []*response.EngineResponse
-		for _, result := range scanner.ScanResource(*resource, nsLabels, backgroundPolicies...) {
+		for _, result := range scanner.ScanResource(ctx, *resource, nsLabels, backgroundPolicies...) {
 			if result.Error != nil {
 				logger.Error(result.Error, "failed to apply policy")
 			} else {
@@ -256,7 +260,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			expected[reportutils.PolicyLabel(policy)] = policy
 		}
 		toDelete := map[string]string{}
-		for label := range labels {
+		for label := range metaLabels {
 			if reportutils.IsPolicyLabel(label) {
 				// if the policy doesn't exist anymore
 				if expected[label] == nil {
@@ -271,7 +275,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		var toCreate []kyvernov1.PolicyInterface
 		for label, policy := range expected {
 			// if the background policy changed, we need to recreate entries
-			if labels[label] != policy.GetResourceVersion() {
+			if metaLabels[label] != policy.GetResourceVersion() {
 				if name, err := reportutils.PolicyNameFromLabel(namespace, label); err != nil {
 					return err
 				} else {
@@ -290,8 +294,11 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		report := reportutils.DeepCopy(before)
 		var ruleResults []policyreportv1alpha2.PolicyReportResult
 		// deletions
-		for _, label := range toDelete {
-			delete(labels, label)
+		reportLabels := report.GetLabels()
+		if reportLabels != nil {
+			for _, label := range toDelete {
+				delete(reportLabels, label)
+			}
 		}
 		for _, result := range report.GetResults() {
 			if _, ok := toDelete[result.Policy]; !ok {
@@ -300,7 +307,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		}
 		// creations
 		if len(toCreate) > 0 {
-			scanner := utils.NewScanner(logger, c.client)
+			scanner := utils.NewScanner(logger, c.client, c.rclient)
 			resource, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
 			if err != nil {
 				return err
@@ -314,7 +321,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 				}
 				nsLabels = ns.GetLabels()
 			}
-			for _, result := range scanner.ScanResource(*resource, nsLabels, toCreate...) {
+			for _, result := range scanner.ScanResource(ctx, *resource, nsLabels, toCreate...) {
 				if result.Error != nil {
 					return result.Error
 				} else {

@@ -1,7 +1,6 @@
 package validate
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -24,9 +23,6 @@ var (
 
 	// ClusterPolicy Namespace
 	policyNamespace = ""
-	// Namespace Name
-	// Hardcoded in YAML Definition
-	nspace = "test-validate"
 
 	crdName = "kustomizations.kustomize.toolkit.fluxcd.io"
 )
@@ -41,58 +37,32 @@ func Test_Validate_Flux_Sets(t *testing.T) {
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
 
+	// Create Flux CRD
+	err = createKustomizationCRD(e2eClient)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Created CRD is not a guarantee that we already can create new resources
+	time.Sleep(10 * time.Second)
+
 	for _, test := range FluxValidateTests {
-		By(fmt.Sprintf("Test to validate objects: \"%s\"", test.TestName))
+		By(fmt.Sprintf("Validate Test: %s", test.TestDescription))
 
-		// Clean up Resources
-		By(string("Cleaning Cluster Policies"))
-		e2eClient.CleanClusterPolicies(policyGVR)
-		// Clear Namespace
-		By(fmt.Sprintf("Deleting Namespace: \"%s\"", nspace))
-		e2eClient.DeleteClusteredResource(namespaceGVR, nspace)
-		//CleanUp CRDs
-		e2eClient.DeleteClusteredResource(crdGVR, crdName)
-
-		// Wait Till Deletion of Namespace
-		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
-			_, err := e2eClient.GetClusteredResource(namespaceGVR, nspace)
-			if err != nil {
-				return nil
-			}
-			return errors.New("Deleting Namespace")
-		})
-
-		// Create Namespace
-		By(fmt.Sprintf("Creating namespace \"%s\"", nspace))
-		_, err = e2eClient.CreateClusteredResourceYaml(namespaceGVR, namespaceYaml)
+		err = deleteClusterPolicy(e2eClient)
 		Expect(err).NotTo(HaveOccurred())
 
-		// Create policy
-		By(fmt.Sprintf("Creating policy in \"%s\"", policyNamespace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, "", test.PolicyRaw)
+		err = deleteResource(e2eClient, test)
 		Expect(err).NotTo(HaveOccurred())
 
-		// Create Flux CRD
-		By(fmt.Sprintf("Creating Flux CRD in \"%s\"", nspace))
-		_, err = e2eClient.CreateClusteredResourceYaml(crdGVR, kyverno_2043_FluxCRD)
+		err = deleteNamespace(e2eClient, test)
 		Expect(err).NotTo(HaveOccurred())
 
-		// Wait till CRD is created
-		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
-			_, err := e2eClient.GetClusteredResource(crdGVR, crdName)
-			if err == nil {
-				return nil
-			}
-			return errors.New("Waiting for CRD to be created...")
-		})
+		err = createNamespace(e2eClient, test)
+		Expect(err).NotTo(HaveOccurred())
 
-		// Created CRD is not a garantee that we already can create new resources
-		time.Sleep(3 * time.Second)
+		err = createPolicy(e2eClient, test)
+		Expect(err).NotTo(HaveOccurred())
 
-		// Create Kustomize resource
-		kustomizeGVR := e2e.GetGVR("kustomize.toolkit.fluxcd.io", "v1beta1", "kustomizations")
-		By(fmt.Sprintf("Creating Kustomize resource in \"%s\"", nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(kustomizeGVR, nspace, "", test.ResourceRaw)
+		err = createResource(e2eClient, test)
 
 		if test.MustSucceed {
 			Expect(err).NotTo(HaveOccurred())
@@ -100,25 +70,20 @@ func Test_Validate_Flux_Sets(t *testing.T) {
 			Expect(err).To(HaveOccurred())
 		}
 
-		//CleanUp Resources
-		e2eClient.CleanClusterPolicies(policyGVR)
+		err = deleteClusterPolicy(e2eClient)
+		Expect(err).NotTo(HaveOccurred())
 
-		//CleanUp CRDs
-		e2eClient.DeleteClusteredResource(crdGVR, crdName)
+		err = deleteResource(e2eClient, test)
+		Expect(err).NotTo(HaveOccurred())
 
-		// Clear Namespace
-		e2eClient.DeleteClusteredResource(namespaceGVR, nspace)
-		// Wait Till Deletion of Namespace
-		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
-			_, err := e2eClient.GetClusteredResource(namespaceGVR, nspace)
-			if err != nil {
-				return nil
-			}
-			return errors.New("Deleting Namespace")
-		})
+		err = deleteNamespace(e2eClient, test)
+		Expect(err).NotTo(HaveOccurred())
 
-		By(fmt.Sprintf("Test %s Completed \n\n\n", test.TestName))
+		By("Test passed successfully:" + test.TestDescription)
 	}
+
+	err = deleteKustomizationCRD(e2eClient)
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func TestValidate(t *testing.T) {
@@ -131,55 +96,27 @@ func TestValidate(t *testing.T) {
 	Expect(err).To(BeNil())
 
 	for _, test := range ValidateTests {
-		By(fmt.Sprintf("Mutation Test: %s", test.TestDescription))
+		By(fmt.Sprintf("Validate Test: %s", test.TestDescription))
 
-		By("Deleting Cluster Policies...")
-		_ = e2eClient.CleanClusterPolicies(policyGVR)
-
-		By("Deleting Resource...")
-		_ = e2eClient.DeleteNamespacedResource(test.ResourceGVR, test.ResourceNamespace, test.ResourceName)
-
-		By("Deleting Namespace...")
-		By(fmt.Sprintf("Deleting Namespace: %s...", test.ResourceNamespace))
-		_ = e2eClient.DeleteClusteredResource(namespaceGVR, test.ResourceNamespace)
-
-		By("Wait Till Deletion of Namespace...")
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetClusteredResource(namespaceGVR, test.ResourceNamespace)
-			if err != nil {
-				return nil
-			}
-			return fmt.Errorf("failed to delete namespace: %v", err)
-		})
+		err = deleteClusterPolicy(e2eClient)
 		Expect(err).NotTo(HaveOccurred())
 
-		By(fmt.Sprintf("Creating Namespace: %s...", policyNamespace))
-		_, err = e2eClient.CreateClusteredResourceYaml(namespaceGVR, newNamespaceYaml(test.ResourceNamespace))
+		err = deleteResource(e2eClient, test)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Wait Till Creation of Namespace...")
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetClusteredResource(namespaceGVR, test.ResourceNamespace)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		})
+		err = deleteNamespace(e2eClient, test)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Creating Policy...")
-		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyName, test.PolicyRaw)
+		err = createNamespace(e2eClient, test)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = commonE2E.PolicyCreated(test.PolicyName)
+		err = createPolicy(e2eClient, test)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Creating Resource...")
-		_, err = e2eClient.CreateNamespacedResourceYaml(test.ResourceGVR, test.ResourceNamespace, test.PolicyName, test.ResourceRaw)
+		err = createResource(e2eClient, test)
 
 		statusErr, ok := err.(*k8sErrors.StatusError)
-		validationError := (ok && statusErr.ErrStatus.Code == 400) // Validation error is always Bad Request
+		validationError := ok && statusErr.ErrStatus.Code == 400 // Validation error is always Bad Request
 
 		if test.MustSucceed || !validationError {
 			Expect(err).NotTo(HaveOccurred())
@@ -187,28 +124,111 @@ func TestValidate(t *testing.T) {
 			Expect(err).To(HaveOccurred())
 		}
 
-		By("Deleting Cluster Policies...")
-		err = e2eClient.CleanClusterPolicies(policyGVR)
+		err = deleteClusterPolicy(e2eClient)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Deleting Resource...") // if it is present, so ignore an error
-		e2eClient.DeleteNamespacedResource(test.ResourceGVR, test.ResourceNamespace, test.ResourceName)
-
-		By("Deleting Namespace...")
-		err = e2eClient.DeleteClusteredResource(namespaceGVR, test.ResourceNamespace)
+		err = deleteResource(e2eClient, test)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Wait Till Creation of Namespace...")
-		e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetClusteredResource(namespaceGVR, test.ResourceNamespace)
-			if err != nil {
-				return nil
-			}
-			return fmt.Errorf("failed to delete namespace: %v", err)
-		})
-
-		// Do not fail if waiting fails. Sometimes namespace needs time to be deleted.
+		err = deleteNamespace(e2eClient, test)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Done")
 	}
+}
+
+func createNamespace(e2eClient *e2e.E2EClient, test ValidationTest) error {
+	By(fmt.Sprintf("Creating Namespace: %s...", test.ResourceNamespace))
+	_, err := e2eClient.CreateClusteredResourceYaml(namespaceGVR, newNamespaceYaml(test.ResourceNamespace))
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Wait Till Creation of Namespace...")
+	err = e2e.GetWithRetry(1*time.Second, 240, func() error {
+		_, err := e2eClient.GetClusteredResource(namespaceGVR, test.ResourceNamespace)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	return err
+}
+
+func createPolicy(e2eClient *e2e.E2EClient, test ValidationTest) error {
+	By("Creating Policy...")
+	_, err := e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyName, test.PolicyRaw)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = commonE2E.PolicyCreated(test.PolicyName)
+	return err
+}
+
+func createResource(e2eClient *e2e.E2EClient, test ValidationTest) error {
+	By("Creating Resource...")
+	_, err := e2eClient.CreateNamespacedResourceYaml(test.ResourceGVR, test.ResourceNamespace, test.ResourceName, test.ResourceRaw)
+	return err
+}
+
+func createKustomizationCRD(e2eClient *e2e.E2EClient) error {
+	By("Creating Flux CRD")
+	_, err := e2eClient.CreateClusteredResourceYaml(crdGVR, kyverno2043Fluxcrd)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Wait till CRD is created
+	By("Wait Till Creation of CRD...")
+	err = e2e.GetWithRetry(1*time.Second, 240, func() error {
+		_, err := e2eClient.GetClusteredResource(crdGVR, crdName)
+		if err == nil {
+			return nil
+		}
+		return fmt.Errorf("failed to create CRD: %v", err)
+	})
+	return err
+}
+
+func deleteClusterPolicy(e2eClient *e2e.E2EClient) error {
+	By("Deleting Cluster Policies...")
+	err := e2eClient.CleanClusterPolicies(policyGVR)
+	return err
+}
+
+func deleteResource(e2eClient *e2e.E2EClient, test ValidationTest) error {
+	By("Deleting Resource...")
+	err := e2eClient.DeleteNamespacedResource(test.ResourceGVR, test.ResourceNamespace, test.ResourceName)
+	if k8sErrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
+func deleteNamespace(e2eClient *e2e.E2EClient, test ValidationTest) error {
+	By("Deleting Namespace...")
+	By(fmt.Sprintf("Deleting Namespace: %s...", test.ResourceNamespace))
+	_ = e2eClient.DeleteClusteredResource(namespaceGVR, test.ResourceNamespace)
+
+	By("Wait Till Deletion of Namespace...")
+	err := e2e.GetWithRetry(1*time.Second, 240, func() error {
+		_, err := e2eClient.GetClusteredResource(namespaceGVR, test.ResourceNamespace)
+		if err != nil {
+			return nil
+		}
+		return fmt.Errorf("failed to delete namespace: %v", err)
+	})
+	return err
+}
+
+func deleteKustomizationCRD(e2eClient *e2e.E2EClient) error {
+	By("Deleting Flux CRD")
+	_ = e2eClient.DeleteClusteredResource(crdGVR, crdName)
+
+	// Wait till CRD is deleted
+	By("Wait Till Deletion of CRD...")
+	err := e2e.GetWithRetry(1*time.Second, 240, func() error {
+		_, err := e2eClient.GetClusteredResource(crdGVR, crdName)
+		if err != nil {
+			return nil
+		}
+		return fmt.Errorf("failed to delete CRD: %v", err)
+	})
+	return err
 }

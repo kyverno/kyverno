@@ -15,10 +15,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 )
 
-var RegexVariables = regexp.MustCompile(`(?:^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
+var RegexVariables = regexp.MustCompile(`(^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
 
 var RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
@@ -30,7 +31,7 @@ var RegexEscpReferences = regexp.MustCompile(`\\\$\(.[^\ ]*\)`)
 
 var regexVariableInit = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
-var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\s*}}`)
+var regexElementIndex = regexp.MustCompile(`{{\s*elementIndex\d*\s*}}`)
 
 // IsVariable returns true if the element contains a 'valid' variable {{}}
 func IsVariable(value string) bool {
@@ -78,17 +79,17 @@ func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
 
 // SubstituteAll substitutes variables and references in the document. The document must be JSON data
 // i.e. string, []interface{}, map[string]interface{}
-func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
+func SubstituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}) (interface{}, error) {
 	return substituteAll(log, ctx, document, DefaultVariableResolver)
 }
 
-func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, document interface{}) (_ interface{}, err error) {
+func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, document interface{}) (interface{}, error) {
 	// We must convert all incoming conditions to JSON data i.e.
 	// string, []interface{}, map[string]interface{}
 	// we cannot use structs otherwise json traverse doesn't work
 	untypedDoc, err := DocumentToUntyped(document)
 	if err != nil {
-		return document, err
+		return nil, err
 	}
 	return substituteAll(log, ctx, untypedDoc, newPreconditionsVariableResolver(log))
 }
@@ -180,12 +181,11 @@ func JSONObjectToConditions(data interface{}) ([]kyvernov1.AnyAllConditions, err
 	return c, nil
 }
 
-func substituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}, resolver VariableResolver) (_ interface{}, err error) {
-	document, err = substituteReferences(log, document)
+func substituteAll(log logr.Logger, ctx context.EvalInterface, document interface{}, resolver VariableResolver) (interface{}, error) {
+	document, err := substituteReferences(log, document)
 	if err != nil {
-		return document, err
+		return nil, err
 	}
-
 	return substituteVars(log, ctx, document, resolver)
 }
 
@@ -570,12 +570,13 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 			break
 		}
 
-		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`placeholderValue`))
+		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`${1}placeholderValue`))
 	}
 
 	var output interface{}
 	err = json.Unmarshal(rawDocument, &output)
 	if err != nil {
+		logging.Error(err, "failed to unmarshall JSON: %s", string(rawDocument))
 		return document
 	}
 

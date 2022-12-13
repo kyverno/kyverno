@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	k8s_io_api_policy_v1beta1 "k8s.io/api/policy/v1beta1"
 	k8s_io_client_go_kubernetes_typed_policy_v1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
@@ -48,7 +49,7 @@ type withMetrics struct {
 }
 
 func (c *withMetrics) Evict(arg0 context.Context, arg1 *k8s_io_api_policy_v1beta1.Eviction) error {
-	defer c.recorder.Record("evict")
+	defer c.recorder.RecordWithContext(arg0, "evict")
 	return c.inner.Evict(arg0, arg1)
 }
 
@@ -59,17 +60,23 @@ type withTracing struct {
 }
 
 func (c *withTracing) Evict(arg0 context.Context, arg1 *k8s_io_api_policy_v1beta1.Eviction) error {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Evict"),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String("Evict"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Evict"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Evict"),
+			),
+		)
+		defer span.End()
+	}
 	ret0 := c.inner.Evict(arg0, arg1)
-	tracing.SetSpanStatus(span, ret0)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret0)
+	}
 	return ret0
 }

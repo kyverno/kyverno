@@ -31,26 +31,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
 
       - name: Unshallow
         run: git fetch --prune --unshallow
 
       - name: Set up Go 
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
+        uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613 # v3.4.0
         with:
           go-version: ~1.18.6
 
       - name: Set up Helm
-        uses: azure/setup-helm@18bc76811624f360dbd7f18c2d4ecb32c7b87bab # v1.1
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
           version: v3.5.0
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@b0d4458c71155b54fcf33e11dd465dc923550009 # v2.0.1
+        uses: helm/chart-testing-action@afea100a513515fbd68b0e72a7bb0ae34cb62aec # v2.3.1
 
       - name: Cache Go modules
-        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
+        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # pin@v3
         with:
           path: |
             ~/.cache/go-build
@@ -89,6 +89,7 @@ jobs:
           kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations
           kubectl -n kyverno get pod
           kubectl -n kyverno describe pod | grep -i events -A10
-          kubectl -n kyverno logs deploy/kyverno -p || true
-          kubectl -n kyverno logs deploy/kyverno
-          kubectl -n kube-system logs kube-apiserver-kind-control-plane
+          kubectl -n kyverno logs deploy/kyverno --all-containers -p || true
+          kubectl -n kyverno logs deploy/kyverno --all-containers
+          kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers -p || true
+          kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers

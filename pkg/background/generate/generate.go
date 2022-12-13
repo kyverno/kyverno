@@ -27,6 +27,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/exp/slices"
@@ -43,6 +44,7 @@ type GenerateController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	statusControl common.StatusControlInterface
+	rclient       registryclient.Client
 
 	// listers
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
@@ -61,6 +63,7 @@ func NewGenerateController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	statusControl common.StatusControlInterface,
+	rclient registryclient.Client,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
@@ -73,6 +76,7 @@ func NewGenerateController(
 		client:        client,
 		kyvernoClient: kyvernoClient,
 		statusControl: statusControl,
+		rclient:       rclient,
 		policyLister:  policyLister,
 		npolicyLister: npolicyLister,
 		urLister:      urLister,
@@ -195,7 +199,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := engine.GenerateResponse(policyContext, ur)
+	engineResponse := engine.GenerateResponse(c.rclient, policyContext, ur)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
 		return nil, false, errors.New(doesNotApply)
@@ -341,7 +345,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		// add configmap json data to context
-		if err := engine.LoadContext(log, rule.Context, policyContext, rule.Name); err != nil {
+		if err := engine.LoadContext(context.TODO(), log, c.rclient, rule.Context, policyContext, rule.Name); err != nil {
 			log.Error(err, "cannot add configmaps to context")
 			return nil, processExisting, err
 		}
@@ -841,7 +845,7 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 
 func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
 	for _, genResource := range ur.Status.GeneratedResources {
-		err := client.DeleteResource(context.TODO(), "", genResource.Kind, genResource.Namespace, genResource.Name, false)
+		err := client.DeleteResource(context.TODO(), genResource.APIVersion, genResource.Kind, genResource.Namespace, genResource.Name, false)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}

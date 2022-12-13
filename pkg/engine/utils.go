@@ -17,7 +17,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 	"golang.org/x/text/cases"
@@ -39,32 +40,30 @@ type EngineStats struct {
 	RulesAppliedCount int
 }
 
-func checkKind(kinds []string, resourceKind string, gvk schema.GroupVersionKind) bool {
+func checkKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string) bool {
 	title := cases.Title(language.Und, cases.NoLower)
+	result := false
 	for _, k := range kinds {
-		parts := strings.Split(k, "/")
-		if len(parts) == 1 {
-			if k == "*" || resourceKind == title.String(k) {
-				return true
+		if k != "*" {
+			gv, kind := kubeutils.GetKindFromGVK(k)
+			apiResource, ok := subresourceGVKToAPIResource[k]
+			if ok {
+				result = apiResource.Group == gvk.Group && (apiResource.Version == gvk.Version || strings.Contains(gv, "*")) && apiResource.Kind == gvk.Kind
+			} else { // if the kind is not found in the subresourceGVKToAPIResource, then it is not a subresource
+				result = title.String(kind) == gvk.Kind && subresourceInAdmnReview == ""
+				if gv != "" {
+					result = result && kubeutils.GroupVersionMatches(gv, gvk.GroupVersion().String())
+				}
 			}
+		} else {
+			result = true
 		}
 
-		if len(parts) == 2 {
-			kindParts := strings.SplitN(parts[1], ".", 2)
-			if gvk.Kind == title.String(kindParts[0]) && gvk.Version == parts[0] {
-				return true
-			}
-		}
-
-		if len(parts) == 3 || len(parts) == 4 {
-			kindParts := strings.SplitN(parts[2], ".", 2)
-			if gvk.Group == parts[0] && (gvk.Version == parts[1] || parts[1] == "*") && gvk.Kind == title.String(kindParts[0]) {
-				return true
-			}
+		if result {
+			break
 		}
 	}
-
-	return false
+	return result
 }
 
 func checkName(name, resourceName string) bool {
@@ -142,11 +141,11 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (across & inside) attributes
-func doesResourceMatchConditionBlock(conditionBlock kyvernov1.ResourceDescription, userInfo kyvernov1.UserInfo, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*metav1.APIResource, conditionBlock kyvernov1.ResourceDescription, userInfo kyvernov1.UserInfo, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string, subresourceInAdmnReview string) []error {
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
-		if !checkKind(conditionBlock.Kinds, resource.GetKind(), resource.GroupVersionKind()) {
+		if !checkKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
@@ -282,7 +281,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 // MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyvernov1.Rule, admissionInfoRef kyvernov1beta1.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
+func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.APIResource, resourceRef unstructured.Unstructured, ruleRef kyvernov1.Rule, admissionInfoRef kyvernov1beta1.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace, subresourceInAdmnReview string) error {
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
@@ -298,7 +297,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		oneMatched := false
 		for _, rmr := range rule.MatchResources.Any {
 			// if there are no errors it means it was a match
-			if len(matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)) == 0 {
+			if len(matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)) == 0 {
 				oneMatched = true
 				break
 			}
@@ -309,17 +308,17 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	} else if len(rule.MatchResources.All) > 0 {
 		// include object if ALL of the criteria match
 		for _, rmr := range rule.MatchResources.All {
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)...)
 		}
 	} else {
 		rmr := kyvernov1.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
-		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)...)
 	}
 
 	if len(rule.ExcludeResources.Any) > 0 {
 		// exclude the object if ANY of the criteria match
 		for _, rer := range rule.ExcludeResources.Any {
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(subresourceGVKToAPIResource, rer, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)...)
 		}
 	} else if len(rule.ExcludeResources.All) > 0 {
 		// exclude the object if ALL the criteria match
@@ -327,7 +326,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		for _, rer := range rule.ExcludeResources.All {
 			// we got no errors inplying a resource did NOT exclude it
 			// "matchesResourceDescriptionExcludeHelper" returns errors if resource is excluded by a filter
-			if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)) == 0 {
+			if len(matchesResourceDescriptionExcludeHelper(subresourceGVKToAPIResource, rer, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)) == 0 {
 				excludedByAll = false
 				break
 			}
@@ -337,7 +336,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		}
 	} else {
 		rer := kyvernov1.ResourceFilter{UserInfo: rule.ExcludeResources.UserInfo, ResourceDescription: rule.ExcludeResources.ResourceDescription}
-		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(subresourceGVKToAPIResource, rer, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)...)
 	}
 
 	// creating final error
@@ -355,7 +354,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	return nil
 }
 
-func matchesResourceDescriptionMatchHelper(rmr kyvernov1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource map[string]*metav1.APIResource, rmr kyvernov1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string, subresourceInAdmnReview string) []error {
 	var errs []error
 	if reflect.DeepEqual(admissionInfo, kyvernov1.RequestInfo{}) {
 		rmr.UserInfo = kyvernov1.UserInfo{}
@@ -364,7 +363,7 @@ func matchesResourceDescriptionMatchHelper(rmr kyvernov1.ResourceFilter, admissi
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!reflect.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+		matchErrs := doesResourceMatchConditionBlock(subresourceGVKToAPIResource, rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)
 		errs = append(errs, matchErrs...)
 	} else {
 		errs = append(errs, fmt.Errorf("match cannot be empty"))
@@ -372,12 +371,12 @@ func matchesResourceDescriptionMatchHelper(rmr kyvernov1.ResourceFilter, admissi
 	return errs
 }
 
-func matchesResourceDescriptionExcludeHelper(rer kyvernov1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func matchesResourceDescriptionExcludeHelper(subresourceGVKToAPIResource map[string]*metav1.APIResource, rer kyvernov1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string, subresourceInAdmnReview string) []error {
 	var errs []error
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rer.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!reflect.DeepEqual(rer.UserInfo, kyvernov1.UserInfo{}) {
-		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
+		excludeErrs := doesResourceMatchConditionBlock(subresourceGVKToAPIResource, rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)
 		// it was a match so we want to exclude it
 		if len(excludeErrs) == 0 {
 			errs = append(errs, fmt.Errorf("resource excluded since one of the criteria excluded it"))
@@ -456,19 +455,15 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 
 func ruleError(rule *kyvernov1.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
 	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return ruleResponse(*rule, ruleType, msg, response.RuleStatusError, nil)
+	return ruleResponse(*rule, ruleType, msg, response.RuleStatusError)
 }
 
-func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, status response.RuleStatus, patchedResource *unstructured.Unstructured) *response.RuleResponse {
+func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, status response.RuleStatus) *response.RuleResponse {
 	resp := &response.RuleResponse{
 		Name:    rule.Name,
 		Type:    ruleType,
 		Message: msg,
 		Status:  status,
-	}
-
-	if rule.Mutation.Targets != nil {
-		resp.PatchedTarget = patchedResource
 	}
 	return resp
 }
