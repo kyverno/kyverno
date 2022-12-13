@@ -33,7 +33,6 @@ const (
 // TODO:
 // - helm review labels / selectors
 // - implement probes
-// - better certs management
 // - supports certs in cronjob
 
 type probes struct{}
@@ -93,7 +92,7 @@ func main() {
 			// listers
 			secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 			// controllers
-			certRenewer := tls.NewCertRenewer(
+			renewer := tls.NewCertRenewer(
 				kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 				secretLister,
 				tls.CertRenewalInterval,
@@ -101,15 +100,26 @@ func main() {
 				tls.TLSValidityDuration,
 				"",
 			)
-			certManager := internal.NewController(
+			certController := internal.NewController(
 				certmanager.ControllerName,
 				certmanager.NewController(
 					kubeKyvernoInformer.Core().V1().Secrets(),
-					certRenewer,
+					renewer,
 				),
 				certmanager.Workers,
 			)
-			controller := internal.NewController(
+			webhookController := internal.NewController(
+				ControllerName,
+				NewController(
+					kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+					kubeKyvernoInformer.Core().V1().Secrets(),
+					"kyverno-cleanup-policies",
+					"",
+				),
+				Workers,
+			)
+			cleanupController := internal.NewController(
 				cleanup.ControllerName,
 				cleanup.NewController(
 					kubeClient,
@@ -127,8 +137,9 @@ func main() {
 			}
 			// start leader controllers
 			var wg sync.WaitGroup
-			controller.Run(ctx, logger.WithName("cleanup-controller"), &wg)
-			certManager.Run(ctx, logger.WithName("cleanup-controller"), &wg)
+			certController.Run(ctx, logger, &wg)
+			webhookController.Run(ctx, logger, &wg)
+			cleanupController.Run(ctx, logger, &wg)
 			// wait all controllers shut down
 			wg.Wait()
 		},
