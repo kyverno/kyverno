@@ -2439,8 +2439,7 @@ The repository can be overridden per Attestor or Attestation.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.Rule">Rule</a>, 
-<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
+<a href="#kyverno.io/v1.Rule">Rule</a>)
 </p>
 <p>
 <p>MatchResources is used to specify resource and admission review request data for
@@ -5313,10 +5312,10 @@ PolicyExceptionSpec
 <table class="table table-striped">
 <tr>
 <td>
-<code>exceptions</code><br/>
+<code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v2alpha1.Exception">
-[]Exception
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
 </a>
 </em>
 </td>
@@ -5325,14 +5324,15 @@ PolicyExceptionSpec
 </tr>
 <tr>
 <td>
-<code>exclude</code><br/>
+<code>exceptions</code><br/>
 <em>
-<a href="#kyverno.io/v1.MatchResources">
-MatchResources
+<a href="#kyverno.io/v2alpha1.Exception">
+[]Exception
 </a>
 </em>
 </td>
 <td>
+<p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
 </table>
@@ -5482,7 +5482,7 @@ string
 </em>
 </td>
 <td>
-<p>PolicyName defines the excepted policy.</p>
+<p>PolicyName identifies the policy to which the exception is applied.</p>
 </td>
 </tr>
 <tr>
@@ -5493,7 +5493,7 @@ string
 </em>
 </td>
 <td>
-<p>RuleName is a list which contains the target excepted rules.</p>
+<p>RuleNames identifies the rules to which the exception is applied.</p>
 </td>
 </tr>
 </tbody>
@@ -5506,6 +5506,7 @@ string
 <a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>)
 </p>
 <p>
+<p>PolicyExceptionSpec stores policy exception spec</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -5517,10 +5518,10 @@ string
 <tbody>
 <tr>
 <td>
-<code>exceptions</code><br/>
+<code>exclude</code><br/>
 <em>
-<a href="#kyverno.io/v2alpha1.Exception">
-[]Exception
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
 </a>
 </em>
 </td>
@@ -5529,14 +5530,15 @@ string
 </tr>
 <tr>
 <td>
-<code>exclude</code><br/>
+<code>exceptions</code><br/>
 <em>
-<a href="#kyverno.io/v1.MatchResources">
-MatchResources
+<a href="#kyverno.io/v2alpha1.Exception">
+[]Exception
 </a>
 </em>
 </td>
 <td>
+<p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
 </tbody>
@@ -6277,6 +6279,7 @@ bool
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>

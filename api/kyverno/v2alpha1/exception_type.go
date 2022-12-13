@@ -16,41 +16,48 @@ limitations under the License.
 package v2alpha1
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +genclient
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+// +kubebuilder:resource:shortName=polex,categories=kyverno
 
 // PolicyException declares resources to be excluded from specified policies.
 type PolicyException struct {
-	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
-	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec declares policy exception behaviors.
-	Spec PolicyExceptionSpec `json:"spec" yaml:"spec"`
+	Spec PolicyExceptionSpec `json:"spec"`
 }
 
+// PolicyExceptionSpec stores policy exception spec
 type PolicyExceptionSpec struct {
-	Exceptions []Exception `json:"exceptions" yaml:"exceptions"`
+	Exclude kyvernov2beta1.MatchResources `json:"exclude"`
 
-	Exclude kyvernov1.MatchResources `json:"exclude" yaml:"exclude"`
+	// Exceptions is a list policy/rules to be excluded
+	Exceptions []Exception `json:"exceptions"`
 }
 
 type Exception struct {
 	// PolicyName identifies the policy to which the exception is applied.
-	PolicyName string `json:"policyName" yaml:"policyName"`
+	PolicyName string `json:"policyName"`
+
 	// RuleNames identifies the rules to which the exception is applied.
-	RuleNames []string `json:"ruleNames" yaml:"ruleNames"`
+	RuleNames []string `json:"ruleNames"`
 }
 
+// +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PolicyExceptionList is a list of Policy Exceptions
 type PolicyExceptionList struct {
-	metav1.TypeMeta `json:",inline" yaml:",inline"`
-	metav1.ListMeta `json:"metadata" yaml:"metadata"`
-	Items           []PolicyException `json:"items" yaml:"items"`
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []PolicyException `json:"items"`
 }
