@@ -28,6 +28,8 @@ type Interface interface {
 	CleanupPolicies() CleanupPolicyInformer
 	// ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
 	ClusterCleanupPolicies() ClusterCleanupPolicyInformer
+	// PolicyExceptions returns a PolicyExceptionInformer.
+	PolicyExceptions() PolicyExceptionInformer
 }
 
 type version struct {
@@ -49,4 +51,9 @@ func (v *version) CleanupPolicies() CleanupPolicyInformer {
 // ClusterCleanupPolicies returns a ClusterCleanupPolicyInformer.
 func (v *version) ClusterCleanupPolicies() ClusterCleanupPolicyInformer {
 	return &clusterCleanupPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// PolicyExceptions returns a PolicyExceptionInformer.
+func (v *version) PolicyExceptions() PolicyExceptionInformer {
+	return &policyExceptionInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
