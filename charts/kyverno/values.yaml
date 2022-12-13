@@ -506,6 +506,10 @@ cleanupController:
       #   resources:
       #     - pods
 
+  # -- Create self-signed certificates at deployment time.
+  # The certificates won't be automatically renewed if this is set to `true`.
+  createSelfSignedCert: false
+
   image:
     # -- Image registry
     registry:
