@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
+	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	appsv1 "k8s.io/api/apps/v1"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // Validate applies validation rules from policy on the resource
@@ -132,8 +134,21 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 				if !matches(log, rule, enginectx) {
 					return nil
 				}
+				// if matches, check if there is corresponding policy exception
+				isExcepted, exceptionInfo := matchesException(log, enginectx, rule)
 				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 				enginectx.jsonContext.Reset()
+				if isExcepted {
+					// log rule was skipped because of an exception
+					// create a skip response
+					// increase metrics
+					ruleResp := &response.RuleResponse{
+						Name:    rule.Name,
+						Message: "Rule skipped because of PolicyException" + exceptionInfo,
+						Status:  response.RuleStatusSkip,
+					}
+					return ruleResp
+				}
 				if hasValidate && !hasYAMLSignatureVerify {
 					return processValidationRule(ctx, log, rclient, enginectx, rule)
 				} else if hasValidateImage {
@@ -754,4 +769,34 @@ func (v *validator) substituteDeny() error {
 
 	v.deny = i.(*kyvernov1.Deny)
 	return nil
+}
+
+// matchesException gets excepted resources
+// checks if excepted resources include the target resource
+// return true if resources match excepted resource
+func matchesException(log logr.Logger, policyContext *PolicyContext, rule *kyvernov1.Rule) (bool, string) {
+	exceps, err := policyContext.peLister.List(labels.Everything())
+	if err != nil {
+		return false, ""
+	}
+
+	for _, v := range exceps {
+		exceptions := v.Spec.Exceptions
+
+		for _, p := range exceptions {
+			if p.PolicyName != policyContext.policy.GetName() {
+				continue
+			}
+
+			for _, r := range p.RuleNames {
+				if r == rule.Name {
+					err := matched.CheckMatchesResources(policyContext.newResource, v.Spec.Match, policyContext.namespaceLabels)
+					if err == nil {
+						return true, v.Namespace + "/" + v.Name
+					}
+				}
+			}
+		}
+	}
+	return false, ""
 }

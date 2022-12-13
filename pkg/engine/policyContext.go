@@ -3,6 +3,7 @@ package engine
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -74,6 +75,9 @@ type PolicyContext struct {
 		APIResource    metav1.APIResource
 		ParentResource metav1.APIResource
 	}
+
+	// peLister list all policy exceptions
+	peLister kyvernov2alpha1listers.PolicyExceptionLister
 }
 
 // Getters
@@ -190,8 +194,13 @@ func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []struct {
 	return copy
 }
 
-// Constructors
+func (c *PolicyContext) WithExceptions(peLister kyvernov2alpha1listers.PolicyExceptionLister) *PolicyContext {
+	copy := c.Copy()
+	copy.peLister = peLister
+	return copy
+}
 
+// Constructors
 func NewPolicyContextWithJsonContext(jsonContext enginectx.Interface) *PolicyContext {
 	return &PolicyContext{
 		jsonContext:      jsonContext,
@@ -212,6 +221,7 @@ func NewPolicyContextFromAdmissionRequest(
 	configuration config.Configuration,
 	client dclient.Interface,
 	informerCacheResolver resolvers.ConfigmapResolver,
+	peLister kyvernov2alpha1listers.PolicyExceptionLister,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
 	if err != nil {
@@ -234,7 +244,8 @@ func NewPolicyContextFromAdmissionRequest(
 		WithAdmissionOperation(true).
 		WithInformerCacheResolver(informerCacheResolver).
 		WithRequestResource(*requestResource).
-		WithSubresource(request.SubResource)
+		WithSubresource(request.SubResource).
+		WithExceptions(peLister)
 	return policyContext, nil
 }
 
