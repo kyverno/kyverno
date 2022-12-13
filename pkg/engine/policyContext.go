@@ -5,7 +5,6 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -54,7 +53,7 @@ type PolicyContext struct {
 	excludeResourceFunc ExcludeFunc
 
 	// jsonContext is the variable context
-	jsonContext context.Interface
+	jsonContext enginectx.Interface
 
 	// namespaceLabels stores the label of namespace to be processed by namespace selector
 	namespaceLabels map[string]string
@@ -95,7 +94,7 @@ func (c *PolicyContext) AdmissionInfo() kyvernov1beta1.RequestInfo {
 	return c.admissionInfo
 }
 
-func (c *PolicyContext) JSONContext() context.Interface {
+func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
 }
 
@@ -193,7 +192,7 @@ func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []struct {
 
 // Constructors
 
-func NewPolicyContextWithJsonContext(jsonContext context.Interface) *PolicyContext {
+func NewPolicyContextWithJsonContext(jsonContext enginectx.Interface) *PolicyContext {
 	return &PolicyContext{
 		jsonContext:      jsonContext,
 		excludeGroupRole: []string{},
@@ -204,7 +203,7 @@ func NewPolicyContextWithJsonContext(jsonContext context.Interface) *PolicyConte
 }
 
 func NewPolicyContext() *PolicyContext {
-	return NewPolicyContextWithJsonContext(context.NewContext())
+	return NewPolicyContextWithJsonContext(enginectx.NewContext())
 }
 
 func NewPolicyContextFromAdmissionRequest(

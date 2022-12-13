@@ -3,6 +3,7 @@ package imageverification
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -12,10 +13,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
+	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -24,6 +27,14 @@ import (
 
 type ImageVerificationHandler interface {
 	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext) ([]byte, []string, error)
+}
+
+type imageVerificationHandler struct {
+	kyvernoClient    versioned.Interface
+	rclient          registryclient.Client
+	log              logr.Logger
+	eventGen         event.Interface
+	admissionReports bool
 }
 
 func NewImageVerificationHandler(
@@ -40,14 +51,6 @@ func NewImageVerificationHandler(
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
 	}
-}
-
-type imageVerificationHandler struct {
-	kyvernoClient    versioned.Interface
-	rclient          registryclient.Client
-	log              logr.Logger
-	eventGen         event.Interface
-	admissionReports bool
 }
 
 func (h *imageVerificationHandler) Handle(
@@ -74,17 +77,23 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	if len(policies) == 0 {
 		return true, "", nil, nil
 	}
-
 	var engineResponses []*response.EngineResponse
 	var patches [][]byte
 	verifiedImageData := &engine.ImageVerificationMetadata{}
-	for _, p := range policies {
-		policyContext := policyContext.WithPolicy(p)
-		resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext)
+	for _, policy := range policies {
+		tracing.ChildSpan(
+			ctx,
+			"",
+			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
+			func(ctx context.Context, span trace.Span) {
+				policyContext := policyContext.WithPolicy(policy)
+				resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext)
 
-		engineResponses = append(engineResponses, resp)
-		patches = append(patches, resp.GetPatches()...)
-		verifiedImageData.Merge(ivm)
+				engineResponses = append(engineResponses, resp)
+				patches = append(patches, resp.GetPatches()...)
+				verifiedImageData.Merge(ivm)
+			},
+		)
 	}
 
 	failurePolicy := policies[0].GetSpec().GetFailurePolicy()
@@ -110,7 +119,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 		}
 	}
 
-	go h.handleAudit(context.TODO(), policyContext.NewResource(), request, nil, engineResponses...)
+	go h.handleAudit(ctx, policyContext.NewResource(), request, nil, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", jsonutils.JoinPatches(patches...), warnings
@@ -155,16 +164,24 @@ func (v *imageVerificationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		return
 	}
-	report := reportutils.BuildAdmissionReport(resource, request, request.Kind, engineResponses...)
-	// if it's not a creation, the resource already exists, we can set the owner
-	if request.Operation != admissionv1.Create {
-		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
-		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
-	}
-	if len(report.GetResults()) > 0 {
-		_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
-		if err != nil {
-			v.log.Error(err, "failed to create report")
-		}
-	}
+	tracing.Span(
+		context.Background(),
+		"",
+		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
+		func(ctx context.Context, span trace.Span) {
+			report := reportutils.BuildAdmissionReport(resource, request, request.Kind, engineResponses...)
+			// if it's not a creation, the resource already exists, we can set the owner
+			if request.Operation != admissionv1.Create {
+				gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
+				controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
+			}
+			if len(report.GetResults()) > 0 {
+				_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+				if err != nil {
+					v.log.Error(err, "failed to create report")
+				}
+			}
+		},
+		trace.WithLinks(trace.LinkFromContext(ctx)),
+	)
 }

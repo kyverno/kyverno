@@ -68,7 +68,7 @@ func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*respon
 }
 
 func TestProcessPatches_EmptyPatches(t *testing.T) {
-	var emptyRule = &types.Rule{Name: "emptyRule"}
+	emptyRule := &types.Rule{Name: "emptyRule"}
 	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(endpointsDocument))
 	if err != nil {
 		t.Error(err)

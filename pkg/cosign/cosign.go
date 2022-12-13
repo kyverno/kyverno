@@ -28,6 +28,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 )
 
@@ -65,20 +66,18 @@ func VerifySignature(ctx context.Context, rclient registryclient.Client, opts Op
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
 	}
 
-	cosignOpts, err := buildCosignOptions(ctx, rclient, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		signatures     []oci.Signature
-		bundleVerified bool
+	signatures, bundleVerified, err := tracing.ChildSpan3(
+		ctx,
+		"",
+		"VERIFY IMG SIGS",
+		func(ctx context.Context, span trace.Span) ([]oci.Signature, bool, error) {
+			cosignOpts, err := buildCosignOptions(ctx, rclient, opts)
+			if err != nil {
+				return nil, false, err
+			}
+			return client.VerifyImageSignatures(ctx, ref, cosignOpts)
+		},
 	)
-
-	tracing.DoInSpan(ctx, "cosign", "verify_image_signatures", func(ctx context.Context) {
-		signatures, bundleVerified, err = client.VerifyImageSignatures(ctx, ref, cosignOpts)
-	})
-
 	if err != nil {
 		logger.Info("image verification failed", "error", err.Error())
 		return nil, err
@@ -260,18 +259,18 @@ func FetchAttestations(ctx context.Context, rclient registryclient.Client, opts 
 		return nil, err
 	}
 
-	ref, err := name.ParseReference(opts.ImageRef)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse image")
-	}
-
-	var signatures []oci.Signature
-	var bundleVerified bool
-
-	tracing.DoInSpan(ctx, "cosign_operations", "verify_image_signatures", func(ctx context.Context) {
-		signatures, bundleVerified, err = client.VerifyImageAttestations(ctx, ref, cosignOpts)
-	})
-
+	signatures, bundleVerified, err := tracing.ChildSpan3(
+		ctx,
+		"",
+		"VERIFY IMG ATTESTATIONS",
+		func(ctx context.Context, span trace.Span) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
+			ref, err := name.ParseReference(opts.ImageRef)
+			if err != nil {
+				return nil, false, errors.Wrap(err, "failed to parse image")
+			}
+			return client.VerifyImageAttestations(ctx, ref, cosignOpts)
+		},
+	)
 	if err != nil {
 		msg := err.Error()
 		logger.Info("failed to fetch attestations", "error", msg)

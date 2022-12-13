@@ -33,5 +33,7 @@ jobs:
           kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations
           kubectl -n kyverno get pod
           kubectl -n kyverno describe pod | grep -i events -A10
-          kubectl -n kyverno logs deploy/kyverno -p || true
-          kubectl -n kyverno logs deploy/kyverno
+          kubectl -n kyverno logs deploy/kyverno --all-containers -p || true
+          kubectl -n kyverno logs deploy/kyverno --all-containers
+          kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers -p || true
+          kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers
