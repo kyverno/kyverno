@@ -71,7 +71,6 @@ var (
 type controller struct {
 	// clients
 	discoveryClient dclient.IDiscovery
-	secretClient    controllerutils.GetClient[*corev1.Secret]
 	mwcClient       controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration]
 	vwcClient       controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 	leaseClient     controllerutils.ObjectClient[*coordinationv1.Lease]
@@ -103,7 +102,6 @@ type controller struct {
 
 func NewController(
 	discoveryClient dclient.IDiscovery,
-	secretClient controllerutils.GetClient[*corev1.Secret],
 	mwcClient controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration],
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	leaseClient controllerutils.ObjectClient[*coordinationv1.Lease],
@@ -124,7 +122,6 @@ func NewController(
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
 		discoveryClient:    discoveryClient,
-		secretClient:       secretClient,
 		mwcClient:          mwcClient,
 		vwcClient:          vwcClient,
 		leaseClient:        leaseClient,

@@ -279,7 +279,6 @@ func createrLeaderControllers(
 	)
 	webhookController := webhookcontroller.NewController(
 		dynamicClient.Discovery(),
-		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 		kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
