@@ -59,19 +59,19 @@ jobs:
           make kind-create-cluster
       - name: Build and load dev images in kind cluster
         run: make kind-load-all
-      # TODO needs to migrate on helm
       - name: Create e2e manifest
         run: make e2e-manifest
-      - name: e2e testing
+      - name: Run e2e tests
         run: |
           echo ">>> Install Kyverno"
+          kubectl create namespace kyverno
           cat ${GITHUB_WORKSPACE}/config/install-helm.yaml | \
           sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
           kubectl create -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
+          echo ">>> Check kyverno"
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
           sleep 50
-          echo ">>> Check kyverno"
           kubectl get pods -n kyverno
           ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
           sleep 20
@@ -80,6 +80,7 @@ jobs:
           echo ">>> Run Kyverno e2e test"
           make test-e2e
           kubectl delete -f ${GITHUB_WORKSPACE}/config/install-helm.yaml
+          kubectl delete namespace kyverno
       - name: Debug failure
         if: failure()
         run: |
