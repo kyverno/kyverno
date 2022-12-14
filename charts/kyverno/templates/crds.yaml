@@ -5,7 +5,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -349,7 +351,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -653,7 +657,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -1700,7 +1706,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -2045,7 +2053,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -2349,7 +2359,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -3396,7 +3408,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -15777,7 +15791,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -15964,7 +15980,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -28349,7 +28367,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -28834,7 +28854,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -29224,7 +29246,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null
@@ -29590,7 +29614,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}
+    {{- with .Values.crds.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   creationTimestamp: null

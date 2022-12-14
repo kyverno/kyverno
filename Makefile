@@ -398,7 +398,9 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@cat $(CRDS_PATH)/* \
 		| $(SED) -e '1i{{- if .Values.installCRDs }}' \
 		| $(SED) -e '$$a{{- end }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- toYaml . | nindent 4 }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- end }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ labels:' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- include "kyverno.labels" . | nindent 4 }}' \
  		> ./charts/kyverno/templates/crds.yaml
