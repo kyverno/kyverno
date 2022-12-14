@@ -587,12 +587,17 @@ test-cli-registry: $(CLI_BIN)
 ##################################
 
 # TODO(eddycharly): $(REPO) is wrong, it is always ghcr.io/kyverno in the source
-.PHONY: e2e-kustomize
-e2e-kustomize: $(KUSTOMIZE) ## Build kustomize manifests for e2e tests
-	cd config && \
-	$(KUSTOMIZE) edit set image $(REPO_KYVERNOPRE)=$(LOCAL_KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) && \
-	$(KUSTOMIZE) edit set image $(REPO_KYVERNO)=$(LOCAL_KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
-	$(KUSTOMIZE) build config/ -o config/install.yaml
+.PHONY: e2e-manifest
+e2e-manifest: $(HELM) ## Build manifests for e2e tests
+	@echo Create e2e manifest... >&2
+	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
+		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
+		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
+		--set image.tag=$(IMAGE_TAG_DEV) \
+		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
+		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		> ./config/install-helm.yaml
 
 ##################################
 # Testing & Code-Coverage
