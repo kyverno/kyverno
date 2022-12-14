@@ -604,24 +604,18 @@ func generateElements(log logr.Logger, client dclient.Interface, rule kyvernov1.
 func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
 	var newGenResources []kyvernov1.ResourceSpec
 	for _, fe := range rule.Generation.ForEachGeneration {
-		if fe.List != "" {
-			elements, err := engine.RunEvaluateList(fe.List, ctx)
-			if err != nil {
-				log.Error(err, "failed to generate resource")
-				continue
-			}
+		if fe.List == "" {
+			log.Error(errors.New("Foreach inside generate with an empty or null List attribute"), "cannot generate a policy rule with an empty or null List attribute")
+			break
+		}
+		elements, err := engine.RunEvaluateList(fe.List, ctx)
+		if err != nil {
+			log.Error(err, "failed to generate resource")
+			continue
+		}
 
-			for _, element := range elements {
-				tempNewGenResources, err := generateElements(log, client, rule, resource, ctx, policy, ur, fe, element)
-				if err != nil {
-					continue
-				}
-				for _, genResource := range tempNewGenResources {
-					newGenResources = append(newGenResources, genResource)
-				}
-			}
-		} else {
-			tempNewGenResources, err := generateElements(log, client, rule, resource, ctx, policy, ur, fe, nil)
+		for _, element := range elements {
+			tempNewGenResources, err := generateElements(log, client, rule, resource, ctx, policy, ur, fe, element)
 			if err != nil {
 				continue
 			}
