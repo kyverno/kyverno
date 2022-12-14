@@ -86,12 +86,8 @@ func setupCosign(logger logr.Logger, imageSignatureRepository string) {
 	}
 }
 
-func showWarnings(logger logr.Logger, splitPolicyReport bool) {
+func showWarnings(logger logr.Logger) {
 	logger = logger.WithName("warnings")
-	// DEPRECATED: remove in 1.9
-	if splitPolicyReport {
-		logger.Info("The splitPolicyReport flag is deprecated and will be removed in v1.9. It has no effect and should be removed.")
-	}
 	// log if `forceFailurePolicyIgnore` flag has been set or not
 	if toggle.ForceFailurePolicyIgnore.Enabled() {
 		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
@@ -339,8 +335,6 @@ func main() {
 		backgroundScanWorkers      int
 		dumpPayload                bool
 		leaderElectionRetryPeriod  time.Duration
-		// DEPRECATED: remove in 1.9
-		splitPolicyReport bool
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -360,8 +354,6 @@ func main() {
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
-	// DEPRECATED: remove in 1.9
-	flagset.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -381,7 +373,7 @@ func main() {
 	signalCtx, logger, metricsConfig, sdown := internal.Setup()
 	defer sdown()
 	// show version
-	showWarnings(logger, splitPolicyReport)
+	showWarnings(logger)
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
