@@ -28,12 +28,26 @@ If release name contains chart name it will be used as a full name.
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{/* Helm labels */}}
+{{- define "kyverno.helmLabels" -}}
+helm.sh/chart: {{ template "kyverno.chart" . }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+{{/* CRD labels */}}
+{{- define "kyverno.crdLabels" -}}
+{{ include "kyverno.matchLabels" . }}
+{{ include "kyverno.helmLabels" . }}
+app.kubernetes.io/component: kyverno
+app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
+app.kubernetes.io/version: "{{ .Chart.AppVersion | replace "+" "_" }}"
+{{- end -}}
+
 {{/* Helm required labels */}}
 {{- define "kyverno.labels" -}}
-helm.sh/chart: {{ template "kyverno.chart" . }}
 {{ include "kyverno.matchLabels" . }}
+{{ include "kyverno.helmLabels" . }}
 app.kubernetes.io/component: kyverno
-app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
 app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 {{- if .Values.customLabels }}
@@ -43,13 +57,12 @@ app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 
 {{/* Helm required labels */}}
 {{- define "kyverno.test-labels" -}}
+{{ include "kyverno.helmLabels" . }}
 app.kubernetes.io/component: kyverno
 app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/name: {{ template "kyverno.name" . }}-test
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
 app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
-helm.sh/chart: {{ template "kyverno.chart" . }}
 {{- end -}}
 
 {{/* matchLabels */}}

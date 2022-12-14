@@ -9,7 +9,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: admissionreports.kyverno.io
 spec:
@@ -355,7 +355,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: backgroundscanreports.kyverno.io
 spec:
@@ -661,7 +661,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: cleanuppolicies.kyverno.io
 spec:
@@ -1710,7 +1710,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: clusteradmissionreports.kyverno.io
 spec:
@@ -2057,7 +2057,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: clusterbackgroundscanreports.kyverno.io
 spec:
@@ -2363,7 +2363,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: clustercleanuppolicies.kyverno.io
 spec:
@@ -3412,7 +3412,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: clusterpolicies.kyverno.io
 spec:
@@ -15795,7 +15795,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: generaterequests.kyverno.io
 spec:
@@ -15984,7 +15984,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: policies.kyverno.io
 spec:
@@ -28371,7 +28371,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: policyexceptions.kyverno.io
 spec:
@@ -28858,7 +28858,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: updaterequests.kyverno.io
 spec:
@@ -29250,7 +29250,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
@@ -29618,7 +29618,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.crdLabels" . | nindent 4 }}
   creationTimestamp: null
   name: policyreports.wgpolicyk8s.io
 spec:
