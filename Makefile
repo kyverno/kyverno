@@ -315,6 +315,7 @@ INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,
 CLIENTSET_PACKAGE  := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
+CRDS_PATH          := ${PWD}/crds
 
 $(GOPATH_SHIM):
 	@echo Create gopath shim... >&2
@@ -353,12 +354,12 @@ codegen-client-all: codegen-client-clientset codegen-client-listers codegen-clie
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 	@echo Generate kyverno crds... >&2
-	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
+	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
 
 .PHONY: codegen-crds-report
 codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
-	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
+	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
 
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
@@ -392,14 +393,15 @@ codegen-helm-docs: ## Generate helm docs
 	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
 
 .PHONY: codegen-helm-crds
-codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
-	@echo Create temp folder for kustomization... >&2
-	@mkdir -p config/.helm
-	@echo Create kustomization... >&2
-	@VERSION='"{{.Chart.AppVersion}}"' TOP_PATH=".." envsubst < config/templates/helm-labels.yaml.envsubst > config/.helm/labels.yaml
-	@VERSION=dummy TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.helm/kustomization.yaml
+codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
-	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}' > ./charts/kyverno/templates/crds.yaml
+	@cat $(CRDS_PATH)/* \
+		| $(SED) -e '1i{{- if .Values.installCRDs }}' \
+		| $(SED) -e '$$a{{- end }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- trim (include "kyverno.crdAnnotations" .) | nindent 4 }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/i \ \ labels:' \
+ 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- include "kyverno.labels" . | nindent 4 }}' \
+ 		> ./charts/kyverno/templates/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
@@ -450,10 +452,10 @@ codegen-all: codegen-quick codegen-slow ## Generate all generated code
 .PHONY: verify-crds
 verify-crds: codegen-crds-all ## Check CRDs are up to date
 	@echo Checking crds are up to date... >&2
-	@git --no-pager diff config
+	@git --no-pager diff crds
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".' >&2
 	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code config
+	@git diff --quiet --exit-code crds
 
 .PHONY: verify-client
 verify-client: codegen-client-all ## Check client is up to date
