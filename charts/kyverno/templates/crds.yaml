@@ -18253,6 +18253,7 @@ spec:
               exceptions:
                 description: Exceptions is a list policy/rules to be excluded
                 items:
+                  description: Exception stores infos about a policy and rules
                   properties:
                     policyName:
                       description: PolicyName identifies the policy to which the exception is applied.
@@ -18267,8 +18268,8 @@ spec:
                   - ruleNames
                   type: object
                 type: array
-              exclude:
-                description: MatchResources is used to specify resource and admission review request data for which a policy rule is applicable.
+              match:
+                description: Match defines match clause used to check if a resource applies to the exception
                 properties:
                   all:
                     description: All allows specifying resources which will be ANDed
@@ -18531,7 +18532,7 @@ spec:
                 type: object
             required:
             - exceptions
-            - exclude
+            - match
             type: object
         required:
         - spec
