@@ -9,6 +9,6 @@ import (
 
 // Validate checks policy exception is valid
 func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.PolicyException) error {
-	// TODO
-	return nil
+	errs := polex.Validate()
+	return errs.ToAggregate()
 }

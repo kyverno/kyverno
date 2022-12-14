@@ -18,6 +18,7 @@ package v2alpha1
 import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // +genclient
@@ -36,6 +37,18 @@ type PolicyException struct {
 	Spec PolicyExceptionSpec `json:"spec"`
 }
 
+// Validate implements programmatic validation
+func (p *PolicyException) Validate() (errs field.ErrorList) {
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
+	// errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
+	// errs = append(errs, p.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
+	// if p.ExcludeResources != nil {
+	// 	errs = append(errs, p.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+	// }
+	// errs = append(errs, p.ValidateMatchExcludeConflict(path)...)
+	return errs
+}
+
 // PolicyExceptionSpec stores policy exception spec
 type PolicyExceptionSpec struct {
 	// Match defines match clause used to check if a resource applies to the exception
@@ -45,6 +58,16 @@ type PolicyExceptionSpec struct {
 	Exceptions []Exception `json:"exceptions"`
 }
 
+// Validate implements programmatic validation
+func (p *PolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) {
+	errs = append(errs, p.Match.Validate(path.Child("match"), false, nil)...)
+	exceptionsPath := path.Child("exceptions")
+	for i, e := range p.Exceptions {
+		errs = append(errs, e.Validate(exceptionsPath.Index(i))...)
+	}
+	return errs
+}
+
 // Exception stores infos about a policy and rules
 type Exception struct {
 	// PolicyName identifies the policy to which the exception is applied.
@@ -52,6 +75,14 @@ type Exception struct {
 
 	// RuleNames identifies the rules to which the exception is applied.
 	RuleNames []string `json:"ruleNames"`
+}
+
+// Validate implements programmatic validation
+func (p *Exception) Validate(path *field.Path) (errs field.ErrorList) {
+	if p.PolicyName == "" {
+		errs = append(errs, field.Required(path.Child("policyName"), "An exception requires a policy name"))
+	}
+	return errs
 }
 
 // +kubebuilder:object:root=true
