@@ -4978,6 +4978,8 @@ Resource Types:
 <a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>
 </li><li>
 <a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>
 </li></ul>
 <hr />
 <h3 id="kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy
@@ -5250,6 +5252,96 @@ CleanupPolicyStatus
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2alpha1.PolicyException">PolicyException
+</h3>
+<p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>PolicyException</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">
+PolicyExceptionSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+<p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2alpha1.CleanupPolicyInterface">CleanupPolicyInterface
 </h3>
 <p>
@@ -5362,6 +5454,94 @@ AnyAllConditions
 </em>
 </td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.Exception">Exception
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
+</p>
+<p>
+<p>Exception stores infos about a policy and rules</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policyName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>PolicyName identifies the policy to which the exception is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ruleNames</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>RuleNames identifies the rules to which the exception is applied.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>)
+</p>
+<p>
+<p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+<p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
 </tbody>
@@ -6102,6 +6282,7 @@ bool
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>

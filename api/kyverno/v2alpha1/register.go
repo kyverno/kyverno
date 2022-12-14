@@ -53,6 +53,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CleanupPolicyList{},
 		&ClusterCleanupPolicy{},
 		&ClusterCleanupPolicyList{},
+		&PolicyException{},
+		&PolicyExceptionList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
