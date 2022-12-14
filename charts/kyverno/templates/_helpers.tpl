@@ -36,8 +36,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{/* CRD labels */}}
 {{- define "kyverno.crdLabels" -}}
-{{ include "kyverno.matchLabels" . }}
 {{ include "kyverno.helmLabels" . }}
+{{ include "kyverno.matchLabels" . }}
 app.kubernetes.io/component: kyverno
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
 app.kubernetes.io/version: "{{ .Chart.AppVersion | replace "+" "_" }}"
@@ -45,8 +45,8 @@ app.kubernetes.io/version: "{{ .Chart.AppVersion | replace "+" "_" }}"
 
 {{/* Helm required labels */}}
 {{- define "kyverno.labels" -}}
-{{ include "kyverno.matchLabels" . }}
 {{ include "kyverno.helmLabels" . }}
+{{ include "kyverno.matchLabels" . }}
 app.kubernetes.io/component: kyverno
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
 app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
