@@ -32,23 +32,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
       - name: Unshallow
         run: git fetch --prune --unshallow
-
       - name: Set up Go 
         uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613 # v3.4.0
         with:
           go-version: ~1.18.6
-
       - name: Set up Helm
         uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
           version: v3.5.0
-
       - name: Set up chart-testing
         uses: helm/chart-testing-action@afea100a513515fbd68b0e72a7bb0ae34cb62aec # v2.3.1
-
       - name: Cache Go modules
         uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # pin@v3
         with:
@@ -58,12 +53,15 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-
-      - name: Create dev images, kind cluster and setup kustomize
+      - name: Create kind cluster
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
-          make create-e2e-infrastructure
-
+          make kind-create-cluster
+      - name: Build and load dev images in kind cluster
+        run: make kind-load-all
+      # TODO needs to migrate on helm
+      - name: Setup kustomize
+        run: make e2e-kustomize
       - name: e2e testing
         run: |
           echo ">>> Install Kyverno"
@@ -82,7 +80,6 @@ jobs:
           echo ">>> Run Kyverno e2e test"
           make test-e2e
           kubectl delete -f ${GITHUB_WORKSPACE}/config/install.yaml
-
       - name: Debug failure
         if: failure()
         run: |

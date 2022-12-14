@@ -382,10 +382,10 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 	@echo Generate api docs... >&2
 	@rm -rf docs/user/crd && mkdir -p docs/user/crd
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
-			-api-dir github.com/kyverno/kyverno/api \
-			-config docs/user/config.json \
-			-template-dir docs/user/template \
-			-out-file docs/user/crd/index.html
+		-api-dir github.com/kyverno/kyverno/api \
+		-config docs/user/config.json \
+		-template-dir docs/user/template \
+		-out-file docs/user/crd/index.html
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
@@ -586,10 +586,6 @@ test-cli-registry: $(CLI_BIN)
 # Create e2e Infrastructure
 ##################################
 
-.PHONY: kind-e2e-cluster
-kind-e2e-cluster: $(KIND) ## Create kind cluster for e2e tests
-	$(KIND) create cluster --image=$(KIND_IMAGE)
-
 # TODO(eddycharly): $(REPO) is wrong, it is always ghcr.io/kyverno in the source
 .PHONY: e2e-kustomize
 e2e-kustomize: $(KUSTOMIZE) ## Build kustomize manifests for e2e tests
@@ -597,17 +593,6 @@ e2e-kustomize: $(KUSTOMIZE) ## Build kustomize manifests for e2e tests
 	$(KUSTOMIZE) edit set image $(REPO_KYVERNOPRE)=$(LOCAL_KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) && \
 	$(KUSTOMIZE) edit set image $(REPO_KYVERNO)=$(LOCAL_KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
 	$(KUSTOMIZE) build config/ -o config/install.yaml
-
-.PHONY: e2e-init-container
-e2e-init-container: kind-e2e-cluster | image-build-kyvernopre
-	$(KIND) load docker-image $(LOCAL_KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV)
-
-.PHONY: e2e-kyverno-container
-e2e-kyverno-container: kind-e2e-cluster | image-build-kyverno
-	$(KIND) load docker-image $(LOCAL_KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
-
-.PHONY: create-e2e-infrastructure
-create-e2e-infrastructure: e2e-init-container e2e-kyverno-container e2e-kustomize | ## Setup infrastructure for e2e tests
 
 ##################################
 # Testing & Code-Coverage
