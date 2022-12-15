@@ -48,6 +48,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
@@ -634,9 +635,11 @@ func main() {
 		openApiManager,
 		admissionReports,
 	)
+	exceptionHandlers := webhooksexception.NewHandlers()
 	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,
+		exceptionHandlers,
 		configuration,
 		metricsConfig,
 		webhooks.DebugModeOptions{
