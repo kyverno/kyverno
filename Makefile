@@ -402,9 +402,10 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
 
-.PHONY: codegen-install
-codegen-install: $(HELM) ## Create dev install manifest
-	@echo Generate install.yaml... >&2
+.PHONY: codegen-manifest-install
+codegen-manifest-install: $(HELM) ## Create install manifest
+	@echo Generate install manifest... >&2
+	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.createNamespace=true \
 		--set templating.skipHelmLabels=true \
@@ -413,8 +414,12 @@ codegen-install: $(HELM) ## Create dev install manifest
 		--set image.tag=latest \
 		--set initImage.tag=latest \
  		| $(SED) -e '/^#.*/d' \
-		> ./config/install.yaml
-	@echo Generate install_debug.yaml... >&2
+		> ./.manifest/install.yaml
+
+.PHONY: codegen-manifest-debug
+codegen-manifest-debug: $(HELM) ## Create debug manifest
+	@echo Generate debug manifest... >&2
+	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.createNamespace=true \
 		--set templating.skipHelmLabels=true \
@@ -424,21 +429,38 @@ codegen-install: $(HELM) ## Create dev install manifest
 		--set image.tag=latest \
 		--set initImage.tag=latest \
  		| $(SED) -e '/^#.*/d' \
-		> ./config/install_debug.yaml
+		> ./.manifest/debug.yaml
 
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
-.PHONY: codegen-release
-codegen-release: $(HELM) ## Create release manifest
+.PHONY: codegen-manifest-release
+codegen-manifest-release: $(HELM) ## Create release manifest
 	@echo Generate release manifest... >&2
+	@mkdir -p ./.manifest/.release
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set cleanupController.image.tag=$(GIT_VERSION) \
 		--set image.tag=$(GIT_VERSION) \
 		--set initImage.tag=$(GIT_VERSION) \
  		| $(SED) -e '/^#.*/d' \
-		> ./config/.release/install.yaml
+		> ./.manifest/.release/install.yaml
+
+.PHONY: codegen-manifest-e2e
+codegen-manifest-e2e: $(HELM) ## Create e2e manifest
+	@echo Create e2e manifest... >&2
+	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set templating.createNamespace=true \
+		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
+		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
+		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
+		--set image.tag=$(IMAGE_TAG_DEV) \
+		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
+		--set initImage.tag=$(IMAGE_TAG_DEV) \
+ 		| $(SED) -e '/^#.*/d'
+
+.PHONY: codegen-manifest-all
+codegen-manifest-all: codegen-manifest-install codegen-manifest-debug codegen-manifest-release ## Create all manifests
 
 .PHONY: codegen-quick
-codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-install codegen-release ## Generate all generated code except client
+codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
 
 .PHONY: codegen-slow
 codegen-slow: codegen-client-all ## Generate client code
@@ -589,23 +611,6 @@ test-cli-test-case-selector-flag: $(CLI_BIN)
 .PHONY: test-cli-registry
 test-cli-registry: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/registry --registry
-
-##################################
-# Create e2e Infrastructure
-##################################
-
-.PHONY: e2e-manifest
-e2e-manifest: $(HELM) ## Build manifests for e2e tests
-	@echo Create e2e manifest... >&2
-	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.createNamespace=true \
-		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
-		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
-		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
-		--set image.tag=$(IMAGE_TAG_DEV) \
-		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
-		--set initImage.tag=$(IMAGE_TAG_DEV) \
- 		| $(SED) -e '/^#.*/d'
 
 ##################################
 # Testing & Code-Coverage
