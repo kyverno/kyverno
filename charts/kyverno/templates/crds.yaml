@@ -4198,6 +4198,8 @@ spec:
                                 predicateType:
                                   description: PredicateType defines the type of Predicate contained within the Statement.
                                   type: string
+                              required:
+                              - predicateType
                               type: object
                             type: array
                           attestors:
@@ -6092,6 +6094,8 @@ spec:
                                     predicateType:
                                       description: PredicateType defines the type of Predicate contained within the Statement.
                                       type: string
+                                  required:
+                                  - predicateType
                                   type: object
                                 type: array
                               attestors:
@@ -7965,6 +7969,8 @@ spec:
                                 predicateType:
                                   description: PredicateType defines the type of Predicate contained within the Statement.
                                   type: string
+                              required:
+                              - predicateType
                               type: object
                             type: array
                           attestors:
@@ -9844,6 +9850,8 @@ spec:
                                     predicateType:
                                       description: PredicateType defines the type of Predicate contained within the Statement.
                                       type: string
+                                  required:
+                                  - predicateType
                                   type: object
                                 type: array
                               attestors:
@@ -12329,6 +12337,8 @@ spec:
                                 predicateType:
                                   description: PredicateType defines the type of Predicate contained within the Statement.
                                   type: string
+                              required:
+                              - predicateType
                               type: object
                             type: array
                           attestors:
@@ -14223,6 +14233,8 @@ spec:
                                     predicateType:
                                       description: PredicateType defines the type of Predicate contained within the Statement.
                                       type: string
+                                  required:
+                                  - predicateType
                                   type: object
                                 type: array
                               attestors:
@@ -16096,6 +16108,8 @@ spec:
                                 predicateType:
                                   description: PredicateType defines the type of Predicate contained within the Statement.
                                   type: string
+                              required:
+                              - predicateType
                               type: object
                             type: array
                           attestors:
@@ -17975,6 +17989,8 @@ spec:
                                     predicateType:
                                       description: PredicateType defines the type of Predicate contained within the Statement.
                                       type: string
+                                  required:
+                                  - predicateType
                                   type: object
                                 type: array
                               attestors:
