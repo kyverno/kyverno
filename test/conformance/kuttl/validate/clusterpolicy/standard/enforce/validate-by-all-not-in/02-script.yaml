@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      if kubectl apply -f resource.yaml
+      then
+        echo "Tested succeeded. Resource was allowed."
+        exit 0
+      else
+        echo "Test failed. Resource was blocked."
+        exit 1
+      fi
