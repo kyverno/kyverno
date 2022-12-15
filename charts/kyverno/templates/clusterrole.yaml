@@ -18,15 +18,15 @@ metadata:
     app: kyverno
 rules:
 - apiGroups:
-  - "rbac.authorization.k8s.io"
+    - rbac.authorization.k8s.io
   resources:
-  - roles
-  - clusterroles
-  - rolebindings
-  - clusterrolebindings
+    - roles
+    - clusterroles
+    - rolebindings
+    - clusterrolebindings
   verbs:
-  - watch
-  - list
+    - watch
+    - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -60,22 +60,21 @@ rules:
     - watch
     - deletecollection
 - apiGroups:
-  - wgpolicyk8s.io
+    - wgpolicyk8s.io
   resources:
-  - policyreports
-  - policyreports/status
-  - clusterpolicyreports
-  - clusterpolicyreports/status
+    - policyreports
+    - policyreports/status
+    - clusterpolicyreports
+    - clusterpolicyreports/status
   verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-  - deletecollection
-
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+    - deletecollection
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -112,7 +111,7 @@ rules:
       - patch
       - delete
   - apiGroups:
-      - ""
+      - ''
     resources:
       - namespaces
       - configmaps
@@ -136,7 +135,7 @@ rules:
       - delete
   {{- if .Values.generatecontrollerExtraResources }}
   - apiGroups:
-      - "*"
+      - '*'
     resources:
     {{- range .Values.generatecontrollerExtraResources }}
       - {{ . }}
@@ -155,7 +154,8 @@ metadata:
     app: kyverno
 rules:
 - apiGroups:
-  - "*"
+  - ''
+  - events.k8s.io
   resources:
   - events
   verbs:
@@ -172,7 +172,7 @@ metadata:
     app: kyverno
 rules:
 - apiGroups:
-  - 'admissionregistration.k8s.io'
+  - admissionregistration.k8s.io
   resources:
   - mutatingwebhookconfigurations
   - validatingwebhookconfigurations
@@ -184,5 +184,4 @@ rules:
   - patch
   - update
   - watch
-
 {{- end }}

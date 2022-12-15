@@ -91,3 +91,4 @@ jobs:
           kubectl -n kyverno logs deploy/kyverno --all-containers
           kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers -p || true
           kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers
+          kubectl get clusterrole kyverno -o yaml
