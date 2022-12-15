@@ -50,8 +50,6 @@ GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
 GO_ACC                             := $(TOOLS_DIR)/go-acc
 GO_ACC_VERSION                     := latest
-KUSTOMIZE                          := $(TOOLS_DIR)/kustomize
-KUSTOMIZE_VERSION                  := latest
 GOIMPORTS                          := $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  := latest
 HELM                               := $(TOOLS_DIR)/helm
@@ -62,7 +60,7 @@ KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
 KUTTL_VERSION                      := v0.14.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -100,10 +98,6 @@ $(GEN_CRD_API_REFERENCE_DOCS):
 $(GO_ACC):
 	@echo Install go-acc... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/ory/go-acc@$(GO_ACC_VERSION)
-
-$(KUSTOMIZE):
-	@echo Install kustomize... >&2
-	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION)
 
 $(GOIMPORTS):
 	@echo Install goimports... >&2
@@ -315,7 +309,7 @@ INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,
 CLIENTSET_PACKAGE  := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
-CRDS_PATH          := ${PWD}/crds
+CRDS_PATH          := ${PWD}/config/crds
 
 $(GOPATH_SHIM):
 	@echo Create gopath shim... >&2
@@ -409,25 +403,32 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
 
 .PHONY: codegen-install
-codegen-install: $(KUSTOMIZE) ## Create install maifests
-	@echo Create kustomization... >&2
-	@VERSION=latest TOP_PATH="." envsubst < config/templates/labels.yaml.envsubst > config/labels.yaml
-	@VERSION=latest TOP_PATH="." envsubst < config/templates/kustomization.yaml.envsubst > config/kustomization.yaml
+codegen-install: $(HELM) ## Create dev install manifest
 	@echo Generate install.yaml... >&2
-	@$(KUSTOMIZE) build ./config > ./config/install.yaml
+	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set cleanupController.image.tag=latest \
+		--set image.tag=latest \
+		--set initImage.tag=latest \
+ 		| $(SED) -e '/^#.*/d' \
+		> ./config/install.yaml
 	@echo Generate install_debug.yaml... >&2
-	@$(KUSTOMIZE) build ./config/debug > ./config/install_debug.yaml
+	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set cleanupController.image.tag=latest \
+		--set image.tag=latest \
+		--set initImage.tag=latest \
+ 		| $(SED) -e '/^#.*/d' \
+		> ./config/install_debug.yaml
 
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 .PHONY: codegen-release
-codegen-release: codegen-install $(KUSTOMIZE) ## Create release maifests
-	@echo Create release folder... >&2
-	@mkdir -p config/.release
-	@echo Create kustomization... >&2
-	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.release/labels.yaml
-	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.release/kustomization.yaml
-	@echo Generate release manifests... >&2
-	@$(KUSTOMIZE) build ./config/.release > ./config/.release/install.yaml
+codegen-release: $(HELM) ## Create release manifest
+	@echo Generate release manifest... >&2
+	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set cleanupController.image.tag=$(GIT_VERSION) \
+		--set image.tag=$(GIT_VERSION) \
+		--set initImage.tag=$(GIT_VERSION) \
+ 		| $(SED) -e '/^#.*/d' \
+		> ./config/.release/install.yaml
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-install codegen-release ## Generate all generated code except client
@@ -454,10 +455,10 @@ codegen-all: codegen-quick codegen-slow ## Generate all generated code
 .PHONY: verify-crds
 verify-crds: codegen-crds-all ## Check CRDs are up to date
 	@echo Checking crds are up to date... >&2
-	@git --no-pager diff crds
+	@git --no-pager diff $(CRDS_PATH)
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".' >&2
 	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code crds
+	@git diff --quiet --exit-code $(CRDS_PATH)
 
 .PHONY: verify-client
 verify-client: codegen-client-all ## Check client is up to date
