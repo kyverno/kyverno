@@ -395,7 +395,8 @@ func (iv *imageVerifier) verifyAttestations(
 		path := fmt.Sprintf(".attestations[%d]", i)
 
 		if len(attestation.Attestors) == 0 {
-			return ruleResponse(*iv.rule, response.ImageVerify, path+": missing attestors", response.RuleStatusFail), ""
+			// add an empty attestor to allow fetching and checking attestations
+			attestation.Attestors = []kyvernov1.AttestorSet{{Entries: []kyvernov1.Attestor{{}}}}
 		}
 
 		for j, attestor := range attestation.Attestors {
@@ -405,7 +406,7 @@ func (iv *imageVerifier) verifyAttestations(
 
 			for _, a := range attestor.Entries {
 				entryPath := fmt.Sprintf("%s.entries[%d]", attestorPath, i)
-				opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, &attestation)
+				opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, &imageVerify.Attestations[i])
 				cosignResp, err := cosign.FetchAttestations(ctx, iv.rclient, *opts)
 				if err != nil {
 					iv.logger.Error(err, "failed to fetch attestations")
@@ -417,13 +418,13 @@ func (iv *imageVerifier) verifyAttestations(
 					image = imageInfo.String()
 				}
 
-				verifiedCount++
 				attestationError = iv.verifyAttestation(cosignResp.Statements, attestation, imageInfo)
 				if attestationError != nil {
 					attestationError = errors.Wrapf(attestationError, entryPath+subPath)
 					return ruleResponse(*iv.rule, response.ImageVerify, attestationError.Error(), response.RuleStatusFail), ""
 				}
 
+				verifiedCount++
 				if verifiedCount >= requiredCount {
 					iv.logger.V(2).Info("image attestations verification succeeded, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
 					break
