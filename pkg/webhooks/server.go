@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
-	"github.com/kyverno/kyverno/pkg/webhooks/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -36,6 +35,11 @@ type Server interface {
 	Stop(context.Context)
 	// Cleanup returns the chanel used to wait for the server to clean up resources
 	Cleanup() <-chan struct{}
+}
+
+type ExceptionHandlers interface {
+	// Validate performs the validation check on exception resources
+	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 }
 
 type PolicyHandlers interface {
@@ -67,6 +71,7 @@ type TlsProvider func() ([]byte, []byte, error)
 func NewServer(
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
+	exceptionHandlers ExceptionHandlers,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts DebugModeOptions,
@@ -132,7 +137,7 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		config.ExceptionValidatingWebhookServicePath,
-		handlers.FromAdmissionFunc("VALIDATE", exception.Validate).
+		handlers.FromAdmissionFunc("VALIDATE", exceptionHandlers.Validate).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
