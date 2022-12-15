@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
@@ -32,7 +33,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/cache"
 )
 
 // Validate applies validation rules from policy on the resource
@@ -134,21 +135,25 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 				if !matches(log, rule, enginectx) {
 					return nil
 				}
-				// if matches, check if there is corresponding policy exception
-				isExcepted, exceptionInfo := matchesException(log, enginectx, rule)
+				// if matches, check if there is a corresponding policy exception
+				exception, err := matchesException(enginectx, rule)
+				// if we found an exception
+				if err == nil && exception != nil {
+					key, err := cache.MetaNamespaceKeyFunc(exception)
+					// TODO: increase metrics
+					if err != nil {
+						log.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+					} else {
+						log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+						return &response.RuleResponse{
+							Name:    rule.Name,
+							Message: "Rule skipped because of PolicyException" + key,
+							Status:  response.RuleStatusSkip,
+						}
+					}
+				}
 				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 				enginectx.jsonContext.Reset()
-				if isExcepted {
-					// log rule was skipped because of an exception
-					// create a skip response
-					// increase metrics
-					ruleResp := &response.RuleResponse{
-						Name:    rule.Name,
-						Message: "Rule skipped because of PolicyException" + exceptionInfo,
-						Status:  response.RuleStatusSkip,
-					}
-					return ruleResp
-				}
 				if hasValidate && !hasYAMLSignatureVerify {
 					return processValidationRule(ctx, log, rclient, enginectx, rule)
 				} else if hasValidateImage {
@@ -771,32 +776,18 @@ func (v *validator) substituteDeny() error {
 	return nil
 }
 
-// matchesException gets excepted resources
-// checks if excepted resources include the target resource
-// return true if resources match excepted resource
-func matchesException(log logr.Logger, policyContext *PolicyContext, rule *kyvernov1.Rule) (bool, string) {
-	exceps, err := policyContext.peLister.List(labels.Everything())
+// matchesException checks if an exception applies to the resource being admitted
+func matchesException(policyContext *PolicyContext, rule *kyvernov1.Rule) (*kyvernov2alpha1.PolicyException, error) {
+	candidates, err := policyContext.FindExceptions(rule.Name)
 	if err != nil {
-		return false, ""
+		return nil, err
 	}
-
-	for _, v := range exceps {
-		exceptions := v.Spec.Exceptions
-
-		for _, p := range exceptions {
-			if p.PolicyName != policyContext.policy.GetName() {
-				continue
-			}
-
-			for _, r := range p.RuleNames {
-				if r == rule.Name {
-					err := matched.CheckMatchesResources(policyContext.newResource, v.Spec.Match, policyContext.namespaceLabels)
-					if err == nil {
-						return true, v.Namespace + "/" + v.Name
-					}
-				}
-			}
+	for _, candidate := range candidates {
+		err := matched.CheckMatchesResources(policyContext.newResource, candidate.Spec.Match, policyContext.namespaceLabels)
+		// if there's no error it means a match
+		if err == nil {
+			return candidate, nil
 		}
 	}
-	return false, ""
+	return nil, nil
 }

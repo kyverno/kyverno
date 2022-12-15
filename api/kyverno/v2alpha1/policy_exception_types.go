@@ -17,6 +17,7 @@ package v2alpha1
 
 import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -49,6 +50,11 @@ func (p *PolicyException) Validate() (errs field.ErrorList) {
 	return errs
 }
 
+// Contains returns true if it contains an exception for the given policy/rule pair
+func (p *PolicyException) Contains(policy string, rule string) bool {
+	return p.Spec.Contains(policy, rule)
+}
+
 // PolicyExceptionSpec stores policy exception spec
 type PolicyExceptionSpec struct {
 	// Match defines match clause used to check if a resource applies to the exception
@@ -68,6 +74,16 @@ func (p *PolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
+// Contains returns true if it contains an exception for the given policy/rule pair
+func (p *PolicyExceptionSpec) Contains(policy string, rule string) bool {
+	for _, exception := range p.Exceptions {
+		if exception.Contains(policy, rule) {
+			return true
+		}
+	}
+	return false
+}
+
 // Exception stores infos about a policy and rules
 type Exception struct {
 	// PolicyName identifies the policy to which the exception is applied.
@@ -83,6 +99,11 @@ func (p *Exception) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Required(path.Child("policyName"), "An exception requires a policy name"))
 	}
 	return errs
+}
+
+// Contains returns true if it contains an exception for the given policy/rule pair
+func (p *Exception) Contains(policy string, rule string) bool {
+	return p.PolicyName == policy && slices.Contains(p.RuleNames, rule)
 }
 
 // +kubebuilder:object:root=true
