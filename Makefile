@@ -395,8 +395,8 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- toYaml . | nindent 4 }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ labels:' \
- 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- include "kyverno.crdLabels" . | nindent 4 }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/a \ \ \ \ {{- include "kyverno.crdLabels" . | nindent 4 }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/a \ \ labels:' \
  		> ./charts/kyverno/templates/crds.yaml
 
 .PHONY: codegen-helm-all
@@ -406,6 +406,9 @@ codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and 
 codegen-install: $(HELM) ## Create dev install manifest
 	@echo Generate install.yaml... >&2
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set templating.createNamespace=true \
+		--set templating.skipHelmLabels=true \
+		--set templating.version=latest \
 		--set cleanupController.image.tag=latest \
 		--set image.tag=latest \
 		--set initImage.tag=latest \
@@ -413,6 +416,10 @@ codegen-install: $(HELM) ## Create dev install manifest
 		> ./config/install.yaml
 	@echo Generate install_debug.yaml... >&2
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set templating.createNamespace=true \
+		--set templating.skipHelmLabels=true \
+		--set templating.skipVersionLabels=true \
+		--set templating.skipDeployment=true \
 		--set cleanupController.image.tag=latest \
 		--set image.tag=latest \
 		--set initImage.tag=latest \

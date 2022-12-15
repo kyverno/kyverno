@@ -30,26 +30,47 @@ If release name contains chart name it will be used as a full name.
 
 {{/* Helm labels */}}
 {{- define "kyverno.helmLabels" -}}
+{{- if not .Values.templating.skipHelmLabels -}}
 helm.sh/chart: {{ template "kyverno.chart" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+{{- end -}}
+
+{{/* Version labels */}}
+{{- define "kyverno.versionLabels" -}}
+{{- if not .Values.templating.skipVersionLabels -}}
+app.kubernetes.io/version: "{{ default .Chart.Version .Values.templating.version | replace "+" "_" }}"
+{{- end -}}
 {{- end -}}
 
 {{/* CRD labels */}}
 {{- define "kyverno.crdLabels" -}}
-{{ include "kyverno.helmLabels" . }}
-{{ include "kyverno.matchLabels" . }}
 app.kubernetes.io/component: kyverno
+{{- with (include "kyverno.helmLabels" .) }}
+{{ . }}
+{{- end }}
+{{- with (include "kyverno.matchLabels" .) }}
+{{ . }}
+{{- end }}
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-app.kubernetes.io/version: "{{ .Chart.AppVersion | replace "+" "_" }}"
+{{- with (include "kyverno.versionLabels" .) }}
+{{ . }}
+{{- end }}
 {{- end -}}
 
 {{/* Helm required labels */}}
 {{- define "kyverno.labels" -}}
-{{ include "kyverno.helmLabels" . }}
-{{ include "kyverno.matchLabels" . }}
 app.kubernetes.io/component: kyverno
+{{- with (include "kyverno.helmLabels" .) }}
+{{ . }}
+{{- end }}
+{{- with (include "kyverno.matchLabels" .) }}
+{{ . }}
+{{- end }}
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
+{{- with (include "kyverno.versionLabels" .) }}
+{{ . }}
+{{- end }}
 {{- if .Values.customLabels }}
 {{ toYaml .Values.customLabels }}
 {{- end }}
@@ -57,7 +78,9 @@ app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 
 {{/* Helm required labels */}}
 {{- define "kyverno.test-labels" -}}
-{{ include "kyverno.helmLabels" . }}
+{{- with (include "kyverno.helmLabels" .) }}
+{{ . }}
+{{- end }}
 app.kubernetes.io/component: kyverno
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/name: {{ template "kyverno.name" . }}-test
@@ -67,8 +90,8 @@ app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 
 {{/* matchLabels */}}
 {{- define "kyverno.matchLabels" -}}
-app.kubernetes.io/name: {{ template "kyverno.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/name: {{ template "kyverno.name" . }}
 {{- end -}}
 
 {{/* Get the config map name. */}}
