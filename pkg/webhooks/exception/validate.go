@@ -11,8 +11,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-// TODO: wrap this into an interface passed at server creation time
-
 type handlers struct{}
 
 func NewHandlers() webhooks.ExceptionHandlers {
