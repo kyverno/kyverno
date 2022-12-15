@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
 rules:
   - apiGroups:
-      - "*"
+      - '*'
     resources:
       - clusterroles
       - rolebindings

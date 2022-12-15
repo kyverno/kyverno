@@ -1,4 +1,5 @@
 {{- if .Values.cleanupController.enabled -}}
+{{- if not .Values.templating.skipDeployment -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -132,4 +133,5 @@ spec:
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
+{{- end -}}
 {{- end -}}

@@ -5,10 +5,16 @@
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.labels" -}}
-{{ include "kyverno.helmLabels" . }}
-{{ include "kyverno.cleanup-controller.matchLabels" . }}
+{{- with (include "kyverno.helmLabels" .) }}
+{{ . }}
+{{- end }}
+{{- with (include "kyverno.versionLabels" .) }}
+{{ . }}
+{{- end }}
+{{- with (include "kyverno.cleanup-controller.matchLabels" .) }}
+{{ . }}
+{{- end }}
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.matchLabels" -}}
