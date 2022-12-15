@@ -40,12 +40,6 @@ type PolicyException struct {
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
-	// errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
-	// errs = append(errs, p.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
-	// if p.ExcludeResources != nil {
-	// 	errs = append(errs, p.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
-	// }
-	// errs = append(errs, p.ValidateMatchExcludeConflict(path)...)
 	return errs
 }
 
