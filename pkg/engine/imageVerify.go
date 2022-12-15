@@ -339,6 +339,14 @@ func (iv *imageVerifier) verifyImage(
 		if imageInfo.Digest == "" {
 			imageInfo.Digest = cosignResp.Digest
 		}
+
+		if len(imageVerify.Attestations) == 0 {
+			return ruleResp, cosignResp.Digest
+		}
+
+		if imageInfo.Digest == "" {
+			imageInfo.Digest = cosignResp.Digest
+		}
 	}
 
 	return iv.verifyAttestations(ctx, imageVerify, imageInfo)

@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -52,8 +53,9 @@ type GenerateController struct {
 	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
 
-	configuration config.Configuration
-	eventGen      event.Interface
+	configuration          config.Configuration
+	informerCacheResolvers resolvers.ConfigmapResolver
+	eventGen               event.Interface
 
 	log logr.Logger
 }
@@ -69,21 +71,23 @@ func NewGenerateController(
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	nsLister corev1listers.NamespaceLister,
 	dynamicConfig config.Configuration,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 	eventGen event.Interface,
 	log logr.Logger,
 ) *GenerateController {
 	c := GenerateController{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		statusControl: statusControl,
-		rclient:       rclient,
-		policyLister:  policyLister,
-		npolicyLister: npolicyLister,
-		urLister:      urLister,
-		nsLister:      nsLister,
-		configuration: dynamicConfig,
-		eventGen:      eventGen,
-		log:           log,
+		client:                 client,
+		kyvernoClient:          kyvernoClient,
+		statusControl:          statusControl,
+		rclient:                rclient,
+		policyLister:           policyLister,
+		npolicyLister:          npolicyLister,
+		urLister:               urLister,
+		nsLister:               nsLister,
+		configuration:          dynamicConfig,
+		informerCacheResolvers: informerCacheResolvers,
+		eventGen:               eventGen,
+		log:                    log,
 	}
 	return &c
 }
@@ -193,7 +197,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		return nil, false, err
 	}
 
-	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, &policy, &resource, c.configuration, namespaceLabels, logger)
+	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, &policy, &resource, c.configuration, c.informerCacheResolvers, namespaceLabels, logger)
 	if err != nil {
 		return nil, precreatedResource, err
 	}
