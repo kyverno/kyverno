@@ -10,6 +10,7 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -53,6 +54,7 @@ type handlers struct {
 	rbLister  rbacv1listers.RoleBindingLister
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
+	peLister  kyvernov2alpha1listers.PolicyExceptionLister
 
 	urGenerator    webhookgenerate.Generator
 	eventGen       event.Interface
@@ -75,6 +77,7 @@ func NewHandlers(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
+	peLister kyvernov2alpha1listers.PolicyExceptionLister,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	openApiManager openapi.ValidateInterface,
@@ -91,10 +94,11 @@ func NewHandlers(
 		rbLister:         rbLister,
 		crbLister:        crbLister,
 		urLister:         urLister,
+		peLister:         peLister,
 		urGenerator:      urGenerator,
 		eventGen:         eventGen,
 		openApiManager:   openApiManager,
-		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister, informerCacheResolvers),
+		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister, informerCacheResolvers, peLister),
 		urUpdater:        webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
 		admissionReports: admissionReports,
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -58,6 +59,8 @@ type controller struct {
 
 	// cache
 	metadataCache resource.MetadataCache
+
+	informerCacheResolvers resolvers.ConfigmapResolver
 }
 
 func NewController(
@@ -69,23 +72,25 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 ) controllers.Controller {
 	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		client:         client,
-		kyvernoClient:  kyvernoClient,
-		rclient:        rclient,
-		polLister:      polInformer.Lister(),
-		cpolLister:     cpolInformer.Lister(),
-		bgscanrLister:  bgscanr.Lister(),
-		cbgscanrLister: cbgscanr.Lister(),
-		nsLister:       nsInformer.Lister(),
-		queue:          queue,
-		bgscanEnqueue:  controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue),
-		cbgscanEnqueue: controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue),
-		metadataCache:  metadataCache,
+		client:                 client,
+		kyvernoClient:          kyvernoClient,
+		rclient:                rclient,
+		polLister:              polInformer.Lister(),
+		cpolLister:             cpolInformer.Lister(),
+		bgscanrLister:          bgscanr.Lister(),
+		cbgscanrLister:         cbgscanr.Lister(),
+		nsLister:               nsInformer.Lister(),
+		queue:                  queue,
+		bgscanEnqueue:          controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue),
+		cbgscanEnqueue:         controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue),
+		metadataCache:          metadataCache,
+		informerCacheResolvers: informerCacheResolvers,
 	}
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
@@ -218,7 +223,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 	}
 	//	if the resource changed, we need to rebuild the report
 	if !reportutils.CompareHash(meta, resource.Hash) {
-		scanner := utils.NewScanner(logger, c.client, c.rclient)
+		scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers)
 		before, err := c.getReport(ctx, meta.GetNamespace(), meta.GetName())
 		if err != nil {
 			return nil
@@ -307,7 +312,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		}
 		// creations
 		if len(toCreate) > 0 {
-			scanner := utils.NewScanner(logger, c.client, c.rclient)
+			scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers)
 			resource, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
 			if err != nil {
 				return err

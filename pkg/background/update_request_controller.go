@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -61,8 +62,9 @@ type controller struct {
 	// queue
 	queue workqueue.RateLimitingInterface
 
-	eventGen      event.Interface
-	configuration config.Configuration
+	eventGen               event.Interface
+	configuration          config.Configuration
+	informerCacheResolvers resolvers.ConfigmapResolver
 }
 
 // NewController returns an instance of the Generate-Request Controller
@@ -77,20 +79,22 @@ func NewController(
 	podInformer corev1informers.PodInformer,
 	eventGen event.Interface,
 	dynamicConfig config.Configuration,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
-		client:        client,
-		kyvernoClient: kyvernoClient,
-		rclient:       rclient,
-		cpolLister:    cpolInformer.Lister(),
-		polLister:     polInformer.Lister(),
-		urLister:      urLister,
-		nsLister:      namespaceInformer.Lister(),
-		podLister:     podInformer.Lister(),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "update-request"),
-		eventGen:      eventGen,
-		configuration: dynamicConfig,
+		client:                 client,
+		kyvernoClient:          kyvernoClient,
+		rclient:                rclient,
+		cpolLister:             cpolInformer.Lister(),
+		polLister:              polInformer.Lister(),
+		urLister:               urLister,
+		nsLister:               namespaceInformer.Lister(),
+		podLister:              podInformer.Lister(),
+		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "update-request"),
+		eventGen:               eventGen,
+		configuration:          dynamicConfig,
+		informerCacheResolvers: informerCacheResolvers,
 	}
 	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
@@ -409,10 +413,10 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.rclient, c.cpolLister, c.polLister, c.configuration, c.eventGen, logger)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.rclient, c.cpolLister, c.polLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	case kyvernov1beta1.Generate:
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.rclient, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.rclient, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil

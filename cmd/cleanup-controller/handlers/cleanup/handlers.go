@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	match "github.com/kyverno/kyverno/pkg/utils/match"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -88,17 +89,17 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						nsLabels = ns.GetLabels()
 					}
 					// match namespaces
-					if err := checkNamespace(policy.GetNamespace(), resource); err != nil {
+					if err := match.CheckNamespace(policy.GetNamespace(), resource); err != nil {
 						debug.Info("resource namespace didn't match policy namespace", "result", err)
 					}
 					// match resource with match/exclude clause
-					matched := checkMatchesResources(resource, spec.MatchResources, nsLabels)
+					matched := match.CheckMatchesResources(resource, spec.MatchResources, nsLabels)
 					if matched != nil {
 						debug.Info("resource/match didn't match", "result", matched)
 						continue
 					}
 					if spec.ExcludeResources != nil {
-						excluded := checkMatchesResources(resource, *spec.ExcludeResources, nsLabels)
+						excluded := match.CheckMatchesResources(resource, *spec.ExcludeResources, nsLabels)
 						if excluded == nil {
 							debug.Info("resource/exclude matched")
 							continue

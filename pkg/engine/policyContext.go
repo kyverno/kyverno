@@ -3,6 +3,8 @@ package engine
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -12,6 +14,8 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/cache"
 )
 
 // ExcludeFunc is a function used to determine if a resource is excluded
@@ -74,6 +78,9 @@ type PolicyContext struct {
 		APIResource    metav1.APIResource
 		ParentResource metav1.APIResource
 	}
+
+	// peLister list all policy exceptions
+	peLister kyvernov2alpha1listers.PolicyExceptionLister
 }
 
 // Getters
@@ -96,6 +103,27 @@ func (c *PolicyContext) AdmissionInfo() kyvernov1beta1.RequestInfo {
 
 func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
+}
+
+func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error) {
+	if c.peLister == nil {
+		return nil, nil
+	}
+	polexs, err := c.peLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	var result []*kyvernov2alpha1.PolicyException
+	policyName, err := cache.MetaNamespaceKeyFunc(c.policy)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to compute policy key")
+	}
+	for _, polex := range polexs {
+		if polex.Contains(policyName, rule) {
+			result = append(result, polex)
+		}
+	}
+	return result, nil
 }
 
 // Mutators
@@ -190,8 +218,13 @@ func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []struct {
 	return copy
 }
 
-// Constructors
+func (c *PolicyContext) WithExceptions(peLister kyvernov2alpha1listers.PolicyExceptionLister) *PolicyContext {
+	copy := c.Copy()
+	copy.peLister = peLister
+	return copy
+}
 
+// Constructors
 func NewPolicyContextWithJsonContext(jsonContext enginectx.Interface) *PolicyContext {
 	return &PolicyContext{
 		jsonContext:      jsonContext,
@@ -212,6 +245,7 @@ func NewPolicyContextFromAdmissionRequest(
 	configuration config.Configuration,
 	client dclient.Interface,
 	informerCacheResolver resolvers.ConfigmapResolver,
+	peLister kyvernov2alpha1listers.PolicyExceptionLister,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
 	if err != nil {
@@ -234,7 +268,8 @@ func NewPolicyContextFromAdmissionRequest(
 		WithAdmissionOperation(true).
 		WithInformerCacheResolver(informerCacheResolver).
 		WithRequestResource(*requestResource).
-		WithSubresource(request.SubResource)
+		WithSubresource(request.SubResource).
+		WithExceptions(peLister)
 	return policyContext, nil
 }
 
