@@ -438,7 +438,7 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
-	policyContext.policy.GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
+	policyContext.Policy.GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
 	cosign.ClearMock()
 	engineResp, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
