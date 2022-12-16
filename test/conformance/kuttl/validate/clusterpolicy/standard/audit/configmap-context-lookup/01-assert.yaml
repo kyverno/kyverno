@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: verify-image-with-multi-keys
+  name: validate-labels
 status:
   conditions:
   - reason: Succeeded

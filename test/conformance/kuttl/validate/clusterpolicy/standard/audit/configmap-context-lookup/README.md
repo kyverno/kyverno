@@ -4,7 +4,7 @@ The configmap context lookup uses informer's cache internally, the background pr
 
 ## Expected Behavior
 
-Policy report is generated properly.
+Policy is created successfully and the report is generated properly.
 
 ## Reference Issue(s)
 
