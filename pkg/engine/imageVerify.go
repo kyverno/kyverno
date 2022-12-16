@@ -308,20 +308,30 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 	}
 
 	if len(imageVerify.Attestors) > 0 {
-		ruleResp, _, _ := iv.verifyAttestors(imageVerify.Attestors, imageVerify, imageInfo, "")
+		ruleResp, cosignResp := iv.verifyAttestors(imageVerify.Attestors, imageVerify, imageInfo, "")
 		if ruleResp.Status != response.RuleStatusPass {
 			return ruleResp, ""
+		}
+
+		if len(imageVerify.Attestations) == 0 {
+			return ruleResp, cosignResp.Digest
+		}
+
+		if imageInfo.Digest == "" {
+			imageInfo.Digest = cosignResp.Digest
 		}
 	}
 
 	return iv.verifyAttestations(imageVerify, imageInfo)
 }
 
-func (iv *imageVerifier) verifyAttestors(attestors []kyvernov1.AttestorSet, imageVerify kyvernov1.ImageVerification,
-	imageInfo apiutils.ImageInfo, predicateType string,
-) (*response.RuleResponse, *cosign.Response, []kyvernov1.AttestorSet) {
+func (iv *imageVerifier) verifyAttestors(
+	attestors []kyvernov1.AttestorSet,
+	imageVerify kyvernov1.ImageVerification,
+	imageInfo apiutils.ImageInfo,
+	predicateType string,
+) (*response.RuleResponse, *cosign.Response) {
 	var cosignResponse *cosign.Response
-	var newAttestors []kyvernov1.AttestorSet
 	image := imageInfo.String()
 
 	for i, attestorSet := range attestors {
@@ -331,25 +341,27 @@ func (iv *imageVerifier) verifyAttestors(attestors []kyvernov1.AttestorSet, imag
 		cosignResponse, err = iv.verifyAttestorSet(attestorSet, imageVerify, imageInfo, path, predicateType)
 		if err != nil {
 			iv.logger.Error(err, "failed to verify image")
-			msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
-
-			// handle registry network errors as a rule error (instead of a policy failure)
-			var netErr *net.OpError
-			if errors.As(err, &netErr) {
-				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil), nil, nil
-			}
-
-			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), nil, nil
+			return iv.handleRegistryErrors(image, err), nil
 		}
-		newAttestors = append(newAttestors, attestors[i])
 	}
 
 	if cosignResponse == nil {
-		return ruleError(iv.rule, response.ImageVerify, "invalid response", fmt.Errorf("nil")), nil, nil
+		return ruleError(iv.rule, response.ImageVerify, "invalid response", fmt.Errorf("nil")), nil
 	}
 
 	msg := fmt.Sprintf("verified image signatures for %s", image)
-	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), cosignResponse, newAttestors
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), cosignResponse
+}
+
+// handle registry network errors as a rule error (instead of a policy failure)
+func (iv *imageVerifier) handleRegistryErrors(image string, err error) *response.RuleResponse {
+	msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
+	var netErr *net.OpError
+	if errors.As(err, &netErr) {
+		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil)
+	}
+
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 }
 
 func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo) (*response.RuleResponse, string) {
@@ -358,58 +370,55 @@ func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerificat
 		var attestationError error
 		path := fmt.Sprintf(".attestations[%d]", i)
 
-		attestors := attestation.Attestors
 		if len(attestation.Attestors) == 0 {
-			attestors = []kyvernov1.AttestorSet{{}}
+			// add an empty attestor to allow fetching and checking attestations
+			attestation.Attestors = []kyvernov1.AttestorSet{{Entries: []kyvernov1.Attestor{{}}}}
 		}
 
-		for j, attestor := range attestors {
+		for j, attestor := range attestation.Attestors {
 			attestorPath := fmt.Sprintf("%s.attestors[%d]", path, j)
-
 			requiredCount := getRequiredCount(attestor)
 			verifiedCount := 0
 
-			entries := attestor.Entries
-			if len(entries) == 0 {
-				entries = []kyvernov1.Attestor{{}}
-			}
-
-			for _, a := range entries {
+			for _, a := range attestor.Entries {
 				entryPath := fmt.Sprintf("%s.entries[%d]", attestorPath, i)
-				opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, attestation)
+				opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, &imageVerify.Attestations[i])
 				cosignResp, err := cosign.FetchAttestations(*opts)
 				if err != nil {
 					iv.logger.Error(err, "failed to fetch attestations")
-					msg := fmt.Sprintf("failed to fetch attestations %s: %s", image, err.Error())
-					// handle registry network errors as a rule error (instead of a policy failure)
-					var netErr *net.OpError
-					if errors.As(err, &netErr) {
-						return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil), ""
-					}
-
-					return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), ""
+					return iv.handleRegistryErrors(image, err), ""
 				}
 
-				verifiedCount++
+				if imageInfo.Digest == "" {
+					imageInfo.Digest = cosignResp.Digest
+					image = imageInfo.String()
+				}
+
 				attestationError = iv.verifyAttestation(cosignResp.Statements, attestation, imageInfo)
 				if attestationError != nil {
 					attestationError = errors.Wrapf(attestationError, entryPath+subPath)
 					return ruleResponse(*iv.rule, response.ImageVerify, attestationError.Error(), response.RuleStatusFail, nil), ""
 				}
 
+				verifiedCount++
 				if verifiedCount >= requiredCount {
-					msg := fmt.Sprintf("image attestations verification succeeded, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
-					iv.logger.V(2).Info(msg)
-					return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), ""
+					iv.logger.V(2).Info("image attestations verification succeeded, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
+					break
 				}
 			}
+
+			if verifiedCount < requiredCount {
+				msg := fmt.Sprintf("image attestations verification failed, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
+				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), ""
+			}
 		}
+
 		iv.logger.V(4).Info("attestation checks passed", "path", path, "image", imageInfo.String(), "predicateType", attestation.PredicateType)
 	}
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
-	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), ""
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), imageInfo.Digest
 }
 
 func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, imageVerify kyvernov1.ImageVerification,
@@ -436,7 +445,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, im
 				cosignResp, entryError = iv.verifyAttestorSet(*nestedAttestorSet, imageVerify, imageInfo, attestorPath, predicateType)
 			}
 		} else {
-			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, kyvernov1.Attestation{PredicateType: predicateType})
+			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, nil)
 			cosignResp, entryError = cosign.VerifySignature(*opts)
 			if entryError != nil {
 				entryError = errors.Wrapf(entryError, attestorPath+subPath)
@@ -511,7 +520,7 @@ func getRequiredCount(as kyvernov1.AttestorSet) int {
 	return *as.Count
 }
 
-func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageVerify kyvernov1.ImageVerification, image string, attestation kyvernov1.Attestation) (*cosign.Options, string) {
+func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageVerify kyvernov1.ImageVerification, image string, attestation *kyvernov1.Attestation) (*cosign.Options, string) {
 	path := ""
 	opts := &cosign.Options{
 		ImageRef:    image,
@@ -523,8 +532,8 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 		opts.Roots = imageVerify.Roots
 	}
 
-	opts.PredicateType = attestation.PredicateType
-	if attestation.PredicateType != "" {
+	if attestation != nil {
+		opts.PredicateType = attestation.PredicateType
 		opts.FetchAttestations = true
 	}
 
