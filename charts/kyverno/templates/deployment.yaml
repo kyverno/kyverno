@@ -1,4 +1,4 @@
-{{- if not .Values.templating.skipDeployment -}}
+{{- if not .Values.templating.debug -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

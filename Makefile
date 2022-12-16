@@ -421,7 +421,8 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
-		--set templating.skipDeployment=true \
+		--set templating.version=latest \
+		--set templating.debug=true \
 		--set cleanupController.image.tag=latest \
 		--set image.tag=latest \
 		--set initImage.tag=latest \
@@ -435,6 +436,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 	@mkdir -p ./.manifest/release
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
+		--set templating.version=$(GIT_VERSION) \
 		--set cleanupController.image.tag=$(GIT_VERSION) \
 		--set image.tag=$(GIT_VERSION) \
 		--set initImage.tag=$(GIT_VERSION) \
@@ -446,6 +448,7 @@ codegen-manifest-e2e: $(HELM) ## Create e2e manifest
 	@echo Create e2e manifest... >&2
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
+		--set templating.version=$(IMAGE_TAG_DEV) \
 		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
 		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \

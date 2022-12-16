@@ -2,7 +2,7 @@
 # @ignored
 templating:
   enabled: false
-  skipDeployment: false
+  debug: false
   version:
 
 # -- Override the name of the chart
