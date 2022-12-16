@@ -407,8 +407,7 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 	@echo Generate install manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.createNamespace=true \
-		--set templating.skipHelmLabels=true \
+		--set templating.enabled=true \
 		--set templating.version=latest \
 		--set cleanupController.image.tag=latest \
 		--set image.tag=latest \
@@ -421,9 +420,7 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 	@echo Generate debug manifest... >&2
 	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.createNamespace=true \
-		--set templating.skipHelmLabels=true \
-		--set templating.skipVersionLabels=true \
+		--set templating.enabled=true \
 		--set templating.skipDeployment=true \
 		--set cleanupController.image.tag=latest \
 		--set image.tag=latest \
@@ -437,6 +434,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 	@echo Generate release manifest... >&2
 	@mkdir -p ./.manifest/release
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set templating.enabled=true \
 		--set cleanupController.image.tag=$(GIT_VERSION) \
 		--set image.tag=$(GIT_VERSION) \
 		--set initImage.tag=$(GIT_VERSION) \
@@ -447,7 +445,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 codegen-manifest-e2e: $(HELM) ## Create e2e manifest
 	@echo Create e2e manifest... >&2
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.createNamespace=true \
+		--set templating.enabled=true \
 		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
 		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \

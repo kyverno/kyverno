@@ -30,7 +30,7 @@ If release name contains chart name it will be used as a full name.
 
 {{/* Helm labels */}}
 {{- define "kyverno.helmLabels" -}}
-{{- if not .Values.templating.skipHelmLabels -}}
+{{- if not .Values.templating.enabled -}}
 helm.sh/chart: {{ template "kyverno.chart" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
@@ -38,9 +38,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{/* Version labels */}}
 {{- define "kyverno.versionLabels" -}}
-{{- if not .Values.templating.skipVersionLabels -}}
 app.kubernetes.io/version: "{{ default .Chart.Version .Values.templating.version | replace "+" "_" }}"
-{{- end -}}
 {{- end -}}
 
 {{/* CRD labels */}}
@@ -93,7 +91,7 @@ app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 {{- define "kyverno.matchLabels" -}}
 app: kyverno
 app.kubernetes.io/name: {{ template "kyverno.name" . }}
-{{- if not .Values.templating.createNamespace }}
+{{- if not .Values.templating.enabled }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 {{- end -}}
