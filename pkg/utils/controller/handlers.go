@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -26,16 +27,19 @@ func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    a,
 		UpdateFunc: u,
-		DeleteFunc: d,
+		DeleteFunc: func(obj interface{}) {
+			d(kubeutils.GetObjectWithTombstone(obj))
+		},
 	})
 }
 
 func AddEventHandlersT[T any](informer cache.SharedInformer, a addFuncT[T], u updateFuncT[T], d deleteFuncT[T]) {
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { a(obj.(T)) },
-		UpdateFunc: func(old, obj interface{}) { u(old.(T), obj.(T)) },
-		DeleteFunc: func(obj interface{}) { d(obj.(T)) },
-	})
+	AddEventHandlers(
+		informer,
+		func(obj interface{}) { a(obj.(T)) },
+		func(old, obj interface{}) { u(old.(T), obj.(T)) },
+		func(obj interface{}) { d(obj.(T)) },
+	)
 }
 
 func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) EnqueueFunc {
