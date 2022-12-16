@@ -7,7 +7,9 @@ metadata:
     {{- include "kyverno.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  {{- with .Values.replicaCount }}
+  replicas: {{ . }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "kyverno.matchLabels" . | nindent 6 }}

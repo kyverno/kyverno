@@ -397,6 +397,7 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- end }}' \
  		| $(SED) -e '/^  creationTimestamp: null/a \ \ \ \ {{- include "kyverno.crdLabels" . | nindent 4 }}' \
  		| $(SED) -e '/^  creationTimestamp: null/a \ \ labels:' \
+ 		| $(SED) -e '/^  creationTimestamp: null/d' \
  		> ./charts/kyverno/templates/crds.yaml
 
 .PHONY: codegen-helm-all

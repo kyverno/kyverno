@@ -1,4 +1,3 @@
-
 {{- if .Values.templating.enabled -}}
 apiVersion: v1
 kind: Namespace
