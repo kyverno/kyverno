@@ -7,6 +7,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -114,6 +115,14 @@ type RuleResponse struct {
 
 	// PatchedTarget is the patched resource for mutate.targets
 	PatchedTarget *unstructured.Unstructured
+
+	// PatchedTargetSubresourceName is the name of the subresource which is patched, empty if the resource patched is
+	// not a subresource.
+	PatchedTargetSubresourceName string
+
+	// PatchedTargetParentResourceGVR is the GVR of the parent resource of the PatchedTarget. This is only populated
+	// when PatchedTarget is a subresource.
+	PatchedTargetParentResourceGVR metav1.GroupVersionResource
 }
 
 // ToString ...

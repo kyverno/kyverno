@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
@@ -905,7 +905,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		resource, _ := utils.ConvertToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.ComputeRules(&policy) {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "")
+			err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, tc.AdmissionInfo, []string{}, nil, "", "")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1810,7 +1810,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 		resource, _ := utils.ConvertToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.ComputeRules(&policy) {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "")
+			err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, tc.AdmissionInfo, []string{}, nil, "", "")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1867,7 +1867,6 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment", "Pods"},
@@ -1878,10 +1877,9 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
-
 }
 
 // Match resource name
@@ -1927,7 +1925,6 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -1939,7 +1936,7 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1986,7 +1983,6 @@ func TestResourceDescriptionMatch_GenerateName(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -1998,7 +1994,7 @@ func TestResourceDescriptionMatch_GenerateName(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2046,7 +2042,6 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2058,7 +2053,7 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2105,7 +2100,6 @@ func TestResourceDescriptionMatch_GenerateName_Regex(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2117,7 +2111,7 @@ func TestResourceDescriptionMatch_GenerateName_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2165,7 +2159,6 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2185,7 +2178,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2233,7 +2226,6 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2254,7 +2246,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2303,7 +2295,6 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	resource, err := utils.ConvertToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2331,16 +2322,17 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		},
 	}
 
-	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription},
-		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude}}
+	rule := v1.Rule{
+		MatchResources:   v1.MatchResources{ResourceDescription: resourceDescription},
+		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
+	}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err == nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
 	}
 }
 
 func TestWildCardLabels(t *testing.T) {
-
 	testSelector(t, &metav1.LabelSelector{}, map[string]string{}, true)
 
 	testSelector(t, &metav1.LabelSelector{}, map[string]string{"foo": "bar"}, true)
@@ -2386,7 +2378,6 @@ func testSelector(t *testing.T, s *metav1.LabelSelector, l map[string]string, ma
 }
 
 func TestWildCardAnnotation(t *testing.T) {
-
 	// test single annotation values
 	testAnnotationMatch(t, map[string]string{}, map[string]string{}, true)
 	testAnnotationMatch(t, map[string]string{"test/*": "*"}, map[string]string{}, false)
@@ -2480,21 +2471,66 @@ func TestManagedPodResource(t *testing.T) {
 }
 
 func Test_checkKind(t *testing.T) {
-	match := checkKind([]string{"*"}, "Deployment", schema.GroupVersionKind{Kind: "Deployment", Group: "", Version: "v1"})
+	subresourceGVKToAPIResource := make(map[string]*metav1.APIResource)
+	match := checkKind(subresourceGVKToAPIResource, []string{"*"}, schema.GroupVersionKind{Kind: "Deployment", Group: "", Version: "v1"}, "")
 	assert.Equal(t, match, true)
 
-	match = checkKind([]string{"Pod"}, "Pod", schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"})
+	match = checkKind(subresourceGVKToAPIResource, []string{"Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "")
 	assert.Equal(t, match, true)
 
-	match = checkKind([]string{"v1/Pod"}, "Pod", schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"})
+	match = checkKind(subresourceGVKToAPIResource, []string{"v1/Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "")
 	assert.Equal(t, match, true)
 
-	match = checkKind([]string{"tekton.dev/v1beta1/TaskRun"}, "TaskRun", schema.GroupVersionKind{Kind: "TaskRun", Group: "tekton.dev", Version: "v1beta1"})
+	match = checkKind(subresourceGVKToAPIResource, []string{"tekton.dev/v1beta1/TaskRun"}, schema.GroupVersionKind{Kind: "TaskRun", Group: "tekton.dev", Version: "v1beta1"}, "")
 	assert.Equal(t, match, true)
 
-	match = checkKind([]string{"tekton.dev/v1beta1/TaskRun/status"}, "TaskRun", schema.GroupVersionKind{Kind: "TaskRun", Group: "tekton.dev", Version: "v1beta1"})
+	match = checkKind(subresourceGVKToAPIResource, []string{"tekton.dev/*/TaskRun"}, schema.GroupVersionKind{Kind: "TaskRun", Group: "tekton.dev", Version: "v1alpha1"}, "")
 	assert.Equal(t, match, true)
 
-	match = checkKind([]string{"v1/pod.status"}, "Pod", schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"})
+	// Though both 'pods', 'pods/status' have same kind i.e. 'Pod' but they are different resources, 'subresourceInAdmnReview' is used in determining that.
+	match = checkKind(subresourceGVKToAPIResource, []string{"v1/Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "status")
+	assert.Equal(t, match, false)
+
+	// Though both 'pods', 'pods/status' have same kind i.e. 'Pod' but they are different resources, 'subresourceInAdmnReview' is used in determining that.
+	match = checkKind(subresourceGVKToAPIResource, []string{"v1/Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "ephemeralcontainers")
+	assert.Equal(t, match, false)
+
+	subresourceGVKToAPIResource["networking.k8s.io/v1/NetworkPolicy/status"] = &metav1.APIResource{
+		Name:         "networkpolicies/status",
+		SingularName: "",
+		Namespaced:   true,
+		Kind:         "NetworkPolicy",
+		Group:        "networking.k8s.io",
+		Version:      "v1",
+	}
+
+	subresourceGVKToAPIResource["v1/Pod.status"] = &metav1.APIResource{
+		Name:         "pods/status",
+		SingularName: "",
+		Namespaced:   true,
+		Kind:         "Pod",
+		Group:        "",
+		Version:      "v1",
+	}
+
+	subresourceGVKToAPIResource["*/Pod.eviction"] = &metav1.APIResource{
+		Name:         "pods/eviction",
+		SingularName: "",
+		Namespaced:   true,
+		Kind:         "Eviction",
+		Group:        "policy",
+		Version:      "v1",
+	}
+
+	match = checkKind(subresourceGVKToAPIResource, []string{"networking.k8s.io/v1/NetworkPolicy/status"}, schema.GroupVersionKind{Kind: "NetworkPolicy", Group: "networking.k8s.io", Version: "v1"}, "status")
 	assert.Equal(t, match, true)
+
+	match = checkKind(subresourceGVKToAPIResource, []string{"v1/Pod.status"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "status")
+	assert.Equal(t, match, true)
+
+	match = checkKind(subresourceGVKToAPIResource, []string{"*/Pod.eviction"}, schema.GroupVersionKind{Kind: "Eviction", Group: "policy", Version: "v1"}, "eviction")
+	assert.Equal(t, match, true)
+
+	match = checkKind(subresourceGVKToAPIResource, []string{"v1alpha1/Pod.eviction"}, schema.GroupVersionKind{Kind: "Eviction", Group: "policy", Version: "v1"}, "eviction")
+	assert.Equal(t, match, false)
 }

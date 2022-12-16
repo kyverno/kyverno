@@ -34,14 +34,6 @@ func CopyMap(m map[string]interface{}) map[string]interface{} {
 	return mapCopy
 }
 
-// CopySlice creates a full copy of the target slice
-func CopySlice(s []interface{}) []interface{} {
-	sliceCopy := make([]interface{}, len(s))
-	copy(sliceCopy, s)
-
-	return sliceCopy
-}
-
 // CopySliceOfMaps creates a full copy of the target slice
 func CopySliceOfMaps(s []map[string]interface{}) []interface{} {
 	sliceCopy := make([]interface{}, len(s))

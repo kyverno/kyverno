@@ -137,9 +137,9 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 		if hasAnyAnchor {
 			anyGlobalConditionPassed := false
 			var lastGlobalAnchorError error = nil
+			patternElementCopy := patternElement.Copy()
 
 			for _, resourceElement := range resourceElements {
-				patternElementCopy := patternElement.Copy()
 				if err := preProcessRecursive(logger, patternElementCopy, resourceElement); err != nil {
 					logger.V(3).Info("anchor mismatch", "reason", err.Error())
 					if isConditionError(err) {
@@ -163,7 +163,21 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 					}
 				}
 			}
+			if resource == nil {
+				if err := preProcessRecursive(logger, patternElementCopy, resource); err != nil {
+					logger.V(3).Info("anchor mismatch", "reason", err.Error())
+					if isConditionError(err) {
+						continue
+					}
 
+					return err
+				}
+
+				if hasGlobalConditions {
+					// global anchor has passed, there is no need to return an error
+					anyGlobalConditionPassed = true
+				}
+			}
 			if !anyGlobalConditionPassed && lastGlobalAnchorError != nil {
 				return lastGlobalAnchorError
 			}

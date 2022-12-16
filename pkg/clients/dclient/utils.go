@@ -6,7 +6,7 @@ import (
 	"k8s.io/client-go/discovery"
 )
 
-func logDiscoveryErrors(err error, c serverPreferredResources) {
+func logDiscoveryErrors(err error) {
 	discoveryError := err.(*discovery.ErrGroupDiscoveryFailed)
 	for gv, e := range discoveryError.Groups {
 		if gv.Group == "custom.metrics.k8s.io" || gv.Group == "metrics.k8s.io" || gv.Group == "external.metrics.k8s.io" {
@@ -19,9 +19,9 @@ func logDiscoveryErrors(err error, c serverPreferredResources) {
 	}
 }
 
-func isMetricsServerUnavailable(kind string, err error) bool {
+func isMetricsServerUnavailable(groupVersion string, err error) bool {
 	// error message is defined at:
 	// https://github.com/kubernetes/apimachinery/blob/2456ebdaba229616fab2161a615148884b46644b/pkg/api/errors/errors.go#L432
-	return strings.HasPrefix(kind, "metrics.k8s.io/") &&
+	return strings.HasPrefix(groupVersion, "metrics.k8s.io/") &&
 		strings.Contains(err.Error(), "the server is currently unable to handle the request")
 }

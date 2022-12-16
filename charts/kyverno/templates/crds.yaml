@@ -10,9 +10,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: admissionreports.kyverno.io
 spec:
@@ -20,7 +20,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: AdmissionReport
     listKind: AdmissionReportList
     plural: admissionreports
@@ -276,9 +275,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: backgroundscanreports.kyverno.io
 spec:
@@ -286,7 +285,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: BackgroundScanReport
     listKind: BackgroundScanReportList
     plural: backgroundscanreports
@@ -508,9 +506,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: cleanuppolicies.kyverno.io
 spec:
@@ -518,7 +516,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: CleanupPolicy
     listKind: CleanupPolicyList
     plural: cleanuppolicies
@@ -534,7 +531,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    name: v2alpha1
     schema:
       openAPIV3Schema:
         description: CleanupPolicy defines a rule for resource cleanup.
@@ -556,7 +553,6 @@ spec:
                   all:
                     description: AllConditions enable variable-based conditional rule execution. This is useful for finer control of when an rule is applied. A condition can reference object data using JMESPath notation. Here, all of the conditions need to pass
                     items:
-                      description: Condition defines variable-based conditional criteria for rule execution.
                       properties:
                         key:
                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
@@ -566,10 +562,8 @@ spec:
                           enum:
                           - Equals
                           - NotEquals
-                          - In
                           - AnyIn
                           - AllIn
-                          - NotIn
                           - AnyNotIn
                           - AllNotIn
                           - GreaterThanOrEquals
@@ -589,7 +583,6 @@ spec:
                   any:
                     description: AnyConditions enable variable-based conditional rule execution. This is useful for finer control of when an rule is applied. A condition can reference object data using JMESPath notation. Here, at least one of the conditions need to pass
                     items:
-                      description: Condition defines variable-based conditional criteria for rule execution.
                       properties:
                         key:
                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
@@ -599,10 +592,8 @@ spec:
                           enum:
                           - Equals
                           - NotEquals
-                          - In
                           - AnyIn
                           - AllIn
-                          - NotIn
                           - AnyNotIn
                           - AllNotIn
                           - GreaterThanOrEquals
@@ -881,128 +872,6 @@ spec:
                           type: array
                       type: object
                     type: array
-                  clusterRoles:
-                    description: ClusterRoles is the list of cluster-wide role names for the user.
-                    items:
-                      type: string
-                    type: array
-                  resources:
-                    description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
-                    properties:
-                      annotations:
-                        additionalProperties:
-                          type: string
-                        description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
-                        type: object
-                      kinds:
-                        description: Kinds is a list of resource kinds.
-                        items:
-                          type: string
-                        type: array
-                      name:
-                        description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
-                        type: string
-                      names:
-                        description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
-                        items:
-                          type: string
-                        type: array
-                      namespaceSelector:
-                        description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
-                            items:
-                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector applies to.
-                                  type: string
-                                operator:
-                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  type: string
-                                values:
-                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                          matchLabels:
-                            additionalProperties:
-                              type: string
-                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      namespaces:
-                        description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
-                        items:
-                          type: string
-                        type: array
-                      selector:
-                        description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
-                            items:
-                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector applies to.
-                                  type: string
-                                operator:
-                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  type: string
-                                values:
-                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                          matchLabels:
-                            additionalProperties:
-                              type: string
-                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                  roles:
-                    description: Roles is the list of namespaced role names for the user.
-                    items:
-                      type: string
-                    type: array
-                  subjects:
-                    description: Subjects is the list of subject names like users, user groups, and service accounts.
-                    items:
-                      description: Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference, or a value for non-objects such as user and group names.
-                      properties:
-                        apiGroup:
-                          description: APIGroup holds the API group of the referenced subject. Defaults to "" for ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and Group subjects.
-                          type: string
-                        kind:
-                          description: Kind of object being referenced. Values defined by this API group are "User", "Group", and "ServiceAccount". If the Authorizer does not recognized the kind value, the Authorizer should report an error.
-                          type: string
-                        name:
-                          description: Name of the object being referenced.
-                          type: string
-                        namespace:
-                          description: Namespace of the referenced object.  If the object kind is non-namespace, such as "User" or "Group", and this value is not empty the Authorizer should report an error.
-                          type: string
-                      required:
-                      - kind
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    type: array
                 type: object
               match:
                 description: MatchResources defines when cleanuppolicy should be applied. The match criteria can include resource information (e.g. kind, name, namespace, labels) and admission review request information like the user name or role. At least one kind is required.
@@ -1265,128 +1134,6 @@ spec:
                           type: array
                       type: object
                     type: array
-                  clusterRoles:
-                    description: ClusterRoles is the list of cluster-wide role names for the user.
-                    items:
-                      type: string
-                    type: array
-                  resources:
-                    description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
-                    properties:
-                      annotations:
-                        additionalProperties:
-                          type: string
-                        description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
-                        type: object
-                      kinds:
-                        description: Kinds is a list of resource kinds.
-                        items:
-                          type: string
-                        type: array
-                      name:
-                        description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
-                        type: string
-                      names:
-                        description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
-                        items:
-                          type: string
-                        type: array
-                      namespaceSelector:
-                        description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
-                            items:
-                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector applies to.
-                                  type: string
-                                operator:
-                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  type: string
-                                values:
-                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                          matchLabels:
-                            additionalProperties:
-                              type: string
-                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      namespaces:
-                        description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
-                        items:
-                          type: string
-                        type: array
-                      selector:
-                        description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
-                            items:
-                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector applies to.
-                                  type: string
-                                operator:
-                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  type: string
-                                values:
-                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                          matchLabels:
-                            additionalProperties:
-                              type: string
-                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                  roles:
-                    description: Roles is the list of namespaced role names for the user.
-                    items:
-                      type: string
-                    type: array
-                  subjects:
-                    description: Subjects is the list of subject names like users, user groups, and service accounts.
-                    items:
-                      description: Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference, or a value for non-objects such as user and group names.
-                      properties:
-                        apiGroup:
-                          description: APIGroup holds the API group of the referenced subject. Defaults to "" for ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and Group subjects.
-                          type: string
-                        kind:
-                          description: Kind of object being referenced. Values defined by this API group are "User", "Group", and "ServiceAccount". If the Authorizer does not recognized the kind value, the Authorizer should report an error.
-                          type: string
-                        name:
-                          description: Name of the object being referenced.
-                          type: string
-                        namespace:
-                          description: Namespace of the referenced object.  If the object kind is non-namespace, such as "User" or "Group", and this value is not empty the Authorizer should report an error.
-                          type: string
-                      required:
-                      - kind
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    type: array
                 type: object
               schedule:
                 description: The schedule in Cron format
@@ -1460,9 +1207,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: clusteradmissionreports.kyverno.io
 spec:
@@ -1470,7 +1217,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: ClusterAdmissionReport
     listKind: ClusterAdmissionReportList
     plural: clusteradmissionreports
@@ -1726,9 +1472,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: clusterbackgroundscanreports.kyverno.io
 spec:
@@ -1736,7 +1482,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: ClusterBackgroundScanReport
     listKind: ClusterBackgroundScanReportList
     plural: clusterbackgroundscanreports
@@ -1958,9 +1703,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: clustercleanuppolicies.kyverno.io
 spec:
@@ -1968,7 +1713,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: ClusterCleanupPolicy
     listKind: ClusterCleanupPolicyList
     plural: clustercleanuppolicies
@@ -1984,7 +1728,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    name: v2alpha1
     schema:
       openAPIV3Schema:
         description: ClusterCleanupPolicy defines rule for resource cleanup.
@@ -2006,7 +1750,6 @@ spec:
                   all:
                     description: AllConditions enable variable-based conditional rule execution. This is useful for finer control of when an rule is applied. A condition can reference object data using JMESPath notation. Here, all of the conditions need to pass
                     items:
-                      description: Condition defines variable-based conditional criteria for rule execution.
                       properties:
                         key:
                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
@@ -2016,10 +1759,8 @@ spec:
                           enum:
                           - Equals
                           - NotEquals
-                          - In
                           - AnyIn
                           - AllIn
-                          - NotIn
                           - AnyNotIn
                           - AllNotIn
                           - GreaterThanOrEquals
@@ -2039,7 +1780,6 @@ spec:
                   any:
                     description: AnyConditions enable variable-based conditional rule execution. This is useful for finer control of when an rule is applied. A condition can reference object data using JMESPath notation. Here, at least one of the conditions need to pass
                     items:
-                      description: Condition defines variable-based conditional criteria for rule execution.
                       properties:
                         key:
                           description: Key is the context entry (using JMESPath) for conditional rule evaluation.
@@ -2049,10 +1789,8 @@ spec:
                           enum:
                           - Equals
                           - NotEquals
-                          - In
                           - AnyIn
                           - AllIn
-                          - NotIn
                           - AnyNotIn
                           - AllNotIn
                           - GreaterThanOrEquals
@@ -2331,128 +2069,6 @@ spec:
                           type: array
                       type: object
                     type: array
-                  clusterRoles:
-                    description: ClusterRoles is the list of cluster-wide role names for the user.
-                    items:
-                      type: string
-                    type: array
-                  resources:
-                    description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
-                    properties:
-                      annotations:
-                        additionalProperties:
-                          type: string
-                        description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
-                        type: object
-                      kinds:
-                        description: Kinds is a list of resource kinds.
-                        items:
-                          type: string
-                        type: array
-                      name:
-                        description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
-                        type: string
-                      names:
-                        description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
-                        items:
-                          type: string
-                        type: array
-                      namespaceSelector:
-                        description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
-                            items:
-                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector applies to.
-                                  type: string
-                                operator:
-                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  type: string
-                                values:
-                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                          matchLabels:
-                            additionalProperties:
-                              type: string
-                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      namespaces:
-                        description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
-                        items:
-                          type: string
-                        type: array
-                      selector:
-                        description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
-                            items:
-                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector applies to.
-                                  type: string
-                                operator:
-                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  type: string
-                                values:
-                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                          matchLabels:
-                            additionalProperties:
-                              type: string
-                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                  roles:
-                    description: Roles is the list of namespaced role names for the user.
-                    items:
-                      type: string
-                    type: array
-                  subjects:
-                    description: Subjects is the list of subject names like users, user groups, and service accounts.
-                    items:
-                      description: Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference, or a value for non-objects such as user and group names.
-                      properties:
-                        apiGroup:
-                          description: APIGroup holds the API group of the referenced subject. Defaults to "" for ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and Group subjects.
-                          type: string
-                        kind:
-                          description: Kind of object being referenced. Values defined by this API group are "User", "Group", and "ServiceAccount". If the Authorizer does not recognized the kind value, the Authorizer should report an error.
-                          type: string
-                        name:
-                          description: Name of the object being referenced.
-                          type: string
-                        namespace:
-                          description: Namespace of the referenced object.  If the object kind is non-namespace, such as "User" or "Group", and this value is not empty the Authorizer should report an error.
-                          type: string
-                      required:
-                      - kind
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    type: array
                 type: object
               match:
                 description: MatchResources defines when cleanuppolicy should be applied. The match criteria can include resource information (e.g. kind, name, namespace, labels) and admission review request information like the user name or role. At least one kind is required.
@@ -2715,128 +2331,6 @@ spec:
                           type: array
                       type: object
                     type: array
-                  clusterRoles:
-                    description: ClusterRoles is the list of cluster-wide role names for the user.
-                    items:
-                      type: string
-                    type: array
-                  resources:
-                    description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
-                    properties:
-                      annotations:
-                        additionalProperties:
-                          type: string
-                        description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
-                        type: object
-                      kinds:
-                        description: Kinds is a list of resource kinds.
-                        items:
-                          type: string
-                        type: array
-                      name:
-                        description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
-                        type: string
-                      names:
-                        description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
-                        items:
-                          type: string
-                        type: array
-                      namespaceSelector:
-                        description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
-                            items:
-                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector applies to.
-                                  type: string
-                                operator:
-                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  type: string
-                                values:
-                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                          matchLabels:
-                            additionalProperties:
-                              type: string
-                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      namespaces:
-                        description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
-                        items:
-                          type: string
-                        type: array
-                      selector:
-                        description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
-                            items:
-                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector applies to.
-                                  type: string
-                                operator:
-                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  type: string
-                                values:
-                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                          matchLabels:
-                            additionalProperties:
-                              type: string
-                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    type: object
-                  roles:
-                    description: Roles is the list of namespaced role names for the user.
-                    items:
-                      type: string
-                    type: array
-                  subjects:
-                    description: Subjects is the list of subject names like users, user groups, and service accounts.
-                    items:
-                      description: Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference, or a value for non-objects such as user and group names.
-                      properties:
-                        apiGroup:
-                          description: APIGroup holds the API group of the referenced subject. Defaults to "" for ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and Group subjects.
-                          type: string
-                        kind:
-                          description: Kind of object being referenced. Values defined by this API group are "User", "Group", and "ServiceAccount". If the Authorizer does not recognized the kind value, the Authorizer should report an error.
-                          type: string
-                        name:
-                          description: Name of the object being referenced.
-                          type: string
-                        namespace:
-                          description: Namespace of the referenced object.  If the object kind is non-namespace, such as "User" or "Group", and this value is not empty the Authorizer should report an error.
-                          type: string
-                      required:
-                      - kind
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    type: array
                 type: object
               schedule:
                 description: The schedule in Cron format
@@ -2910,9 +2404,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: clusterpolicies.kyverno.io
 spec:
@@ -2920,7 +2414,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: ClusterPolicy
     listKind: ClusterPolicyList
     plural: clusterpolicies
@@ -3996,6 +3489,9 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                 type: string
@@ -4200,6 +3696,9 @@ spec:
                               elementScope:
                                 description: ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
                                 type: boolean
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                 type: string
@@ -4514,6 +4013,115 @@ spec:
                             items:
                               description: Attestation are checks for signed in-toto Statements that are used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statements.
                               properties:
+                                attestors:
+                                  description: Attestors specify the required attestors (i.e. authorities)
+                                  items:
+                                    properties:
+                                      count:
+                                        description: Count specifies the required number of entries that must match. If the count is null, all entries must match (a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a value N, then N must be less than or equal to the size of entries, and at least N entries must match.
+                                        minimum: 1
+                                        type: integer
+                                      entries:
+                                        description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
+                                        items:
+                                          properties:
+                                            annotations:
+                                              additionalProperties:
+                                                type: string
+                                              description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                              type: object
+                                            attestor:
+                                              description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            certificates:
+                                              description: Certificates specifies one or more certificates
+                                              properties:
+                                                cert:
+                                                  description: Certificate is an optional PEM encoded public certificate.
+                                                  type: string
+                                                certChain:
+                                                  description: CertificateChain is an optional PEM encoded set of certificates used to verify
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                              type: object
+                                            keyless:
+                                              description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                              properties:
+                                                additionalExtensions:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                                                  type: object
+                                                issuer:
+                                                  description: Issuer is the certificate issuer used for keyless signing.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                roots:
+                                                  description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                                  type: string
+                                                subject:
+                                                  description: Subject is the verified identity used for keyless signing, for example the email address
+                                                  type: string
+                                              type: object
+                                            keys:
+                                              description: Keys specifies one or more public keys
+                                              properties:
+                                                kms:
+                                                  description: 'KMS provides the URI to the public key stored in a Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                  type: string
+                                                publicKeys:
+                                                  description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                secret:
+                                                  description: Reference to a Secret resource that contains a public key
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret. The provided secret must contain a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm for public keys. Supported values are sha256 and sha512
+                                                  type: string
+                                              type: object
+                                            repository:
+                                              description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                          type: object
+                                        type: array
+                                    type: object
+                                  type: array
                                 conditions:
                                   description: Conditions are used to verify attributes within a Predicate. If no Conditions are specified the attestation check is satisfied as long there are predicates that match the predicate type.
                                   items:
@@ -5775,6 +5383,9 @@ spec:
                                           type: object
                                       type: object
                                     type: array
+                                  foreach:
+                                    description: Foreach declares a nested foreach iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                     type: string
@@ -5979,6 +5590,9 @@ spec:
                                   elementScope:
                                     description: ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
                                     type: boolean
+                                  foreach:
+                                    description: Foreach declares a nested foreach iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                     type: string
@@ -6293,6 +5907,115 @@ spec:
                                 items:
                                   description: Attestation are checks for signed in-toto Statements that are used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statements.
                                   properties:
+                                    attestors:
+                                      description: Attestors specify the required attestors (i.e. authorities)
+                                      items:
+                                        properties:
+                                          count:
+                                            description: Count specifies the required number of entries that must match. If the count is null, all entries must match (a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a value N, then N must be less than or equal to the size of entries, and at least N entries must match.
+                                            minimum: 1
+                                            type: integer
+                                          entries:
+                                            description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
+                                            items:
+                                              properties:
+                                                annotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                                  type: object
+                                                attestor:
+                                                  description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                                  x-kubernetes-preserve-unknown-fields: true
+                                                certificates:
+                                                  description: Certificates specifies one or more certificates
+                                                  properties:
+                                                    cert:
+                                                      description: Certificate is an optional PEM encoded public certificate.
+                                                      type: string
+                                                    certChain:
+                                                      description: CertificateChain is an optional PEM encoded set of certificates used to verify
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                  type: object
+                                                keyless:
+                                                  description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                  properties:
+                                                    additionalExtensions:
+                                                      additionalProperties:
+                                                        type: string
+                                                      description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                                                      type: object
+                                                    issuer:
+                                                      description: Issuer is the certificate issuer used for keyless signing.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    roots:
+                                                      description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                                      type: string
+                                                    subject:
+                                                      description: Subject is the verified identity used for keyless signing, for example the email address
+                                                      type: string
+                                                  type: object
+                                                keys:
+                                                  description: Keys specifies one or more public keys
+                                                  properties:
+                                                    kms:
+                                                      description: 'KMS provides the URI to the public key stored in a Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                      type: string
+                                                    publicKeys:
+                                                      description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    secret:
+                                                      description: Reference to a Secret resource that contains a public key
+                                                      properties:
+                                                        name:
+                                                          description: Name of the secret. The provided secret must contain a key named cosign.pub.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace name where the Secret exists.
+                                                          type: string
+                                                      required:
+                                                      - name
+                                                      - namespace
+                                                      type: object
+                                                    signatureAlgorithm:
+                                                      default: sha256
+                                                      description: Specify signature algorithm for public keys. Supported values are sha256 and sha512
+                                                      type: string
+                                                  type: object
+                                                repository:
+                                                  description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                                  type: string
+                                              type: object
+                                            type: array
+                                        type: object
+                                      type: array
                                     conditions:
                                       description: Conditions are used to verify attributes within a Predicate. If no Conditions are specified the attestation check is satisfied as long there are predicates that match the predicate type.
                                       items:
@@ -7421,6 +7144,9 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                 type: string
@@ -7747,6 +7473,9 @@ spec:
                               elementScope:
                                 description: ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
                                 type: boolean
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                 type: string
@@ -8051,6 +7780,115 @@ spec:
                             items:
                               description: Attestation are checks for signed in-toto Statements that are used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statements.
                               properties:
+                                attestors:
+                                  description: Attestors specify the required attestors (i.e. authorities)
+                                  items:
+                                    properties:
+                                      count:
+                                        description: Count specifies the required number of entries that must match. If the count is null, all entries must match (a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a value N, then N must be less than or equal to the size of entries, and at least N entries must match.
+                                        minimum: 1
+                                        type: integer
+                                      entries:
+                                        description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
+                                        items:
+                                          properties:
+                                            annotations:
+                                              additionalProperties:
+                                                type: string
+                                              description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                              type: object
+                                            attestor:
+                                              description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            certificates:
+                                              description: Certificates specifies one or more certificates
+                                              properties:
+                                                cert:
+                                                  description: Certificate is an optional PEM encoded public certificate.
+                                                  type: string
+                                                certChain:
+                                                  description: CertificateChain is an optional PEM encoded set of certificates used to verify
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                              type: object
+                                            keyless:
+                                              description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                              properties:
+                                                additionalExtensions:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                                                  type: object
+                                                issuer:
+                                                  description: Issuer is the certificate issuer used for keyless signing.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                roots:
+                                                  description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                                  type: string
+                                                subject:
+                                                  description: Subject is the verified identity used for keyless signing, for example the email address
+                                                  type: string
+                                              type: object
+                                            keys:
+                                              description: Keys specifies one or more public keys
+                                              properties:
+                                                kms:
+                                                  description: 'KMS provides the URI to the public key stored in a Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                  type: string
+                                                publicKeys:
+                                                  description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                secret:
+                                                  description: Reference to a Secret resource that contains a public key
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret. The provided secret must contain a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm for public keys. Supported values are sha256 and sha512
+                                                  type: string
+                                              type: object
+                                            repository:
+                                              description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                          type: object
+                                        type: array
+                                    type: object
+                                  type: array
                                 conditions:
                                   description: Conditions are used to verify attributes within a Predicate. If no Conditions are specified the attestation check is satisfied as long there are predicates that match the predicate type.
                                   items:
@@ -9297,6 +9135,9 @@ spec:
                                           type: object
                                       type: object
                                     type: array
+                                  foreach:
+                                    description: Foreach declares a nested foreach iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                     type: string
@@ -9501,6 +9342,9 @@ spec:
                                   elementScope:
                                     description: ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
                                     type: boolean
+                                  foreach:
+                                    description: Foreach declares a nested foreach iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                     type: string
@@ -9815,6 +9659,115 @@ spec:
                                 items:
                                   description: Attestation are checks for signed in-toto Statements that are used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statements.
                                   properties:
+                                    attestors:
+                                      description: Attestors specify the required attestors (i.e. authorities)
+                                      items:
+                                        properties:
+                                          count:
+                                            description: Count specifies the required number of entries that must match. If the count is null, all entries must match (a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a value N, then N must be less than or equal to the size of entries, and at least N entries must match.
+                                            minimum: 1
+                                            type: integer
+                                          entries:
+                                            description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
+                                            items:
+                                              properties:
+                                                annotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                                  type: object
+                                                attestor:
+                                                  description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                                  x-kubernetes-preserve-unknown-fields: true
+                                                certificates:
+                                                  description: Certificates specifies one or more certificates
+                                                  properties:
+                                                    cert:
+                                                      description: Certificate is an optional PEM encoded public certificate.
+                                                      type: string
+                                                    certChain:
+                                                      description: CertificateChain is an optional PEM encoded set of certificates used to verify
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                  type: object
+                                                keyless:
+                                                  description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                  properties:
+                                                    additionalExtensions:
+                                                      additionalProperties:
+                                                        type: string
+                                                      description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                                                      type: object
+                                                    issuer:
+                                                      description: Issuer is the certificate issuer used for keyless signing.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    roots:
+                                                      description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                                      type: string
+                                                    subject:
+                                                      description: Subject is the verified identity used for keyless signing, for example the email address
+                                                      type: string
+                                                  type: object
+                                                keys:
+                                                  description: Keys specifies one or more public keys
+                                                  properties:
+                                                    kms:
+                                                      description: 'KMS provides the URI to the public key stored in a Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                      type: string
+                                                    publicKeys:
+                                                      description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    secret:
+                                                      description: Reference to a Secret resource that contains a public key
+                                                      properties:
+                                                        name:
+                                                          description: Name of the secret. The provided secret must contain a key named cosign.pub.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace name where the Secret exists.
+                                                          type: string
+                                                      required:
+                                                      - name
+                                                      - namespace
+                                                      type: object
+                                                    signatureAlgorithm:
+                                                      default: sha256
+                                                      description: Specify signature algorithm for public keys. Supported values are sha256 and sha512
+                                                      type: string
+                                                  type: object
+                                                repository:
+                                                  description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                                  type: string
+                                              type: object
+                                            type: array
+                                        type: object
+                                      type: array
                                     conditions:
                                       description: Conditions are used to verify attributes within a Predicate. If no Conditions are specified the attestation check is satisfied as long there are predicates that match the predicate type.
                                       items:
@@ -10132,9 +10085,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
@@ -10405,9 +10358,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: generaterequests.kyverno.io
 spec:
@@ -10581,9 +10534,9 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: policies.kyverno.io
 spec:
@@ -11667,6 +11620,9 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                 type: string
@@ -11871,6 +11827,9 @@ spec:
                               elementScope:
                                 description: ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
                                 type: boolean
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                 type: string
@@ -12185,6 +12144,115 @@ spec:
                             items:
                               description: Attestation are checks for signed in-toto Statements that are used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statements.
                               properties:
+                                attestors:
+                                  description: Attestors specify the required attestors (i.e. authorities)
+                                  items:
+                                    properties:
+                                      count:
+                                        description: Count specifies the required number of entries that must match. If the count is null, all entries must match (a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a value N, then N must be less than or equal to the size of entries, and at least N entries must match.
+                                        minimum: 1
+                                        type: integer
+                                      entries:
+                                        description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
+                                        items:
+                                          properties:
+                                            annotations:
+                                              additionalProperties:
+                                                type: string
+                                              description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                              type: object
+                                            attestor:
+                                              description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            certificates:
+                                              description: Certificates specifies one or more certificates
+                                              properties:
+                                                cert:
+                                                  description: Certificate is an optional PEM encoded public certificate.
+                                                  type: string
+                                                certChain:
+                                                  description: CertificateChain is an optional PEM encoded set of certificates used to verify
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                              type: object
+                                            keyless:
+                                              description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                              properties:
+                                                additionalExtensions:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                                                  type: object
+                                                issuer:
+                                                  description: Issuer is the certificate issuer used for keyless signing.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                roots:
+                                                  description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                                  type: string
+                                                subject:
+                                                  description: Subject is the verified identity used for keyless signing, for example the email address
+                                                  type: string
+                                              type: object
+                                            keys:
+                                              description: Keys specifies one or more public keys
+                                              properties:
+                                                kms:
+                                                  description: 'KMS provides the URI to the public key stored in a Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                  type: string
+                                                publicKeys:
+                                                  description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                secret:
+                                                  description: Reference to a Secret resource that contains a public key
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret. The provided secret must contain a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm for public keys. Supported values are sha256 and sha512
+                                                  type: string
+                                              type: object
+                                            repository:
+                                              description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                          type: object
+                                        type: array
+                                    type: object
+                                  type: array
                                 conditions:
                                   description: Conditions are used to verify attributes within a Predicate. If no Conditions are specified the attestation check is satisfied as long there are predicates that match the predicate type.
                                   items:
@@ -13446,6 +13514,9 @@ spec:
                                           type: object
                                       type: object
                                     type: array
+                                  foreach:
+                                    description: Foreach declares a nested foreach iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                     type: string
@@ -13650,6 +13721,9 @@ spec:
                                   elementScope:
                                     description: ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
                                     type: boolean
+                                  foreach:
+                                    description: Foreach declares a nested foreach iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                     type: string
@@ -13964,6 +14038,115 @@ spec:
                                 items:
                                   description: Attestation are checks for signed in-toto Statements that are used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statements.
                                   properties:
+                                    attestors:
+                                      description: Attestors specify the required attestors (i.e. authorities)
+                                      items:
+                                        properties:
+                                          count:
+                                            description: Count specifies the required number of entries that must match. If the count is null, all entries must match (a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a value N, then N must be less than or equal to the size of entries, and at least N entries must match.
+                                            minimum: 1
+                                            type: integer
+                                          entries:
+                                            description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
+                                            items:
+                                              properties:
+                                                annotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                                  type: object
+                                                attestor:
+                                                  description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                                  x-kubernetes-preserve-unknown-fields: true
+                                                certificates:
+                                                  description: Certificates specifies one or more certificates
+                                                  properties:
+                                                    cert:
+                                                      description: Certificate is an optional PEM encoded public certificate.
+                                                      type: string
+                                                    certChain:
+                                                      description: CertificateChain is an optional PEM encoded set of certificates used to verify
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                  type: object
+                                                keyless:
+                                                  description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                  properties:
+                                                    additionalExtensions:
+                                                      additionalProperties:
+                                                        type: string
+                                                      description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                                                      type: object
+                                                    issuer:
+                                                      description: Issuer is the certificate issuer used for keyless signing.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    roots:
+                                                      description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                                      type: string
+                                                    subject:
+                                                      description: Subject is the verified identity used for keyless signing, for example the email address
+                                                      type: string
+                                                  type: object
+                                                keys:
+                                                  description: Keys specifies one or more public keys
+                                                  properties:
+                                                    kms:
+                                                      description: 'KMS provides the URI to the public key stored in a Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                      type: string
+                                                    publicKeys:
+                                                      description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    secret:
+                                                      description: Reference to a Secret resource that contains a public key
+                                                      properties:
+                                                        name:
+                                                          description: Name of the secret. The provided secret must contain a key named cosign.pub.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace name where the Secret exists.
+                                                          type: string
+                                                      required:
+                                                      - name
+                                                      - namespace
+                                                      type: object
+                                                    signatureAlgorithm:
+                                                      default: sha256
+                                                      description: Specify signature algorithm for public keys. Supported values are sha256 and sha512
+                                                      type: string
+                                                  type: object
+                                                repository:
+                                                  description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                                  type: string
+                                              type: object
+                                            type: array
+                                        type: object
+                                      type: array
                                     conditions:
                                       description: Conditions are used to verify attributes within a Predicate. If no Conditions are specified the attestation check is satisfied as long there are predicates that match the predicate type.
                                       items:
@@ -15092,6 +15275,9 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                 type: string
@@ -15418,6 +15604,9 @@ spec:
                               elementScope:
                                 description: ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
                                 type: boolean
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                 type: string
@@ -15722,6 +15911,115 @@ spec:
                             items:
                               description: Attestation are checks for signed in-toto Statements that are used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statements.
                               properties:
+                                attestors:
+                                  description: Attestors specify the required attestors (i.e. authorities)
+                                  items:
+                                    properties:
+                                      count:
+                                        description: Count specifies the required number of entries that must match. If the count is null, all entries must match (a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a value N, then N must be less than or equal to the size of entries, and at least N entries must match.
+                                        minimum: 1
+                                        type: integer
+                                      entries:
+                                        description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
+                                        items:
+                                          properties:
+                                            annotations:
+                                              additionalProperties:
+                                                type: string
+                                              description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                              type: object
+                                            attestor:
+                                              description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            certificates:
+                                              description: Certificates specifies one or more certificates
+                                              properties:
+                                                cert:
+                                                  description: Certificate is an optional PEM encoded public certificate.
+                                                  type: string
+                                                certChain:
+                                                  description: CertificateChain is an optional PEM encoded set of certificates used to verify
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                              type: object
+                                            keyless:
+                                              description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                              properties:
+                                                additionalExtensions:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                                                  type: object
+                                                issuer:
+                                                  description: Issuer is the certificate issuer used for keyless signing.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                roots:
+                                                  description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                                  type: string
+                                                subject:
+                                                  description: Subject is the verified identity used for keyless signing, for example the email address
+                                                  type: string
+                                              type: object
+                                            keys:
+                                              description: Keys specifies one or more public keys
+                                              properties:
+                                                kms:
+                                                  description: 'KMS provides the URI to the public key stored in a Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                  type: string
+                                                publicKeys:
+                                                  description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                secret:
+                                                  description: Reference to a Secret resource that contains a public key
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret. The provided secret must contain a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm for public keys. Supported values are sha256 and sha512
+                                                  type: string
+                                              type: object
+                                            repository:
+                                              description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                              type: string
+                                          type: object
+                                        type: array
+                                    type: object
+                                  type: array
                                 conditions:
                                   description: Conditions are used to verify attributes within a Predicate. If no Conditions are specified the attestation check is satisfied as long there are predicates that match the predicate type.
                                   items:
@@ -16968,6 +17266,9 @@ spec:
                                           type: object
                                       type: object
                                     type: array
+                                  foreach:
+                                    description: Foreach declares a nested foreach iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                     type: string
@@ -17172,6 +17473,9 @@ spec:
                                   elementScope:
                                     description: ElementScope specifies whether to use the current list element as the scope for validation. Defaults to "true" if not specified. When set to "false", "request.object" is used as the validation scope within the foreach block to allow referencing other elements in the subtree.
                                     type: boolean
+                                  foreach:
+                                    description: Foreach declares a nested foreach iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression that results in one or more elements to which the validation logic is applied.
                                     type: string
@@ -17486,6 +17790,115 @@ spec:
                                 items:
                                   description: Attestation are checks for signed in-toto Statements that are used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statements.
                                   properties:
+                                    attestors:
+                                      description: Attestors specify the required attestors (i.e. authorities)
+                                      items:
+                                        properties:
+                                          count:
+                                            description: Count specifies the required number of entries that must match. If the count is null, all entries must match (a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a value N, then N must be less than or equal to the size of entries, and at least N entries must match.
+                                            minimum: 1
+                                            type: integer
+                                          entries:
+                                            description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
+                                            items:
+                                              properties:
+                                                annotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                                  type: object
+                                                attestor:
+                                                  description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                                  x-kubernetes-preserve-unknown-fields: true
+                                                certificates:
+                                                  description: Certificates specifies one or more certificates
+                                                  properties:
+                                                    cert:
+                                                      description: Certificate is an optional PEM encoded public certificate.
+                                                      type: string
+                                                    certChain:
+                                                      description: CertificateChain is an optional PEM encoded set of certificates used to verify
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                  type: object
+                                                keyless:
+                                                  description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                  properties:
+                                                    additionalExtensions:
+                                                      additionalProperties:
+                                                        type: string
+                                                      description: AdditionalExtensions are certificate-extensions used for keyless signing.
+                                                      type: object
+                                                    issuer:
+                                                      description: Issuer is the certificate issuer used for keyless signing.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    roots:
+                                                      description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                                      type: string
+                                                    subject:
+                                                      description: Subject is the verified identity used for keyless signing, for example the email address
+                                                      type: string
+                                                  type: object
+                                                keys:
+                                                  description: Keys specifies one or more public keys
+                                                  properties:
+                                                    kms:
+                                                      description: 'KMS provides the URI to the public key stored in a Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                      type: string
+                                                    publicKeys:
+                                                      description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    secret:
+                                                      description: Reference to a Secret resource that contains a public key
+                                                      properties:
+                                                        name:
+                                                          description: Name of the secret. The provided secret must contain a key named cosign.pub.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace name where the Secret exists.
+                                                          type: string
+                                                      required:
+                                                      - name
+                                                      - namespace
+                                                      type: object
+                                                    signatureAlgorithm:
+                                                      default: sha256
+                                                      description: Specify signature algorithm for public keys. Supported values are sha256 and sha512
+                                                      type: string
+                                                  type: object
+                                                repository:
+                                                  description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                                  type: string
+                                              type: object
+                                            type: array
+                                        type: object
+                                      type: array
                                     conditions:
                                       description: Conditions are used to verify attributes within a Predicate. If no Conditions are specified the attestation check is satisfied as long there are predicates that match the predicate type.
                                       items:
@@ -17803,9 +18216,344 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/version: '{{.Chart.AppVersion}}'
+  name: policyexceptions.kyverno.io
+spec:
+  group: kyverno.io
+  names:
+    categories:
+    - kyverno
+    kind: PolicyException
+    listKind: PolicyExceptionList
+    plural: policyexceptions
+    shortNames:
+    - polex
+    singular: policyexception
+  scope: Namespaced
+  versions:
+  - name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: PolicyException declares resources to be excluded from specified policies.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec declares policy exception behaviors.
+            properties:
+              exceptions:
+                description: Exceptions is a list policy/rules to be excluded
+                items:
+                  description: Exception stores infos about a policy and rules
+                  properties:
+                    policyName:
+                      description: PolicyName identifies the policy to which the exception is applied.
+                      type: string
+                    ruleNames:
+                      description: RuleNames identifies the rules to which the exception is applied.
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - policyName
+                  - ruleNames
+                  type: object
+                type: array
+              match:
+                description: Match defines match clause used to check if a resource applies to the exception
+                properties:
+                  all:
+                    description: All allows specifying resources which will be ANDed
+                    items:
+                      description: ResourceFilter allow users to "AND" or "OR" between resources
+                      properties:
+                        clusterRoles:
+                          description: ClusterRoles is the list of cluster-wide role names for the user.
+                          items:
+                            type: string
+                          type: array
+                        resources:
+                          description: ResourceDescription contains information about the resource being created or modified.
+                          properties:
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
+                              type: object
+                            kinds:
+                              description: Kinds is a list of resource kinds.
+                              items:
+                                type: string
+                              type: array
+                            name:
+                              description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              type: string
+                            names:
+                              description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
+                            namespaceSelector:
+                              description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the selector applies to.
+                                        type: string
+                                      operator:
+                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaces:
+                              description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
+                            selector:
+                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the selector applies to.
+                                        type: string
+                                      operator:
+                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          type: object
+                        roles:
+                          description: Roles is the list of namespaced role names for the user.
+                          items:
+                            type: string
+                          type: array
+                        subjects:
+                          description: Subjects is the list of subject names like users, user groups, and service accounts.
+                          items:
+                            description: Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference, or a value for non-objects such as user and group names.
+                            properties:
+                              apiGroup:
+                                description: APIGroup holds the API group of the referenced subject. Defaults to "" for ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and Group subjects.
+                                type: string
+                              kind:
+                                description: Kind of object being referenced. Values defined by this API group are "User", "Group", and "ServiceAccount". If the Authorizer does not recognized the kind value, the Authorizer should report an error.
+                                type: string
+                              name:
+                                description: Name of the object being referenced.
+                                type: string
+                              namespace:
+                                description: Namespace of the referenced object.  If the object kind is non-namespace, such as "User" or "Group", and this value is not empty the Authorizer should report an error.
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          type: array
+                      type: object
+                    type: array
+                  any:
+                    description: Any allows specifying resources which will be ORed
+                    items:
+                      description: ResourceFilter allow users to "AND" or "OR" between resources
+                      properties:
+                        clusterRoles:
+                          description: ClusterRoles is the list of cluster-wide role names for the user.
+                          items:
+                            type: string
+                          type: array
+                        resources:
+                          description: ResourceDescription contains information about the resource being created or modified.
+                          properties:
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              description: Annotations is a  map of annotations (key-value pairs of type string). Annotation keys and values support the wildcard characters "*" (matches zero or many characters) and "?" (matches at least one character).
+                              type: object
+                            kinds:
+                              description: Kinds is a list of resource kinds.
+                              items:
+                                type: string
+                              type: array
+                            name:
+                              description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              type: string
+                            names:
+                              description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
+                            namespaceSelector:
+                              description: 'NamespaceSelector is a label selector for the resource namespace. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character).Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the selector applies to.
+                                        type: string
+                                      operator:
+                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaces:
+                              description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
+                            selector:
+                              description: 'Selector is a label selector. Label keys and values in `matchLabels` support the wildcard characters `*` (matches zero or many characters) and `?` (matches one character). Wildcards allows writing label selectors like ["storage.k8s.io/*": "*"]. Note that using ["*" : "*"] matches any key and value but does not match an empty label set.'
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the selector applies to.
+                                        type: string
+                                      operator:
+                                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          type: object
+                        roles:
+                          description: Roles is the list of namespaced role names for the user.
+                          items:
+                            type: string
+                          type: array
+                        subjects:
+                          description: Subjects is the list of subject names like users, user groups, and service accounts.
+                          items:
+                            description: Subject contains a reference to the object or user identities a role binding applies to.  This can either hold a direct API object reference, or a value for non-objects such as user and group names.
+                            properties:
+                              apiGroup:
+                                description: APIGroup holds the API group of the referenced subject. Defaults to "" for ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and Group subjects.
+                                type: string
+                              kind:
+                                description: Kind of object being referenced. Values defined by this API group are "User", "Group", and "ServiceAccount". If the Authorizer does not recognized the kind value, the Authorizer should report an error.
+                                type: string
+                              name:
+                                description: Name of the object being referenced.
+                                type: string
+                              namespace:
+                                description: Namespace of the referenced object.  If the object kind is non-namespace, such as "User" or "Group", and this value is not empty the Authorizer should report an error.
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          type: array
+                      type: object
+                    type: array
+                type: object
+            required:
+            - exceptions
+            - match
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.10.0
+    config.kubernetes.io/index: '12'
+    internal.config.kubernetes.io/index: '12'
+    {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: policyreports.wgpolicyk8s.io
 spec:
@@ -18070,15 +18818,15 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-    config.kubernetes.io/index: '12'
-    internal.config.kubernetes.io/index: '12'
+    config.kubernetes.io/index: '13'
+    internal.config.kubernetes.io/index: '13'
     {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/name: '{{ template "kyverno.name" . }}'
+    app.kubernetes.io/part-of: '{{ template "kyverno.name" . }}'
     app.kubernetes.io/version: '{{.Chart.AppVersion}}'
   name: updaterequests.kyverno.io
 spec:
@@ -18086,7 +18834,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: UpdateRequest
     listKind: UpdateRequestList
     plural: updaterequests

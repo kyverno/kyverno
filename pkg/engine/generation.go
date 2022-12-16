@@ -7,20 +7,21 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/tools/cache"
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
-func GenerateResponse(policyContext *PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *response.EngineResponse) {
+func GenerateResponse(rclient registryclient.Client, policyContext *PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *response.EngineResponse) {
 	policyStartTime := time.Now()
-	return filterGenerateRules(policyContext, gr.Spec.Policy, policyStartTime)
+	return filterGenerateRules(rclient, policyContext, gr.Spec.Policy, policyStartTime)
 }
 
-func filterGenerateRules(policyContext *PolicyContext, policyNameKey string, startTime time.Time) *response.EngineResponse {
-	kind := policyContext.NewResource.GetKind()
-	name := policyContext.NewResource.GetName()
-	namespace := policyContext.NewResource.GetNamespace()
-	apiVersion := policyContext.NewResource.GetAPIVersion()
+func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyContext, policyNameKey string, startTime time.Time) *response.EngineResponse {
+	kind := policyContext.newResource.GetKind()
+	name := policyContext.newResource.GetName()
+	namespace := policyContext.newResource.GetNamespace()
+	apiVersion := policyContext.newResource.GetAPIVersion()
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(policyNameKey)
 	if err != nil {
 		logging.Error(err, "failed to spilt name and namespace", policyNameKey)
@@ -44,13 +45,13 @@ func filterGenerateRules(policyContext *PolicyContext, policyNameKey string, sta
 		},
 	}
 
-	if policyContext.ExcludeResourceFunc(kind, namespace, name) {
+	if policyContext.excludeResourceFunc(kind, namespace, name) {
 		logging.WithName("Generate").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
 		return resp
 	}
 
-	for _, rule := range autogen.ComputeRules(policyContext.Policy) {
-		if ruleResp := filterRule(rule, policyContext); ruleResp != nil {
+	for _, rule := range autogen.ComputeRules(policyContext.policy) {
+		if ruleResp := filterRule(rclient, rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}

@@ -271,7 +271,8 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&validPolicy)
-	policyCache.Set(key, &validPolicy)
+	subresourceGVKToKind := make(map[string]string)
+	policyCache.Set(key, &validPolicy, subresourceGVKToKind)
 
 	request := &v1.AdmissionRequest{
 		Operation: v1.Create,
@@ -280,6 +281,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 		Object: runtime.RawExtension{
 			Raw: []byte(pod),
 		},
+		RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 	}
 
 	response := handlers.Mutate(ctx, logger, request, "", time.Now())
@@ -291,7 +293,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	assert.Equal(t, len(response.Warnings), 0)
 
 	validPolicy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(key, &validPolicy)
+	policyCache.Set(key, &validPolicy, subresourceGVKToKind)
 
 	response = handlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -320,11 +322,13 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 		Object: runtime.RawExtension{
 			Raw: []byte(pod),
 		},
+		RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 	}
 
 	keyInvalid := makeKey(&invalidPolicy)
 	invalidPolicy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(keyInvalid, &invalidPolicy)
+	subresourceGVKToKind := make(map[string]string)
+	policyCache.Set(keyInvalid, &invalidPolicy, subresourceGVKToKind)
 
 	response := handlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -332,7 +336,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 
 	var ignore kyverno.FailurePolicyType = kyverno.Ignore
 	invalidPolicy.Spec.FailurePolicy = &ignore
-	policyCache.Set(keyInvalid, &invalidPolicy)
+	policyCache.Set(keyInvalid, &invalidPolicy, subresourceGVKToKind)
 
 	response = handlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
@@ -353,7 +357,8 @@ func Test_ImageVerify(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)
-	policyCache.Set(key, &policy)
+	subresourceGVKToKind := make(map[string]string)
+	policyCache.Set(key, &policy, subresourceGVKToKind)
 
 	request := &v1.AdmissionRequest{
 		Operation: v1.Create,
@@ -362,10 +367,11 @@ func Test_ImageVerify(t *testing.T) {
 		Object: runtime.RawExtension{
 			Raw: []byte(pod),
 		},
+		RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 	}
 
 	policy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(key, &policy)
+	policyCache.Set(key, &policy, subresourceGVKToKind)
 
 	response := handlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -373,7 +379,7 @@ func Test_ImageVerify(t *testing.T) {
 
 	var ignore kyverno.FailurePolicyType = kyverno.Ignore
 	policy.Spec.FailurePolicy = &ignore
-	policyCache.Set(key, &policy)
+	policyCache.Set(key, &policy, subresourceGVKToKind)
 
 	response = handlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -394,7 +400,7 @@ func Test_MutateAndVerify(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)
-	policyCache.Set(key, &policy)
+	policyCache.Set(key, &policy, make(map[string]string))
 
 	request := &v1.AdmissionRequest{
 		Operation: v1.Create,
@@ -403,6 +409,7 @@ func Test_MutateAndVerify(t *testing.T) {
 		Object: runtime.RawExtension{
 			Raw: []byte(resourceMutateAndVerify),
 		},
+		RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 	}
 
 	response := handlers.Mutate(ctx, logger, request, "", time.Now())

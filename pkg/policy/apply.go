@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -11,16 +12,24 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // applyPolicy applies policy on a resource
-func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured,
-	logger logr.Logger, excludeGroupRole []string,
-	client dclient.Interface, namespaceLabels map[string]string,
+func applyPolicy(
+	policy kyvernov1.PolicyInterface,
+	resource unstructured.Unstructured,
+	logger logr.Logger,
+	excludeGroupRole []string,
+	client dclient.Interface,
+	rclient registryclient.Client,
+	informerCacheResolvers resolvers.ConfigmapResolver,
+	namespaceLabels map[string]string,
 ) (responses []*response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
@@ -37,8 +46,8 @@ func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstruc
 	var engineResponseMutation, engineResponseValidation *response.EngineResponse
 	var err error
 
-	ctx := context.NewContext()
-	err = context.AddResource(ctx, transformResource(resource))
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, transformResource(resource))
 	if err != nil {
 		logger.Error(err, "failed to add transform resource to ctx")
 	}
@@ -56,35 +65,41 @@ func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstruc
 		logger.Error(err, "unable to set operation in context")
 	}
 
-	engineResponseMutation, err = mutation(policy, resource, logger, ctx, namespaceLabels)
+	engineResponseMutation, err = mutation(policy, resource, logger, ctx, rclient, informerCacheResolvers, namespaceLabels)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
 	}
 
-	policyCtx := &engine.PolicyContext{
-		Policy:           policy,
-		NewResource:      resource,
-		ExcludeGroupRole: excludeGroupRole,
-		JSONContext:      ctx,
-		Client:           client,
-		NamespaceLabels:  namespaceLabels,
-	}
+	policyCtx := engine.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(policy).
+		WithNewResource(resource).
+		WithNamespaceLabels(namespaceLabels).
+		WithClient(client).
+		WithExcludeGroupRole(excludeGroupRole...).
+		WithInformerCacheResolver(informerCacheResolvers)
 
-	engineResponseValidation = engine.Validate(policyCtx)
+	engineResponseValidation = engine.Validate(context.TODO(), rclient, policyCtx)
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	return engineResponses
 }
 
-func mutation(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext context.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
-	policyContext := &engine.PolicyContext{
-		Policy:          policy,
-		NewResource:     resource,
-		JSONContext:     jsonContext,
-		NamespaceLabels: namespaceLabels,
-	}
+func mutation(
+	policy kyvernov1.PolicyInterface,
+	resource unstructured.Unstructured,
+	log logr.Logger,
+	jsonContext enginecontext.Interface,
+	rclient registryclient.Client,
+	informerCacheResolvers resolvers.ConfigmapResolver,
+	namespaceLabels map[string]string,
+) (*response.EngineResponse, error) {
+	policyContext := engine.NewPolicyContextWithJsonContext(jsonContext).
+		WithPolicy(policy).
+		WithNamespaceLabels(namespaceLabels).
+		WithNewResource(resource).
+		WithInformerCacheResolver(informerCacheResolvers)
 
-	engineResponse := engine.Mutate(policyContext)
+	engineResponse := engine.Mutate(context.TODO(), rclient, policyContext)
 	if !engineResponse.IsSuccessful() {
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil

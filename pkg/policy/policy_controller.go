@@ -22,8 +22,10 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
@@ -53,8 +55,10 @@ const (
 type PolicyController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	pInformer     kyvernov1informers.ClusterPolicyInformer
-	npInformer    kyvernov1informers.PolicyInformer
+	rclient       registryclient.Client
+
+	pInformer  kyvernov1informers.ClusterPolicyInformer
+	npInformer kyvernov1informers.PolicyInformer
 
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
@@ -74,6 +78,8 @@ type PolicyController struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
 
+	informerCacheResolvers resolvers.ConfigmapResolver
+
 	informersSynced []cache.InformerSynced
 
 	// Resource manager, manages the mapping for already processed resource
@@ -86,22 +92,24 @@ type PolicyController struct {
 
 	log logr.Logger
 
-	metricsConfig *metrics.MetricsConfig
+	metricsConfig metrics.MetricsConfigManager
 }
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
+	rclient registryclient.Client,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	configHandler config.Configuration,
 	eventGen event.Interface,
 	namespaces corev1informers.NamespaceInformer,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
-	metricsConfig *metrics.MetricsConfig,
+	metricsConfig metrics.MetricsConfigManager,
 ) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -112,6 +120,7 @@ func NewPolicyController(
 	pc := PolicyController{
 		client:          client,
 		kyvernoClient:   kyvernoClient,
+		rclient:         rclient,
 		pInformer:       pInformer,
 		npInformer:      npInformer,
 		eventGen:        eventGen,
@@ -380,7 +389,7 @@ func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Lo
 	kinds := fetchUniqueKinds(rule)
 
 	for _, kind := range kinds {
-		mlist, err := client.ListResource("", kind, "", rule.MatchResources.Selector)
+		mlist, err := client.ListResource(context.TODO(), "", kind, "", rule.MatchResources.Selector)
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
 			continue

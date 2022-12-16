@@ -30,6 +30,7 @@ REPO_KYVERNOPRE      := $(REGISTRY)/$(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO         := $(REGISTRY)/$(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI             := $(REGISTRY)/$(REPO)/$(CLI_IMAGE)
 REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(KYVERNO_CLEANUP)
+USE_CONFIG           ?= standard
 
 #########
 # TOOLS #
@@ -146,7 +147,7 @@ KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
 CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
 CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
 PACKAGE        ?= github.com/kyverno/kyverno
-CGO_ENABLED    ?= 0 
+CGO_ENABLED    ?= 0
 LD_FLAGS        = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 LD_FLAGS_DEV    = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 
@@ -310,7 +311,7 @@ image-build-all: $(BUILD_WITH)-build-all
 GOPATH_SHIM        := ${PWD}/.gopath
 PACKAGE_SHIM       := $(GOPATH_SHIM)/src/$(PACKAGE)
 OUT_PACKAGE        := $(PACKAGE)/pkg/client
-INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1alpha1,$(PACKAGE)/api/policyreport/v1alpha2
+INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/policyreport/v1alpha2
 CLIENTSET_PACKAGE  := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
@@ -395,7 +396,7 @@ codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
 	@echo Create temp folder for kustomization... >&2
 	@mkdir -p config/.helm
 	@echo Create kustomization... >&2
-	@VERSION='"{{.Chart.AppVersion}}"' TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.helm/labels.yaml
+	@VERSION='"{{.Chart.AppVersion}}"' TOP_PATH=".." envsubst < config/templates/helm-labels.yaml.envsubst > config/.helm/labels.yaml
 	@VERSION=dummy TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.helm/kustomization.yaml
 	@echo Generate helm crds... >&2
 	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}' > ./charts/kyverno/templates/crds.yaml
@@ -487,7 +488,7 @@ verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@echo Checking helm charts are up to date... >&2
 	@git --no-pager diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
-	@echo 'To correct this, locally run "make codegen-helm", commit the changes, and re-run tests.' >&2
+	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
 .PHONY: verify-codegen
@@ -614,14 +615,16 @@ test-e2e:
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/generate -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/validate -v
 
 test-e2e-local:
 	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
-	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
+	kubectl port-forward -n kyverno service/kyverno-svc-metrics 8000:8000 &
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/verifyimages -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v
 	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/generate -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/validate -v
 	kill  $!
 
 helm-test-values:
@@ -695,7 +698,7 @@ test-perf: $(PACKAGE_SHIM)
 .PHONY: kind-create-cluster
 kind-create-cluster: $(KIND) ## Create kind cluster
 	@echo Create kind cluster... >&2
-	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/kind.yaml
+	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/config/kind.yaml
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: $(KIND) ## Delete kind cluster
@@ -723,46 +726,76 @@ kind-load-all: kind-load-kyvernopre kind-load-kyverno kind-load-cleanup-controll
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@echo Install kyverno chart... >&2
-	@$(HELM) upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
 		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
 		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
-		--set initContainer.extraArgs={--loggingFormat=text} \
-		--set "extraArgs={--loggingFormat=text}"
+		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
-	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --wait --create-namespace ./charts/kyverno-policies
-
-.PHONY: kind-deploy-metrics-server
-kind-deploy-metrics-server: $(HELM) ## Deploy metrics-server helm chart
-	@echo Install metrics-server chart... >&2
-	@$(HELM) upgrade --install metrics-server --namespace kube-system --wait --repo https://charts.bitnami.com/bitnami metrics-server \
-		--set extraArgs={--kubelet-insecure-tls=true} \
-		--set apiService.create=true
+	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace --wait ./charts/kyverno-policies \
+		--values ./scripts/config/$(USE_CONFIG)/kyverno-policies.yaml
 
 .PHONY: kind-deploy-all
-kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
+kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
 
 .PHONY: kind-deploy-reporter
 kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
-	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --wait --repo https://kyverno.github.io/policy-reporter policy-reporter \
-		--set ui.enabled=true \
-		--set kyvernoPlugin.enabled=true \
-		--create-namespace
+	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
+		--repo https://kyverno.github.io/policy-reporter policy-reporter \
+		--values ./scripts/config/standard/kyverno-reporter.yaml
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
 
-deploy-kube-prom-stack: $(HELM)
+###########
+# DEV LAB #
+###########
+
+.PHONY: dev-lab-ingress-ngingx
+dev-lab-ingress-ngingx: ## Deploy ingress-ngingx
+	@echo Install ingress-ngingx... >&2
+	@kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+	@sleep 15
+	@kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s
+
+.PHONY: dev-lab-prometheus
+dev-lab-prometheus: $(HELM) ## Deploy kube-prometheus-stack helm chart
+	@echo Install kube-prometheus-stack chart... >&2
 	@$(HELM) upgrade --install kube-prometheus-stack --namespace monitoring --create-namespace --wait \
 		--repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack \
-		--values ./scripts/kube-prometheus-stack.yaml
+		--values ./scripts/config/dev/kube-prometheus-stack.yaml
+
+.PHONY: dev-lab-loki
+dev-lab-loki: $(HELM) ## Deploy loki-stack helm chart
+	@echo Install loki-stack chart... >&2
+	@$(HELM) upgrade --install loki-stack --namespace monitoring --create-namespace --wait \
+		--repo https://grafana.github.io/helm-charts loki-stack \
+		--values ./scripts/config/dev/loki-stack.yaml
+
+.PHONY: dev-lab-tempo
+dev-lab-tempo: $(HELM) ## Deploy tempo helm chart
+	@echo Install tempo chart... >&2
+	@$(HELM) upgrade --install tempo --namespace monitoring --create-namespace --wait \
+		--repo https://grafana.github.io/helm-charts tempo \
+		--values ./scripts/config/dev/tempo.yaml
+	@kubectl apply -f ./scripts/config/dev/tempo-datasource.yaml
+
+.PHONY: dev-lab-metrics-server
+dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
+	@echo Install metrics-server chart... >&2
+	@$(HELM) upgrade --install metrics-server --namespace kube-system --wait \
+		--repo https://charts.bitnami.com/bitnami metrics-server \
+		--values ./scripts/config/dev/metrics-server.yaml
+
+.PHONY: dev-lab-all
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo
 
 ########
 # HELP #
