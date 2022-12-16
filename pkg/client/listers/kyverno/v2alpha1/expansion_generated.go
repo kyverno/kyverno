@@ -29,3 +29,11 @@ type CleanupPolicyNamespaceListerExpansion interface{}
 // ClusterCleanupPolicyListerExpansion allows custom methods to be added to
 // ClusterCleanupPolicyLister.
 type ClusterCleanupPolicyListerExpansion interface{}
+
+// PolicyExceptionListerExpansion allows custom methods to be added to
+// PolicyExceptionLister.
+type PolicyExceptionListerExpansion interface{}
+
+// PolicyExceptionNamespaceListerExpansion allows custom methods to be added to
+// PolicyExceptionNamespaceLister.
+type PolicyExceptionNamespaceListerExpansion interface{}

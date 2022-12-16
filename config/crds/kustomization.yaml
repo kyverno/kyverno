@@ -11,6 +11,7 @@ resources:
 - ./kyverno.io_clusterpolicies.yaml
 - ./kyverno.io_generaterequests.yaml
 - ./kyverno.io_policies.yaml
+- ./kyverno.io_policyexceptions.yaml
 - ./kyverno.io_updaterequests.yaml
 - ./wgpolicyk8s.io_clusterpolicyreports.yaml
 - ./wgpolicyk8s.io_policyreports.yaml

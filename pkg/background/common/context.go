@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	utils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -20,6 +21,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 	policy kyvernov1.PolicyInterface,
 	trigger *unstructured.Unstructured,
 	cfg config.Configuration,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 	namespaceLabels map[string]string,
 	logger logr.Logger,
 ) (*engine.PolicyContext, bool, error) {
@@ -84,7 +86,8 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 		WithAdmissionInfo(ur.Spec.Context.UserRequestInfo).
 		WithConfiguration(cfg).
 		WithNamespaceLabels(namespaceLabels).
-		WithClient(dclient)
+		WithClient(dclient).
+		WithInformerCacheResolver(informerCacheResolvers)
 
 	return policyContext, false, nil
 }

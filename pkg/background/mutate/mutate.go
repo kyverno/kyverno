@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -35,8 +36,9 @@ type MutateExistingController struct {
 	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
 
-	configuration config.Configuration
-	eventGen      event.Interface
+	configuration          config.Configuration
+	informerCacheResolvers resolvers.ConfigmapResolver
+	eventGen               event.Interface
 
 	log logr.Logger
 }
@@ -49,18 +51,20 @@ func NewMutateExistingController(
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	dynamicConfig config.Configuration,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 	eventGen event.Interface,
 	log logr.Logger,
 ) *MutateExistingController {
 	c := MutateExistingController{
-		client:        client,
-		statusControl: statusControl,
-		rclient:       rclient,
-		policyLister:  policyLister,
-		npolicyLister: npolicyLister,
-		configuration: dynamicConfig,
-		eventGen:      eventGen,
-		log:           log,
+		client:                 client,
+		statusControl:          statusControl,
+		rclient:                rclient,
+		policyLister:           policyLister,
+		npolicyLister:          npolicyLister,
+		configuration:          dynamicConfig,
+		informerCacheResolvers: informerCacheResolvers,
+		eventGen:               eventGen,
+		log:                    log,
 	}
 	return &c
 }
@@ -87,7 +91,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			continue
 		}
 
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, nil, logger)
+		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, c.informerCacheResolvers, nil, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)

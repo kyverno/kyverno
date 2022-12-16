@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
@@ -23,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
+	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	appsv1 "k8s.io/api/apps/v1"
@@ -31,6 +33,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/tools/cache"
 )
 
 // Validate applies validation rules from policy on the resource
@@ -131,6 +134,23 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 				log = log.WithValues("rule", rule.Name)
 				if !matches(log, rule, enginectx) {
 					return nil
+				}
+				// if matches, check if there is a corresponding policy exception
+				exception, err := matchesException(enginectx, rule)
+				// if we found an exception
+				if err == nil && exception != nil {
+					key, err := cache.MetaNamespaceKeyFunc(exception)
+					// TODO: increase metrics
+					if err != nil {
+						log.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+					} else {
+						log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+						return &response.RuleResponse{
+							Name:    rule.Name,
+							Message: "Rule skipped because of PolicyException" + key,
+							Status:  response.RuleStatusSkip,
+						}
+					}
 				}
 				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 				enginectx.jsonContext.Reset()
@@ -430,18 +450,20 @@ func (v *validator) getDenyMessage(deny bool) string {
 	if !deny {
 		return fmt.Sprintf("validation rule '%s' passed.", v.rule.Name)
 	}
-
 	msg := v.rule.Validation.Message
 	if msg == "" {
 		return fmt.Sprintf("validation error: rule %s failed", v.rule.Name)
 	}
-
 	raw, err := variables.SubstituteAll(v.log, v.policyContext.jsonContext, msg)
 	if err != nil {
 		return msg
 	}
-
-	return raw.(string)
+	switch typed := raw.(type) {
+	case string:
+		return typed
+	default:
+		return "the produced message didn't resolve to a string, check your policy definition."
+	}
 }
 
 func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
@@ -752,4 +774,20 @@ func (v *validator) substituteDeny() error {
 
 	v.deny = i.(*kyvernov1.Deny)
 	return nil
+}
+
+// matchesException checks if an exception applies to the resource being admitted
+func matchesException(policyContext *PolicyContext, rule *kyvernov1.Rule) (*kyvernov2alpha1.PolicyException, error) {
+	candidates, err := policyContext.FindExceptions(rule.Name)
+	if err != nil {
+		return nil, err
+	}
+	for _, candidate := range candidates {
+		err := matched.CheckMatchesResources(policyContext.newResource, candidate.Spec.Match, policyContext.namespaceLabels)
+		// if there's no error it means a match
+		if err == nil {
+			return candidate, nil
+		}
+	}
+	return nil, nil
 }
