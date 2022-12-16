@@ -135,22 +135,10 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 				if !matches(log, rule, enginectx) {
 					return nil
 				}
-				// if matches, check if there is a corresponding policy exception
-				exception, err := matchesException(enginectx, rule)
-				// if we found an exception
-				if err == nil && exception != nil {
-					key, err := cache.MetaNamespaceKeyFunc(exception)
-					// TODO: increase metrics
-					if err != nil {
-						log.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-					} else {
-						log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
-						return &response.RuleResponse{
-							Name:    rule.Name,
-							Message: "Rule skipped because of PolicyException" + key,
-							Status:  response.RuleStatusSkip,
-						}
-					}
+				// check if there is a corresponding policy exception
+				ruleResp := hasPolicyExceptions(enginectx, rule, log)
+				if ruleResp != nil {
+					return ruleResp
 				}
 				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 				enginectx.jsonContext.Reset()
@@ -799,4 +787,31 @@ func matchesException(policyContext *PolicyContext, rule *kyvernov1.Rule) (*kyve
 		}
 	}
 	return nil, nil
+}
+
+// hasPolicyExceptions returns nil when there are no matching exceptions.
+// A rule response is returned when an exception is matched, or there is an error.
+func hasPolicyExceptions(ctx *PolicyContext, rule *kyvernov1.Rule, log logr.Logger) *response.RuleResponse {
+	// if matches, check if there is a corresponding policy exception
+	exception, err := matchesException(ctx, rule)
+	// if we found an exception
+	if err == nil && exception != nil {
+		key, err := cache.MetaNamespaceKeyFunc(exception)
+		if err != nil {
+			log.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+			return &response.RuleResponse{
+				Name:    rule.Name,
+				Message: "failed to find matched exception " + key,
+				Status:  response.RuleStatusError,
+			}
+		}
+
+		log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+		return &response.RuleResponse{
+			Name:    rule.Name,
+			Message: "rule skipped due to policy exception " + key,
+			Status:  response.RuleStatusSkip,
+		}
+	}
+	return nil
 }
