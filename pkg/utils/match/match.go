@@ -1,4 +1,4 @@
-package cleanup
+package match
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func checkNamespace(statement string, resource unstructured.Unstructured) error {
+func CheckNamespace(statement string, resource unstructured.Unstructured) error {
 	if statement == "" {
 		return nil
 	}
@@ -28,7 +28,7 @@ func checkNamespace(statement string, resource unstructured.Unstructured) error 
 	return fmt.Errorf("resource namespace (%s) doesn't match statement (%s)", resource.GetNamespace(), statement)
 }
 
-func checkMatchesResources(
+func CheckMatchesResources(
 	resource unstructured.Unstructured,
 	statement kyvernov2beta1.MatchResources,
 	namespaceLabels map[string]string,
