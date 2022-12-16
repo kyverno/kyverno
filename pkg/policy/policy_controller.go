@@ -118,18 +118,19 @@ func NewPolicyController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		client:          client,
-		kyvernoClient:   kyvernoClient,
-		rclient:         rclient,
-		pInformer:       pInformer,
-		npInformer:      npInformer,
-		eventGen:        eventGen,
-		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
-		configHandler:   configHandler,
-		reconcilePeriod: reconcilePeriod,
-		metricsConfig:   metricsConfig,
-		log:             log,
+		client:                 client,
+		kyvernoClient:          kyvernoClient,
+		rclient:                rclient,
+		pInformer:              pInformer,
+		npInformer:             npInformer,
+		eventGen:               eventGen,
+		eventRecorder:          eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
+		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		configHandler:          configHandler,
+		informerCacheResolvers: informerCacheResolvers,
+		reconcilePeriod:        reconcilePeriod,
+		metricsConfig:          metricsConfig,
+		log:                    log,
 	}
 
 	pc.pLister = pInformer.Lister()
