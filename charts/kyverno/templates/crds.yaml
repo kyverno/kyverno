@@ -20,7 +20,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: AdmissionReport
     listKind: AdmissionReportList
     plural: admissionreports
@@ -286,7 +285,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: BackgroundScanReport
     listKind: BackgroundScanReportList
     plural: backgroundscanreports
@@ -518,7 +516,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: ClusterAdmissionReport
     listKind: ClusterAdmissionReportList
     plural: clusteradmissionreports
@@ -784,7 +781,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: ClusterBackgroundScanReport
     listKind: ClusterBackgroundScanReportList
     plural: clusterbackgroundscanreports
@@ -1016,7 +1012,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: ClusterPolicy
     listKind: ClusterPolicyList
     plural: clusterpolicies
@@ -16406,7 +16401,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: UpdateRequest
     listKind: UpdateRequestList
     plural: updaterequests
