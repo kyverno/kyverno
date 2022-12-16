@@ -67,7 +67,8 @@ type ApplyCommandConfig struct {
 	warnExitCode    int
 }
 
-var applyHelp = `
+var (
+	applyHelp = `
 
 To apply on a resource:
         kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
@@ -144,6 +145,10 @@ To apply policy with variables:
 
 More info: https://kyverno.io/docs/kyverno-cli/
 `
+
+	// allow os.exit to be overwritten during unit tests
+	osExit = os.Exit
+)
 
 func Command() *cobra.Command {
 	var cmd *cobra.Command
@@ -243,43 +248,45 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("a stdin pipe can be used for either policies or resources, not both", err)
 	}
 
-	isGit := common.IsGitSourcePath(c.PolicyPaths)
 	var policies []kyvernov1.PolicyInterface
-	gitSourceURL, err := url.Parse(c.PolicyPaths[0])
-	if err != nil {
-		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
-		os.Exit(1)
-	}
 
-	pathElems := strings.Split(gitSourceURL.Path[1:], "/")
-	if len(pathElems) <= 1 {
-		err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-		fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
-		os.Exit(1)
-	}
+	isGit := common.IsGitSourcePath(c.PolicyPaths)
 
-	gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
-	repoURL := gitSourceURL.String()
-	var gitPathToYamls string
 	if isGit {
+		gitSourceURL, err := url.Parse(c.PolicyPaths[0])
+		if err != nil {
+			fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
+			osExit(1)
+		}
+
+		pathElems := strings.Split(gitSourceURL.Path[1:], "/")
+		if len(pathElems) <= 1 {
+			err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
+			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
+			osExit(1)
+		}
+
+		gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
+		repoURL := gitSourceURL.String()
+		var gitPathToYamls string
 		c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, c.PolicyPaths)
 		_, cloneErr := gitutils.Clone(repoURL, fs, c.GitBranch)
 		if cloneErr != nil {
 			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
 			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
-			os.Exit(1)
+			osExit(1)
 		}
 		policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
 		}
-		c.PolicyPaths = policyYamls
 		sort.Strings(policyYamls)
+		c.PolicyPaths = policyYamls
 	}
 	policies, err = common.GetPoliciesFromPaths(fs, c.PolicyPaths, isGit, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	if len(c.ResourcePaths) == 0 && !c.Cluster {
@@ -310,13 +317,13 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 
 	err = common.PrintMutatedPolicy(policies)
 	if err != nil {
-		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to marsal mutated policy", err)
+		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to marshal mutated policy", err)
 	}
 
 	resources, err = common.GetResourceAccordingToResourcePath(fs, c.ResourcePaths, c.Cluster, policies, dClient, c.Namespace, c.PolicyReport, false, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	if (len(resources) > 1 || len(policies) > 1) && c.VariablesString != "" {
@@ -330,7 +337,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		userInfo, subjectInfo, err = common.GetUserInfoFromPath(fs, c.UserInfoPath, false, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
-			os.Exit(1)
+			osExit(1)
 		}
 		store.SetSubjects(subjectInfo)
 	}
@@ -499,9 +506,9 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 	}
 
 	if rc.Fail > 0 || rc.Error > 0 {
-		os.Exit(1)
+		osExit(1)
 	} else if rc.Warn > 0 && warnExitCode != 0 {
-		os.Exit(warnExitCode)
+		osExit(warnExitCode)
 	}
 }
 
