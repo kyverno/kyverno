@@ -435,13 +435,13 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 .PHONY: codegen-manifest-release
 codegen-manifest-release: $(HELM) ## Create release manifest
 	@echo Generate release manifest... >&2
-	@mkdir -p ./.manifest/.release
+	@mkdir -p ./.manifest/release
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set cleanupController.image.tag=$(GIT_VERSION) \
 		--set image.tag=$(GIT_VERSION) \
 		--set initImage.tag=$(GIT_VERSION) \
  		| $(SED) -e '/^#.*/d' \
-		> ./.manifest/.release/install.yaml
+		> ./.manifest/release/install.yaml
 
 .PHONY: codegen-manifest-e2e
 codegen-manifest-e2e: $(HELM) ## Create e2e manifest
