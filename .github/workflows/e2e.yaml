@@ -65,7 +65,7 @@ jobs:
           make codegen-manifest-e2e
           cat ${GITHUB_WORKSPACE}/.manifest/e2e/install.yaml \
             | sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' \
-            | kubectl apply --server-side -f e2e.yaml
+            | kubectl apply --server-side -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/e2e/rbac.yaml
           echo ">>> Check kyverno"
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
