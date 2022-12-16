@@ -62,10 +62,10 @@ jobs:
       - name: Run e2e tests
         run: |
           echo ">>> Install Kyverno"
-          make codegen-manifest-e2e \
+          make codegen-manifest-e2e
+          cat ${GITHUB_WORKSPACE}/.manifest/e2e/install.yaml \
             | sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' \
-            > e2e.yaml
-          kubectl create -f e2e.yaml
+            | kubectl apply --server-side -f e2e.yaml
           kubectl apply -f ${GITHUB_WORKSPACE}/config/e2e/rbac.yaml
           echo ">>> Check kyverno"
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
@@ -78,7 +78,7 @@ jobs:
           echo ">>> Run Kyverno e2e test"
           make test-e2e
           echo ">>> Cleanup"
-          kubectl delete -f e2e.yaml
+          kubectl delete -f ${GITHUB_WORKSPACE}/.manifest/e2e/install.yaml
       - name: Debug failure
         if: failure()
         run: |

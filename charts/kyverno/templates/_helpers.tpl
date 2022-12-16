@@ -38,11 +38,11 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{/* Version labels */}}
 {{- define "kyverno.versionLabels" -}}
-{{- if .Values.templating.enabled }}
+{{- if .Values.templating.enabled -}}
 app.kubernetes.io/version: {{ required "templating.version is required when templating.enabled is true" .Values.templating.version | replace "+" "_" }}
-{{- else }}
+{{- else -}}
 app.kubernetes.io/version: {{ .Chart.Version | replace "+" "_" }}
-{{- end }}
+{{- end -}}
 {{- end -}}
 
 {{/* CRD labels */}}
