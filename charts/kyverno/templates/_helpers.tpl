@@ -81,6 +81,7 @@ app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
 {{- with (include "kyverno.helmLabels" .) }}
 {{ . }}
 {{- end }}
+app: kyverno
 app.kubernetes.io/component: kyverno
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/name: {{ template "kyverno.name" . }}-test
@@ -90,8 +91,11 @@ app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 
 {{/* matchLabels */}}
 {{- define "kyverno.matchLabels" -}}
-app.kubernetes.io/instance: {{ .Release.Name }}
+app: kyverno
 app.kubernetes.io/name: {{ template "kyverno.name" . }}
+{{- if not .Values.templating.createNamespace }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
 {{- end -}}
 
 {{/* Get the config map name. */}}

@@ -3,21 +3,22 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "kyverno.fullname" . }}
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
-    app: kyverno
+  labels:
+    {{- include "kyverno.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
-    matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
+    matchLabels:
+      {{- include "kyverno.matchLabels" . | nindent 6 }}
   {{- if .Values.updateStrategy }}
   strategy:
     {{ toYaml .Values.updateStrategy | nindent 4 | trim }}
   {{- end }}
   template:
     metadata:
-      labels: {{ include "kyverno.labels" . | nindent 8 }}
-        app: kyverno
+      labels:
+        {{- include "kyverno.labels" . | nindent 8 }}
         {{- range $key, $value := .Values.podLabels }}
         {{ $key }}: {{ $value }}
         {{- end }}
