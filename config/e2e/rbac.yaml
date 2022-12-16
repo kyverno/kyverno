@@ -5,8 +5,8 @@ kind: ClusterRole
 metadata:
   name: kyverno:test-e2e
   labels:
+    app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/instance: kyverno
 rules:
   - apiGroups:
       - '*'

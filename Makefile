@@ -434,7 +434,7 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 .PHONY: codegen-manifest-release
 codegen-manifest-release: $(HELM) ## Create release manifest
 	@echo Generate release manifest... >&2
-	@mkdir -p ./.manifest/release
+	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=$(GIT_VERSION) \
@@ -442,12 +442,12 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 		--set image.tag=$(GIT_VERSION) \
 		--set initImage.tag=$(GIT_VERSION) \
  		| $(SED) -e '/^#.*/d' \
-		> ./.manifest/release/install.yaml
+		> ./.manifest/release.yaml
 
 .PHONY: codegen-manifest-e2e
 codegen-manifest-e2e: $(HELM) ## Create e2e manifest
 	@echo Create e2e manifest... >&2
-	@mkdir -p ./.manifest/e2e
+	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=$(IMAGE_TAG_DEV) \
@@ -458,10 +458,10 @@ codegen-manifest-e2e: $(HELM) ## Create e2e manifest
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
  		| $(SED) -e '/^#.*/d' \
-		> ./.manifest/e2e/install.yaml
+		> ./.manifest/e2e.yaml
 
 .PHONY: codegen-manifest-all
-codegen-manifest-all: codegen-manifest-install codegen-manifest-debug codegen-manifest-release ## Create all manifests
+codegen-manifest-all: codegen-manifest-install codegen-manifest-debug codegen-manifest-release codegen-manifest-e2e ## Create all manifests
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
