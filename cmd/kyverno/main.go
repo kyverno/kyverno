@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
+	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -47,9 +48,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -59,7 +62,8 @@ import (
 )
 
 const (
-	resyncPeriod = 15 * time.Minute
+	resyncPeriod                   = 15 * time.Minute
+	exceptionWebhookControllerName = "exception-webhook-controller"
 )
 
 func setupRegistryClient(ctx context.Context, logger logr.Logger, lister corev1listers.SecretNamespaceLister, imagePullSecrets string, allowInsecureRegistry bool) (registryclient.Client, error) {
@@ -292,6 +296,28 @@ func createrLeaderControllers(
 		admissionReports,
 		runtime,
 	)
+	exceptionWebhookController := genericwebhookcontroller.NewController(
+		exceptionWebhookControllerName,
+		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+		kubeKyvernoInformer.Core().V1().Secrets(),
+		config.ExceptionValidatingWebhookConfigurationName,
+		config.ExceptionValidatingWebhookServicePath,
+		serverIP,
+		[]admissionregistrationv1.RuleWithOperations{{
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{"kyverno.io"},
+				APIVersions: []string{"v2alpha1"},
+				Resources:   []string{"policyexceptions"},
+			},
+			Operations: []admissionregistrationv1.OperationType{
+				admissionregistrationv1.Create,
+				admissionregistrationv1.Update,
+			},
+		}},
+		genericwebhookcontroller.Fail,
+		genericwebhookcontroller.None,
+	)
 	reportControllers, warmup := createReportControllers(
 		backgroundScan,
 		admissionReports,
@@ -309,6 +335,7 @@ func createrLeaderControllers(
 				internal.NewController("policy-controller", policyCtrl, 2),
 				internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
 				internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
+				internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1),
 			},
 			reportControllers...,
 		),
@@ -607,9 +634,11 @@ func main() {
 		openApiManager,
 		admissionReports,
 	)
+	exceptionHandlers := webhooksexception.NewHandlers()
 	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,
+		exceptionHandlers,
 		configuration,
 		metricsConfig,
 		webhooks.DebugModeOptions{
