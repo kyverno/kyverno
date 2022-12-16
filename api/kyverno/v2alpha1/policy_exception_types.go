@@ -17,6 +17,7 @@ package v2alpha1
 
 import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -40,13 +41,12 @@ type PolicyException struct {
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
-	// errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
-	// errs = append(errs, p.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
-	// if p.ExcludeResources != nil {
-	// 	errs = append(errs, p.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
-	// }
-	// errs = append(errs, p.ValidateMatchExcludeConflict(path)...)
 	return errs
+}
+
+// Contains returns true if it contains an exception for the given policy/rule pair
+func (p *PolicyException) Contains(policy string, rule string) bool {
+	return p.Spec.Contains(policy, rule)
 }
 
 // PolicyExceptionSpec stores policy exception spec
@@ -68,6 +68,16 @@ func (p *PolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
+// Contains returns true if it contains an exception for the given policy/rule pair
+func (p *PolicyExceptionSpec) Contains(policy string, rule string) bool {
+	for _, exception := range p.Exceptions {
+		if exception.Contains(policy, rule) {
+			return true
+		}
+	}
+	return false
+}
+
 // Exception stores infos about a policy and rules
 type Exception struct {
 	// PolicyName identifies the policy to which the exception is applied.
@@ -83,6 +93,11 @@ func (p *Exception) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Required(path.Child("policyName"), "An exception requires a policy name"))
 	}
 	return errs
+}
+
+// Contains returns true if it contains an exception for the given policy/rule pair
+func (p *Exception) Contains(policy string, rule string) bool {
+	return p.PolicyName == policy && slices.Contains(p.RuleNames, rule)
 }
 
 // +kubebuilder:object:root=true
