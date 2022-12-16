@@ -117,6 +117,7 @@ func createNonLeaderControllers(
 	policyCache policycache.Cache,
 	eventGenerator event.Interface,
 	manager openapi.Manager,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 ) ([]internal.Controller, func() error) {
 	policyCacheController := policycachecontroller.NewController(
 		dynamicClient,
@@ -143,6 +144,7 @@ func createNonLeaderControllers(
 		kubeKyvernoInformer.Core().V1().Pods(),
 		eventGenerator,
 		configuration,
+		informerCacheResolvers,
 	)
 	return []internal.Controller{
 			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
@@ -166,6 +168,7 @@ func createReportControllers(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
+	configMapResolver resolvers.ConfigmapResolver,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -219,6 +222,7 @@ func createReportControllers(
 					kyvernoV1.ClusterPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
 					resourceReportController,
+					configMapResolver,
 				),
 				backgroundScanWorkers,
 			))
@@ -255,6 +259,7 @@ func createrLeaderControllers(
 	eventGenerator event.Interface,
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
+	configMapResolver resolvers.ConfigmapResolver,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -266,6 +271,7 @@ func createrLeaderControllers(
 		configuration,
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
+		configMapResolver,
 		logging.WithName("PolicyController"),
 		time.Hour,
 		metricsConfig,
@@ -329,6 +335,7 @@ func createrLeaderControllers(
 		metadataInformer,
 		kubeInformer,
 		kyvernoInformer,
+		configMapResolver,
 	)
 	return append(
 			[]internal.Controller{
@@ -504,6 +511,7 @@ func main() {
 		policyCache,
 		eventGenerator,
 		openApiManager,
+		configMapResolver,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
@@ -561,6 +569,7 @@ func main() {
 				eventGenerator,
 				certRenewer,
 				runtime,
+				configMapResolver,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

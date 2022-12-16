@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -27,6 +28,7 @@ func applyPolicy(
 	excludeGroupRole []string,
 	client dclient.Interface,
 	rclient registryclient.Client,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 	namespaceLabels map[string]string,
 ) (responses []*response.EngineResponse) {
 	startTime := time.Now()
@@ -63,7 +65,7 @@ func applyPolicy(
 		logger.Error(err, "unable to set operation in context")
 	}
 
-	engineResponseMutation, err = mutation(policy, resource, logger, ctx, rclient, namespaceLabels)
+	engineResponseMutation, err = mutation(policy, resource, logger, ctx, rclient, informerCacheResolvers, namespaceLabels)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
 	}
@@ -73,7 +75,8 @@ func applyPolicy(
 		WithNewResource(resource).
 		WithNamespaceLabels(namespaceLabels).
 		WithClient(client).
-		WithExcludeGroupRole(excludeGroupRole...)
+		WithExcludeGroupRole(excludeGroupRole...).
+		WithInformerCacheResolver(informerCacheResolvers)
 
 	engineResponseValidation = engine.Validate(context.TODO(), rclient, policyCtx)
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
@@ -87,12 +90,14 @@ func mutation(
 	log logr.Logger,
 	jsonContext enginecontext.Interface,
 	rclient registryclient.Client,
+	informerCacheResolvers resolvers.ConfigmapResolver,
 	namespaceLabels map[string]string,
 ) (*response.EngineResponse, error) {
 	policyContext := engine.NewPolicyContextWithJsonContext(jsonContext).
 		WithPolicy(policy).
 		WithNamespaceLabels(namespaceLabels).
-		WithNewResource(resource)
+		WithNewResource(resource).
+		WithInformerCacheResolver(informerCacheResolvers)
 
 	engineResponse := engine.Mutate(context.TODO(), rclient, policyContext)
 	if !engineResponse.IsSuccessful() {
