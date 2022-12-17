@@ -641,7 +641,7 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]interface{}, 
 	statements = statementsByPredicate[attestation.PredicateType]
 	if statements == nil {
 		iv.logger.Info("no attestations found for predicate", "type", attestation.PredicateType, "predicates", types, "image", imageInfo.String())
-		return fmt.Errorf("attestions not found for predicte type %s", attestation.PredicateType)
+		return fmt.Errorf("attestions not found for predicate type %s", attestation.PredicateType)
 	}
 
 	for _, s := range statements {
