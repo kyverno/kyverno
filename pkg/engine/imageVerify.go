@@ -379,7 +379,7 @@ func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerificat
 		path := fmt.Sprintf(".attestations[%d]", i)
 
 		if attestation.PredicateType == "" {
-			return ruleResponse(*iv.rule, response.ImageVerify, path+": missing predicateType", response.RuleStatusFail), ""
+			return ruleResponse(*iv.rule, response.ImageVerify, path+": missing predicateType", response.RuleStatusFail, nil), ""
 		}
 
 		if len(attestation.Attestors) == 0 {
