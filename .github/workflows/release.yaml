@@ -135,13 +135,13 @@ jobs:
           cosign-release: 'v1.13.0'
 
       - name: Build yaml manifest
-        run: make codegen-release
+        run: make codegen-manifest-release
 
       - name: Upload yaml manifest
         uses: svenstaro/upload-release-action@133984371c30d34e38222a64855679a414cb7575 # pin@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: config/.release/install.yaml
+          file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
 
@@ -158,7 +158,7 @@ jobs:
         run: |
           set -e
           mkdir -p config/.release-manifests
-          cp config/.release/install.yaml config/.release-manifests/install.yaml
+          cp .manifest/release.yaml config/.release-manifests/install.yaml
           cd config/.release-manifests/ && \
           flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }} \
             --path="." \
