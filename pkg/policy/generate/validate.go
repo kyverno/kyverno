@@ -85,7 +85,7 @@ func (g *Generate) Validate() (string, error) {
 	}
 
 	// Kyverno generate-controller create/update/deletes the resources specified in generate rule of policy
-	// kyverno uses SA 'kyverno-service-account' and has default ClusterRoles and ClusterRoleBindings
+	// kyverno uses SA 'kyverno' and has default ClusterRoles and ClusterRoleBindings
 	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 	// - operations required: create/update/delete/get
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing

@@ -1,3 +1,10 @@
+# -- Internal settings used with `helm template` to generate install manifest
+# @ignored
+templating:
+  enabled: false
+  debug: false
+  version:
+
 # -- Override the name of the chart
 nameOverride:
 
