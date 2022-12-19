@@ -170,7 +170,7 @@ spec:
             name: ns-cluster-role
           subjects:
           - kind: ServiceAccount
-            name: "kyverno-service-account"
+            name: "kyverno"
             namespace: "{{request.object.metadata.name}}"
 `)
 
@@ -211,7 +211,7 @@ roleRef:
   name: base-cluster-role
 subjects:
 - kind: ServiceAccount
-  name: kyverno-service-account
+  name: kyverno
   namespace: kyverno
 `)
 
