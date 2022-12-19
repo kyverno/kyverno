@@ -42,6 +42,17 @@ var testPolicyGood = `{
             "attestations": [
               {
                 "predicateType": "https://example.com/CodeReview/v1",
+				"attestors": [
+					{
+						"entries": [
+							{
+								"keys": {
+									"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHMmDjK65krAyDaGaeyWNzgvIu155JI50B2vezCw8+3CVeE0lJTL5dbL3OP98Za0oAEBJcOxky8Riy/XcmfKZbw==\n-----END PUBLIC KEY-----"
+								}
+							}
+						]
+					}
+				],
                 "conditions": [
                   {
                     "all": [
@@ -427,28 +438,32 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
+	policyContext.Policy.GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
 	cosign.ClearMock()
-	err, _ := VerifyAndPatchImages(policyContext)
-	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass, err.PolicyResponse.Rules[0].Message)
+	engineResp, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules[0].Patches), 1)
+	patch := engineResp.PolicyResponse.Rules[0].Patches[0]
+	assert.Equal(t, string(patch), "{\"op\":\"replace\",\"path\":\"/spec/containers/0/image\",\"value\":\"ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105\"}")
 }
 
 func Test_SignatureUnsigned(t *testing.T) {
 	cosign.ClearMock()
 	unsigned := strings.Replace(testSampleResource, ":signed", ":unsigned", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, unsigned, "")
-	err, _ := VerifyAndPatchImages(policyContext)
-	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
+	engineResp, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignatureWrongKey(t *testing.T) {
 	cosign.ClearMock()
 	otherKey := strings.Replace(testSampleResource, ":signed", ":signed-by-someone-else", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, otherKey, "")
-	err, _ := VerifyAndPatchImages(policyContext)
-	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
+	engineResp, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignaturesMultiKey(t *testing.T) {
@@ -457,9 +472,9 @@ func Test_SignaturesMultiKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err, _ := VerifyAndPatchImages(policyContext)
-	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass, err.PolicyResponse.Rules[0].Message)
+	engineResp, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignaturesMultiKeyFail(t *testing.T) {
@@ -467,9 +482,9 @@ func Test_SignaturesMultiKeyFail(t *testing.T) {
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err, _ := VerifyAndPatchImages(policyContext)
-	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
+	engineResp, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
@@ -478,9 +493,9 @@ func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err, _ := VerifyAndPatchImages(policyContext)
-	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass, err.PolicyResponse.Rules[0].Message)
+	engineResp, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
