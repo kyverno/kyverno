@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -47,7 +48,7 @@ func Command() *cobra.Command {
 				return err
 			}
 			if len(queries) == 0 && input == nil {
-				return errors.New("At least one query or input object is required.")
+				return errors.New("at least one query or input object is required.")
 			}
 			if len(queries) == 0 {
 				query, err := readQuery(cmd)
@@ -91,11 +92,15 @@ func readFile(reader io.Reader) ([]byte, error) {
 }
 
 func loadFile(file string) ([]byte, error) {
-	reader, err := os.Open(file)
+	reader, err := os.Open(filepath.Clean(file))
 	if err != nil {
 		return nil, fmt.Errorf("failed open file %s: %v", file, err)
 	}
-	defer reader.Close()
+	defer func() {
+		if err := reader.Close(); err != nil {
+			fmt.Printf("Error closing file: %s\n", err)
+		}
+	}()
 	content, err := readFile(reader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %v", file, err)

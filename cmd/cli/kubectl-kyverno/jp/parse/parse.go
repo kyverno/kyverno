@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -56,11 +57,15 @@ func readFile(reader io.Reader) (string, error) {
 }
 
 func loadFile(file string) (string, error) {
-	reader, err := os.Open(file)
+	reader, err := os.Open(filepath.Clean(file))
 	if err != nil {
 		return "", fmt.Errorf("failed open file %s: %v", file, err)
 	}
-	defer reader.Close()
+	defer func() {
+		if err := reader.Close(); err != nil {
+			fmt.Printf("Error closing file: %s\n", err)
+		}
+	}()
 	content, err := readFile(reader)
 	if err != nil {
 		return "", fmt.Errorf("failed read file %s: %v", file, err)
