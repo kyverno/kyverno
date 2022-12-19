@@ -320,6 +320,14 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 		if imageInfo.Digest == "" {
 			imageInfo.Digest = cosignResp.Digest
 		}
+
+		if len(imageVerify.Attestations) == 0 {
+			return ruleResp, cosignResp.Digest
+		}
+
+		if imageInfo.Digest == "" {
+			imageInfo.Digest = cosignResp.Digest
+		}
 	}
 
 	return iv.verifyAttestations(imageVerify, imageInfo)
@@ -338,7 +346,7 @@ func (iv *imageVerifier) verifyAttestors(
 		var err error
 		path := fmt.Sprintf(".attestors[%d]", i)
 		iv.logger.V(4).Info("verifying attestors", "path", path)
-		cosignResponse, err = iv.verifyAttestorSet(attestorSet, imageVerify, imageInfo, path, predicateType)
+		cosignResponse, err = iv.verifyAttestorSet(attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
 			iv.logger.Error(err, "failed to verify image")
 			return iv.handleRegistryErrors(image, err), nil
@@ -369,6 +377,10 @@ func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerificat
 	for i, attestation := range imageVerify.Attestations {
 		var attestationError error
 		path := fmt.Sprintf(".attestations[%d]", i)
+
+		if attestation.PredicateType == "" {
+			return ruleResponse(*iv.rule, response.ImageVerify, path+": missing predicateType", response.RuleStatusFail), ""
+		}
 
 		if len(attestation.Attestors) == 0 {
 			// add an empty attestor to allow fetching and checking attestations
@@ -421,8 +433,11 @@ func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerificat
 	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), imageInfo.Digest
 }
 
-func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, imageVerify kyvernov1.ImageVerification,
-	imageInfo apiutils.ImageInfo, path, predicateType string,
+func (iv *imageVerifier) verifyAttestorSet(
+	attestorSet kyvernov1.AttestorSet,
+	imageVerify kyvernov1.ImageVerification,
+	imageInfo apiutils.ImageInfo,
+	path string,
 ) (*cosign.Response, error) {
 	var errorList []error
 	verifiedCount := 0
@@ -442,7 +457,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, im
 				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
 			} else {
 				attestorPath += ".attestor"
-				cosignResp, entryError = iv.verifyAttestorSet(*nestedAttestorSet, imageVerify, imageInfo, attestorPath, predicateType)
+				cosignResp, entryError = iv.verifyAttestorSet(*nestedAttestorSet, imageVerify, imageInfo, attestorPath)
 			}
 		} else {
 			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, nil)
@@ -582,14 +597,18 @@ func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, er
 }
 
 func (iv *imageVerifier) verifyAttestation(statements []map[string]interface{}, attestation kyvernov1.Attestation, imageInfo apiutils.ImageInfo) error {
+	if attestation.PredicateType == "" {
+		return fmt.Errorf("a predicateType is required")
+	}
+
 	image := imageInfo.String()
 	statementsByPredicate, types := buildStatementMap(statements)
 	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
 
 	statements = statementsByPredicate[attestation.PredicateType]
 	if statements == nil {
-		iv.logger.Info("attestation predicate type not found", "type", attestation.PredicateType, "predicates", types, "image", imageInfo.String())
-		return fmt.Errorf("predicate type %s not found", attestation.PredicateType)
+		iv.logger.Info("no attestations found for predicate", "type", attestation.PredicateType, "predicates", types, "image", imageInfo.String())
+		return fmt.Errorf("attestions not found for predicate type %s", attestation.PredicateType)
 	}
 
 	for _, s := range statements {

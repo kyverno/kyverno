@@ -192,7 +192,8 @@ type CTLog struct {
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
 	// PredicateType defines the type of Predicate contained within the Statement.
-	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
+	// +kubebuilder:validation:Required
+	PredicateType string `json:"predicateType" yaml:"predicateType"`
 
 	// Attestors specify the required attestors (i.e. authorities)
 	// +kubebuilder:validation:Optional
@@ -200,7 +201,7 @@ type Attestation struct {
 
 	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
-	// +optional
+	// +kubebuilder:validation:Optional
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
