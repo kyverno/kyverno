@@ -402,7 +402,7 @@ func (iv *imageVerifier) verifyAttestations(imageVerify kyvernov1.ImageVerificat
 
 				verifiedCount++
 				if verifiedCount >= requiredCount {
-					iv.logger.V(2).Info("image attestations verification succeeded, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
+					iv.logger.V(2).Info("image attestations verification succeeded", "verifiedCount", verifiedCount, "requiredCount", requiredCount)
 					break
 				}
 			}
