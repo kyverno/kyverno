@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -263,8 +262,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		f.policyContext.JSONContext().Reset()
 		policyContext := f.policyContext.Copy()
 
-		// TODO - this needs to be refactored. The engine should not have a dependency to the CLI code
-		store.SetForEachElement(i)
+		SetForEachElement(i)
 
 		falseVar := false
 		if err := addElementToContext(policyContext, e, i, f.nesting, &falseVar); err != nil {

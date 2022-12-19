@@ -53,7 +53,7 @@ func LoadContext(ctx context.Context, logger logr.Logger, rclient registryclient
 
 		if rule != nil && len(rule.ForEachValues) > 0 {
 			for key, value := range rule.ForEachValues {
-				if err := enginectx.jsonContext.AddVariable(key, value[store.ForeachElement]); err != nil {
+				if err := enginectx.jsonContext.AddVariable(key, value[GetForEachElement()]); err != nil {
 					return err
 				}
 			}

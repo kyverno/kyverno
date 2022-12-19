@@ -32,6 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+var (
+	forEachElement int
+)
+
 // EngineStats stores in the statistics for a single application of resource
 type EngineStats struct {
 	// average time required to process the policy rules on a resource
@@ -481,4 +485,12 @@ func invertedElement(elements []interface{}) {
 	for i, j := 0, len(elements)-1; i < j; i, j = i+1, j-1 {
 		elements[i], elements[j] = elements[j], elements[i]
 	}
+}
+
+func SetForEachElement(element int) {
+	forEachElement = element
+}
+
+func GetForEachElement() int {
+	return forEachElement
 }

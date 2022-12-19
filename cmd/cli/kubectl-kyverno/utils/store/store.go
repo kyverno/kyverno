@@ -10,7 +10,6 @@ var (
 	registryClient registryclient.Client
 	AllowApiCalls  bool
 	ContextVar     Context
-	ForeachElement int
 	Subjects       Subject
 )
 
@@ -20,14 +19,6 @@ func SetMock(mock bool) {
 
 func GetMock() bool {
 	return Mock
-}
-
-func SetForEachElement(foreachElement int) {
-	ForeachElement = foreachElement
-}
-
-func GetForeachElement() int {
-	return ForeachElement
 }
 
 func SetRegistryAccess(access bool) {
