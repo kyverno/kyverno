@@ -621,10 +621,6 @@ Deprecated. Policy metrics are available via the metrics endpoint</p>
 <a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>)
 </p>
 <p>
-<p>APICall defines an HTTP request to the Kubernetes API server. The JSON
-data retrieved is stored in the context. An APICall contains a URLPath
-used to perform the HTTP GET request and an optional JMESPath used to
-transform the retrieved JSON data.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -649,17 +645,29 @@ The format required is the same format used by the <code>kubectl get --raw</code
 </tr>
 <tr>
 <td>
+<code>service</code><br/>
+<em>
+<a href="#kyverno.io/v1.ServiceCall">
+ServiceCall
+</a>
+</em>
+</td>
+<td>
+<p>Service is an API call to a JSON web service</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>jmesPath</code><br/>
 <em>
 string
 </em>
 </td>
 <td>
-<em>(Optional)</em>
 <p>JMESPath is an optional JSON Match Expression that can be used to
-transform the JSON response returned from the API server. For example
+transform the JSON response returned from the server. For example
 a JMESPath of &ldquo;items | length(@)&rdquo; applied to the API server response
-to the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
+for the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
 of deployments across all namespaces.</p>
 </td>
 </tr>
@@ -1320,8 +1328,8 @@ APICall
 </em>
 </td>
 <td>
-<p>APICall defines an HTTP request to the Kubernetes API server. The JSON
-data retrieved is stored in the context.</p>
+<p>APICall is an HTTP request to the Kubernetes API server, or other JSON web service.
+The data returned is stored in the context with the name for the context entry.</p>
 </td>
 </tr>
 <tr>
@@ -2820,6 +2828,50 @@ RuleCountStatus
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.RequestData">RequestData
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+</p>
+<p>
+<p>RequestData contains the HTTP POST data</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>key</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Key is a unique identifier for the data value</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>value</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<p>Value is the data value</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.RequestInfo">RequestInfo
 </h3>
 <p>
@@ -2878,6 +2930,15 @@ Kubernetes authentication/v1.UserInfo
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.RequestType">RequestType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+</p>
+<p>
+<p>RequestType is a HTTP request type.</p>
+</p>
 <h3 id="kyverno.io/v1.ResourceDescription">ResourceDescription
 </h3>
 <p>
@@ -3394,6 +3455,75 @@ string
 </td>
 <td>
 <p>Namespace name where the Secret exists.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ServiceCall">ServiceCall
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.APICall">APICall</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>urlPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>URL is the JSON web service URL.
+The typical format is <code>https://{service}.{namespace}:{port}/{path}</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>caBundle</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>CABundle is a PEM encoded CA bundle which will be used to validate
+the server certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>requestType</code><br/>
+<em>
+<a href="#kyverno.io/v1.RequestType">
+RequestType
+</a>
+</em>
+</td>
+<td>
+<p>RequestType is the HTTP request type (GET or POST).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>data</code><br/>
+<em>
+<a href="#kyverno.io/v1.RequestData">
+[]RequestData
+</a>
+</em>
+</td>
+<td>
+<p>Data specifies the POST data sent to the server.</p>
 </td>
 </tr>
 </tbody>

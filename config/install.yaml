@@ -3555,19 +3555,63 @@ spec:
                           must be provided.
                         properties:
                           apiCall:
-                            description: APICall defines an HTTP request to the Kubernetes
-                              API server. The JSON data retrieved is stored in the
-                              context.
+                            description: APICall is an HTTP request to the Kubernetes
+                              API server, or other JSON web service. The data returned
+                              is stored in the context with the name for the context
+                              entry.
                             properties:
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the JSON response
-                                  returned from the API server. For example a JMESPath
+                                  returned from the server. For example a JMESPath
                                   of "items | length(@)" applied to the API server
-                                  response to the URLPath "/apis/apps/v1/deployments"
+                                  response for the URLPath "/apis/apps/v1/deployments"
                                   will return the total count of deployments across
                                   all namespaces.
                                 type: string
+                              service:
+                                description: Service is an API call to a JSON web
+                                  service
+                                properties:
+                                  caBundle:
+                                    description: CABundle is a PEM encoded CA bundle
+                                      which will be used to validate the server certificate.
+                                    type: string
+                                  data:
+                                    description: Data specifies the POST data sent
+                                      to the server.
+                                    items:
+                                      description: RequestData contains the HTTP POST
+                                        data
+                                      properties:
+                                        key:
+                                          description: Key is a unique identifier
+                                            for the data value
+                                          type: string
+                                        value:
+                                          description: Value is the data value
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      required:
+                                      - key
+                                      - value
+                                      type: object
+                                    type: array
+                                  requestType:
+                                    default: GET
+                                    description: RequestType is the HTTP request type
+                                      (GET or POST).
+                                    enum:
+                                    - GET
+                                    - POST
+                                    type: string
+                                  urlPath:
+                                    description: URL is the JSON web service URL.
+                                      The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                    type: string
+                                required:
+                                - requestType
+                                - urlPath
+                                type: object
                               urlPath:
                                 description: URLPath is the URL path to be used in
                                   the HTTP GET request to the Kubernetes API server
@@ -3575,8 +3619,6 @@ spec:
                                   The format required is the same format used by the
                                   `kubectl get --raw` command.
                                 type: string
-                            required:
-                            - urlPath
                             type: object
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
@@ -5073,20 +5115,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: RequestType is the HTTP
+                                                request type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -5095,8 +5183,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -5368,20 +5454,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: RequestType is the HTTP
+                                                request type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -5390,8 +5522,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -6576,19 +6706,64 @@ spec:
                               APILookup must be provided.
                             properties:
                               apiCall:
-                                description: APICall defines an HTTP request to the
-                                  Kubernetes API server. The JSON data retrieved is
-                                  stored in the context.
+                                description: APICall is an HTTP request to the Kubernetes
+                                  API server, or other JSON web service. The data
+                                  returned is stored in the context with the name
+                                  for the context entry.
                                 properties:
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
-                                      JSON response returned from the API server.
-                                      For example a JMESPath of "items | length(@)"
-                                      applied to the API server response to the URLPath
-                                      "/apis/apps/v1/deployments" will return the
-                                      total count of deployments across all namespaces.
+                                      JSON response returned from the server. For
+                                      example a JMESPath of "items | length(@)" applied
+                                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                                      will return the total count of deployments across
+                                      all namespaces.
                                     type: string
+                                  service:
+                                    description: Service is an API call to a JSON
+                                      web service
+                                    properties:
+                                      caBundle:
+                                        description: CABundle is a PEM encoded CA
+                                          bundle which will be used to validate the
+                                          server certificate.
+                                        type: string
+                                      data:
+                                        description: Data specifies the POST data
+                                          sent to the server.
+                                        items:
+                                          description: RequestData contains the HTTP
+                                            POST data
+                                          properties:
+                                            key:
+                                              description: Key is a unique identifier
+                                                for the data value
+                                              type: string
+                                            value:
+                                              description: Value is the data value
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          required:
+                                          - key
+                                          - value
+                                          type: object
+                                        type: array
+                                      requestType:
+                                        default: GET
+                                        description: RequestType is the HTTP request
+                                          type (GET or POST).
+                                        enum:
+                                        - GET
+                                        - POST
+                                        type: string
+                                      urlPath:
+                                        description: URL is the JSON web service URL.
+                                          The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                        type: string
+                                    required:
+                                    - requestType
+                                    - urlPath
+                                    type: object
                                   urlPath:
                                     description: URLPath is the URL path to be used
                                       in the HTTP GET request to the Kubernetes API
@@ -6596,8 +6771,6 @@ spec:
                                       The format required is the same format used
                                       by the `kubectl get --raw` command.
                                     type: string
-                                required:
-                                - urlPath
                                 type: object
                               configMap:
                                 description: ConfigMap is the ConfigMap reference.
@@ -8162,21 +8335,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: RequestType is the
+                                                    HTTP request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -8185,8 +8407,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -8470,21 +8690,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: RequestType is the
+                                                    HTTP request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -8493,8 +8762,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -9871,19 +10138,63 @@ spec:
                           must be provided.
                         properties:
                           apiCall:
-                            description: APICall defines an HTTP request to the Kubernetes
-                              API server. The JSON data retrieved is stored in the
-                              context.
+                            description: APICall is an HTTP request to the Kubernetes
+                              API server, or other JSON web service. The data returned
+                              is stored in the context with the name for the context
+                              entry.
                             properties:
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the JSON response
-                                  returned from the API server. For example a JMESPath
+                                  returned from the server. For example a JMESPath
                                   of "items | length(@)" applied to the API server
-                                  response to the URLPath "/apis/apps/v1/deployments"
+                                  response for the URLPath "/apis/apps/v1/deployments"
                                   will return the total count of deployments across
                                   all namespaces.
                                 type: string
+                              service:
+                                description: Service is an API call to a JSON web
+                                  service
+                                properties:
+                                  caBundle:
+                                    description: CABundle is a PEM encoded CA bundle
+                                      which will be used to validate the server certificate.
+                                    type: string
+                                  data:
+                                    description: Data specifies the POST data sent
+                                      to the server.
+                                    items:
+                                      description: RequestData contains the HTTP POST
+                                        data
+                                      properties:
+                                        key:
+                                          description: Key is a unique identifier
+                                            for the data value
+                                          type: string
+                                        value:
+                                          description: Value is the data value
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      required:
+                                      - key
+                                      - value
+                                      type: object
+                                    type: array
+                                  requestType:
+                                    default: GET
+                                    description: RequestType is the HTTP request type
+                                      (GET or POST).
+                                    enum:
+                                    - GET
+                                    - POST
+                                    type: string
+                                  urlPath:
+                                    description: URL is the JSON web service URL.
+                                      The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                    type: string
+                                required:
+                                - requestType
+                                - urlPath
+                                type: object
                               urlPath:
                                 description: URLPath is the URL path to be used in
                                   the HTTP GET request to the Kubernetes API server
@@ -9891,8 +10202,6 @@ spec:
                                   The format required is the same format used by the
                                   `kubectl get --raw` command.
                                 type: string
-                            required:
-                            - urlPath
                             type: object
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
@@ -10993,20 +11302,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: RequestType is the HTTP
+                                                request type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -11015,8 +11370,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -11456,20 +11809,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: RequestType is the HTTP
+                                                request type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -11478,8 +11877,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -12624,19 +13021,64 @@ spec:
                               APILookup must be provided.
                             properties:
                               apiCall:
-                                description: APICall defines an HTTP request to the
-                                  Kubernetes API server. The JSON data retrieved is
-                                  stored in the context.
+                                description: APICall is an HTTP request to the Kubernetes
+                                  API server, or other JSON web service. The data
+                                  returned is stored in the context with the name
+                                  for the context entry.
                                 properties:
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
-                                      JSON response returned from the API server.
-                                      For example a JMESPath of "items | length(@)"
-                                      applied to the API server response to the URLPath
-                                      "/apis/apps/v1/deployments" will return the
-                                      total count of deployments across all namespaces.
+                                      JSON response returned from the server. For
+                                      example a JMESPath of "items | length(@)" applied
+                                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                                      will return the total count of deployments across
+                                      all namespaces.
                                     type: string
+                                  service:
+                                    description: Service is an API call to a JSON
+                                      web service
+                                    properties:
+                                      caBundle:
+                                        description: CABundle is a PEM encoded CA
+                                          bundle which will be used to validate the
+                                          server certificate.
+                                        type: string
+                                      data:
+                                        description: Data specifies the POST data
+                                          sent to the server.
+                                        items:
+                                          description: RequestData contains the HTTP
+                                            POST data
+                                          properties:
+                                            key:
+                                              description: Key is a unique identifier
+                                                for the data value
+                                              type: string
+                                            value:
+                                              description: Value is the data value
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          required:
+                                          - key
+                                          - value
+                                          type: object
+                                        type: array
+                                      requestType:
+                                        default: GET
+                                        description: RequestType is the HTTP request
+                                          type (GET or POST).
+                                        enum:
+                                        - GET
+                                        - POST
+                                        type: string
+                                      urlPath:
+                                        description: URL is the JSON web service URL.
+                                          The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                        type: string
+                                    required:
+                                    - requestType
+                                    - urlPath
+                                    type: object
                                   urlPath:
                                     description: URLPath is the URL path to be used
                                       in the HTTP GET request to the Kubernetes API
@@ -12644,8 +13086,6 @@ spec:
                                       The format required is the same format used
                                       by the `kubectl get --raw` command.
                                     type: string
-                                required:
-                                - urlPath
                                 type: object
                               configMap:
                                 description: ConfigMap is the ConfigMap reference.
@@ -14210,21 +14650,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: RequestType is the
+                                                    HTTP request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -14233,8 +14722,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -14518,21 +15005,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: RequestType is the
+                                                    HTTP request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -14541,8 +15077,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -16508,19 +17042,63 @@ spec:
                           must be provided.
                         properties:
                           apiCall:
-                            description: APICall defines an HTTP request to the Kubernetes
-                              API server. The JSON data retrieved is stored in the
-                              context.
+                            description: APICall is an HTTP request to the Kubernetes
+                              API server, or other JSON web service. The data returned
+                              is stored in the context with the name for the context
+                              entry.
                             properties:
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the JSON response
-                                  returned from the API server. For example a JMESPath
+                                  returned from the server. For example a JMESPath
                                   of "items | length(@)" applied to the API server
-                                  response to the URLPath "/apis/apps/v1/deployments"
+                                  response for the URLPath "/apis/apps/v1/deployments"
                                   will return the total count of deployments across
                                   all namespaces.
                                 type: string
+                              service:
+                                description: Service is an API call to a JSON web
+                                  service
+                                properties:
+                                  caBundle:
+                                    description: CABundle is a PEM encoded CA bundle
+                                      which will be used to validate the server certificate.
+                                    type: string
+                                  data:
+                                    description: Data specifies the POST data sent
+                                      to the server.
+                                    items:
+                                      description: RequestData contains the HTTP POST
+                                        data
+                                      properties:
+                                        key:
+                                          description: Key is a unique identifier
+                                            for the data value
+                                          type: string
+                                        value:
+                                          description: Value is the data value
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      required:
+                                      - key
+                                      - value
+                                      type: object
+                                    type: array
+                                  requestType:
+                                    default: GET
+                                    description: RequestType is the HTTP request type
+                                      (GET or POST).
+                                    enum:
+                                    - GET
+                                    - POST
+                                    type: string
+                                  urlPath:
+                                    description: URL is the JSON web service URL.
+                                      The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                    type: string
+                                required:
+                                - requestType
+                                - urlPath
+                                type: object
                               urlPath:
                                 description: URLPath is the URL path to be used in
                                   the HTTP GET request to the Kubernetes API server
@@ -16528,8 +17106,6 @@ spec:
                                   The format required is the same format used by the
                                   `kubectl get --raw` command.
                                 type: string
-                            required:
-                            - urlPath
                             type: object
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
@@ -18026,20 +18602,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: RequestType is the HTTP
+                                                request type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -18048,8 +18670,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -18321,20 +18941,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: RequestType is the HTTP
+                                                request type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -18343,8 +19009,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -19530,19 +20194,64 @@ spec:
                               APILookup must be provided.
                             properties:
                               apiCall:
-                                description: APICall defines an HTTP request to the
-                                  Kubernetes API server. The JSON data retrieved is
-                                  stored in the context.
+                                description: APICall is an HTTP request to the Kubernetes
+                                  API server, or other JSON web service. The data
+                                  returned is stored in the context with the name
+                                  for the context entry.
                                 properties:
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
-                                      JSON response returned from the API server.
-                                      For example a JMESPath of "items | length(@)"
-                                      applied to the API server response to the URLPath
-                                      "/apis/apps/v1/deployments" will return the
-                                      total count of deployments across all namespaces.
+                                      JSON response returned from the server. For
+                                      example a JMESPath of "items | length(@)" applied
+                                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                                      will return the total count of deployments across
+                                      all namespaces.
                                     type: string
+                                  service:
+                                    description: Service is an API call to a JSON
+                                      web service
+                                    properties:
+                                      caBundle:
+                                        description: CABundle is a PEM encoded CA
+                                          bundle which will be used to validate the
+                                          server certificate.
+                                        type: string
+                                      data:
+                                        description: Data specifies the POST data
+                                          sent to the server.
+                                        items:
+                                          description: RequestData contains the HTTP
+                                            POST data
+                                          properties:
+                                            key:
+                                              description: Key is a unique identifier
+                                                for the data value
+                                              type: string
+                                            value:
+                                              description: Value is the data value
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          required:
+                                          - key
+                                          - value
+                                          type: object
+                                        type: array
+                                      requestType:
+                                        default: GET
+                                        description: RequestType is the HTTP request
+                                          type (GET or POST).
+                                        enum:
+                                        - GET
+                                        - POST
+                                        type: string
+                                      urlPath:
+                                        description: URL is the JSON web service URL.
+                                          The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                        type: string
+                                    required:
+                                    - requestType
+                                    - urlPath
+                                    type: object
                                   urlPath:
                                     description: URLPath is the URL path to be used
                                       in the HTTP GET request to the Kubernetes API
@@ -19550,8 +20259,6 @@ spec:
                                       The format required is the same format used
                                       by the `kubectl get --raw` command.
                                     type: string
-                                required:
-                                - urlPath
                                 type: object
                               configMap:
                                 description: ConfigMap is the ConfigMap reference.
@@ -21116,21 +21823,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: RequestType is the
+                                                    HTTP request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -21139,8 +21895,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -21424,21 +22178,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: RequestType is the
+                                                    HTTP request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -21447,8 +22250,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -22826,19 +23627,63 @@ spec:
                           must be provided.
                         properties:
                           apiCall:
-                            description: APICall defines an HTTP request to the Kubernetes
-                              API server. The JSON data retrieved is stored in the
-                              context.
+                            description: APICall is an HTTP request to the Kubernetes
+                              API server, or other JSON web service. The data returned
+                              is stored in the context with the name for the context
+                              entry.
                             properties:
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the JSON response
-                                  returned from the API server. For example a JMESPath
+                                  returned from the server. For example a JMESPath
                                   of "items | length(@)" applied to the API server
-                                  response to the URLPath "/apis/apps/v1/deployments"
+                                  response for the URLPath "/apis/apps/v1/deployments"
                                   will return the total count of deployments across
                                   all namespaces.
                                 type: string
+                              service:
+                                description: Service is an API call to a JSON web
+                                  service
+                                properties:
+                                  caBundle:
+                                    description: CABundle is a PEM encoded CA bundle
+                                      which will be used to validate the server certificate.
+                                    type: string
+                                  data:
+                                    description: Data specifies the POST data sent
+                                      to the server.
+                                    items:
+                                      description: RequestData contains the HTTP POST
+                                        data
+                                      properties:
+                                        key:
+                                          description: Key is a unique identifier
+                                            for the data value
+                                          type: string
+                                        value:
+                                          description: Value is the data value
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      required:
+                                      - key
+                                      - value
+                                      type: object
+                                    type: array
+                                  requestType:
+                                    default: GET
+                                    description: RequestType is the HTTP request type
+                                      (GET or POST).
+                                    enum:
+                                    - GET
+                                    - POST
+                                    type: string
+                                  urlPath:
+                                    description: URL is the JSON web service URL.
+                                      The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                    type: string
+                                required:
+                                - requestType
+                                - urlPath
+                                type: object
                               urlPath:
                                 description: URLPath is the URL path to be used in
                                   the HTTP GET request to the Kubernetes API server
@@ -22846,8 +23691,6 @@ spec:
                                   The format required is the same format used by the
                                   `kubectl get --raw` command.
                                 type: string
-                            required:
-                            - urlPath
                             type: object
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
@@ -23948,20 +24791,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: RequestType is the HTTP
+                                                request type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -23970,8 +24859,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -24411,20 +25298,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: RequestType is the HTTP
+                                                request type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -24433,8 +25366,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -25579,19 +26510,64 @@ spec:
                               APILookup must be provided.
                             properties:
                               apiCall:
-                                description: APICall defines an HTTP request to the
-                                  Kubernetes API server. The JSON data retrieved is
-                                  stored in the context.
+                                description: APICall is an HTTP request to the Kubernetes
+                                  API server, or other JSON web service. The data
+                                  returned is stored in the context with the name
+                                  for the context entry.
                                 properties:
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
-                                      JSON response returned from the API server.
-                                      For example a JMESPath of "items | length(@)"
-                                      applied to the API server response to the URLPath
-                                      "/apis/apps/v1/deployments" will return the
-                                      total count of deployments across all namespaces.
+                                      JSON response returned from the server. For
+                                      example a JMESPath of "items | length(@)" applied
+                                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                                      will return the total count of deployments across
+                                      all namespaces.
                                     type: string
+                                  service:
+                                    description: Service is an API call to a JSON
+                                      web service
+                                    properties:
+                                      caBundle:
+                                        description: CABundle is a PEM encoded CA
+                                          bundle which will be used to validate the
+                                          server certificate.
+                                        type: string
+                                      data:
+                                        description: Data specifies the POST data
+                                          sent to the server.
+                                        items:
+                                          description: RequestData contains the HTTP
+                                            POST data
+                                          properties:
+                                            key:
+                                              description: Key is a unique identifier
+                                                for the data value
+                                              type: string
+                                            value:
+                                              description: Value is the data value
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          required:
+                                          - key
+                                          - value
+                                          type: object
+                                        type: array
+                                      requestType:
+                                        default: GET
+                                        description: RequestType is the HTTP request
+                                          type (GET or POST).
+                                        enum:
+                                        - GET
+                                        - POST
+                                        type: string
+                                      urlPath:
+                                        description: URL is the JSON web service URL.
+                                          The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                        type: string
+                                    required:
+                                    - requestType
+                                    - urlPath
+                                    type: object
                                   urlPath:
                                     description: URLPath is the URL path to be used
                                       in the HTTP GET request to the Kubernetes API
@@ -25599,8 +26575,6 @@ spec:
                                       The format required is the same format used
                                       by the `kubectl get --raw` command.
                                     type: string
-                                required:
-                                - urlPath
                                 type: object
                               configMap:
                                 description: ConfigMap is the ConfigMap reference.
@@ -27165,21 +28139,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: RequestType is the
+                                                    HTTP request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -27188,8 +28211,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -27473,21 +28494,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: RequestType is the
+                                                    HTTP request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -27496,8 +28566,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap

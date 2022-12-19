@@ -8,9 +8,11 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/pkg/errors"
 )
 
 // LoadContext - Fetches and adds external data to the Context.
@@ -238,15 +240,20 @@ func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref s
 }
 
 func loadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx *PolicyContext) error {
-	jsonData, err := fetchAPIData(ctx, logger, entry, enginectx)
+	executor, err := apicall.New(ctx, entry, enginectx.JSONContext(), enginectx.Client(), logger)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to initialize APICall")
+	}
+
+	jsonData, err := executor.Execute()
+	if err != nil {
+		return errors.Wrapf(err, "failed to execute APICall")
 	}
 
 	if entry.APICall.JMESPath == "" {
 		err = enginectx.jsonContext.AddContextEntry(entry.Name, jsonData)
 		if err != nil {
-			return fmt.Errorf("failed to add resource data to context: contextEntry: %v, error: %v", entry, err)
+			return errors.Wrapf(err, "failed to add resource data to context entry %v", entry)
 		}
 
 		return nil
@@ -254,22 +261,23 @@ func loadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.Contex
 
 	path, err := variables.SubstituteAll(logger, enginectx.jsonContext, entry.APICall.JMESPath)
 	if err != nil {
-		return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.APICall.JMESPath, err)
+		return errors.Wrapf(err, "failed to substitute variables in context entry %s JMESPath %s", entry.Name, entry.APICall.JMESPath)
+
 	}
 
 	results, err := applyJMESPathJSON(path.(string), jsonData)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to apply JMESPath %s for context entry %s", path, entry.Name)
 	}
 
 	contextData, err := json.Marshal(results)
 	if err != nil {
-		return fmt.Errorf("failed to marshall data %v for context entry %v: %v", contextData, entry, err)
+		return errors.Wrapf(err, "failed to marshall APICall data for context entry %s", entry.Name)
 	}
 
 	err = enginectx.jsonContext.AddContextEntry(entry.Name, contextData)
 	if err != nil {
-		return fmt.Errorf("failed to add JMESPath (%s) results to context, error: %v", entry.APICall.JMESPath, err)
+		return errors.Wrapf(err, "failed to add APICall results for context entry %s", entry.Name)
 	}
 
 	logger.V(4).Info("added APICall context entry", "len", len(contextData))
@@ -292,30 +300,6 @@ func applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %v", string(jsonData), err)
 	}
 	return applyJMESPath(jmesPath, data)
-}
-
-func fetchAPIData(ctx context.Context, log logr.Logger, entry kyvernov1.ContextEntry, enginectx *PolicyContext) ([]byte, error) {
-	if entry.APICall == nil {
-		return nil, fmt.Errorf("missing APICall in context entry %s %v", entry.Name, entry.APICall)
-	}
-
-	path, err := variables.SubstituteAll(log, enginectx.jsonContext, entry.APICall.URLPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.APICall.URLPath, err)
-	}
-
-	pathStr := path.(string)
-
-	jsonData, err := getResource(ctx, enginectx, pathStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", pathStr, err)
-	}
-
-	return jsonData, nil
-}
-
-func getResource(ctx context.Context, enginectx *PolicyContext, p string) ([]byte, error) {
-	return enginectx.client.RawAbsPath(ctx, p)
 }
 
 func loadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx *PolicyContext) error {
