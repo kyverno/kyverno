@@ -333,8 +333,6 @@ func (v *validator) validateElements(ctx context.Context, rclient registryclient
 			continue
 		}
 
-		SetForEachElement(i)
-
 		v.policyContext.JSONContext().Reset()
 		policyContext := v.policyContext.Copy()
 		if err := addElementToContext(policyContext, e, i, v.nesting, elementScope); err != nil {
