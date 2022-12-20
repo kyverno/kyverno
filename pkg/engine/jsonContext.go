@@ -245,7 +245,7 @@ func loadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.Contex
 		return errors.Wrapf(err, "failed to initialize APICall")
 	}
 
-	if err := executor.Execute(); err != nil {
+	if _, err := executor.Execute(); err != nil {
 		return errors.Wrapf(err, "failed to execute APICall")
 	}
 

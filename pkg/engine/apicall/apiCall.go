@@ -42,22 +42,23 @@ func New(ctx goctx.Context, entry kyvernov1.ContextEntry, jsonCtx context.Interf
 	}, nil
 }
 
-func (a *apiCall) Execute() error {
+func (a *apiCall) Execute() ([]byte, error) {
 	call, err := variables.SubstituteAllInType(a.log, a.jsonCtx, a.entry.APICall)
 	if err != nil {
-		return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
 
 	data, err := a.execute(call)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := a.transformAndStore(data); err != nil {
-		return err
+	result, err := a.transformAndStore(data)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return result, nil
 }
 
 func (a *apiCall) execute(call *kyvernov1.APICall) ([]byte, error) {
@@ -182,38 +183,38 @@ func (a *apiCall) buildPostData(data []kyvernov1.RequestData) (io.Reader, error)
 	return buffer, nil
 }
 
-func (a *apiCall) transformAndStore(jsonData []byte) error {
+func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 	if a.entry.APICall.JMESPath == "" {
 		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
 		if err != nil {
-			return errors.Wrapf(err, "failed to add resource data to context entry %s", a.entry.Name)
+			return nil, errors.Wrapf(err, "failed to add resource data to context entry %s", a.entry.Name)
 		}
 
-		return nil
+		return jsonData, nil
 	}
 
 	path, err := variables.SubstituteAll(a.log, a.jsonCtx, a.entry.APICall.JMESPath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to substitute variables in context entry %s JMESPath %s", a.entry.Name, a.entry.APICall.JMESPath)
+		return nil, errors.Wrapf(err, "failed to substitute variables in context entry %s JMESPath %s", a.entry.Name, a.entry.APICall.JMESPath)
 	}
 
 	results, err := applyJMESPathJSON(path.(string), jsonData)
 	if err != nil {
-		return errors.Wrapf(err, "failed to apply JMESPath %s for context entry %s", path, a.entry.Name)
+		return nil, errors.Wrapf(err, "failed to apply JMESPath %s for context entry %s", path, a.entry.Name)
 	}
 
 	contextData, err := json.Marshal(results)
 	if err != nil {
-		return errors.Wrapf(err, "failed to marshall APICall data for context entry %s", a.entry.Name)
+		return nil, errors.Wrapf(err, "failed to marshall APICall data for context entry %s", a.entry.Name)
 	}
 
 	err = a.jsonCtx.AddContextEntry(a.entry.Name, contextData)
 	if err != nil {
-		return errors.Wrapf(err, "failed to add APICall results for context entry %s", a.entry.Name)
+		return nil, errors.Wrapf(err, "failed to add APICall results for context entry %s", a.entry.Name)
 	}
 
 	a.log.V(4).Info("added context data", "name", a.entry.Name, "len", len(contextData))
-	return nil
+	return contextData, nil
 }
 
 func applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
