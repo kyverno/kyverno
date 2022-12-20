@@ -6,9 +6,11 @@ import (
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/pod-security-admission/api"
 )
 
 // EngineResponse engine response to the action
@@ -123,6 +125,15 @@ type RuleResponse struct {
 	// PatchedTargetParentResourceGVR is the GVR of the parent resource of the PatchedTarget. This is only populated
 	// when PatchedTarget is a subresource.
 	PatchedTargetParentResourceGVR metav1.GroupVersionResource
+
+	// PodSecurityChecks contains pod security checks (only if this is a pod security rule)
+	PodSecurityChecks *PodSecurityChecks
+}
+
+type PodSecurityChecks struct {
+	Level   api.Level
+	Version string
+	Checks  []pssutils.PSSCheckResult
 }
 
 // ToString ...

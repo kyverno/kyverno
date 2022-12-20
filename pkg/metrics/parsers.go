@@ -32,6 +32,9 @@ func ParseRuleType(rule kyvernov1.Rule) RuleType {
 	if !reflect.DeepEqual(rule.Generation, kyvernov1.Generation{}) {
 		return Generate
 	}
+	if len(rule.VerifyImages) > 0 {
+		return ImageVerify
+	}
 	return EmptyRuleType
 }
 
@@ -58,6 +61,8 @@ func ParseRuleTypeFromEngineRuleResponse(rule response.RuleResponse) RuleType {
 		return Mutate
 	case "Generation":
 		return Generate
+	case "ImageVerify":
+		return ImageVerify
 	default:
 		return EmptyRuleType
 	}

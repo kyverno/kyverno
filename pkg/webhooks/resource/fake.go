@@ -37,6 +37,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	rbLister := informers.Rbac().V1().RoleBindings().Lister()
 	crbLister := informers.Rbac().V1().ClusterRoleBindings().Lister()
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
+	peLister := kyvernoInformers.Kyverno().V2alpha1().PolicyExceptions().Lister()
 
 	return &handlers{
 		client:         dclient,
@@ -51,7 +52,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		urGenerator:    updaterequest.NewFake(),
 		eventGen:       event.NewFake(),
 		openApiManager: openapi.NewFake(),
-		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister, configMapResolver),
+		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister, configMapResolver, peLister),
 		urUpdater:      webhookutils.NewUpdateRequestUpdater(kyvernoclient, urLister),
 	}
 }

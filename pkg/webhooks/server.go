@@ -37,6 +37,11 @@ type Server interface {
 	Cleanup() <-chan struct{}
 }
 
+type ExceptionHandlers interface {
+	// Validate performs the validation check on exception resources
+	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+}
+
 type PolicyHandlers interface {
 	// Mutate performs the mutation of policy resources
 	Mutate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
@@ -66,6 +71,7 @@ type TlsProvider func() ([]byte, []byte, error)
 func NewServer(
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
+	exceptionHandlers ExceptionHandlers,
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts DebugModeOptions,
@@ -78,6 +84,7 @@ func NewServer(
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
+	exceptionLogger := logger.WithName("exception")
 	verifyLogger := logger.WithName("verify")
 	registerWebhookHandlers(
 		mux,
@@ -125,6 +132,16 @@ func NewServer(
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
+			ToHandlerFunc(),
+	)
+	mux.HandlerFunc(
+		"POST",
+		config.ExceptionValidatingWebhookServicePath,
+		handlers.FromAdmissionFunc("VALIDATE", exceptionHandlers.Validate).
+			WithDump(debugModeOpts.DumpPayload).
+			WithSubResourceFilter().
+			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(exceptionLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(

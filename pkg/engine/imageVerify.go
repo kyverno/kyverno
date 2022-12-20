@@ -327,9 +327,25 @@ func (iv *imageVerifier) verifyImage(
 	}
 
 	if len(imageVerify.Attestors) > 0 {
-		ruleResp, _, _ := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo, "")
+		ruleResp, cosignResp := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo, "")
 		if ruleResp.Status != response.RuleStatusPass {
 			return ruleResp, ""
+		}
+
+		if len(imageVerify.Attestations) == 0 {
+			return ruleResp, cosignResp.Digest
+		}
+
+		if imageInfo.Digest == "" {
+			imageInfo.Digest = cosignResp.Digest
+		}
+
+		if len(imageVerify.Attestations) == 0 {
+			return ruleResp, cosignResp.Digest
+		}
+
+		if imageInfo.Digest == "" {
+			imageInfo.Digest = cosignResp.Digest
 		}
 	}
 
@@ -342,37 +358,38 @@ func (iv *imageVerifier) verifyAttestors(
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
 	predicateType string,
-) (*response.RuleResponse, *cosign.Response, []kyvernov1.AttestorSet) {
+) (*response.RuleResponse, *cosign.Response) {
 	var cosignResponse *cosign.Response
-	var newAttestors []kyvernov1.AttestorSet
 	image := imageInfo.String()
 
 	for i, attestorSet := range attestors {
 		var err error
 		path := fmt.Sprintf(".attestors[%d]", i)
 		iv.logger.V(4).Info("verifying attestors", "path", path)
-		cosignResponse, err = iv.verifyAttestorSet(ctx, attestorSet, imageVerify, imageInfo, path, predicateType)
+		cosignResponse, err = iv.verifyAttestorSet(ctx, attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
 			iv.logger.Error(err, "failed to verify image")
-			msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
-
-			// handle registry network errors as a rule error (instead of a policy failure)
-			var netErr *net.OpError
-			if errors.As(err, &netErr) {
-				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError), nil, nil
-			}
-
-			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail), nil, nil
+			return iv.handleRegistryErrors(image, err), nil
 		}
-		newAttestors = append(newAttestors, attestors[i])
 	}
 
 	if cosignResponse == nil {
-		return ruleError(iv.rule, response.ImageVerify, "invalid response", fmt.Errorf("nil")), nil, nil
+		return ruleError(iv.rule, response.ImageVerify, "invalid response", fmt.Errorf("nil")), nil
 	}
 
 	msg := fmt.Sprintf("verified image signatures for %s", image)
-	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass), cosignResponse, newAttestors
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass), cosignResponse
+}
+
+// handle registry network errors as a rule error (instead of a policy failure)
+func (iv *imageVerifier) handleRegistryErrors(image string, err error) *response.RuleResponse {
+	msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
+	var netErr *net.OpError
+	if errors.As(err, &netErr) {
+		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError)
+	}
+
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
 }
 
 func (iv *imageVerifier) verifyAttestations(
@@ -385,58 +402,59 @@ func (iv *imageVerifier) verifyAttestations(
 		var attestationError error
 		path := fmt.Sprintf(".attestations[%d]", i)
 
-		attestors := attestation.Attestors
-		if len(attestation.Attestors) == 0 {
-			attestors = []kyvernov1.AttestorSet{{}}
+		if attestation.PredicateType == "" {
+			return ruleResponse(*iv.rule, response.ImageVerify, path+": missing predicateType", response.RuleStatusFail), ""
 		}
 
-		for j, attestor := range attestors {
-			attestorPath := fmt.Sprintf("%s.attestors[%d]", path, j)
+		if len(attestation.Attestors) == 0 {
+			// add an empty attestor to allow fetching and checking attestations
+			attestation.Attestors = []kyvernov1.AttestorSet{{Entries: []kyvernov1.Attestor{{}}}}
+		}
 
+		for j, attestor := range attestation.Attestors {
+			attestorPath := fmt.Sprintf("%s.attestors[%d]", path, j)
 			requiredCount := getRequiredCount(attestor)
 			verifiedCount := 0
 
-			entries := attestor.Entries
-			if len(entries) == 0 {
-				entries = []kyvernov1.Attestor{{}}
-			}
-
-			for _, a := range entries {
+			for _, a := range attestor.Entries {
 				entryPath := fmt.Sprintf("%s.entries[%d]", attestorPath, i)
-				opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, attestation)
+				opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, &imageVerify.Attestations[i])
 				cosignResp, err := cosign.FetchAttestations(ctx, iv.rclient, *opts)
 				if err != nil {
 					iv.logger.Error(err, "failed to fetch attestations")
-					msg := fmt.Sprintf("failed to fetch attestations %s: %s", image, err.Error())
-					// handle registry network errors as a rule error (instead of a policy failure)
-					var netErr *net.OpError
-					if errors.As(err, &netErr) {
-						return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError), ""
-					}
-
-					return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail), ""
+					return iv.handleRegistryErrors(image, err), ""
 				}
 
-				verifiedCount++
+				if imageInfo.Digest == "" {
+					imageInfo.Digest = cosignResp.Digest
+					image = imageInfo.String()
+				}
+
 				attestationError = iv.verifyAttestation(cosignResp.Statements, attestation, imageInfo)
 				if attestationError != nil {
 					attestationError = errors.Wrapf(attestationError, entryPath+subPath)
 					return ruleResponse(*iv.rule, response.ImageVerify, attestationError.Error(), response.RuleStatusFail), ""
 				}
 
+				verifiedCount++
 				if verifiedCount >= requiredCount {
-					msg := fmt.Sprintf("image attestations verification succeeded, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
-					iv.logger.V(2).Info(msg)
-					return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass), ""
+					iv.logger.V(2).Info("image attestations verification succeeded", "verifiedCount", verifiedCount, "requiredCount", requiredCount)
+					break
 				}
 			}
+
+			if verifiedCount < requiredCount {
+				msg := fmt.Sprintf("image attestations verification failed, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
+				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail), ""
+			}
 		}
+
 		iv.logger.V(4).Info("attestation checks passed", "path", path, "image", imageInfo.String(), "predicateType", attestation.PredicateType)
 	}
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
-	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass), ""
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass), imageInfo.Digest
 }
 
 func (iv *imageVerifier) verifyAttestorSet(
@@ -445,7 +463,6 @@ func (iv *imageVerifier) verifyAttestorSet(
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
 	path string,
-	predicateType string,
 ) (*cosign.Response, error) {
 	var errorList []error
 	verifiedCount := 0
@@ -465,10 +482,10 @@ func (iv *imageVerifier) verifyAttestorSet(
 				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
 			} else {
 				attestorPath += ".attestor"
-				cosignResp, entryError = iv.verifyAttestorSet(ctx, *nestedAttestorSet, imageVerify, imageInfo, attestorPath, predicateType)
+				cosignResp, entryError = iv.verifyAttestorSet(ctx, *nestedAttestorSet, imageVerify, imageInfo, attestorPath)
 			}
 		} else {
-			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, kyvernov1.Attestation{PredicateType: predicateType})
+			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, nil)
 			cosignResp, entryError = cosign.VerifySignature(ctx, iv.rclient, *opts)
 			if entryError != nil {
 				entryError = errors.Wrapf(entryError, attestorPath+subPath)
@@ -543,7 +560,7 @@ func getRequiredCount(as kyvernov1.AttestorSet) int {
 	return *as.Count
 }
 
-func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageVerify kyvernov1.ImageVerification, image string, attestation kyvernov1.Attestation) (*cosign.Options, string) {
+func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageVerify kyvernov1.ImageVerification, image string, attestation *kyvernov1.Attestation) (*cosign.Options, string) {
 	path := ""
 	opts := &cosign.Options{
 		ImageRef:    image,
@@ -555,8 +572,8 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 		opts.Roots = imageVerify.Roots
 	}
 
-	opts.PredicateType = attestation.PredicateType
-	if attestation.PredicateType != "" {
+	if attestation != nil {
+		opts.PredicateType = attestation.PredicateType
 		opts.FetchAttestations = true
 	}
 
@@ -613,14 +630,18 @@ func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, er
 }
 
 func (iv *imageVerifier) verifyAttestation(statements []map[string]interface{}, attestation kyvernov1.Attestation, imageInfo apiutils.ImageInfo) error {
+	if attestation.PredicateType == "" {
+		return fmt.Errorf("a predicateType is required")
+	}
+
 	image := imageInfo.String()
 	statementsByPredicate, types := buildStatementMap(statements)
 	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
 
 	statements = statementsByPredicate[attestation.PredicateType]
 	if statements == nil {
-		iv.logger.Info("attestation predicate type not found", "type", attestation.PredicateType, "predicates", types, "image", imageInfo.String())
-		return fmt.Errorf("predicate type %s not found", attestation.PredicateType)
+		iv.logger.Info("no attestations found for predicate", "type", attestation.PredicateType, "predicates", types, "image", imageInfo.String())
+		return fmt.Errorf("attestions not found for predicate type %s", attestation.PredicateType)
 	}
 
 	for _, s := range statements {

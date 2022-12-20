@@ -50,8 +50,6 @@ GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
 GO_ACC                             := $(TOOLS_DIR)/go-acc
 GO_ACC_VERSION                     := latest
-KUSTOMIZE                          := $(TOOLS_DIR)/kustomize
-KUSTOMIZE_VERSION                  := latest
 GOIMPORTS                          := $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  := latest
 HELM                               := $(TOOLS_DIR)/helm
@@ -62,7 +60,7 @@ KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
 KUTTL_VERSION                      := v0.14.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -100,10 +98,6 @@ $(GEN_CRD_API_REFERENCE_DOCS):
 $(GO_ACC):
 	@echo Install go-acc... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/ory/go-acc@$(GO_ACC_VERSION)
-
-$(KUSTOMIZE):
-	@echo Install kustomize... >&2
-	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION)
 
 $(GOIMPORTS):
 	@echo Install goimports... >&2
@@ -315,6 +309,7 @@ INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,
 CLIENTSET_PACKAGE  := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
+CRDS_PATH          := ${PWD}/config/crds
 
 $(GOPATH_SHIM):
 	@echo Create gopath shim... >&2
@@ -353,12 +348,12 @@ codegen-client-all: codegen-client-clientset codegen-client-listers codegen-clie
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 	@echo Generate kyverno crds... >&2
-	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
+	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
 
 .PHONY: codegen-crds-report
 codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	@echo Generate policy reports crds... >&2
-	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
+	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=$(CRDS_PATH)
 
 .PHONY: codegen-crds-all
 codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
@@ -381,10 +376,10 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 	@echo Generate api docs... >&2
 	@rm -rf docs/user/crd && mkdir -p docs/user/crd
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
-			-api-dir github.com/kyverno/kyverno/api \
-			-config docs/user/config.json \
-			-template-dir docs/user/template \
-			-out-file docs/user/crd/index.html
+		-api-dir github.com/kyverno/kyverno/api \
+		-config docs/user/config.json \
+		-template-dir docs/user/template \
+		-out-file docs/user/crd/index.html
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
@@ -392,41 +387,83 @@ codegen-helm-docs: ## Generate helm docs
 	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
 
 .PHONY: codegen-helm-crds
-codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
-	@echo Create temp folder for kustomization... >&2
-	@mkdir -p config/.helm
-	@echo Create kustomization... >&2
-	@VERSION='"{{.Chart.AppVersion}}"' TOP_PATH=".." envsubst < config/templates/helm-labels.yaml.envsubst > config/.helm/labels.yaml
-	@VERSION=dummy TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.helm/kustomization.yaml
+codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
-	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}{{ toYaml . | nindent 4 }}{{ end }}' > ./charts/kyverno/templates/crds.yaml
+	@cat $(CRDS_PATH)/* \
+		| $(SED) -e '1i{{- if .Values.installCRDs }}' \
+		| $(SED) -e '$$a{{- end }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- toYaml . | nindent 4 }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- end }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/a \ \ \ \ {{- include "kyverno.crdLabels" . | nindent 4 }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/a \ \ labels:' \
+ 		| $(SED) -e '/^  creationTimestamp: null/d' \
+ 		> ./charts/kyverno/templates/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
 
-.PHONY: codegen-install
-codegen-install: $(KUSTOMIZE) ## Create install maifests
-	@echo Create kustomization... >&2
-	@VERSION=latest TOP_PATH="." envsubst < config/templates/labels.yaml.envsubst > config/labels.yaml
-	@VERSION=latest TOP_PATH="." envsubst < config/templates/kustomization.yaml.envsubst > config/kustomization.yaml
-	@echo Generate install.yaml... >&2
-	@$(KUSTOMIZE) build ./config > ./config/install.yaml
-	@echo Generate install_debug.yaml... >&2
-	@$(KUSTOMIZE) build ./config/debug > ./config/install_debug.yaml
+.PHONY: codegen-manifest-install
+codegen-manifest-install: $(HELM) ## Create install manifest
+	@echo Generate install manifest... >&2
+	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set templating.enabled=true \
+		--set templating.version=latest \
+		--set cleanupController.image.tag=latest \
+		--set image.tag=latest \
+		--set initImage.tag=latest \
+ 		| $(SED) -e '/^#.*/d' \
+		> ./config/install.yaml
+
+.PHONY: codegen-manifest-debug
+codegen-manifest-debug: $(HELM) ## Create debug manifest
+	@echo Generate debug manifest... >&2
+	@mkdir -p ./.manifest
+	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set templating.enabled=true \
+		--set templating.version=latest \
+		--set templating.debug=true \
+		--set cleanupController.image.tag=latest \
+		--set image.tag=latest \
+		--set initImage.tag=latest \
+ 		| $(SED) -e '/^#.*/d' \
+		> ./.manifest/debug.yaml
 
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
-.PHONY: codegen-release
-codegen-release: codegen-install $(KUSTOMIZE) ## Create release maifests
-	@echo Create release folder... >&2
-	@mkdir -p config/.release
-	@echo Create kustomization... >&2
-	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.release/labels.yaml
-	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.release/kustomization.yaml
-	@echo Generate release manifests... >&2
-	@$(KUSTOMIZE) build ./config/.release > ./config/.release/install.yaml
+.PHONY: codegen-manifest-release
+codegen-manifest-release: $(HELM) ## Create release manifest
+	@echo Generate release manifest... >&2
+	@mkdir -p ./.manifest
+	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set templating.enabled=true \
+		--set templating.version=$(GIT_VERSION) \
+		--set cleanupController.image.tag=$(GIT_VERSION) \
+		--set image.tag=$(GIT_VERSION) \
+		--set initImage.tag=$(GIT_VERSION) \
+ 		| $(SED) -e '/^#.*/d' \
+		> ./.manifest/release.yaml
+
+.PHONY: codegen-manifest-e2e
+codegen-manifest-e2e: $(HELM) ## Create e2e manifest
+	@echo Create e2e manifest... >&2
+	@mkdir -p ./.manifest
+	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set templating.enabled=true \
+		--set templating.version=$(IMAGE_TAG_DEV) \
+		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
+		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
+		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
+		--set image.tag=$(IMAGE_TAG_DEV) \
+		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
+		--set initImage.tag=$(IMAGE_TAG_DEV) \
+ 		| $(SED) -e '/^#.*/d' \
+		> ./.manifest/e2e.yaml
+
+.PHONY: codegen-manifest-all
+codegen-manifest-all: codegen-manifest-install codegen-manifest-debug codegen-manifest-release codegen-manifest-e2e ## Create all manifests
 
 .PHONY: codegen-quick
-codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-install codegen-release ## Generate all generated code except client
+codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
 
 .PHONY: codegen-slow
 codegen-slow: codegen-client-all ## Generate client code
@@ -450,10 +487,10 @@ codegen-all: codegen-quick codegen-slow ## Generate all generated code
 .PHONY: verify-crds
 verify-crds: codegen-crds-all ## Check CRDs are up to date
 	@echo Checking crds are up to date... >&2
-	@git --no-pager diff config
+	@git --no-pager diff $(CRDS_PATH)
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".' >&2
 	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code config
+	@git diff --quiet --exit-code $(CRDS_PATH)
 
 .PHONY: verify-client
 verify-client: codegen-client-all ## Check client is up to date
@@ -491,8 +528,16 @@ verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
+.PHONY: verify-manifest-install
+verify-manifest-install: codegen-manifest-install ## Check install manifest is up to date
+	@echo Checking install manifest is up to date... >&2
+	@git --no-pager diff config/install.yaml
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
+	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
+	@git diff --quiet --exit-code config/install.yaml
+
 .PHONY: verify-codegen
-verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm ## Verify all generated code and docs are up to date
+verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm verify-manifest-install ## Verify all generated code and docs are up to date
 
 ##############
 # UNIT TESTS #
@@ -577,33 +622,6 @@ test-cli-test-case-selector-flag: $(CLI_BIN)
 .PHONY: test-cli-registry
 test-cli-registry: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/registry --registry
-
-##################################
-# Create e2e Infrastructure
-##################################
-
-.PHONY: kind-e2e-cluster
-kind-e2e-cluster: $(KIND) ## Create kind cluster for e2e tests
-	$(KIND) create cluster --image=$(KIND_IMAGE)
-
-# TODO(eddycharly): $(REPO) is wrong, it is always ghcr.io/kyverno in the source
-.PHONY: e2e-kustomize
-e2e-kustomize: $(KUSTOMIZE) ## Build kustomize manifests for e2e tests
-	cd config && \
-	$(KUSTOMIZE) edit set image $(REPO_KYVERNOPRE)=$(LOCAL_KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) && \
-	$(KUSTOMIZE) edit set image $(REPO_KYVERNO)=$(LOCAL_KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
-	$(KUSTOMIZE) build config/ -o config/install.yaml
-
-.PHONY: e2e-init-container
-e2e-init-container: kind-e2e-cluster | image-build-kyvernopre
-	$(KIND) load docker-image $(LOCAL_KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV)
-
-.PHONY: e2e-kyverno-container
-e2e-kyverno-container: kind-e2e-cluster | image-build-kyverno
-	$(KIND) load docker-image $(LOCAL_KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
-
-.PHONY: create-e2e-infrastructure
-create-e2e-infrastructure: e2e-init-container e2e-kyverno-container e2e-kustomize | ## Setup infrastructure for e2e tests
 
 ##################################
 # Testing & Code-Coverage

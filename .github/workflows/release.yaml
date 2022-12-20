@@ -67,9 +67,9 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613 # pin@v3.4.0
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: ~1.18.6
+          go-version: ~1.19.4
 
       - name: Cache Go modules
         uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # pin@v3
@@ -93,7 +93,7 @@ jobs:
           cat release/release-notes.out
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@b508e2e3ef3b19d4e4146d4f8fb3ba9db644a757 # pin@v3.2.0
+        uses: goreleaser/goreleaser-action@8f67e590f2d095516493f017008adc464e63adb1 # pin@v4.1.0
         with:
           version: latest
           args: release --rm-dist --debug --release-notes=release/release-notes.out
@@ -120,9 +120,9 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613 # pin@v3.4.0
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: ~1.18.6
+          go-version: ~1.19.4
 
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@8674f31874b23ec1d03fc51efde27d1280d116db # v0.37.0
@@ -135,13 +135,13 @@ jobs:
           cosign-release: 'v1.13.0'
 
       - name: Build yaml manifest
-        run: make codegen-release
+        run: make codegen-manifest-release
 
       - name: Upload yaml manifest
         uses: svenstaro/upload-release-action@133984371c30d34e38222a64855679a414cb7575 # pin@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: config/.release/install.yaml
+          file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
 
@@ -158,7 +158,7 @@ jobs:
         run: |
           set -e
           mkdir -p config/.release-manifests
-          cp config/.release/install.yaml config/.release-manifests/install.yaml
+          cp .manifest/release.yaml config/.release-manifests/install.yaml
           cd config/.release-manifests/ && \
           flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }} \
             --path="." \
