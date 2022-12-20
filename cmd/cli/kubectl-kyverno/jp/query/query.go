@@ -48,7 +48,7 @@ func Command() *cobra.Command {
 				return err
 			}
 			if len(queries) == 0 && input == nil {
-				return errors.New("at least one query or input object is required.")
+				return errors.New("at least one query or input object is required")
 			}
 			if len(queries) == 0 {
 				query, err := readQuery(cmd)
