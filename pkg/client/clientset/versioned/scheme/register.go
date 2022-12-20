@@ -31,16 +31,18 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
-var Scheme = runtime.NewScheme()
-var Codecs = serializer.NewCodecFactory(Scheme)
-var ParameterCodec = runtime.NewParameterCodec(Scheme)
-var localSchemeBuilder = runtime.SchemeBuilder{
-	kyvernov1.AddToScheme,
-	kyvernov1alpha2.AddToScheme,
-	kyvernov1beta1.AddToScheme,
-	kyvernov2alpha1.AddToScheme,
-	wgpolicyk8sv1alpha2.AddToScheme,
-}
+var (
+	Scheme             = runtime.NewScheme()
+	Codecs             = serializer.NewCodecFactory(Scheme)
+	ParameterCodec     = runtime.NewParameterCodec(Scheme)
+	localSchemeBuilder = runtime.SchemeBuilder{
+		kyvernov1.AddToScheme,
+		kyvernov1alpha2.AddToScheme,
+		kyvernov1beta1.AddToScheme,
+		kyvernov2alpha1.AddToScheme,
+		wgpolicyk8sv1alpha2.AddToScheme,
+	}
+)
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition
 // of clientsets, like in:
