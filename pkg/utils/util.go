@@ -3,15 +3,11 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
-	"strconv"
 
-	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,96 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/discovery"
 )
-
-var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
-
-// CopyMap creates a full copy of the target map
-func CopyMap(m map[string]interface{}) map[string]interface{} {
-	mapCopy := make(map[string]interface{})
-	for k, v := range m {
-		mapCopy[k] = v
-	}
-
-	return mapCopy
-}
-
-// CopySliceOfMaps creates a full copy of the target slice
-func CopySliceOfMaps(s []map[string]interface{}) []interface{} {
-	sliceCopy := make([]interface{}, len(s))
-	for i, v := range s {
-		sliceCopy[i] = CopyMap(v)
-	}
-
-	return sliceCopy
-}
-
-func ToMap(data interface{}) (map[string]interface{}, error) {
-	if m, ok := data.(map[string]interface{}); ok {
-		return m, nil
-	}
-
-	b, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
-	}
-
-	mapData := make(map[string]interface{})
-	err = json.Unmarshal(b, &mapData)
-	if err != nil {
-		return nil, err
-	}
-
-	return mapData, nil
-}
-
-// Contains checks if a string is contained in a list of string
-func contains(list []string, element string, fn func(string, string) bool) bool {
-	for _, e := range list {
-		if fn(e, element) {
-			return true
-		}
-	}
-	return false
-}
-
-// ContainsNamepace check if namespace satisfies any list of pattern(regex)
-func ContainsNamepace(patterns []string, ns string) bool {
-	return contains(patterns, ns, comparePatterns)
-}
-
-func ContainsWildcardPatterns(patterns []string, key string) bool {
-	return contains(patterns, key, comparePatterns)
-}
-
-func comparePatterns(pattern, ns string) bool {
-	return wildcard.Match(pattern, ns)
-}
-
-// CRDsInstalled checks if the Kyverno CRDs are installed or not
-func CRDsInstalled(discovery dclient.IDiscovery) bool {
-	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "AdmissionReport", "BackgroundScanReport", "ClusterAdmissionReport", "ClusterBackgroundScanReport"}
-	for _, crd := range kyvernoCRDs {
-		if !isCRDInstalled(discovery, crd) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func isCRDInstalled(discoveryClient dclient.IDiscovery, kind string) bool {
-	gvr, err := discoveryClient.GetGVRFromKind(kind)
-	if gvr.Empty() {
-		if err == nil {
-			err = fmt.Errorf("not found")
-		}
-		logging.Error(err, "failed to retrieve CRD", "kind", kind)
-		return false
-	}
-	return true
-}
 
 // ExtractResources extracts the new and old resource as unstructured
 func ExtractResources(newRaw []byte, request *admissionv1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
@@ -241,7 +148,7 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 		}
 	}
 	if secret.Annotations != nil {
-		metadata, err := ToMap(resource.Object["metadata"])
+		metadata, err := datautils.ToMap(resource.Object["metadata"])
 		if err != nil {
 			return *resource, errors.Wrap(err, "unable to convert metadata to map")
 		}
@@ -255,68 +162,6 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 		}
 	}
 	return *resource, nil
-}
-
-// HigherThanKubernetesVersion compare Kubernetes client version to user given version
-func HigherThanKubernetesVersion(client discovery.ServerVersionInterface, log logr.Logger, major, minor, patch int) bool {
-	logger := log.WithName("CompareKubernetesVersion")
-	serverVersion, err := client.ServerVersion()
-	if err != nil {
-		logger.Error(err, "Failed to get kubernetes server version")
-		return false
-	}
-
-	b, err := isVersionHigher(serverVersion.String(), major, minor, patch)
-	if err != nil {
-		logger.Error(err, "serverVersion", serverVersion.String())
-		return false
-	}
-
-	return b
-}
-
-func isVersionHigher(version string, major int, minor int, patch int) (bool, error) {
-	groups := regexVersion.FindStringSubmatch(version)
-	if len(groups) != 4 {
-		return false, fmt.Errorf("invalid version %s. Expected {major}.{minor}.{patch}", version)
-	}
-
-	currentMajor, err := strconv.Atoi(groups[1])
-	if err != nil {
-		return false, fmt.Errorf("failed to extract major version from %s", version)
-	}
-
-	currentMinor, err := strconv.Atoi(groups[2])
-	if err != nil {
-		return false, fmt.Errorf("failed to extract minor version from %s", version)
-	}
-
-	currentPatch, err := strconv.Atoi(groups[3])
-	if err != nil {
-		return false, fmt.Errorf("failed to extract minor version from %s", version)
-	}
-
-	if currentMajor < major ||
-		(currentMajor == major && currentMinor < minor) ||
-		(currentMajor == major && currentMinor == minor && currentPatch <= patch) {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-// SliceContains checks whether values are contained in slice
-func SliceContains(slice []string, values ...string) bool {
-	sliceElementsMap := make(map[string]bool, len(slice))
-	for _, sliceElement := range slice {
-		sliceElementsMap[sliceElement] = true
-	}
-	for _, value := range values {
-		if sliceElementsMap[value] {
-			return true
-		}
-	}
-	return false
 }
 
 // ApiextensionsJsonToKyvernoConditions takes in user-provided conditions in abstract apiextensions.JSON form
@@ -393,39 +238,4 @@ func OverrideRuntimeErrorHandler() {
 			},
 		}
 	}
-}
-
-func SeperateWildcards(l []string) (lw []string, rl []string) {
-	for _, val := range l {
-		if wildcard.ContainsWildcard(val) {
-			lw = append(lw, val)
-		} else {
-			rl = append(rl, val)
-		}
-	}
-	return lw, rl
-}
-
-func CheckWildcardNamespaces(patterns []string, ns []string) (string, string, bool) {
-	for _, n := range ns {
-		pat, element, boolval := containsNamespaceWithStringReturn(patterns, n)
-		if boolval {
-			return pat, element, true
-		}
-	}
-	return "", "", false
-}
-
-func containsWithStringReturn(list []string, element string, fn func(string, string) bool) (string, string, bool) {
-	for _, e := range list {
-		if fn(e, element) {
-			return e, element, true
-		}
-	}
-	return "", "", false
-}
-
-// containsNamespaceWithStringReturn check if namespace satisfies any list of pattern(regex)
-func containsNamespaceWithStringReturn(patterns []string, ns string) (string, string, bool) {
-	return containsWithStringReturn(patterns, ns, comparePatterns)
 }
