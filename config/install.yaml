@@ -68,7 +68,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -414,7 +414,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -720,7 +720,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -1769,7 +1769,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -2116,7 +2116,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -2422,7 +2422,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -3471,7 +3471,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -16396,7 +16396,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -16585,7 +16585,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -29513,7 +29513,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -30000,7 +30000,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -30392,7 +30392,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno
@@ -30760,7 +30760,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     app.kubernetes.io/component: kyverno
     app: kyverno

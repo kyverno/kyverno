@@ -122,7 +122,7 @@ type APICall struct {
 
 	// Service is an API call to a JSON web service
 	// +kubebuilder:validation:Optional
-	Service *ServiceCall `json:"service" yaml:"service"`
+	Service *ServiceCall `json:"service,omitempty" yaml:"service,omitempty"`
 
 	// JMESPath is an optional JSON Match Expression that can be used to
 	// transform the JSON response returned from the server. For example
