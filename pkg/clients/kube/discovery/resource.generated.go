@@ -122,6 +122,13 @@ func (c *withLogging) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, er
 	}
 	return ret0, ret1
 }
+func (c *withLogging) WithLegacy() k8s_io_client_go_discovery.DiscoveryInterface {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "WithLegacy")
+	ret0 := c.inner.WithLegacy()
+	logger.Info("WithLegacy done", "duration", time.Since(start))
+	return ret0
+}
 
 type withMetrics struct {
 	inner    k8s_io_client_go_discovery.DiscoveryInterface
@@ -164,6 +171,10 @@ func (c *withMetrics) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, er
 	defer c.recorder.Record("server_version")
 	return c.inner.ServerVersion()
 }
+func (c *withMetrics) WithLegacy() k8s_io_client_go_discovery.DiscoveryInterface {
+	defer c.recorder.Record("with_legacy")
+	return c.inner.WithLegacy()
+}
 
 type withTracing struct {
 	inner  k8s_io_client_go_discovery.DiscoveryInterface
@@ -197,4 +208,7 @@ func (c *withTracing) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apima
 }
 func (c *withTracing) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, error) {
 	return c.inner.ServerVersion()
+}
+func (c *withTracing) WithLegacy() k8s_io_client_go_discovery.DiscoveryInterface {
+	return c.inner.WithLegacy()
 }

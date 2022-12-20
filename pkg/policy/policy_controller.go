@@ -294,13 +294,13 @@ func (pc *PolicyController) Run(ctx context.Context, workers int) {
 		return
 	}
 
-	pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
 		DeleteFunc: pc.deletePolicy,
 	})
 
-	pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = pc.npInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addNsPolicy,
 		UpdateFunc: pc.updateNsPolicy,
 		DeleteFunc: pc.deleteNsPolicy,
