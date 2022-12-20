@@ -38,7 +38,7 @@ USE_CONFIG           ?= standard
 
 TOOLS_DIR                          := $(PWD)/.tools
 KIND                               := $(TOOLS_DIR)/kind
-KIND_VERSION                       := v0.14.0
+KIND_VERSION                       := v0.17.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
 CONTROLLER_GEN_VERSION             := v0.10.0
 CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
