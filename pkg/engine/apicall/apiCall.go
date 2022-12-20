@@ -88,7 +88,7 @@ func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, er
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read data from APICall %s", a.entry.Name)
 	}
@@ -145,7 +145,8 @@ func (a *apiCall) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client,
 	return &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				RootCAs: caCertPool,
+				RootCAs:    caCertPool,
+				MinVersion: tls.VersionTLS12,
 			},
 		},
 	}, nil
