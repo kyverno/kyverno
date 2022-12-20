@@ -15,6 +15,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/pkg/errors"
 )
@@ -23,11 +24,11 @@ type apiCall struct {
 	log     logr.Logger
 	entry   kyvernov1.ContextEntry
 	ctx     goctx.Context
-	jsonCtx context.EvalInterface
+	jsonCtx context.Interface
 	client  dclient.Interface
 }
 
-func New(ctx goctx.Context, entry kyvernov1.ContextEntry, jsonCtx context.EvalInterface, client dclient.Interface, log logr.Logger) (*apiCall, error) {
+func New(ctx goctx.Context, entry kyvernov1.ContextEntry, jsonCtx context.Interface, client dclient.Interface, log logr.Logger) (*apiCall, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
 	}
@@ -41,14 +42,30 @@ func New(ctx goctx.Context, entry kyvernov1.ContextEntry, jsonCtx context.EvalIn
 	}, nil
 }
 
-func (a *apiCall) Execute() ([]byte, error) {
+func (a *apiCall) Execute() error {
+
+	a.log.Info("*** executing API CALL")
+
 	call, err := variables.SubstituteAllInType(a.log, a.jsonCtx, a.entry.APICall)
 	if err != nil {
-		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
+		return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
 
+	data, err := a.execute(call)
+	if err != nil {
+		return err
+	}
+
+	if err := a.transformAndStore(data); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *apiCall) execute(call *kyvernov1.APICall) ([]byte, error) {
 	if call.URLPath != "" {
-		return a.executeK8sAPICall(call.JMESPath)
+		return a.executeK8sAPICall(call.URLPath)
 	}
 
 	return a.executeServiceCall(call.Service)
@@ -60,6 +77,7 @@ func (a *apiCall) executeK8sAPICall(path string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", path, err)
 	}
 
+	a.log.Info("executed APICall", "name", a.entry.Name, "len", len(jsonData))
 	return jsonData, nil
 }
 
@@ -93,6 +111,7 @@ func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, er
 		return nil, errors.Wrapf(err, "failed to read data from APICall %s", a.entry.Name)
 	}
 
+	a.log.Info("executed service APICall", "name", a.entry.Name, "len", len(body))
 	return body, nil
 }
 
@@ -164,4 +183,53 @@ func (a *apiCall) buildPostData(data []kyvernov1.RequestData) (io.Reader, error)
 	}
 
 	return buffer, nil
+}
+
+func (a *apiCall) transformAndStore(jsonData []byte) error {
+	if a.entry.APICall.JMESPath == "" {
+		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
+		if err != nil {
+			return errors.Wrapf(err, "failed to add resource data to context entry %s", a.entry.Name)
+		}
+
+		return nil
+	}
+
+	path, err := variables.SubstituteAll(a.log, a.jsonCtx, a.entry.APICall.JMESPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to substitute variables in context entry %s JMESPath %s", a.entry.Name, a.entry.APICall.JMESPath)
+	}
+
+	results, err := applyJMESPathJSON(path.(string), jsonData)
+	if err != nil {
+		return errors.Wrapf(err, "failed to apply JMESPath %s for context entry %s", path, a.entry.Name)
+	}
+
+	contextData, err := json.Marshal(results)
+	if err != nil {
+		return errors.Wrapf(err, "failed to marshall APICall data for context entry %s", a.entry.Name)
+	}
+
+	err = a.jsonCtx.AddContextEntry(a.entry.Name, contextData)
+	if err != nil {
+		return errors.Wrapf(err, "failed to add APICall results for context entry %s", a.entry.Name)
+	}
+
+	a.log.Info("added context data", "name", a.entry.Name, "len", len(contextData))
+	return nil
+}
+
+func applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
+	var data interface{}
+	err := json.Unmarshal(jsonData, &data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %v", string(jsonData), err)
+	}
+
+	jp, err := jmespath.New(jmesPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
+	}
+
+	return jp.Search(data)
 }

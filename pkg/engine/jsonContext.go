@@ -245,41 +245,10 @@ func loadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.Contex
 		return errors.Wrapf(err, "failed to initialize APICall")
 	}
 
-	jsonData, err := executor.Execute()
-	if err != nil {
+	if err := executor.Execute(); err != nil {
 		return errors.Wrapf(err, "failed to execute APICall")
 	}
 
-	if entry.APICall.JMESPath == "" {
-		err = enginectx.jsonContext.AddContextEntry(entry.Name, jsonData)
-		if err != nil {
-			return errors.Wrapf(err, "failed to add resource data to context entry %v", entry)
-		}
-
-		return nil
-	}
-
-	path, err := variables.SubstituteAll(logger, enginectx.jsonContext, entry.APICall.JMESPath)
-	if err != nil {
-		return errors.Wrapf(err, "failed to substitute variables in context entry %s JMESPath %s", entry.Name, entry.APICall.JMESPath)
-	}
-
-	results, err := applyJMESPathJSON(path.(string), jsonData)
-	if err != nil {
-		return errors.Wrapf(err, "failed to apply JMESPath %s for context entry %s", path, entry.Name)
-	}
-
-	contextData, err := json.Marshal(results)
-	if err != nil {
-		return errors.Wrapf(err, "failed to marshall APICall data for context entry %s", entry.Name)
-	}
-
-	err = enginectx.jsonContext.AddContextEntry(entry.Name, contextData)
-	if err != nil {
-		return errors.Wrapf(err, "failed to add APICall results for context entry %s", entry.Name)
-	}
-
-	logger.V(4).Info("added APICall context entry", "len", len(contextData))
 	return nil
 }
 
@@ -290,15 +259,6 @@ func applyJMESPath(jmesPath string, data interface{}) (interface{}, error) {
 	}
 
 	return jp.Search(data)
-}
-
-func applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
-	var data interface{}
-	err := json.Unmarshal(jsonData, &data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %v", string(jsonData), err)
-	}
-	return applyJMESPath(jmesPath, data)
 }
 
 func loadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx *PolicyContext) error {
