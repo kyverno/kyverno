@@ -57,7 +57,7 @@ func Test_serviceGetRequest(t *testing.T) {
 	_, err = call.Execute()
 	assert.ErrorContains(t, err, "invalid request type")
 
-	entry.APICall.Service.RequestType = "GET"
+	entry.APICall.Service.Method = "GET"
 	call, err = apicall.New(context.TODO(), entry, ctx, nil, logging.GlobalLogger())
 	assert.NilError(t, err)
 	_, err = call.Execute()
@@ -82,8 +82,8 @@ func Test_servicePostRequest(t *testing.T) {
 		Name: "test",
 		APICall: &kyvernov1.APICall{
 			Service: &kyvernov1.ServiceCall{
-				URL:         s.URL + "/resource",
-				RequestType: "POST",
+				URL:    s.URL + "/resource",
+				Method: "POST",
 			},
 		},
 	}

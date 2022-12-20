@@ -2524,6 +2524,15 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.Method">Method
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+</p>
+<p>
+<p>Method is a HTTP request type.</p>
+</p>
 <h3 id="kyverno.io/v1.Mutation">Mutation
 </h3>
 <p>
@@ -2930,15 +2939,6 @@ Kubernetes authentication/v1.UserInfo
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.RequestType">RequestType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
-</p>
-<p>
-<p>RequestType is a HTTP request type.</p>
-</p>
 <h3 id="kyverno.io/v1.ResourceDescription">ResourceDescription
 </h3>
 <p>
@@ -3504,13 +3504,13 @@ the server certificate.</p>
 <td>
 <code>requestType</code><br/>
 <em>
-<a href="#kyverno.io/v1.RequestType">
-RequestType
+<a href="#kyverno.io/v1.Method">
+Method
 </a>
 </em>
 </td>
 <td>
-<p>RequestType is the HTTP request type (GET or POST).</p>
+<p>Method is the HTTP request type (GET or POST).</p>
 </td>
 </tr>
 <tr>

@@ -143,18 +143,18 @@ type ServiceCall struct {
 	// +kubebuilder:validation:Optional
 	CABundle string `json:"caBundle" yaml:"caBundle"`
 
-	// RequestType is the HTTP request type (GET or POST).
+	// Method is the HTTP request type (GET or POST).
 	// +kubebuilder:default=GET
-	RequestType RequestType `json:"requestType" yaml:"requestType"`
+	Method Method `json:"requestType" yaml:"requestType"`
 
 	// Data specifies the POST data sent to the server.
 	// +kubebuilder:validation:Optional
 	Data []RequestData `json:"data" yaml:"data"`
 }
 
-// RequestType is a HTTP request type.
+// Method is a HTTP request type.
 // +kubebuilder:validation:Enum=GET;POST
-type RequestType string
+type Method string
 
 // RequestData contains the HTTP POST data
 type RequestData struct {

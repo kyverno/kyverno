@@ -3645,8 +3645,8 @@ spec:
                                     type: array
                                   requestType:
                                     default: GET
-                                    description: RequestType is the HTTP request type
-                                      (GET or POST).
+                                    description: Method is the HTTP request type (GET
+                                      or POST).
                                     enum:
                                     - GET
                                     - POST
@@ -5208,8 +5208,8 @@ spec:
                                               type: array
                                             requestType:
                                               default: GET
-                                              description: RequestType is the HTTP
-                                                request type (GET or POST).
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -5547,8 +5547,8 @@ spec:
                                               type: array
                                             requestType:
                                               default: GET
-                                              description: RequestType is the HTTP
-                                                request type (GET or POST).
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -6797,8 +6797,8 @@ spec:
                                         type: array
                                       requestType:
                                         default: GET
-                                        description: RequestType is the HTTP request
-                                          type (GET or POST).
+                                        description: Method is the HTTP request type
+                                          (GET or POST).
                                         enum:
                                         - GET
                                         - POST
@@ -8431,8 +8431,8 @@ spec:
                                                   type: array
                                                 requestType:
                                                   default: GET
-                                                  description: RequestType is the
-                                                    HTTP request type (GET or POST).
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
                                                   enum:
                                                   - GET
                                                   - POST
@@ -8786,8 +8786,8 @@ spec:
                                                   type: array
                                                 requestType:
                                                   default: GET
-                                                  description: RequestType is the
-                                                    HTTP request type (GET or POST).
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
                                                   enum:
                                                   - GET
                                                   - POST
@@ -10228,8 +10228,8 @@ spec:
                                     type: array
                                   requestType:
                                     default: GET
-                                    description: RequestType is the HTTP request type
-                                      (GET or POST).
+                                    description: Method is the HTTP request type (GET
+                                      or POST).
                                     enum:
                                     - GET
                                     - POST
@@ -11395,8 +11395,8 @@ spec:
                                               type: array
                                             requestType:
                                               default: GET
-                                              description: RequestType is the HTTP
-                                                request type (GET or POST).
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -11902,8 +11902,8 @@ spec:
                                               type: array
                                             requestType:
                                               default: GET
-                                              description: RequestType is the HTTP
-                                                request type (GET or POST).
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -13112,8 +13112,8 @@ spec:
                                         type: array
                                       requestType:
                                         default: GET
-                                        description: RequestType is the HTTP request
-                                          type (GET or POST).
+                                        description: Method is the HTTP request type
+                                          (GET or POST).
                                         enum:
                                         - GET
                                         - POST
@@ -14746,8 +14746,8 @@ spec:
                                                   type: array
                                                 requestType:
                                                   default: GET
-                                                  description: RequestType is the
-                                                    HTTP request type (GET or POST).
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
                                                   enum:
                                                   - GET
                                                   - POST
@@ -15101,8 +15101,8 @@ spec:
                                                   type: array
                                                 requestType:
                                                   default: GET
-                                                  description: RequestType is the
-                                                    HTTP request type (GET or POST).
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
                                                   enum:
                                                   - GET
                                                   - POST
@@ -16760,8 +16760,8 @@ spec:
                                     type: array
                                   requestType:
                                     default: GET
-                                    description: RequestType is the HTTP request type
-                                      (GET or POST).
+                                    description: Method is the HTTP request type (GET
+                                      or POST).
                                     enum:
                                     - GET
                                     - POST
@@ -18323,8 +18323,8 @@ spec:
                                               type: array
                                             requestType:
                                               default: GET
-                                              description: RequestType is the HTTP
-                                                request type (GET or POST).
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -18662,8 +18662,8 @@ spec:
                                               type: array
                                             requestType:
                                               default: GET
-                                              description: RequestType is the HTTP
-                                                request type (GET or POST).
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -19913,8 +19913,8 @@ spec:
                                         type: array
                                       requestType:
                                         default: GET
-                                        description: RequestType is the HTTP request
-                                          type (GET or POST).
+                                        description: Method is the HTTP request type
+                                          (GET or POST).
                                         enum:
                                         - GET
                                         - POST
@@ -21547,8 +21547,8 @@ spec:
                                                   type: array
                                                 requestType:
                                                   default: GET
-                                                  description: RequestType is the
-                                                    HTTP request type (GET or POST).
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
                                                   enum:
                                                   - GET
                                                   - POST
@@ -21902,8 +21902,8 @@ spec:
                                                   type: array
                                                 requestType:
                                                   default: GET
-                                                  description: RequestType is the
-                                                    HTTP request type (GET or POST).
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
                                                   enum:
                                                   - GET
                                                   - POST
@@ -23345,8 +23345,8 @@ spec:
                                     type: array
                                   requestType:
                                     default: GET
-                                    description: RequestType is the HTTP request type
-                                      (GET or POST).
+                                    description: Method is the HTTP request type (GET
+                                      or POST).
                                     enum:
                                     - GET
                                     - POST
@@ -24512,8 +24512,8 @@ spec:
                                               type: array
                                             requestType:
                                               default: GET
-                                              description: RequestType is the HTTP
-                                                request type (GET or POST).
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -25019,8 +25019,8 @@ spec:
                                               type: array
                                             requestType:
                                               default: GET
-                                              description: RequestType is the HTTP
-                                                request type (GET or POST).
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
                                               enum:
                                               - GET
                                               - POST
@@ -26229,8 +26229,8 @@ spec:
                                         type: array
                                       requestType:
                                         default: GET
-                                        description: RequestType is the HTTP request
-                                          type (GET or POST).
+                                        description: Method is the HTTP request type
+                                          (GET or POST).
                                         enum:
                                         - GET
                                         - POST
@@ -27863,8 +27863,8 @@ spec:
                                                   type: array
                                                 requestType:
                                                   default: GET
-                                                  description: RequestType is the
-                                                    HTTP request type (GET or POST).
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
                                                   enum:
                                                   - GET
                                                   - POST
@@ -28218,8 +28218,8 @@ spec:
                                                   type: array
                                                 requestType:
                                                   default: GET
-                                                  description: RequestType is the
-                                                    HTTP request type (GET or POST).
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
                                                   enum:
                                                   - GET
                                                   - POST

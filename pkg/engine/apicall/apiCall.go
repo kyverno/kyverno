@@ -104,12 +104,12 @@ func (a *apiCall) buildHTTPRequest(service *kyvernov1.ServiceCall) (req *http.Re
 		}
 	}()
 
-	if service.RequestType == "GET" {
+	if service.Method == "GET" {
 		req, err = http.NewRequest("GET", service.URL, nil)
 		return
 	}
 
-	if service.RequestType == "POST" {
+	if service.Method == "POST" {
 		data, dataErr := a.buildPostData(service.Data)
 		if dataErr != nil {
 			return nil, dataErr
@@ -119,7 +119,7 @@ func (a *apiCall) buildHTTPRequest(service *kyvernov1.ServiceCall) (req *http.Re
 		return
 	}
 
-	return nil, fmt.Errorf("invalid request type %s for APICall %s", service.RequestType, a.entry.Name)
+	return nil, fmt.Errorf("invalid request type %s for APICall %s", service.Method, a.entry.Name)
 }
 
 func (a *apiCall) getToken() string {
