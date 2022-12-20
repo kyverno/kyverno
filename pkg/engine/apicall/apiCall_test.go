@@ -1,4 +1,4 @@
-package apicall_test
+package apicall
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"
@@ -54,20 +53,20 @@ func Test_serviceGetRequest(t *testing.T) {
 
 	call, err := apicall.New(context.TODO(), entry, ctx, nil, logging.GlobalLogger())
 	assert.NilError(t, err)
-	_, err = call.Execute()
+	_, err = call.execute()
 	assert.ErrorContains(t, err, "invalid request type")
 
 	entry.APICall.Service.Method = "GET"
 	call, err = apicall.New(context.TODO(), entry, ctx, nil, logging.GlobalLogger())
 	assert.NilError(t, err)
-	_, err = call.Execute()
+	_, err = call.execute()
 	assert.ErrorContains(t, err, "HTTP 404")
 
 	entry.APICall.Service.URL = s.URL + "/resource"
 	call, err = apicall.New(context.TODO(), entry, ctx, nil, logging.GlobalLogger())
 	assert.NilError(t, err)
 
-	data, err := call.Execute()
+	data, err := call.execute()
 	assert.NilError(t, err)
 	assert.Assert(t, data != nil, "nil data")
 	assert.Equal(t, string(serverResponse), string(data))
@@ -139,7 +138,7 @@ func Test_servicePostRequest(t *testing.T) {
 
 	call, err = apicall.New(context.TODO(), entry, ctx, nil, logging.GlobalLogger())
 	assert.NilError(t, err)
-	data, err = call.Execute()
+	data, err = call.execute()
 	assert.NilError(t, err)
 
 	expectedResults := `{"images":["https://ghcr.io/tomcat/tomcat:9","https://ghcr.io/vault/vault:v3","https://ghcr.io/busybox/busybox:latest"]}`

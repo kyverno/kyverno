@@ -43,9 +43,6 @@ func New(ctx goctx.Context, entry kyvernov1.ContextEntry, jsonCtx context.Interf
 }
 
 func (a *apiCall) Execute() error {
-
-	a.log.Info("*** executing API CALL")
-
 	call, err := variables.SubstituteAllInType(a.log, a.jsonCtx, a.entry.APICall)
 	if err != nil {
 		return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
@@ -77,7 +74,7 @@ func (a *apiCall) executeK8sAPICall(path string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", path, err)
 	}
 
-	a.log.Info("executed APICall", "name", a.entry.Name, "len", len(jsonData))
+	a.log.V(4).Info("executed APICall", "name", a.entry.Name, "len", len(jsonData))
 	return jsonData, nil
 }
 
@@ -215,7 +212,7 @@ func (a *apiCall) transformAndStore(jsonData []byte) error {
 		return errors.Wrapf(err, "failed to add APICall results for context entry %s", a.entry.Name)
 	}
 
-	a.log.Info("added context data", "name", a.entry.Name, "len", len(contextData))
+	a.log.V(4).Info("added context data", "name", a.entry.Name, "len", len(contextData))
 	return nil
 }
 
