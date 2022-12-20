@@ -9,11 +9,10 @@ metadata:
   name: {{ template "kyverno.fullname" . }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
-    app: kyverno
   namespace: {{ template "kyverno.namespace" . }}
 spec:
   {{- include "kyverno.podDisruptionBudget.spec" . | indent 2 }}
   selector:
-    matchLabels:  {{ include "kyverno.matchLabels" . | nindent 6 }}
-      app: kyverno
+    matchLabels:
+      {{- include "kyverno.matchLabels" . | nindent 6 }}
 {{- end }}

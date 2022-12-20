@@ -1,24 +1,77 @@
+---
 apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    app: kyverno
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: kyverno
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kyverno-cleanup-controller
+  labels:
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
+    app.kubernetes.io/instance: kyverno
+  namespace: kyverno
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kyverno
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  namespace: kyverno
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: kyverno
+  namespace: kyverno
+data:
+  # resource types to be skipped by kyverno policy engine
+  resourceFilters: "[*,kyverno,*][Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][Binding,*,*][ReplicaSet,*,*][AdmissionReport,*,*][ClusterAdmissionReport,*,*][BackgroundScanReport,*,*][ClusterBackgroundScanReport,*,*][ClusterRole,*,kyverno:*][ClusterRoleBinding,*,kyverno:*][ServiceAccount,kyverno,kyverno][ConfigMap,kyverno,kyverno][ConfigMap,kyverno,kyverno-metrics][Deployment,kyverno,kyverno][Job,kyverno,kyverno-hook-pre-delete][NetworkPolicy,kyverno,kyverno][PodDisruptionBudget,kyverno,kyverno][Role,kyverno,kyverno:*][RoleBinding,kyverno,kyverno:*][Secret,kyverno,kyverno-svc.kyverno.svc.*][Service,kyverno,kyverno-svc][Service,kyverno,kyverno-svc-metrics][ServiceMonitor,kyverno,kyverno-svc-service-monitor][Pod,kyverno,kyverno-test]"
+  webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kyverno"]}]}}]'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: kyverno-metrics
+  namespace: kyverno
+data:
+  namespaces: "{\"exclude\":[],\"include\":[]}"
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -362,10 +415,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -669,10 +721,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -1719,10 +1770,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -2067,10 +2117,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -2374,10 +2423,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -3424,10 +3472,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -16350,379 +16397,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: clusterpolicyreports.wgpolicyk8s.io
-spec:
-  group: wgpolicyk8s.io
-  names:
-    kind: ClusterPolicyReport
-    listKind: ClusterPolicyReportList
-    plural: clusterpolicyreports
-    shortNames:
-    - cpolr
-    singular: clusterpolicyreport
-  scope: Cluster
-  versions:
-  - additionalPrinterColumns:
-    - jsonPath: .scope.kind
-      name: Kind
-      priority: 1
-      type: string
-    - jsonPath: .scope.name
-      name: Name
-      priority: 1
-      type: string
-    - jsonPath: .summary.pass
-      name: Pass
-      type: integer
-    - jsonPath: .summary.fail
-      name: Fail
-      type: integer
-    - jsonPath: .summary.warn
-      name: Warn
-      type: integer
-    - jsonPath: .summary.error
-      name: Error
-      type: integer
-    - jsonPath: .summary.skip
-      name: Skip
-      type: integer
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1alpha2
-    schema:
-      openAPIV3Schema:
-        description: ClusterPolicyReport is the Schema for the clusterpolicyreports
-          API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          results:
-            description: PolicyReportResult provides result details
-            items:
-              description: PolicyReportResult provides the result for an individual
-                policy
-              properties:
-                category:
-                  description: Category indicates policy category
-                  type: string
-                message:
-                  description: Description is a short user friendly message for the
-                    policy rule
-                  type: string
-                policy:
-                  description: Policy is the name or identifier of the policy
-                  type: string
-                properties:
-                  additionalProperties:
-                    type: string
-                  description: Properties provides additional information for the
-                    policy rule
-                  type: object
-                resourceSelector:
-                  description: SubjectSelector is an optional label selector for checked
-                    Kubernetes resources. For example, a policy result may apply to
-                    all pods that match a label. Either a Subject or a SubjectSelector
-                    can be specified. If neither are provided, the result is assumed
-                    to be for the policy report scope.
-                  properties:
-                    matchExpressions:
-                      description: matchExpressions is a list of label selector requirements.
-                        The requirements are ANDed.
-                      items:
-                        description: A label selector requirement is a selector that
-                          contains values, a key, and an operator that relates the
-                          key and values.
-                        properties:
-                          key:
-                            description: key is the label key that the selector applies
-                              to.
-                            type: string
-                          operator:
-                            description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, NotIn, Exists
-                              and DoesNotExist.
-                            type: string
-                          values:
-                            description: values is an array of string values. If the
-                              operator is In or NotIn, the values array must be non-empty.
-                              If the operator is Exists or DoesNotExist, the values
-                              array must be empty. This array is replaced during a
-                              strategic merge patch.
-                            items:
-                              type: string
-                            type: array
-                        required:
-                        - key
-                        - operator
-                        type: object
-                      type: array
-                    matchLabels:
-                      additionalProperties:
-                        type: string
-                      description: matchLabels is a map of {key,value} pairs. A single
-                        {key,value} in the matchLabels map is equivalent to an element
-                        of matchExpressions, whose key field is "key", the operator
-                        is "In", and the values array contains only "value". The requirements
-                        are ANDed.
-                      type: object
-                  type: object
-                  x-kubernetes-map-type: atomic
-                resources:
-                  description: Subjects is an optional reference to the checked Kubernetes
-                    resources
-                  items:
-                    description: "ObjectReference contains enough information to let
-                      you inspect or modify the referred object. --- New uses of this
-                      type are discouraged because of difficulty describing its usage
-                      when embedded in APIs. 1. Ignored fields.  It includes many
-                      fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage. 2.
-                      Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular
-                      restrictions like, \"must refer only to types A and B\" or \"UID
-                      not honored\" or \"name must be restricted\". Those cannot be
-                      well described when embedded. 3. Inconsistent validation.  Because
-                      the usages are different, the validation rules are different
-                      by usage, which makes it hard for users to predict what will
-                      happen. 4. The fields are both imprecise and overly precise.
-                      \ Kind is not a precise mapping to a URL. This can produce ambiguity
-                      during interpretation and require a REST mapping.  In most cases,
-                      the dependency is on the group,resource tuple and the version
-                      of the actual struct is irrelevant. 5. We cannot easily change
-                      it.  Because this type is embedded in many locations, updates
-                      to this type will affect numerous schemas.  Don't make new APIs
-                      embed an underspecified API type they do not control. \n Instead
-                      of using this type, create a locally provided and used type
-                      that is well-focused on your reference. For example, ServiceReferences
-                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                      ."
-                    properties:
-                      apiVersion:
-                        description: API version of the referent.
-                        type: string
-                      fieldPath:
-                        description: 'If referring to a piece of an object instead
-                          of an entire object, this string should contain a valid
-                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                          For example, if the object reference is to a container within
-                          a pod, this would take on a value like: "spec.containers{name}"
-                          (where "name" refers to the name of the container that triggered
-                          the event) or if no container name is specified "spec.containers[2]"
-                          (container with index 2 in this pod). This syntax is chosen
-                          only to have some well-defined way of referencing a part
-                          of an object. TODO: this design is not final and this field
-                          is subject to change in the future.'
-                        type: string
-                      kind:
-                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                        type: string
-                      name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                        type: string
-                      namespace:
-                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                        type: string
-                      resourceVersion:
-                        description: 'Specific resourceVersion to which this reference
-                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                        type: string
-                      uid:
-                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                        type: string
-                    type: object
-                    x-kubernetes-map-type: atomic
-                  type: array
-                result:
-                  description: Result indicates the outcome of the policy rule execution
-                  enum:
-                  - pass
-                  - fail
-                  - warn
-                  - error
-                  - skip
-                  type: string
-                rule:
-                  description: Rule is the name or identifier of the rule within the
-                    policy
-                  type: string
-                scored:
-                  description: Scored indicates if this result is scored
-                  type: boolean
-                severity:
-                  description: Severity indicates policy check result criticality
-                  enum:
-                  - critical
-                  - high
-                  - low
-                  - medium
-                  - info
-                  type: string
-                source:
-                  description: Source is an identifier for the policy engine that
-                    manages this report
-                  type: string
-                timestamp:
-                  description: Timestamp indicates the time the result was found
-                  properties:
-                    nanos:
-                      description: Non-negative fractions of a second at nanosecond
-                        resolution. Negative second values with fractions must still
-                        have non-negative nanos values that count forward in time.
-                        Must be from 0 to 999,999,999 inclusive. This field may be
-                        limited in precision depending on context.
-                      format: int32
-                      type: integer
-                    seconds:
-                      description: Represents seconds of UTC time since Unix epoch
-                        1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
-                        9999-12-31T23:59:59Z inclusive.
-                      format: int64
-                      type: integer
-                  required:
-                  - nanos
-                  - seconds
-                  type: object
-              required:
-              - policy
-              type: object
-            type: array
-          scope:
-            description: Scope is an optional reference to the report scope (e.g.
-              a Deployment, Namespace, or Node)
-            properties:
-              apiVersion:
-                description: API version of the referent.
-                type: string
-              fieldPath:
-                description: 'If referring to a piece of an object instead of an entire
-                  object, this string should contain a valid JSON/Go field access
-                  statement, such as desiredState.manifest.containers[2]. For example,
-                  if the object reference is to a container within a pod, this would
-                  take on a value like: "spec.containers{name}" (where "name" refers
-                  to the name of the container that triggered the event) or if no
-                  container name is specified "spec.containers[2]" (container with
-                  index 2 in this pod). This syntax is chosen only to have some well-defined
-                  way of referencing a part of an object. TODO: this design is not
-                  final and this field is subject to change in the future.'
-                type: string
-              kind:
-                description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                type: string
-              name:
-                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                type: string
-              namespace:
-                description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                type: string
-              resourceVersion:
-                description: 'Specific resourceVersion to which this reference is
-                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                type: string
-              uid:
-                description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                type: string
-            type: object
-            x-kubernetes-map-type: atomic
-          scopeSelector:
-            description: ScopeSelector is an optional selector for multiple scopes
-              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
-              should be specified.
-            properties:
-              matchExpressions:
-                description: matchExpressions is a list of label selector requirements.
-                  The requirements are ANDed.
-                items:
-                  description: A label selector requirement is a selector that contains
-                    values, a key, and an operator that relates the key and values.
-                  properties:
-                    key:
-                      description: key is the label key that the selector applies
-                        to.
-                      type: string
-                    operator:
-                      description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                      type: string
-                    values:
-                      description: values is an array of string values. If the operator
-                        is In or NotIn, the values array must be non-empty. If the
-                        operator is Exists or DoesNotExist, the values array must
-                        be empty. This array is replaced during a strategic merge
-                        patch.
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - key
-                  - operator
-                  type: object
-                type: array
-              matchLabels:
-                additionalProperties:
-                  type: string
-                description: matchLabels is a map of {key,value} pairs. A single {key,value}
-                  in the matchLabels map is equivalent to an element of matchExpressions,
-                  whose key field is "key", the operator is "In", and the values array
-                  contains only "value". The requirements are ANDed.
-                type: object
-            type: object
-            x-kubernetes-map-type: atomic
-          summary:
-            description: PolicyReportSummary provides a summary of results
-            properties:
-              error:
-                description: Error provides the count of policies that could not be
-                  evaluated
-                type: integer
-              fail:
-                description: Fail provides the count of policies whose requirements
-                  were not met
-                type: integer
-              pass:
-                description: Pass provides the count of policies whose requirements
-                  were met
-                type: integer
-              skip:
-                description: Skip indicates the count of policies that were not selected
-                  for evaluation
-                type: integer
-              warn:
-                description: Warn provides the count of non-scored policies whose
-                  requirements were not met
-                type: integer
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
-  labels:
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -16909,10 +16586,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -16922,7 +16598,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: Policy
     listKind: PolicyList
     plural: policies
@@ -29839,10 +29514,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -30327,378 +30001,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: policyreports.wgpolicyk8s.io
-spec:
-  group: wgpolicyk8s.io
-  names:
-    kind: PolicyReport
-    listKind: PolicyReportList
-    plural: policyreports
-    shortNames:
-    - polr
-    singular: policyreport
-  scope: Namespaced
-  versions:
-  - additionalPrinterColumns:
-    - jsonPath: .scope.kind
-      name: Kind
-      priority: 1
-      type: string
-    - jsonPath: .scope.name
-      name: Name
-      priority: 1
-      type: string
-    - jsonPath: .summary.pass
-      name: Pass
-      type: integer
-    - jsonPath: .summary.fail
-      name: Fail
-      type: integer
-    - jsonPath: .summary.warn
-      name: Warn
-      type: integer
-    - jsonPath: .summary.error
-      name: Error
-      type: integer
-    - jsonPath: .summary.skip
-      name: Skip
-      type: integer
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1alpha2
-    schema:
-      openAPIV3Schema:
-        description: PolicyReport is the Schema for the policyreports API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          results:
-            description: PolicyReportResult provides result details
-            items:
-              description: PolicyReportResult provides the result for an individual
-                policy
-              properties:
-                category:
-                  description: Category indicates policy category
-                  type: string
-                message:
-                  description: Description is a short user friendly message for the
-                    policy rule
-                  type: string
-                policy:
-                  description: Policy is the name or identifier of the policy
-                  type: string
-                properties:
-                  additionalProperties:
-                    type: string
-                  description: Properties provides additional information for the
-                    policy rule
-                  type: object
-                resourceSelector:
-                  description: SubjectSelector is an optional label selector for checked
-                    Kubernetes resources. For example, a policy result may apply to
-                    all pods that match a label. Either a Subject or a SubjectSelector
-                    can be specified. If neither are provided, the result is assumed
-                    to be for the policy report scope.
-                  properties:
-                    matchExpressions:
-                      description: matchExpressions is a list of label selector requirements.
-                        The requirements are ANDed.
-                      items:
-                        description: A label selector requirement is a selector that
-                          contains values, a key, and an operator that relates the
-                          key and values.
-                        properties:
-                          key:
-                            description: key is the label key that the selector applies
-                              to.
-                            type: string
-                          operator:
-                            description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, NotIn, Exists
-                              and DoesNotExist.
-                            type: string
-                          values:
-                            description: values is an array of string values. If the
-                              operator is In or NotIn, the values array must be non-empty.
-                              If the operator is Exists or DoesNotExist, the values
-                              array must be empty. This array is replaced during a
-                              strategic merge patch.
-                            items:
-                              type: string
-                            type: array
-                        required:
-                        - key
-                        - operator
-                        type: object
-                      type: array
-                    matchLabels:
-                      additionalProperties:
-                        type: string
-                      description: matchLabels is a map of {key,value} pairs. A single
-                        {key,value} in the matchLabels map is equivalent to an element
-                        of matchExpressions, whose key field is "key", the operator
-                        is "In", and the values array contains only "value". The requirements
-                        are ANDed.
-                      type: object
-                  type: object
-                  x-kubernetes-map-type: atomic
-                resources:
-                  description: Subjects is an optional reference to the checked Kubernetes
-                    resources
-                  items:
-                    description: "ObjectReference contains enough information to let
-                      you inspect or modify the referred object. --- New uses of this
-                      type are discouraged because of difficulty describing its usage
-                      when embedded in APIs. 1. Ignored fields.  It includes many
-                      fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage. 2.
-                      Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular
-                      restrictions like, \"must refer only to types A and B\" or \"UID
-                      not honored\" or \"name must be restricted\". Those cannot be
-                      well described when embedded. 3. Inconsistent validation.  Because
-                      the usages are different, the validation rules are different
-                      by usage, which makes it hard for users to predict what will
-                      happen. 4. The fields are both imprecise and overly precise.
-                      \ Kind is not a precise mapping to a URL. This can produce ambiguity
-                      during interpretation and require a REST mapping.  In most cases,
-                      the dependency is on the group,resource tuple and the version
-                      of the actual struct is irrelevant. 5. We cannot easily change
-                      it.  Because this type is embedded in many locations, updates
-                      to this type will affect numerous schemas.  Don't make new APIs
-                      embed an underspecified API type they do not control. \n Instead
-                      of using this type, create a locally provided and used type
-                      that is well-focused on your reference. For example, ServiceReferences
-                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                      ."
-                    properties:
-                      apiVersion:
-                        description: API version of the referent.
-                        type: string
-                      fieldPath:
-                        description: 'If referring to a piece of an object instead
-                          of an entire object, this string should contain a valid
-                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                          For example, if the object reference is to a container within
-                          a pod, this would take on a value like: "spec.containers{name}"
-                          (where "name" refers to the name of the container that triggered
-                          the event) or if no container name is specified "spec.containers[2]"
-                          (container with index 2 in this pod). This syntax is chosen
-                          only to have some well-defined way of referencing a part
-                          of an object. TODO: this design is not final and this field
-                          is subject to change in the future.'
-                        type: string
-                      kind:
-                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                        type: string
-                      name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                        type: string
-                      namespace:
-                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                        type: string
-                      resourceVersion:
-                        description: 'Specific resourceVersion to which this reference
-                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                        type: string
-                      uid:
-                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                        type: string
-                    type: object
-                    x-kubernetes-map-type: atomic
-                  type: array
-                result:
-                  description: Result indicates the outcome of the policy rule execution
-                  enum:
-                  - pass
-                  - fail
-                  - warn
-                  - error
-                  - skip
-                  type: string
-                rule:
-                  description: Rule is the name or identifier of the rule within the
-                    policy
-                  type: string
-                scored:
-                  description: Scored indicates if this result is scored
-                  type: boolean
-                severity:
-                  description: Severity indicates policy check result criticality
-                  enum:
-                  - critical
-                  - high
-                  - low
-                  - medium
-                  - info
-                  type: string
-                source:
-                  description: Source is an identifier for the policy engine that
-                    manages this report
-                  type: string
-                timestamp:
-                  description: Timestamp indicates the time the result was found
-                  properties:
-                    nanos:
-                      description: Non-negative fractions of a second at nanosecond
-                        resolution. Negative second values with fractions must still
-                        have non-negative nanos values that count forward in time.
-                        Must be from 0 to 999,999,999 inclusive. This field may be
-                        limited in precision depending on context.
-                      format: int32
-                      type: integer
-                    seconds:
-                      description: Represents seconds of UTC time since Unix epoch
-                        1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
-                        9999-12-31T23:59:59Z inclusive.
-                      format: int64
-                      type: integer
-                  required:
-                  - nanos
-                  - seconds
-                  type: object
-              required:
-              - policy
-              type: object
-            type: array
-          scope:
-            description: Scope is an optional reference to the report scope (e.g.
-              a Deployment, Namespace, or Node)
-            properties:
-              apiVersion:
-                description: API version of the referent.
-                type: string
-              fieldPath:
-                description: 'If referring to a piece of an object instead of an entire
-                  object, this string should contain a valid JSON/Go field access
-                  statement, such as desiredState.manifest.containers[2]. For example,
-                  if the object reference is to a container within a pod, this would
-                  take on a value like: "spec.containers{name}" (where "name" refers
-                  to the name of the container that triggered the event) or if no
-                  container name is specified "spec.containers[2]" (container with
-                  index 2 in this pod). This syntax is chosen only to have some well-defined
-                  way of referencing a part of an object. TODO: this design is not
-                  final and this field is subject to change in the future.'
-                type: string
-              kind:
-                description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                type: string
-              name:
-                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                type: string
-              namespace:
-                description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                type: string
-              resourceVersion:
-                description: 'Specific resourceVersion to which this reference is
-                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                type: string
-              uid:
-                description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                type: string
-            type: object
-            x-kubernetes-map-type: atomic
-          scopeSelector:
-            description: ScopeSelector is an optional selector for multiple scopes
-              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
-              should be specified.
-            properties:
-              matchExpressions:
-                description: matchExpressions is a list of label selector requirements.
-                  The requirements are ANDed.
-                items:
-                  description: A label selector requirement is a selector that contains
-                    values, a key, and an operator that relates the key and values.
-                  properties:
-                    key:
-                      description: key is the label key that the selector applies
-                        to.
-                      type: string
-                    operator:
-                      description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                      type: string
-                    values:
-                      description: values is an array of string values. If the operator
-                        is In or NotIn, the values array must be non-empty. If the
-                        operator is Exists or DoesNotExist, the values array must
-                        be empty. This array is replaced during a strategic merge
-                        patch.
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - key
-                  - operator
-                  type: object
-                type: array
-              matchLabels:
-                additionalProperties:
-                  type: string
-                description: matchLabels is a map of {key,value} pairs. A single {key,value}
-                  in the matchLabels map is equivalent to an element of matchExpressions,
-                  whose key field is "key", the operator is "In", and the values array
-                  contains only "value". The requirements are ANDed.
-                type: object
-            type: object
-            x-kubernetes-map-type: atomic
-          summary:
-            description: PolicyReportSummary provides a summary of results
-            properties:
-              error:
-                description: Error provides the count of policies that could not be
-                  evaluated
-                type: integer
-              fail:
-                description: Fail provides the count of policies whose requirements
-                  were not met
-                type: integer
-              pass:
-                description: Pass provides the count of policies whose requirements
-                  were met
-                type: integer
-              skip:
-                description: Skip indicates the count of policies that were not selected
-                  for evaluation
-                type: integer
-              warn:
-                description: Warn provides the count of non-scored policies whose
-                  requirements were not met
-                type: integer
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
-  labels:
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -31083,107 +30388,752 @@ spec:
     subresources:
       status: {}
 ---
-apiVersion: v1
-kind: ServiceAccount
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
-    app: kyverno
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  name: kyverno-service-account
-  namespace: kyverno
+  name: clusterpolicyreports.wgpolicyk8s.io
+spec:
+  group: wgpolicyk8s.io
+  names:
+    kind: ClusterPolicyReport
+    listKind: ClusterPolicyReportList
+    plural: clusterpolicyreports
+    shortNames:
+    - cpolr
+    singular: clusterpolicyreport
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .scope.kind
+      name: Kind
+      priority: 1
+      type: string
+    - jsonPath: .scope.name
+      name: Name
+      priority: 1
+      type: string
+    - jsonPath: .summary.pass
+      name: Pass
+      type: integer
+    - jsonPath: .summary.fail
+      name: Fail
+      type: integer
+    - jsonPath: .summary.warn
+      name: Warn
+      type: integer
+    - jsonPath: .summary.error
+      name: Error
+      type: integer
+    - jsonPath: .summary.skip
+      name: Skip
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: ClusterPolicyReport is the Schema for the clusterpolicyreports
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          results:
+            description: PolicyReportResult provides result details
+            items:
+              description: PolicyReportResult provides the result for an individual
+                policy
+              properties:
+                category:
+                  description: Category indicates policy category
+                  type: string
+                message:
+                  description: Description is a short user friendly message for the
+                    policy rule
+                  type: string
+                policy:
+                  description: Policy is the name or identifier of the policy
+                  type: string
+                properties:
+                  additionalProperties:
+                    type: string
+                  description: Properties provides additional information for the
+                    policy rule
+                  type: object
+                resourceSelector:
+                  description: SubjectSelector is an optional label selector for checked
+                    Kubernetes resources. For example, a policy result may apply to
+                    all pods that match a label. Either a Subject or a SubjectSelector
+                    can be specified. If neither are provided, the result is assumed
+                    to be for the policy report scope.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the
+                          key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: operator represents a key's relationship
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
+                            type: string
+                          values:
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a
+                              strategic merge patch.
+                            items:
+                              type: string
+                            type: array
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
+                      type: object
+                  type: object
+                  x-kubernetes-map-type: atomic
+                resources:
+                  description: Subjects is an optional reference to the checked Kubernetes
+                    resources
+                  items:
+                    description: "ObjectReference contains enough information to let
+                      you inspect or modify the referred object. --- New uses of this
+                      type are discouraged because of difficulty describing its usage
+                      when embedded in APIs. 1. Ignored fields.  It includes many
+                      fields which are not generally honored.  For instance, ResourceVersion
+                      and FieldPath are both very rarely valid in actual usage. 2.
+                      Invalid usage help.  It is impossible to add specific help for
+                      individual usage.  In most embedded usages, there are particular
+                      restrictions like, \"must refer only to types A and B\" or \"UID
+                      not honored\" or \"name must be restricted\". Those cannot be
+                      well described when embedded. 3. Inconsistent validation.  Because
+                      the usages are different, the validation rules are different
+                      by usage, which makes it hard for users to predict what will
+                      happen. 4. The fields are both imprecise and overly precise.
+                      \ Kind is not a precise mapping to a URL. This can produce ambiguity
+                      during interpretation and require a REST mapping.  In most cases,
+                      the dependency is on the group,resource tuple and the version
+                      of the actual struct is irrelevant. 5. We cannot easily change
+                      it.  Because this type is embedded in many locations, updates
+                      to this type will affect numerous schemas.  Don't make new APIs
+                      embed an underspecified API type they do not control. \n Instead
+                      of using this type, create a locally provided and used type
+                      that is well-focused on your reference. For example, ServiceReferences
+                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
+                      ."
+                    properties:
+                      apiVersion:
+                        description: API version of the referent.
+                        type: string
+                      fieldPath:
+                        description: 'If referring to a piece of an object instead
+                          of an entire object, this string should contain a valid
+                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                          For example, if the object reference is to a container within
+                          a pod, this would take on a value like: "spec.containers{name}"
+                          (where "name" refers to the name of the container that triggered
+                          the event) or if no container name is specified "spec.containers[2]"
+                          (container with index 2 in this pod). This syntax is chosen
+                          only to have some well-defined way of referencing a part
+                          of an object. TODO: this design is not final and this field
+                          is subject to change in the future.'
+                        type: string
+                      kind:
+                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                      resourceVersion:
+                        description: 'Specific resourceVersion to which this reference
+                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                        type: string
+                      uid:
+                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  type: array
+                result:
+                  description: Result indicates the outcome of the policy rule execution
+                  enum:
+                  - pass
+                  - fail
+                  - warn
+                  - error
+                  - skip
+                  type: string
+                rule:
+                  description: Rule is the name or identifier of the rule within the
+                    policy
+                  type: string
+                scored:
+                  description: Scored indicates if this result is scored
+                  type: boolean
+                severity:
+                  description: Severity indicates policy check result criticality
+                  enum:
+                  - critical
+                  - high
+                  - low
+                  - medium
+                  - info
+                  type: string
+                source:
+                  description: Source is an identifier for the policy engine that
+                    manages this report
+                  type: string
+                timestamp:
+                  description: Timestamp indicates the time the result was found
+                  properties:
+                    nanos:
+                      description: Non-negative fractions of a second at nanosecond
+                        resolution. Negative second values with fractions must still
+                        have non-negative nanos values that count forward in time.
+                        Must be from 0 to 999,999,999 inclusive. This field may be
+                        limited in precision depending on context.
+                      format: int32
+                      type: integer
+                    seconds:
+                      description: Represents seconds of UTC time since Unix epoch
+                        1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+                        9999-12-31T23:59:59Z inclusive.
+                      format: int64
+                      type: integer
+                  required:
+                  - nanos
+                  - seconds
+                  type: object
+              required:
+              - policy
+              type: object
+            type: array
+          scope:
+            description: Scope is an optional reference to the report scope (e.g.
+              a Deployment, Namespace, or Node)
+            properties:
+              apiVersion:
+                description: API version of the referent.
+                type: string
+              fieldPath:
+                description: 'If referring to a piece of an object instead of an entire
+                  object, this string should contain a valid JSON/Go field access
+                  statement, such as desiredState.manifest.containers[2]. For example,
+                  if the object reference is to a container within a pod, this would
+                  take on a value like: "spec.containers{name}" (where "name" refers
+                  to the name of the container that triggered the event) or if no
+                  container name is specified "spec.containers[2]" (container with
+                  index 2 in this pod). This syntax is chosen only to have some well-defined
+                  way of referencing a part of an object. TODO: this design is not
+                  final and this field is subject to change in the future.'
+                type: string
+              kind:
+                description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
+              name:
+                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                type: string
+              namespace:
+                description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                type: string
+              resourceVersion:
+                description: 'Specific resourceVersion to which this reference is
+                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                type: string
+              uid:
+                description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                type: string
+            type: object
+            x-kubernetes-map-type: atomic
+          scopeSelector:
+            description: ScopeSelector is an optional selector for multiple scopes
+              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
+              should be specified.
+            properties:
+              matchExpressions:
+                description: matchExpressions is a list of label selector requirements.
+                  The requirements are ANDed.
+                items:
+                  description: A label selector requirement is a selector that contains
+                    values, a key, and an operator that relates the key and values.
+                  properties:
+                    key:
+                      description: key is the label key that the selector applies
+                        to.
+                      type: string
+                    operator:
+                      description: operator represents a key's relationship to a set
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                      type: string
+                    values:
+                      description: values is an array of string values. If the operator
+                        is In or NotIn, the values array must be non-empty. If the
+                        operator is Exists or DoesNotExist, the values array must
+                        be empty. This array is replaced during a strategic merge
+                        patch.
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - key
+                  - operator
+                  type: object
+                type: array
+              matchLabels:
+                additionalProperties:
+                  type: string
+                description: matchLabels is a map of {key,value} pairs. A single {key,value}
+                  in the matchLabels map is equivalent to an element of matchExpressions,
+                  whose key field is "key", the operator is "In", and the values array
+                  contains only "value". The requirements are ANDed.
+                type: object
+            type: object
+            x-kubernetes-map-type: atomic
+          summary:
+            description: PolicyReportSummary provides a summary of results
+            properties:
+              error:
+                description: Error provides the count of policies that could not be
+                  evaluated
+                type: integer
+              fail:
+                description: Fail provides the count of policies whose requirements
+                  were not met
+                type: integer
+              pass:
+                description: Pass provides the count of policies whose requirements
+                  were met
+                type: integer
+              skip:
+                description: Skip indicates the count of policies that were not selected
+                  for evaluation
+                type: integer
+              warn:
+                description: Warn provides the count of non-scored policies whose
+                  requirements were not met
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.10.0
   labels:
-    app: kyverno
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  name: kyverno:leaderelection
-  namespace: kyverno
-rules:
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
+  name: policyreports.wgpolicyk8s.io
+spec:
+  group: wgpolicyk8s.io
+  names:
+    kind: PolicyReport
+    listKind: PolicyReportList
+    plural: policyreports
+    shortNames:
+    - polr
+    singular: policyreport
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .scope.kind
+      name: Kind
+      priority: 1
+      type: string
+    - jsonPath: .scope.name
+      name: Name
+      priority: 1
+      type: string
+    - jsonPath: .summary.pass
+      name: Pass
+      type: integer
+    - jsonPath: .summary.fail
+      name: Fail
+      type: integer
+    - jsonPath: .summary.warn
+      name: Warn
+      type: integer
+    - jsonPath: .summary.error
+      name: Error
+      type: integer
+    - jsonPath: .summary.skip
+      name: Skip
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: PolicyReport is the Schema for the policyreports API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          results:
+            description: PolicyReportResult provides result details
+            items:
+              description: PolicyReportResult provides the result for an individual
+                policy
+              properties:
+                category:
+                  description: Category indicates policy category
+                  type: string
+                message:
+                  description: Description is a short user friendly message for the
+                    policy rule
+                  type: string
+                policy:
+                  description: Policy is the name or identifier of the policy
+                  type: string
+                properties:
+                  additionalProperties:
+                    type: string
+                  description: Properties provides additional information for the
+                    policy rule
+                  type: object
+                resourceSelector:
+                  description: SubjectSelector is an optional label selector for checked
+                    Kubernetes resources. For example, a policy result may apply to
+                    all pods that match a label. Either a Subject or a SubjectSelector
+                    can be specified. If neither are provided, the result is assumed
+                    to be for the policy report scope.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the
+                          key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: operator represents a key's relationship
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
+                            type: string
+                          values:
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a
+                              strategic merge patch.
+                            items:
+                              type: string
+                            type: array
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
+                      type: object
+                  type: object
+                  x-kubernetes-map-type: atomic
+                resources:
+                  description: Subjects is an optional reference to the checked Kubernetes
+                    resources
+                  items:
+                    description: "ObjectReference contains enough information to let
+                      you inspect or modify the referred object. --- New uses of this
+                      type are discouraged because of difficulty describing its usage
+                      when embedded in APIs. 1. Ignored fields.  It includes many
+                      fields which are not generally honored.  For instance, ResourceVersion
+                      and FieldPath are both very rarely valid in actual usage. 2.
+                      Invalid usage help.  It is impossible to add specific help for
+                      individual usage.  In most embedded usages, there are particular
+                      restrictions like, \"must refer only to types A and B\" or \"UID
+                      not honored\" or \"name must be restricted\". Those cannot be
+                      well described when embedded. 3. Inconsistent validation.  Because
+                      the usages are different, the validation rules are different
+                      by usage, which makes it hard for users to predict what will
+                      happen. 4. The fields are both imprecise and overly precise.
+                      \ Kind is not a precise mapping to a URL. This can produce ambiguity
+                      during interpretation and require a REST mapping.  In most cases,
+                      the dependency is on the group,resource tuple and the version
+                      of the actual struct is irrelevant. 5. We cannot easily change
+                      it.  Because this type is embedded in many locations, updates
+                      to this type will affect numerous schemas.  Don't make new APIs
+                      embed an underspecified API type they do not control. \n Instead
+                      of using this type, create a locally provided and used type
+                      that is well-focused on your reference. For example, ServiceReferences
+                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
+                      ."
+                    properties:
+                      apiVersion:
+                        description: API version of the referent.
+                        type: string
+                      fieldPath:
+                        description: 'If referring to a piece of an object instead
+                          of an entire object, this string should contain a valid
+                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                          For example, if the object reference is to a container within
+                          a pod, this would take on a value like: "spec.containers{name}"
+                          (where "name" refers to the name of the container that triggered
+                          the event) or if no container name is specified "spec.containers[2]"
+                          (container with index 2 in this pod). This syntax is chosen
+                          only to have some well-defined way of referencing a part
+                          of an object. TODO: this design is not final and this field
+                          is subject to change in the future.'
+                        type: string
+                      kind:
+                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                      resourceVersion:
+                        description: 'Specific resourceVersion to which this reference
+                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                        type: string
+                      uid:
+                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  type: array
+                result:
+                  description: Result indicates the outcome of the policy rule execution
+                  enum:
+                  - pass
+                  - fail
+                  - warn
+                  - error
+                  - skip
+                  type: string
+                rule:
+                  description: Rule is the name or identifier of the rule within the
+                    policy
+                  type: string
+                scored:
+                  description: Scored indicates if this result is scored
+                  type: boolean
+                severity:
+                  description: Severity indicates policy check result criticality
+                  enum:
+                  - critical
+                  - high
+                  - low
+                  - medium
+                  - info
+                  type: string
+                source:
+                  description: Source is an identifier for the policy engine that
+                    manages this report
+                  type: string
+                timestamp:
+                  description: Timestamp indicates the time the result was found
+                  properties:
+                    nanos:
+                      description: Non-negative fractions of a second at nanosecond
+                        resolution. Negative second values with fractions must still
+                        have non-negative nanos values that count forward in time.
+                        Must be from 0 to 999,999,999 inclusive. This field may be
+                        limited in precision depending on context.
+                      format: int32
+                      type: integer
+                    seconds:
+                      description: Represents seconds of UTC time since Unix epoch
+                        1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+                        9999-12-31T23:59:59Z inclusive.
+                      format: int64
+                      type: integer
+                  required:
+                  - nanos
+                  - seconds
+                  type: object
+              required:
+              - policy
+              type: object
+            type: array
+          scope:
+            description: Scope is an optional reference to the report scope (e.g.
+              a Deployment, Namespace, or Node)
+            properties:
+              apiVersion:
+                description: API version of the referent.
+                type: string
+              fieldPath:
+                description: 'If referring to a piece of an object instead of an entire
+                  object, this string should contain a valid JSON/Go field access
+                  statement, such as desiredState.manifest.containers[2]. For example,
+                  if the object reference is to a container within a pod, this would
+                  take on a value like: "spec.containers{name}" (where "name" refers
+                  to the name of the container that triggered the event) or if no
+                  container name is specified "spec.containers[2]" (container with
+                  index 2 in this pod). This syntax is chosen only to have some well-defined
+                  way of referencing a part of an object. TODO: this design is not
+                  final and this field is subject to change in the future.'
+                type: string
+              kind:
+                description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
+              name:
+                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                type: string
+              namespace:
+                description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                type: string
+              resourceVersion:
+                description: 'Specific resourceVersion to which this reference is
+                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                type: string
+              uid:
+                description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                type: string
+            type: object
+            x-kubernetes-map-type: atomic
+          scopeSelector:
+            description: ScopeSelector is an optional selector for multiple scopes
+              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
+              should be specified.
+            properties:
+              matchExpressions:
+                description: matchExpressions is a list of label selector requirements.
+                  The requirements are ANDed.
+                items:
+                  description: A label selector requirement is a selector that contains
+                    values, a key, and an operator that relates the key and values.
+                  properties:
+                    key:
+                      description: key is the label key that the selector applies
+                        to.
+                      type: string
+                    operator:
+                      description: operator represents a key's relationship to a set
+                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                      type: string
+                    values:
+                      description: values is an array of string values. If the operator
+                        is In or NotIn, the values array must be non-empty. If the
+                        operator is Exists or DoesNotExist, the values array must
+                        be empty. This array is replaced during a strategic merge
+                        patch.
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - key
+                  - operator
+                  type: object
+                type: array
+              matchLabels:
+                additionalProperties:
+                  type: string
+                description: matchLabels is a map of {key,value} pairs. A single {key,value}
+                  in the matchLabels map is equivalent to an element of matchExpressions,
+                  whose key field is "key", the operator is "In", and the values array
+                  contains only "value". The requirements are ANDed.
+                type: object
+            type: object
+            x-kubernetes-map-type: atomic
+          summary:
+            description: PolicyReportSummary provides a summary of results
+            properties:
+              error:
+                description: Error provides the count of policies that could not be
+                  evaluated
+                type: integer
+              fail:
+                description: Fail provides the count of policies whose requirements
+                  were not met
+                type: integer
+              pass:
+                description: Pass provides the count of policies whose requirements
+                  were met
+                type: integer
+              skip:
+                description: Skip indicates the count of policies that were not selected
+                  for evaluation
+                type: integer
+              warn:
+                description: Warn provides the count of non-scored policies whose
+                  requirements were not met
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}
 ---
-aggregationRule:
-  clusterRoleSelectors:
-  - matchLabels:
-      app: kyverno
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: kyverno:admin-generaterequest
-rules:
-- apiGroups:
-  - kyverno.io
-  resources:
-  - generaterequests
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
 rules:
 - apiGroups:
   - kyverno.io
@@ -31191,110 +31141,345 @@ rules:
   - policies
   - clusterpolicies
   verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: kyverno:admin-policyreport
   labels:
-    app: kyverno
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+rules:
+  - apiGroups:
+      - wgpolicyk8s.io
+    resources:
+      - policyreports
+      - clusterpolicyreports
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admin-reports
+  labels:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: kyverno:admin-policyreport
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
 rules:
 - apiGroups:
-  - wgpolicyk8s.io
+    - kyverno.io
   resources:
-  - policyreports
-  - clusterpolicyreports
+    - admissionreports
+    - clusteradmissionreports
+    - backgroundscanreports
+    - clusterbackgroundscanreports
   verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: kyverno:admin-generaterequest
   labels:
-    app: kyverno
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: kyverno:admin-reports
 rules:
 - apiGroups:
   - kyverno.io
   resources:
-  - admissionreports
-  - clusteradmissionreports
-  - backgroundscanreports
-  - clusterbackgroundscanreports
+  - generaterequests
   verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: kyverno:admin-updaterequest
   labels:
-    app: kyverno
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: kyverno:admin-updaterequest
 rules:
 - apiGroups:
   - kyverno.io
   resources:
   - updaterequests
   verbs:
-  - create
-  - delete
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-cleanup-controller
+  labels:
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
+    app.kubernetes.io/instance: kyverno
+rules:
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingwebhookconfigurations
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - clustercleanuppolicies
+      - cleanuppolicies
+      - clustercleanuppolicies/*
+      - cleanuppolicies/*
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - batch
+    resources:
+      - cronjobs
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      app: kyverno
+      app.kubernetes.io/name: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:userinfo
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+rules:
+- apiGroups:
+    - rbac.authorization.k8s.io
+  resources:
+    - roles
+    - clusterroles
+    - rolebindings
+    - clusterrolebindings
+  verbs:
+    - watch
+    - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:policies
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+rules:
+- apiGroups:
+    - kyverno.io
+  resources:
+    - policies
+    - policies/status
+    - clusterpolicies
+    - clusterpolicies/status
+    - generaterequests
+    - generaterequests/status
+    - updaterequests
+    - updaterequests/status
+    - admissionreports
+    - clusteradmissionreports
+    - backgroundscanreports
+    - clusterbackgroundscanreports
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+    - deletecollection
+- apiGroups:
+    - wgpolicyk8s.io
+  resources:
+    - policyreports
+    - policyreports/status
+    - clusterpolicyreports
+    - clusterpolicyreports/status
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+    - deletecollection
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:view
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
   - get
   - list
-  - patch
-  - update
   - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: kyverno:generate
   labels:
-    app: kyverno
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+rules:
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+      - ingressclasses
+      - networkpolicies
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ''
+    resources:
+      - namespaces
+      - configmaps
+      - secrets
+      - resourcequotas
+      - limitranges
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - rolebindings
+      - roles
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: kyverno:events
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
 rules:
 - apiGroups:
-  - ""
+  - ''
   - events.k8s.io
   resources:
   - events
@@ -31307,158 +31492,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno:generate
-rules:
-- apiGroups:
-  - networking.k8s.io
-  resources:
-  - ingresses
-  - ingressclasses
-  - networkpolicies
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  - configmaps
-  - secrets
-  - resourcequotas
-  - limitranges
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  - roles
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno:policies
-rules:
-- apiGroups:
-  - kyverno.io
-  resources:
-  - policies
-  - policies/status
-  - clusterpolicies
-  - clusterpolicies/status
-  - generaterequests
-  - generaterequests/status
-  - updaterequests
-  - updaterequests/status
-  - admissionreports
-  - clusteradmissionreports
-  - backgroundscanreports
-  - clusterbackgroundscanreports
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-  - deletecollection
-- apiGroups:
-  - wgpolicyk8s.io
-  resources:
-  - policyreports
-  - policyreports/status
-  - clusterpolicyreports
-  - clusterpolicyreports/status
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-  - deletecollection
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno:userinfo
-rules:
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - roles
-  - clusterroles
-  - rolebindings
-  - clusterrolebindings
-  verbs:
-  - watch
-  - list
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno:view
-rules:
-- apiGroups:
-  - '*'
-  resources:
-  - '*'
-  verbs:
-  - get
-  - list
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
   name: kyverno:webhook
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
 rules:
 - apiGroups:
   - admissionregistration.k8s.io
@@ -31474,138 +31514,379 @@ rules:
   - update
   - watch
 ---
+kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
 metadata:
+  name: kyverno-cleanup-controller
   labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  name: kyverno:leaderelection
-  namespace: kyverno
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
+    app.kubernetes.io/instance: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: kyverno:leaderelection
+  kind: ClusterRole
+  name: kyverno-cleanup-controller
 subjects:
 - kind: ServiceAccount
-  name: kyverno-service-account
+  name: kyverno-cleanup-controller
   namespace: kyverno
 ---
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
+  name: kyverno
   labels:
-    app: kyverno
     app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  name: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: kyverno
 subjects:
 - kind: ServiceAccount
-  name: kyverno-service-account
+  name: kyverno
   namespace: kyverno
 ---
-apiVersion: v1
-data:
-  excludeGroupRole: system:serviceaccounts:kube-system,system:nodes,system:kube-scheduler
-  generateSuccessEvents: "false"
-  resourceFilters: |
-    [Event,*,*] [*,kube-system,*] [*,kube-public,*] [*,kube-node-lease,*] [*,kyverno,*] [Node,*,*] [APIService,*,*] [TokenReview,*,*] [SubjectAccessReview,*,*] [SelfSubjectAccessReview,*,*] [*,kyverno,kyverno*] [Binding,*,*] [ReplicaSet,*,*] [AdmissionReport,*,*] [ClusterAdmissionReport,*,*] [BackgroundScanReport,*,*] [ClusterBackgroundScanReport,*,*] [PolicyReport,*,*] [ClusterPolicyReport,*,*]
-  webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kyverno"]}]}}]'
-kind: ConfigMap
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
 metadata:
+  name: kyverno-cleanup-controller
   labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
     app.kubernetes.io/instance: kyverno
+  namespace: kyverno
+rules:
+- apiGroups:
+    - ''
+  resources:
+    - secrets
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+- apiGroups:
+    - ''
+  resources:
+    - configmaps
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - coordination.k8s.io
+  resources:
+    - leases
+  verbs:
+    - create
+    - delete
+    - get
+    - patch
+    - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kyverno:leaderelection
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+rules:
+- apiGroups:
+    - coordination.k8s.io
+  resources:
+    - leases
+  verbs:
+    - create
+    - delete
+    - get
+    - patch
+    - update
+- apiGroups:
+    - apps
+  resources:
+    - deployments
+  verbs:
+    - get
+    - list
+    - patch
+    - update
+    - watch
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno-cleanup-controller
+  labels:
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
+    app.kubernetes.io/instance: kyverno
+  namespace: kyverno
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kyverno-cleanup-controller
+subjects:
+- kind: ServiceAccount
+  name: kyverno-cleanup-controller
+  namespace: kyverno
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:leaderelection
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kyverno:leaderelection
+subjects:
+- kind: ServiceAccount
   name: kyverno
   namespace: kyverno
 ---
 apiVersion: v1
-data:
-  metricsRefreshInterval: 24h
-  namespaces: '{"exclude":[],"include":[]}'
-kind: ConfigMap
-metadata:
-  labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: kyverno-metrics
-  namespace: kyverno
----
-apiVersion: v1
 kind: Service
 metadata:
+  name: kyverno-cleanup-controller
+  namespace: kyverno
   labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  name: kyverno-svc
-  namespace: kyverno
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
+    app.kubernetes.io/instance: kyverno
 spec:
   ports:
-  - name: https
-    port: 443
+  - port: 443
     targetPort: https
+    protocol: TCP
+    name: https
   selector:
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
+    app.kubernetes.io/instance: kyverno
+  type: ClusterIP
 ---
 apiVersion: v1
 kind: Service
 metadata:
+  name: kyverno-cleanup-controller-metrics
+  namespace: kyverno
   labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
     app.kubernetes.io/instance: kyverno
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: metrics-port
+  selector:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
+    app.kubernetes.io/instance: kyverno
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyverno-svc
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  name: kyverno-svc-metrics
   namespace: kyverno
 spec:
   ports:
-  - name: metrics-port
-    port: 8000
-    targetPort: metrics-port
+  - port: 443
+    targetPort: https
+    protocol: TCP
+    name: https
   selector:
     app: kyverno
     app.kubernetes.io/name: kyverno
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyverno-svc-metrics
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  namespace: kyverno
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: metrics-port
+  selector:
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: kyverno-cleanup-controller
   labels:
-    app: kyverno
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
     app.kubernetes.io/instance: kyverno
+  namespace: kyverno
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 40%
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: cleanup-controller
+      app.kubernetes.io/name: kyverno-cleanup-controller
+      app.kubernetes.io/instance: kyverno
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: kyverno
+        app.kubernetes.io/version: latest
+        app.kubernetes.io/component: cleanup-controller
+        app.kubernetes.io/name: kyverno-cleanup-controller
+        app.kubernetes.io/instance: kyverno
+    spec:
+      dnsPolicy: ClusterFirst
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                  - cleanup-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 1
+      serviceAccountName: kyverno-cleanup-controller
+      containers:
+        - name: controller
+          image: "ghcr.io/kyverno/cleanup-controller:latest"
+          ports:
+          - containerPort: 9443
+            name: https
+            protocol: TCP
+          - containerPort: 8000
+            name: metrics
+            protocol: TCP
+          args:
+            - --loggingFormat=text
+            - --disableMetrics=false
+            - --otelConfig=prometheus
+            - --metricsPort=8000
+          env:
+          - name: METRICS_CONFIG
+            value: kyverno-metrics
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KYVERNO_SVC
+            value: kyverno-cleanup-controller
+          resources: 
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+          securityContext: 
+            
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            failureThreshold: 20
+            httpGet:
+              path: /health/liveness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 2
+            periodSeconds: 6
+          livenessProbe:
+            failureThreshold: 2
+            httpGet:
+              path: /health/liveness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 6
+            httpGet:
+              path: /health/readiness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyverno
+  labels:
+    app.kubernetes.io/component: kyverno
+    app: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  name: kyverno
   namespace: kyverno
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: kyverno
@@ -31618,9 +31899,8 @@ spec:
   template:
     metadata:
       labels:
-        app: kyverno
         app.kubernetes.io/component: kyverno
-        app.kubernetes.io/instance: kyverno
+        app: kyverno
         app.kubernetes.io/name: kyverno
         app.kubernetes.io/part-of: kyverno
         app.kubernetes.io/version: latest
@@ -31634,121 +31914,130 @@ spec:
                 - key: app.kubernetes.io/name
                   operator: In
                   values:
-                  - kyverno
+                  - 'kyverno'
               topologyKey: kubernetes.io/hostname
             weight: 1
-      containers:
-      - args:
-        - -v=2
-        env:
-        - name: INIT_CONFIG
-          value: kyverno
-        - name: METRICS_CONFIG
-          value: kyverno-metrics
-        - name: KYVERNO_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: KYVERNO_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: KYVERNO_SVC
-          value: kyverno-svc
-        - name: TUF_ROOT
-          value: /.sigstore
-        image: ghcr.io/kyverno/kyverno:latest
-        imagePullPolicy: Always
-        livenessProbe:
-          failureThreshold: 2
-          httpGet:
-            path: /health/liveness
-            port: 9443
-            scheme: HTTPS
-          initialDelaySeconds: 15
-          periodSeconds: 30
-          successThreshold: 1
-          timeoutSeconds: 5
-        name: kyverno
-        ports:
-        - containerPort: 9443
-          name: https
-          protocol: TCP
-        - containerPort: 8000
-          name: metrics-port
-          protocol: TCP
-        readinessProbe:
-          failureThreshold: 4
-          httpGet:
-            path: /health/readiness
-            port: 9443
-            scheme: HTTPS
-          initialDelaySeconds: 5
-          periodSeconds: 10
-          successThreshold: 1
-          timeoutSeconds: 5
-        resources:
-          limits:
-            memory: 384Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          seccompProfile:
-            type: RuntimeDefault
-        startupProbe:
-          failureThreshold: 20
-          httpGet:
-            path: /health/liveness
-            port: 9443
-            scheme: HTTPS
-          initialDelaySeconds: 2
-          periodSeconds: 6
-        volumeMounts:
-        - mountPath: /.sigstore
-          name: sigstore
+      serviceAccountName: kyverno
+      dnsPolicy: ClusterFirst
       initContainers:
-      - env:
-        - name: METRICS_CONFIG
-          value: kyverno-metrics
-        - name: KYVERNO_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: KYVERNO_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: ghcr.io/kyverno/kyvernopre:latest
-        imagePullPolicy: Always
-        name: kyverno-pre
-        resources:
-          limits:
-            cpu: 100m
-            memory: 256Mi
-          requests:
-            cpu: 10m
-            memory: 64Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          seccompProfile:
-            type: RuntimeDefault
-      securityContext:
-        runAsNonRoot: true
-      serviceAccountName: kyverno-service-account
+        - name: kyverno-pre
+          image: "ghcr.io/kyverno/kyvernopre:latest"
+          imagePullPolicy: IfNotPresent
+          args:
+              - --loggingFormat=text
+          resources: 
+            limits:
+              cpu: 100m
+              memory: 256Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          securityContext: 
+            
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+          - name: METRICS_CONFIG
+            value: kyverno-metrics
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno
+      containers:
+        - name: kyverno
+          image: "ghcr.io/kyverno/kyverno:latest"
+          imagePullPolicy: IfNotPresent
+          args:
+            - --loggingFormat=text
+          resources: 
+            limits:
+              memory: 384Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext: 
+            
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+          - containerPort: 9443
+            name: https
+            protocol: TCP
+          - containerPort: 8000
+            name: metrics-port
+            protocol: TCP
+          env:
+          - name: INIT_CONFIG
+            value: kyverno
+          - name: METRICS_CONFIG
+            value: kyverno-metrics
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: kyverno
+          - name: KYVERNO_SVC
+            value: kyverno-svc
+          - name: TUF_ROOT
+            value: /.sigstore
+          - name: KYVERNO_DEPLOYMENT
+            value: kyverno
+          startupProbe: 
+            failureThreshold: 20
+            httpGet:
+              path: /health/liveness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 2
+            periodSeconds: 6
+          livenessProbe: 
+            failureThreshold: 2
+            httpGet:
+              path: /health/liveness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+          readinessProbe: 
+            failureThreshold: 6
+            httpGet:
+              path: /health/readiness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          volumeMounts:
+            - mountPath: /.sigstore
+              name: sigstore
       volumes:
-      - emptyDir: {}
-        name: sigstore
+      - name: sigstore
+        emptyDir: {}

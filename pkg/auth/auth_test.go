@@ -29,7 +29,7 @@ func TestNewCanI(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewCanI(tt.args.client, tt.args.kind, tt.args.namespace, tt.args.verb)
+			got := NewCanI(tt.args.client, tt.args.kind, tt.args.namespace, tt.args.verb, "")
 			assert.NotNil(t, got)
 		})
 	}
@@ -80,7 +80,7 @@ func TestCanIOptions_RunAccessCheck(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := NewCanI(tt.fields.client, tt.fields.kind, tt.fields.namespace, tt.fields.verb)
+			o := NewCanI(tt.fields.client, tt.fields.kind, tt.fields.namespace, tt.fields.verb, "")
 			got, err := o.RunAccessCheck(context.TODO())
 			if tt.wantErr {
 				assert.Error(t, err)

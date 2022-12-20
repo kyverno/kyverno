@@ -108,9 +108,15 @@ func VerifyAndPatchImages(
 					return
 				}
 
+				// check if there is a corresponding policy exception
+				ruleResp := hasPolicyExceptions(policyContext, rule, logger)
+				if ruleResp != nil {
+					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+					return
+				}
+
 				logger.V(3).Info("processing image verification rule", "ruleSelector", applyRules)
 
-				var err error
 				ruleImages, imageRefs, err := extractMatchingImages(policyContext, rule)
 				if err != nil {
 					appendResponse(resp, rule, fmt.Sprintf("failed to extract images: %s", err.Error()), response.RuleStatusError)
@@ -438,7 +444,7 @@ func (iv *imageVerifier) verifyAttestations(
 
 				verifiedCount++
 				if verifiedCount >= requiredCount {
-					iv.logger.V(2).Info("image attestations verification succeeded, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
+					iv.logger.V(2).Info("image attestations verification succeeded", "verifiedCount", verifiedCount, "requiredCount", requiredCount)
 					break
 				}
 			}

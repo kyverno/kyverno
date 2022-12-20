@@ -26,6 +26,9 @@ on:
       kyverno_sha256_digest:
         description: "sha256 digest of kyverno docker image"
         value: ${{ jobs.build.outputs.kyverno-digest }}
+      cleanup_controller_sha256_digest:
+        description: "sha256 digest of cleanup-controller docker image"
+        value: ${{ jobs.build.outputs.cleanup-controller-digest }}
       cli_sha256_digest:
         description: "sha256 digest of kyverno docker image"
         value: ${{ jobs.build.outputs.cli-digest }}
@@ -40,6 +43,7 @@ jobs:
     outputs:
       init-container-digest: ${{ steps.set-sha256sum-digest.outputs.init-container-digest }}
       kyverno-digest: ${{ steps.set-sha256sum-digest.outputs.kyverno-digest }}
+      cleanup-controller-digest: ${{ steps.set-sha256sum-digest.outputs.cleanup-controller-digest }}
       cli-digest: ${{ steps.set-sha256sum-digest.outputs.cli-digest }}
     steps:
       - name: Checkout release
@@ -59,7 +63,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: ~1.18.6
+          go-version: ~1.19.4
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
@@ -146,10 +150,10 @@ jobs:
         run: |
           set -e
           cosign sign \
-          -a "repo=${{ github.repository }}" \
-          -a "workflow=${{ github.workflow }}" \
-          -a "ref=${{ github.sha }}" \
-          ${{ steps.ko-publish-dev.outputs.digest }}
+            -a "repo=${{ github.repository }}" \
+            -a "workflow=${{ github.workflow }}" \
+            -a "ref=${{ github.sha }}" \
+            ${{ steps.ko-publish-dev.outputs.digest }}
 
       - name: Sign release-image
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
@@ -181,6 +185,8 @@ jobs:
             echo "init-container-digest=$DIGEST" >> $GITHUB_OUTPUT
           elif [[ "${{inputs.publish_command}}" = "ko-publish-kyverno" ]]; then
             echo "kyverno-digest=$DIGEST" >> $GITHUB_OUTPUT
+          elif [[ "${{inputs.publish_command}}" = "ko-publish-cleanup-controller" ]]; then
+            echo "cleanup-controller-digest=$DIGEST" >> $GITHUB_OUTPUT
           else
             echo "name=cli-digest=$DIGEST" >> $GITHUB_OUTPUT
           fi

@@ -15,6 +15,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -47,11 +48,14 @@ func applyPolicy(
 	var err error
 
 	ctx := enginecontext.NewContext()
-	err = enginecontext.AddResource(ctx, transformResource(resource))
+	data, err := resource.MarshalJSON()
+	if err != nil {
+		logging.Error(err, "failed to marshal resource")
+	}
+	err = enginecontext.AddResource(ctx, data)
 	if err != nil {
 		logger.Error(err, "failed to add transform resource to ctx")
 	}
-
 	err = ctx.AddNamespace(resource.GetNamespace())
 	if err != nil {
 		logger.Error(err, "failed to add namespace to ctx")
