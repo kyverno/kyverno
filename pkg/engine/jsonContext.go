@@ -262,7 +262,6 @@ func loadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.Contex
 	path, err := variables.SubstituteAll(logger, enginectx.jsonContext, entry.APICall.JMESPath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to substitute variables in context entry %s JMESPath %s", entry.Name, entry.APICall.JMESPath)
-
 	}
 
 	results, err := applyJMESPathJSON(path.(string), jsonData)

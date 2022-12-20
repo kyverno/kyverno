@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -123,7 +123,7 @@ func (a *apiCall) buildHTTPRequest(service *kyvernov1.ServiceCall) (req *http.Re
 }
 
 func (a *apiCall) getToken() string {
-	b, err := ioutil.ReadFile("/var/run/secrets/tokens/api-token")
+	b, err := os.ReadFile("/var/run/secrets/tokens/api-token")
 	if err != nil {
 		a.log.Info("failed to read token", "path", "/var/run/secrets/tokens/api-token")
 		return ""

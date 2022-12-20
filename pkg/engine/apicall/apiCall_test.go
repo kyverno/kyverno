@@ -2,7 +2,7 @@ package apicall_test
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,7 +26,7 @@ func buildTestServer(responseData []byte) *httptest.Server {
 
 		if r.Method == "POST" {
 			defer r.Body.Close()
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			w.Write(body)
 		}
 	})
