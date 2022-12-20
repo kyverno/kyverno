@@ -2,6 +2,7 @@
 
 ### Note
 
+- Flag `backgroundScanInterval` was added to force background scans at regular intervals (default value is `1h`).
 - Flag `splitPolicyReport` was removed, was unused and marked for removal in 1.9.
 - Webhook is no longer updated to match `pods/ephemeralcontainers` when policy only specifies `pods`. If users want to match on `pods/ephemeralcontainers`, they must specify `pods/ephemeralcontainers` in the policy.
 - Webhook is no longer updated to match `services/status` when policy only specifies `services`. If users want to match on `services/status`, they must specify `services/status` in the policy.

@@ -56,6 +56,9 @@ func RemoveNonValidationPolicies(logger logr.Logger, policies ...kyvernov1.Polic
 }
 
 func ReportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
+	if !reflect.DeepEqual(before.GetAnnotations(), after.GetAnnotations()) {
+		return false
+	}
 	bLabels := sets.NewString()
 	aLabels := sets.NewString()
 	for key := range before.GetLabels() {
