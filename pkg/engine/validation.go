@@ -534,12 +534,21 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "failed to parse pod security api version", err)
 	}
+	podSecurityChecks := &response.PodSecurityChecks{
+		Level:   v.podSecurity.Level,
+		Version: v.podSecurity.Version,
+		Checks:  pssChecks,
+	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
-		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass)
+		rspn := ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass)
+		rspn.PodSecurityChecks = podSecurityChecks
+		return rspn
 	} else {
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, v.podSecurity.Level, v.podSecurity.Version, pss.FormatChecksPrint(pssChecks))
-		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail)
+		rspn := ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail)
+		rspn.PodSecurityChecks = podSecurityChecks
+		return rspn
 	}
 }
 
