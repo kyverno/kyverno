@@ -15,5 +15,5 @@ metadata:
 spec:
   containers:
   - name: kyverno
-    image: ghcr.io/kyverno/kyverno
+    image: ghcr.io/kyverno/kyverno:v1.7.3
 

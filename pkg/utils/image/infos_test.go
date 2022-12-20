@@ -61,9 +61,50 @@ func Test_GetImageInfo(t *testing.T) {
 		"docker.io/test/centos@sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f")
 }
 
+func Test_ReferenceWithTag(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected string
+	}{{
+		input:    "nginx",
+		expected: "docker.io/nginx:latest",
+	}, {
+		input:    "nginx:v10.3",
+		expected: "docker.io/nginx:v10.3",
+	}, {
+		input:    "docker.io/test/nginx:v10.3",
+		expected: "docker.io/test/nginx:v10.3",
+	}, {
+		input:    "test/nginx",
+		expected: "docker.io/test/nginx:latest",
+	}, {
+		input:    "localhost:4443/test/nginx",
+		expected: "localhost:4443/test/nginx:latest",
+	}, {
+		input:    "docker.io/test/centos@sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f",
+		expected: "docker.io/test/centos:",
+	}}
+	for _, test := range testCases {
+		imageInfo, err := GetImageInfo(test.input)
+		assert.NoError(t, err)
+		assert.Equal(t, test.expected, imageInfo.ReferenceWithTag())
+	}
+}
+
+func Test_ParseError(t *testing.T) {
+	testCases := []string{
+		"++",
+	}
+	for _, test := range testCases {
+		imageInfo, err := GetImageInfo(test)
+		assert.Error(t, err)
+		assert.Nil(t, imageInfo)
+	}
+}
+
 func validateImageInfo(t *testing.T, raw, name, path, registry, tag, digest, str string) {
 	i1, err := GetImageInfo(raw)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, name, i1.Name)
 	assert.Equal(t, path, i1.Path)
 	assert.Equal(t, registry, i1.Registry)

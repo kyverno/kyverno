@@ -7,10 +7,12 @@ import (
 )
 
 var (
-	Mock, RegistryAccess bool
-	ContextVar           Context
-	ForeachElement       int
-	Subjects             Subject
+	Mock           bool
+	registryClient registryclient.Client
+	AllowApiCalls  bool
+	ContextVar     Context
+	ForeachElement int
+	Subjects       Subject
 )
 
 func SetMock(mock bool) {
@@ -21,7 +23,7 @@ func GetMock() bool {
 	return Mock
 }
 
-func SetForeachElement(foreachElement int) {
+func SetForEachElement(foreachElement int) {
 	ForeachElement = foreachElement
 }
 
@@ -31,13 +33,16 @@ func GetForeachElement() int {
 
 func SetRegistryAccess(access bool) {
 	if access {
-		registryclient.DefaultClient.UseLocalKeychain()
+		registryClient = registryclient.NewOrDie(registryclient.WithLocalKeychain())
 	}
-	RegistryAccess = access
 }
 
 func GetRegistryAccess() bool {
-	return RegistryAccess
+	return registryClient != nil
+}
+
+func GetRegistryClient() registryclient.Client {
+	return registryClient
 }
 
 func SetContext(context Context) {
@@ -74,6 +79,17 @@ type Context struct {
 	Policies []kyvernov1.Policies `json:"policies"`
 }
 
+// type Policy struct {
+// 	Name  string `json:"name"`
+// 	Rules []Rule `json:"rules"`
+// }
+
+// type Rule struct {
+// 	Name          string                   `json:"name"`
+// 	Values        map[string]interface{}   `json:"values"`
+// 	ForEachValues map[string][]interface{} `json:"foreachValues"`
+// }
+
 func SetSubjects(subjects Subject) {
 	Subjects = subjects
 }
@@ -84,4 +100,12 @@ func GetSubjects() Subject {
 
 type Subject struct {
 	Subject []rbacv1.Subject `json:"subject,omitempty" yaml:"subject,omitempty"`
+}
+
+func AllowApiCall(allow bool) {
+	AllowApiCalls = allow
+}
+
+func IsAllowApiCall() bool {
+	return AllowApiCalls
 }

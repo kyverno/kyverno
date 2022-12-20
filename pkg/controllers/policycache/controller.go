@@ -1,11 +1,19 @@
 package policycache
 
 import (
+	"context"
+	"time"
+
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	pcache "github.com/kyverno/kyverno/pkg/policycache"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -14,9 +22,16 @@ import (
 )
 
 const (
-	maxRetries = 10
-	workers    = 3
+	// Workers is the number of workers for this controller
+	Workers        = 3
+	ControllerName = "policycache-controller"
+	maxRetries     = 10
 )
+
+type Controller interface {
+	controllers.Controller
+	WarmUp() error
+}
 
 type controller struct {
 	cache pcache.Cache
@@ -25,23 +40,20 @@ type controller struct {
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
 
-	// cpolSynced returns true if the cluster policy shared informer has synced at least once
-	cpolSynced cache.InformerSynced
-	// polSynced returns true if the policy shared informer has synced at least once
-	polSynced cache.InformerSynced
-
 	// queue
 	queue workqueue.RateLimitingInterface
+
+	// client
+	client dclient.Interface
 }
 
-func NewController(pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) *controller {
+func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) Controller {
 	c := controller{
 		cache:      pcache,
 		cpolLister: cpolInformer.Lister(),
 		polLister:  polInformer.Lister(),
-		cpolSynced: cpolInformer.Informer().HasSynced,
-		polSynced:  polInformer.Informer().HasSynced,
-		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policycache-controller"),
+		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		client:     client,
 	}
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
@@ -60,7 +72,8 @@ func (c *controller) WarmUp() error {
 		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
 			return err
 		} else {
-			c.cache.Set(key, policy)
+			subresourceGVKToKind := getSubresourceGVKToKindMap(policy, c.client)
+			c.cache.Set(key, policy, subresourceGVKToKind)
 		}
 	}
 	cpols, err := c.cpolLister.List(labels.Everything())
@@ -71,18 +84,18 @@ func (c *controller) WarmUp() error {
 		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
 			return err
 		} else {
-			c.cache.Set(key, policy)
+			subresourceGVKToKind := getSubresourceGVKToKindMap(policy, c.client)
+			c.cache.Set(key, policy, subresourceGVKToKind)
 		}
 	}
 	return nil
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run("policycache-controller", logger, c.queue, workers, maxRetries, c.reconcile, stopCh, c.cpolSynced, c.polSynced)
+func (c *controller) Run(ctx context.Context, workers int) {
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) reconcile(key, namespace, name string) error {
-	logger.Info("reconciling ...", "key", key, "namespace", namespace, "name", name)
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	policy, err := c.loadPolicy(namespace, name)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -91,7 +104,8 @@ func (c *controller) reconcile(key, namespace, name string) error {
 		return err
 	}
 	// TODO: check resource version ?
-	c.cache.Set(key, policy)
+	subresourceGVKToKind := getSubresourceGVKToKindMap(policy, c.client)
+	c.cache.Set(key, policy, subresourceGVKToKind)
 	return nil
 }
 
@@ -101,4 +115,19 @@ func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterfa
 	} else {
 		return c.polLister.Policies(namespace).Get(name)
 	}
+}
+
+func getSubresourceGVKToKindMap(policy kyvernov1.PolicyInterface, client dclient.Interface) map[string]string {
+	subresourceGVKToKind := make(map[string]string)
+	for _, rule := range autogen.ComputeRules(policy) {
+		for _, gvk := range rule.MatchResources.GetKinds() {
+			gv, k := kubeutils.GetKindFromGVK(gvk)
+			_, subresource := kubeutils.SplitSubresource(k)
+			if subresource != "" {
+				apiResource, _, _, _ := client.Discovery().FindResource(gv, k)
+				subresourceGVKToKind[gvk] = apiResource.Kind
+			}
+		}
+	}
+	return subresourceGVKToKind
 }

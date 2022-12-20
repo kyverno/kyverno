@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-something
+spec:
+  validationFailureAction: enforce
+  rules:
+    - name: deny-everything
+      context:
+      - name: varA
+        configMap:
+          name: kyverno-context-vars
+          namespace: default
+      - name: varB
+        variable:
+          jmesPath: varA.data.ValueOfB
+      match:
+        resources:
+          kinds:
+            - Pod
+      validate:
+        message: >-
+          Sharing the host namespaces is not allowed. The fields spec.hostNetwork,
+          spec.hostIPC, and spec.hostPID must be unset or set to `false`.
+        pattern:
+          spec:
+            =(hostPID): false
+            =(hostIPC): false

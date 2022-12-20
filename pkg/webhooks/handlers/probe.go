@@ -2,10 +2,10 @@ package handlers
 
 import "net/http"
 
-func Probe(check func() error) http.HandlerFunc {
+func Probe(check func() bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if check != nil {
-			if err := check(); err != nil {
+			if !check() {
 				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}

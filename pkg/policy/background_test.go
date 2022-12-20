@@ -132,5 +132,5 @@ func Test_Validation_invalid_backgroundPolicy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 	err = ValidateVariables(&policy, true)
-	assert.ErrorContains(t, err, "variable serviceAccountName must match")
+	assert.ErrorContains(t, err, "variable {{serviceAccountName}} is not allowed")
 }

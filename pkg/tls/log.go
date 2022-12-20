@@ -1,5 +1,5 @@
 package tls
 
-import "sigs.k8s.io/controller-runtime/pkg/log"
+import "github.com/kyverno/kyverno/pkg/logging"
 
-var logger = log.Log.WithName("tls")
+var logger = logging.WithName("tls")

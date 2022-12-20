@@ -6,8 +6,8 @@ import (
 	"encoding/pem"
 	"time"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -83,42 +83,28 @@ func validateCert(now time.Time, cert *x509.Certificate, caCerts ...*x509.Certif
 	return true
 }
 
-// IsKyvernoInRollingUpdate returns true if Kyverno is in rolling update
-func IsKyvernoInRollingUpdate(deploy *appsv1.Deployment) bool {
-	var replicas int32 = 1
-	if deploy.Spec.Replicas != nil {
-		replicas = *deploy.Spec.Replicas
-	}
-	nonTerminatedReplicas := deploy.Status.Replicas
-	if nonTerminatedReplicas > replicas {
-		logger.Info("detect Kyverno is in rolling update, won't trigger the update again")
-		return true
-	}
-	return false
-}
-
-func IsSecretManagedByKyverno(secret *corev1.Secret) bool {
+func isSecretManagedByKyverno(secret *corev1.Secret) bool {
 	if secret != nil {
 		labels := secret.GetLabels()
 		if labels == nil {
 			return false
 		}
-		if labels[ManagedByLabel] != "kyverno" {
+		if labels[managedByLabel] != kyvernov1.ValueKyvernoApp {
 			return false
 		}
 	}
 	return true
 }
 
-// InClusterServiceName The generated service name should be the common name for TLS certificate
-func InClusterServiceName() string {
+// inClusterServiceName The generated service name should be the common name for TLS certificate
+func inClusterServiceName() string {
 	return config.KyvernoServiceName() + "." + config.KyvernoNamespace() + ".svc"
 }
 
 func GenerateTLSPairSecretName() string {
-	return InClusterServiceName() + ".kyverno-tls-pair"
+	return inClusterServiceName() + ".kyverno-tls-pair"
 }
 
 func GenerateRootCASecretName() string {
-	return InClusterServiceName() + ".kyverno-tls-ca"
+	return inClusterServiceName() + ".kyverno-tls-ca"
 }

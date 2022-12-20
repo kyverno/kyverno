@@ -19,6 +19,8 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"net/http"
+
 	v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
@@ -26,8 +28,10 @@ import (
 
 type KyvernoV1alpha2Interface interface {
 	RESTClient() rest.Interface
-	ClusterReportChangeRequestsGetter
-	ReportChangeRequestsGetter
+	AdmissionReportsGetter
+	BackgroundScanReportsGetter
+	ClusterAdmissionReportsGetter
+	ClusterBackgroundScanReportsGetter
 }
 
 // KyvernoV1alpha2Client is used to interact with features provided by the kyverno.io group.
@@ -35,21 +39,45 @@ type KyvernoV1alpha2Client struct {
 	restClient rest.Interface
 }
 
-func (c *KyvernoV1alpha2Client) ClusterReportChangeRequests() ClusterReportChangeRequestInterface {
-	return newClusterReportChangeRequests(c)
+func (c *KyvernoV1alpha2Client) AdmissionReports(namespace string) AdmissionReportInterface {
+	return newAdmissionReports(c, namespace)
 }
 
-func (c *KyvernoV1alpha2Client) ReportChangeRequests(namespace string) ReportChangeRequestInterface {
-	return newReportChangeRequests(c, namespace)
+func (c *KyvernoV1alpha2Client) BackgroundScanReports(namespace string) BackgroundScanReportInterface {
+	return newBackgroundScanReports(c, namespace)
+}
+
+func (c *KyvernoV1alpha2Client) ClusterAdmissionReports() ClusterAdmissionReportInterface {
+	return newClusterAdmissionReports(c)
+}
+
+func (c *KyvernoV1alpha2Client) ClusterBackgroundScanReports() ClusterBackgroundScanReportInterface {
+	return newClusterBackgroundScanReports(c)
 }
 
 // NewForConfig creates a new KyvernoV1alpha2Client for the given config.
+// NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
+// where httpClient was generated with rest.HTTPClientFor(c).
 func NewForConfig(c *rest.Config) (*KyvernoV1alpha2Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
 	}
-	client, err := rest.RESTClientFor(&config)
+	httpClient, err := rest.HTTPClientFor(&config)
+	if err != nil {
+		return nil, err
+	}
+	return NewForConfigAndClient(&config, httpClient)
+}
+
+// NewForConfigAndClient creates a new KyvernoV1alpha2Client for the given config and http client.
+// Note the http client provided takes precedence over the configured transport values.
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*KyvernoV1alpha2Client, error) {
+	config := *c
+	if err := setConfigDefaults(&config); err != nil {
+		return nil, err
+	}
+	client, err := rest.RESTClientForConfigAndClient(&config, h)
 	if err != nil {
 		return nil, err
 	}

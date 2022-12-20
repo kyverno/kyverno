@@ -3,8 +3,8 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ template "kyverno.fullname" . }}-hook-pre-delete
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
-    app: kyverno
+  labels:
+    {{- include "kyverno.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-delete
     "helm.sh/hook-delete-policy": hook-succeeded,hook-failed

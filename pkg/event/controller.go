@@ -1,13 +1,14 @@
 package event
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,7 +47,7 @@ type Interface interface {
 	Add(infoList ...Info)
 }
 
-//NewEventGenerator to generate a new event controller
+// NewEventGenerator to generate a new event controller
 func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, maxQueuedEvents int, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,
@@ -75,11 +76,7 @@ func initRecorder(client dclient.Interface, eventSource Source, log logr.Logger)
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventInterface, err := client.GetEventsInterface()
-	if err != nil {
-		log.Error(err, "failed to get event interface for logging")
-		return nil
-	}
+	eventInterface := client.GetEventsInterface()
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{
 			Interface: eventInterface,
@@ -115,7 +112,7 @@ func (gen *Generator) Add(infos ...Info) {
 }
 
 // Run begins generator
-func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
+func (gen *Generator) Run(ctx context.Context, workers int) {
 	logger := gen.log
 	defer utilruntime.HandleCrash()
 
@@ -123,12 +120,12 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer logger.Info("shutting down")
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(gen.runWorker, time.Second, stopCh)
+		go wait.UntilWithContext(ctx, gen.runWorker, time.Second)
 	}
-	<-stopCh
+	<-ctx.Done()
 }
 
-func (gen *Generator) runWorker() {
+func (gen *Generator) runWorker(ctx context.Context) {
 	for gen.processNextWorkItem() {
 	}
 }
@@ -165,7 +162,7 @@ func (gen *Generator) processNextWorkItem() bool {
 	var ok bool
 	if key, ok = obj.(Info); !ok {
 		gen.queue.Forget(obj)
-		gen.log.Info("Incorrect type; expected type 'info'", "obj", obj)
+		gen.log.V(2).Info("Incorrect type; expected type 'info'", "obj", obj)
 		return true
 	}
 	err := gen.syncHandler(key)
@@ -192,7 +189,7 @@ func (gen *Generator) syncHandler(key Info) error {
 			return err
 		}
 	default:
-		robj, err = gen.client.GetResource("", key.Kind, key.Namespace, key.Name)
+		robj, err = gen.client.GetResource(context.TODO(), "", key.Kind, key.Namespace, key.Name)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
@@ -203,8 +200,10 @@ func (gen *Generator) syncHandler(key Info) error {
 	}
 
 	// set the event type based on reason
+	// if skip/pass, reason will be: NORMAL
+	// else reason will be: WARNING
 	eventType := corev1.EventTypeWarning
-	if key.Reason == PolicyApplied.String() {
+	if key.Reason == PolicyApplied.String() || key.Reason == PolicySkipped.String() {
 		eventType = corev1.EventTypeNormal
 	}
 

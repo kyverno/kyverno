@@ -1,0 +1,77 @@
+ignoreFields:
+  - fields:
+    - metadata.namespace
+    - spec.containers.*.imagePullPolicy
+    - spec.containers.*.terminationMessagePath
+    - spec.containers.*.terminationMessagePolicy
+    - spec.dnsPolicy
+    - spec.restartPolicy
+    - spec.schedulerName
+    - spec.terminationGracePeriodSeconds
+    - metadata.labels.app.kubernetes.io/instance
+    - metadata.managedFields.*
+    - metadata.resourceVersion
+    - metadata.selfLink
+    - metadata.annotations.control-plane.alpha.kubernetes.io/leader
+    - metadata.annotations.kubectl.kubernetes.io/last-applied-configuration
+    - metadata.finalizers*
+    - metadata.annotations.namespace
+    - metadata.annotations.deprecated.daemonset.template.generation
+    - metadata.creationTimestamp
+    - metadata.uid
+    - metadata.generation
+    - status
+    - metadata.annotations.deployment.kubernetes.io/revision
+    objects:
+    - kind: '*'
+  - fields:
+    - spec.volumes.*.name
+    - spec.volumes.*.projected.*
+    - spec.volumes.*.configMap.defaultMode
+    - spec.containers.*.volumeMounts.*
+    - spec.tolerations.*
+    - spec.enableServiceLinks
+    - spec.preemptionPolicy
+    - spec.priority
+    - spec.serviceAccount
+    objects:
+    - kind: Pod
+  - fields:
+    - spec.progressDeadlineSeconds
+    - spec.revisionHistoryLimit
+    - spec.strategy.*
+    - spec.template.metadata.creationTimestamp
+    - spec.containers.*.ports.*.protocol
+    - spec.containers.*.resources
+    - spec.securityContext
+    objects:
+    - kind: Deployment
+  - fields:
+    - spec.conversion.strategy
+    - spec.names.listKind
+    objects:
+    - kind: CustomResourceDefinition
+  - fields:
+    - spec.ports.*.nodePort
+    - spec.clusterIP
+    - spec.clusterIPs.0
+    - spec.sessionAffinity
+    - spec.type
+    - spec.ipFamilies.*
+    - spec.ipFamilyPolicy
+    - spec.internalTrafficPolicy
+    objects:
+    - kind: Service
+  - fields:
+    - metadata.annotations.pod-policies.kyverno.io/autogen-controllers
+    - spec.failurePolicy
+    - spec.background
+    - spec.validationFailureAction
+    objects:
+    - kind: ClusterPolicy
+    - kind: Policy
+  - fields:
+    - secrets.*.name
+    - imagePullSecrets.*.name
+    objects:
+    - kind: ServiceAccount

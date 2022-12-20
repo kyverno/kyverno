@@ -1,5 +1,5 @@
 package webhooks
 
-import "sigs.k8s.io/controller-runtime/pkg/log"
+import "github.com/kyverno/kyverno/pkg/logging"
 
-var logger = log.Log.WithName("webhooks")
+var logger = logging.WithName("webhooks")

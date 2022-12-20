@@ -2,20 +2,21 @@ package context
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var logger = log.Log.WithName("context")
+var logger = logging.WithName("context")
 
 // EvalInterface is used to query and inspect context data
 type EvalInterface interface {
@@ -52,6 +53,9 @@ type Interface interface {
 	// AddTargetResource merges resource json under target
 	AddTargetResource(data map[string]interface{}) error
 
+	// AddOperation merges operation under request.operation
+	AddOperation(data string) error
+
 	// AddUserInfo merges userInfo json under kyverno.userInfo
 	AddUserInfo(userInfo kyvernov1beta1.RequestInfo) error
 
@@ -62,7 +66,7 @@ type Interface interface {
 	AddNamespace(namespace string) error
 
 	// AddElement adds element info to the context
-	AddElement(data interface{}, index int) error
+	AddElement(data interface{}, index, nesting int) error
 
 	// AddImageInfo adds image info to the context
 	AddImageInfo(info apiutils.ImageInfo) error
@@ -173,6 +177,11 @@ func (ctx *context) AddTargetResource(data map[string]interface{}) error {
 	return addToContext(ctx, data, "target")
 }
 
+// AddOperation data at path: request.operation
+func (ctx *context) AddOperation(data string) error {
+	return addToContext(ctx, data, "request", "operation")
+}
+
 // AddUserInfo adds userInfo at path request.userInfo
 func (ctx *context) AddUserInfo(userRequestInfo kyvernov1beta1.RequestInfo) error {
 	return addToContext(ctx, userRequestInfo, "request")
@@ -231,22 +240,27 @@ func (ctx *context) AddNamespace(namespace string) error {
 	return addToContext(ctx, namespace, "request", "namespace")
 }
 
-func (ctx *context) AddElement(data interface{}, index int) error {
+func (ctx *context) AddElement(data interface{}, index, nesting int) error {
+	nestedElement := fmt.Sprintf("element%d", nesting)
+	nestedElementIndex := fmt.Sprintf("elementIndex%d", nesting)
 	data = map[string]interface{}{
-		"element":      data,
-		"elementIndex": index,
+		"element":          data,
+		nestedElement:      data,
+		"elementIndex":     index,
+		nestedElementIndex: index,
 	}
 	return addToContext(ctx, data)
 }
 
 func (ctx *context) AddImageInfo(info apiutils.ImageInfo) error {
 	data := map[string]interface{}{
-		"image":    info.String(),
-		"registry": info.Registry,
-		"path":     info.Path,
-		"name":     info.Name,
-		"tag":      info.Tag,
-		"digest":   info.Digest,
+		"reference":        info.String(),
+		"referenceWithTag": info.ReferenceWithTag(),
+		"registry":         info.Registry,
+		"path":             info.Path,
+		"name":             info.Name,
+		"tag":              info.Tag,
+		"digest":           info.Digest,
 	}
 	return addToContext(ctx, data, "image")
 }
@@ -261,7 +275,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 	}
 	ctx.images = images
 
-	log.Log.V(4).Info("updated image info", "images", images)
+	logging.V(4).Info("updated image info", "images", images)
 	return addToContext(ctx, images, "images")
 }
 

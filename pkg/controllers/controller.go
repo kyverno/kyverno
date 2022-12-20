@@ -1,6 +1,8 @@
 package controllers
 
+import "context"
+
 type Controller interface {
 	// Run starts the controller
-	Run(stopCh <-chan struct{})
+	Run(context.Context, int)
 }

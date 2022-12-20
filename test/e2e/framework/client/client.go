@@ -27,6 +27,7 @@ type client struct {
 }
 
 func New(t *testing.T) Client {
+	t.Helper()
 	c, err := e2e.NewE2EClient()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return &client{t, c}

@@ -132,11 +132,30 @@ type StaticKeyAttestor struct {
 	// attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
+	// Specify signature algorithm for public keys. Supported values are sha256 and sha512
+	// +kubebuilder:default=sha256
+	SignatureAlgorithm string `json:"signatureAlgorithm,omitempty" yaml:"signatureAlgorithm,omitempty"`
+
+	// KMS provides the URI to the public key stored in a Key Management System. See:
+	// https://github.com/sigstore/cosign/blob/main/KMS.md
+	KMS string `json:"kms,omitempty" yaml:"kms,omitempty"`
+
+	// Reference to a Secret resource that contains a public key
+	Secret *SecretReference `json:"secret,omitempty" yaml:"secret,omitempty"`
+
 	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
 	// Rekor is not checked. If an empty object is provided the public instance of
 	// Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
 	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
+}
+
+type SecretReference struct {
+	// Name of the secret. The provided secret must contain a key named cosign.pub.
+	Name string `json:"name" yaml:"name"`
+
+	// Namespace name where the Secret exists.
+	Namespace string `json:"namespace" yaml:"namespace"`
 }
 
 type CertificateAttestor struct {
@@ -192,11 +211,16 @@ type CTLog struct {
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
 	// PredicateType defines the type of Predicate contained within the Statement.
-	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
+	// +kubebuilder:validation:Required
+	PredicateType string `json:"predicateType" yaml:"predicateType"`
+
+	// Attestors specify the required attestors (i.e. authorities)
+	// +kubebuilder:validation:Optional
+	Attestors []AttestorSet `json:"attestors" yaml:"attestors"`
 
 	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
-	// +optional
+	// +kubebuilder:validation:Optional
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
@@ -208,11 +232,10 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))
 	}
 
-	hasAttestors := len(copy.Attestors) > 0
-	hasAttestations := len(copy.Attestations) > 0
-
-	if hasAttestations && !hasAttestors {
-		errs = append(errs, field.Invalid(path, iv, "An attestor is required"))
+	asPath := path.Child("attestations")
+	for i, attestation := range copy.Attestations {
+		attestationErrors := attestation.Validate(asPath.Index(i))
+		errs = append(errs, attestationErrors...)
 	}
 
 	attestorsPath := path.Child("attestors")
@@ -221,6 +244,19 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, attestorErrors...)
 	}
 
+	return errs
+}
+
+func (a *Attestation) Validate(path *field.Path) (errs field.ErrorList) {
+	if len(a.Attestors) == 0 {
+		return
+	}
+
+	attestorsPath := path.Child("attestors")
+	for i, as := range a.Attestors {
+		attestorErrors := as.Validate(attestorsPath.Index(i))
+		errs = append(errs, attestorErrors...)
+	}
 	return errs
 }
 
@@ -237,8 +273,6 @@ func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorLis
 
 	if len(as.Entries) == 0 {
 		errs = append(errs, field.Invalid(path, as, "An entry is required"))
-	} else if len(as.Entries) > 1 {
-		errs = append(errs, field.Invalid(path, as, "Only one entry is currently supported"))
 	}
 
 	entriesPath := path.Child("entries")
@@ -302,10 +336,12 @@ func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
 }
 
 func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if ska.PublicKeys == "" {
-		errs = append(errs, field.Invalid(path, ska, "A key is required"))
+	if ska.PublicKeys == "" && ska.KMS == "" && ska.Secret == nil {
+		errs = append(errs, field.Invalid(path, ska, "A public key, kms key or secret is required"))
 	}
-
+	if ska.PublicKeys != "" && ska.SignatureAlgorithm != "" && ska.SignatureAlgorithm != "sha256" && ska.SignatureAlgorithm != "sha512" {
+		errs = append(errs, field.Invalid(path, ska, "Invalid signature algorithm provided"))
+	}
 	return errs
 }
 
@@ -344,25 +380,34 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		copy.ImageReferences = append(copy.ImageReferences, iv.Image)
 	}
 
-	attestor := Attestor{
-		Annotations: iv.Annotations,
-	}
-
-	if iv.Key != "" {
-		attestor.Keys = &StaticKeyAttestor{
-			PublicKeys: iv.Key,
-		}
-	} else if iv.Issuer != "" {
-		attestor.Keyless = &KeylessAttestor{
-			Issuer:  iv.Issuer,
-			Subject: iv.Subject,
-			Roots:   iv.Roots,
-		}
-	}
-
 	attestorSet := AttestorSet{}
-	attestorSet.Entries = append(attestorSet.Entries, attestor)
-	copy.Attestors = append(copy.Attestors, attestorSet)
+	if len(iv.Annotations) > 0 || iv.Key != "" || iv.Issuer != "" {
+		attestor := Attestor{
+			Annotations: iv.Annotations,
+		}
+
+		if iv.Key != "" {
+			attestor.Keys = &StaticKeyAttestor{
+				PublicKeys: iv.Key,
+			}
+		} else if iv.Issuer != "" {
+			attestor.Keyless = &KeylessAttestor{
+				Issuer:  iv.Issuer,
+				Subject: iv.Subject,
+				Roots:   iv.Roots,
+			}
+		}
+
+		attestorSet.Entries = append(attestorSet.Entries, attestor)
+		if len(iv.Attestations) > 0 {
+			for i := range iv.Attestations {
+				copy.Attestations[i].Attestors = append(copy.Attestations[i].Attestors, attestorSet)
+			}
+		} else {
+			copy.Attestors = append(copy.Attestors, attestorSet)
+		}
+	}
+
 	copy.Attestations = iv.Attestations
 	return copy
 }

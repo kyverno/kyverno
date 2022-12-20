@@ -3,12 +3,14 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
     kind: UpdateRequest
     listKind: UpdateRequestList
     plural: updaterequests

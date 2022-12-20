@@ -137,9 +137,10 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 		if hasAnyAnchor {
 			anyGlobalConditionPassed := false
 			var lastGlobalAnchorError error = nil
+			patternElementCopy := patternElement.Copy()
 
 			for _, resourceElement := range resourceElements {
-				if err := preProcessRecursive(logger, patternElement, resourceElement); err != nil {
+				if err := preProcessRecursive(logger, patternElementCopy, resourceElement); err != nil {
 					logger.V(3).Info("anchor mismatch", "reason", err.Error())
 					if isConditionError(err) {
 						continue
@@ -157,12 +158,26 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 					// global anchor has passed, there is no need to return an error
 					anyGlobalConditionPassed = true
 				} else {
-					if err := handlePatternName(pattern, patternElement, resourceElement); err != nil {
+					if err := handlePatternName(pattern, patternElementCopy, resourceElement); err != nil {
 						return errors.Wrap(err, "failed to update name in pattern")
 					}
 				}
 			}
+			if resource == nil {
+				if err := preProcessRecursive(logger, patternElementCopy, resource); err != nil {
+					logger.V(3).Info("anchor mismatch", "reason", err.Error())
+					if isConditionError(err) {
+						continue
+					}
 
+					return err
+				}
+
+				if hasGlobalConditions {
+					// global anchor has passed, there is no need to return an error
+					anyGlobalConditionPassed = true
+				}
+			}
 			if !anyGlobalConditionPassed && lastGlobalAnchorError != nil {
 				return lastGlobalAnchorError
 			}
@@ -296,7 +311,7 @@ func hasAnchor(key string) bool {
 }
 
 func hasAnchors(pattern *yaml.RNode, isAnchor func(key string) bool) bool {
-	ynode := pattern.YNode() // nolint:ifshort
+	ynode := pattern.YNode() //nolint:ifshort
 	if ynode.Kind == yaml.MappingNode {
 		fields, err := pattern.Fields()
 		if err != nil {

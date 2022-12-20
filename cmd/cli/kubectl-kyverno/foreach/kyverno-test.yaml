@@ -1,0 +1,28 @@
+apiVersion: cli.kyverno.io/v1beta1
+kind: KyvernoTest
+metadata:
+  name: block-images
+spec:
+  policies: 
+  - policy.yaml
+  resources:
+    my_resource_pool: 
+    - resources.yaml
+  results:
+  - policy: block-images
+    rule: block-images
+    resources:
+    - object: my_resource_pool:v1/Pod/default/good-pod
+    result: pass
+  - policy: block-images
+    rule: block-images
+    resources:
+    - object: my_resource_pool:v1/Pod/default/bad-pod
+    result: fail
+  variables:
+    policies:
+    - name: block-images
+      rules:
+      - name: block-images
+        foreachValues:
+          imageData: ["foo", "foo1"]

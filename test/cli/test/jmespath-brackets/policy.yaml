@@ -25,10 +25,9 @@ spec:
               test: ""
 ---
 apiVersion: kyverno.io/v1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: namespace-validation
-  namespace: kyverno
 spec:
   validationFailureAction: enforce
   background: false

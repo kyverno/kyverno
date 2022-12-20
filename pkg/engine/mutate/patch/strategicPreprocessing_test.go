@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -16,6 +16,126 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 		rawResource   []byte
 		expectedPatch []byte
 	}{
+		{
+			rawPolicy: []byte(`{
+			 "spec": {
+      "containers": [
+        {
+          "(name)": "*",
+          "securityContext": {
+              "+(allowPrivilegeEscalation)": false,
+              "+(capabilities)": {
+                  "drop": [
+                      "NET_CAP"
+                  ]
+              },
+              "+(privileged)": false
+          }
+        }
+      ],
+      "initContainers": [
+        {
+          "(name)": "*",
+          "securityContext": {
+              "+(allowPrivilegeEscalation)": false,
+              "+(capabilities)": {
+                  "drop": [
+                      "NET_ADMIN"
+                  ]
+              },
+              "+(privileged)": false
+          }
+        }
+      ]
+    }
+			}`),
+			rawResource: []byte(`{
+    "apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+				  "name": "mutation-debug",
+      "namespace": "amritapuri"
+				},
+				"spec": {
+     "containers": [
+       {
+        "name": "sleepy-container-1",
+        "image": "docker.io/library/ubuntu"
+       },
+       {
+        "name": "sleepy-container-2",
+        "image": "docker.io/library/ubuntu"
+       }
+     ],
+     "initContainers": [
+       {
+        "name": "init-container-1",
+        "image": "docker.io/library/ubuntu"
+       },
+       {
+        "name": "init-container-2",
+        "image": "docker.io/library/ubuntu"
+       }
+     ]
+				}
+			}`),
+			expectedPatch: []byte(`{
+				"spec": {
+				  "containers": [
+        {
+          "name": "sleepy-container-1",
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": [
+                "NET_CAP"
+              ]
+            },
+            "privileged": false
+          }
+        },
+        {
+         "name": "sleepy-container-2",
+         "securityContext": {
+           "allowPrivilegeEscalation": false,
+           "capabilities": {
+             "drop": [
+               "NET_CAP"
+             ]
+           },
+           "privileged": false
+         }
+       }
+      ],
+      "initContainers": [
+        {
+          "name": "init-container-1",
+          "securityContext": {
+            "allowPrivilegeEscalation": false,
+            "capabilities": {
+              "drop": [
+                "NET_ADMIN"
+              ]
+            },
+            "privileged": false
+          }
+        },
+        {
+         "name": "init-container-2",
+         "securityContext": {
+           "allowPrivilegeEscalation": false,
+           "capabilities": {
+             "drop": [
+               "NET_ADMIN"
+             ]
+           },
+           "privileged": false
+         }
+       }
+      ]
+				}
+			  }`),
+		},
 		{
 			rawPolicy: []byte(`{
 				"metadata": {
@@ -842,7 +962,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 
 	for i, test := range testCases {
 		t.Logf("Running test %d...", i)
-		preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(test.rawPolicy), string(test.rawResource))
+		preProcessedPolicy, err := preProcessStrategicMergePatch(logging.GlobalLogger(), string(test.rawPolicy), string(test.rawResource))
 		assert.NilError(t, err)
 
 		output, err := preProcessedPolicy.MarshalJSON()
@@ -904,7 +1024,7 @@ func Test_CheckConditionAnchor_Matches(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := checkCondition(log.Log, pattern, resource)
+	err := checkCondition(logging.GlobalLogger(), pattern, resource)
 	assert.Equal(t, err, nil)
 }
 
@@ -915,7 +1035,7 @@ func Test_CheckConditionAnchor_DoesNotMatch(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := checkCondition(log.Log, pattern, resource)
+	err := checkCondition(logging.GlobalLogger(), pattern, resource)
 	assert.Error(t, err, "resource value 'sample' does not match 'value*' at path /key1/")
 }
 
@@ -933,7 +1053,7 @@ func Test_ValidateConditions_MapWithOneCondition_Matches(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := validateConditions(log.Log, pattern, resource)
+	err := validateConditions(logging.GlobalLogger(), pattern, resource)
 	assert.NilError(t, err)
 }
 
@@ -951,7 +1071,7 @@ func Test_ValidateConditions_MapWithOneCondition_DoesNotMatch(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := validateConditions(log.Log, pattern, resource)
+	err := validateConditions(logging.GlobalLogger(), pattern, resource)
 	_, ok := err.(ConditionError)
 	assert.Assert(t, ok)
 }
@@ -1088,7 +1208,7 @@ func Test_ConditionCheck_SeveralElementsMatchExceptOne(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	containers := yaml.MustParse(string(containersRaw))
 
-	err := preProcessPattern(log.Log, pattern, containers)
+	err := preProcessPattern(logging.GlobalLogger(), pattern, containers)
 	assert.NilError(t, err)
 
 	patternContainers := pattern.Field("containers")
@@ -1141,7 +1261,7 @@ func Test_NonExistingKeyMustFailPreprocessing(t *testing.T) {
 
 	pattern := yaml.MustParse(string(rawPattern))
 	resource := yaml.MustParse(string(rawResource))
-	err := preProcessPattern(log.Log, pattern, resource)
+	err := preProcessPattern(logging.GlobalLogger(), pattern, resource)
 	assert.Error(t, err, "condition failed: could not found \"key1\" key in the resource")
 }
 
@@ -1152,9 +1272,46 @@ func Test_NestedConditionals(t *testing.T) {
 
 	pattern := yaml.MustParse(rawPattern)
 	resource := yaml.MustParse(rawResource)
-	err := preProcessPattern(log.Log, pattern, resource)
+	err := preProcessPattern(logging.GlobalLogger(), pattern, resource)
 	assert.NilError(t, err)
 	resultPattern, _ := pattern.String()
 
 	assert.DeepEqual(t, toJSON(t, []byte(expectedPattern)), toJSON(t, []byte(resultPattern)))
+}
+
+func Test_GlobalCondition_Fail(t *testing.T) {
+	rawPattern := []byte(`{
+		"metadata": {
+			"annotations": {
+				"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+			}
+		},
+		"spec": {
+			"volumes": [
+				{
+					"<(emptyDir)": {}
+				}
+			]
+		}
+	}`)
+	rawResource := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "pod-without-emptydir-hostpath"
+		},
+		"spec": {
+			"containers": [
+				{
+					"name": "nginx",
+					"image": "nginx"
+				}
+			]
+		}
+	}`)
+
+	pattern := yaml.MustParse(string(rawPattern))
+	resource := yaml.MustParse(string(rawResource))
+	err := preProcessPattern(logging.GlobalLogger(), pattern, resource)
+	assert.Error(t, err, "global condition failed: could not found \"emptyDir\" key in the resource")
 }

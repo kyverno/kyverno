@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-nginx-allowed-registry
+  namespace: default
+spec:
+  containers:
+  - name: nginx
+    image: someimagename
+  imagePullSecrets:
+  - name: my-registry-secret

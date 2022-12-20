@@ -2,8 +2,8 @@ package generate
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policy/generate/fake"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // FakeGenerate provides implementation for generate rule processing
@@ -18,6 +18,6 @@ func NewFakeGenerate(rule kyvernov1.Generation) *FakeGenerate {
 	g := FakeGenerate{}
 	g.rule = rule
 	g.authCheck = fake.NewFakeAuth()
-	g.log = log.Log
+	g.log = logging.GlobalLogger()
 	return &g
 }

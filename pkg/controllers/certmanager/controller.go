@@ -1,123 +1,112 @@
 package certmanager
 
 import (
-	"os"
-	"reflect"
+	"context"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 )
 
-type Controller interface {
-	// Run starts the certManager
-	Run(stopCh <-chan struct{})
-
-	// GetTLSPemPair gets the existing TLSPemPair from the secret
-	GetTLSPemPair() ([]byte, []byte, error)
-}
+const (
+	// Workers is the number of workers for this controller
+	Workers        = 1
+	ControllerName = "certmanager-controller"
+	maxRetries     = 10
+)
 
 type controller struct {
-	renewer      *tls.CertRenewer
+	renewer tls.CertRenewer
+
+	// listers
 	secretLister corev1listers.SecretLister
-	// secretSynced returns true if the secret shared informer has synced at least once
-	secretSynced    cache.InformerSynced
-	secretQueue     chan bool
-	onSecretChanged func() error
+
+	// queue
+	queue         workqueue.RateLimitingInterface
+	secretEnqueue controllerutils.EnqueueFunc
 }
 
-func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer, onSecretChanged func() error) (Controller, error) {
-	manager := &controller{
-		renewer:         certRenewer,
-		secretLister:    secretInformer.Lister(),
-		secretSynced:    secretInformer.Informer().HasSynced,
-		secretQueue:     make(chan bool, 1),
-		onSecretChanged: onSecretChanged,
+func NewController(secretInformer corev1informers.SecretInformer, certRenewer tls.CertRenewer) controllers.Controller {
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	c := controller{
+		renewer:       certRenewer,
+		secretLister:  secretInformer.Lister(),
+		queue:         queue,
+		secretEnqueue: controllerutils.AddDefaultEventHandlers(logger, secretInformer.Informer(), queue),
 	}
-	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    manager.addSecretFunc,
-		UpdateFunc: manager.updateSecretFunc,
-	})
-	return manager, nil
+	return &c
 }
 
-func (m *controller) addSecretFunc(obj interface{}) {
-	secret := obj.(*corev1.Secret)
-	if secret.GetNamespace() == config.KyvernoNamespace() && secret.GetName() == tls.GenerateTLSPairSecretName() {
-		m.secretQueue <- true
+func (c *controller) Run(ctx context.Context, workers int) {
+	// we need to enqueue our secrets in case they don't exist yet in the cluster
+	// this way we ensure the reconcile happens (hence renewal/creation)
+	if err := c.secretEnqueue(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: config.KyvernoNamespace(),
+			Name:      tls.GenerateTLSPairSecretName(),
+		},
+	}); err != nil {
+		logger.Error(err, "failed to enqueue secret", "name", tls.GenerateTLSPairSecretName())
 	}
+	if err := c.secretEnqueue(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: config.KyvernoNamespace(),
+			Name:      tls.GenerateRootCASecretName(),
+		},
+	}); err != nil {
+		logger.Error(err, "failed to enqueue CA secret", "name", tls.GenerateRootCASecretName())
+	}
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.ticker)
 }
 
-func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
-	old := oldObj.(*corev1.Secret)
-	new := newObj.(*corev1.Secret)
-	if new.GetNamespace() == config.KyvernoNamespace() && new.GetName() == tls.GenerateTLSPairSecretName() {
-		if !reflect.DeepEqual(old.DeepCopy().Data, new.DeepCopy().Data) {
-			m.secretQueue <- true
-			logger.V(4).Info("secret updated, reconciling webhook configurations")
-		}
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+	if namespace != config.KyvernoNamespace() {
+		return nil
 	}
+	if name != tls.GenerateTLSPairSecretName() && name != tls.GenerateRootCASecretName() {
+		return nil
+	}
+	return c.renewCertificates()
 }
 
-func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
-	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
-	if err != nil {
-		return nil, nil, err
-	}
-	return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
-}
-
-func (m *controller) renewCertificates() error {
-	if err := common.RetryFunc(time.Second, 5*time.Second, m.renewer.RenewCA, "failed to renew CA", logger)(); err != nil {
-		return err
-	}
-	if m.onSecretChanged != nil {
-		if err := common.RetryFunc(time.Second, 5*time.Second, m.onSecretChanged, "failed to renew CA", logger)(); err != nil {
-			return err
-		}
-	}
-	if err := common.RetryFunc(time.Second, 5*time.Second, m.renewer.RenewTLS, "failed to renew TLS", logger)(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *controller) GetCAPem() ([]byte, error) {
-	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateRootCASecretName())
-	if err != nil {
-		return nil, err
-	}
-	result := secret.Data[corev1.TLSCertKey]
-	if len(result) == 0 {
-		result = secret.Data[tls.RootCAKey]
-	}
-	return result, nil
-}
-
-func (m *controller) Run(stopCh <-chan struct{}) {
-	logger.Info("start managing certificate")
+func (c *controller) ticker(ctx context.Context, logger logr.Logger) {
 	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
 	defer certsRenewalTicker.Stop()
 	for {
 		select {
 		case <-certsRenewalTicker.C:
-			if err := m.renewCertificates(); err != nil {
-				logger.Error(err, "unable to renew certificates, force restarting")
-				os.Exit(1)
+			list, err := c.secretLister.List(labels.Everything())
+			if err == nil {
+				for _, secret := range list {
+					if err := c.secretEnqueue(secret); err != nil {
+						logger.Error(err, "failed to enqueue secret", "name", secret.Name)
+					}
+				}
+			} else {
+				logger.Error(err, "falied to list secrets")
 			}
-		case <-m.secretQueue:
-			if err := m.renewCertificates(); err != nil {
-				logger.Error(err, "unable to renew certificates, force restarting")
-				os.Exit(1)
-			}
-		case <-stopCh:
-			logger.V(2).Info("stopping cert renewer")
+		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+func (c *controller) renewCertificates() error {
+	if err := common.RetryFunc(time.Second, 5*time.Second, c.renewer.RenewCA, "failed to renew CA", logger)(); err != nil {
+		return err
+	}
+	if err := common.RetryFunc(time.Second, 5*time.Second, c.renewer.RenewTLS, "failed to renew TLS", logger)(); err != nil {
+		return err
+	}
+	return nil
 }

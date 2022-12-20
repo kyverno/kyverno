@@ -6,10 +6,11 @@ import (
 	"strings"
 	"time"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -20,7 +21,7 @@ import (
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(pvInfos []policyreport.Info) (res []*unstructured.Unstructured) {
+func buildPolicyReports(pvInfos []common.Info) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error
 
@@ -73,7 +74,7 @@ func buildPolicyReports(pvInfos []policyreport.Info) (res []*unstructured.Unstru
 
 // buildPolicyResults returns a string-PolicyReportResult map
 // the key of the map is one of "clusterpolicyreport", "policyreport-ns-<namespace>"
-func buildPolicyResults(infos []policyreport.Info) map[string][]policyreportv1alpha2.PolicyReportResult {
+func buildPolicyResults(infos []common.Info) map[string][]policyreportv1alpha2.PolicyReportResult {
 	results := make(map[string][]policyreportv1alpha2.PolicyReportResult)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
@@ -109,7 +110,7 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]policyreportv1al
 				result.Rule = rule.Name
 				result.Message = rule.Message
 				result.Result = policyreportv1alpha2.PolicyResult(rule.Status)
-				result.Source = policyreport.SourceValue
+				result.Source = kyvernov1.ValueKyvernoApp
 				result.Timestamp = now
 				results[appname] = append(results[appname], result)
 			}

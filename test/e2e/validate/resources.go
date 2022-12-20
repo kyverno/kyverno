@@ -1,14 +1,8 @@
 package validate
 
-import "fmt"
-
-// Namespace Description
-var namespaceYaml = []byte(`
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: test-validate
-`)
+import (
+	"fmt"
+)
 
 func newNamespaceYaml(name string) []byte {
 	ns := fmt.Sprintf(`
@@ -22,7 +16,7 @@ func newNamespaceYaml(name string) []byte {
 
 // Regression: https://github.com/kyverno/kyverno/issues/2043
 // Policy: https://github.com/fluxcd/flux2-multi-tenancy/blob/main/infrastructure/kyverno-policies/flux-multi-tenancy.yaml
-var kyverno_2043_policy = []byte(`
+var kyverno2043Policy = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -39,7 +33,6 @@ spec:
         resources:
           kinds:
             - Kustomization
-            - HelmRelease
       validate:
         message: ".spec.serviceAccountName is required"
         pattern:
@@ -54,7 +47,6 @@ spec:
         resources:
           kinds:
             - Kustomization
-            - HelmRelease
       validate:
         message: "spec.sourceRef.namespace must be the same as metadata.namespace"
         deny:
@@ -64,11 +56,11 @@ spec:
               value:  "{{request.object.metadata.namespace}}"
 `)
 
-var kyverno_2241_policy = []byte(`
+var kyverno2241Policy = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: flux-multi-tenancy
+  name: flux-multi-tenancy-2
 spec:
   validationFailureAction: enforce
   rules:
@@ -81,7 +73,6 @@ spec:
         resources:
           kinds:
             - Kustomization
-            - HelmRelease
       validate:
         message: ".spec.serviceAccountName is required"
         pattern:
@@ -96,10 +87,9 @@ spec:
         resources:
           kinds:
             - Kustomization
-            - HelmRelease
       preconditions:
         any:
-        - key: "{{request.object.spec.sourceRef.namespace}}"
+        - key: "{{request.object.spec.sourceRef.namespace || ''}}"
           operator: NotEquals
           value: ""
       validate:
@@ -111,7 +101,7 @@ spec:
               value:  "{{request.object.metadata.namespace}}"
 `)
 
-var kyverno_2043_FluxCRD = []byte(`
+var kyverno2043Fluxcrd = []byte(`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -541,7 +531,7 @@ status:
   storedVersions: []
 `)
 
-var kyverno_2043_FluxKustomization = []byte(`
+var kyverno2043Fluxkustomization = []byte(`
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -557,7 +547,7 @@ spec:
   validation: client
 `)
 
-var kyverno_2241_FluxKustomization = []byte(`
+var kyverno2241Fluxkustomization = []byte(`
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
 kind: Kustomization
 metadata:
@@ -574,7 +564,7 @@ spec:
   validation: client
 `)
 
-var kyverno_2345_policy = []byte(`
+var kyverno2345Policy = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -597,7 +587,7 @@ spec:
             value: false
 `)
 
-var kyverno_2345_resource = []byte(`
+var kyverno2345Resource = []byte(`
 apiVersion: v1
 kind: Pod
 metadata:
@@ -632,115 +622,7 @@ spec:
         - CAP_SOMETHING
 `)
 
-var kyverno_trustable_image_policy = []byte(`
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: check-trustable-images
-spec:
-  validationFailureAction: enforce
-  rules:
-  - name: only-allow-trusted-images
-    match:
-      resources:
-        kinds:
-        - Pod
-    preconditions:
-      - key: "{{request.operation}}"
-        operator: NotEquals
-        value: DELETE
-    validate:
-      message: "images with root user are not allowed"
-      foreach:
-      - list: "request.object.spec.containers"
-        context:
-        - name: imageData
-          imageRegistry:
-            reference: "{{ element.image }}"
-            jmesPath: "{user: configData.config.User || '', registry: registry}"
-        deny:
-          conditions:
-            all:
-              - key: "{{ imageData.user }}"
-                operator: Equals
-                value: ""
-              - key: "{{ imageData.registry }}"
-                operator: NotEquals
-                value: "ghcr.io"
-`)
-
-var kyverno_global_anchor_validate_policy = []byte(`
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: sample
-spec:
-  validationFailureAction: enforce
-  rules:
-  - name: check-container-image
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      pattern:
-        spec:
-          containers:
-          - name: "*"
-            <(image): "nginx"
-          imagePullSecrets:
-          - name: my-registry-secret
-`)
-
-var kyverno_global_anchor_validate_resource_1 = []byte(`
-apiVersion: v1
-kind: Pod
-metadata:
-  name: pod-with-nginx-allowed-registory
-spec:
-  containers:
-  - name: nginx
-    image: nginx
-  imagePullSecrets:
-  - name: my-registry-secret
-`)
-
-var kyverno_global_anchor_validate_resource_2 = []byte(`
-apiVersion: v1
-kind: Pod
-metadata:
-  name: pod-with-nginx-disallowed-registory
-spec:
-  containers:
-  - name: nginx
-    image: nginx
-  imagePullSecrets:
-  - name: other-registory-secret
-`)
-
-var kyverno_trusted_image_pod = []byte(`
-apiVersion: v1
-kind: Pod
-metadata:
-  name: pod-with-trusted-registry
-spec:
-  containers:
-  - name: kyverno
-    image: ghcr.io/kyverno/kyverno:latest
-`)
-
-var kyverno_pod_with_root_user = []byte(`
-apiVersion: v1
-kind: Pod
-metadata:
-  name: pod-with-root-user
-spec:
-  containers:
-  - name: ubuntu
-    image: ubuntu:bionic
-`)
-
-var kyverno_small_image_policy = []byte(`
+var kyvernoSmallImagePolicy = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -775,7 +657,7 @@ spec:
               value: "{{imageSize}}"
 `)
 
-var kyverno_pod_with_small_image = []byte(`
+var kyvernoPodWithSmallImage = []byte(`
 apiVersion: v1
 kind: Pod
 metadata:
@@ -786,7 +668,7 @@ spec:
     image: busybox:latest
 `)
 
-var kyverno_pod_with_large_image = []byte(`
+var kyvernoPodWithLargeImage = []byte(`
 apiVersion: v1
 kind: Pod
 metadata:

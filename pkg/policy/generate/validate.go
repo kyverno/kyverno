@@ -1,15 +1,18 @@
 package generate
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policy/common"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 // Generate provides implementation to validate 'generate' rule
@@ -40,18 +43,36 @@ func (g *Generate) Validate() (string, error) {
 		return "", fmt.Errorf("only one of data or clone can be specified")
 	}
 
+	if rule.Clone != (kyvernov1.CloneFrom{}) && len(rule.CloneList.Kinds) != 0 {
+		return "", fmt.Errorf("only one of clone or cloneList can be specified")
+	}
+
 	kind, name, namespace := rule.Kind, rule.Name, rule.Namespace
 
-	if name == "" {
-		return "name", fmt.Errorf("name cannot be empty")
+	if len(rule.CloneList.Kinds) == 0 {
+		if name == "" {
+			return "name", fmt.Errorf("name cannot be empty")
+		}
+		if kind == "" {
+			return "kind", fmt.Errorf("kind cannot be empty")
+		}
+	} else {
+		if name != "" {
+			return "name", fmt.Errorf("with cloneList, generate.name. should not be specified.")
+		}
+		if kind != "" {
+			return "kind", fmt.Errorf("with cloneList, generate.kind. should not be specified.")
+		}
 	}
-	if kind == "" {
-		return "kind", fmt.Errorf("kind cannot be empty")
+
+	if rule.CloneList.Selector != nil {
+		if wildcard.ContainsWildcard(rule.CloneList.Selector.String()) {
+			return "selector", fmt.Errorf("wildcard characters `*/?` not supported")
+		}
 	}
-	// Can I generate resource
 
 	if !reflect.DeepEqual(rule.Clone, kyvernov1.CloneFrom{}) {
-		if path, err := g.validateClone(rule.Clone, kind); err != nil {
+		if path, err := g.validateClone(rule.Clone, rule.CloneList, kind); err != nil {
 			return fmt.Sprintf("clone.%s", path), err
 		}
 	}
@@ -64,26 +85,37 @@ func (g *Generate) Validate() (string, error) {
 	}
 
 	// Kyverno generate-controller create/update/deletes the resources specified in generate rule of policy
-	// kyverno uses SA 'kyverno-service-account' and has default ClusterRoles and ClusterRoleBindings
+	// kyverno uses SA 'kyverno' and has default ClusterRoles and ClusterRoleBindings
 	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 	// - operations required: create/update/delete/get
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
-	if err := g.canIGenerate(kind, namespace); err != nil {
-		return "", err
+	if len(rule.CloneList.Kinds) != 0 {
+		for _, kind = range rule.CloneList.Kinds {
+			_, kind = kubeutils.GetKindFromGVK(kind)
+			if err := g.canIGenerate(kind, namespace); err != nil {
+				return "", err
+			}
+		}
+	} else {
+		if err := g.canIGenerate(kind, namespace); err != nil {
+			return "", err
+		}
 	}
 	return "", nil
 }
 
-func (g *Generate) validateClone(c kyvernov1.CloneFrom, kind string) (string, error) {
-	if c.Name == "" {
-		return "name", fmt.Errorf("name cannot be empty")
+func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, kind string) (string, error) {
+	if len(cl.Kinds) == 0 {
+		if c.Name == "" {
+			return "name", fmt.Errorf("name cannot be empty")
+		}
 	}
 
 	namespace := c.Namespace
 	// Skip if there is variable defined
 	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
 		// GET
-		ok, err := g.authCheck.CanIGet(kind, namespace)
+		ok, err := g.authCheck.CanIGet(context.TODO(), kind, namespace)
 		if err != nil {
 			return "", err
 		}
@@ -102,7 +134,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 	authCheck := g.authCheck
 	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
 		// CREATE
-		ok, err := authCheck.CanICreate(kind, namespace)
+		ok, err := authCheck.CanICreate(context.TODO(), kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
@@ -111,7 +143,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 			return fmt.Errorf("kyverno does not have permissions to 'create' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
 		// UPDATE
-		ok, err = authCheck.CanIUpdate(kind, namespace)
+		ok, err = authCheck.CanIUpdate(context.TODO(), kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
@@ -120,7 +152,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 			return fmt.Errorf("kyverno does not have permissions to 'update' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
 		// GET
-		ok, err = authCheck.CanIGet(kind, namespace)
+		ok, err = authCheck.CanIGet(context.TODO(), kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
@@ -130,7 +162,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 		}
 
 		// DELETE
-		ok, err = authCheck.CanIDelete(kind, namespace)
+		ok, err = authCheck.CanIDelete(context.TODO(), kind, namespace)
 		if err != nil {
 			// machinery error
 			return err

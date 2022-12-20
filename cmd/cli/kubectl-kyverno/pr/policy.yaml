@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-label
+  annotations:
+    policies.kyverno.io/title: Add nodeSelector
+    policies.kyverno.io/category: Sample
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Labels are used as an important source of metadata describing objects in various ways
+      or triggering other functionality. Labels are also a very basic concept and should be
+      used throughout Kubernetes. This policy performs a simple mutation which adds a label
+      `color=orange` to Pods, Services, ConfigMaps, and Secrets.
+spec:
+  background: false
+  validationFailureAction:
+  rules:
+  - name: add-label
+    match:
+      resources:
+        kinds:
+        - Pod
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            color: orange

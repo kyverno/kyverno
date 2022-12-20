@@ -61,6 +61,69 @@ spec:
       image: ghcr.io/sigstore/cosign/cosign
 `)
 
+// not adding cosign.key and cosign.password as we only need cosign.pub
+var secretResource = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: testsecret
+  namespace: test-verify-images
+data:
+  cosign.pub: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFOG5YUmg5NTBJWmJSajhSYS9OOXNicU9QWnJmTQo1L0tBUU4wL0tqSGNvcm0vSjV5Y3RWZDdpRWNuZXNzUlFqVTkxN2htS082SldWR0hwRGd1SXlha1pBPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0t
+type: Opaque
+`)
+
+var secretPodResourceSuccess = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-secret-pod
+  namespace: test-verify-images
+spec:
+  containers:
+  - image: ghcr.io/kyverno/test-verify-image:signed
+    name: test-secret
+`)
+
+var secretPodResourceFailed = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-secret-pod
+  namespace: test-verify-images
+spec:
+  containers:
+  - image: ghcr.io/kyverno/test-verify-image:unsigned
+    name: test-secret
+`)
+
+var kyvernoPolicyWithSecretInKeys = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: secret-in-keys
+spec:
+  validationFailureAction: enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+  - name: check-secret-in-keys
+    match:
+      resources:
+        kinds:
+        - Pod
+    verifyImages:
+    - imageReferences:
+      - "ghcr.io/kyverno/test-verify-image:*"
+      attestors:
+      - entries:
+        - keys:
+            secret:
+              name: testsecret
+              namespace: test-verify-images
+`)
+
 var kyvernoTaskPolicyWithSimpleExtractor = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -144,9 +207,16 @@ spec:
       Task:
         - path: /spec/steps/*/image
     verifyImages:
-    - image: "ghcr.io/*"
-      subject: "https://github.com/*"
-      issuer: "https://token.actions.githubusercontent.com"
+    - imageReferences:
+      - "ghcr.io/*"
+      attestors:
+      - count: 1
+        entries:
+        - keyless:
+            issuer: "https://token.actions.githubusercontent.com"
+            subject: "https://github.com/*"
+            rekor:
+              url: https://rekor.sigstore.dev
       required: false
 `)
 
@@ -172,9 +242,16 @@ spec:
       Task:
         - path: /spec/steps/*/image
     verifyImages:
-    - image: "ghcr.io/*"
-      subject: "https://github.com/*"
-      issuer: "https://token.actions.githubusercontent.com"
+    - imageReferences:
+      - "ghcr.io/*"
+      attestors:
+      - count: 1
+        entries:
+        - keyless:
+            issuer: "https://token.actions.githubusercontent.com"
+            subject: "https://github.com/*"
+            rekor:
+              url: https://rekor.sigstore.dev
       required: true
 `)
 

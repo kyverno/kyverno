@@ -37,7 +37,7 @@ func durationCompareByCondition(key time.Duration, value time.Duration, op kyver
 	case kyvernov1.ConditionOperators["DurationLessThan"]:
 		return key < value
 	default:
-		log.Info(fmt.Sprintf("Expected operator, one of [DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan], found %s", op))
+		log.V(2).Info(fmt.Sprintf("Expected operator, one of [DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan], found %s", op))
 		return false
 	}
 }
@@ -53,7 +53,7 @@ func (doh DurationOperatorHandler) Evaluate(key, value interface{}) bool {
 	case string:
 		return doh.validateValueWithStringPattern(typedKey, value)
 	default:
-		doh.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		doh.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -74,7 +74,7 @@ func (doh DurationOperatorHandler) validateValueWithIntPattern(key int64, value 
 		doh.log.Error(fmt.Errorf("parse error: "), "Failed to parse time duration from the string value")
 		return false
 	default:
-		doh.log.Info("Unexpected type", "value", value, "type", fmt.Sprintf("%T", value))
+		doh.log.V(2).Info("Unexpected type", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 }
@@ -95,7 +95,7 @@ func (doh DurationOperatorHandler) validateValueWithFloatPattern(key float64, va
 		doh.log.Error(fmt.Errorf("parse error: "), "Failed to parse time duration from the string value")
 		return false
 	default:
-		doh.log.Info("Unexpected type", "value", value, "type", fmt.Sprintf("%T", value))
+		doh.log.V(2).Info("Unexpected type", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 }
@@ -121,7 +121,7 @@ func (doh DurationOperatorHandler) validateValueWithStringPattern(key string, va
 		doh.log.Error(fmt.Errorf("parse error: "), "Failed to parse time duration from the string value")
 		return false
 	default:
-		doh.log.Info("Unexpected type", "value", value, "type", fmt.Sprintf("%T", value))
+		doh.log.V(2).Info("Unexpected type", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 }

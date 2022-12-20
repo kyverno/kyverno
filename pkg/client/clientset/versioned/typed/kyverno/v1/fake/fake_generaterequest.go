@@ -117,7 +117,7 @@ func (c *FakeGenerateRequests) UpdateStatus(ctx context.Context, generateRequest
 // Delete takes name of the generateRequest and deletes it. Returns an error if one occurs.
 func (c *FakeGenerateRequests) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(generaterequestsResource, c.ns, name), &kyvernov1.GenerateRequest{})
+		Invokes(testing.NewDeleteActionWithOptions(generaterequestsResource, c.ns, name, opts), &kyvernov1.GenerateRequest{})
 
 	return err
 }

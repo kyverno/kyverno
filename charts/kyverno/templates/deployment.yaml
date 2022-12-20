@@ -1,22 +1,26 @@
+{{- if not .Values.templating.debug -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "kyverno.fullname" . }}
-  labels: {{ include "kyverno.labels" . | nindent 4 }}
-    app: kyverno
+  labels:
+    {{- include "kyverno.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  {{- with .Values.replicaCount }}
+  replicas: {{ . }}
+  {{- end }}
   selector:
-    matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
+    matchLabels:
+      {{- include "kyverno.matchLabels" . | nindent 6 }}
   {{- if .Values.updateStrategy }}
   strategy:
     {{ toYaml .Values.updateStrategy | nindent 4 | trim }}
   {{- end }}
   template:
     metadata:
-      labels: {{ include "kyverno.labels" . | nindent 8 }}
-        app: kyverno
+      labels:
+        {{- include "kyverno.labels" . | nindent 8 }}
         {{- range $key, $value := .Values.podLabels }}
         {{ $key }}: {{ $value }}
         {{- end }}
@@ -32,17 +36,19 @@ spec:
       {{- end }}
       {{- if or .Values.antiAffinity.enable .Values.podAffinity .Values.nodeAffinity }}
       affinity:
-        {{- if and .Values.antiAffinity.enable .Values.podAntiAffinity }}
+        {{- if .Values.antiAffinity.enable }}
+        {{- with .Values.podAntiAffinity }}
         podAntiAffinity:
-          {{- toYaml .Values.podAntiAffinity | nindent 10 }}
+          {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
-        {{- if .Values.podAffinity }}
+        {{- end }}
+        {{- with .Values.podAffinity }}
         podAffinity:
-          {{- toYaml .Values.podAffinity | nindent 10 }}
+          {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
-        {{- if .Values.nodeAffinity }}
+        {{- with .Values.nodeAffinity }}
         nodeAffinity:
-          {{- toYaml .Values.nodeAffinity | nindent 10 }}
+          {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
@@ -65,9 +71,16 @@ spec:
       dnsPolicy: {{ .Values.dnsPolicy }}
       {{- end }}
       initContainers:
+      {{- if .Values.extraInitContainers }}
+        {{- toYaml .Values.extraInitContainers | nindent 8 }}
+      {{- end }}
         - name: kyverno-pre
-          image: {{ .Values.initImage.repository }}:{{ default .Chart.AppVersion (default .Values.image.tag .Values.initImage.tag) }}
+          image: {{ include "kyverno.image" (dict "image" .Values.initImage "defaultTag" (default .Chart.AppVersion .Values.image.tag)) | quote }}
           imagePullPolicy: {{ default .Values.image.pullPolicy .Values.initImage.pullPolicy }}
+          {{- if .Values.initContainer.extraArgs }}
+          args:
+              {{ tpl (toYaml .Values.initContainer.extraArgs) . }}
+          {{- end }}
           {{- with .Values.initResources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
@@ -81,22 +94,29 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
           - name: KYVERNO_DEPLOYMENT
             value: {{ template "kyverno.fullname" . }}
           {{- with .Values.envVarsInit }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
       containers:
+      {{- if .Values.extraContainers }}
+        {{- toYaml .Values.extraContainers | nindent 8 }}
+      {{- end }}
         - name: kyverno
-          image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
+          image: {{ include "kyverno.image" (dict "image" .Values.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if or .Values.extraArgs .Values.imagePullSecrets }}
           args:
             {{- if .Values.extraArgs -}}
               {{ tpl (toYaml .Values.extraArgs) . | nindent 12 }}
             {{- end }}
-            {{- if .Values.imagePullSecrets }}
-            - --imagePullSecrets={{ keys .Values.imagePullSecrets | join "," }}
+            {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
+            - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
           {{- end }}
           {{- with .Values.resources }}
@@ -125,6 +145,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.serviceAccountName" . }}
           - name: KYVERNO_SVC
             value: {{ template "kyverno.serviceName" . }}
           - name: TUF_ROOT
@@ -134,6 +156,9 @@ spec:
           {{- end }}
           - name: KYVERNO_DEPLOYMENT
             value: {{ template "kyverno.fullname" . }}
+        {{- with .Values.startupProbe }}
+          startupProbe: {{ tpl (toYaml .) $ | nindent 12 }}
+        {{- end }}
         {{- with .Values.livenessProbe }}
           livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}
@@ -146,3 +171,4 @@ spec:
       volumes:
       - name: sigstore
         emptyDir: {}
+{{- end -}}

@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cm-variable-example
+spec:
+  rules:
+  - name: example-configmap-lookup
+    context:
+    - name: dictionary
+      configMap:
+        name: some-config-map
+        namespace: some-namespace
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      pattern:
+        metadata:
+          labels:
+            my-environment-name: "{{dictionary.data.env}}"

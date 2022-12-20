@@ -1,0 +1,37 @@
+apiVersion: cli.kyverno.io/v1beta1
+kind: KyvernoTest
+metadata:
+  name: block-images
+spec:
+  policies: 
+  - policy.yaml
+  resources:
+    my_resource_pool: 
+    - resources.yaml
+  results:
+  - policy: disallow-latest-tag
+    rule: require-image-tag
+    resources:
+    - object: my_resource_pool:myapp-pod
+    namespace: default
+    kind: v1/Pod
+    result: pass
+  - policy: disallow-latest-tag
+    rule: require-image-tag
+    resources:
+    - object: my_resource_pool:myapp-pods
+    namespace: default
+    kind: v1/Pod
+    result: pass
+  variables:
+    policies:
+    - name: disallow-latest-tag
+      resources:
+      - name: myapp-pod
+        userInfo:
+          clusterRoles:
+          - cluster-admin
+      - name: myapp-pods
+        userInfo:
+          clusterRoles:
+          - cluster-admin

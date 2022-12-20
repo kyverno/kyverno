@@ -26,14 +26,13 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
-	"github.com/kyverno/kyverno/pkg/policyreport"
-	util "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/lensesio/tableprinter"
 	"github.com/spf13/cobra"
+	slices "golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -362,7 +361,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		tf.enabled = false
 	}
 
-	openAPIController, err := openapi.NewOpenAPIController()
+	openApiManager, err := openapi.NewManager()
 	if err != nil {
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}
@@ -439,7 +438,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 					errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
 					continue
 				}
-				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openAPIController, tf); err != nil {
+				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openApiManager, tf); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
@@ -451,7 +450,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	} else {
 		var testFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openAPIController, tf)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openApiManager, tf)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
@@ -476,7 +475,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openAPIController *openapi.Controller, tf *testFilter) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openApiManager openapi.Manager, tf *testFilter) []error {
 	var errors []error
 
 	files, err := ioutil.ReadDir(path)
@@ -485,7 +484,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openAPIController, tf)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openApiManager, tf)
 			continue
 		}
 		if file.Name() == fileName {
@@ -501,7 +500,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openAPIController, tf); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openApiManager, tf); err != nil {
 				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
@@ -510,7 +509,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	return errors
 }
 
-func buildPolicyResults(engineResponses []*response.EngineResponse, testResults []kyvernov1.Results, infos []policyreport.Info, policyResourcePath string, fs billy.Filesystem, isGit bool, resourcesMap map[string][]*unstructured.Unstructured) (map[string]policyreportv1alpha2.PolicyReportResult, []kyvernov1.Results) {
+func buildPolicyResults(engineResponses []*response.EngineResponse, testResults []kyvernov1.Results, infos []common.Info, policyResourcePath string, fs billy.Filesystem, isGit bool, resourcesMap map[string][]*unstructured.Unstructured) (map[string]policyreportv1alpha2.PolicyReportResult, []kyvernov1.Results) {
 	results := make(map[string]policyreportv1alpha2.PolicyReportResult)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
@@ -565,9 +564,9 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 						if name[len(name)-1] == resourceName {
 							var resultsKey string
 							resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, gvk[len(gvk)-1], name[len(name)-1])
-							if !util.ContainsString(rules, test.Rule) {
-								if !util.ContainsString(rules, "autogen-"+test.Rule) {
-									if !util.ContainsString(rules, "autogen-cronjob-"+test.Rule) {
+							if !slices.Contains(rules, test.Rule) {
+								if !slices.Contains(rules, "autogen-"+test.Rule) {
+									if !slices.Contains(rules, "autogen-cronjob-"+test.Rule) {
 										result.Result = policyreportv1alpha2.StatusSkip
 									} else {
 										testResults[i].AutoGeneratedRule = "autogen-cronjob"
@@ -723,7 +722,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 				result.Rule = rule.Name
 				result.Result = policyreportv1alpha2.PolicyResult(rule.Status)
-				result.Source = policyreport.SourceValue
+				result.Source = kyvernov1.ValueKyvernoApp
 				result.Timestamp = now
 				results[resultKey] = result
 			}
@@ -898,7 +897,7 @@ func GetVariables(values kyvernov1.Variables) (map[string]string, map[string]map
 			storeRules = append(storeRules, kyvernov1.Rulev{
 				Name:          rule.Name,
 				Values:        rule.Values,
-				ForeachValues: rule.ForeachValues,
+				ForEachValues: rule.ForEachValues,
 			})
 		}
 		storeResources := make([]kyvernov1.Resourcev, 0)
@@ -959,11 +958,11 @@ func GetUserInfoFromPath(values kyvernov1.Variables, policyBytes []byte, resourc
 	return *userInfo, *subject, nil
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller, tf *testFilter) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openApiManager openapi.Manager, tf *testFilter) (err error) {
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient dclient.Interface
 	values := &kyvernov1.Test_manifest{}
-	var pvInfos []policyreport.Info
+	var pvInfos []common.Info
 	var resultCounts common.ResultCounts
 	store.SetMock(true)
 
@@ -1050,15 +1049,15 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 	policies = filteredPolicies
 
-	mutatedPolicies, err := common.MutatePolicies(policies)
+	// mutatedPolicies, err := common.MutatePolicies(policies)
 
-	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return sanitizederror.NewWithError("failed to mutate policy", err)
-		}
-	}
+	// if err != nil {
+	// 	if !sanitizederror.IsErrorSanitized(err) {
+	// 		return sanitizederror.NewWithError("failed to mutate policy", err)
+	// 	}
+	// }
 
-	err = common.PrintMutatedPolicy(mutatedPolicies)
+	err = common.PrintMutatedPolicy(policies)
 	if err != nil {
 		return sanitizederror.NewWithError("failed to print mutated policy", err)
 	}
@@ -1066,7 +1065,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	resourcesMap := make(map[string][]*unstructured.Unstructured)
 	var resources []*unstructured.Unstructured
 	for k := range values.Spec.Resources {
-		allresources[k], err = common.GetResourceAccordingToResourcePath(fs, resourceFullPath[k], false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
+		allresources[k], err = common.GetResourceAccordingToResourcePath(fs, resourceFullPath[k], false, policies, dClient, "", false, isGit, policyResourcePath)
 		if err != nil {
 			fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 			os.Exit(1)
@@ -1095,7 +1094,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 	resources = filteredResources
 	msgPolicies := "1 policy"
-	if len(mutatedPolicies) > 1 {
+	if len(policies) > 1 {
 		msgPolicies = fmt.Sprintf("%d policies", len(policies))
 	}
 
@@ -1104,12 +1103,12 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		msgResources = fmt.Sprintf("%d resources", len(resources))
 	}
 
-	if len(mutatedPolicies) > 0 && len(resources) > 0 {
+	if len(policies) > 0 && len(resources) > 0 {
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
 
-	for _, policy := range mutatedPolicies {
-		_, err := policy2.Validate(policy, nil, true, openAPIController)
+	for _, policy := range policies {
+		_, err := policy2.Validate(policy, nil, true, openApiManager)
 		if err != nil {
 			fmt.Print("\n")
 			fmt.Printf("policy : %v is not a valid policy\n", policy.GetName())
@@ -1128,7 +1127,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 			}
 		}
 
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
+		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, nil, nil)
 		for _, resource := range resources {
 			thisPolicyResourceValues, err := CheckVariableForPolicyn(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
@@ -1141,7 +1140,22 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				os.Exit(1)
 			}
 			store.SetSubjects(subjectInfo)
-			ers, info, err := common.ApplyPolicyOnResource(resourcesMap, policy, resource, "", false, thisPolicyResourceValues, userInfo, true, namespaceSelectorMap, false, &resultCounts, false, ruleToCloneSourceResource)
+			applyPolicyConfig := common.ApplyPolicyConfig{
+				ResourcesMap:              resourcesMap,
+				Policy:                    policy,
+				Resource:                  resource,
+				MutateLogPath:             "",
+				Variables:                 thisPolicyResourceValues,
+				UserInfo:                  userInfo,
+				PolicyReport:              true,
+				NamespaceSelectorMap:      namespaceSelectorMap,
+				Rc:                        &resultCounts,
+				RuleToCloneSourceResource: ruleToCloneSourceResource,
+				Client:                    dClient,
+				Subresources:              nil,
+			}
+			ers, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
+			//ers, info, err := common.ApplyPolicyOnResource(resourcesMap, policy, resource, "", false, thisPolicyResourceValues, userInfo, true, namespaceSelectorMap, false, &resultCounts, false, ruleToCloneSourceResource)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}

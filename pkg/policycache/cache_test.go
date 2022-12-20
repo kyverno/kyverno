@@ -12,7 +12,7 @@ import (
 
 func setPolicy(store store, policy kyvernov1.PolicyInterface) {
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
-	store.set(key, policy)
+	store.set(key, policy, make(map[string]string))
 }
 
 func unsetPolicy(store store, policy kyvernov1.PolicyInterface) {
@@ -1158,4 +1158,106 @@ func Test_Validate_Enforce_Policy(t *testing.T) {
 	if len(validateAudit) != 0 {
 		t.Errorf("removing: expected 0 validate audit policy, found %v", len(validateAudit))
 	}
+}
+
+func Test_Get_Policies(t *testing.T) {
+	cache := NewCache()
+	policy := newPolicy(t)
+	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
+	cache.Set(key, policy, make(map[string]string))
+
+	validateAudit := cache.GetPolicies(ValidateAudit, "Namespace", "")
+	if len(validateAudit) != 0 {
+		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
+	}
+
+	validateAudit = cache.GetPolicies(ValidateAudit, "Pod", "test")
+	if len(validateAudit) != 0 {
+		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
+	}
+
+	validateEnforce := cache.GetPolicies(ValidateEnforce, "Namespace", "")
+	if len(validateEnforce) != 1 {
+		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	mutate := cache.GetPolicies(Mutate, "Pod", "")
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
+	}
+
+	generate := cache.GetPolicies(Generate, "Pod", "")
+	if len(generate) != 1 {
+		t.Errorf("expected 1 generate policy, found %v", len(generate))
+	}
+
+}
+
+func Test_Get_Policies_Ns(t *testing.T) {
+	cache := NewCache()
+	policy := newNsPolicy(t)
+	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
+	cache.Set(key, policy, make(map[string]string))
+	nspace := policy.GetNamespace()
+
+	validateAudit := cache.GetPolicies(ValidateAudit, "Pod", nspace)
+	if len(validateAudit) != 0 {
+		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
+	}
+
+	validateEnforce := cache.GetPolicies(ValidateEnforce, "Pod", nspace)
+	if len(validateEnforce) != 1 {
+		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	mutate := cache.GetPolicies(Mutate, "Pod", nspace)
+	if len(mutate) != 1 {
+		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
+	}
+
+	generate := cache.GetPolicies(Generate, "Pod", nspace)
+	if len(generate) != 1 {
+		t.Errorf("expected 1 generate policy, found %v", len(generate))
+	}
+}
+
+func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
+	cache := NewCache()
+	policy1 := newValidateAuditPolicy(t)
+	policy2 := newValidateEnforcePolicy(t)
+	key1, _ := kubecache.MetaNamespaceKeyFunc(policy1)
+	cache.Set(key1, policy1, make(map[string]string))
+	key2, _ := kubecache.MetaNamespaceKeyFunc(policy2)
+	cache.Set(key2, policy2, make(map[string]string))
+
+	validateAudit := cache.GetPolicies(ValidateAudit, "Pod", "")
+	if len(validateAudit) != 1 {
+		t.Errorf("expected 1 validate audit policy, found %v", len(validateAudit))
+	}
+
+	validateEnforce := cache.GetPolicies(ValidateEnforce, "Pod", "")
+	if len(validateEnforce) != 1 {
+		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	validateAudit = cache.GetPolicies(ValidateAudit, "Pod", "test")
+	if len(validateAudit) != 2 {
+		t.Errorf("expected 2 validate audit policy, found %v", len(validateAudit))
+	}
+
+	validateEnforce = cache.GetPolicies(ValidateEnforce, "Pod", "test")
+	if len(validateEnforce) != 0 {
+		t.Errorf("expected 0 validate enforce policy, found %v", len(validateEnforce))
+	}
+
+	validateAudit = cache.GetPolicies(ValidateAudit, "Pod", "default")
+	if len(validateAudit) != 0 {
+		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
+	}
+
+	validateEnforce = cache.GetPolicies(ValidateEnforce, "Pod", "default")
+	if len(validateEnforce) != 2 {
+		t.Errorf("expected 2 validate enforce policy, found %v", len(validateEnforce))
+	}
+
 }

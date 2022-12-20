@@ -1,0 +1,7 @@
+policies:
+  - name: deny-something
+    rules:
+      - name: deny-everything
+        values:
+          varA.data.ValueOfB: "something"
+          # request.namespace: kyverno

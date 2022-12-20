@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/kyverno/kyverno/pkg/logging"
 )
 
 type Handler struct {
@@ -147,7 +147,7 @@ func (dh Handler) Handle(handler resourceElementHandler, resourceMap map[string]
 	} else if dh.pattern == "*" && resourceMap[dh.element] == nil {
 		return dh.path, fmt.Errorf("failed at path %s, field %s is not present", dh.path, dh.element)
 	} else {
-		path, err := handler(log.Log, resourceMap[dh.element], dh.pattern, originPattern, currentPath)
+		path, err := handler(logging.GlobalLogger(), resourceMap[dh.element], dh.pattern, originPattern, currentPath)
 		if err != nil {
 			return path, err
 		}

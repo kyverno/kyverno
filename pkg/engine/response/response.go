@@ -2,11 +2,15 @@ package response
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
-	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/pod-security-admission/api"
 )
 
 // EngineResponse engine response to the action
@@ -113,6 +117,23 @@ type RuleResponse struct {
 
 	// PatchedTarget is the patched resource for mutate.targets
 	PatchedTarget *unstructured.Unstructured
+
+	// PatchedTargetSubresourceName is the name of the subresource which is patched, empty if the resource patched is
+	// not a subresource.
+	PatchedTargetSubresourceName string
+
+	// PatchedTargetParentResourceGVR is the GVR of the parent resource of the PatchedTarget. This is only populated
+	// when PatchedTarget is a subresource.
+	PatchedTargetParentResourceGVR metav1.GroupVersionResource
+
+	// PodSecurityChecks contains pod security checks (only if this is a pod security rule)
+	PodSecurityChecks *PodSecurityChecks
+}
+
+type PodSecurityChecks struct {
+	Level   api.Level
+	Version string
+	Checks  []pssutils.PSSCheckResult
 }
 
 // ToString ...
@@ -139,7 +160,17 @@ func (er EngineResponse) IsSuccessful() bool {
 	return true
 }
 
-// IsFailed checks if any rule has succeeded or not
+// IsSkipped checks if any rule has skipped resource or not.
+func (er EngineResponse) IsSkipped() bool {
+	for _, r := range er.PolicyResponse.Rules {
+		if r.Status == RuleStatusSkip {
+			return true
+		}
+	}
+	return false
+}
+
+// IsFailed checks if any rule created a policy violation
 func (er EngineResponse) IsFailed() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Status == RuleStatusFail {
@@ -150,9 +181,25 @@ func (er EngineResponse) IsFailed() bool {
 	return false
 }
 
+// IsError checks if any rule resulted in a processing error
+func (er EngineResponse) IsError() bool {
+	for _, r := range er.PolicyResponse.Rules {
+		if r.Status == RuleStatusError {
+			return true
+		}
+	}
+
+	return false
+}
+
 // IsEmpty checks if any rule results are present
 func (er EngineResponse) IsEmpty() bool {
 	return len(er.PolicyResponse.Rules) == 0
+}
+
+// isNil checks if rule is an empty rule
+func (er EngineResponse) IsNil() bool {
+	return reflect.DeepEqual(er, EngineResponse{})
 }
 
 // GetPatches returns all the patches joined
@@ -169,12 +216,12 @@ func (er EngineResponse) GetPatches() [][]byte {
 
 // GetFailedRules returns failed rules
 func (er EngineResponse) GetFailedRules() []string {
-	return er.getRules(RuleStatusFail)
+	return er.getRules(func(status RuleStatus) bool { return status == RuleStatusFail || status == RuleStatusError })
 }
 
 // GetSuccessRules returns success rules
 func (er EngineResponse) GetSuccessRules() []string {
-	return er.getRules(RuleStatusPass)
+	return er.getRules(func(status RuleStatus) bool { return status == RuleStatusPass })
 }
 
 // GetResourceSpec returns resourceSpec of er
@@ -188,10 +235,10 @@ func (er EngineResponse) GetResourceSpec() ResourceSpec {
 	}
 }
 
-func (er EngineResponse) getRules(status RuleStatus) []string {
+func (er EngineResponse) getRules(predicate func(RuleStatus) bool) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Status == status {
+		if predicate(r.Status) {
 			rules = append(rules, r.Name)
 		}
 	}
@@ -201,9 +248,6 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 
 func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
 	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
-		if v.Action != kyvernov1.Enforce && v.Action != kyvernov1.Audit {
-			continue
-		}
 		for _, ns := range v.Namespaces {
 			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
 				return v.Action

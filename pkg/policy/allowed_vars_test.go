@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	ut "github.com/kyverno/kyverno/pkg/utils"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -54,7 +54,7 @@ func TestNotAllowedVars_MatchSection(t *testing.T) {
     }
   `)
 
-	policy, err := ut.GetPolicy(policyWithVarInMatch)
+	policy, err := yamlutils.GetPolicy(policyWithVarInMatch)
 	assert.NilError(t, err)
 
 	err = hasInvalidVariables(policy[0], false)
@@ -106,7 +106,7 @@ func TestNotAllowedVars_ExcludeSection(t *testing.T) {
     }
   `)
 
-	policy, err := ut.GetPolicy(policyWithVarInExclude)
+	policy, err := yamlutils.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
 
 	err = hasInvalidVariables(policy[0], false)
@@ -159,7 +159,7 @@ func TestNotAllowedVars_ExcludeSection_PositiveCase(t *testing.T) {
     }
   `)
 
-	policy, err := ut.GetPolicy(policyWithVarInExclude)
+	policy, err := yamlutils.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
 
 	err = hasInvalidVariables(policy[0], false)
@@ -193,7 +193,7 @@ func TestNotAllowedVars_JSONPatchPath(t *testing.T) {
     }
     }`)
 
-	policy, err := ut.GetPolicy(policyWithVarInExclude)
+	policy, err := yamlutils.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
 
 	err = hasInvalidVariables(policy[0], false)
@@ -236,7 +236,7 @@ func TestNotAllowedVars_JSONPatchPath_ContextPositive(t *testing.T) {
     }
     }`)
 
-	policy, err := ut.GetPolicy(policyWithVarInExclude)
+	policy, err := yamlutils.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
 
 	err = hasInvalidVariables(policy[0], false)
@@ -270,7 +270,7 @@ func TestNotAllowedVars_JSONPatchPath_PositiveCase(t *testing.T) {
     }
     }`)
 
-	policy, err := ut.GetPolicy(policyWithVarInExclude)
+	policy, err := yamlutils.GetPolicy(policyWithVarInExclude)
 	assert.NilError(t, err)
 
 	err = hasInvalidVariables(policy[0], false)
@@ -302,7 +302,7 @@ spec:
 	policyJSON, err := yaml.ToJSON(policyYAML)
 	assert.NilError(t, err)
 
-	policy, err := ut.GetPolicy(policyJSON)
+	policy, err := yamlutils.GetPolicy(policyJSON)
 	assert.NilError(t, err)
 
 	err = hasInvalidVariables(policy[0], false)
@@ -389,7 +389,7 @@ func TestNotAllowedVars_VariableFormats(t *testing.T) {
               value: "foo.com"
     `, tc.input))
 
-		policy, err := ut.GetPolicy(policyYAML)
+		policy, err := yamlutils.GetPolicy(policyYAML)
 		assert.NilError(t, err)
 
 		err = hasInvalidVariables(policy[0], false)
@@ -435,7 +435,7 @@ spec:
 	policyJSON, err := yaml.ToJSON(policyYAML)
 	assert.NilError(t, err)
 
-	policy, err := ut.GetPolicy(policyJSON)
+	policy, err := yamlutils.GetPolicy(policyJSON)
 	assert.NilError(t, err)
 
 	err = hasInvalidVariables(policy[0], false)

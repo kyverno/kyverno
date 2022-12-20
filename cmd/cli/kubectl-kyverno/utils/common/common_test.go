@@ -3,10 +3,10 @@ package common
 import (
 	"testing"
 
-	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/toggle"
-	ut "github.com/kyverno/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var policyNamespaceSelector = []byte(`{
@@ -95,21 +95,116 @@ func Test_NamespaceSelector(t *testing.T) {
 			},
 		},
 	}
-
 	rc := &ResultCounts{}
 	for _, tc := range testcases {
-		policyArray, _ := ut.GetPolicy(tc.policy)
+		policyArray, _ := yamlutils.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
-		ApplyPolicyOnResource(nil, policyArray[0], resourceArray[0], "", false, nil, v1beta1.RequestInfo{}, false, tc.namespaceSelectorMap, false, rc, false, nil)
+		//conflict
+		//ApplyPolicyOnResource(nil, policyArray[0], resourceArray[0], "", false, nil, v1beta1.RequestInfo{}, false, tc.namespaceSelectorMap, false, rc, false, nil)
+
+		applyPolicyConfig := ApplyPolicyConfig{
+			Policy:               policyArray[0],
+			Resource:             resourceArray[0],
+			MutateLogPath:        "",
+			UserInfo:             v1beta1.RequestInfo{},
+			NamespaceSelectorMap: tc.namespaceSelectorMap,
+			Rc:                   rc,
+		}
+		ApplyPolicyOnResource(applyPolicyConfig)
+
 		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
 		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
 		// TODO: autogen rules seem to not be present when autogen internals is disabled
-		if toggle.AutogenInternals() {
-			assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
-		} else {
-			assert.Equal(t, int64(rc.Skip), int64(0))
-		}
+		assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
 		assert.Equal(t, int64(rc.Warn), int64(tc.result.Warn))
 		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
 	}
+}
+
+func Test_IsGitSourcePath(t *testing.T) {
+	type TestCase struct {
+		path    []string
+		actual  bool
+		desired bool
+	}
+	testcases := []TestCase{
+		{
+			path:    []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+			desired: true,
+		},
+		{
+			path:    []string{"/kyverno/policies/openshift/team-validate-ns-name/"},
+			desired: false,
+		},
+		{
+			path:    []string{"https://bitbucket.org/kyverno/policies/openshift/team-validate-ns-name"},
+			desired: true,
+		},
+		{
+			path:    []string{"https://anydomain.com/kyverno/policies/openshift/team-validate-ns-name"},
+			desired: true,
+		},
+	}
+	for _, tc := range testcases {
+		tc.actual = IsGitSourcePath(tc.path)
+		if tc.actual != tc.desired {
+			t.Errorf("%s is not a git URL", tc.path)
+		}
+	}
+}
+
+func Test_GetGitBranchOrPolicyPaths(t *testing.T) {
+	type TestCase struct {
+		gitBranch                             string
+		repoURL                               string
+		policyPath                            []string
+		desiredBranch, actualBranch           string
+		desiredPathToYAMLs, actualPathToYAMLs string
+	}
+	testcases := []TestCase{
+		{
+			gitBranch:          "main",
+			repoURL:            "https://github.com/kyverno/policies",
+			policyPath:         []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+			desiredBranch:      "main",
+			desiredPathToYAMLs: "/openshift/team-validate-ns-name/",
+		},
+		{
+			gitBranch:          "",
+			repoURL:            "https://github.com/kyverno/policies",
+			policyPath:         []string{"https://github.com/kyverno/policies/"},
+			desiredBranch:      "main",
+			desiredPathToYAMLs: "/",
+		},
+		{
+			gitBranch:          "",
+			repoURL:            "https://github.com/kyverno/policies",
+			policyPath:         []string{"https://github.com/kyverno/policies"},
+			desiredBranch:      "main",
+			desiredPathToYAMLs: "/",
+		},
+	}
+
+	for _, tc := range testcases {
+		tc.actualBranch, tc.actualPathToYAMLs = GetGitBranchOrPolicyPaths(tc.gitBranch, tc.repoURL, tc.policyPath)
+		if tc.actualBranch != tc.desiredBranch || tc.actualPathToYAMLs != tc.desiredPathToYAMLs {
+			t.Errorf("Want %q got %q  OR Want %q got %q", tc.desiredBranch, tc.actualBranch, tc.desiredPathToYAMLs, tc.actualPathToYAMLs)
+		}
+	}
+}
+
+func Test_getSubresourceKind(t *testing.T) {
+	podAPIResource := metav1.APIResource{Name: "pods", SingularName: "", Namespaced: true, Kind: "Pod"}
+	podEvictionAPIResource := metav1.APIResource{Name: "pods/eviction", SingularName: "", Namespaced: true, Group: "policy", Version: "v1", Kind: "Eviction"}
+
+	subresources := []Subresource{
+		{
+			APIResource:    podEvictionAPIResource,
+			ParentResource: podAPIResource,
+		},
+	}
+
+	subresourceKind, err := getSubresourceKind("", "Pod", "eviction", subresources)
+	assert.NilError(t, err)
+	assert.Equal(t, subresourceKind, "Eviction")
 }

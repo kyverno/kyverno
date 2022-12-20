@@ -3,8 +3,11 @@ package v1
 import (
 	"encoding/json"
 
+	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/pod-security-admission/api"
 )
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
@@ -16,6 +19,17 @@ const (
 	Ignore FailurePolicyType = "Ignore"
 	// Fail means that an error calling the webhook causes the admission to fail.
 	Fail FailurePolicyType = "Fail"
+)
+
+// ApplyRulesType controls whether processing stops after one rule is applied or all rules are applied.
+// +kubebuilder:validation:Enum=All;One
+type ApplyRulesType string
+
+const (
+	// AllMatchingRules applies all rules in a policy that match.
+	ApplyAll ApplyRulesType = "All"
+	// FirstMatchingRule applies only the first matching rule in the policy.
+	ApplyOne ApplyRulesType = "One"
 )
 
 // AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -208,6 +222,10 @@ type ResourceFilter struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
+func (r ResourceFilter) IsEmpty() bool {
+	return r.UserInfo.IsEmpty() && r.ResourceDescription.IsEmpty()
+}
+
 // Mutation defines how resource are modified.
 type Mutation struct {
 	// Targets defines the target resources to be mutated.
@@ -265,6 +283,10 @@ type ForEachMutation struct {
 	// See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
 	// +optional
 	PatchesJSON6902 string `json:"patchesJson6902,omitempty" yaml:"patchesJson6902,omitempty"`
+
+	// Foreach declares a nested foreach iterator
+	// +optional
+	ForEachMutation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
 func (m *ForEachMutation) GetPatchStrategicMerge() apiextensions.JSON {
@@ -280,6 +302,10 @@ type Validation struct {
 	// Message specifies a custom message to be displayed on failure.
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+
+	// Manifest specifies conditions for manifest verification
+	// +optional
+	Manifests *Manifests `json:"manifests,omitempty" yaml:"manifests,omitempty"`
 
 	// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
@@ -297,6 +323,44 @@ type Validation struct {
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+
+	// PodSecurity applies exemptions for Kubernetes Pod Security admission
+	// by specifying exclusions for Pod Security Standards controls.
+	// +optional
+	PodSecurity *PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+}
+
+// PodSecurity applies exemptions for Kubernetes Pod Security admission
+// by specifying exclusions for Pod Security Standards controls.
+type PodSecurity struct {
+	// Level defines the Pod Security Standard level to be applied to workloads.
+	// Allowed values are privileged, baseline, and restricted.
+	// +kubebuilder:validation:Enum=privileged;baseline;restricted
+	Level api.Level `json:"level,omitempty" yaml:"level,omitempty"`
+
+	// Version defines the Pod Security Standard versions that Kubernetes supports.
+	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.
+	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;latest
+	// +optional
+	Version string `json:"version,omitempty" yaml:"version,omitempty"`
+
+	// Exclude specifies the Pod Security Standard controls to be excluded.
+	Exclude []PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+}
+
+// PodSecurityStandard specifies the Pod Security Standard controls to be excluded.
+type PodSecurityStandard struct {
+	// ControlName specifies the name of the Pod Security Standard control.
+	// See: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+	// +kubebuilder:validation:Enum=HostProcess;Host Namespaces;Privileged Containers;Capabilities;HostPath Volumes;Host Ports;AppArmor;SELinux;/proc Mount Type;Seccomp;Sysctls;Volume Types;Privilege Escalation;Running as Non-root;Running as Non-root user
+	ControlName string `json:"controlName" yaml:"controlName"`
+
+	// Images selects matching containers and applies the container level PSS.
+	// Each image is the image name consisting of the registry address, repository, image, and tag.
+	// Empty list matches no containers, PSS checks are applied at the pod level only.
+	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+	// +optional
+	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
 }
 
 // DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
@@ -336,6 +400,14 @@ func (v *Validation) GetAnyPattern() apiextensions.JSON {
 
 func (v *Validation) SetAnyPattern(in apiextensions.JSON) {
 	v.RawAnyPattern = ToJSON(in)
+}
+
+func (v *Validation) GetForeach() apiextensions.JSON {
+	return FromJSON(v.RawPattern)
+}
+
+func (v *Validation) SetForeach(in apiextensions.JSON) {
+	v.RawPattern = ToJSON(in)
 }
 
 // Deny specifies a list of conditions used to pass or fail a validation rule.
@@ -390,6 +462,10 @@ type ForEachValidation struct {
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+
+	// Foreach declares a nested foreach iterator
+	// +optional
+	ForEachValidation *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
 func (v *ForEachValidation) GetPattern() apiextensions.JSON {
@@ -431,6 +507,23 @@ type Generation struct {
 	// resource will be created with default data only.
 	// +optional
 	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
+
+	// CloneList specifies the list of source resource used to populate each generated resource.
+	// +optional
+	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
+}
+
+type CloneList struct {
+	// Namespace specifies source resource namespace.
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+
+	// Kinds is a list of resource kinds.
+	Kinds []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
+
+	// Selector is a label selector. Label keys and values in `matchLabels`.
+	// wildcard characters are not supported.
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
 func (g *Generation) GetData() apiextensions.JSON {
@@ -451,3 +544,38 @@ type CloneFrom struct {
 	// Name specifies name of the resource.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
+
+type Manifests struct {
+	// Attestors specified the required attestors (i.e. authorities)
+	// +kubebuilder:validation:Optional
+	Attestors []AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
+
+	// AnnotationDomain is custom domain of annotation for message and signature. Default is "cosign.sigstore.dev".
+	// +optional
+	AnnotationDomain string `json:"annotationDomain,omitempty" yaml:"annotationDomain,omitempty"`
+
+	// Fields which will be ignored while comparing manifests.
+	// +optional
+	IgnoreFields IgnoreFieldList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
+
+	// DryRun configuration
+	// +optional
+	DryRunOption DryRunOption `json:"dryRun,omitempty" yaml:"dryRun,omitempty"`
+
+	// Repository is an optional alternate OCI repository to use for resource bundle reference.
+	// The repository can be overridden per Attestor or Attestation.
+	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+}
+
+// DryRunOption is a configuration for dryrun.
+// If enable is set to "true", manifest verification performs "dryrun & compare"
+// which provides robust matching against changes by defaults and other admission controllers.
+// Dryrun requires additional permissions. See config/dryrun/dryrun_rbac.yaml
+type DryRunOption struct {
+	Enable    bool   `json:"enable,omitempty" yaml:"enable,omitempty"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+}
+
+type IgnoreFieldList []ObjectFieldBinding
+
+type ObjectFieldBinding k8smanifest.ObjectFieldBinding

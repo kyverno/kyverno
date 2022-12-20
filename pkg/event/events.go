@@ -36,7 +36,7 @@ func buildPolicyEventMessage(resp *response.RuleResponse, resource response.Reso
 	}
 
 	if resp.Status == response.RuleStatusError && resp.Message != "" {
-		fmt.Fprintf(&b, "; %s", resp.Status.String())
+		fmt.Fprintf(&b, "; %s", resp.Message)
 	}
 
 	return b.String()

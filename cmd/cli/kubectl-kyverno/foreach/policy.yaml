@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-images
+spec:
+  validationFailureAction: audit
+  rules:
+  - name: block-images
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "Images containing built-in volumes are prohibited."
+      foreach:
+      - list: "request.object.spec.containers"
+        context: 
+        - name: imageData
+          imageRegistry: 
+            reference: "{{ element.name }}"
+        deny:
+          conditions:
+            - key: "{{ imageData }}"
+              operator: Equals
+              value: "{{ element.name }}"

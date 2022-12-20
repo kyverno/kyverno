@@ -1,12 +1,11 @@
 package testrunner
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // LoadFile loads file in byte buffer
@@ -16,7 +15,7 @@ func LoadFile(path string) ([]byte, error) {
 	}
 	path = filepath.Clean(path)
 	// We accept the risk of including a user provided file here.
-	return ioutil.ReadFile(path) // #nosec G304
+	return os.ReadFile(path) // #nosec G304
 }
 
 var kindToResource = map[string]string{
@@ -41,7 +40,7 @@ func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	resource := &unstructured.Unstructured{}
 	err := resource.UnmarshalJSON(data)
 	if err != nil {
-		log.Log.Error(err, "failed to unmarshal resource")
+		logging.Error(err, "failed to unmarshal resource")
 		return nil, err
 	}
 	return resource, nil

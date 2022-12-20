@@ -4,15 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -59,10 +58,11 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 				if skip {
 					continue
 				}
-				pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+				pc.log.V(2).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
 					"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 			}
 		}
+
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
 			ruleType = kyvernov1beta1.Generate
 			triggers := generateTriggers(pc.client, rule, pc.log)
@@ -90,20 +90,22 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 				pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
 					"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 			}
-			err := engineutils.CombineErrors(errors)
+
+			err := multierr.Combine(errors...)
 			return err
 		}
 	}
+
 	return nil
 }
 
 func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
-	policyContext, _, err := common.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, nil, pc.log)
+	policyContext, _, err := common.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, pc.informerCacheResolvers, nil, pc.log)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to build policy context for rule %s", rule.Name)
 	}
 
-	engineResponse := engine.ApplyBackgroundChecks(policyContext)
+	engineResponse := engine.ApplyBackgroundChecks(pc.rclient, policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		return true, nil
 	}
@@ -114,7 +116,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 			continue
 		}
 
-		pc.log.Info("creating new UR for generate")
+		pc.log.V(2).Info("creating new UR for generate")
 		_, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			return false, err
@@ -126,7 +128,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 func (pc *PolicyController) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
 	mutateURs, err := pc.urLister.List(labels.SelectorFromSet(common.MutateLabelsSet(policyKey, trigger)))
 	if err != nil {
-		logger.Error(err, "failed to list update request for mutate policy")
+		pc.log.Error(err, "failed to list update request for mutate policy")
 	}
 	return mutateURs
 }
@@ -134,7 +136,7 @@ func (pc *PolicyController) listMutateURs(policyKey string, trigger *unstructure
 func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
 	generateURs, err := pc.urLister.List(labels.SelectorFromSet(common.GenerateLabelsSet(policyKey, trigger)))
 	if err != nil {
-		logger.Error(err, "failed to list update request for generate policy")
+		pc.log.Error(err, "failed to list update request for generate policy")
 	}
 	return generateURs
 }

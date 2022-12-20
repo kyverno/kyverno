@@ -1,0 +1,11 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: valid-pod
+  namespace: test
+  labels:
+    app: whatever
+spec:
+  containers:
+    - name: app
+      image: 'myorg/whatever:1.0.0'

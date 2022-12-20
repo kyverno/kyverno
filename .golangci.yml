@@ -1,5 +1,6 @@
 linters:
   enable:
+    - asasalint
     - asciicheck
     - bidichk
     - bodyclose
@@ -21,7 +22,6 @@ linters:
     - gosimple
     - govet
     - grouper
-    - ifshort
     - importas
     - ineffassign
     - makezero
@@ -43,8 +43,9 @@ linters:
     - whitespace
 
 run:
-  timeout: 5m
+  timeout: 10m
   skip-files:
+    - ".+\\.generated.go"
     - ".+_test.go"
     - ".+_test_.+.go"
 
@@ -57,7 +58,7 @@ linters-settings:
         alias: $1$2
       - pkg: k8s.io/api/(\w+)/(v[\w\d]+)
         alias: $1$2
-      - pkg: github.com/kyverno/kyverno/pkg/dclient
+      - pkg: github.com/kyverno/kyverno/pkg/clients/dclient
         alias: dclient
       - pkg: github.com/kyverno/kyverno/pkg/client/clientset/versioned
         alias: kyvernoclient

@@ -117,7 +117,7 @@ func (c *FakeUpdateRequests) UpdateStatus(ctx context.Context, updateRequest *v1
 // Delete takes name of the updateRequest and deletes it. Returns an error if one occurs.
 func (c *FakeUpdateRequests) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(updaterequestsResource, c.ns, name), &v1beta1.UpdateRequest{})
+		Invokes(testing.NewDeleteActionWithOptions(updaterequestsResource, c.ns, name, opts), &v1beta1.UpdateRequest{})
 
 	return err
 }

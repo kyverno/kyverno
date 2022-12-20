@@ -1,9 +1,9 @@
 name: FOSSA
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
 
 permissions: read-all
 
@@ -11,12 +11,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-      - uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
+      - name: Checkout
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
+
+      - uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: "^1.17.x"
-      - run: go version
-      # Runs a set of commands to initialize and analyze with FOSSA
+          go-version: ~1.18.6
+
       - name: run FOSSA analysis
         env:
           # FOSSA Push-Only API Token
@@ -24,6 +25,6 @@ jobs:
         run: |
           export GOPATH=$HOME/go
           export PATH=$PATH:$(go env GOPATH)/bin
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash
+          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/f90d8f6ea32a55bc3b08d557590066b820a7c1b8/install-latest.sh | bash # v3.5.2
           fossa init
           fossa analyze

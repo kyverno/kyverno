@@ -1,0 +1,30 @@
+apiVersion: cli.kyverno.io/v1beta1
+kind: KyvernoTest
+metadata:
+  name: block-images
+spec:
+  policies: 
+  - policy.yaml
+  resources:
+    my_resource_pool: 
+    - resource1.yaml
+    patchedResource_pool:
+    - resource2.yaml
+    - resource3.yaml
+  results:
+  - policy: add-label
+    rule: add-label
+    resources:
+    - object: my_resource_pool:same-name-but-diff-namespace
+      patched : patchedResource_pool:same-name-but-diff-namespace
+    namespace: testing
+    kind: v1/Pod
+    result: pass
+  - policy: add-label
+    rule: add-label
+    resources:
+    - object: my_resource_pool:mydeploy
+      patched : patchedResource_pool:mydeploy
+    namespace: default
+    kind: apps/v1/Deployment 
+    result: pass

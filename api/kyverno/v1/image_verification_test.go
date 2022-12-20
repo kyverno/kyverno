@@ -121,7 +121,7 @@ func Test_ImageVerification(t *testing.T) {
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
 					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0).Child("keys"),
-						i.Attestors[0].Entries[0].Keys, "A key is required"),
+						i.Attestors[0].Entries[0].Keys, "A public key, kms key or secret is required"),
 				}
 			},
 		},
@@ -174,10 +174,27 @@ func Test_ImageVerification(t *testing.T) {
 					},
 				},
 			},
-			errors: func(i *ImageVerification) field.ErrorList {
-				return field.ErrorList{
-					field.Invalid(path, i, "An attestor is required"),
-				}
+		},
+		{
+			name: "multiple entries",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestors: []AttestorSet{
+					{
+						Entries: []Attestor{
+							{
+								Keys: &StaticKeyAttestor{
+									PublicKeys: "key1",
+								},
+							},
+							{
+								Keys: &StaticKeyAttestor{
+									PublicKeys: "key2",
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}

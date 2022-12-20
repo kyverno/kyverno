@@ -1,17 +1,28 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // CanIOptions provides utility to check if user has authorization for the given operation
-type CanIOptions struct {
+type CanIOptions interface {
+	// RunAccessCheck checks if the caller can perform the operation
+	// - operation is a combination of namespace, kind, verb
+	// - can only evaluate a single verb
+	// - group version resource is determined from the kind using the discovery client REST mapper
+	// - If disallowed, the reason and evaluationError is available in the logs
+	// - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
+	RunAccessCheck(context.Context) (bool, error)
+}
+
+type canIOptions struct {
 	namespace string
 	verb      string
 	kind      string
@@ -19,8 +30,8 @@ type CanIOptions struct {
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(client dclient.Interface, kind, namespace, verb string) *CanIOptions {
-	return &CanIOptions{
+func NewCanI(client dclient.Interface, kind, namespace, verb string) CanIOptions {
+	return &canIOptions{
 		namespace: namespace,
 		kind:      kind,
 		verb:      verb,
@@ -34,7 +45,7 @@ func NewCanI(client dclient.Interface, kind, namespace, verb string) *CanIOption
 // - group version resource is determined from the kind using the discovery client REST mapper
 // - If disallowed, the reason and evaluationError is available in the logs
 // - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-func (o *CanIOptions) RunAccessCheck() (bool, error) {
+func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
 	gvr, err := o.client.Discovery().GetGVRFromKind(o.kind)
@@ -65,7 +76,7 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
 	// Create the Resource
-	resp, err := o.client.CreateResource("", "SelfSubjectAccessReview", "", sar, false)
+	resp, err := o.client.CreateResource(ctx, "", "SelfSubjectAccessReview", "", sar, false)
 	if err != nil {
 		logger.Error(err, "failed to create resource")
 		return false, err

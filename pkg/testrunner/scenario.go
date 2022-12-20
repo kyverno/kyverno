@@ -2,8 +2,8 @@ package testrunner
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	ospath "path"
 	"path/filepath"
@@ -12,10 +12,10 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -71,7 +71,7 @@ type Generation struct {
 // It assumes that the project directory is 2 levels up. This means if this function is moved
 // it may not work as expected.
 func RootDir() string {
-	_, b, _, _ := runtime.Caller(0) // nolint:dogsled
+	_, b, _, _ := runtime.Caller(0) //nolint:dogsled
 	d := ospath.Join(ospath.Dir(b))
 	d = filepath.Dir(d)
 	return filepath.Dir(d)
@@ -119,7 +119,7 @@ func loadFile(t *testing.T, path string) ([]byte, error) {
 	}
 	path = filepath.Clean(path)
 	// We accept the risk of including a user provided file here.
-	return ioutil.ReadFile(path) // #nosec G304
+	return os.ReadFile(path) // #nosec G304
 }
 
 func runScenario(t *testing.T, s *Scenario) bool {
@@ -144,14 +144,9 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		t.FailNow()
 	}
 
-	ctx := &engine.PolicyContext{
-		Policy:           policy,
-		NewResource:      *resource,
-		ExcludeGroupRole: []string{},
-		JSONContext:      context.NewContext(),
-	}
+	policyContext := engine.NewPolicyContext().WithPolicy(policy).WithNewResource(*resource)
 
-	er := engine.Mutate(ctx)
+	er := engine.Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -161,14 +156,9 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		resource = &er.PatchedResource
 	}
 
-	ctx = &engine.PolicyContext{
-		Policy:           policy,
-		NewResource:      *resource,
-		ExcludeGroupRole: []string{},
-		JSONContext:      context.NewContext(),
-	}
+	policyContext = policyContext.WithNewResource(*resource)
 
-	er = engine.Validate(ctx)
+	er = engine.Validate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -182,18 +172,9 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		if err := createNamespace(client, resource); err != nil {
 			t.Error(err)
 		} else {
-			policyContext := &engine.PolicyContext{
-				NewResource:      *resource,
-				Policy:           policy,
-				Client:           client,
-				ExcludeGroupRole: []string{},
-				ExcludeResourceFunc: func(s1, s2, s3 string) bool {
-					return false
-				},
-				JSONContext: context.NewContext(),
-			}
+			policyContext := policyContext.WithClient(client)
 
-			er = engine.ApplyBackgroundChecks(policyContext)
+			er = engine.ApplyBackgroundChecks(registryclient.NewOrDie(), policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namespaces as resource
@@ -204,7 +185,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 }
 
 func createNamespace(client dclient.Interface, ns *unstructured.Unstructured) error {
-	_, err := client.CreateResource("", "Namespace", "", ns, false)
+	_, err := client.CreateResource(context.TODO(), "", "Namespace", "", ns, false)
 	return err
 }
 
@@ -213,7 +194,7 @@ func validateGeneratedResources(t *testing.T, client dclient.Interface, policy k
 	t.Log("--validate if resources are generated---")
 	// list of expected generated resources
 	for _, resource := range expected {
-		if _, err := client.GetResource("", resource.Kind, namespace, resource.Name); err != nil {
+		if _, err := client.GetResource(context.TODO(), "", resource.Kind, namespace, resource.Name); err != nil {
 			t.Errorf("generated resource %s/%s/%s not found. %v", resource.Kind, namespace, resource.Name, err)
 		}
 	}
@@ -366,7 +347,7 @@ func getClient(t *testing.T, files []string) dclient.Interface {
 	// create mock client
 	scheme := k8sRuntime.NewScheme()
 	// mock client expects the resource to be as runtime.Object
-	c, err := dclient.NewMockClient(scheme, nil, objects...)
+	c, err := dclient.NewFakeClient(scheme, nil, objects...)
 	if err != nil {
 		t.Errorf("failed to create client. %v", err)
 		return nil

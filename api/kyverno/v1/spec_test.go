@@ -43,7 +43,7 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 		}},
 	}
 	path := field.NewPath("dummy")
-	errs := subject.Validate(path, false, nil)
+	errs := subject.Validate(path, false, "", nil)
 	assert.Equal(t, len(errs), 1)
 	assert.Equal(t, errs[0].Field, "dummy.rules[1].name")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeInvalid)

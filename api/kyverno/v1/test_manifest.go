@@ -58,7 +58,7 @@ type Rulev struct {
 	Values            map[string]interface{} `json:"values,omitempty" yaml:"values,omitempty"`
 	NamespaceSelector []NamespaceSelector    `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
 	Attestations      []attestations         `json:"attestations,omitempty" yaml:"attestations,omitempty"`
-	ForeachValues     map[string][]interface{}
+	ForEachValues     map[string][]interface{}
 }
 
 type NamespaceSelector struct {

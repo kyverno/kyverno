@@ -24,6 +24,7 @@ import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -64,14 +65,26 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().Policies().Informer()}, nil
 
 		// Group=kyverno.io, Version=v1alpha2
-	case v1alpha2.SchemeGroupVersion.WithResource("clusterreportchangerequests"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().ClusterReportChangeRequests().Informer()}, nil
-	case v1alpha2.SchemeGroupVersion.WithResource("reportchangerequests"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().ReportChangeRequests().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("admissionreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().AdmissionReports().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().BackgroundScanReports().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().ClusterAdmissionReports().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().ClusterBackgroundScanReports().Informer()}, nil
 
 		// Group=kyverno.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("updaterequests"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1beta1().UpdateRequests().Informer()}, nil
+
+		// Group=kyverno.io, Version=v2alpha1
+	case v2alpha1.SchemeGroupVersion.WithResource("cleanuppolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2alpha1().CleanupPolicies().Informer()}, nil
+	case v2alpha1.SchemeGroupVersion.WithResource("clustercleanuppolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2alpha1().ClusterCleanupPolicies().Informer()}, nil
+	case v2alpha1.SchemeGroupVersion.WithResource("policyexceptions"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2alpha1().PolicyExceptions().Informer()}, nil
 
 		// Group=wgpolicyk8s.io, Version=v1alpha2
 	case policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"):

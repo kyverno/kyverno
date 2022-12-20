@@ -13,11 +13,17 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=clusterpolicies,scope="Cluster",shortName=cpol
-// +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
-// +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
-// +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy",priority=1
-// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
+// +kubebuilder:resource:path=clusterpolicies,scope="Cluster",shortName=cpol,categories=kyverno
+// +kubebuilder:printcolumn:name="Background",type=boolean,JSONPath=".spec.background"
+// +kubebuilder:printcolumn:name="Validate Action",type=string,JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="Failure Policy",type=string,JSONPath=".spec.failurePolicy",priority=1
+// +kubebuilder:printcolumn:name="Ready",type=boolean,JSONPath=`.status.ready`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Validate",type=integer,JSONPath=`.status.rulecount.validate`,priority=1
+// +kubebuilder:printcolumn:name="Mutate",type=integer,JSONPath=`.status.rulecount.mutate`,priority=1
+// +kubebuilder:printcolumn:name="Generate",type=integer,JSONPath=`.status.rulecount.generate`,priority=1
+// +kubebuilder:printcolumn:name="Verifyimages",type=integer,JSONPath=`.status.rulecount.verifyimages`,priority=1
+// +kubebuilder:storageversion
 
 // ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
 type ClusterPolicy struct {
@@ -82,6 +88,11 @@ func (p *ClusterPolicy) GetSpec() *Spec {
 	return &p.Spec
 }
 
+// GetStatus returns the policy status
+func (p *ClusterPolicy) GetStatus() *PolicyStatus {
+	return &p.Status
+}
+
 // IsNamespaced indicates if the policy is namespace scoped
 func (p *ClusterPolicy) IsNamespaced() bool {
 	return p.GetNamespace() != ""
@@ -92,13 +103,17 @@ func (p *ClusterPolicy) IsReady() bool {
 	return p.Status.IsReady()
 }
 
+func (p *ClusterPolicy) ValidateSchema() bool {
+	return p.Spec.ValidateSchema()
+}
+
 // Validate implements programmatic validation
 // namespaced means that the policy is bound to a namespace and therefore
 // should not filter/generate cluster wide resources.
 func (p *ClusterPolicy) Validate(clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), clusterResources)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), p.Namespace, clusterResources)...)
 	return errs
 }
 
