@@ -406,7 +406,6 @@ codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and 
 .PHONY: codegen-manifest-install
 codegen-manifest-install: $(HELM) ## Create install manifest
 	@echo Generate install manifest... >&2
-	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
@@ -414,7 +413,7 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 		--set image.tag=latest \
 		--set initImage.tag=latest \
  		| $(SED) -e '/^#.*/d' \
-		> ./.manifest/install.yaml
+		> ./config/install.yaml
 
 .PHONY: codegen-manifest-debug
 codegen-manifest-debug: $(HELM) ## Create debug manifest
@@ -529,8 +528,16 @@ verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
+.PHONY: verify-manifest-install
+verify-manifest-install: codegen-manifest-install ## Check install manifest is up to date
+	@echo Checking install manifest is up to date... >&2
+	@git --no-pager diff config/install.yaml
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
+	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
+	@git diff --quiet --exit-code config/install.yaml
+
 .PHONY: verify-codegen
-verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm ## Verify all generated code and docs are up to date
+verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm verify-manifest-install ## Verify all generated code and docs are up to date
 
 ##############
 # UNIT TESTS #
