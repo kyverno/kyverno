@@ -50,6 +50,51 @@ jobs:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}
 
+  generate-init-kyverno-provenance:
+    needs: release-init-kyverno
+    permissions:
+      id-token: write # To sign the provenance.
+      packages: write # To upload assets to release.
+      actions: read #To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/kyvernopre
+      digest: "${{ needs.release-init-kyverno.outputs.init-container-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-kyverno-provenance:
+    needs: release-kyverno
+    permissions:
+      id-token: write # To sign the provenance.
+      packages: write # To upload assets to release.
+      actions: read #To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/kyverno
+      digest: "${{ needs.release-kyverno.outputs.kyverno-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-kyverno-cli-provenance:
+    needs: release-kyverno-cli
+    permissions:
+      id-token: write # To sign the provenance.
+      packages: write # To upload assets to release.
+      actions: read #To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/kyverno-cli
+      digest: "${{ needs.release-kyverno-cli.outputs.cli-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
   create-release:
     runs-on: ubuntu-latest
     needs:
