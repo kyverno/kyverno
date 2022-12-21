@@ -34,9 +34,10 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers        = 2
-	ControllerName = "background-scan-controller"
-	maxRetries     = 10
+	Workers                = 2
+	ControllerName         = "background-scan-controller"
+	maxRetries             = 10
+	annotationLastScanTime = "audit.kyverno.io/last-scan-time"
 )
 
 type controller struct {
@@ -58,9 +59,9 @@ type controller struct {
 	cbgscanEnqueue controllerutils.EnqueueFunc
 
 	// cache
-	metadataCache resource.MetadataCache
-
+	metadataCache          resource.MetadataCache
 	informerCacheResolvers resolvers.ConfigmapResolver
+	forceDelay             time.Duration
 }
 
 func NewController(
@@ -73,6 +74,7 @@ func NewController(
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
 	informerCacheResolvers resolvers.ConfigmapResolver,
+	forceDelay time.Duration,
 ) controllers.Controller {
 	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
@@ -91,6 +93,7 @@ func NewController(
 		cbgscanEnqueue:         controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue),
 		metadataCache:          metadataCache,
 		informerCacheResolvers: informerCacheResolvers,
+		forceDelay:             forceDelay,
 	}
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
@@ -221,8 +224,20 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 	if err != nil {
 		return err
 	}
+	force := false
+	metaAnnotations := meta.GetAnnotations()
+	if metaAnnotations == nil || metaAnnotations[annotationLastScanTime] == "" {
+		force = true
+	} else {
+		annTime, err := time.Parse(time.RFC3339, metaAnnotations[annotationLastScanTime])
+		if err == nil {
+			force = true
+		} else {
+			force = time.Now().After(annTime.Add(c.forceDelay))
+		}
+	}
 	//	if the resource changed, we need to rebuild the report
-	if !reportutils.CompareHash(meta, resource.Hash) {
+	if force || !reportutils.CompareHash(meta, resource.Hash) {
 		scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers)
 		before, err := c.getReport(ctx, meta.GetNamespace(), meta.GetName())
 		if err != nil {
@@ -253,6 +268,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 				responses = append(responses, result.EngineResponse)
 			}
 		}
+		controllerutils.SetAnnotation(report, annotationLastScanTime, time.Now().Format(time.RFC3339))
 		reportutils.SetResponses(report, responses...)
 		if utils.ReportsAreIdentical(before, report) {
 			return nil

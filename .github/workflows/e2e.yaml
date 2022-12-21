@@ -27,28 +27,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.22.13, v1.23.10, v1.24.4, v1.25.0]
+        k8s-version: [v1.24.7, v1.25.3, v1.26.0]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
       - name: Unshallow
         run: git fetch --prune --unshallow
-
       - name: Set up Go 
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: ~1.18.6
-
+          go-version: ~1.19.4
       - name: Set up Helm
         uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
           version: v3.5.0
-
       - name: Set up chart-testing
         uses: helm/chart-testing-action@afea100a513515fbd68b0e72a7bb0ae34cb62aec # v2.3.1
-
       - name: Cache Go modules
         uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # pin@v3
         with:
@@ -58,22 +53,23 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-
-      - name: Create dev images, kind cluster and setup kustomize
+      - name: Create kind cluster
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
-          make create-e2e-infrastructure
-
-      - name: e2e testing
+          make kind-create-cluster
+      - name: Build and load dev images in kind cluster
+        run: make kind-load-all
+      - name: Run e2e tests
         run: |
           echo ">>> Install Kyverno"
-          cat ${GITHUB_WORKSPACE}/config/install.yaml | \
-          sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
-          kubectl create -f -
-          kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
+          make codegen-manifest-e2e
+          cat ${GITHUB_WORKSPACE}/.manifest/e2e.yaml \
+            | sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' \
+            | kubectl apply --server-side -f -
+          kubectl apply -f ${GITHUB_WORKSPACE}/config/e2e/rbac.yaml
+          echo ">>> Check kyverno"
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
           sleep 50
-          echo ">>> Check kyverno"
           kubectl get pods -n kyverno
           ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh -n kyverno  kyverno
           sleep 20
@@ -81,8 +77,8 @@ jobs:
           kubectl port-forward svc/kyverno-svc-metrics -n kyverno 8000:8000 &
           echo ">>> Run Kyverno e2e test"
           make test-e2e
-          kubectl delete -f ${GITHUB_WORKSPACE}/config/install.yaml
-
+          echo ">>> Cleanup"
+          kubectl delete -f ${GITHUB_WORKSPACE}/.manifest/e2e.yaml
       - name: Debug failure
         if: failure()
         run: |

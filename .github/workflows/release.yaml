@@ -35,6 +35,21 @@ jobs:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}
 
+  release-cleanup-controller:
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/reuse.yaml
+    with:
+      publish_command: ko-publish-cleanup-controller
+      image_name: cleanup-controller
+      tag: release
+      main: cmd/cleanup-controller
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
+
   release-kyverno-cli:
     permissions:
       contents: read
@@ -50,11 +65,72 @@ jobs:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}
 
+  generate-init-kyverno-provenance:
+    needs: release-init-kyverno
+    permissions:
+      id-token: write # To sign the provenance.
+      packages: write # To upload assets to release.
+      actions: read #To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/kyvernopre
+      digest: "${{ needs.release-init-kyverno.outputs.init-container-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-kyverno-provenance:
+    needs: release-kyverno
+    permissions:
+      id-token: write # To sign the provenance.
+      packages: write # To upload assets to release.
+      actions: read #To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/kyverno
+      digest: "${{ needs.release-kyverno.outputs.kyverno-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-cleanup-controller-provenance:
+    needs: release-cleanup-controller
+    permissions:
+      id-token: write # To sign the provenance.
+      packages: write # To upload assets to release.
+      actions: read #To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/cleanup-controller
+      digest: "${{ needs.release-cleanup-controller.outputs.cleanup-controller-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-kyverno-cli-provenance:
+    needs: release-kyverno-cli
+    permissions:
+      id-token: write # To sign the provenance.
+      packages: write # To upload assets to release.
+      actions: read #To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/kyverno-cli
+      digest: "${{ needs.release-kyverno-cli.outputs.cli-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
   create-release:
     runs-on: ubuntu-latest
     needs:
       - release-init-kyverno
       - release-kyverno
+      - release-cleanup-controller
       - release-kyverno-cli
     steps:
       - name: Set version
@@ -69,7 +145,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: ~1.18.6
+          go-version: ~1.19.4
 
       - name: Cache Go modules
         uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # pin@v3
@@ -100,7 +176,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
   push-and-sign-install-manifest:
     runs-on: ubuntu-latest
     permissions:
@@ -122,7 +197,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
-          go-version: ~1.18.6
+          go-version: ~1.19.4
 
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@8674f31874b23ec1d03fc51efde27d1280d116db # v0.37.0
@@ -135,13 +210,13 @@ jobs:
           cosign-release: 'v1.13.0'
 
       - name: Build yaml manifest
-        run: make codegen-release
+        run: make codegen-manifest-release
 
       - name: Upload yaml manifest
         uses: svenstaro/upload-release-action@133984371c30d34e38222a64855679a414cb7575 # pin@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: config/.release/install.yaml
+          file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
 
@@ -158,7 +233,7 @@ jobs:
         run: |
           set -e
           mkdir -p config/.release-manifests
-          cp config/.release/install.yaml config/.release-manifests/install.yaml
+          cp .manifest/release.yaml config/.release-manifests/install.yaml
           cd config/.release-manifests/ && \
           flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }} \
             --path="." \

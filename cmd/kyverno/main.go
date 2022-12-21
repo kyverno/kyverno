@@ -169,6 +169,7 @@ func createReportControllers(
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	configMapResolver resolvers.ConfigmapResolver,
+	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -223,6 +224,7 @@ func createReportControllers(
 					kubeInformer.Core().V1().Namespaces(),
 					resourceReportController,
 					configMapResolver,
+					backgroundScanInterval,
 				),
 				backgroundScanWorkers,
 			))
@@ -260,6 +262,7 @@ func createrLeaderControllers(
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 	configMapResolver resolvers.ConfigmapResolver,
+	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -336,6 +339,7 @@ func createrLeaderControllers(
 		kubeInformer,
 		kyvernoInformer,
 		configMapResolver,
+		backgroundScanInterval,
 	)
 	return append(
 			[]internal.Controller{
@@ -369,6 +373,7 @@ func main() {
 		backgroundScanWorkers      int
 		dumpPayload                bool
 		leaderElectionRetryPeriod  time.Duration
+		backgroundScanInterval     time.Duration
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -388,6 +393,7 @@ func main() {
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
+	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -570,6 +576,7 @@ func main() {
 				certRenewer,
 				runtime,
 				configMapResolver,
+				backgroundScanInterval,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
