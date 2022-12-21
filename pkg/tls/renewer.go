@@ -35,9 +35,9 @@ type CertValidator interface {
 
 type CertRenewer interface {
 	// RenewCA renews the CA certificate if needed
-	RenewCA() error
+	RenewCA(context.Context) error
 	// RenewTLS renews the TLS certificate if needed
-	RenewTLS() error
+	RenewTLS(context.Context) error
 }
 
 // certRenewer creates rootCA and pem pair to register
@@ -74,7 +74,7 @@ func NewCertRenewer(
 }
 
 // RenewCA renews the CA certificate if needed
-func (c *certRenewer) RenewCA() error {
+func (c *certRenewer) RenewCA(ctx context.Context) error {
 	secret, key, certs, err := c.decodeCASecret()
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "failed to read CA")
@@ -97,7 +97,7 @@ func (c *certRenewer) RenewCA() error {
 		return err
 	}
 	certs = append(certs, caCert)
-	if err := c.writeCASecret(caKey, certs...); err != nil {
+	if err := c.writeCASecret(ctx, caKey, certs...); err != nil {
 		logger.Error(err, "failed to write CA")
 		return err
 	}
@@ -106,7 +106,7 @@ func (c *certRenewer) RenewCA() error {
 }
 
 // RenewTLS renews the TLS certificate if needed
-func (c *certRenewer) RenewTLS() error {
+func (c *certRenewer) RenewTLS(ctx context.Context) error {
 	_, caKey, caCerts, err := c.decodeCASecret()
 	if err != nil {
 		logger.Error(err, "failed to read CA")
@@ -132,7 +132,7 @@ func (c *certRenewer) RenewTLS() error {
 		logger.Error(err, "failed to generate TLS")
 		return err
 	}
-	if err := c.writeTLSSecret(tlsKey, tlsCert); err != nil {
+	if err := c.writeTLSSecret(ctx, tlsKey, tlsCert); err != nil {
 		logger.Error(err, "failed to write TLS")
 		return err
 	}
@@ -203,7 +203,7 @@ func (c *certRenewer) decodeTLSSecret() (*corev1.Secret, *rsa.PrivateKey, *x509.
 	}
 }
 
-func (c *certRenewer) writeSecret(name string, key *rsa.PrivateKey, certs ...*x509.Certificate) error {
+func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.PrivateKey, certs ...*x509.Certificate) error {
 	logger := logger.WithValues("name", name, "namespace", config.KyvernoNamespace())
 	secret, err := c.getSecret(name)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -228,14 +228,14 @@ func (c *certRenewer) writeSecret(name string, key *rsa.PrivateKey, certs ...*x5
 		corev1.TLSPrivateKeyKey: privateKeyToPem(key),
 	}
 	if secret.ResourceVersion == "" {
-		if _, err := c.client.Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+		if _, err := c.client.Create(ctx, secret, metav1.CreateOptions{}); err != nil {
 			logger.Error(err, "failed to update secret")
 			return err
 		} else {
 			logger.Info("secret created")
 		}
 	} else {
-		if _, err := c.client.Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.client.Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "failed to update secret")
 			return err
 		} else {
@@ -246,11 +246,11 @@ func (c *certRenewer) writeSecret(name string, key *rsa.PrivateKey, certs ...*x5
 }
 
 // writeCASecret stores the CA cert in secret
-func (c *certRenewer) writeCASecret(key *rsa.PrivateKey, certs ...*x509.Certificate) error {
-	return c.writeSecret(GenerateRootCASecretName(), key, certs...)
+func (c *certRenewer) writeCASecret(ctx context.Context, key *rsa.PrivateKey, certs ...*x509.Certificate) error {
+	return c.writeSecret(ctx, GenerateRootCASecretName(), key, certs...)
 }
 
 // writeTLSSecret Writes the pair of TLS certificate and key to the specified secret.
-func (c *certRenewer) writeTLSSecret(key *rsa.PrivateKey, cert *x509.Certificate) error {
-	return c.writeSecret(GenerateTLSPairSecretName(), key, cert)
+func (c *certRenewer) writeTLSSecret(ctx context.Context, key *rsa.PrivateKey, cert *x509.Certificate) error {
+	return c.writeSecret(ctx, GenerateTLSPairSecretName(), key, cert)
 }

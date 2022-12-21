@@ -12,7 +12,7 @@ type CleanupPolicyInterface interface {
 	metav1.Object
 	GetSpec() *CleanupPolicySpec
 	GetStatus() *CleanupPolicyStatus
-	Validate(sets.String) field.ErrorList
+	Validate(sets.Set[string]) field.ErrorList
 	GetKind() string
 	GetAPIVersion() string
 }

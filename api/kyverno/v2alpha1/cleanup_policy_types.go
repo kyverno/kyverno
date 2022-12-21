@@ -60,7 +60,7 @@ func (p *CleanupPolicy) GetStatus() *CleanupPolicyStatus {
 }
 
 // Validate implements programmatic validation
-func (p *CleanupPolicy) Validate(clusterResources sets.String) (errs field.ErrorList) {
+func (p *CleanupPolicy) Validate(clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("metadata").Child("name"), p.Name)...)
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), clusterResources, true)...)
 	return errs
@@ -130,7 +130,7 @@ func (p *ClusterCleanupPolicy) GetAPIVersion() string {
 }
 
 // Validate implements programmatic validation
-func (p *ClusterCleanupPolicy) Validate(clusterResources sets.String) (errs field.ErrorList) {
+func (p *ClusterCleanupPolicy) Validate(clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("metadata").Child("name"), p.Name)...)
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), clusterResources, false)...)
 	return errs
@@ -175,7 +175,7 @@ type CleanupPolicyStatus struct {
 }
 
 // Validate implements programmatic validation
-func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.String, namespaced bool) (errs field.ErrorList) {
+func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set[string], namespaced bool) (errs field.ErrorList) {
 	errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
 	errs = append(errs, p.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	if p.ExcludeResources != nil {

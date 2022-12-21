@@ -36,7 +36,7 @@ func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandle
 }
 
 func (inner AdmissionHandler) withOperationFilter(operations ...admissionv1.Operation) AdmissionHandler {
-	allowed := sets.NewString()
+	allowed := sets.New[string]()
 	for _, operation := range operations {
 		allowed.Insert(string(operation))
 	}
@@ -49,7 +49,7 @@ func (inner AdmissionHandler) withOperationFilter(operations ...admissionv1.Oper
 }
 
 func (inner AdmissionHandler) withSubResourceFilter(subresources ...string) AdmissionHandler {
-	allowed := sets.NewString(subresources...)
+	allowed := sets.New(subresources...)
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		if request.SubResource == "" || allowed.Has(request.SubResource) {
 			return inner(ctx, logger, request, startTime)

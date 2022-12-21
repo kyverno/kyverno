@@ -15,7 +15,7 @@ type PolicyInterface interface {
 	IsNamespaced() bool
 	GetSpec() *Spec
 	GetStatus() *PolicyStatus
-	Validate(sets.String) field.ErrorList
+	Validate(sets.Set[string]) field.ErrorList
 	GetKind() string
 	CreateDeepCopy() PolicyInterface
 	IsReady() bool

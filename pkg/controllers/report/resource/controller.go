@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	watchTools "k8s.io/client-go/tools/watch"
@@ -204,7 +205,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	}
 	kinds := utils.BuildKindSet(logger, utils.RemoveNonValidationPolicies(logger, append(clusterPolicies, policies...)...)...)
 	gvrs := map[schema.GroupVersionKind]schema.GroupVersionResource{}
-	for _, kind := range kinds.List() {
+	for _, kind := range sets.List(kinds) {
 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
 		apiResource, _, gvr, err := c.client.Discovery().FindResource(apiVersion, kind)
 		if err != nil {
