@@ -63,7 +63,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 	spec := policy.GetSpec()
 	kinds := sets.NewString(spec.MatchResources.GetKinds()...)
 	for kind := range kinds {
-		checker := auth.NewCanI(client, kind, namespace, "delete", "")
+		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "delete", "")
 		allowed, err := checker.RunAccessCheck(ctx)
 		if err != nil {
 			return err
