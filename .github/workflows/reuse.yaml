@@ -146,10 +146,10 @@ jobs:
         run: |
           set -e
           cosign sign \
-          -a "repo=${{ github.repository }}" \
-          -a "workflow=${{ github.workflow }}" \
-          -a "ref=${{ github.sha }}" \
-          ${{ steps.ko-publish-dev.outputs.digest }}
+            -a "repo=${{ github.repository }}" \
+            -a "workflow=${{ github.workflow }}" \
+            -a "ref=${{ github.sha }}" \
+            ${{ steps.ko-publish-dev.outputs.digest }}
 
       - name: Sign release-image
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
@@ -181,6 +181,8 @@ jobs:
             echo "init-container-digest=$DIGEST" >> $GITHUB_OUTPUT
           elif [[ "${{inputs.publish_command}}" = "ko-publish-kyverno" ]]; then
             echo "kyverno-digest=$DIGEST" >> $GITHUB_OUTPUT
+          elif [[ "${{inputs.publish_command}}" = "ko-publish-cleanup-controller" ]]; then
+            echo "cleanup-controller-digest=$DIGEST" >> $GITHUB_OUTPUT
           else
             echo "name=cli-digest=$DIGEST" >> $GITHUB_OUTPUT
           fi
