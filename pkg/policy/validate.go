@@ -1303,7 +1303,7 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 		if vfa.Action.Audit() {
 			if action["enforce"].HasAny(nsList...) {
 				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
-					strings.Join(sets.List(action["enforce"].Intersection(sets.New[string](nsList...))), ", "))
+					strings.Join(sets.List(action["enforce"].Intersection(sets.New(nsList...))), ", "))
 			}
 			action["auditW"].Insert(patternList...)
 		} else if vfa.Action.Enforce() {
