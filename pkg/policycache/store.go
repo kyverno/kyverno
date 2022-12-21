@@ -57,13 +57,13 @@ type policyMap struct {
 	// Since both the policy name use same type (i.e. string), Both policies can be differentiated based on
 	// "namespace". namespace policy get stored with policy namespace with policy name"
 	// kindDataMap {"kind": {{"policytype" : {"policyName","nsname/policyName}}},"kind2": {{"policytype" : {"nsname/policyName" }}}}
-	kindType map[string]map[PolicyType]sets.String
+	kindType map[string]map[PolicyType]sets.Set[string]
 }
 
 func newPolicyMap() *policyMap {
 	return &policyMap{
 		policies: map[string]kyvernov1.PolicyInterface{},
-		kindType: map[string]map[PolicyType]sets.String{},
+		kindType: map[string]map[PolicyType]sets.Set[string]{},
 	}
 }
 
@@ -85,7 +85,7 @@ func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
 	return false
 }
 
-func set(set sets.String, item string, value bool) sets.String {
+func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 	if value {
 		return set.Insert(item)
 	} else {
@@ -117,14 +117,14 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, subresourc
 	}
 	for kind, state := range kindStates {
 		if m.kindType[kind] == nil {
-			m.kindType[kind] = map[PolicyType]sets.String{
-				Mutate:               sets.NewString(),
-				ValidateEnforce:      sets.NewString(),
-				ValidateAudit:        sets.NewString(),
-				Generate:             sets.NewString(),
-				VerifyImagesMutate:   sets.NewString(),
-				VerifyImagesValidate: sets.NewString(),
-				VerifyYAML:           sets.NewString(),
+			m.kindType[kind] = map[PolicyType]sets.Set[string]{
+				Mutate:               sets.New[string](),
+				ValidateEnforce:      sets.New[string](),
+				ValidateAudit:        sets.New[string](),
+				Generate:             sets.New[string](),
+				VerifyImagesMutate:   sets.New[string](),
+				VerifyImagesValidate: sets.New[string](),
+				VerifyYAML:           sets.New[string](),
 			}
 		}
 		m.kindType[kind][Mutate] = set(m.kindType[kind][Mutate], key, state.hasMutate)

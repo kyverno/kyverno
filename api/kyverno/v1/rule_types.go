@@ -206,23 +206,23 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	if reflect.DeepEqual(r.ExcludeResources, MatchResources{}) {
 		return errs
 	}
-	excludeRoles := sets.NewString(r.ExcludeResources.Roles...)
-	excludeClusterRoles := sets.NewString(r.ExcludeResources.ClusterRoles...)
-	excludeKinds := sets.NewString(r.ExcludeResources.Kinds...)
-	excludeNamespaces := sets.NewString(r.ExcludeResources.Namespaces...)
-	excludeSubjects := sets.NewString()
+	excludeRoles := sets.New(r.ExcludeResources.Roles...)
+	excludeClusterRoles := sets.New(r.ExcludeResources.ClusterRoles...)
+	excludeKinds := sets.New(r.ExcludeResources.Kinds...)
+	excludeNamespaces := sets.New(r.ExcludeResources.Namespaces...)
+	excludeSubjects := sets.New[string]()
 	for _, subject := range r.ExcludeResources.Subjects {
 		subjectRaw, _ := json.Marshal(subject)
 		excludeSubjects.Insert(string(subjectRaw))
 	}
-	excludeSelectorMatchExpressions := sets.NewString()
+	excludeSelectorMatchExpressions := sets.New[string]()
 	if r.ExcludeResources.Selector != nil {
 		for _, matchExpression := range r.ExcludeResources.Selector.MatchExpressions {
 			matchExpressionRaw, _ := json.Marshal(matchExpression)
 			excludeSelectorMatchExpressions.Insert(string(matchExpressionRaw))
 		}
 	}
-	excludeNamespaceSelectorMatchExpressions := sets.NewString()
+	excludeNamespaceSelectorMatchExpressions := sets.New[string]()
 	if r.ExcludeResources.NamespaceSelector != nil {
 		for _, matchExpression := range r.ExcludeResources.NamespaceSelector.MatchExpressions {
 			matchExpressionRaw, _ := json.Marshal(matchExpression)
@@ -397,7 +397,7 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 }
 
 // Validate implements programmatic validation
-func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.String) (errs field.ErrorList) {
+func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)

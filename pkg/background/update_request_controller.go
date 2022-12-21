@@ -97,16 +97,16 @@ func NewController(
 		configuration:          dynamicConfig,
 		informerCacheResolvers: informerCacheResolvers,
 	}
-	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
 		UpdateFunc: c.updateUR,
 		DeleteFunc: c.deleteUR,
 	})
-	cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy,
 		DeleteFunc: c.deletePolicy,
 	})
-	polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy,
 		DeleteFunc: c.deletePolicy,
 	})
