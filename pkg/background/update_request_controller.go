@@ -3,6 +3,7 @@ package background
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -16,12 +17,12 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -349,7 +350,7 @@ func (c *controller) deletePolicy(obj interface{}) {
 		logger.V(4).Info("updating policy", "key", key)
 
 		// check if deleted policy is clone generate policy
-		generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(p, c.client, c.kyvernoClient, c.urLister, p.GetName(), logger)
+		generatePolicyWithClone := c.processDeletePolicyForCloneGenerateRule(p, p.GetName())
 
 		// get the generated resource name from update request
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{
@@ -479,4 +480,68 @@ func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
 		return c.cpolLister.Get(name)
 	}
 	return c.polLister.Policies(namespace).Get(name)
+}
+
+func (c *controller) processDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, pName string) bool {
+	generatePolicyWithClone := false
+	for _, rule := range policy.GetSpec().Rules {
+		clone, sync := rule.GetCloneSyncForGenerate()
+		if !(clone && sync) {
+			continue
+		}
+		logger.V(4).Info("generate policy with clone, remove policy name from label of source resource")
+		generatePolicyWithClone = true
+		var retryCount int
+		for retryCount < 5 {
+			err := c.updateSourceResource(policy.GetName(), rule)
+			if err != nil {
+				logger.Error(err, "failed to update generate source resource labels")
+				if apierrors.IsConflict(err) {
+					retryCount++
+				} else {
+					break
+				}
+			}
+			break
+		}
+	}
+
+	return generatePolicyWithClone
+}
+
+func (c *controller) updateSourceResource(pName string, rule kyvernov1.Rule) error {
+	obj, err := c.client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+	if err != nil {
+		return errors.Wrapf(err, "source resource %s/%s/%s not found", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+	}
+
+	var update bool
+	labels := obj.GetLabels()
+	update, labels = removePolicyFromLabels(pName, labels)
+	if !update {
+		return nil
+	}
+
+	obj.SetLabels(labels)
+	_, err = c.client.UpdateResource(context.TODO(), obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
+	return err
+}
+
+func removePolicyFromLabels(pName string, labels map[string]string) (bool, map[string]string) {
+	if len(labels) == 0 {
+		return false, labels
+	}
+	if labels["generate.kyverno.io/clone-policy-name"] != "" {
+		policyNames := labels["generate.kyverno.io/clone-policy-name"]
+		if strings.Contains(policyNames, pName) {
+			desiredLabels := make(map[string]string, len(labels)-1)
+			for k, v := range labels {
+				if k != "generate.kyverno.io/clone-policy-name" {
+					desiredLabels[k] = v
+				}
+			}
+			return true, desiredLabels
+		}
+	}
+	return false, labels
 }
