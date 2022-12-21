@@ -14,7 +14,7 @@ import (
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"github.com/kyverno/kyverno/pkg/utils"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
@@ -404,7 +404,7 @@ func decodePayload(payloadBase64 string) (map[string]interface{}, error) {
 		// - in_toto.PredicateLinkV1
 		// - in_toto.PredicateSPDX
 		// any other custom predicate
-		return utils.ToMap(statement)
+		return datautils.ToMap(statement)
 	}
 
 	return decodeCosignCustomProvenanceV01(statement)
@@ -432,7 +432,7 @@ func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]in
 		statement.Predicate = predicate
 	}
 
-	return utils.ToMap(statement)
+	return datautils.ToMap(statement)
 }
 
 func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
