@@ -29,7 +29,7 @@ CLEANUP_IMAGE        := cleanup-controller
 REPO_KYVERNOPRE      := $(REGISTRY)/$(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO         := $(REGISTRY)/$(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI             := $(REGISTRY)/$(REPO)/$(CLI_IMAGE)
-REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(KYVERNO_CLEANUP)
+REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(CLEANUP_IMAGE)
 USE_CONFIG           ?= standard
 
 #########

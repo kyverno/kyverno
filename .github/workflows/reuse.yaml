@@ -26,6 +26,9 @@ on:
       kyverno_sha256_digest:
         description: "sha256 digest of kyverno docker image"
         value: ${{ jobs.build.outputs.kyverno-digest }}
+      cleanup_controller_sha256_digest:
+        description: "sha256 digest of cleanup-controller docker image"
+        value: ${{ jobs.build.outputs.cleanup-controller-digest }}
       cli_sha256_digest:
         description: "sha256 digest of kyverno docker image"
         value: ${{ jobs.build.outputs.cli-digest }}
@@ -40,6 +43,7 @@ jobs:
     outputs:
       init-container-digest: ${{ steps.set-sha256sum-digest.outputs.init-container-digest }}
       kyverno-digest: ${{ steps.set-sha256sum-digest.outputs.kyverno-digest }}
+      cleanup-controller-digest: ${{ steps.set-sha256sum-digest.outputs.cleanup-controller-digest }}
       cli-digest: ${{ steps.set-sha256sum-digest.outputs.cli-digest }}
     steps:
       - name: Checkout release
