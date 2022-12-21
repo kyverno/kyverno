@@ -377,11 +377,16 @@ func (pc *PolicyController) syncPolicy(key string) error {
 }
 
 func (pc *PolicyController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
-	namespace, key, isNamespacedPolicy := ParseNamespacedPolicy(key)
-	if !isNamespacedPolicy {
-		return pc.pLister.Get(key)
+	if ns, name, err := cache.SplitMetaNamespaceKey(key); err != nil {
+		pc.log.Error(err, "failed to parse policy name", "policyName", key)
+		return nil, err
+	} else {
+		isNamespacedPolicy := ns != ""
+		if !isNamespacedPolicy {
+			return pc.pLister.Get(name)
+		}
+		return pc.npLister.Policies(ns).Get(name)
 	}
-	return pc.npLister.Policies(namespace).Get(key)
 }
 
 func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {

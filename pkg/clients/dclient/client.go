@@ -20,6 +20,8 @@ import (
 )
 
 type Interface interface {
+	// GetKubeClient provides typed kube client
+	GetKubeClient() kubernetes.Interface
 	// GetEventsInterface provides typed interface for events
 	GetEventsInterface() corev1.EventInterface
 	// GetDynamicInterface fetches underlying dynamic interface
@@ -85,6 +87,11 @@ func NewClient(
 // NewDynamicSharedInformerFactory returns a new instance of DynamicSharedInformerFactory
 func (c *client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dynamicinformer.DynamicSharedInformerFactory {
 	return dynamicinformer.NewDynamicSharedInformerFactory(c.dyn, defaultResync)
+}
+
+// GetKubeClient provides typed kube client
+func (c *client) GetKubeClient() kubernetes.Interface {
+	return c.kube
 }
 
 // GetEventsInterface provides typed interface for events

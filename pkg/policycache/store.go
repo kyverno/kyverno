@@ -5,9 +5,9 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/policy"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/util/sets"
+	kcache "k8s.io/client-go/tools/cache"
 )
 
 type store interface {
@@ -150,7 +150,11 @@ func (m *policyMap) get(key PolicyType, gvk, namespace string) []kyvernov1.Polic
 	kind := computeKind(gvk)
 	var result []kyvernov1.PolicyInterface
 	for policyName := range m.kindType[kind][key] {
-		ns, _, isNamespacedPolicy := policy.ParseNamespacedPolicy(policyName)
+		ns, _, err := kcache.SplitMetaNamespaceKey(policyName)
+		if err != nil {
+			logger.Error(err, "failed to parse policy name", "policyName", policyName)
+		}
+		isNamespacedPolicy := ns != ""
 		policy := m.policies[policyName]
 		if policy == nil {
 			logger.Info("nil policy in the cache, this should not happen")
