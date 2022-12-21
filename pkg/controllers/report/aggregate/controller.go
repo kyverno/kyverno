@@ -61,7 +61,7 @@ type controller struct {
 
 type policyMapEntry struct {
 	policy kyvernov1.PolicyInterface
-	rules  sets.String
+	rules  sets.Set[string]
 }
 
 func keyFunc(obj metav1.Object) cache.ExplicitKey {
@@ -236,7 +236,7 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 }
 
 func (c *controller) cleanReports(ctx context.Context, actual map[string]kyvernov1alpha2.ReportInterface, expected []kyvernov1alpha2.ReportInterface) error {
-	keep := sets.NewString()
+	keep := sets.New[string]()
 	for _, obj := range expected {
 		keep.Insert(obj.GetName())
 	}
@@ -291,7 +291,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 		}
 		results[key] = policyMapEntry{
 			policy: cpol,
-			rules:  sets.NewString(),
+			rules:  sets.New[string](),
 		}
 		for _, rule := range autogen.ComputeRules(cpol) {
 			results[key].rules.Insert(rule.Name)
@@ -308,7 +308,7 @@ func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
 		}
 		results[key] = policyMapEntry{
 			policy: pol,
-			rules:  sets.NewString(),
+			rules:  sets.New[string](),
 		}
 		for _, rule := range autogen.ComputeRules(pol) {
 			results[key].rules.Insert(rule.Name)

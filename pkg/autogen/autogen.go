@@ -21,7 +21,7 @@ const (
 	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,ReplicaSet,ReplicationController,CronJob"
 )
 
-var podControllersKindsSet = sets.NewString(append(strings.Split(PodControllers, ","), "Pod")...)
+var podControllersKindsSet = sets.New(append(strings.Split(PodControllers, ","), "Pod")...)
 
 func isKindOtherthanPod(kinds []string) bool {
 	if len(kinds) > 1 && kubeutils.ContainsKind(kinds, "Pod") {
