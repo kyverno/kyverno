@@ -443,24 +443,9 @@ codegen-manifest-release: $(HELM) ## Create release manifest
  		| $(SED) -e '/^#.*/d' \
 		> ./.manifest/release.yaml
 
-.PHONY: codegen-manifest-e2e
-codegen-manifest-e2e: $(HELM) ## Create e2e manifest
-	@echo Create e2e manifest... >&2
-	@mkdir -p ./.manifest
-	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=$(IMAGE_TAG_DEV) \
-		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
-		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
-		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
-		--set image.tag=$(IMAGE_TAG_DEV) \
-		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
-		--set initImage.tag=$(IMAGE_TAG_DEV) \
- 		| $(SED) -e '/^#.*/d' \
-		> ./.manifest/e2e.yaml
 
 .PHONY: codegen-manifest-all
-codegen-manifest-all: codegen-manifest-install codegen-manifest-debug codegen-manifest-release codegen-manifest-e2e ## Create all manifests
+codegen-manifest-all: codegen-manifest-install codegen-manifest-debug codegen-manifest-release ## Create all manifests
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
@@ -548,7 +533,7 @@ CODE_COVERAGE_FILE_TXT  := $(CODE_COVERAGE_FILE).txt
 CODE_COVERAGE_FILE_HTML := $(CODE_COVERAGE_FILE).html
 
 .PHONY: test
-test: test-clean test-unit test-e2e ## Clean tests cache then run unit and e2e tests
+test: test-clean test-unit ## Clean tests cache then run unit tests
 
 .PHONY: test-clean
 test-clean: ## Clean tests cache
@@ -626,24 +611,6 @@ test-cli-registry: $(CLI_BIN)
 ##################################
 # Testing & Code-Coverage
 ##################################
-
-# Test E2E
-test-e2e:
-	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/verifyimages -v
-	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
-	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v
-	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/generate -v
-	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/validate -v
-
-test-e2e-local:
-	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
-	kubectl port-forward -n kyverno service/kyverno-svc-metrics 8000:8000 &
-	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/verifyimages -v
-	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
-	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v
-	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/generate -v
-	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/validate -v
-	kill  $!
 
 helm-test-values:
 	sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
