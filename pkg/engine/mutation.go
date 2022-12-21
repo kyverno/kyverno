@@ -47,7 +47,9 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 	var err error
 	applyRules := policy.GetSpec().GetApplyRules()
 
-	for _, rule := range autogen.ComputeRules(policy) {
+	computeRules := autogen.ComputeRules(policy)
+
+	for i, rule := range computeRules {
 		if !rule.HasMutate() {
 			continue
 		}
@@ -67,6 +69,13 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 				if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.admissionInfo, excludeResource, policyContext.namespaceLabels, policyContext.policy.GetNamespace(), policyContext.subresource); err != nil {
 					logger.V(4).Info("rule not matched", "reason", err.Error())
 					skippedRules = append(skippedRules, rule.Name)
+					return
+				}
+
+				// check if there is a corresponding policy exception
+				ruleResp := hasPolicyExceptions(policyContext, &computeRules[i], logger)
+				if ruleResp != nil {
+					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return
 				}
 
