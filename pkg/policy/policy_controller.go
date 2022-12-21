@@ -93,7 +93,7 @@ type PolicyController struct {
 	informersSynced []cache.InformerSynced
 
 	// Resource manager, manages the mapping for already processed resource
-	rm resourceManager
+	rm ResourceManager
 
 	// helpers to validate against current loaded configuration
 	configHandler config.Configuration
