@@ -35,6 +35,21 @@ jobs:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}
 
+  release-cleanup-controller:
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/reuse.yaml
+    with:
+      publish_command: ko-publish-cleanup-controller
+      image_name: cleanup-controller
+      tag: release
+      main: cmd/cleanup-controller
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
+
   release-kyverno-cli:
     permissions:
       contents: read
@@ -80,6 +95,21 @@ jobs:
     secrets:
       registry-password: ${{ secrets.CR_PAT }}
 
+  generate-cleanup-controller-provenance:
+    needs: release-cleanup-controller
+    permissions:
+      id-token: write # To sign the provenance.
+      packages: write # To upload assets to release.
+      actions: read #To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/cleanup-controller
+      digest: "${{ needs.release-cleanup-controller.outputs.cleanup-controller-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
   generate-kyverno-cli-provenance:
     needs: release-kyverno-cli
     permissions:
@@ -100,6 +130,7 @@ jobs:
     needs:
       - release-init-kyverno
       - release-kyverno
+      - release-cleanup-controller
       - release-kyverno-cli
     steps:
       - name: Set version
@@ -144,7 +175,6 @@ jobs:
           args: release --rm-dist --debug --release-notes=release/release-notes.out
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
   push-and-sign-install-manifest:
     runs-on: ubuntu-latest
