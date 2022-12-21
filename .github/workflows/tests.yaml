@@ -73,10 +73,6 @@ jobs:
           make vet
 
   tests:
-    strategy:
-      fail-fast: false
-      matrix:
-        autogen-internals: [ true, false ]
     runs-on: ubuntu-latest
     needs: pre-checks
     steps:
@@ -104,5 +100,4 @@ jobs:
       - name: Kyverno unit test
         run: |
           export PROJECT_PATH=$(pwd)
-          export FLAG_AUTOGEN_INTERNALS=${{ matrix.autogen-internals }}
           make test-unit
