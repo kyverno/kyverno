@@ -37,7 +37,7 @@ func NewAuth(client dclient.Interface, log logr.Logger) *Auth {
 
 // CanICreate returns 'true' if self can 'create' resource
 func (a *Auth) CanICreate(ctx context.Context, kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(a.client, kind, namespace, "create")
+	canI := auth.NewCanI(a.client, kind, namespace, "create", "")
 	ok, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
@@ -47,7 +47,7 @@ func (a *Auth) CanICreate(ctx context.Context, kind, namespace string) (bool, er
 
 // CanIUpdate returns 'true' if self can 'update' resource
 func (a *Auth) CanIUpdate(ctx context.Context, kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(a.client, kind, namespace, "update")
+	canI := auth.NewCanI(a.client, kind, namespace, "update", "")
 	ok, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
@@ -57,7 +57,7 @@ func (a *Auth) CanIUpdate(ctx context.Context, kind, namespace string) (bool, er
 
 // CanIDelete returns 'true' if self can 'delete' resource
 func (a *Auth) CanIDelete(ctx context.Context, kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(a.client, kind, namespace, "delete")
+	canI := auth.NewCanI(a.client, kind, namespace, "delete", "")
 	ok, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
@@ -67,7 +67,7 @@ func (a *Auth) CanIDelete(ctx context.Context, kind, namespace string) (bool, er
 
 // CanIGet returns 'true' if self can 'get' resource
 func (a *Auth) CanIGet(ctx context.Context, kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(a.client, kind, namespace, "get")
+	canI := auth.NewCanI(a.client, kind, namespace, "get", "")
 	ok, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
