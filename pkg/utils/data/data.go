@@ -42,5 +42,5 @@ func ToMap(data interface{}) (map[string]interface{}, error) {
 
 // SliceContains checks whether values are contained in slice
 func SliceContains(slice []string, values ...string) bool {
-	return sets.NewString(slice...).HasAll(values...)
+	return sets.New(slice...).HasAll(values...)
 }

@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	retryutils "github.com/kyverno/kyverno/pkg/utils/retry"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -102,10 +102,10 @@ func (c *controller) ticker(ctx context.Context, logger logr.Logger) {
 }
 
 func (c *controller) renewCertificates() error {
-	if err := common.RetryFunc(time.Second, 5*time.Second, c.renewer.RenewCA, "failed to renew CA", logger)(); err != nil {
+	if err := retryutils.RetryFunc(context.TODO(), time.Second, 5*time.Second, logger, "failed to renew CA", c.renewer.RenewCA)(); err != nil {
 		return err
 	}
-	if err := common.RetryFunc(time.Second, 5*time.Second, c.renewer.RenewTLS, "failed to renew TLS", logger)(); err != nil {
+	if err := retryutils.RetryFunc(context.TODO(), time.Second, 5*time.Second, logger, "failed to renew TLS", c.renewer.RenewTLS)(); err != nil {
 		return err
 	}
 	return nil

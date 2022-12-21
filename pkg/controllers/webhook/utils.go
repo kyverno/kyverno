@@ -30,12 +30,12 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
 	for gvr := range wh.rules {
-		resources := sets.NewString(gvr.Resource)
+		resources := sets.New(gvr.Resource)
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvr.Group},
 				APIVersions: []string{gvr.Version},
-				Resources:   resources.List(),
+				Resources:   sets.List(resources),
 			},
 			Operations: ops,
 		})

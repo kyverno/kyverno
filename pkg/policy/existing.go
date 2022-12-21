@@ -10,12 +10,12 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	policyExecutionDuration "github.com/kyverno/kyverno/pkg/metrics/policyexecutionduration"
 	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -80,7 +80,7 @@ func (pc *PolicyController) applyPolicy(policy kyvernov1.PolicyInterface, resour
 		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.GetResourceVersion(), "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 	}
 
-	namespaceLabels := common.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), pc.nsLister, logger)
+	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), pc.nsLister, logger)
 	engineResponse := applyPolicy(policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.client, pc.rclient, pc.informerCacheResolvers, namespaceLabels)
 	engineResponses = append(engineResponses, engineResponse...)
 

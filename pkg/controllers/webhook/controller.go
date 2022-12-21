@@ -97,7 +97,7 @@ type controller struct {
 
 	// state
 	lock        sync.Mutex
-	policyState map[string]sets.String
+	policyState map[string]sets.Set[string]
 }
 
 func NewController(
@@ -139,9 +139,9 @@ func NewController(
 		autoUpdateWebhooks: autoUpdateWebhooks,
 		admissionReports:   admissionReports,
 		runtime:            runtime,
-		policyState: map[string]sets.String{
-			config.MutatingWebhookConfigurationName:   sets.NewString(),
-			config.ValidatingWebhookConfigurationName: sets.NewString(),
+		policyState: map[string]sets.Set[string]{
+			config.MutatingWebhookConfigurationName:   sets.New[string](),
+			config.ValidatingWebhookConfigurationName: sets.New[string](),
 		},
 	}
 	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
@@ -299,7 +299,7 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 	if _, ok := c.policyState[webhookConfigurationName]; !ok {
 		return
 	}
-	c.policyState[webhookConfigurationName] = sets.NewString()
+	c.policyState[webhookConfigurationName] = sets.New[string]()
 	for _, policy := range policies {
 		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
 		if err != nil {

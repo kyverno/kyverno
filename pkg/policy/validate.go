@@ -152,7 +152,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	}
 
 	var res []*metav1.APIResourceList
-	clusterResources := sets.NewString()
+	clusterResources := sets.New[string]()
 	if !mock && namespaced {
 		// Get all the cluster type kind supported by cluster
 		res, err = discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
@@ -1119,7 +1119,7 @@ func validateMatchedResourceDescription(rd kyvernov1.ResourceDescription) (strin
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
 // Match and Exclude block
-func checkClusterResourceInMatchAndExclude(rule kyvernov1.Rule, clusterResources sets.String, policyNamespace string, mock bool, res []*metav1.APIResourceList) error {
+func checkClusterResourceInMatchAndExclude(rule kyvernov1.Rule, clusterResources sets.Set[string], policyNamespace string, mock bool, res []*metav1.APIResourceList) error {
 	if !mock {
 		// Check for generate policy
 		// - if resource to be generated is namespaced resource then the namespace field
@@ -1291,11 +1291,11 @@ func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) 
 }
 
 func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
-	action := map[string]sets.String{
-		"enforce":  sets.NewString(),
-		"audit":    sets.NewString(),
-		"enforceW": sets.NewString(),
-		"auditW":   sets.NewString(),
+	action := map[string]sets.Set[string]{
+		"enforce":  sets.New[string](),
+		"audit":    sets.New[string](),
+		"enforceW": sets.New[string](),
+		"auditW":   sets.New[string](),
 	}
 
 	for i, vfa := range s.ValidationFailureActionOverrides {
@@ -1304,19 +1304,24 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 		if vfa.Action.Audit() {
 			if action["enforce"].HasAny(nsList...) {
 				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
-					strings.Join(action["enforce"].Intersection(sets.NewString(nsList...)).List(), ", "))
+					strings.Join(sets.List(action["enforce"].Intersection(sets.New(nsList...))), ", "))
 			}
 			action["auditW"].Insert(patternList...)
 		} else if vfa.Action.Enforce() {
 			if action["audit"].HasAny(nsList...) {
 				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
-					strings.Join(action["audit"].Intersection(sets.NewString(nsList...)).List(), ", "))
+					strings.Join(sets.List(action["audit"].Intersection(sets.New(nsList...))), ", "))
 			}
 			action["enforceW"].Insert(patternList...)
 		}
 		action[strings.ToLower(string(vfa.Action))].Insert(nsList...)
 
-		err := validateWildcardsWithNamespaces(action["enforce"].List(), action["audit"].List(), action["enforceW"].List(), action["auditW"].List())
+		err := validateWildcardsWithNamespaces(
+			sets.List(action["enforce"]),
+			sets.List(action["audit"]),
+			sets.List(action["enforceW"]),
+			sets.List(action["auditW"]),
+		)
 		if err != nil {
 			return fmt.Errorf("path: %s: %s", path.Index(i).Child("namespaces").String(), err.Error())
 		}
