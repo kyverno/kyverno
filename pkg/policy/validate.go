@@ -35,9 +35,9 @@ import (
 	"k8s.io/client-go/discovery"
 )
 
-var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|target\.|([a-z_0-9]+\()[^{}]`)
+var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 
-var allowedVariablesBackground = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|target\.|([a-z_0-9]+\()[^{}]`)
+var allowedVariablesBackground = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
 
 // wildCardAllowedVariables represents regex for the allowed fields in wildcards
 var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
