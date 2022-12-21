@@ -12,7 +12,6 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
@@ -23,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
@@ -134,7 +134,7 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 
 	namespaceLabels := make(map[string]string)
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
+		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
 	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.rclient, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig)
