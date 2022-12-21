@@ -69,12 +69,18 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 		return nil
 	}
 
+	logger := logging.WithName("exception")
+	// check if there is a corresponding policy exception
+	ruleResp := hasPolicyExceptions(policyContext, &rule, logger)
+	if ruleResp != nil {
+		return ruleResp
+	}
+
 	ruleType := response.Mutation
 	if rule.HasGenerate() {
 		ruleType = response.Generation
 	}
 
-	var err error
 	startTime := time.Now()
 
 	policy := policyContext.policy
@@ -85,13 +91,13 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	excludeGroupRole := policyContext.excludeGroupRole
 	namespaceLabels := policyContext.namespaceLabels
 
-	logger := logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
+	logger = logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
 	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
 
-	if err = MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err != nil {
+	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err != nil {
 		if ruleType == response.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
 			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err == nil {
@@ -113,7 +119,7 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	policyContext.jsonContext.Checkpoint()
 	defer policyContext.jsonContext.Restore()
 
-	if err = LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+	if err := LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}

@@ -16,7 +16,7 @@ IMAGE_TAG_LATEST_DEV  = $(shell git describe --match "[0-9].[0-9]-dev*" | cut -d
 IMAGE_TAG_DEV         = $(GIT_VERSION_DEV)
 IMAGE_TAG            ?= $(GIT_VERSION)
 K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
-KIND_IMAGE           ?= kindest/node:v1.24.4
+KIND_IMAGE           ?= kindest/node:v1.25.3
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
@@ -38,7 +38,7 @@ USE_CONFIG           ?= standard
 
 TOOLS_DIR                          := $(PWD)/.tools
 KIND                               := $(TOOLS_DIR)/kind
-KIND_VERSION                       := v0.14.0
+KIND_VERSION                       := v0.17.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
 CONTROLLER_GEN_VERSION             := v0.10.0
 CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
