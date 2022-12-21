@@ -37,7 +37,7 @@ func printFunctions(names ...string) {
 	slices.SortFunc(functions, func(a, b *jmespath.FunctionEntry) bool {
 		return a.String() < b.String()
 	})
-	namesSet := sets.NewString(names...)
+	namesSet := sets.New(names...)
 	for _, function := range functions {
 		if len(namesSet) == 0 || namesSet.Has(function.Entry.Name) {
 			function := *function

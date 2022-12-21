@@ -13,7 +13,7 @@ import (
 )
 
 // FetchClusteredResources retieves the list of clustered resources
-func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets.String, error) {
+func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets.Set[string], error) {
 	res, err := discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
 	if err != nil {
 		if discovery.IsGroupDiscoveryFailedError(err) {
@@ -25,7 +25,7 @@ func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets
 			return nil, err
 		}
 	}
-	clusterResources := sets.NewString()
+	clusterResources := sets.New[string]()
 	for _, resList := range res {
 		for _, r := range resList.APIResources {
 			if !r.Namespaced {
@@ -52,7 +52,7 @@ func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface,
 }
 
 // validatePolicy checks the policy and rules declarations for required configurations
-func validatePolicy(clusterResources sets.String, policy kyvernov2alpha1.CleanupPolicyInterface) error {
+func validatePolicy(clusterResources sets.Set[string], policy kyvernov2alpha1.CleanupPolicyInterface) error {
 	errs := policy.Validate(clusterResources)
 	return errs.ToAggregate()
 }
@@ -61,7 +61,7 @@ func validatePolicy(clusterResources sets.String, policy kyvernov2alpha1.Cleanup
 func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov2alpha1.CleanupPolicyInterface) error {
 	namespace := policy.GetNamespace()
 	spec := policy.GetSpec()
-	kinds := sets.NewString(spec.MatchResources.GetKinds()...)
+	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	for kind := range kinds {
 		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "delete", "")
 		allowed, err := checker.RunAccessCheck(ctx)
