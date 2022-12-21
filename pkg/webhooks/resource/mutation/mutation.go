@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -156,7 +155,7 @@ func (v *mutationHandler) applyMutations(
 
 func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (*response.EngineResponse, [][]byte, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
-		policyContext = policyContext.WithNamespaceLabels(common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
+		policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
 
 	engineResponse := engine.Mutate(ctx, h.rclient, policyContext)
