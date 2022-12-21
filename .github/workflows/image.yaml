@@ -24,12 +24,22 @@ jobs:
     secrets:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}
-      
+
   push-kyverno:
     uses: ./.github/workflows/reuse.yaml
     with:
       publish_command: ko-publish-kyverno
       image_name: kyverno
+      tag: image
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
+
+  push-cleanup-controller:
+    uses: ./.github/workflows/reuse.yaml
+    with:
+      publish_command: ko-publish-cleanup-controller
+      image_name: cleanup-controller
       tag: image
     secrets:
       registry_username: ${{ github.actor }}
