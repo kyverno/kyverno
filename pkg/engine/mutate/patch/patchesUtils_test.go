@@ -11,7 +11,6 @@ import (
 )
 
 func Test_GeneratePatches(t *testing.T) {
-
 	out, err := strategicMergePatch(logging.GlobalLogger(), string(baseBytes), string(overlayBytes))
 	assert.NilError(t, err)
 
@@ -195,7 +194,7 @@ func Test_ignorePath(t *testing.T) {
 		},
 		{
 			path:   "/status",
-			ignore: true,
+			ignore: false,
 		},
 		{
 			path:   "/spec",
@@ -203,6 +202,10 @@ func Test_ignorePath(t *testing.T) {
 		},
 		{
 			path:   "/kind",
+			ignore: false,
+		},
+		{
+			path:   "/spec/triggers/0/metadata/serverAddress",
 			ignore: false,
 		},
 	}
@@ -221,7 +224,6 @@ func Test_GeneratePatches_sortRemovalPatches(t *testing.T) {
 	fmt.Println(patches)
 	assertnew.Nil(t, err)
 	assertnew.Equal(t, expectedPatches, patches)
-
 }
 
 func Test_sortRemovalPatches(t *testing.T) {

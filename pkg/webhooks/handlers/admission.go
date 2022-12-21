@@ -19,27 +19,28 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		startTime := time.Now()
 		if request.Body == nil {
-			httpError(writer, request, logger, errors.New("empty body"), http.StatusBadRequest)
+			HttpError(request.Context(), writer, request, logger, errors.New("empty body"), http.StatusBadRequest)
 			return
 		}
 		defer request.Body.Close()
 		body, err := io.ReadAll(request.Body)
 		if err != nil {
-			httpError(writer, request, logger, err, http.StatusBadRequest)
+			HttpError(request.Context(), writer, request, logger, err, http.StatusBadRequest)
 			return
 		}
 		contentType := request.Header.Get("Content-Type")
 		if contentType != "application/json" {
-			httpError(writer, request, logger, errors.New("invalid Content-Type"), http.StatusUnsupportedMediaType)
+			HttpError(request.Context(), writer, request, logger, errors.New("invalid Content-Type"), http.StatusUnsupportedMediaType)
 			return
 		}
 		admissionReview := &admissionv1.AdmissionReview{}
 		if err := json.Unmarshal(body, &admissionReview); err != nil {
-			httpError(writer, request, logger, err, http.StatusExpectationFailed)
+			HttpError(request.Context(), writer, request, logger, err, http.StatusExpectationFailed)
 			return
 		}
 		logger := logger.WithValues(
-			"kind", admissionReview.Request.Kind,
+			"kind", admissionReview.Request.Kind.Kind,
+			"gvk", admissionReview.Request.Kind,
 			"namespace", admissionReview.Request.Namespace,
 			"name", admissionReview.Request.Name,
 			"operation", admissionReview.Request.Operation,
@@ -56,12 +57,12 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 		}
 		responseJSON, err := json.Marshal(admissionReview)
 		if err != nil {
-			httpError(writer, request, logger, err, http.StatusInternalServerError)
+			HttpError(request.Context(), writer, request, logger, err, http.StatusInternalServerError)
 			return
 		}
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 		if _, err := writer.Write(responseJSON); err != nil {
-			httpError(writer, request, logger, err, http.StatusInternalServerError)
+			HttpError(request.Context(), writer, request, logger, err, http.StatusInternalServerError)
 			return
 		}
 		if admissionReview.Request.Kind.Kind == "Lease" {

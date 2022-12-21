@@ -5,6 +5,9 @@ kind: ClusterPolicy
 metadata:
   name: {{ $name }}
   annotations:
+    {{- with .Values.autogenControllers }}
+    pod-policies.kyverno.io/autogen-controllers: {{ . }}
+    {{- end }}
     policies.kyverno.io/category: Sample
     {{- if .Values.podSecuritySeverity }}
     policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
@@ -18,6 +21,7 @@ metadata:
       This policy ensures the `runAsGroup`, `supplementalGroups`, and `fsGroup` fields are set to a number
       greater than zero (i.e., non root). A known issue prevents a policy such as this
       using `anyPattern` from being persisted properly in Kubernetes 1.23.0-1.23.2.
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   {{- with index .Values "validationFailureActionByPolicy" $name }}
   validationFailureAction: {{ toYaml . }}

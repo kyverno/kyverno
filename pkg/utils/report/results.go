@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -96,6 +97,21 @@ func EngineResponseToReportResults(response *response.EngineResponse) []policyre
 			},
 			Category: annotations[kyvernov1.AnnotationPolicyCategory],
 			Severity: severityFromString(annotations[kyvernov1.AnnotationPolicySeverity]),
+		}
+		if ruleResult.PodSecurityChecks != nil {
+			for _, check := range ruleResult.PodSecurityChecks.Checks {
+				if !check.CheckResult.Allowed {
+					if result.Properties == nil {
+						result.Properties = map[string]string{}
+					}
+					key := fmt.Sprintf("%s/%s/%s", ruleResult.PodSecurityChecks.Level, ruleResult.PodSecurityChecks.Version, check.ID)
+					value := check.CheckResult.ForbiddenDetail
+					if value == "" {
+						value = check.CheckResult.ForbiddenReason
+					}
+					result.Properties[key] = value
+				}
+			}
 		}
 		if result.Result == "fail" && !result.Scored {
 			result.Result = "warn"

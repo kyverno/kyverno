@@ -28,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	{{- range $package := Packages .Target.Type }}
 	{{ Pkg $package }} {{ Quote $package }}
@@ -116,7 +117,11 @@ func (c *withMetrics) {{ $operation.Method.Name }}(
 	{{ GoType $return }},
 	{{- end -}}
 ) {
+	{{- if $operation.HasContext }}
+	defer c.recorder.RecordWithContext(arg0, {{ Quote (SnakeCase $operation.Method.Name) }})
+	{{- else }}
 	defer c.recorder.Record({{ Quote (SnakeCase $operation.Method.Name) }})
+	{{- end }}
 	return c.inner.{{ $operation.Method.Name }}(
 		{{- range $i, $arg := Args $operation.Method -}}
 		{{- if $arg.IsVariadic -}}
@@ -149,23 +154,31 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 	{{ GoType $return }},
 	{{- end -}}
 ) {
-	{{- if $operation.HasContext }}
-	ctx, span := tracing.StartSpan(
-		arg0,
-	{{- else }}
-	_, span := tracing.StartSpan(
-		context.TODO(),
-	{{- end }}
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, {{ Quote $operation.Method.Name }}),
-		tracing.KubeClientGroupKey.String(c.client),
-		tracing.KubeClientKindKey.String(c.kind),
-		tracing.KubeClientOperationKey.String({{ Quote $operation.Method.Name }}),
+	{{- if not $operation.HasContext }}
+	return c.inner.{{ $operation.Method.Name }}(
+		{{- range $i, $arg := Args $operation.Method -}}
+		{{- if $arg.IsVariadic -}}
+		arg{{ $i }}...,
+		{{- else -}}
+		arg{{ $i }},
+		{{- end -}}
+		{{- end -}}
 	)
-	defer span.End()
-	{{- if $operation.HasContext }}
-	arg0 = ctx
-	{{- end }}
+	{{- else }}
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, {{ Quote $operation.Method.Name }}),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String({{ Quote $operation.Method.Name }}),
+			),
+		)
+		defer span.End()
+	}
 	{{ range $i, $ret := Returns $operation.Method }}ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }} {{ end }} := c.inner.{{ $operation.Method.Name }}(
 		{{- range $i, $arg := Args $operation.Method -}}
 		{{- if $arg.IsVariadic -}}
@@ -175,15 +188,18 @@ func (c *withTracing) {{ $operation.Method.Name }}(
 		{{- end -}}
 		{{- end -}}
 	)
-	{{- if $operation.HasError }}
-	{{- range $i, $ret := Returns $operation.Method }}
-	{{- if $ret.IsError }}
-	tracing.SetSpanStatus(span, ret{{ $i }})
-	{{- end }}
-	{{- end }}
-	{{- end }}
+	if span != nil {
+		{{- if $operation.HasError }}
+		{{- range $i, $ret := Returns $operation.Method }}
+		{{- if $ret.IsError }}
+		tracing.SetSpanStatus(span, ret{{ $i }})
+		{{- end }}
+		{{- end }}
+		{{- end }}
+	}
 	return	{{ range $i, $ret := Returns $operation.Method -}}
 	ret{{ $i }}{{ if not $ret.IsLast -}},{{- end }}
+	{{- end }}
 	{{- end }}
 }
 {{- end }}

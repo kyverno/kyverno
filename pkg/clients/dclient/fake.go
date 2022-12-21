@@ -77,13 +77,17 @@ func (c *fakeDiscoveryClient) GetGVRFromKind(kind string) (schema.GroupVersionRe
 	return c.getGVR(resource), nil
 }
 
+func (c *fakeDiscoveryClient) GetGVKFromGVR(apiVersion, resourceName string) (schema.GroupVersionKind, error) {
+	return schema.GroupVersionKind{}, nil
+}
+
 func (c *fakeDiscoveryClient) GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource {
 	resource := strings.ToLower(kind) + "s"
 	return c.getGVR(resource)
 }
 
-func (c *fakeDiscoveryClient) FindResource(apiVersion string, kind string) (*metav1.APIResource, schema.GroupVersionResource, error) {
-	return nil, schema.GroupVersionResource{}, fmt.Errorf("not implemented")
+func (c *fakeDiscoveryClient) FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error) {
+	return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("not implemented")
 }
 
 func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {

@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/utils"
 	"golang.org/x/exp/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,12 +31,6 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 	var rules []admissionregistrationv1.RuleWithOperations
 	for gvr := range wh.rules {
 		resources := sets.NewString(gvr.Resource)
-		if resources.Has("pods") {
-			resources.Insert("pods/ephemeralcontainers")
-		}
-		if resources.Has("services") {
-			resources.Insert("services/status")
-		}
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvr.Group},
@@ -91,7 +84,7 @@ func hasWildcard(policies ...kyvernov1.PolicyInterface) bool {
 	for _, policy := range policies {
 		spec := policy.GetSpec()
 		for _, rule := range spec.Rules {
-			if kinds := rule.MatchResources.GetKinds(); utils.ContainsString(kinds, "*") {
+			if kinds := rule.MatchResources.GetKinds(); slices.Contains(kinds, "*") {
 				return true
 			}
 		}

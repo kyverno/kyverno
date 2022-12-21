@@ -5,6 +5,9 @@ kind: ClusterPolicy
 metadata:
   name: {{ $name }}
   annotations:
+    {{- with .Values.autogenControllers }}
+    pod-policies.kyverno.io/autogen-controllers: {{ . }}
+    {{- end }}
     policies.kyverno.io/title: Restrict sysctls
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     {{- if .Values.podSecuritySeverity }}
@@ -20,6 +23,7 @@ metadata:
       Pod, and it is isolated from other Pods or processes on the same Node.
       This policy ensures that only those "safe" subsets can be specified in
       a Pod.
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   {{- with index .Values "validationFailureActionByPolicy" $name }}
   validationFailureAction: {{ toYaml . }}

@@ -30,14 +30,14 @@ jobs:
         VULNS=$(cat scan.json | jq '.Results[] | has("Vulnerabilities")')
         if echo $VULNS | grep -q 'true'; then
           echo "Vulnerabilities found, creating issue"
-          echo ::set-output name=results::$(cat scan.json)
+          echo "results=$(cat scan.json)" >> $GITHUB_OUTPUT
         else
           echo "No vulnerabilities found, halting"
-          echo ::set-output name=results::$(echo nothing)
+          echo "results=nothing" >> $GITHUB_OUTPUT
         fi
 
     - name: Upload vulnerability scan report
-      uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
+      uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb # v3.1.1
       if: contains(steps.parse-results.outputs.results, 'SchemaVersion')
       with:
         name: scan.json
@@ -49,18 +49,18 @@ jobs:
     if: contains(needs.scan.outputs.results, 'SchemaVersion')
     needs: scan
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
 
       - name: Download scan
-        uses: actions/download-artifact@fb598a63ae348fa914e94cd0ff38f362e927b741 # v3.0.0
+        uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 # v3.0.1
         with:
           name: scan.json
 
       - name: Set scan output
         id: set-scan-output
-        run: echo ::set-output name=results::$(cat scan.json)
+        run: echo "results=$(cat scan.json)" >> $GITHUB_OUTPUT
 
-      - uses: JasonEtco/create-an-issue@1a16035489d05041b9af40b970f02e301c52ffba # v2.8.0
+      - uses: JasonEtco/create-an-issue@3a8ba796516b57db8cb2ee6dfc65bc76cd39d56d # v2.8.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RESULTS: ${{ steps.set-scan-output.outputs.results }}

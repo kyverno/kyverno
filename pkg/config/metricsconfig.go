@@ -2,10 +2,10 @@ package config
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"time"
 
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,19 +24,41 @@ type MetricsConfiguration interface {
 	GetIncludeNamespaces() []string
 	// GetMetricsRefreshInterval returns the refresh interval for the metrics
 	GetMetricsRefreshInterval() time.Duration
-	// namespaces             namespacesConfig
-	// metricsRefreshInterval time.Duration
-}
-
-type namespacesConfig struct {
-	IncludeNamespaces []string `json:"include,omitempty"`
-	ExcludeNamespaces []string `json:"exclude,omitempty"`
+	// CheckNamespace returns `true` if the namespace has to be considered
+	CheckNamespace(string) bool
 }
 
 // metricsConfig stores the config for metrics
 type metricsConfig struct {
 	namespaces             namespacesConfig
 	metricsRefreshInterval time.Duration
+}
+
+// NewDefaultMetricsConfiguration ...
+func NewDefaultMetricsConfiguration() *metricsConfig {
+	return &metricsConfig{
+		metricsRefreshInterval: 0,
+		namespaces: namespacesConfig{
+			IncludeNamespaces: []string{},
+			ExcludeNamespaces: []string{},
+		},
+	}
+}
+
+// NewMetricsConfiguration ...
+func NewMetricsConfiguration(client kubernetes.Interface) (MetricsConfiguration, error) {
+	configuration := NewDefaultMetricsConfiguration()
+	cmName := os.Getenv(metricsConfigEnvVar)
+	if cmName != "" {
+		if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), cmName, metav1.GetOptions{}); err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, err
+			}
+		} else {
+			configuration.load(cm)
+		}
+	}
+	return configuration, nil
 }
 
 // GetExcludeNamespaces returns the namespaces to ignore for metrics exposure
@@ -52,6 +74,21 @@ func (mcd *metricsConfig) GetIncludeNamespaces() []string {
 // GetMetricsRefreshInterval returns the refresh interval for the metrics
 func (mcd *metricsConfig) GetMetricsRefreshInterval() time.Duration {
 	return mcd.metricsRefreshInterval
+}
+
+// CheckNamespace returns `true` if the namespace has to be considered
+func (mcd *metricsConfig) CheckNamespace(namespace string) bool {
+	// TODO(eddycharly): check we actually need `"-"`
+	if namespace == "" || namespace == "-" {
+		return true
+	}
+	if slices.Contains(mcd.namespaces.ExcludeNamespaces, namespace) {
+		return false
+	}
+	if len(mcd.namespaces.IncludeNamespaces) == 0 {
+		return true
+	}
+	return slices.Contains(mcd.namespaces.IncludeNamespaces, namespace)
 }
 
 func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
@@ -85,37 +122,4 @@ func (cd *metricsConfig) load(cm *corev1.ConfigMap) {
 			cd.namespaces = namespaces
 		}
 	}
-}
-
-// NewDefaultMetricsConfiguration ...
-func NewDefaultMetricsConfiguration() *metricsConfig {
-	return &metricsConfig{
-		metricsRefreshInterval: 0,
-		namespaces: namespacesConfig{
-			IncludeNamespaces: []string{},
-			ExcludeNamespaces: []string{},
-		},
-	}
-}
-
-// NewMetricsConfiguration ...
-func NewMetricsConfiguration(client kubernetes.Interface) (MetricsConfiguration, error) {
-	configuration := NewDefaultMetricsConfiguration()
-	cmName := os.Getenv(metricsConfigEnvVar)
-	if cmName != "" {
-		if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), cmName, metav1.GetOptions{}); err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, err
-			}
-		} else {
-			configuration.load(cm)
-		}
-	}
-	return configuration, nil
-}
-
-func parseIncludeExcludeNamespacesFromNamespacesConfig(jsonStr string) (namespacesConfig, error) {
-	var namespacesConfigObject namespacesConfig
-	err := json.Unmarshal([]byte(jsonStr), &namespacesConfigObject)
-	return namespacesConfigObject, err
 }

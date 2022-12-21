@@ -1278,3 +1278,40 @@ func Test_NestedConditionals(t *testing.T) {
 
 	assert.DeepEqual(t, toJSON(t, []byte(expectedPattern)), toJSON(t, []byte(resultPattern)))
 }
+
+func Test_GlobalCondition_Fail(t *testing.T) {
+	rawPattern := []byte(`{
+		"metadata": {
+			"annotations": {
+				"+(cluster-autoscaler.kubernetes.io/safe-to-evict)": "true"
+			}
+		},
+		"spec": {
+			"volumes": [
+				{
+					"<(emptyDir)": {}
+				}
+			]
+		}
+	}`)
+	rawResource := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "pod-without-emptydir-hostpath"
+		},
+		"spec": {
+			"containers": [
+				{
+					"name": "nginx",
+					"image": "nginx"
+				}
+			]
+		}
+	}`)
+
+	pattern := yaml.MustParse(string(rawPattern))
+	resource := yaml.MustParse(string(rawResource))
+	err := preProcessPattern(logging.GlobalLogger(), pattern, resource)
+	assert.Error(t, err, "global condition failed: could not found \"emptyDir\" key in the resource")
+}

@@ -21,13 +21,13 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv1"><b style="color: white">kyverno.io/v1</b></a>
 </li>
 <li>
-<a href="#kyverno.io%2fv1alpha1"><b style="color: white">kyverno.io/v1alpha1</b></a>
-</li>
-<li>
 <a href="#kyverno.io%2fv1alpha2"><b style="color: white">kyverno.io/v1alpha2</b></a>
 </li>
 <li>
 <a href="#kyverno.io%2fv1beta1"><b style="color: white">kyverno.io/v1beta1</b></a>
+</li>
+<li>
+<a href="#kyverno.io%2fv2alpha1"><b style="color: white">kyverno.io/v2alpha1</b></a>
 </li>
 <li>
 <a href="#kyverno.io%2fv2beta1"><b style="color: white">kyverno.io/v2beta1</b></a>
@@ -716,8 +716,7 @@ Kubernetes admission/v1.Operation
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Attestation">Attestation</a>, 
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
-<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
-<a href="#kyverno.io/v1alpha1.CleanupPolicySpec">CleanupPolicySpec</a>)
+<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
 </p>
 <p>
 <p>AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -812,6 +811,19 @@ string
 </tr>
 <tr>
 <td>
+<code>attestors</code><br/>
+<em>
+<a href="#kyverno.io/v1.AttestorSet">
+[]AttestorSet
+</a>
+</em>
+</td>
+<td>
+<p>Attestors specify the required attestors (i.e. authorities)</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>conditions</code><br/>
 <em>
 <a href="#kyverno.io/v1.AnyAllConditions">
@@ -820,7 +832,6 @@ string
 </em>
 </td>
 <td>
-<em>(Optional)</em>
 <p>Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 the attestation check is satisfied as long there are predicates that match the predicate type.</p>
 </td>
@@ -929,6 +940,7 @@ If specified Repository will override other OCI image repository locations for t
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.Attestation">Attestation</a>, 
 <a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v1.Manifests">Manifests</a>, 
 <a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
@@ -1520,6 +1532,20 @@ string
 See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/</a>.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>foreach</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Foreach declares a nested foreach iterator</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1638,6 +1664,20 @@ Deny
 <td>
 <em>(Optional)</em>
 <p>Deny defines conditions used to pass or fail a validation rule.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>foreach</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Foreach declares a nested foreach iterator</p>
 </td>
 </tr>
 </tbody>
@@ -2398,8 +2438,7 @@ The repository can be overridden per Attestor or Attestation.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.Rule">Rule</a>, 
-<a href="#kyverno.io/v1alpha1.CleanupPolicySpec">CleanupPolicySpec</a>)
+<a href="#kyverno.io/v1.Rule">Rule</a>)
 </p>
 <p>
 <p>MatchResources is used to specify resource and admission review request data for
@@ -3967,403 +4006,6 @@ string
 </tbody>
 </table>
 <hr />
-<h2 id="kyverno.io/v1alpha1">kyverno.io/v1alpha1</h2>
-<p>
-</p>
-Resource Types:
-<ul><li>
-<a href="#kyverno.io/v1alpha1.CleanupPolicy">CleanupPolicy</a>
-</li><li>
-<a href="#kyverno.io/v1alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
-</li></ul>
-<hr />
-<h3 id="kyverno.io/v1alpha1.CleanupPolicy">CleanupPolicy
-</h3>
-<p>
-<p>CleanupPolicy defines a rule for resource cleanup.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>CleanupPolicy</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v1alpha1.CleanupPolicySpec">
-CleanupPolicySpec
-</a>
-</em>
-</td>
-<td>
-<p>Spec declares policy behaviors.</p>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>match</code><br/>
-<em>
-<a href="#kyverno.io/v1.MatchResources">
-MatchResources
-</a>
-</em>
-</td>
-<td>
-<p>MatchResources defines when cleanuppolicy should be applied. The match
-criteria can include resource information (e.g. kind, name, namespace, labels)
-and admission review request information like the user name or role.
-At least one kind is required.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>exclude</code><br/>
-<em>
-<a href="#kyverno.io/v1.MatchResources">
-MatchResources
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
-criteria can include resource information (e.g. kind, name, namespace, labels)
-and admission review request information like the name or role.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>schedule</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>The schedule in Cron format</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>conditions</code><br/>
-<em>
-<a href="#kyverno.io/v1.AnyAllConditions">
-AnyAllConditions
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Conditions defines conditions used to select resources which user needs to delete</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code><br/>
-<em>
-<a href="#kyverno.io/v1alpha1.CleanupPolicyStatus">
-CleanupPolicyStatus
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Status contains policy runtime data.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy
-</h3>
-<p>
-<p>ClusterCleanupPolicy defines rule for resource cleanup.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v1alpha1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>ClusterCleanupPolicy</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v1alpha1.CleanupPolicySpec">
-CleanupPolicySpec
-</a>
-</em>
-</td>
-<td>
-<p>Spec declares policy behaviors.</p>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>match</code><br/>
-<em>
-<a href="#kyverno.io/v1.MatchResources">
-MatchResources
-</a>
-</em>
-</td>
-<td>
-<p>MatchResources defines when cleanuppolicy should be applied. The match
-criteria can include resource information (e.g. kind, name, namespace, labels)
-and admission review request information like the user name or role.
-At least one kind is required.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>exclude</code><br/>
-<em>
-<a href="#kyverno.io/v1.MatchResources">
-MatchResources
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
-criteria can include resource information (e.g. kind, name, namespace, labels)
-and admission review request information like the name or role.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>schedule</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>The schedule in Cron format</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>conditions</code><br/>
-<em>
-<a href="#kyverno.io/v1.AnyAllConditions">
-AnyAllConditions
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Conditions defines conditions used to select resources which user needs to delete</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code><br/>
-<em>
-<a href="#kyverno.io/v1alpha1.CleanupPolicyStatus">
-CleanupPolicyStatus
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Status contains policy runtime data.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha1.CleanupPolicyInterface">CleanupPolicyInterface
-</h3>
-<p>
-<p>CleanupPolicyInterface abstracts the concrete policy type (Policy vs ClusterPolicy)</p>
-</p>
-<h3 id="kyverno.io/v1alpha1.CleanupPolicySpec">CleanupPolicySpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1alpha1.CleanupPolicy">CleanupPolicy</a>, 
-<a href="#kyverno.io/v1alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
-</p>
-<p>
-<p>CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
-and schedule when the matching resources needs deleted.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>match</code><br/>
-<em>
-<a href="#kyverno.io/v1.MatchResources">
-MatchResources
-</a>
-</em>
-</td>
-<td>
-<p>MatchResources defines when cleanuppolicy should be applied. The match
-criteria can include resource information (e.g. kind, name, namespace, labels)
-and admission review request information like the user name or role.
-At least one kind is required.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>exclude</code><br/>
-<em>
-<a href="#kyverno.io/v1.MatchResources">
-MatchResources
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
-criteria can include resource information (e.g. kind, name, namespace, labels)
-and admission review request information like the name or role.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>schedule</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>The schedule in Cron format</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>conditions</code><br/>
-<em>
-<a href="#kyverno.io/v1.AnyAllConditions">
-AnyAllConditions
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Conditions defines conditions used to select resources which user needs to delete</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1alpha1.CleanupPolicyStatus">CleanupPolicyStatus
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1alpha1.CleanupPolicy">CleanupPolicy</a>, 
-<a href="#kyverno.io/v1alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
-</p>
-<p>
-<p>CleanupPolicyStatus stores the status of the policy.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>conditions</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
-[]Kubernetes meta/v1.Condition
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h2 id="kyverno.io/v1alpha2">kyverno.io/v1alpha2</h2>
 <p>
 <p>Package v1alpha2 contains API Schema definitions for the policy v1alpha2 API group</p>
@@ -4885,7 +4527,7 @@ PolicyReportSummary
 </p>
 <h2 id="kyverno.io/v1beta1">kyverno.io/v1beta1</h2>
 <p>
-<p>Package v1beta1 contains API Schema definitions for the policy v1alpha1 API group</p>
+<p>Package v1beta1 contains API Schema definitions for the policy v1beta1 API group</p>
 </p>
 Resource Types:
 <ul><li>
@@ -5322,6 +4964,583 @@ string
 <td>
 <p>This will track the resources that are updated by the generate Policy.
 Will be used during clean up resources.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="kyverno.io/v2alpha1">kyverno.io/v2alpha1</h2>
+<p>
+</p>
+Resource Types:
+<ul><li>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>
+</li></ul>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy
+</h3>
+<p>
+<p>CleanupPolicy defines a rule for resource cleanup.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>CleanupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">
+CleanupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines conditions used to select resources which user needs to delete</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicyStatus">
+CleanupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy
+</h3>
+<p>
+<p>ClusterCleanupPolicy defines rule for resource cleanup.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterCleanupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">
+CleanupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines conditions used to select resources which user needs to delete</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicyStatus">
+CleanupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.PolicyException">PolicyException
+</h3>
+<p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>PolicyException</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">
+PolicyExceptionSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+<p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CleanupPolicyInterface">CleanupPolicyInterface
+</h3>
+<p>
+<p>CleanupPolicyInterface abstracts the concrete policy type (Policy vs ClusterPolicy)</p>
+</p>
+<h3 id="kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
+</p>
+<p>
+<p>CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
+and schedule when the matching resources needs deleted.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines conditions used to select resources which user needs to delete</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CleanupPolicyStatus">CleanupPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
+</p>
+<p>
+<p>CleanupPolicyStatus stores the status of the policy.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.Exception">Exception
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
+</p>
+<p>
+<p>Exception stores infos about a policy and rules</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policyName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>PolicyName identifies the policy to which the exception is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ruleNames</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>RuleNames identifies the rules to which the exception is applied.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>)
+</p>
+<p>
+<p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+<p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
 </tbody>
@@ -5788,6 +6007,7 @@ PolicyStatus
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
@@ -6060,6 +6280,8 @@ bool
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>

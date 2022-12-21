@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/metrics"
 )
 
 func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFunc {
@@ -15,11 +16,14 @@ func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFu
 	}
 }
 
-func Setup() (context.Context, logr.Logger, context.CancelFunc) {
+func Setup() (context.Context, logr.Logger, metrics.MetricsConfigManager, context.CancelFunc) {
 	logger := SetupLogger()
 	ShowVersion(logger)
 	sdownMaxProcs := SetupMaxProcs(logger)
 	SetupProfiling(logger)
+	client := CreateKubernetesClient(logger)
 	ctx, sdownSignals := SetupSignals(logger)
-	return ctx, logger, shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownSignals)
+	metricsManager, sdownMetrics := SetupMetrics(ctx, logger, client)
+	sdownTracing := SetupTracing(logger, client)
+	return ctx, logger, metricsManager, shutdown(logger.WithName("shutdown"), sdownMaxProcs, sdownMetrics, sdownTracing, sdownSignals)
 }

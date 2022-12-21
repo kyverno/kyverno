@@ -106,7 +106,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		return rule
 	}
 	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
-		var newForeachMutation []kyvernov1.ForEachMutation
+		var newForEachMutation []kyvernov1.ForEachMutation
 		for _, foreach := range rule.Mutation.ForEachMutation {
 			temp := kyvernov1.ForEachMutation{
 				List:             foreach.List,
@@ -120,10 +120,10 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 					},
 				},
 			)
-			newForeachMutation = append(newForeachMutation, temp)
+			newForEachMutation = append(newForEachMutation, temp)
 		}
 		rule.Mutation = kyvernov1.Mutation{
-			ForEachMutation: newForeachMutation,
+			ForEachMutation: newForEachMutation,
 		}
 		return rule
 	}
@@ -227,10 +227,10 @@ func getAnyAllAutogenRule(v kyvernov1.ResourceFilters, match string, kinds []str
 
 func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyvernov1.Rule {
 	if isAutogenRuleName(rule.Name) || controllers == "" {
-		logger.V(5).Info("skip generateRuleForControllers")
+		debug.Info("skip generateRuleForControllers")
 		return nil
 	}
-	logger.V(3).Info("processing rule", "rulename", rule.Name)
+	debug.Info("processing rule", "rulename", rule.Name)
 	match, exclude := rule.MatchResources, rule.ExcludeResources
 	matchKinds, excludeKinds := match.GetKinds(), exclude.GetKinds()
 	if !kubeutils.ContainsKind(matchKinds, "Pod") || (len(excludeKinds) != 0 && !kubeutils.ContainsKind(excludeKinds, "Pod")) {
@@ -283,7 +283,7 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 	if !hasCronJob {
 		return nil
 	}
-	logger.V(3).Info("generating rule for cronJob")
+	debug.Info("generating rule for cronJob")
 	return generateRule(
 		getAutogenRuleName("autogen-cronjob", rule.Name),
 		generateRuleForControllers(rule, controllers),
