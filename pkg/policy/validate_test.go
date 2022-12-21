@@ -1252,7 +1252,7 @@ func Test_Namespaced_Generate_Policy(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			var rule kyverno.Rule
 			_ = json.Unmarshal(tc.rule, &rule)
-			err := checkClusterResourceInMatchAndExclude(rule, sets.NewString(), tc.policyNamespace, false, testResourceList())
+			err := checkClusterResourceInMatchAndExclude(rule, sets.New[string](), tc.policyNamespace, false, testResourceList())
 			if tc.expectedError != nil {
 				assert.Error(t, err, tc.expectedError.Error())
 			} else {
