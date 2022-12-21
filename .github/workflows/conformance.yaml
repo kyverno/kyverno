@@ -11,6 +11,10 @@ concurrency:
 
 jobs:
   run-conformance:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.24.7, v1.25.3, v1.26.0]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,7 +26,9 @@ jobs:
         with:
           go-version: ~1.19.4
       - name: Prepare environment
-        run: make kind-create-cluster kind-deploy-kyverno
+        run: |
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
+          make kind-create-cluster kind-deploy-kyverno
       - name: Wait for Kyverno to start
         run: sleep 60
       - name: Test with kuttl
