@@ -21,8 +21,10 @@ const (
 	PolicyValidatingWebhookConfigurationName = "kyverno-policy-validating-webhook-cfg"
 	// ValidatingWebhookConfigurationName ...
 	ValidatingWebhookConfigurationName = "kyverno-resource-validating-webhook-cfg"
-	// PolicyValidatingWebhookConfigurationName default policy validating webhook configuration name
+	// ExceptionValidatingWebhookConfigurationName ...
 	ExceptionValidatingWebhookConfigurationName = "kyverno-exception-validating-webhook-cfg"
+	// CleanupValidatingWebhookConfigurationName ...
+	CleanupValidatingWebhookConfigurationName = "kyverno-cleanup-validating-webhook-cfg"
 	// PolicyMutatingWebhookConfigurationName default policy mutating webhook configuration name
 	PolicyMutatingWebhookConfigurationName = "kyverno-policy-mutating-webhook-cfg"
 	// MutatingWebhookConfigurationName default resource mutating webhook configuration name
@@ -53,6 +55,8 @@ const (
 	ValidatingWebhookServicePath = "/validate"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
+	// CleanupValidatingWebhookServicePath is the path for cleanup policy validation webhook(used to validate cleanup policy resource)
+	CleanupValidatingWebhookServicePath = "/validate"
 	// PolicyMutatingWebhookServicePath is the path for policy mutation webhook(used to default)
 	PolicyMutatingWebhookServicePath = "/policymutate"
 	// MutatingWebhookServicePath is the path for mutation webhook
