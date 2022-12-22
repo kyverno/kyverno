@@ -125,3 +125,35 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 
 	return events
 }
+
+func NewPolicyExceptionEvent(engineResponse *response.EngineResponse, ruleResp *response.RuleResponse) Info {
+	var messageBuilder strings.Builder
+	defer messageBuilder.Reset()
+
+	exceptionName, exceptionNamespace := getExceptionEventInfoFromRuleResponseMsg(ruleResp.Message)
+
+	fmt.Fprintf(&messageBuilder, "resource %s was skipped from rule %s due to policy exception %s/%s", engineResponse.PatchedResource.GetName(), ruleResp.Name, exceptionNamespace, exceptionName)
+
+	return Info{
+		Kind:      getPolicyKind(engineResponse.Policy),
+		Name:      engineResponse.PolicyResponse.Policy.Name,
+		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
+		Reason:    PolicySkipped.String(),
+		Message:   messageBuilder.String(),
+	}
+}
+
+func getExceptionEventInfoFromRuleResponseMsg(message string) (name string, namespace string) {
+	key := message[strings.LastIndex(message, " ")+1:]
+	arr := strings.Split(key, "/")
+
+	if len(arr) > 1 {
+		namespace = arr[0]
+		name = arr[1]
+	} else {
+		namespace = ""
+		name = arr[0]
+	}
+
+	return name, namespace
+}
