@@ -3671,6 +3671,38 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.9.0-beta.1
+    created: "2022-12-22T09:01:31.393493814Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 1d0bd33e7bbe47eca0d96e70d47349e2afff50438dedb51c278c98016aea5321
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-v2.7.0-beta.1.tgz
+    version: v2.7.0-beta.1
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Add ability to configure autogen behavior
+        - kind: fixed
+          description: Support for customLabels, they were ignored up to now
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.8.5
     created: "2022-12-20T08:44:11.587028393Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -5749,4 +5781,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-12-20T08:44:11.584553583Z"
+generated: "2022-12-22T09:01:31.392444887Z"
