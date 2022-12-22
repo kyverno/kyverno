@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
+	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 )
+
+// Discovery provides interface to mange Kind and GVR mapping
+type Discovery interface {
+	GetGVRFromKind(kind string) (schema.GroupVersionResource, error)
+}
 
 // CanIOptions provides utility to check if user has authorization for the given operation
 type CanIOptions interface {
@@ -28,19 +32,19 @@ type canIOptions struct {
 	verb        string
 	kind        string
 	subresource string
-	discovery   dclient.IDiscovery
-	client      kubernetes.Interface
+	discovery   Discovery
+	ssarClient  authorizationv1client.SelfSubjectAccessReviewInterface
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(client dclient.Interface, kind, namespace, verb, subresource string) CanIOptions {
+func NewCanI(discovery Discovery, ssarClient authorizationv1client.SelfSubjectAccessReviewInterface, kind, namespace, verb, subresource string) CanIOptions {
 	return &canIOptions{
 		namespace:   namespace,
 		verb:        verb,
 		kind:        kind,
 		subresource: subresource,
-		discovery:   client.Discovery(),
-		client:      client.GetKubeClient(),
+		discovery:   discovery,
+		ssarClient:  ssarClient,
 	}
 }
 
@@ -82,7 +86,7 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
 	// Create the Resource
-	resp, err := o.client.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, sar, metav1.CreateOptions{})
+	resp, err := o.ssarClient.Create(ctx, sar, metav1.CreateOptions{})
 	if err != nil {
 		logger.Error(err, "failed to create resource")
 		return false, err
