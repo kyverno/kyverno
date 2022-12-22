@@ -18,16 +18,20 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
+	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 )
 
 const (
-	resyncPeriod = 15 * time.Minute
+	resyncPeriod          = 15 * time.Minute
+	webhookWorkers        = 2
+	webhookControllerName = "webhook-controller"
 )
 
 // TODO:
@@ -49,10 +53,12 @@ func main() {
 	var (
 		leaderElectionRetryPeriod time.Duration
 		dumpPayload               bool
+		serverIP                  string
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
+	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -109,15 +115,33 @@ func main() {
 				certmanager.Workers,
 			)
 			webhookController := internal.NewController(
-				ControllerName,
-				NewController(
+				webhookControllerName,
+				genericwebhookcontroller.NewController(
+					webhookControllerName,
 					kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 					kubeKyvernoInformer.Core().V1().Secrets(),
-					"kyverno-cleanup-policies",
-					"",
+					config.CleanupValidatingWebhookConfigurationName,
+					config.CleanupValidatingWebhookServicePath,
+					serverIP,
+					[]admissionregistrationv1.RuleWithOperations{{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"kyverno.io"},
+							APIVersions: []string{"v2alpha1"},
+							Resources: []string{
+								"cleanuppolicies/*",
+								"clustercleanuppolicies/*",
+							},
+						},
+						Operations: []admissionregistrationv1.OperationType{
+							admissionregistrationv1.Create,
+							admissionregistrationv1.Update,
+						},
+					}},
+					genericwebhookcontroller.Fail,
+					genericwebhookcontroller.None,
 				),
-				Workers,
+				webhookWorkers,
 			)
 			cleanupController := internal.NewController(
 				cleanup.ControllerName,
