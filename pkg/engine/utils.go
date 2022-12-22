@@ -16,7 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/utils"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
@@ -210,14 +210,14 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 
 	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
 	var userInfoErrors []error
-	if len(userInfo.Roles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
-		if !utils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
+	if len(userInfo.Roles) > 0 && !datautils.SliceContains(keys, dynamicConfig...) {
+		if !datautils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match roles for the given conditionBlock"))
 		}
 	}
 
-	if len(userInfo.ClusterRoles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
-		if !utils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+	if len(userInfo.ClusterRoles) > 0 && !datautils.SliceContains(keys, dynamicConfig...) {
+		if !datautils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
 		}
 	}

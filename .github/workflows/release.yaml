@@ -148,7 +148,7 @@ jobs:
           go-version: ~1.19.4
 
       - name: Cache Go modules
-        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # pin@v3
+        uses: actions/cache@c17f4bf4666a8001b1a45c09eb7a485c41aa64c3 # pin@v3
         with:
           path: |
             ~/.cache/go-build
@@ -200,7 +200,7 @@ jobs:
           go-version: ~1.19.4
 
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@8674f31874b23ec1d03fc51efde27d1280d116db # v0.37.0
+        uses: fluxcd/flux2/action@12e065cc432a18b0a4cff1a581e14c337e55732e # v0.38.1
         with:
           version: 0.35.0
 

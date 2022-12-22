@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/utils"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"gotest.tools/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -144,28 +144,28 @@ func Test_RedactPayload(t *testing.T) {
 			payload, err := newAdmissionRequestPayload(req)
 			assert.NilError(t, err)
 			if payload.Object.Object != nil {
-				data, err := utils.ToMap(payload.Object.Object["data"])
+				data, err := datautils.ToMap(payload.Object.Object["data"])
 				assert.NilError(t, err)
 				for _, v := range data {
 					assert.Assert(t, v == "**REDACTED**")
 				}
-				metadata, err := utils.ToMap(payload.Object.Object["metadata"])
+				metadata, err := datautils.ToMap(payload.Object.Object["metadata"])
 				assert.NilError(t, err)
-				annotations, err := utils.ToMap(metadata["annotations"])
+				annotations, err := datautils.ToMap(metadata["annotations"])
 				assert.NilError(t, err)
 				for _, v := range annotations {
 					assert.Assert(t, v == "**REDACTED**")
 				}
 			}
 			if payload.OldObject.Object != nil {
-				data, err := utils.ToMap(payload.OldObject.Object["data"])
+				data, err := datautils.ToMap(payload.OldObject.Object["data"])
 				assert.NilError(t, err)
 				for _, v := range data {
 					assert.Assert(t, v == "**REDACTED**")
 				}
-				metadata, err := utils.ToMap(payload.OldObject.Object["metadata"])
+				metadata, err := datautils.ToMap(payload.OldObject.Object["metadata"])
 				assert.NilError(t, err)
-				annotations, err := utils.ToMap(metadata["annotations"])
+				annotations, err := datautils.ToMap(metadata["annotations"])
 				assert.NilError(t, err)
 				for _, v := range annotations {
 					assert.Assert(t, v == "**REDACTED**")
