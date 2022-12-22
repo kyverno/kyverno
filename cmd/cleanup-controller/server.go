@@ -18,11 +18,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-const (
-	// validatingWebhookServicePath is the path for validation webhook
-	validatingWebhookServicePath = "/validate"
-)
-
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
 	Run(<-chan struct{})
@@ -73,7 +68,7 @@ func NewServer(
 	mux := httprouter.New()
 	mux.HandlerFunc(
 		"POST",
-		validatingWebhookServicePath,
+		config.CleanupValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", validationHandler).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().

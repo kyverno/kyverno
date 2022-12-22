@@ -45,7 +45,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
@@ -99,7 +99,7 @@ func showWarnings(logger logr.Logger) {
 }
 
 func sanityChecks(dynamicClient dclient.Interface) error {
-	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
+	if !kubeutils.CRDsInstalled(dynamicClient.Discovery()) {
 		return fmt.Errorf("CRDs not installed")
 	}
 	return nil
