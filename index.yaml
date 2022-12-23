@@ -42,9 +42,9 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.9.0-beta.1
-    created: "2022-12-22T09:01:46.940639344Z"
+    created: "2022-12-23T14:10:20.552401413Z"
     description: Kubernetes Native Policy Management
-    digest: 4c1d79e4683a92136f48986e17af203039fe162438d64fcbdbf4665418f79fc3
+    digest: 905ad6be1014935f2c464c61bc3cc048d262ee637d6c7037407acd3e1683fd01
     home: https://kyverno.io/
     icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
     keywords:
@@ -62,8 +62,8 @@ entries:
     - https://github.com/kyverno/kyverno
     type: application
     urls:
-    - https://kyverno.github.io/kyverno/kyverno-v2.7.0-beta.1.tgz
-    version: v2.7.0-beta.1
+    - https://kyverno.github.io/kyverno/kyverno-2.7.0-beta.1.tgz
+    version: 2.7.0-beta.1
   - annotations:
       artifacthub.io/changes: |
         - kind: added
@@ -5844,4 +5844,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-12-22T09:01:46.931290083Z"
+generated: "2022-12-23T14:10:20.539072225Z"
