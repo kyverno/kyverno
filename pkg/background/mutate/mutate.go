@@ -5,7 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+	yamlv2 "gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -18,11 +27,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"go.uber.org/multierr"
-	yamlv2 "gopkg.in/yaml.v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
 )
 
 var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
@@ -129,6 +133,14 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 				if r.Status == response.RuleStatusPass {
 					patchedNew.SetResourceVersion(patched.GetResourceVersion())
+					patchBytes, err := generatePatch(patched, patchedNew)
+					if err != nil {
+						logger.Error(err, "failed to generate patch data")
+						errs = append(errs, err)
+						continue
+					}
+
+					patchedNew.SetResourceVersion("")
 					var updateErr error
 					if patchedTargetSubresourceName == "status" {
 						_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
@@ -143,7 +155,9 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 						}
 						_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedTargetSubresourceName)
 					} else {
-						_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+						if patchBytes != nil {
+							_, updateErr = c.client.PatchResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.GetName(), patchBytes)
+						}
 					}
 					if updateErr != nil {
 						errs = append(errs, updateErr)
@@ -209,7 +223,7 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 		return
 	}
 
-	patchedNew = patched
+	patchedNew = patched.DeepCopy()
 	var rulePatches []utils.RulePatch
 
 	for _, patch := range r.Patches {
@@ -255,4 +269,30 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 	patchedNew.SetAnnotations(ann)
 
 	return
+}
+
+// generatePatch will calculate a JSON merge patch for an object's desired state.
+// If the passed in objects are already equal, nil is returned.
+func generatePatch(origin, desired *unstructured.Unstructured) ([]byte, error) {
+	// If the objects are already equal, there's no need to generate a patch.
+	if equality.Semantic.DeepEqual(origin, desired) {
+		return nil, nil
+	}
+
+	desiredBytes, err := json.Marshal(desired.Object)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to marshal desired object")
+	}
+
+	originBytes, err := json.Marshal(origin.Object)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to marshal in-cluster object")
+	}
+
+	patchBytes, err := jsonpatch.CreateMergePatch(originBytes, desiredBytes)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create merge patch")
+	}
+
+	return patchBytes, nil
 }

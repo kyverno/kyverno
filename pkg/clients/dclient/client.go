@@ -141,7 +141,7 @@ func (c *client) RawAbsPath(ctx context.Context, path string) ([]byte, error) {
 
 // PatchResource patches the resource
 func (c *client) PatchResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(apiVersion, kind, namespace).Patch(ctx, name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return c.getResourceInterface(apiVersion, kind, namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 }
 
 // GetDynamicInterface fetches underlying dynamic interface
