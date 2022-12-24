@@ -71,12 +71,13 @@ body:
     id: kyverno-rule
     attributes:
       label: Kyverno Rule Type
-      description: What Kyverno rule type?
+      description: What Kyverno rule/policy type?
       options:
         - Validate
         - Mutate
         - Generate
         - verifyImages
+        - Cleanup
         - Other
     validations:
       required: true
