@@ -362,7 +362,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 				log.Error(err, "Generate rule cannot be written individually when foreach specified in Generate block, All the Generate rules must be specified inside the foreach block")
 			}
 			if len(rule.Generation.ForEachGeneration) > 0 {
-				genResource, err = applyForEachGenerateRules(log, c.client, rule, resource, jsonContext, policy, ur)
+				genResource, err = applyForEachGenerateRules(log, c.rclient, c.client, rule, resource, jsonContext, policyContext, ur)
 			} else {
 				genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
 			}
@@ -601,16 +601,22 @@ func generateElements(log logr.Logger, client dclient.Interface, rule kyvernov1.
 	return newGenResources, nil
 }
 
-func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+func applyForEachGenerateRules(log logr.Logger, rclient registryclient.Client, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policyContext *engine.PolicyContext, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+	policy := policyContext.Policy()
 	var newGenResources []kyvernov1.ResourceSpec
 	for _, fe := range rule.Generation.ForEachGeneration {
+		if err := engine.LoadContext(ctx, log, rclient, rule.Context, policyContext, rule.Name); err != nil {
+
+		}
+
 		if fe.List == "" {
 			log.Error(errors.New("Foreach inside generate with an empty or null List attribute"), "cannot generate a policy rule with an empty or null List attribute")
 			break
 		}
 		elements, err := engine.RunEvaluateList(fe.List, ctx)
 		if err != nil {
-			log.Error(err, "failed to generate resource")
+			msg := fmt.Sprintf("failed to evaluate list %s", fe.List)
+			log.Error(err, msg)
 			continue
 		}
 
