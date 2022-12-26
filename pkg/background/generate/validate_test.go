@@ -80,3 +80,141 @@ func TestValidateFail(t *testing.T) {
 	_, err := ValidateResourceWithPattern(log, resource, pattern)
 	assert.Assert(t, err != nil)
 }
+
+func TestValidateContainersFail(t *testing.T) {
+
+	resource := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{
+					"image": "nginx",
+					"name":  "front-end",
+					"ports": []interface{}{
+						map[string]interface{}{
+							"containerPort": 3000,
+						},
+					},
+				},
+				map[string]interface{}{
+					"image": "nickchase/rss-php-nginx:v1",
+					"name":  "rss-reader",
+					"ports": []interface{}{
+						map[string]interface{}{
+							"containerPort": 3000,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	pattern := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{
+					"image": "nginx",
+					"name":  "front-end",
+					"ports": []interface{}{
+						map[string]interface{}{
+							"containerPort": 3000,
+						},
+					},
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{
+							"cpu":    "50m",
+							"memory": "120Mi",
+						},
+					},
+				},
+				map[string]interface{}{
+					"image": "nickchase/rss-php-nginx:v1",
+					"name":  "rss-reader",
+					"ports": []interface{}{
+						map[string]interface{}{
+							"containerPort": 3000,
+						},
+					},
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{
+							"cpu":    "50m",
+							"memory": "120Mi",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var log logr.Logger
+	_, err := ValidateResourceWithPattern(log, resource, pattern)
+	assert.Assert(t, err != nil)
+}
+
+func TestValidateContainersPass(t *testing.T) {
+
+	resource := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{
+					"image": "nginx",
+					"name":  "front-end",
+					"ports": []interface{}{
+						map[string]interface{}{
+							"containerPort": 3000,
+						},
+					},
+				},
+				map[string]interface{}{
+					"image": "nickchase/rss-php-nginx:v1",
+					"name":  "rss-reader",
+					"ports": []interface{}{
+						map[string]interface{}{
+							"containerPort": 3000,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	pattern := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{
+					"image": "nginx",
+					"name":  "front-end",
+					"ports": []interface{}{
+						map[string]interface{}{
+							"containerPort": 3000,
+						},
+					},
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{
+							"cpu":    "50m",
+							"memory": "120Mi",
+						},
+					},
+				},
+				map[string]interface{}{
+					"image": "nickchase/rss-php-nginx:v1",
+					"name":  "rss-reader",
+					"ports": []interface{}{
+						map[string]interface{}{
+							"containerPort": 3000,
+						},
+					},
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{
+							"cpu":    "50m",
+							"memory": "120Mi",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var log logr.Logger
+	_, err := ValidateResourceWithPattern(log, resource, pattern)
+	assert.Assert(t, err != nil)
+}
