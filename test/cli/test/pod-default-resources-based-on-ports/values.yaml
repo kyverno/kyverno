@@ -1,0 +1,25 @@
+policies:
+- name: policy-pod-default-resources-based-on-ports
+  rules:
+  - name: add-default-requests-node
+    values:
+      configmaps_count: 0
+    resources:
+    - name:  deployment-with-nodejs-port
+      values:
+        request.operation: CREATE     
+    - name:  deployment-with-nodejs-port
+      values:
+        - request.namespace: default                     
+  - name: add-default-requests-java
+    values:
+      configmaps_count: 0
+    resources:
+    - name:  deployment-with-java-port
+      values:
+        - request.operation: CREATE
+    - name:  deployment-with-java-port
+      values:
+        - request.namespace: default        
+         
+      

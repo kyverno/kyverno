@@ -1,0 +1,124 @@
+apiVersion : kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: policy-pod-default-resources-based-on-ports
+  annotations:
+    policies.kyverno.io/title: Add Default Resources
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/severity: medium
+    kyverno.io/kyverno-version: 1.7.0
+    policies.kyverno.io/minversion: 1.7.0
+    kyverno.io/kubernetes-version: "1.23"
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Pods which don't specify at least resource requests are assigned a QoS class
+      of BestEffort which can hog resources for other Pods on Nodes. At a minimum,
+      all Pods should specify resource requests in order to be labeled as the QoS
+      class Burstable. This sample mutates any container in a Pod which doesn't
+      specify memory or cpu requests to apply some sane defaults.      
+spec:
+  mutateExistingOnPolicyUpdate: true
+  rules:
+  - name: add-default-requests-node
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system      
+    preconditions:
+      any:
+      - key: "{{request.operation}}"
+        operator: In
+        value:
+        - CREATE
+        - UPDATE
+    preconditions:
+      all:    
+      - key: "{{ request.object.spec.template.spec.containers[?resources.requests.cpu] | length(@) }}"
+        operator: Equals
+        value: 0
+      - key: "{{ request.object.spec.template.spec.containers[?resources.requests.memory] | length(@) }}"      
+        operator: Equals
+        value: 0
+      - key: "{{request.object.spec.template.spec.containers[?livenessProbe] }}"
+        operator: Equals
+        value: []        
+      - key: "{{request.object.spec.template.spec.containers[?readinessProbe] }}"
+        operator: Equals
+        value: []            
+      - key: "{{request.object.spec.template.spec.containers[].ports[].containerPort}}"
+        operator: AnyIn
+        value: [3000]       
+    mutate:
+      targets:
+        - apiVersion: apps/v1
+          kind: Deployment
+          name: "{{ request.object.metadata.name }}"
+          namespace: "{{ request.object.metadata.namespace }}"          
+      patchStrategicMerge:
+        spec:
+          template:      
+            spec:
+              containers:
+                - (name): "*"
+                  resources:
+                    requests:
+                      +(memory): "120Mi"
+                      +(cpu): "50m"
+
+  - name: add-default-requests-java
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system 
+    preconditions:
+      any:
+      - key: "{{request.operation}}"
+        operator: In
+        value:
+        - CREATE
+        - UPDATE    
+    preconditions:
+      all:
+      - key: "{{ request.object.spec.template.spec.containers[?resources.requests.cpu] | length(@) }}"
+        operator: Equals
+        value: 0
+      - key: "{{ request.object.spec.template.spec.containers[?resources.requests.memory] | length(@) }}"      
+        operator: Equals
+        value: 0
+      - key: "{{request.object.spec.template.spec.containers[?livenessProbe] }}"
+        operator: Equals
+        value: []        
+      - key: "{{request.object.spec.template.spec.containers[?readinessProbe] }}"
+        operator: Equals
+        value: []            
+      - key: "{{request.object.spec.template.spec.containers[].ports[].containerPort}}"
+        operator: AnyIn
+        value: [8080]                         
+    mutate:
+      targets:
+        - apiVersion: apps/v1
+          kind: Deployment
+          name: "{{ request.object.metadata.name }}"
+          namespace: "{{ request.object.metadata.namespace }}"          
+      patchStrategicMerge:
+        spec:
+          template:      
+            spec:
+              containers:
+                - (name): "*"
+                  resources:
+                    requests:
+                      +(memory): "250Mi"
+                      +(cpu): "100m"

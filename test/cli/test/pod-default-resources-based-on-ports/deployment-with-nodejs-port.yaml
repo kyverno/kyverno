@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-with-nodejs-port
+  labels:
+    app: deployment-with-nodejs-port
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: deployment-with-nodejs-port
+  template:
+    metadata:
+      labels:
+        app: deployment-with-nodejs-port
+    spec:
+      containers:
+        - name: front-end
+          image: nginx
+          ports:
+            - containerPort: 3000
+        - name: rss-reader
+          image: nickchase/rss-php-nginx:v1
+          ports:
+            - containerPort: 3000

@@ -1,0 +1,28 @@
+name: pod-default-resources-based-on-ports
+policies:
+  - policy-pod-default-resources-based-on-ports.yaml
+resources:
+  - deployment-with-java-port.yaml
+  - deployment-with-nodejs-port.yaml
+  - deployment-with-golang-port.yaml
+variables: values.yaml
+results:
+  - policy: policy-pod-default-resources-based-on-ports
+    rule: add-default-requests-node
+    resources: 
+      - deployment-with-nodejs-port
+    patchedResource: deployment-with-nodejs-port-patch.yaml
+    kind: Deployment
+    result: pass
+  - policy: policy-pod-default-resources-based-on-ports
+    rule: add-default-requests-java
+    resource: deployment-with-java-port
+    patchedResource: deployment-with-java-port-patch.yaml
+    kind: Deployment
+    result: pass
+  - policy: policy-pod-default-resources-based-on-ports
+    rule: add-default-requests-java
+    resource: deployment-with-golang-port
+    patchedResource: deployment-with-golang-port-patch.yaml
+    kind: Deployment
+    result: pass    
