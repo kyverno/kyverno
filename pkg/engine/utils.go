@@ -480,6 +480,10 @@ func incrementErrorCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesErrorCount++
 }
 
+func incrementSkippedCount(resp *response.EngineResponse) {
+	resp.PolicyResponse.RulesSkippedCount++
+}
+
 // invertedElement inverted the order of element for patchStrategicMerge  policies as kustomize patch revering the order of patch resources.
 func invertedElement(elements []interface{}) {
 	for i, j := 0, len(elements)-1; i < j; i, j = i+1, j-1 {

@@ -72,6 +72,9 @@ type PolicyStats struct {
 	// Count of rules that with execution errors
 	RulesErrorCount int `json:"rulesErrorCount"`
 
+	// Count of rules that with execution errors
+	RulesSkippedCount int `json:"rulesSkippedCount"`
+
 	// Timestamp of the instant the Policy was triggered
 	PolicyExecutionTimestamp int64 `json:"policyExecutionTimestamp"`
 }

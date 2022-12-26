@@ -55,7 +55,7 @@ func Test_Test(t *testing.T) {
 			FileName:  "kyverno-test.yaml",
 			GitBranch: "",
 			TestCase:  "",
-			FailOnly:  true,
+			FailOnly:  false,
 			ExpectedResultCount: resultCounts{
 				Skip: 0,
 				Pass: 2,

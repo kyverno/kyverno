@@ -113,14 +113,16 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 				ruleResp, patchedResource = mutateResource(ruleCopy, policyContext, patchedResource, logger)
 			}
 
-			matchedResource = patchedResource
-
 			if ruleResp != nil {
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 				if ruleResp.Status == response.RuleStatusError {
 					incrementErrorCount(resp)
+				}
+				if ruleResp.Status == response.RuleStatusSkip {
+					incrementSkippedCount(resp)
 				} else {
 					incrementAppliedCount(resp)
+					matchedResource = patchedResource
 				}
 			}
 		}
