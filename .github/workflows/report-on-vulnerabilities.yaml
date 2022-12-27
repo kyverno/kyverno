@@ -60,7 +60,7 @@ jobs:
         id: set-scan-output
         run: echo "results=$(cat scan.json)" >> $GITHUB_OUTPUT
 
-      - uses: JasonEtco/create-an-issue@4d7c131a30a822fb445196f0de8ed11991f9f8a7 # v2.9.0
+      - uses: JasonEtco/create-an-issue@e27dddc79c92bc6e4562f268fffa5ed752639abd # v2.9.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RESULTS: ${{ steps.set-scan-output.outputs.results }}
