@@ -3723,9 +3723,12 @@ string
 <td>
 <p>Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 specified or can be a variable reference to a key specified in a ConfigMap (see
-<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>. When multiple keys are specified each
-key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
-attestors and the count is applied across the keys.</p>
+<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>, or reference a standard Kubernetes Secret
+elsewhere in the cluster by specifying it in the format &ldquo;k8s://<namespace>/<secret_name>&rdquo;.
+The named Secret must specify a key <code>cosign.pub</code> containing the public key used for
+verification, (see <a href="https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret">https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret</a>).
+When multiple keys are specified each key is processed as a separate staticKey entry
+(.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.</p>
 </td>
 </tr>
 <tr>
