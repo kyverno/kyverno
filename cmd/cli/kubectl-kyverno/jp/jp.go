@@ -11,7 +11,7 @@ func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "jp",
 		Short: `Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions.
-	      For more information visit: https://kyverno.io/docs/writing-policies/jmespath/`,
+	      For more information visit: https://kyverno.io/docs/writing-policies/jmespath/`.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
