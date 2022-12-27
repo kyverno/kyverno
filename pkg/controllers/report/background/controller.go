@@ -123,6 +123,9 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
+	if !utils.CanBackgroundProcess(logger, obj) {
+		return
+	}
 	selector, err := reportutils.SelectorPolicyDoesNotExist(obj)
 	if err != nil {
 		logger.Error(err, "failed to create label selector")
@@ -133,6 +136,9 @@ func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
+	if !utils.CanBackgroundProcess(logger, obj) {
+		return
+	}
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		selector, err := reportutils.SelectorPolicyNotEquals(obj)
 		if err != nil {
@@ -145,6 +151,9 @@ func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
+	if !utils.CanBackgroundProcess(logger, obj) {
+		return
+	}
 	selector, err := reportutils.SelectorPolicyExists(obj)
 	if err != nil {
 		logger.Error(err, "failed to create label selector")
@@ -204,26 +213,9 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 	return policies, nil
 }
 
-func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
+func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource, backgroundPolicies []kyvernov1.PolicyInterface) error {
 	namespace := meta.GetNamespace()
 	metaLabels := meta.GetLabels()
-	// load all policies
-	policies, err := c.fetchClusterPolicies(logger)
-	if err != nil {
-		return err
-	}
-	if namespace != "" {
-		pols, err := c.fetchPolicies(logger, namespace)
-		if err != nil {
-			return err
-		}
-		policies = append(policies, pols...)
-	}
-	// 	load background policies
-	backgroundPolicies := utils.RemoveNonBackgroundPolicies(logger, policies...)
-	if err != nil {
-		return err
-	}
 	force := false
 	metaAnnotations := meta.GetAnnotations()
 	if metaAnnotations == nil || metaAnnotations[annotationLastScanTime] == "" {
@@ -385,6 +377,28 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+	// load all policies
+	policies, err := c.fetchClusterPolicies(logger)
+	if err != nil {
+		return err
+	}
+	if namespace != "" {
+		pols, err := c.fetchPolicies(logger, namespace)
+		if err != nil {
+			return err
+		}
+		policies = append(policies, pols...)
+	}
+	// 	load background policies
+	backgroundPolicies := utils.RemoveNonBackgroundPolicies(logger, policies...)
+	if err != nil {
+		return err
+	}
+
+	if len(backgroundPolicies) == 0 {
+		return nil
+	}
+
 	// try to find resource from the cache
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
@@ -415,5 +429,5 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	return c.updateReport(ctx, report, gvk, resource)
+	return c.updateReport(ctx, report, gvk, resource, backgroundPolicies)
 }
