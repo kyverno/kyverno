@@ -168,7 +168,16 @@ spec:
           volumeMounts:
             - mountPath: {{ .Values.tufRootMountPath }}
               name: sigstore
+            - mountPath: /var/run/secrets/tokens
+              name: api-token
       volumes:
       - name: sigstore
         emptyDir: {}
+      - name: api-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: api-token
+              expirationSeconds: 600
+              audience: kyverno-extension
 {{- end -}}
