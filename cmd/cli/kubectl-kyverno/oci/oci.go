@@ -50,7 +50,7 @@ func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "oci",
 		Long:    `This command is one of the supported experimental commands, and its behaviour might be changed any time.`,
-		Short:   "pulls/pushes images that include policie(s) from/to OCI registries.",
+		Short:   "Pulls/pushes images that include policie(s) from/to OCI registries.",
 		Example: "",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
