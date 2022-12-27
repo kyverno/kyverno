@@ -155,7 +155,7 @@ func Command() *cobra.Command {
 	applyCommandConfig := &ApplyCommandConfig{}
 	cmd = &cobra.Command{
 		Use:     "apply",
-		Short:   "applies policies on resources",
+		Short:   "Applies policies on resources",
 		Example: applyHelp,
 		RunE: func(cmd *cobra.Command, policyPaths []string) (err error) {
 			defer func() {

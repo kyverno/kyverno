@@ -169,7 +169,7 @@ func Command() *cobra.Command {
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
-		Short:   "run tests from directory",
+		Short:   "Run tests from directory",
 		Long:    longHelp,
 		Example: exampleHelp,
 		RunE: func(cmd *cobra.Command, dirPath []string) (err error) {
