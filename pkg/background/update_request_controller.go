@@ -336,13 +336,19 @@ func (c *controller) updatePolicy(_, obj interface{}) {
 }
 
 func (c *controller) deletePolicy(obj interface{}) {
-	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
-	if !ok {
+	var p kyvernov1.PolicyInterface
+
+	switch kubeutils.GetObjectWithTombstone(obj).(type) {
+	case *kyvernov1.ClusterPolicy:
+		p = kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
+	case *kyvernov1.Policy:
+		p = kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
+	default:
 		logger.Info("Failed to get deleted object", "obj", obj)
 		return
 	}
 
-	logger.V(4).Info("deleting policy", "name", p.Name)
+	logger.V(4).Info("deleting policy", "name", p.GetName())
 	key, err := cache.MetaNamespaceKeyFunc(kubeutils.GetObjectWithTombstone(obj))
 	if err != nil {
 		logger.Error(err, "failed to compute policy key")
@@ -354,7 +360,7 @@ func (c *controller) deletePolicy(obj interface{}) {
 
 		// get the generated resource name from update request
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{
-			kyvernov1beta1.URGeneratePolicyLabel: p.Name,
+			kyvernov1beta1.URGeneratePolicyLabel: p.GetName(),
 		}))
 
 		urList, err := c.urLister.List(selector)
