@@ -60,9 +60,9 @@ kyverno oci push -p policies. -i <imgref>`,
 
 			for _, policy := range policies {
 				if policy.IsNamespaced() {
-					fmt.Println("Adding policy:", policy.GetName(), "...")
+					fmt.Fprintf(os.Stderr, "Adding policy [%s]\n", policy.GetName())
 				} else {
-					fmt.Println("Adding cluster policy", policy.GetName(), "...")
+					fmt.Fprintf(os.Stderr, "Adding cluster policy [%s]\n", policy.GetName())
 				}
 				policyBytes, err := policyutils.ToYaml(policy)
 				if err != nil {
