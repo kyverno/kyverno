@@ -605,8 +605,9 @@ func applyForEachGenerateRules(log logr.Logger, rclient registryclient.Client, c
 	policy := policyContext.Policy()
 	var newGenResources []kyvernov1.ResourceSpec
 	for _, fe := range rule.Generation.ForEachGeneration {
-		if err := engine.LoadContext(ctx, log, rclient, rule.Context, policyContext, rule.Name); err != nil {
-
+		if err := engine.LoadContext(context.TODO(), log, rclient, rule.Context, policyContext, rule.Name); err != nil {
+			log.Error(err, "failed to load context")
+			return newGenResources, err
 		}
 
 		if fe.List == "" {
