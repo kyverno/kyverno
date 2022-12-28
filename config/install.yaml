@@ -31699,7 +31699,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kyverno-cleanup-controller
+  name: kyverno:cleanup-controller
 subjects:
 - kind: ServiceAccount
   name: kyverno-cleanup-controller
