@@ -119,14 +119,14 @@ type AnyAllConditions struct {
 	// AnyConditions enable variable-based conditional rule execution. This is useful for
 	// finer control of when an rule is applied. A condition can reference object data
 	// using JMESPath notation.
-	// Here, at least one of the conditions need to pass
+	// Here, at least one of the conditions need to pass.
 	// +optional
 	AnyConditions []Condition `json:"any,omitempty" yaml:"any,omitempty"`
 
 	// AllConditions enable variable-based conditional rule execution. This is useful for
 	// finer control of when an rule is applied. A condition can reference object data
 	// using JMESPath notation.
-	// Here, all of the conditions need to pass
+	// Here, all of the conditions need to pass.
 	// +optional
 	AllConditions []Condition `json:"all,omitempty" yaml:"all,omitempty"`
 }
