@@ -3,11 +3,14 @@ package cleanuppolicy
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 )
@@ -48,6 +51,10 @@ func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface,
 	if err := validateAuth(ctx, client, policy); err != nil {
 		return err
 	}
+
+	if err := validateVairables(logger, policy); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -74,3 +81,16 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 	}
 	return nil
 }
+
+func validateVairables(logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface) error {
+	ctx := enginecontext.NewMockContext(allowedVariables)
+
+	c := policy.GetSpec().Conditions
+	conditionCopy := c.DeepCopy()
+	if _, err := variables.SubstituteAllInType(logger, ctx, conditionCopy); !variables.CheckNotFoundErr(err) {
+		return fmt.Errorf("variable substitution failed for policy %s: %s", policy.GetName(), err.Error())
+	}
+	return nil
+}
+
+var allowedVariables = regexp.MustCompile(`request\.|images\.|([a-z_0-9]+\()[^{}]`)
