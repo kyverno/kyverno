@@ -28,7 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/exp/slices"
@@ -595,7 +595,7 @@ func newGenResource(genAPIVersion, genKind, genNamespace, genName string) kyvern
 }
 
 func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data interface{}, synchronize bool, ur kyvernov1beta1.UpdateRequest, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
-	resource, err := kyvernoutils.ToMap(data)
+	resource, err := datautils.ToMap(data)
 	if err != nil {
 		return nil, Skip, err
 	}

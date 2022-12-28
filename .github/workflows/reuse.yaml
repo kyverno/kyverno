@@ -20,16 +20,16 @@ on:
       registry_password:
         required: true
     outputs:
-      init_sha256_digest:
+      init-container-digest:
         description: "sha256 digest of kyverno init docker image"
         value: ${{ jobs.build.outputs.init-container-digest }}
-      kyverno_sha256_digest:
+      kyverno-digest:
         description: "sha256 digest of kyverno docker image"
         value: ${{ jobs.build.outputs.kyverno-digest }}
-      cleanup_controller_sha256_digest:
+      cleanup-controller-digest:
         description: "sha256 digest of cleanup-controller docker image"
         value: ${{ jobs.build.outputs.cleanup-controller-digest }}
-      cli_sha256_digest:
+      cli-digest:
         description: "sha256 digest of kyverno docker image"
         value: ${{ jobs.build.outputs.cli-digest }}
 
@@ -71,7 +71,7 @@ jobs:
           cosign-release: 'v1.13.0'
 
       - name: Cache Go modules
-        uses: actions/cache@9b0c1fce7a93df8e3bb8926b0d6e9d89e92f20a7 # pin@v3
+        uses: actions/cache@c1a5de879eb890d062a85ee0252d6036480b1fe2 # pin@v3
         with:
           path: |
             ~/.cache/go-build
@@ -188,5 +188,5 @@ jobs:
           elif [[ "${{inputs.publish_command}}" = "ko-publish-cleanup-controller" ]]; then
             echo "cleanup-controller-digest=$DIGEST" >> $GITHUB_OUTPUT
           else
-            echo "name=cli-digest=$DIGEST" >> $GITHUB_OUTPUT
+            echo "cli-digest=$DIGEST" >> $GITHUB_OUTPUT
           fi

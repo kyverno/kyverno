@@ -10,7 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/utils"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -91,7 +91,7 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, ctx context.Interfa
 }
 
 func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyvernov1.ForEachMutation, error) {
-	jsonObj, err := utils.ToMap(fe)
+	jsonObj, err := datautils.ToMap(fe)
 	if err != nil {
 		return nil, err
 	}

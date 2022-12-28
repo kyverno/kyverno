@@ -2,7 +2,7 @@ package policycache
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 // Cache get method use for to get policy names and mostly use to test cache testcases
@@ -81,7 +81,7 @@ func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyver
 		return false
 	}
 	for _, action := range validationFailureActionOverrides {
-		if action.Action.Enforce() != enforce && kyvernoutils.ContainsNamepace(action.Namespaces, ns) {
+		if action.Action.Enforce() != enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
 			return false
 		}
 	}

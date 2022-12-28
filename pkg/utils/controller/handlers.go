@@ -25,7 +25,7 @@ type (
 )
 
 func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d deleteFunc) {
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    a,
 		UpdateFunc: u,
 		DeleteFunc: func(obj interface{}) {

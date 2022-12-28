@@ -625,7 +625,7 @@ func parseClientset(in reflect.Type) clientset {
 }
 
 func parseImports(in reflect.Type) []string {
-	imports := sets.NewString(in.PkgPath())
+	imports := sets.New(in.PkgPath())
 	for _, m := range getMethods(in) {
 		for _, i := range getIns(m) {
 			if i.Kind() == reflect.Pointer {
@@ -645,7 +645,7 @@ func parseImports(in reflect.Type) []string {
 			}
 		}
 	}
-	return imports.List()
+	return sets.List(imports)
 }
 
 func executeTemplate(tpl string, data interface{}, folder string, file string) {

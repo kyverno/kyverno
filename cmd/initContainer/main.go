@@ -18,7 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -53,7 +53,7 @@ func main() {
 	kyvernoClient := internal.CreateKyvernoClient(logger)
 	client := internal.CreateDClient(logger, ctx, dynamicClient, kubeClient, 15*time.Minute)
 	// Exit for unsupported version of kubernetes cluster
-	if !utils.HigherThanKubernetesVersion(kubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
+	if !kubeutils.HigherThanKubernetesVersion(kubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
 		os.Exit(1)
 	}
 	requests := []request{
