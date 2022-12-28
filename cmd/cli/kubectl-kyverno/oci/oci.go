@@ -56,7 +56,7 @@ func Command() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.PersistentFlags().StringVarP(&imageRef, "image", "i", "", "image reference to push to")
+	cmd.PersistentFlags().StringVarP(&imageRef, "image", "i", "", "image reference to push to or pull from")
 	cmd.AddCommand(ociPullCommand())
 	cmd.AddCommand(ociPushCommand())
 	return cmd
