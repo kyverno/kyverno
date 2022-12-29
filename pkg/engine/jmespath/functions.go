@@ -71,6 +71,7 @@ var (
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	timeSince              = "time_since"
+	timeCurrent            = "time_current"
 	pathCanonicalize       = "path_canonicalize"
 	truncate               = "truncate"
 	semverCompare          = "semver_compare"
@@ -356,6 +357,16 @@ func GetFunctions() []*FunctionEntry {
 					{Types: []JpType{JpString}},
 				},
 				Handler: jpTimeSince,
+			},
+			ReturnType: []JpType{JpString},
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeCurrent,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeCurrent,
 			},
 			ReturnType: []JpType{JpString},
 		},
@@ -806,6 +817,29 @@ func jpTimeSince(arguments []interface{}) (interface{}, error) {
 	}
 
 	return t2.Sub(t1).String(), nil
+}
+
+func jpTimeCurrent(arguments []interface{}) (interface{}, error) {
+	var err error
+	layout, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t time.Time
+
+	t = time.Now()
+	if layout.String() != "" {
+		t, err = time.Parse(layout.String(), t.String())
+	} else {
+		t, err = time.Parse(time.RFC3339, t.String())
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return t.String(), nil
 }
 
 func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
