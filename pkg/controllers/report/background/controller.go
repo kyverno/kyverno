@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -240,11 +241,15 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		force = true
 	} else {
 		annTime, err := time.Parse(time.RFC3339, metaAnnotations[annotationLastScanTime])
-		if err == nil {
+		if err != nil {
+			logging.Error(err, "failed to parse last scan time annotation", "namespace", resource.Namespace, "name", resource.Name, "hash", resource.Hash)
 			force = true
 		} else {
 			force = time.Now().After(annTime.Add(c.forceDelay))
 		}
+	}
+	if force {
+		logging.Info("force bg scan report", "namespace", resource.Namespace, "name", resource.Name, "hash", resource.Hash)
 	}
 	//	if the resource changed, we need to rebuild the report
 	if force || !reportutils.CompareHash(meta, resource.Hash) {
