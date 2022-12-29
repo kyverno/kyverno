@@ -7,7 +7,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,7 +42,7 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 		if len(exclude.Namespaces) == 0 {
 			return NotEvaluate
 		}
-		if utils.ContainsNamepace(exclude.Namespaces, namespace) {
+		if wildcard.CheckPatterns(exclude.Namespaces, namespace) {
 			return Skip
 		}
 		return Process

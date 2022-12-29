@@ -59,6 +59,7 @@ kyverno oci pull -i <imgref> -d policies`,
 				return fmt.Errorf("parsing image reference: %v", err)
 			}
 
+			fmt.Fprintf(os.Stderr, "Downloading policies from an image [%s]...\n", ref.Name())
 			rmt, err := remote.Get(ref, remote.WithContext(cmd.Context()), remote.WithAuthFromKeychain(keychain))
 			if err != nil {
 				return fmt.Errorf("getting image: %v", err)
@@ -100,12 +101,15 @@ kyverno oci pull -i <imgref> -d policies`,
 						if err != nil {
 							return fmt.Errorf("converting policy to yaml: %v", err)
 						}
-						if err := os.WriteFile(filepath.Join(dir, policy.GetName()+".yaml"), policyBytes, 0o600); err != nil {
+						pp := filepath.Join(dir, policy.GetName()+".yaml")
+						fmt.Fprintf(os.Stderr, "Saving policy into disk [%s]...\n", pp)
+						if err := os.WriteFile(pp, policyBytes, 0o600); err != nil {
 							return fmt.Errorf("creating file: %v", err)
 						}
 					}
 				}
 			}
+			fmt.Fprintf(os.Stderr, "Done.")
 			return nil
 		},
 	}

@@ -22,8 +22,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/utils/api"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -216,7 +216,7 @@ func newValidator(log logr.Logger, rclient registryclient.Client, ctx *PolicyCon
 
 func newForEachValidator(foreach kyvernov1.ForEachValidation, rclient registryclient.Client, nesting int, rule *kyvernov1.Rule, ctx *PolicyContext, log logr.Logger) (*validator, error) {
 	ruleCopy := rule.DeepCopy()
-	anyAllConditions, err := utils.ToMap(foreach.AnyAllConditions)
+	anyAllConditions, err := datautils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
 	}

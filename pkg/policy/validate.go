@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -1268,20 +1269,20 @@ func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidation
 }
 
 func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) error {
-	pat, ns, notOk := utils.CheckWildcardNamespaces(auditW, enforce)
+	pat, ns, notOk := wildcard.MatchPatterns(auditW, enforce...)
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
 	}
-	pat, ns, notOk = utils.CheckWildcardNamespaces(enforceW, audit)
+	pat, ns, notOk = wildcard.MatchPatterns(enforceW, audit...)
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
 	}
 
-	pat1, pat2, notOk := utils.CheckWildcardNamespaces(auditW, enforceW)
+	pat1, pat2, notOk := wildcard.MatchPatterns(auditW, enforceW...)
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
 	}
-	pat1, pat2, notOk = utils.CheckWildcardNamespaces(enforceW, auditW)
+	pat1, pat2, notOk = wildcard.MatchPatterns(enforceW, auditW...)
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
 	}
@@ -1298,7 +1299,7 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 	}
 
 	for i, vfa := range s.ValidationFailureActionOverrides {
-		patternList, nsList := utils.SeperateWildcards(vfa.Namespaces)
+		patternList, nsList := wildcard.SeperateWildcards(vfa.Namespaces)
 
 		if vfa.Action.Audit() {
 			if action["enforce"].HasAny(nsList...) {

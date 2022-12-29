@@ -17,7 +17,7 @@ jobs:
       - name: Unshallow
         run: git fetch --prune --unshallow
 
-      - uses: actions/setup-python@2c3dd9e7e29afd70cc0950079bde6c979d1f69f9 # v4.3.1
+      - uses: actions/setup-python@5ccb29d8773c3f3f653e1705f474dfaa8a06a912 # v4.4.0
         with:
           python-version: 3.7
 
@@ -44,7 +44,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
         with:
-          version: v3.8.0
+          version: v3.10.3
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
@@ -90,7 +90,7 @@ jobs:
             chart=${dir##*/}
             echo "Found chart: ${chart}"
             helm package charts-tmp/${chart} --destination .dist
-            helm push .dist/${chart}-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts > .digest
+            helm push .dist/${chart}-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts |& tee .digest
             cosign login --username ${GITHUB_ACTOR} --password ${{ secrets.CR_PAT_ARTIFACTS }} ghcr.io
             cosign sign ghcr.io/${{ github.repository_owner }}/charts/${chart}@$(cat .digest | awk -F "[, ]+" '/Digest/{print $NF}')
           done
