@@ -352,6 +352,26 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 	}
 }
 
+func (c *controller) listReports(ctx context.Context, namespace string) ([]metav1.Object, error) {
+	var reports []metav1.Object
+	if cbgscanReports, err := c.cbgscanrLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, cbgscanReport := range cbgscanReports {
+			reports = append(reports, cbgscanReport.(metav1.Object))
+		}
+	}
+
+	if bgscanReports, err := c.bgscanrLister.ByNamespace(namespace).List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, bgscanReport := range bgscanReports {
+			reports = append(reports, bgscanReport.(metav1.Object))
+		}
+	}
+	return reports, nil
+}
+
 func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		return c.kyvernoClient.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
@@ -395,7 +415,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		return err
 	}
 
-	if len(backgroundPolicies) == 0 {
+	bgscanReprots, err := c.listReports(ctx, namespace)
+	if err != nil {
+		return err
+	}
+
+	if len(backgroundPolicies) == 0 && len(bgscanReprots) == 0 {
 		return nil
 	}
 
