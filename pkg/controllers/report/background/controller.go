@@ -38,6 +38,7 @@ const (
 	ControllerName         = "background-scan-controller"
 	maxRetries             = 10
 	annotationLastScanTime = "audit.kyverno.io/last-scan-time"
+	enqueueDelay           = 30 * time.Second
 )
 
 type controller struct {
@@ -102,17 +103,10 @@ func NewController(
 		if eventType == resource.Deleted {
 			return
 		}
-		selector, err := reportutils.SelectorResourceUidEquals(uid)
-		if err != nil {
-			logger.Error(err, "failed to create label selector")
-		}
-		if err := c.enqueue(selector); err != nil {
-			logger.Error(err, "failed to enqueue")
-		}
 		if res.Namespace == "" {
-			c.queue.Add(string(uid))
+			c.queue.AddAfter(string(uid), enqueueDelay)
 		} else {
-			c.queue.Add(res.Namespace + "/" + string(uid))
+			c.queue.AddAfter(res.Namespace+"/"+string(uid), enqueueDelay)
 		}
 	})
 	return &c
@@ -384,7 +378,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) error {
 	// try to find resource from the cache
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
