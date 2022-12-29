@@ -71,12 +71,21 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	for kind := range kinds {
 		checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "delete", "")
-		allowed, err := checker.RunAccessCheck(ctx)
+		allowedDeletion, err := checker.RunAccessCheck(ctx)
 		if err != nil {
 			return err
 		}
-		if !allowed {
+		if !allowedDeletion {
 			return fmt.Errorf("cleanup controller has no permission to delete kind %s", kind)
+		}
+
+		checker = auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "list", "")
+		allowedList, err := checker.RunAccessCheck(ctx)
+		if err != nil {
+			return err
+		}
+		if !allowedList {
+			return fmt.Errorf("cleanup controller has no permission to list kind %s", kind)
 		}
 	}
 	return nil
