@@ -123,9 +123,6 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
-	if !utils.CanBackgroundProcess(logger, obj) {
-		return
-	}
 	selector, err := reportutils.SelectorPolicyDoesNotExist(obj)
 	if err != nil {
 		logger.Error(err, "failed to create label selector")
@@ -136,9 +133,6 @@ func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
-	if !utils.CanBackgroundProcess(logger, obj) {
-		return
-	}
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
 		selector, err := reportutils.SelectorPolicyNotEquals(obj)
 		if err != nil {
@@ -151,9 +145,6 @@ func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
-	if !utils.CanBackgroundProcess(logger, obj) {
-		return
-	}
 	selector, err := reportutils.SelectorPolicyExists(obj)
 	if err != nil {
 		logger.Error(err, "failed to create label selector")
