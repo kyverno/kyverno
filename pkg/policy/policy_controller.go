@@ -382,7 +382,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 			logger.Error(err, "failed to updateUR on Policy update")
 		}
 	}
-	pc.processExistingResources(policy)
+	// pc.processExistingResources(policy)
 	return nil
 }
 
