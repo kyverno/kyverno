@@ -1,77 +1,26 @@
 package policy
 
 import (
-	"context"
 	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) *unstructured.UnstructuredList {
-	gv, k := kubeutils.GetKindFromGVK(kind)
-	resourceList, err := pc.client.ListResource(context.TODO(), gv, k, namespace, labelSelector)
-	if err != nil {
-		log.Error(err, "failed to list resources", "kind", k, "namespace", namespace)
-		return nil
-	}
-	return resourceList
-}
-
-// GetResourcesPerNamespace returns
-// - Namespaced resources across all namespaces if namespace is set to empty "", for Namespaced Kind
-// - Namespaced resources in the given namespace
-// - Cluster-wide resources for Cluster-wide Kind
-func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyvernov1.Rule, log logr.Logger) map[string]unstructured.Unstructured {
-	resourceMap := map[string]unstructured.Unstructured{}
-
-	if kind == "Namespace" {
-		namespace = ""
-	}
-
-	list := pc.getResourceList(kind, namespace, rule.MatchResources.Selector, log)
-	if list != nil {
-		for _, r := range list.Items {
-			if pc.match(r, rule) {
-				resourceMap[string(r.GetUID())] = r
-			}
+// excludeAutoGenResources filter out the pods / jobs with ownerReference
+func excludeAutoGenResources(policy kyvernov1.PolicyInterface, resourceMap map[string]unstructured.Unstructured, log logr.Logger) {
+	for uid, r := range resourceMap {
+		if engine.ManagedPodResource(policy, r) {
+			log.V(4).Info("exclude resource", "namespace", r.GetNamespace(), "kind", r.GetKind(), "name", r.GetName())
+			delete(resourceMap, uid)
 		}
 	}
-
-	// skip resources to be filtered
-	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, pc.configHandler, log)
-	return resourceMap
-}
-
-func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.Rule) bool {
-	if r.GetDeletionTimestamp() != nil {
-		return false
-	}
-
-	if r.GetKind() == "Pod" {
-		if !isRunningPod(r) {
-			return false
-		}
-	}
-
-	// match name
-	if rule.MatchResources.Name != "" {
-		if !wildcard.Match(rule.MatchResources.Name, r.GetName()) {
-			return false
-		}
-	}
-	// Skip the filtered resources
-	if pc.configHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
-		return false
-	}
-
-	return true
 }
 
 // ExcludeResources ...

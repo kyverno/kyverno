@@ -1,66 +1,10 @@
 package policy
 
 import (
-	"context"
-	"time"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
-
-func (pc *PolicyController) report(engineResponses []*response.EngineResponse, logger logr.Logger) {
-	eventInfos := generateFailEvents(logger, engineResponses)
-	pc.eventGen.Add(eventInfos...)
-
-	if pc.configHandler.GetGenerateSuccessEvents() {
-		successEventInfos := generateSuccessEvents(logger, engineResponses)
-		pc.eventGen.Add(successEventInfos...)
-	}
-}
-
-// forceReconciliation forces a background scan by adding all policies to the workqueue
-func (pc *PolicyController) forceReconciliation(ctx context.Context) {
-	logger := pc.log.WithName("forceReconciliation")
-	ticker := time.NewTicker(pc.reconcilePeriod)
-
-	for {
-		select {
-		case <-ticker.C:
-			logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
-			pc.requeuePolicies()
-
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-func (pc *PolicyController) requeuePolicies() {
-	logger := pc.log.WithName("requeuePolicies")
-	if cpols, err := pc.pLister.List(labels.Everything()); err == nil {
-		for _, cpol := range cpols {
-			if !pc.canBackgroundProcess(cpol) {
-				continue
-			}
-			pc.enqueuePolicy(cpol)
-		}
-	} else {
-		logger.Error(err, "unable to list ClusterPolicies")
-	}
-	if pols, err := pc.npLister.Policies(metav1.NamespaceAll).List(labels.Everything()); err == nil {
-		for _, p := range pols {
-			if !pc.canBackgroundProcess(p) {
-				continue
-			}
-			pc.enqueuePolicy(p)
-		}
-	} else {
-		logger.Error(err, "unable to list Policies")
-	}
-}
 
 func generateSuccessEvents(log logr.Logger, ers []*response.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
