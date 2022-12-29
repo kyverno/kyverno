@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -349,7 +349,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -654,7 +654,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -1702,7 +1702,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -2048,7 +2048,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -2353,7 +2353,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -3401,7 +3401,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -4376,24 +4376,32 @@ spec:
                             generated resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
                         foreach:
-                          description: ForEach applies Generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+                          description: ForEach applies Generate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
                                 type: string
                               clone:
-                                description: Clone specifies the source resource used to populate each generated resource. At most one of Data or Clone can be specified. If neither are provided, the generated resource will be created with default data only.
+                                description: Clone specifies the source resource used
+                                  to populate each generated resource. At most one
+                                  of Data or Clone can be specified. If neither are
+                                  provided, the generated resource will be created
+                                  with default data only.
                                 properties:
                                   name:
                                     description: Name specifies name of the resource.
                                     type: string
                                   namespace:
-                                    description: Namespace specifies source resource namespace.
+                                    description: Namespace specifies source resource
+                                      namespace.
                                     type: string
                                 type: object
                               cloneList:
-                                description: CloneList specifies the list of source resource used to populate each generated resource.
+                                description: CloneList specifies the list of source
+                                  resource used to populate each generated resource.
                                 properties:
                                   kinds:
                                     description: Kinds is a list of resource kinds.
@@ -4401,24 +4409,42 @@ spec:
                                       type: string
                                     type: array
                                   namespace:
-                                    description: Namespace specifies source resource namespace.
+                                    description: Namespace specifies source resource
+                                      namespace.
                                     type: string
                                   selector:
-                                    description: Selector is a label selector. Label keys and values in `matchLabels`. wildcard characters are not supported.
+                                    description: Selector is a label selector. Label
+                                      keys and values in `matchLabels`. wildcard characters
+                                      are not supported.
                                     properties:
                                       matchExpressions:
-                                        description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
                                         items:
-                                          description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
                                           properties:
                                             key:
-                                              description: key is the label key that the selector applies to.
+                                              description: key is the label key that
+                                                the selector applies to.
                                               type: string
                                             operator:
-                                              description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
                                               type: string
                                             values:
-                                              description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
                                               items:
                                                 type: string
                                               type: array
@@ -4430,19 +4456,30 @@ spec:
                                       matchLabels:
                                         additionalProperties:
                                           type: string
-                                        description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
                                 type: object
                               data:
-                                description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
+                                description: Data provides the resource declaration
+                                  used to populate each generated resource. At most
+                                  one of Data or Clone must be specified. If neither
+                                  are provided, the generated resource will be created
+                                  with default data only.
                                 x-kubernetes-preserve-unknown-fields: true
                               kind:
                                 description: Kind specifies resource kind.
                                 type: string
                               list:
-                                description: List specifies a JMESPath expression that results in one or more elements to which the Generation logic is applied.
+                                description: List specifies a JMESPath expression
+                                  that results in one or more elements to which the
+                                  Generation logic is applied.
                                 type: string
                               name:
                                 description: Name specifies the resource name.
@@ -4451,7 +4488,13 @@ spec:
                                 description: Namespace specifies resource namespace.
                                 type: string
                               synchronize:
-                                description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
+                                description: Synchronize controls if generated resources
+                                  should be kept in-sync with their source resource.
+                                  If Synchronize is set to "true" changes to generated
+                                  resources will be overwritten with resource data
+                                  from Data or the resource specified in the Clone
+                                  declaration. Optional. Defaults to "false" if not
+                                  specified.
                                 type: boolean
                             type: object
                           type: array
@@ -7669,24 +7712,33 @@ spec:
                                 with default data only.
                               x-kubernetes-preserve-unknown-fields: true
                             foreach:
-                              description: ForEach applies Generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+                              description: ForEach applies Generate rules to a list
+                                of sub-elements by creating a context for each entry
+                                in the list and looping over it to apply the specified
+                                logic.
                               items:
                                 properties:
                                   apiVersion:
                                     description: APIVersion specifies resource apiVersion.
                                     type: string
                                   clone:
-                                    description: Clone specifies the source resource used to populate each generated resource. At most one of Data or Clone can be specified. If neither are provided, the generated resource will be created with default data only.
+                                    description: Clone specifies the source resource
+                                      used to populate each generated resource. At
+                                      most one of Data or Clone can be specified.
+                                      If neither are provided, the generated resource
+                                      will be created with default data only.
                                     properties:
                                       name:
                                         description: Name specifies name of the resource.
                                         type: string
                                       namespace:
-                                        description: Namespace specifies source resource namespace.
+                                        description: Namespace specifies source resource
+                                          namespace.
                                         type: string
                                     type: object
                                   cloneList:
-                                    description: CloneList specifies the list of source resource used to populate each generated resource.
+                                    description: CloneList specifies the list of source
+                                      resource used to populate each generated resource.
                                     properties:
                                       kinds:
                                         description: Kinds is a list of resource kinds.
@@ -7694,24 +7746,43 @@ spec:
                                           type: string
                                         type: array
                                       namespace:
-                                        description: Namespace specifies source resource namespace.
+                                        description: Namespace specifies source resource
+                                          namespace.
                                         type: string
                                       selector:
-                                        description: Selector is a label selector. Label keys and values in `matchLabels`. wildcard characters are not supported.
+                                        description: Selector is a label selector.
+                                          Label keys and values in `matchLabels`.
+                                          wildcard characters are not supported.
                                         properties:
                                           matchExpressions:
-                                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                            description: matchExpressions is a list
+                                              of label selector requirements. The
+                                              requirements are ANDed.
                                             items:
-                                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                              description: A label selector requirement
+                                                is a selector that contains values,
+                                                a key, and an operator that relates
+                                                the key and values.
                                               properties:
                                                 key:
-                                                  description: key is the label key that the selector applies to.
+                                                  description: key is the label key
+                                                    that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                  description: operator represents
+                                                    a key's relationship to a set
+                                                    of values. Valid operators are
+                                                    In, NotIn, Exists and DoesNotExist.
                                                   type: string
                                                 values:
-                                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                                  description: values is an array
+                                                    of string values. If the operator
+                                                    is In or NotIn, the values array
+                                                    must be non-empty. If the operator
+                                                    is Exists or DoesNotExist, the
+                                                    values array must be empty. This
+                                                    array is replaced during a strategic
+                                                    merge patch.
                                                   items:
                                                     type: string
                                                   type: array
@@ -7723,19 +7794,30 @@ spec:
                                           matchLabels:
                                             additionalProperties:
                                               type: string
-                                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                            description: matchLabels is a map of {key,value}
+                                              pairs. A single {key,value} in the matchLabels
+                                              map is equivalent to an element of matchExpressions,
+                                              whose key field is "key", the operator
+                                              is "In", and the values array contains
+                                              only "value". The requirements are ANDed.
                                             type: object
                                         type: object
                                         x-kubernetes-map-type: atomic
                                     type: object
                                   data:
-                                    description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
+                                    description: Data provides the resource declaration
+                                      used to populate each generated resource. At
+                                      most one of Data or Clone must be specified.
+                                      If neither are provided, the generated resource
+                                      will be created with default data only.
                                     x-kubernetes-preserve-unknown-fields: true
                                   kind:
                                     description: Kind specifies resource kind.
                                     type: string
                                   list:
-                                    description: List specifies a JMESPath expression that results in one or more elements to which the Generation logic is applied.
+                                    description: List specifies a JMESPath expression
+                                      that results in one or more elements to which
+                                      the Generation logic is applied.
                                     type: string
                                   name:
                                     description: Name specifies the resource name.
@@ -7744,7 +7826,13 @@ spec:
                                     description: Namespace specifies resource namespace.
                                     type: string
                                   synchronize:
-                                    description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
+                                    description: Synchronize controls if generated
+                                      resources should be kept in-sync with their
+                                      source resource. If Synchronize is set to "true"
+                                      changes to generated resources will be overwritten
+                                      with resource data from Data or the resource
+                                      specified in the Clone declaration. Optional.
+                                      Defaults to "false" if not specified.
                                     type: boolean
                                 type: object
                               type: array
@@ -10966,24 +11054,32 @@ spec:
                             generated resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
                         foreach:
-                          description: ForEach applies Generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+                          description: ForEach applies Generate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
                                 type: string
                               clone:
-                                description: Clone specifies the source resource used to populate each generated resource. At most one of Data or Clone can be specified. If neither are provided, the generated resource will be created with default data only.
+                                description: Clone specifies the source resource used
+                                  to populate each generated resource. At most one
+                                  of Data or Clone can be specified. If neither are
+                                  provided, the generated resource will be created
+                                  with default data only.
                                 properties:
                                   name:
                                     description: Name specifies name of the resource.
                                     type: string
                                   namespace:
-                                    description: Namespace specifies source resource namespace.
+                                    description: Namespace specifies source resource
+                                      namespace.
                                     type: string
                                 type: object
                               cloneList:
-                                description: CloneList specifies the list of source resource used to populate each generated resource.
+                                description: CloneList specifies the list of source
+                                  resource used to populate each generated resource.
                                 properties:
                                   kinds:
                                     description: Kinds is a list of resource kinds.
@@ -10991,24 +11087,42 @@ spec:
                                       type: string
                                     type: array
                                   namespace:
-                                    description: Namespace specifies source resource namespace.
+                                    description: Namespace specifies source resource
+                                      namespace.
                                     type: string
                                   selector:
-                                    description: Selector is a label selector. Label keys and values in `matchLabels`. wildcard characters are not supported.
+                                    description: Selector is a label selector. Label
+                                      keys and values in `matchLabels`. wildcard characters
+                                      are not supported.
                                     properties:
                                       matchExpressions:
-                                        description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
                                         items:
-                                          description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
                                           properties:
                                             key:
-                                              description: key is the label key that the selector applies to.
+                                              description: key is the label key that
+                                                the selector applies to.
                                               type: string
                                             operator:
-                                              description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
                                               type: string
                                             values:
-                                              description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
                                               items:
                                                 type: string
                                               type: array
@@ -11020,19 +11134,30 @@ spec:
                                       matchLabels:
                                         additionalProperties:
                                           type: string
-                                        description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
                                 type: object
                               data:
-                                description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
+                                description: Data provides the resource declaration
+                                  used to populate each generated resource. At most
+                                  one of Data or Clone must be specified. If neither
+                                  are provided, the generated resource will be created
+                                  with default data only.
                                 x-kubernetes-preserve-unknown-fields: true
                               kind:
                                 description: Kind specifies resource kind.
                                 type: string
                               list:
-                                description: List specifies a JMESPath expression that results in one or more elements to which the Generation logic is applied.
+                                description: List specifies a JMESPath expression
+                                  that results in one or more elements to which the
+                                  Generation logic is applied.
                                 type: string
                               name:
                                 description: Name specifies the resource name.
@@ -11041,7 +11166,13 @@ spec:
                                 description: Namespace specifies resource namespace.
                                 type: string
                               synchronize:
-                                description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
+                                description: Synchronize controls if generated resources
+                                  should be kept in-sync with their source resource.
+                                  If Synchronize is set to "true" changes to generated
+                                  resources will be overwritten with resource data
+                                  from Data or the resource specified in the Clone
+                                  declaration. Optional. Defaults to "false" if not
+                                  specified.
                                 type: boolean
                             type: object
                           type: array
@@ -14189,24 +14320,33 @@ spec:
                                 with default data only.
                               x-kubernetes-preserve-unknown-fields: true
                             foreach:
-                              description: ForEach applies Generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+                              description: ForEach applies Generate rules to a list
+                                of sub-elements by creating a context for each entry
+                                in the list and looping over it to apply the specified
+                                logic.
                               items:
                                 properties:
                                   apiVersion:
                                     description: APIVersion specifies resource apiVersion.
                                     type: string
                                   clone:
-                                    description: Clone specifies the source resource used to populate each generated resource. At most one of Data or Clone can be specified. If neither are provided, the generated resource will be created with default data only.
+                                    description: Clone specifies the source resource
+                                      used to populate each generated resource. At
+                                      most one of Data or Clone can be specified.
+                                      If neither are provided, the generated resource
+                                      will be created with default data only.
                                     properties:
                                       name:
                                         description: Name specifies name of the resource.
                                         type: string
                                       namespace:
-                                        description: Namespace specifies source resource namespace.
+                                        description: Namespace specifies source resource
+                                          namespace.
                                         type: string
                                     type: object
                                   cloneList:
-                                    description: CloneList specifies the list of source resource used to populate each generated resource.
+                                    description: CloneList specifies the list of source
+                                      resource used to populate each generated resource.
                                     properties:
                                       kinds:
                                         description: Kinds is a list of resource kinds.
@@ -14214,24 +14354,43 @@ spec:
                                           type: string
                                         type: array
                                       namespace:
-                                        description: Namespace specifies source resource namespace.
+                                        description: Namespace specifies source resource
+                                          namespace.
                                         type: string
                                       selector:
-                                        description: Selector is a label selector. Label keys and values in `matchLabels`. wildcard characters are not supported.
+                                        description: Selector is a label selector.
+                                          Label keys and values in `matchLabels`.
+                                          wildcard characters are not supported.
                                         properties:
                                           matchExpressions:
-                                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                            description: matchExpressions is a list
+                                              of label selector requirements. The
+                                              requirements are ANDed.
                                             items:
-                                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                              description: A label selector requirement
+                                                is a selector that contains values,
+                                                a key, and an operator that relates
+                                                the key and values.
                                               properties:
                                                 key:
-                                                  description: key is the label key that the selector applies to.
+                                                  description: key is the label key
+                                                    that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                  description: operator represents
+                                                    a key's relationship to a set
+                                                    of values. Valid operators are
+                                                    In, NotIn, Exists and DoesNotExist.
                                                   type: string
                                                 values:
-                                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                                  description: values is an array
+                                                    of string values. If the operator
+                                                    is In or NotIn, the values array
+                                                    must be non-empty. If the operator
+                                                    is Exists or DoesNotExist, the
+                                                    values array must be empty. This
+                                                    array is replaced during a strategic
+                                                    merge patch.
                                                   items:
                                                     type: string
                                                   type: array
@@ -14243,19 +14402,30 @@ spec:
                                           matchLabels:
                                             additionalProperties:
                                               type: string
-                                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                            description: matchLabels is a map of {key,value}
+                                              pairs. A single {key,value} in the matchLabels
+                                              map is equivalent to an element of matchExpressions,
+                                              whose key field is "key", the operator
+                                              is "In", and the values array contains
+                                              only "value". The requirements are ANDed.
                                             type: object
                                         type: object
                                         x-kubernetes-map-type: atomic
                                     type: object
                                   data:
-                                    description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
+                                    description: Data provides the resource declaration
+                                      used to populate each generated resource. At
+                                      most one of Data or Clone must be specified.
+                                      If neither are provided, the generated resource
+                                      will be created with default data only.
                                     x-kubernetes-preserve-unknown-fields: true
                                   kind:
                                     description: Kind specifies resource kind.
                                     type: string
                                   list:
-                                    description: List specifies a JMESPath expression that results in one or more elements to which the Generation logic is applied.
+                                    description: List specifies a JMESPath expression
+                                      that results in one or more elements to which
+                                      the Generation logic is applied.
                                     type: string
                                   name:
                                     description: Name specifies the resource name.
@@ -14264,7 +14434,13 @@ spec:
                                     description: Namespace specifies resource namespace.
                                     type: string
                                   synchronize:
-                                    description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
+                                    description: Synchronize controls if generated
+                                      resources should be kept in-sync with their
+                                      source resource. If Synchronize is set to "true"
+                                      changes to generated resources will be overwritten
+                                      with resource data from Data or the resource
+                                      specified in the Clone declaration. Optional.
+                                      Defaults to "false" if not specified.
                                     type: boolean
                                 type: object
                               type: array
@@ -16735,7 +16911,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -16923,7 +17099,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -17899,24 +18075,32 @@ spec:
                             generated resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
                         foreach:
-                          description: ForEach applies Generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+                          description: ForEach applies Generate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
                                 type: string
                               clone:
-                                description: Clone specifies the source resource used to populate each generated resource. At most one of Data or Clone can be specified. If neither are provided, the generated resource will be created with default data only.
+                                description: Clone specifies the source resource used
+                                  to populate each generated resource. At most one
+                                  of Data or Clone can be specified. If neither are
+                                  provided, the generated resource will be created
+                                  with default data only.
                                 properties:
                                   name:
                                     description: Name specifies name of the resource.
                                     type: string
                                   namespace:
-                                    description: Namespace specifies source resource namespace.
+                                    description: Namespace specifies source resource
+                                      namespace.
                                     type: string
                                 type: object
                               cloneList:
-                                description: CloneList specifies the list of source resource used to populate each generated resource.
+                                description: CloneList specifies the list of source
+                                  resource used to populate each generated resource.
                                 properties:
                                   kinds:
                                     description: Kinds is a list of resource kinds.
@@ -17924,24 +18108,42 @@ spec:
                                       type: string
                                     type: array
                                   namespace:
-                                    description: Namespace specifies source resource namespace.
+                                    description: Namespace specifies source resource
+                                      namespace.
                                     type: string
                                   selector:
-                                    description: Selector is a label selector. Label keys and values in `matchLabels`. wildcard characters are not supported.
+                                    description: Selector is a label selector. Label
+                                      keys and values in `matchLabels`. wildcard characters
+                                      are not supported.
                                     properties:
                                       matchExpressions:
-                                        description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
                                         items:
-                                          description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
                                           properties:
                                             key:
-                                              description: key is the label key that the selector applies to.
+                                              description: key is the label key that
+                                                the selector applies to.
                                               type: string
                                             operator:
-                                              description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
                                               type: string
                                             values:
-                                              description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
                                               items:
                                                 type: string
                                               type: array
@@ -17953,19 +18155,30 @@ spec:
                                       matchLabels:
                                         additionalProperties:
                                           type: string
-                                        description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
                                 type: object
                               data:
-                                description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
+                                description: Data provides the resource declaration
+                                  used to populate each generated resource. At most
+                                  one of Data or Clone must be specified. If neither
+                                  are provided, the generated resource will be created
+                                  with default data only.
                                 x-kubernetes-preserve-unknown-fields: true
                               kind:
                                 description: Kind specifies resource kind.
                                 type: string
                               list:
-                                description: List specifies a JMESPath expression that results in one or more elements to which the Generation logic is applied.
+                                description: List specifies a JMESPath expression
+                                  that results in one or more elements to which the
+                                  Generation logic is applied.
                                 type: string
                               name:
                                 description: Name specifies the resource name.
@@ -17974,7 +18187,13 @@ spec:
                                 description: Namespace specifies resource namespace.
                                 type: string
                               synchronize:
-                                description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
+                                description: Synchronize controls if generated resources
+                                  should be kept in-sync with their source resource.
+                                  If Synchronize is set to "true" changes to generated
+                                  resources will be overwritten with resource data
+                                  from Data or the resource specified in the Clone
+                                  declaration. Optional. Defaults to "false" if not
+                                  specified.
                                 type: boolean
                             type: object
                           type: array
@@ -21193,24 +21412,33 @@ spec:
                                 with default data only.
                               x-kubernetes-preserve-unknown-fields: true
                             foreach:
-                              description: ForEach applies Generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+                              description: ForEach applies Generate rules to a list
+                                of sub-elements by creating a context for each entry
+                                in the list and looping over it to apply the specified
+                                logic.
                               items:
                                 properties:
                                   apiVersion:
                                     description: APIVersion specifies resource apiVersion.
                                     type: string
                                   clone:
-                                    description: Clone specifies the source resource used to populate each generated resource. At most one of Data or Clone can be specified. If neither are provided, the generated resource will be created with default data only.
+                                    description: Clone specifies the source resource
+                                      used to populate each generated resource. At
+                                      most one of Data or Clone can be specified.
+                                      If neither are provided, the generated resource
+                                      will be created with default data only.
                                     properties:
                                       name:
                                         description: Name specifies name of the resource.
                                         type: string
                                       namespace:
-                                        description: Namespace specifies source resource namespace.
+                                        description: Namespace specifies source resource
+                                          namespace.
                                         type: string
                                     type: object
                                   cloneList:
-                                    description: CloneList specifies the list of source resource used to populate each generated resource.
+                                    description: CloneList specifies the list of source
+                                      resource used to populate each generated resource.
                                     properties:
                                       kinds:
                                         description: Kinds is a list of resource kinds.
@@ -21218,24 +21446,43 @@ spec:
                                           type: string
                                         type: array
                                       namespace:
-                                        description: Namespace specifies source resource namespace.
+                                        description: Namespace specifies source resource
+                                          namespace.
                                         type: string
                                       selector:
-                                        description: Selector is a label selector. Label keys and values in `matchLabels`. wildcard characters are not supported.
+                                        description: Selector is a label selector.
+                                          Label keys and values in `matchLabels`.
+                                          wildcard characters are not supported.
                                         properties:
                                           matchExpressions:
-                                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                            description: matchExpressions is a list
+                                              of label selector requirements. The
+                                              requirements are ANDed.
                                             items:
-                                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                              description: A label selector requirement
+                                                is a selector that contains values,
+                                                a key, and an operator that relates
+                                                the key and values.
                                               properties:
                                                 key:
-                                                  description: key is the label key that the selector applies to.
+                                                  description: key is the label key
+                                                    that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                  description: operator represents
+                                                    a key's relationship to a set
+                                                    of values. Valid operators are
+                                                    In, NotIn, Exists and DoesNotExist.
                                                   type: string
                                                 values:
-                                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                                  description: values is an array
+                                                    of string values. If the operator
+                                                    is In or NotIn, the values array
+                                                    must be non-empty. If the operator
+                                                    is Exists or DoesNotExist, the
+                                                    values array must be empty. This
+                                                    array is replaced during a strategic
+                                                    merge patch.
                                                   items:
                                                     type: string
                                                   type: array
@@ -21247,19 +21494,30 @@ spec:
                                           matchLabels:
                                             additionalProperties:
                                               type: string
-                                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                            description: matchLabels is a map of {key,value}
+                                              pairs. A single {key,value} in the matchLabels
+                                              map is equivalent to an element of matchExpressions,
+                                              whose key field is "key", the operator
+                                              is "In", and the values array contains
+                                              only "value". The requirements are ANDed.
                                             type: object
                                         type: object
                                         x-kubernetes-map-type: atomic
                                     type: object
                                   data:
-                                    description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
+                                    description: Data provides the resource declaration
+                                      used to populate each generated resource. At
+                                      most one of Data or Clone must be specified.
+                                      If neither are provided, the generated resource
+                                      will be created with default data only.
                                     x-kubernetes-preserve-unknown-fields: true
                                   kind:
                                     description: Kind specifies resource kind.
                                     type: string
                                   list:
-                                    description: List specifies a JMESPath expression that results in one or more elements to which the Generation logic is applied.
+                                    description: List specifies a JMESPath expression
+                                      that results in one or more elements to which
+                                      the Generation logic is applied.
                                     type: string
                                   name:
                                     description: Name specifies the resource name.
@@ -21268,7 +21526,13 @@ spec:
                                     description: Namespace specifies resource namespace.
                                     type: string
                                   synchronize:
-                                    description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
+                                    description: Synchronize controls if generated
+                                      resources should be kept in-sync with their
+                                      source resource. If Synchronize is set to "true"
+                                      changes to generated resources will be overwritten
+                                      with resource data from Data or the resource
+                                      specified in the Clone declaration. Optional.
+                                      Defaults to "false" if not specified.
                                     type: boolean
                                 type: object
                               type: array
@@ -24491,24 +24755,32 @@ spec:
                             generated resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
                         foreach:
-                          description: ForEach applies Generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+                          description: ForEach applies Generate rules to a list of
+                            sub-elements by creating a context for each entry in the
+                            list and looping over it to apply the specified logic.
                           items:
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
                                 type: string
                               clone:
-                                description: Clone specifies the source resource used to populate each generated resource. At most one of Data or Clone can be specified. If neither are provided, the generated resource will be created with default data only.
+                                description: Clone specifies the source resource used
+                                  to populate each generated resource. At most one
+                                  of Data or Clone can be specified. If neither are
+                                  provided, the generated resource will be created
+                                  with default data only.
                                 properties:
                                   name:
                                     description: Name specifies name of the resource.
                                     type: string
                                   namespace:
-                                    description: Namespace specifies source resource namespace.
+                                    description: Namespace specifies source resource
+                                      namespace.
                                     type: string
                                 type: object
                               cloneList:
-                                description: CloneList specifies the list of source resource used to populate each generated resource.
+                                description: CloneList specifies the list of source
+                                  resource used to populate each generated resource.
                                 properties:
                                   kinds:
                                     description: Kinds is a list of resource kinds.
@@ -24516,24 +24788,42 @@ spec:
                                       type: string
                                     type: array
                                   namespace:
-                                    description: Namespace specifies source resource namespace.
+                                    description: Namespace specifies source resource
+                                      namespace.
                                     type: string
                                   selector:
-                                    description: Selector is a label selector. Label keys and values in `matchLabels`. wildcard characters are not supported.
+                                    description: Selector is a label selector. Label
+                                      keys and values in `matchLabels`. wildcard characters
+                                      are not supported.
                                     properties:
                                       matchExpressions:
-                                        description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                        description: matchExpressions is a list of
+                                          label selector requirements. The requirements
+                                          are ANDed.
                                         items:
-                                          description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                          description: A label selector requirement
+                                            is a selector that contains values, a
+                                            key, and an operator that relates the
+                                            key and values.
                                           properties:
                                             key:
-                                              description: key is the label key that the selector applies to.
+                                              description: key is the label key that
+                                                the selector applies to.
                                               type: string
                                             operator:
-                                              description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                              description: operator represents a key's
+                                                relationship to a set of values. Valid
+                                                operators are In, NotIn, Exists and
+                                                DoesNotExist.
                                               type: string
                                             values:
-                                              description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                              description: values is an array of string
+                                                values. If the operator is In or NotIn,
+                                                the values array must be non-empty.
+                                                If the operator is Exists or DoesNotExist,
+                                                the values array must be empty. This
+                                                array is replaced during a strategic
+                                                merge patch.
                                               items:
                                                 type: string
                                               type: array
@@ -24545,19 +24835,30 @@ spec:
                                       matchLabels:
                                         additionalProperties:
                                           type: string
-                                        description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                        description: matchLabels is a map of {key,value}
+                                          pairs. A single {key,value} in the matchLabels
+                                          map is equivalent to an element of matchExpressions,
+                                          whose key field is "key", the operator is
+                                          "In", and the values array contains only
+                                          "value". The requirements are ANDed.
                                         type: object
                                     type: object
                                     x-kubernetes-map-type: atomic
                                 type: object
                               data:
-                                description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
+                                description: Data provides the resource declaration
+                                  used to populate each generated resource. At most
+                                  one of Data or Clone must be specified. If neither
+                                  are provided, the generated resource will be created
+                                  with default data only.
                                 x-kubernetes-preserve-unknown-fields: true
                               kind:
                                 description: Kind specifies resource kind.
                                 type: string
                               list:
-                                description: List specifies a JMESPath expression that results in one or more elements to which the Generation logic is applied.
+                                description: List specifies a JMESPath expression
+                                  that results in one or more elements to which the
+                                  Generation logic is applied.
                                 type: string
                               name:
                                 description: Name specifies the resource name.
@@ -24566,7 +24867,13 @@ spec:
                                 description: Namespace specifies resource namespace.
                                 type: string
                               synchronize:
-                                description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
+                                description: Synchronize controls if generated resources
+                                  should be kept in-sync with their source resource.
+                                  If Synchronize is set to "true" changes to generated
+                                  resources will be overwritten with resource data
+                                  from Data or the resource specified in the Clone
+                                  declaration. Optional. Defaults to "false" if not
+                                  specified.
                                 type: boolean
                             type: object
                           type: array
@@ -27714,24 +28021,33 @@ spec:
                                 with default data only.
                               x-kubernetes-preserve-unknown-fields: true
                             foreach:
-                              description: ForEach applies Generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+                              description: ForEach applies Generate rules to a list
+                                of sub-elements by creating a context for each entry
+                                in the list and looping over it to apply the specified
+                                logic.
                               items:
                                 properties:
                                   apiVersion:
                                     description: APIVersion specifies resource apiVersion.
                                     type: string
                                   clone:
-                                    description: Clone specifies the source resource used to populate each generated resource. At most one of Data or Clone can be specified. If neither are provided, the generated resource will be created with default data only.
+                                    description: Clone specifies the source resource
+                                      used to populate each generated resource. At
+                                      most one of Data or Clone can be specified.
+                                      If neither are provided, the generated resource
+                                      will be created with default data only.
                                     properties:
                                       name:
                                         description: Name specifies name of the resource.
                                         type: string
                                       namespace:
-                                        description: Namespace specifies source resource namespace.
+                                        description: Namespace specifies source resource
+                                          namespace.
                                         type: string
                                     type: object
                                   cloneList:
-                                    description: CloneList specifies the list of source resource used to populate each generated resource.
+                                    description: CloneList specifies the list of source
+                                      resource used to populate each generated resource.
                                     properties:
                                       kinds:
                                         description: Kinds is a list of resource kinds.
@@ -27739,24 +28055,43 @@ spec:
                                           type: string
                                         type: array
                                       namespace:
-                                        description: Namespace specifies source resource namespace.
+                                        description: Namespace specifies source resource
+                                          namespace.
                                         type: string
                                       selector:
-                                        description: Selector is a label selector. Label keys and values in `matchLabels`. wildcard characters are not supported.
+                                        description: Selector is a label selector.
+                                          Label keys and values in `matchLabels`.
+                                          wildcard characters are not supported.
                                         properties:
                                           matchExpressions:
-                                            description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                            description: matchExpressions is a list
+                                              of label selector requirements. The
+                                              requirements are ANDed.
                                             items:
-                                              description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                                              description: A label selector requirement
+                                                is a selector that contains values,
+                                                a key, and an operator that relates
+                                                the key and values.
                                               properties:
                                                 key:
-                                                  description: key is the label key that the selector applies to.
+                                                  description: key is the label key
+                                                    that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                  description: operator represents
+                                                    a key's relationship to a set
+                                                    of values. Valid operators are
+                                                    In, NotIn, Exists and DoesNotExist.
                                                   type: string
                                                 values:
-                                                  description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                                                  description: values is an array
+                                                    of string values. If the operator
+                                                    is In or NotIn, the values array
+                                                    must be non-empty. If the operator
+                                                    is Exists or DoesNotExist, the
+                                                    values array must be empty. This
+                                                    array is replaced during a strategic
+                                                    merge patch.
                                                   items:
                                                     type: string
                                                   type: array
@@ -27768,19 +28103,30 @@ spec:
                                           matchLabels:
                                             additionalProperties:
                                               type: string
-                                            description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                            description: matchLabels is a map of {key,value}
+                                              pairs. A single {key,value} in the matchLabels
+                                              map is equivalent to an element of matchExpressions,
+                                              whose key field is "key", the operator
+                                              is "In", and the values array contains
+                                              only "value". The requirements are ANDed.
                                             type: object
                                         type: object
                                         x-kubernetes-map-type: atomic
                                     type: object
                                   data:
-                                    description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
+                                    description: Data provides the resource declaration
+                                      used to populate each generated resource. At
+                                      most one of Data or Clone must be specified.
+                                      If neither are provided, the generated resource
+                                      will be created with default data only.
                                     x-kubernetes-preserve-unknown-fields: true
                                   kind:
                                     description: Kind specifies resource kind.
                                     type: string
                                   list:
-                                    description: List specifies a JMESPath expression that results in one or more elements to which the Generation logic is applied.
+                                    description: List specifies a JMESPath expression
+                                      that results in one or more elements to which
+                                      the Generation logic is applied.
                                     type: string
                                   name:
                                     description: Name specifies the resource name.
@@ -27789,7 +28135,13 @@ spec:
                                     description: Namespace specifies resource namespace.
                                     type: string
                                   synchronize:
-                                    description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
+                                    description: Synchronize controls if generated
+                                      resources should be kept in-sync with their
+                                      source resource. If Synchronize is set to "true"
+                                      changes to generated resources will be overwritten
+                                      with resource data from Data or the resource
+                                      specified in the Clone declaration. Optional.
+                                      Defaults to "false" if not specified.
                                     type: boolean
                                 type: object
                               type: array
@@ -30260,7 +30612,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -30747,7 +31099,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -31138,7 +31490,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -31505,7 +31857,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.10.0
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
