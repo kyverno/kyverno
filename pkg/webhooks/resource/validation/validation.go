@@ -85,7 +85,7 @@ func (v *validationHandler) HandleValidation(
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
+	if reflect.DeepEqual(policyContext.NewResource(), unstructured.Unstructured{}) {
 		resource := policyContext.NewResource()
 		deletionTimeStamp = resource.GetDeletionTimestamp()
 	} else {
