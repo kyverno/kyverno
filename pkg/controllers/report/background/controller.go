@@ -224,7 +224,8 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		force = true
 	} else {
 		annTime, err := time.Parse(time.RFC3339, metaAnnotations[annotationLastScanTime])
-		if err == nil {
+		if err != nil {
+			logger.Error(err, "failed to parse last scan time", "namespace", resource.Namespace, "name", resource.Name)
 			force = true
 		} else {
 			force = time.Now().After(annTime.Add(c.forceDelay))
