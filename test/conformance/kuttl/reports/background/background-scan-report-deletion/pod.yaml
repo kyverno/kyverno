@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: container01
-    image: dummyimagename
+    image: nginx
     securityContext:
       allowPrivilegeEscalation: false
       runAsNonRoot: true
