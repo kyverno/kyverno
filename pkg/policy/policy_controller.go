@@ -27,12 +27,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	policyExecutionDuration "github.com/kyverno/kyverno/pkg/metrics/policyexecutionduration"
-	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
@@ -92,9 +88,6 @@ type PolicyController struct {
 
 	informersSynced []cache.InformerSynced
 
-	// Resource manager, manages the mapping for already processed resource
-	rm ResourceManager
-
 	// helpers to validate against current loaded configuration
 	configHandler config.Configuration
 
@@ -149,9 +142,6 @@ func NewPolicyController(
 	pc.urLister = urInformer.Lister()
 
 	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
-	// resource manager
-	// rebuild after 300 seconds/ 5 mins
-	pc.rm = NewResourceManager(30)
 
 	return &pc, nil
 }
@@ -399,86 +389,6 @@ func (pc *PolicyController) getPolicy(key string) (kyvernov1.PolicyInterface, er
 	}
 }
 
-func (pc *PolicyController) processExistingResources(policy kyvernov1.PolicyInterface) {
-	logger := pc.log.WithValues("policy", policy.GetName())
-	logger.V(4).Info("applying policy to existing resources")
-
-	// Parse through all the resources drops the cache after configured rebuild time
-	pc.rm.Drop()
-
-	for _, rule := range autogen.ComputeRules(policy) {
-		if !rule.HasValidate() && !rule.HasVerifyImages() {
-			continue
-		}
-		matchKinds := rule.MatchResources.GetKinds()
-		pc.processExistingKinds(matchKinds, policy, rule, logger)
-	}
-}
-
-func (pc *PolicyController) applyAndReportPerNamespace(policy kyvernov1.PolicyInterface, kind string, ns string, rule kyvernov1.Rule, logger logr.Logger, metricAlreadyRegistered *bool) {
-	rMap := pc.getResourcesPerNamespace(kind, ns, rule, logger)
-	excludeAutoGenResources(policy, rMap, logger)
-	if len(rMap) == 0 {
-		return
-	}
-
-	var engineResponses []*response.EngineResponse
-	for _, resource := range rMap {
-		responses := pc.applyPolicy(policy, resource, logger)
-		engineResponses = append(engineResponses, responses...)
-	}
-
-	if !*metricAlreadyRegistered && len(engineResponses) > 0 {
-		for _, engineResponse := range engineResponses {
-			// registering the kyverno_policy_results_total metric concurrently
-			go pc.registerPolicyResultsMetricValidation(logger, policy, *engineResponse)
-			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go pc.registerPolicyExecutionDurationMetricValidate(logger, policy, *engineResponse)
-		}
-		*metricAlreadyRegistered = true
-	}
-
-	pc.report(engineResponses, logger)
-}
-
-func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
-	if err := policyResults.ProcessEngineResponse(context.TODO(), pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
-	}
-}
-
-func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
-	if err := policyExecutionDuration.ProcessEngineResponse(context.TODO(), pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
-	}
-}
-
-func (pc *PolicyController) applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []*response.EngineResponse) {
-	// pre-processing, check if the policy and resource version has been processed before
-	if !pc.rm.ProcessResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
-		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.GetResourceVersion(), "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
-	}
-
-	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), pc.nsLister, logger)
-	engineResponse := applyPolicy(policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.client, pc.rclient, pc.informerCacheResolvers, namespaceLabels)
-	engineResponses = append(engineResponses, engineResponse...)
-
-	// post-processing, register the resource as processed
-	pc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
-
-	return
-}
-
-func (pc *PolicyController) report(engineResponses []*response.EngineResponse, logger logr.Logger) {
-	eventInfos := generateFailEvents(logger, engineResponses)
-	pc.eventGen.Add(eventInfos...)
-
-	if pc.configHandler.GetGenerateSuccessEvents() {
-		successEventInfos := generateSuccessEvents(logger, engineResponses)
-		pc.eventGen.Add(successEventInfos...)
-	}
-}
-
 // forceReconciliation forces a background scan by adding all policies to the workqueue
 func (pc *PolicyController) forceReconciliation(ctx context.Context) {
 	logger := pc.log.WithName("forceReconciliation")
@@ -642,95 +552,6 @@ func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructu
 		pc.log.Error(err, "failed to list update request for generate policy")
 	}
 	return generateURs
-}
-
-func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) *unstructured.UnstructuredList {
-	gv, k := kubeutils.GetKindFromGVK(kind)
-	resourceList, err := pc.client.ListResource(context.TODO(), gv, k, namespace, labelSelector)
-	if err != nil {
-		log.Error(err, "failed to list resources", "kind", k, "namespace", namespace)
-		return nil
-	}
-	return resourceList
-}
-
-// GetResourcesPerNamespace returns
-// - Namespaced resources across all namespaces if namespace is set to empty "", for Namespaced Kind
-// - Namespaced resources in the given namespace
-// - Cluster-wide resources for Cluster-wide Kind
-func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyvernov1.Rule, log logr.Logger) map[string]unstructured.Unstructured {
-	resourceMap := map[string]unstructured.Unstructured{}
-
-	if kind == "Namespace" {
-		namespace = ""
-	}
-
-	list := pc.getResourceList(kind, namespace, rule.MatchResources.Selector, log)
-	if list != nil {
-		for _, r := range list.Items {
-			if pc.match(r, rule) {
-				resourceMap[string(r.GetUID())] = r
-			}
-		}
-	}
-
-	// skip resources to be filtered
-	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, pc.configHandler, log)
-	return resourceMap
-}
-
-func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.Rule) bool {
-	if r.GetDeletionTimestamp() != nil {
-		return false
-	}
-
-	if r.GetKind() == "Pod" {
-		if !isRunningPod(r) {
-			return false
-		}
-	}
-
-	// match name
-	if rule.MatchResources.Name != "" {
-		if !wildcard.Match(rule.MatchResources.Name, r.GetName()) {
-			return false
-		}
-	}
-	// Skip the filtered resources
-	if pc.configHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
-		return false
-	}
-
-	return true
-}
-
-func (pc *PolicyController) processExistingKinds(kinds []string, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, logger logr.Logger) {
-	for _, kind := range kinds {
-		logger = logger.WithValues("rule", rule.Name, "kind", kind)
-		_, err := pc.rm.GetScope(kind)
-		if err != nil {
-			gv, k := kubeutils.GetKindFromGVK(kind)
-			if !strings.Contains(k, "*") {
-				resourceSchema, _, _, err := pc.client.Discovery().FindResource(gv, k)
-				if err != nil {
-					logger.Error(err, "failed to find resource", "kind", k)
-					continue
-				}
-				pc.rm.RegisterScope(k, resourceSchema.Namespaced)
-			}
-		}
-
-		// this tracker would help to ensure that even for multiple namespaces, duplicate metric are not generated
-		metricRegisteredTracker := false
-
-		if policy.GetNamespace() != "" {
-			ns := policy.GetNamespace()
-			pc.applyAndReportPerNamespace(policy, kind, ns, rule, logger.WithValues("kind", kind).WithValues("ns", ns), &metricRegisteredTracker)
-			continue
-		}
-
-		pc.applyAndReportPerNamespace(policy, kind, "", rule, logger.WithValues("kind", kind), &metricRegisteredTracker)
-	}
 }
 
 func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
