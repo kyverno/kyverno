@@ -80,6 +80,7 @@ var (
 	objectFromLists        = "object_from_lists"
 	random                 = "random"
 	x509_decode            = "x509_decode"
+	timeAdd                = "time_add"
 )
 
 const (
@@ -460,6 +461,18 @@ func GetFunctions() []*FunctionEntry {
 			},
 			ReturnType: []JpType{JpObject},
 			Note:       "decodes an x.509 certificate to an object. you may also use this in conjunction with `base64_decode` jmespath function to decode a base64-encoded certificate",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeAdd,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeAdd,
+			},
+			ReturnType: []JpType{JpString},
 		},
 	}
 }
@@ -1041,4 +1054,44 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return res, nil
+}
+
+func jpTimeAdd(arguments []interface{}) (interface{}, error) {
+	var err error
+	layout, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	ts, err := validateArg("", arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	dr, err := validateArg("", arguments, 2, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t time.Time
+	if layout.String() != "" {
+		t, err = time.Parse(layout.String(), ts.String())
+	} else {
+		t, err = time.Parse(time.RFC3339, ts.String())
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var d time.Duration
+	d, err = time.ParseDuration(dr.String())
+	if err != nil {
+		return nil, err
+	}
+
+	if layout.String() != "" {
+		return t.Add(d).Format(layout.String()), nil
+	} else {
+		return t.Add(d).Format(time.RFC3339), nil
+	}
 }
