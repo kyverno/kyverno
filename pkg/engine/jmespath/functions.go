@@ -1089,9 +1089,5 @@ func jpTimeAdd(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	if layout.String() != "" {
-		return t.Add(d).Format(layout.String()), nil
-	} else {
-		return t.Add(d).Format(time.RFC3339), nil
-	}
+	return t.Add(d).Format(time.RFC3339), nil
 }

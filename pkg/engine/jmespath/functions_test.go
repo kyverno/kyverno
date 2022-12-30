@@ -1561,7 +1561,7 @@ func Test_TimeAdd(t *testing.T) {
 		},
 		{
 			test:           "time_add('Mon Jan 02 15:04:05 MST 2006', 'Sat Jan 02 15:04:05 MST 2021', '5h30m40s')",
-			expectedResult: "Sat Jan 02 20:34:45 MST 2021",
+			expectedResult: "2021-01-02T20:34:45Z",
 		},
 	}
 	for i, tc := range testCases {
