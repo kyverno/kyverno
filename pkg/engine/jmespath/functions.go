@@ -71,7 +71,7 @@ var (
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	timeSince              = "time_since"
-	timeCurrent            = "time_current"
+	timeNow                = "time_now"
 	pathCanonicalize       = "path_canonicalize"
 	truncate               = "truncate"
 	semverCompare          = "semver_compare"
@@ -362,11 +362,11 @@ func GetFunctions() []*FunctionEntry {
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
-				Name: timeCurrent,
+				Name: timeNow,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 				},
-				Handler: jpTimeCurrent,
+				Handler: jpTimeNow,
 			},
 			ReturnType: []JpType{JpString},
 		},
@@ -819,7 +819,7 @@ func jpTimeSince(arguments []interface{}) (interface{}, error) {
 	return t2.Sub(t1).String(), nil
 }
 
-func jpTimeCurrent(arguments []interface{}) (interface{}, error) {
+func jpTimeNow(arguments []interface{}) (interface{}, error) {
 	var err error
 	layout, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {
