@@ -369,6 +369,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpTimeNow,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "returns current time in RFC 3339 format",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
