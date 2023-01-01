@@ -38,7 +38,7 @@ const (
 	ControllerName         = "background-scan-controller"
 	maxRetries             = 10
 	annotationLastScanTime = "audit.kyverno.io/last-scan-time"
-	enqueueDelay           = 30 * time.Second
+	enqueueDelay           = 1 * time.Second
 )
 
 type controller struct {
