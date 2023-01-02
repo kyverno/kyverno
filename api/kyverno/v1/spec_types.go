@@ -29,7 +29,7 @@ func (a ValidationFailureAction) Audit() bool {
 }
 
 type ValidationFailureActionOverride struct {
-	// +kubebuilder:validation:Enum=audit;enforce
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
 	Action     ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
 	Namespaces []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 }
