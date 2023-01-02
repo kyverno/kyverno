@@ -13,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	utils2 "github.com/kyverno/kyverno/pkg/utils"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"gotest.tools/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -2136,7 +2136,7 @@ func executeTest(t *testing.T, test testCase) {
 		t.Fatal(err)
 	}
 
-	newR, oldR, err := utils2.ExtractResources(nil, request)
+	newR, oldR, err := admissionutils.ExtractResources(nil, request)
 	if err != nil {
 		t.Fatal(err)
 	}
