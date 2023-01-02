@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
@@ -15,13 +16,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func processImageValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+func processImageValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) *response.RuleResponse {
 	if isDeleteRequest(enginectx) {
 		return nil
 	}
 
 	log = log.WithValues("rule", rule.Name)
-	matchingImages, _, err := extractMatchingImages(enginectx, rule)
+	matchingImages, _, err := extractMatchingImages(enginectx, rule, cfg)
 	if err != nil {
 		return ruleResponse(*rule, response.Validation, err.Error(), response.RuleStatusError)
 	}

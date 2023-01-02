@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -46,7 +47,7 @@ func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule *ky
 	return imageInfos, strings.Join(imageRefs, ",")
 }
 
-func extractMatchingImages(policyContext *PolicyContext, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string, error) {
+func extractMatchingImages(policyContext *PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) ([]apiutils.ImageInfo, string, error) {
 	var (
 		images map[string]map[string]apiutils.ImageInfo
 		err    error
@@ -54,7 +55,7 @@ func extractMatchingImages(policyContext *PolicyContext, rule *kyvernov1.Rule) (
 	images = policyContext.jsonContext.ImageInfo()
 	if rule.ImageExtractors != nil {
 		images, err = policyContext.jsonContext.GenerateCustomImageInfo(
-			&policyContext.newResource, rule.ImageExtractors)
+			&policyContext.newResource, rule.ImageExtractors, cfg)
 		if err != nil {
 			// if we get an error while generating custom images from image extractors,
 			// don't check for matching images in imageExtractors
@@ -69,6 +70,7 @@ func VerifyAndPatchImages(
 	ctx context.Context,
 	rclient registryclient.Client,
 	policyContext *PolicyContext,
+	cfg config.Configuration,
 ) (*response.EngineResponse, *ImageVerificationMetadata) {
 	resp := &response.EngineResponse{}
 
@@ -117,7 +119,7 @@ func VerifyAndPatchImages(
 
 				logger.V(3).Info("processing image verification rule", "ruleSelector", applyRules)
 
-				ruleImages, imageRefs, err := extractMatchingImages(policyContext, rule)
+				ruleImages, imageRefs, err := extractMatchingImages(policyContext, rule, cfg)
 				if err != nil {
 					appendResponse(resp, rule, fmt.Sprintf("failed to extract images: %s", err.Error()), response.RuleStatusError)
 					return
@@ -154,7 +156,7 @@ func VerifyAndPatchImages(
 				}
 
 				for _, imageVerify := range ruleCopy.VerifyImages {
-					iv.verify(ctx, imageVerify, ruleImages)
+					iv.verify(ctx, imageVerify, ruleImages, cfg)
 				}
 			},
 		)
@@ -205,7 +207,7 @@ type imageVerifier struct {
 
 // verify applies policy rules to each matching image. The policy rule results and annotation patches are
 // added to tme imageVerifier `resp` and `ivm` fields.
-func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.ImageVerification, matchedImageInfos []apiutils.ImageInfo) {
+func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.ImageVerification, matchedImageInfos []apiutils.ImageInfo, cfg config.Configuration) {
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
 
@@ -234,7 +236,7 @@ func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.Image
 			continue
 		}
 
-		ruleResp, digest := iv.verifyImage(ctx, imageVerify, imageInfo)
+		ruleResp, digest := iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
 
 		if imageVerify.MutateDigest {
 			patch, retrievedDigest, err := iv.handleMutateDigest(ctx, digest, imageInfo)
@@ -317,6 +319,7 @@ func (iv *imageVerifier) verifyImage(
 	ctx context.Context,
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
+	cfg config.Configuration,
 ) (*response.RuleResponse, string) {
 	if len(imageVerify.Attestors) <= 0 && len(imageVerify.Attestations) <= 0 {
 		return nil, ""
@@ -326,7 +329,7 @@ func (iv *imageVerifier) verifyImage(
 	iv.logger.V(2).Info("verifying image signatures", "image", image,
 		"attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
-	if err := iv.policyContext.jsonContext.AddImageInfo(imageInfo); err != nil {
+	if err := iv.policyContext.jsonContext.AddImageInfo(imageInfo, cfg); err != nil {
 		iv.logger.Error(err, "failed to add image to context")
 		msg := fmt.Sprintf("failed to add image to context %s: %s", image, err.Error())
 		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError), ""
