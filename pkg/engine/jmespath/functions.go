@@ -71,6 +71,7 @@ var (
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
 	timeSince              = "time_since"
+	timeNow                = "time_now"
 	pathCanonicalize       = "path_canonicalize"
 	truncate               = "truncate"
 	semverCompare          = "semver_compare"
@@ -373,6 +374,17 @@ func GetFunctions() []*FunctionEntry {
 			},
 			ReturnType: []JpType{JpString},
 			Note:       "calculate the difference between a start and end period of time where the end may either be a static definition or the then-current time",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeNow,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeNow,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "returns current time in RFC 3339 format",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -823,6 +835,29 @@ func jpTimeSince(arguments []interface{}) (interface{}, error) {
 	}
 
 	return t2.Sub(t1).String(), nil
+}
+
+func jpTimeNow(arguments []interface{}) (interface{}, error) {
+	var err error
+	layout, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t time.Time
+
+	t = time.Now()
+	if layout.String() != "" {
+		t, err = time.Parse(layout.String(), t.String())
+	} else {
+		t, err = time.Parse(time.RFC3339, t.String())
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return t.String(), nil
 }
 
 func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
