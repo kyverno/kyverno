@@ -28,6 +28,8 @@ annotations:
   artifacthub.io/changes: |
     - kind: changed
       description: Changed helm hook trigger for webhooksCleanup to run post deletion
+    - kind: changed
+      description: Syntax change for webhooksCleanup switch to match with the rest of the file
     - kind: added
       description: Added possibility to define additional init and sidecar container.
     - kind: added
