@@ -6579,12 +6579,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -12670,12 +12670,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -19246,12 +19246,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -25339,12 +25339,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
