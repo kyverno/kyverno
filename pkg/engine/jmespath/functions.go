@@ -130,6 +130,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpfCompare,
 			},
 			ReturnType: []JpType{JpNumber},
+			Note:       "compares two strings lexicographically",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -141,6 +142,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpfEqualFold,
 			},
 			ReturnType: []JpType{JpBool},
+			Note:       "allows comparing two strings for equivalency where the only differences are letter cases",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -154,6 +156,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpfReplace,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "replaces a specified number of instances of the source string with the replacement string in a parent ",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -166,6 +169,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpfReplaceAll,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "replace all instances of one string with another in an overall parent string",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -176,6 +180,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpfToUpper,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "takes in a string and outputs the same string with all upper-case letters",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -186,6 +191,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpfToLower,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "takes in a string and outputs the same string with all lower-case letters",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -197,6 +203,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpfTrim,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "trims both ends of the source string by characters appearing in the second string",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -208,6 +215,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpfSplit,
 			},
 			ReturnType: []JpType{JpArrayString},
+			Note:       "splits the first string when the second string is found and converts it into an array ",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -245,6 +253,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpRegexMatch,
 			},
 			ReturnType: []JpType{JpBool},
+			Note:       "first string is the regular exression which is compared with second input which can be a number or string",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -281,6 +290,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpAdd,
 			},
 			ReturnType: []JpType{JpAny},
+			Note:       "does arithmetic addition of two specified values of numbers, quantities, and durations",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -292,6 +302,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpSubtract,
 			},
 			ReturnType: []JpType{JpAny},
+			Note:       "does arithmetic subtraction of two specified values of numbers, quantities, and durations",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -303,6 +314,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpMultiply,
 			},
 			ReturnType: []JpType{JpAny},
+			Note:       "does arithmetic multiplication of two specified values of numbers, quantities, and durations",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -337,6 +349,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpBase64Decode,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "decodes a base 64 string",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -347,6 +360,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpBase64Encode,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "encodes a regular, plaintext and unencoded string to base64",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -359,6 +373,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpTimeSince,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "calculate the difference between a start and end period of time where the end may either be a static definition or the then-current time",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -380,6 +395,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpPathCanonicalize,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "normalizes or canonicalizes a given path by removing excess slashes",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -403,6 +419,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpSemverCompare,
 			},
 			ReturnType: []JpType{JpBool},
+			Note:       "compares two strings which comply with the semantic versioning schema and outputs a boolean response as to the position of the second relative to the first",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
