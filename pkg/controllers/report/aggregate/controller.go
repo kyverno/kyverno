@@ -36,7 +36,7 @@ const (
 	ControllerName = "aggregate-report-controller"
 	maxRetries     = 10
 	mergeLimit     = 1000
-	enqueueDelay   = 15 * time.Second
+	enqueueDelay   = 30 * time.Second
 )
 
 type controller struct {
