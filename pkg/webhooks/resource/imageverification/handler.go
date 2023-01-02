@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -35,6 +36,7 @@ type imageVerificationHandler struct {
 	log              logr.Logger
 	eventGen         event.Interface
 	admissionReports bool
+	cfg              config.Configuration
 }
 
 func NewImageVerificationHandler(
@@ -43,6 +45,7 @@ func NewImageVerificationHandler(
 	rclient registryclient.Client,
 	eventGen event.Interface,
 	admissionReports bool,
+	cfg config.Configuration,
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
@@ -50,6 +53,7 @@ func NewImageVerificationHandler(
 		log:              log,
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
+		cfg:              cfg,
 	}
 }
 
@@ -87,7 +91,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy)
-				resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext)
+				resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext, h.cfg)
 
 				engineResponses = append(engineResponses, resp)
 				patches = append(patches, resp.GetPatches()...)
