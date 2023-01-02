@@ -53,4 +53,5 @@ changelog:
       - '^docs:'
       - typo
       - '^test:'
-
+source:
+  enabled: true

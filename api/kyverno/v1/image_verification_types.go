@@ -127,9 +127,12 @@ type Attestor struct {
 type StaticKeyAttestor struct {
 	// Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 	// specified or can be a variable reference to a key specified in a ConfigMap (see
-	// https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each
-	// key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
-	// attestors and the count is applied across the keys.
+	// https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+	// elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
+	// The named Secret must specify a key `cosign.pub` containing the public key used for
+	// verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+	// When multiple keys are specified each key is processed as a separate staticKey entry
+	// (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
 	// Specify signature algorithm for public keys. Supported values are sha256 and sha512
