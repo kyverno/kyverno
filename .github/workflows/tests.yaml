@@ -26,7 +26,7 @@ jobs:
 
       # see https://michaelheap.com/ensure-github-actions-pinned-sha/
       - name: Ensure SHA pinned actions
-        uses: zgosalvez/github-actions-ensure-sha-pinned-actions@af2eb3226618e2494e3d9084f515ad6dcf16e229 # pin@v2.0.1
+        uses: zgosalvez/github-actions-ensure-sha-pinned-actions@fe7afd3f619254d126dcb69aabacc269f8ef8fd7 # pin@v2.0.3
         with:
           # slsa-github-generator requires using a semver tag for reusable workflows. 
           # See: https://github.com/slsa-framework/slsa-github-generator#referencing-slsa-builders-and-generators
