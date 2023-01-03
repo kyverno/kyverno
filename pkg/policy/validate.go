@@ -22,7 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	"github.com/kyverno/kyverno/pkg/utils"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
@@ -898,7 +898,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 	}
 
 	// conditions are currently in the form of []interface{}
-	kyvernoConditions, err := utils.ApiextensionsJsonToKyvernoConditions(conditions)
+	kyvernoConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(conditions)
 	if err != nil {
 		return schemaKey, err
 	}
@@ -1224,7 +1224,7 @@ func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule)
 			}
 
 			if rule.Validation.Deny != nil {
-				kyvernoConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.Validation.Deny.GetAnyAllConditions())
+				kyvernoConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.Validation.Deny.GetAnyAllConditions())
 				switch typedConditions := kyvernoConditions.(type) {
 				case []kyvernov1.Condition: // backwards compatibility
 					for _, condition := range typedConditions {
