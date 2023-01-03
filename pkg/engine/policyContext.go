@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
-	"github.com/kyverno/kyverno/pkg/utils"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -251,7 +251,7 @@ func NewPolicyContextFromAdmissionRequest(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create policy rule context")
 	}
-	newResource, oldResource, err := utils.ExtractResources(nil, request)
+	newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse resource")
 	}
