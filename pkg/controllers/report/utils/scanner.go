@@ -22,7 +22,6 @@ type scanner struct {
 	client                 dclient.Interface
 	rclient                registryclient.Client
 	informerCacheResolvers resolvers.ConfigmapResolver
-	cfg                    config.Configuration
 	excludeGroupRole       []string
 	config                 config.Configuration
 	eventGen               event.Interface
@@ -141,7 +140,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
 	}
-	if err := enginectx.AddImageInfos(&resource, s.cfg); err != nil {
+	if err := enginectx.AddImageInfos(&resource, s.config); err != nil {
 		return nil, err
 	}
 	if err := enginectx.AddOperation("CREATE"); err != nil {
@@ -154,7 +153,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
 		WithInformerCacheResolver(s.informerCacheResolvers)
-	return engine.Validate(ctx, s.rclient, policyCtx, s.cfg), nil
+	return engine.Validate(ctx, s.rclient, policyCtx, s.config), nil
 }
 
 func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
@@ -165,7 +164,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
 	}
-	if err := enginectx.AddImageInfos(&resource, s.cfg); err != nil {
+	if err := enginectx.AddImageInfos(&resource, s.config); err != nil {
 		return nil, err
 	}
 	if err := enginectx.AddOperation("CREATE"); err != nil {
@@ -178,7 +177,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
 		WithInformerCacheResolver(s.informerCacheResolvers)
-	response, _ := engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx, s.cfg)
+	response, _ := engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx, s.config)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}
