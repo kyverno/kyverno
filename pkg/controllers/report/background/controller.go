@@ -16,7 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -260,7 +260,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			}
 			nsLabels = ns.GetLabels()
 		}
-		var responses []*response.EngineResponse
+		var responses []*api.EngineResponse
 		for _, result := range scanner.ScanResource(ctx, *resource, nsLabels, backgroundPolicies...) {
 			if result.Error != nil {
 				logger.Error(result.Error, "failed to apply policy")

@@ -8,7 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -52,17 +52,17 @@ func CalculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summar
 	return
 }
 
-func toPolicyResult(status response.RuleStatus) policyreportv1alpha2.PolicyResult {
+func toPolicyResult(status api.RuleStatus) policyreportv1alpha2.PolicyResult {
 	switch status {
-	case response.RuleStatusPass:
+	case api.RuleStatusPass:
 		return policyreportv1alpha2.StatusPass
-	case response.RuleStatusFail:
+	case api.RuleStatusFail:
 		return policyreportv1alpha2.StatusFail
-	case response.RuleStatusError:
+	case api.RuleStatusError:
 		return policyreportv1alpha2.StatusError
-	case response.RuleStatusWarn:
+	case api.RuleStatusWarn:
 		return policyreportv1alpha2.StatusWarn
-	case response.RuleStatusSkip:
+	case api.RuleStatusSkip:
 		return policyreportv1alpha2.StatusSkip
 	}
 	return ""
@@ -80,7 +80,7 @@ func severityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	return ""
 }
 
-func EngineResponseToReportResults(response *response.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+func EngineResponseToReportResults(response *api.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
 	key, _ := cache.MetaNamespaceKeyFunc(response.Policy)
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, ruleResult := range response.PolicyResponse.Rules {
@@ -151,7 +151,7 @@ func SetResults(report kyvernov1alpha2.ReportInterface, results ...policyreportv
 	report.SetSummary(CalculateSummary(results))
 }
 
-func SetResponses(report kyvernov1alpha2.ReportInterface, engineResponses ...*response.EngineResponse) {
+func SetResponses(report kyvernov1alpha2.ReportInterface, engineResponses ...*api.EngineResponse) {
 	var ruleResults []policyreportv1alpha2.PolicyReportResult
 	for _, result := range engineResponses {
 		SetPolicyLabel(report, result.Policy)

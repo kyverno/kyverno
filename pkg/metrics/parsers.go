@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 )
 
 func ParsePolicyValidationMode(validationFailureAction kyvernov1.ValidationFailureAction) (PolicyValidationMode, error) {
@@ -53,7 +53,7 @@ func ParseResourceRequestOperation(requestOperationStr string) (ResourceRequestO
 	}
 }
 
-func ParseRuleTypeFromEngineRuleResponse(rule response.RuleResponse) RuleType {
+func ParseRuleTypeFromEngineRuleResponse(rule api.RuleResponse) RuleType {
 	switch rule.Type {
 	case "Validation":
 		return Validate

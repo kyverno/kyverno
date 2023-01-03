@@ -3,12 +3,12 @@ package utils
 import (
 	"strings"
 
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 )
 
 // GenerateEvents generates event info for the engine responses
-func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool) []event.Info {
+func GenerateEvents(engineResponses []*api.EngineResponse, blocked bool) []event.Info {
 	var events []event.Info
 
 	//   - Some/All policies fail or error
@@ -26,7 +26,7 @@ func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool) []
 
 		if !er.IsSuccessful() {
 			for i, ruleResp := range er.PolicyResponse.Rules {
-				if ruleResp.Status == response.RuleStatusFail || ruleResp.Status == response.RuleStatusError {
+				if ruleResp.Status == api.RuleStatusFail || ruleResp.Status == api.RuleStatusError {
 					e := event.NewPolicyFailEvent(event.AdmissionController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], blocked)
 					events = append(events, e)
 				}
@@ -39,7 +39,7 @@ func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool) []
 		} else if er.IsSkipped() { // Handle PolicyException Event
 			for i, ruleResp := range er.PolicyResponse.Rules {
 				isException := strings.Contains(ruleResp.Message, "rule skipped due to policy exception")
-				if ruleResp.Status == response.RuleStatusSkip && !blocked && isException {
+				if ruleResp.Status == api.RuleStatusSkip && !blocked && isException {
 					e := event.NewPolicyExceptionEvent(er, &er.PolicyResponse.Rules[i])
 					events = append(events, e)
 				}

@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/api"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -27,7 +26,7 @@ type scanner struct {
 }
 
 type ScanResult struct {
-	EngineResponse *response.EngineResponse
+	EngineResponse *api.EngineResponse
 	Error          error
 }
 
@@ -73,7 +72,7 @@ func (s *scanner) ScanResource(ctx context.Context, resource unstructured.Unstru
 	return results
 }
 
-func (s *scanner) validateResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
+func (s *scanner) validateResource(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*api.EngineResponse, error) {
 	enginectx := enginecontext.NewContext()
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err
@@ -97,7 +96,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 	return engine.Validate(ctx, s.rclient, policyCtx, s.cfg), nil
 }
 
-func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
+func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*api.EngineResponse, error) {
 	enginectx := enginecontext.NewContext()
 	if err := enginectx.AddResource(resource.Object); err != nil {
 		return nil, err

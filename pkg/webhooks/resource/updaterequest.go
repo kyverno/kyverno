@@ -10,7 +10,6 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/api"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
@@ -35,19 +34,19 @@ func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger,
 		return
 	}
 
-	var engineResponses []*response.EngineResponse
+	var engineResponses []*api.EngineResponse
 	for _, policy := range policies {
 		if !policy.GetSpec().IsMutateExisting() {
 			continue
 		}
 		logger.V(4).Info("update request for mutateExisting policy")
 
-		var rules []response.RuleResponse
+		var rules []api.RuleResponse
 		policyContext := policyContext.WithPolicy(policy)
 		engineResponse := engine.ApplyBackgroundChecks(h.rclient, policyContext)
 
 		for _, rule := range engineResponse.PolicyResponse.Rules {
-			if rule.Status == response.RuleStatusPass {
+			if rule.Status == api.RuleStatusPass {
 				rules = append(rules, rule)
 			}
 		}

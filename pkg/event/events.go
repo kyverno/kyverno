@@ -5,11 +5,11 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func NewPolicyFailEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse, blocked bool) Info {
+func NewPolicyFailEvent(source Source, reason Reason, engineResponse *api.EngineResponse, ruleResp *api.RuleResponse, blocked bool) Info {
 	msg := buildPolicyEventMessage(ruleResp, engineResponse.GetResourceSpec(), blocked)
 
 	return Info{
@@ -22,7 +22,7 @@ func NewPolicyFailEvent(source Source, reason Reason, engineResponse *response.E
 	}
 }
 
-func buildPolicyEventMessage(resp *response.RuleResponse, resource response.ResourceSpec, blocked bool) string {
+func buildPolicyEventMessage(resp *api.RuleResponse, resource api.ResourceSpec, blocked bool) string {
 	var b strings.Builder
 	if resource.Namespace != "" {
 		fmt.Fprintf(&b, "%s %s/%s", resource.Kind, resource.Namespace, resource.Name)
@@ -35,7 +35,7 @@ func buildPolicyEventMessage(resp *response.RuleResponse, resource response.Reso
 		fmt.Fprintf(&b, " (blocked)")
 	}
 
-	if resp.Status == response.RuleStatusError && resp.Message != "" {
+	if resp.Status == api.RuleStatusError && resp.Message != "" {
 		fmt.Fprintf(&b, "; %s", resp.Message)
 	}
 
@@ -50,7 +50,7 @@ func getPolicyKind(policy kyvernov1.PolicyInterface) string {
 	return "ClusterPolicy"
 }
 
-func NewPolicyAppliedEvent(source Source, engineResponse *response.EngineResponse) Info {
+func NewPolicyAppliedEvent(source Source, engineResponse *api.EngineResponse) Info {
 	resource := engineResponse.PolicyResponse.Resource
 	var bldr strings.Builder
 	defer bldr.Reset()
@@ -71,7 +71,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse *response.EngineRespons
 	}
 }
 
-func NewResourceViolationEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse) Info {
+func NewResourceViolationEvent(source Source, reason Reason, engineResponse *api.EngineResponse, ruleResp *api.RuleResponse) Info {
 	var bldr strings.Builder
 	defer bldr.Reset()
 
@@ -126,7 +126,7 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 	return events
 }
 
-func NewPolicyExceptionEvent(engineResponse *response.EngineResponse, ruleResp *response.RuleResponse) Info {
+func NewPolicyExceptionEvent(engineResponse *api.EngineResponse, ruleResp *api.RuleResponse) Info {
 	var messageBuilder strings.Builder
 	defer messageBuilder.Reset()
 

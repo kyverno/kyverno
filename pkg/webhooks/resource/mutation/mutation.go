@@ -10,7 +10,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/api"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -84,7 +83,7 @@ func (v *mutationHandler) applyMutations(
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *api.PolicyContext,
-) ([]byte, []*response.EngineResponse, error) {
+) ([]byte, []*api.EngineResponse, error) {
 	if len(policies) == 0 {
 		return nil, nil, nil
 	}
@@ -94,7 +93,7 @@ func (v *mutationHandler) applyMutations(
 	}
 
 	var patches [][]byte
-	var engineResponses []*response.EngineResponse
+	var engineResponses []*api.EngineResponse
 
 	for _, policy := range policies {
 		spec := policy.GetSpec()
@@ -154,7 +153,7 @@ func (v *mutationHandler) applyMutations(
 	return jsonutils.JoinPatches(patches...), engineResponses, nil
 }
 
-func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv1.AdmissionRequest, policyContext *api.PolicyContext) (*response.EngineResponse, [][]byte, error) {
+func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv1.AdmissionRequest, policyContext *api.PolicyContext) (*api.EngineResponse, [][]byte, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 		policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
@@ -176,7 +175,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 	return engineResponse, policyPatches, nil
 }
 
-func logMutationResponse(patches [][]byte, engineResponses []*response.EngineResponse, logger logr.Logger) {
+func logMutationResponse(patches [][]byte, engineResponses []*api.EngineResponse, logger logr.Logger) {
 	if len(patches) != 0 {
 		logger.V(4).Info("created patches", "count", len(patches))
 	}

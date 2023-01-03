@@ -3,7 +3,7 @@ package report
 import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,7 +32,7 @@ func NewAdmissionReport(namespace, name, owner string, uid types.UID, gvk metav1
 	return report
 }
 
-func BuildAdmissionReport(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...*response.EngineResponse) kyvernov1alpha2.ReportInterface {
+func BuildAdmissionReport(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...*api.EngineResponse) kyvernov1alpha2.ReportInterface {
 	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), resource.GetName(), resource.GetUID(), gvk)
 	SetResourceVersionLabels(report, &resource)
 	SetResponses(report, responses...)

@@ -4,14 +4,14 @@ import (
 	"testing"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGetWarningMessages(t *testing.T) {
 	type args struct {
-		engineResponses []*response.EngineResponse
+		engineResponses []*api.EngineResponse
 	}
 	tests := []struct {
 		name string
@@ -23,22 +23,22 @@ func TestGetWarningMessages(t *testing.T) {
 		want: nil,
 	}, {
 		name: "enmpty response",
-		args: args{[]*response.EngineResponse{}},
+		args: args{[]*api.EngineResponse{}},
 		want: nil,
 	}, {
 		name: "warning",
-		args: args{[]*response.EngineResponse{
+		args: args{[]*api.EngineResponse{
 			{
 				Policy: &v1.ClusterPolicy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
 					},
 				},
-				PolicyResponse: response.PolicyResponse{
-					Rules: []response.RuleResponse{
+				PolicyResponse: api.PolicyResponse{
+					Rules: []api.RuleResponse{
 						{
 							Name:    "rule",
-							Status:  response.RuleStatusWarn,
+							Status:  api.RuleStatusWarn,
 							Message: "message warn",
 						},
 					},
@@ -50,38 +50,38 @@ func TestGetWarningMessages(t *testing.T) {
 		},
 	}, {
 		name: "multiple rules",
-		args: args{[]*response.EngineResponse{
+		args: args{[]*api.EngineResponse{
 			{
 				Policy: &v1.ClusterPolicy{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test",
 					},
 				},
-				PolicyResponse: response.PolicyResponse{
-					Rules: []response.RuleResponse{
+				PolicyResponse: api.PolicyResponse{
+					Rules: []api.RuleResponse{
 						{
 							Name:    "rule-pass",
-							Status:  response.RuleStatusPass,
+							Status:  api.RuleStatusPass,
 							Message: "message pass",
 						},
 						{
 							Name:    "rule-warn",
-							Status:  response.RuleStatusWarn,
+							Status:  api.RuleStatusWarn,
 							Message: "message warn",
 						},
 						{
 							Name:    "rule-fail",
-							Status:  response.RuleStatusFail,
+							Status:  api.RuleStatusFail,
 							Message: "message fail",
 						},
 						{
 							Name:    "rule-error",
-							Status:  response.RuleStatusError,
+							Status:  api.RuleStatusError,
 							Message: "message error",
 						},
 						{
 							Name:    "rule-skip",
-							Status:  response.RuleStatusSkip,
+							Status:  api.RuleStatusSkip,
 							Message: "message skip",
 						},
 					},

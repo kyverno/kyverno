@@ -9,7 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
@@ -122,7 +122,7 @@ func applyUpdateRequest(
 	grGenerator updaterequest.Generator,
 	userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation,
-	engineResponses ...*response.EngineResponse,
+	engineResponses ...*api.EngineResponse,
 ) (failedUpdateRequest []updateRequestResponse) {
 	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
 		AdmissionRequest: request,
@@ -139,7 +139,7 @@ func applyUpdateRequest(
 	return
 }
 
-func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *response.EngineResponse, ruleType kyvernov1beta1.RequestType) kyvernov1beta1.UpdateRequestSpec {
+func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *api.EngineResponse, ruleType kyvernov1beta1.RequestType) kyvernov1beta1.UpdateRequestSpec {
 	var PolicyNameNamespaceKey string
 	if er.PolicyResponse.Policy.Namespace != "" {
 		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Namespace + "/" + er.PolicyResponse.Policy.Name

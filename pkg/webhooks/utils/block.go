@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"gopkg.in/yaml.v2"
 )
@@ -23,7 +23,7 @@ func getAction(hasViolations bool, i int) string {
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func BlockRequest(engineResponses []*response.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
+func BlockRequest(engineResponses []*api.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
 	for _, er := range engineResponses {
 		if engineutils.BlockRequest(er, failurePolicy) {
 			log.V(2).Info("blocking admission request", "policy", er.PolicyResponse.Policy.Name)
@@ -35,7 +35,7 @@ func BlockRequest(engineResponses []*response.EngineResponse, failurePolicy kyve
 }
 
 // GetBlockedMessages gets the error messages for rules with error or fail status
-func GetBlockedMessages(engineResponses []*response.EngineResponse) string {
+func GetBlockedMessages(engineResponses []*api.EngineResponse) string {
 	if len(engineResponses) == 0 {
 		return ""
 	}
@@ -44,9 +44,9 @@ func GetBlockedMessages(engineResponses []*response.EngineResponse) string {
 	for _, er := range engineResponses {
 		ruleToReason := make(map[string]string)
 		for _, rule := range er.PolicyResponse.Rules {
-			if rule.Status != response.RuleStatusPass {
+			if rule.Status != api.RuleStatusPass {
 				ruleToReason[rule.Name] = rule.Message
-				if rule.Status == response.RuleStatusFail {
+				if rule.Status == api.RuleStatusFail {
 					hasViolations = true
 				}
 			}

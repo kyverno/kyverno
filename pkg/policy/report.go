@@ -2,11 +2,11 @@ package policy
 
 import (
 	"github.com/go-logr/logr"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 )
 
-func generateSuccessEvents(log logr.Logger, ers []*response.EngineResponse) (eventInfos []event.Info) {
+func generateSuccessEvents(log logr.Logger, ers []*api.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		logger := log.WithValues("policy", er.PolicyResponse.Policy, "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)
 		if !er.IsFailed() {
@@ -19,21 +19,21 @@ func generateSuccessEvents(log logr.Logger, ers []*response.EngineResponse) (eve
 	return eventInfos
 }
 
-func generateFailEvents(log logr.Logger, ers []*response.EngineResponse) (eventInfos []event.Info) {
+func generateFailEvents(log logr.Logger, ers []*api.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		eventInfos = append(eventInfos, generateFailEventsPerEr(log, er)...)
 	}
 	return eventInfos
 }
 
-func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []event.Info {
+func generateFailEventsPerEr(log logr.Logger, er *api.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	logger := log.WithValues("policy", er.PolicyResponse.Policy.Name,
 		"kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace,
 		"name", er.PolicyResponse.Resource.Name)
 
 	for i, rule := range er.PolicyResponse.Rules {
-		if rule.Status != response.RuleStatusPass && rule.Status != response.RuleStatusSkip {
+		if rule.Status != api.RuleStatusPass && rule.Status != api.RuleStatusSkip {
 			eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
 			eventInfos = append(eventInfos, eventResource)
 

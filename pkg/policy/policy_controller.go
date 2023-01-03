@@ -23,7 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -422,7 +422,7 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy kyvernov1.PolicyIn
 		return
 	}
 
-	var engineResponses []*response.EngineResponse
+	var engineResponses []*api.EngineResponse
 	for _, resource := range rMap {
 		responses := pc.applyPolicy(policy, resource, logger)
 		engineResponses = append(engineResponses, responses...)
@@ -441,19 +441,19 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy kyvernov1.PolicyIn
 	pc.report(engineResponses, logger)
 }
 
-func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
+func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse api.EngineResponse) {
 	if err := policyResults.ProcessEngineResponse(context.TODO(), pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
-func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
+func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse api.EngineResponse) {
 	if err := policyExecutionDuration.ProcessEngineResponse(context.TODO(), pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }
 
-func (pc *PolicyController) applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []*response.EngineResponse) {
+func (pc *PolicyController) applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []*api.EngineResponse) {
 	// pre-processing, check if the policy and resource version has been processed before
 	if !pc.rm.ProcessResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
 		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.GetResourceVersion(), "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
@@ -469,7 +469,7 @@ func (pc *PolicyController) applyPolicy(policy kyvernov1.PolicyInterface, resour
 	return
 }
 
-func (pc *PolicyController) report(engineResponses []*response.EngineResponse, logger logr.Logger) {
+func (pc *PolicyController) report(engineResponses []*api.EngineResponse, logger logr.Logger) {
 	eventInfos := generateFailEvents(logger, engineResponses)
 	pc.eventGen.Add(eventInfos...)
 
@@ -614,7 +614,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 	}
 
 	for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
-		if ruleResponse.Status != response.RuleStatusPass {
+		if ruleResponse.Status != api.RuleStatusPass {
 			pc.log.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
 			continue
 		}
