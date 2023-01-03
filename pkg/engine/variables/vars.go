@@ -13,7 +13,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
+	"github.com/kyverno/kyverno/pkg/engine/internal/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
@@ -238,19 +238,19 @@ func SubstituteAllForceMutate(log logr.Logger, ctx context.Interface, typedRule 
 }
 
 func substituteVars(log logr.Logger, ctx context.EvalInterface, rule interface{}, vr VariableResolver) (interface{}, error) {
-	return jsonUtils.NewTraversal(rule, substituteVariablesIfAny(log, ctx, vr)).TraverseJSON()
+	return jsonutils.NewTraversal(rule, substituteVariablesIfAny(log, ctx, vr)).TraverseJSON()
 }
 
 func substituteReferences(log logr.Logger, rule interface{}) (interface{}, error) {
-	return jsonUtils.NewTraversal(rule, substituteReferencesIfAny(log)).TraverseJSON()
+	return jsonutils.NewTraversal(rule, substituteReferencesIfAny(log)).TraverseJSON()
 }
 
 func ValidateElementInForEach(log logr.Logger, rule interface{}) (interface{}, error) {
-	return jsonUtils.NewTraversal(rule, validateElementInForEach(log)).TraverseJSON()
+	return jsonutils.NewTraversal(rule, validateElementInForEach(log)).TraverseJSON()
 }
 
-func validateElementInForEach(log logr.Logger) jsonUtils.Action {
-	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
+func validateElementInForEach(log logr.Logger) jsonutils.Action {
+	return jsonutils.OnlyForLeafsAndKeys(func(data *jsonutils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
 			return data.Element, nil
@@ -283,8 +283,8 @@ func (n NotResolvedReferenceError) Error() string {
 	return fmt.Sprintf("NotResolvedReferenceErr,reference %s not resolved at path %s", n.reference, n.path)
 }
 
-func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
-	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
+func substituteReferencesIfAny(log logr.Logger) jsonutils.Action {
+	return jsonutils.OnlyForLeafsAndKeys(func(data *jsonutils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
 			return data.Element, nil
@@ -349,8 +349,8 @@ func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interf
 	return ctx.Query(variable)
 }
 
-func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr VariableResolver) jsonUtils.Action {
-	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
+func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr VariableResolver) jsonutils.Action {
+	return jsonutils.OnlyForLeafsAndKeys(func(data *jsonutils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
 			return data.Element, nil
@@ -560,8 +560,8 @@ func formAbsolutePath(referencePath, absolutePath string) string {
 func getValueFromReference(fullDocument interface{}, path string) (interface{}, error) {
 	var element interface{}
 
-	if _, err := jsonUtils.NewTraversal(fullDocument, jsonUtils.OnlyForLeafsAndKeys(
-		func(data *jsonUtils.ActionData) (interface{}, error) {
+	if _, err := jsonutils.NewTraversal(fullDocument, jsonutils.OnlyForLeafsAndKeys(
+		func(data *jsonutils.ActionData) (interface{}, error) {
 			if anchor.RemoveAnchorsFromPath(data.Path) == path {
 				element = data.Element
 			}

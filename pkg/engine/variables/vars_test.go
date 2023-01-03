@@ -9,7 +9,7 @@ import (
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	ju "github.com/kyverno/kyverno/pkg/engine/jsonutils"
+	"github.com/kyverno/kyverno/pkg/engine/internal/jsonutils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"
 )
@@ -465,7 +465,7 @@ func Test_SubstituteSuccess(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
 	action := substituteVariablesIfAny(logging.GlobalLogger(), ctx, DefaultVariableResolver)
-	results, err := action(&ju.ActionData{
+	results, err := action(&jsonutils.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
 		Path:     "/",
@@ -489,7 +489,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
 	action := substituteVariablesIfAny(logging.GlobalLogger(), ctx, DefaultVariableResolver)
-	results, err := action(&ju.ActionData{
+	results, err := action(&jsonutils.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
 		Path:     "/",
@@ -503,7 +503,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
 	action = substituteVariablesIfAny(logging.GlobalLogger(), ctx, DefaultVariableResolver)
-	results, err = action(&ju.ActionData{
+	results, err = action(&jsonutils.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
 		Path:     "/",
@@ -523,7 +523,7 @@ func Test_SubstituteRecursive(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
 	action := substituteVariablesIfAny(logging.GlobalLogger(), ctx, DefaultVariableResolver)
-	results, err := action(&ju.ActionData{
+	results, err := action(&jsonutils.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
 		Path:     "/",
