@@ -175,7 +175,7 @@ func (c *client) CreateResource(ctx context.Context, apiVersion string, kind str
 		options = metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	}
 	// convert typed to unstructured obj
-	if unstructuredObj, err := kubeutils.ConvertToUnstructured(obj); err == nil && unstructuredObj != nil {
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).Create(ctx, unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to create resource ")
@@ -188,7 +188,7 @@ func (c *client) UpdateResource(ctx context.Context, apiVersion string, kind str
 		options = metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 	}
 	// convert typed to unstructured obj
-	if unstructuredObj, err := kubeutils.ConvertToUnstructured(obj); err == nil && unstructuredObj != nil {
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).Update(ctx, unstructuredObj, options, subresources...)
 	}
 	return nil, fmt.Errorf("unable to update resource ")
@@ -201,7 +201,7 @@ func (c *client) UpdateStatusResource(ctx context.Context, apiVersion string, ki
 		options = metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 	}
 	// convert typed to unstructured obj
-	if unstructuredObj, err := kubeutils.ConvertToUnstructured(obj); err == nil && unstructuredObj != nil {
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(ctx, unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to update resource ")
