@@ -17,11 +17,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -136,7 +136,7 @@ func (h *generationHandler) HandleUpdatesForGenerateRules(ctx context.Context, r
 		return
 	}
 
-	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
+	resource, err := kubeutils.BytesToUnstructured(request.OldObject.Raw)
 	if err != nil {
 		h.log.Error(err, "failed to convert object resource to unstructured format")
 	}
@@ -184,7 +184,7 @@ func (h *generationHandler) handleUpdateGenerateSourceResource(ctx context.Conte
 // handleUpdateGenerateTargetResource - handles update of target resource for generate policy
 func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Context, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, resLabels map[string]string) {
 	enqueueBool := false
-	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
+	newRes, err := kubeutils.BytesToUnstructured(request.Object.Raw)
 	if err != nil {
 		h.log.Error(err, "failed to convert object resource to unstructured format")
 	}
