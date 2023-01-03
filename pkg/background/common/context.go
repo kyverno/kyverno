@@ -75,7 +75,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 		return nil, false, errors.Wrapf(err, "failed to load UserInfo in context")
 	}
 
-	if err := ctx.AddImageInfos(trigger); err != nil {
+	if err := ctx.AddImageInfos(trigger, cfg); err != nil {
 		logger.Error(err, "unable to add image info to variables context")
 	}
 

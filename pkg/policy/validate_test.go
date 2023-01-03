@@ -1732,7 +1732,7 @@ func Test_ValidateJSON6902(t *testing.T) {
   op: addition
   value: "nginx"`
 	err := validateJSONPatch(patch, 0)
-	assert.Error(t, err, "Unexpected kind: spec.rules[0]: addition")
+	assert.Error(t, err, "unexpected kind: spec.rules[0]: addition")
 
 	patch = `- path: "/metadata/labels/img"
   op: add
