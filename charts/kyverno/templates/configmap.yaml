@@ -11,6 +11,12 @@ metadata:
   name: {{ template "kyverno.configMapName" . }}
   namespace: {{ template "kyverno.namespace" . }}
 data:
+  {{- if .Values.config.defaultRegistry }}
+  defaultRegistry: {{ .Values.config.defaultRegistry | quote }}
+  {{- end }}
+  {{- if .Values.config.enableDefaultRegistryMutation }}
+  enableDefaultRegistryMutation: {{ .Values.config.enableDefaultRegistryMutation | quote }}
+  {{- end }}
   # resource types to be skipped by kyverno policy engine
   {{- if .Values.config.resourceFilters }}
   resourceFilters: {{ include "kyverno.resourceFilters" . | quote }}

@@ -7,18 +7,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	kubefake "k8s.io/client-go/kubernetes/fake"
-
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 )
 
 var testPolicyGood = `{
@@ -63,7 +64,7 @@ var testPolicyGood = `{
                         "key": "{{ repo.uri }}",
                         "operator": "Equals",
                         "value": "https://github.com/example/my-project"
-                      }, 
+                      },
                       {
                         "key": "{{ repo.branch }}",
                         "operator": "Equals",
@@ -112,7 +113,7 @@ var testPolicyBad = `{
                         "key": "{{ repo.uri }}",
                         "operator": "Equals",
                         "value": "https://github.com/example/my-project"
-                      }, 
+                      },
                       {
                         "key": "{{ repo.branch }}",
                         "operator": "Equals",
@@ -157,12 +158,14 @@ var signaturePayloads = [][]byte{
 	[]byte(`{"critical":{"identity":{"docker-reference":"ghcr.io/kyverno/test-verify-image"},"image":{"docker-manifest-digest":"sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"},"type":"cosign container image signature"},"optional":null}`),
 }
 
+var cfg = config.NewDefaultConfiguration()
+
 func Test_CosignMockAttest(t *testing.T) {
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
 	err := cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
 	assert.NilError(t, err)
 
-	er, ivm := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er, ivm := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
@@ -176,7 +179,7 @@ func Test_CosignMockAttest_fail(t *testing.T) {
 	err := cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", attestationPayloads)
 	assert.NilError(t, err)
 
-	er, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 }
@@ -186,7 +189,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(resource))
+	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resource))
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -200,7 +203,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	}
 
 	if oldResource != "" {
-		oldResourceUnstructured, err := utils.ConvertToUnstructured([]byte(oldResource))
+		oldResourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(oldResource))
 		assert.NilError(t, err)
 
 		err = enginecontext.AddOldResource(ctx, []byte(oldResource))
@@ -209,7 +212,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 		policyContext.oldResource = *oldResourceUnstructured
 	}
 
-	if err := ctx.AddImageInfos(resourceUnstructured); err != nil {
+	if err := ctx.AddImageInfos(resourceUnstructured, cfg); err != nil {
 		t.Errorf("unable to add image info to variables context: %v", err)
 		t.Fail()
 	}
@@ -425,7 +428,7 @@ var (
 func Test_ConfigMapMissingSuccess(t *testing.T) {
 	policyContext := buildContext(t, testConfigMapMissing, testConfigMapMissingResource, "")
 	cosign.ClearMock()
-	err, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	err, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusSkip, err.PolicyResponse.Rules[0].Message)
 }
@@ -437,7 +440,7 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 	assert.NilError(t, err)
 	policyContext.informerCacheResolvers = resolver
 	cosign.ClearMock()
-	resp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	resp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status, response.RuleStatusError, resp.PolicyResponse.Rules[0].Message)
 }
@@ -446,7 +449,7 @@ func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	policyContext.policy.GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
 	cosign.ClearMock()
-	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules[0].Patches), 1)
@@ -458,7 +461,7 @@ func Test_SignatureUnsigned(t *testing.T) {
 	cosign.ClearMock()
 	unsigned := strings.Replace(testSampleResource, ":signed", ":unsigned", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, unsigned, "")
-	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message)
 }
@@ -467,7 +470,7 @@ func Test_SignatureWrongKey(t *testing.T) {
 	cosign.ClearMock()
 	otherKey := strings.Replace(testSampleResource, ":signed", ":signed-by-someone-else", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, otherKey, "")
-	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message)
 }
@@ -478,7 +481,7 @@ func Test_SignaturesMultiKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message)
 }
@@ -488,7 +491,7 @@ func Test_SignaturesMultiKeyFail(t *testing.T) {
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message)
 }
@@ -499,7 +502,7 @@ func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message)
 }
@@ -510,7 +513,7 @@ func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	resp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	resp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status, response.RuleStatusFail, resp.PolicyResponse.Rules[0].Message)
 }
@@ -526,14 +529,14 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 	applyAll := kyverno.ApplyAll
 	spec.ApplyRules = &applyAll
 
-	resp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	resp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 2)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, resp.PolicyResponse.Rules[0].Message)
 	assert.Equal(t, resp.PolicyResponse.Rules[1].Status, response.RuleStatusFail, resp.PolicyResponse.Rules[1].Message)
 
 	applyOne := kyverno.ApplyOne
 	spec.ApplyRules = &applyOne
-	resp, _ = VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	resp, _ = VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, resp.PolicyResponse.Rules[0].Message)
 }
@@ -637,7 +640,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	err, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 
@@ -645,7 +648,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext = buildContext(t, policy, testSampleResource, "")
-	err, _ = VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	err, _ = VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 
@@ -653,7 +656,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext = buildContext(t, policy, testSampleResource, "")
-	err, _ = VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	err, _ = VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 }
@@ -746,7 +749,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	err := cosign.SetMock(image, attestationPayloads)
 	assert.NilError(t, err)
 
-	engineResponse, verifiedImages := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	engineResponse, verifiedImages := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Assert(t, engineResponse != nil)
 	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
@@ -839,7 +842,7 @@ func Test_ParsePEMDelimited(t *testing.T) {
 	err := cosign.SetMock(image, signaturePayloads)
 	assert.NilError(t, err)
 
-	engineResponse, verifiedImages := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext)
+	engineResponse, verifiedImages := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Assert(t, engineResponse != nil)
 	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status, response.RuleStatusPass)

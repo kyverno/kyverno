@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/utils"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
 
@@ -23,7 +23,7 @@ func GetRawKeyIfWrappedWithAttributes(str string) string {
 
 func TransformConditions(original apiextensions.JSON) (interface{}, error) {
 	// conditions are currently in the form of []interface{}
-	oldConditions, err := utils.ApiextensionsJsonToKyvernoConditions(original)
+	oldConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(original)
 	if err != nil {
 		return nil, err
 	}
