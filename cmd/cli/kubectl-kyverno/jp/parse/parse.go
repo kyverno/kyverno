@@ -28,7 +28,8 @@ func Command() *cobra.Command {
 	var files []string
 	cmd := &cobra.Command{
 		Use:          "parse [-f file|expression]...",
-		Short:        strings.Join(description, "\n"),
+		Short:        description[0],
+		Long:         strings.Join(description, "\n"),
 		Example:      strings.Join(examples, "\n\n"),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
