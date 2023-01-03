@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 

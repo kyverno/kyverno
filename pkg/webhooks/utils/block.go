@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	response "github.com/kyverno/kyverno/pkg/engine/api"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"gopkg.in/yaml.v2"
 )

@@ -2,7 +2,7 @@ package engine
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	response "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
 // IsResponseSuccessful return true if all responses are successful

@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/engine/response"
-
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
-
+	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"

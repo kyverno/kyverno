@@ -6,9 +6,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"

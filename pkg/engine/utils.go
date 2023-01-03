@@ -10,9 +10,9 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -453,13 +453,13 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	return l, nil
 }
 
-func ruleError(rule *kyvernov1.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
+func ruleError(rule *kyvernov1.Rule, ruleType api.RuleType, msg string, err error) *api.RuleResponse {
 	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return ruleResponse(*rule, ruleType, msg, response.RuleStatusError)
+	return ruleResponse(*rule, ruleType, msg, api.RuleStatusError)
 }
 
-func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, status response.RuleStatus) *response.RuleResponse {
-	resp := &response.RuleResponse{
+func ruleResponse(rule kyvernov1.Rule, ruleType api.RuleType, msg string, status api.RuleStatus) *api.RuleResponse {
+	resp := &api.RuleResponse{
 		Name:    rule.Name,
 		Type:    ruleType,
 		Message: msg,
@@ -468,11 +468,11 @@ func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, s
 	return resp
 }
 
-func incrementAppliedCount(resp *response.EngineResponse) {
+func incrementAppliedCount(resp *api.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func incrementErrorCount(resp *response.EngineResponse) {
+func incrementErrorCount(resp *api.EngineResponse) {
 	resp.PolicyResponse.RulesErrorCount++
 }
 

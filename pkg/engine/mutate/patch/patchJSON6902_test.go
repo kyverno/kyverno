@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/engine/response"
-
 	"github.com/ghodss/yaml"
+	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
 	assert "github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

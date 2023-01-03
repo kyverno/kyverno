@@ -3,7 +3,7 @@ package utils
 import (
 	"fmt"
 
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	response "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
 func GetWarningMessages(engineResponses []*response.EngineResponse) []string {

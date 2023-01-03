@@ -5,12 +5,12 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/utils/api"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -58,7 +58,7 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 	patchedResource = resource
 	for _, fe := range foreach {
 		if fe.ForEachMutation != nil {
-			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
+			nestedForEach, err := apiutils.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
 			if err != nil {
 				return patchedResource, errors.Wrapf(err, "failed to deserialize foreach")
 			}
@@ -78,7 +78,7 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, resource unstructured.Unstructured, ctx context.Interface, logger logr.Logger) (unstructured.Unstructured, error) {
 	patcher := mutate.NewPatcher(name, mergePatch, jsonPatch, resource, ctx, logger)
 	resp, mutatedResource := patcher.Patch()
-	if resp.Status != response.RuleStatusPass {
+	if resp.Status != api.RuleStatusPass {
 		return mutatedResource, fmt.Errorf("mutate status %q: %s", resp.Status.String(), resp.Message)
 	}
 

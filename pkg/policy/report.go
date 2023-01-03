@@ -2,7 +2,7 @@ package policy
 
 import (
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 )
 

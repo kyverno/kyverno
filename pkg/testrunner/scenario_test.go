@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"gopkg.in/yaml.v3"
 	"gotest.tools/assert"
 )

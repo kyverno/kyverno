@@ -6,8 +6,8 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/common"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -18,26 +18,26 @@ import (
 //   - the caller has to check the ruleResponse to determine whether the path exist
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func ApplyBackgroundChecks(rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
+func ApplyBackgroundChecks(rclient registryclient.Client, policyContext *PolicyContext) (resp *api.EngineResponse) {
 	policyStartTime := time.Now()
 	return filterRules(rclient, policyContext, policyStartTime)
 }
 
-func filterRules(rclient registryclient.Client, policyContext *PolicyContext, startTime time.Time) *response.EngineResponse {
+func filterRules(rclient registryclient.Client, policyContext *PolicyContext, startTime time.Time) *api.EngineResponse {
 	kind := policyContext.newResource.GetKind()
 	name := policyContext.newResource.GetName()
 	namespace := policyContext.newResource.GetNamespace()
 	apiVersion := policyContext.newResource.GetAPIVersion()
-	resp := &response.EngineResponse{
-		PolicyResponse: response.PolicyResponse{
-			Policy: response.PolicySpec{
+	resp := &api.EngineResponse{
+		PolicyResponse: api.PolicyResponse{
+			Policy: api.PolicySpec{
 				Name:      policyContext.policy.GetName(),
 				Namespace: policyContext.policy.GetNamespace(),
 			},
-			PolicyStats: response.PolicyStats{
+			PolicyStats: api.PolicyStats{
 				PolicyExecutionTimestamp: startTime.Unix(),
 			},
-			Resource: response.ResourceSpec{
+			Resource: api.ResourceSpec{
 				Kind:       kind,
 				Name:       name,
 				Namespace:  namespace,
@@ -55,7 +55,7 @@ func filterRules(rclient registryclient.Client, policyContext *PolicyContext, st
 	for _, rule := range autogen.ComputeRules(policyContext.policy) {
 		if ruleResp := filterRule(rclient, rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != response.RuleStatusSkip {
+			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != api.RuleStatusSkip {
 				break
 			}
 		}
@@ -64,7 +64,7 @@ func filterRules(rclient registryclient.Client, policyContext *PolicyContext, st
 	return resp
 }
 
-func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContext *PolicyContext) *response.RuleResponse {
+func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContext *PolicyContext) *api.RuleResponse {
 	if !rule.HasGenerate() && !rule.IsMutateExisting() {
 		return nil
 	}
@@ -76,9 +76,9 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 		return ruleResp
 	}
 
-	ruleType := response.Mutation
+	ruleType := api.Mutation
 	if rule.HasGenerate() {
-		ruleType = response.Generation
+		ruleType = api.Generation
 	}
 
 	startTime := time.Now()
@@ -98,14 +98,14 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
 
 	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err != nil {
-		if ruleType == response.Generation {
+		if ruleType == api.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
 			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err == nil {
-				return &response.RuleResponse{
+				return &api.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,
-					Status: response.RuleStatusFail,
-					RuleStats: response.RuleStats{
+					Status: api.RuleStatusFail,
+					RuleStats: api.RuleStats{
 						ProcessingTime:         time.Since(startTime),
 						RuleExecutionTimestamp: startTime.Unix(),
 					},
@@ -142,11 +142,11 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return &response.RuleResponse{
+		return &api.RuleResponse{
 			Name:   ruleCopy.Name,
 			Type:   ruleType,
-			Status: response.RuleStatusSkip,
-			RuleStats: response.RuleStats{
+			Status: api.RuleStatusSkip,
+			RuleStats: api.RuleStats{
 				ProcessingTime:         time.Since(startTime),
 				RuleExecutionTimestamp: startTime.Unix(),
 			},
@@ -154,11 +154,11 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	}
 
 	// build rule Response
-	return &response.RuleResponse{
+	return &api.RuleResponse{
 		Name:   ruleCopy.Name,
 		Type:   ruleType,
-		Status: response.RuleStatusPass,
-		RuleStats: response.RuleStats{
+		Status: api.RuleStatusPass,
+		RuleStats: api.RuleStats{
 			ProcessingTime:         time.Since(startTime),
 			RuleExecutionTimestamp: startTime.Unix(),
 		},

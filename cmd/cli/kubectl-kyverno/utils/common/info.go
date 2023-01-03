@@ -2,7 +2,7 @@ package common
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	response "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
 // Info stores the policy application results for all matched resources
