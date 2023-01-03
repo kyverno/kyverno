@@ -17,6 +17,7 @@ func NewEngine() api.Engine {
 func (e *_engine) Mutate(ctx context.Context, rclient registryclient.Client, policyContext *api.PolicyContext) *api.EngineResponse {
 	return engineMutate(ctx, rclient, policyContext)
 }
+
 func (e *_engine) Validate(ctx context.Context, rclient registryclient.Client, policyContext *api.PolicyContext, cfg config.Configuration) *api.EngineResponse {
 	return engineValidate(ctx, rclient, policyContext, cfg)
 }
