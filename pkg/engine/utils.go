@@ -280,8 +280,8 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 	}
 }
 
-// MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.APIResource, resourceRef unstructured.Unstructured, ruleRef kyvernov1.Rule, admissionInfoRef kyvernov1beta1.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace, subresourceInAdmnReview string) error {
+// matchesResourceDescription checks if the resource matches resource description of the rule or not
+func matchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.APIResource, resourceRef unstructured.Unstructured, ruleRef kyvernov1.Rule, admissionInfoRef kyvernov1beta1.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace, subresourceInAdmnReview string) error {
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()

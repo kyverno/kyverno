@@ -117,7 +117,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
 		WithInformerCacheResolver(s.informerCacheResolvers)
-	response, _ := engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx, s.cfg)
+	response, _ := engine.NewEngine().VerifyAndPatchImages(ctx, s.rclient, policyCtx, s.cfg)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}

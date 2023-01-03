@@ -20,3 +20,7 @@ func (e *_engine) Mutate(ctx context.Context, rclient registryclient.Client, pol
 func (e *_engine) Validate(ctx context.Context, rclient registryclient.Client, policyContext *api.PolicyContext, cfg config.Configuration) *api.EngineResponse {
 	return engineValidate(ctx, rclient, policyContext, cfg)
 }
+
+func (e *_engine) VerifyAndPatchImages(ctx context.Context, rclient registryclient.Client, policyContext *api.PolicyContext, cfg config.Configuration) (*api.EngineResponse, *api.ImageVerificationMetadata) {
+	return verifyAndPatchImages(ctx, rclient, policyContext, cfg)
+}

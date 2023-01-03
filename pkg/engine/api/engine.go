@@ -10,4 +10,5 @@ import (
 type Engine interface {
 	Validate(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext, cfg config.Configuration) *EngineResponse
 	Mutate(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext) *EngineResponse
+	VerifyAndPatchImages(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext, cfg config.Configuration) (*EngineResponse, *ImageVerificationMetadata)
 }

@@ -905,7 +905,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.ComputeRules(&policy) {
-			err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, tc.AdmissionInfo, []string{}, nil, "", "")
+			err := matchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, tc.AdmissionInfo, []string{}, nil, "", "")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1810,7 +1810,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.ComputeRules(&policy) {
-			err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, tc.AdmissionInfo, []string{}, nil, "", "")
+			err := matchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, tc.AdmissionInfo, []string{}, nil, "", "")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1877,7 +1877,7 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
+	if err := matchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1936,7 +1936,7 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
+	if err := matchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1994,7 +1994,7 @@ func TestResourceDescriptionMatch_GenerateName(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
+	if err := matchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2053,7 +2053,7 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
+	if err := matchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2111,7 +2111,7 @@ func TestResourceDescriptionMatch_GenerateName_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
+	if err := matchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2178,7 +2178,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
+	if err := matchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2246,7 +2246,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
+	if err := matchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2327,7 +2327,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
 	}
 
-	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err == nil {
+	if err := matchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
 	}
 }

@@ -29,49 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string) {
-	imageInfos := []apiutils.ImageInfo{}
-	imageRefs := []string{}
-	for _, infoMap := range images {
-		for _, imageInfo := range infoMap {
-			image := imageInfo.String()
-			for _, verifyImage := range rule.VerifyImages {
-				verifyImage = *verifyImage.Convert()
-				imageRefs = append(imageRefs, verifyImage.ImageReferences...)
-				if imageMatches(image, verifyImage.ImageReferences) {
-					imageInfos = append(imageInfos, imageInfo)
-				}
-			}
-		}
-	}
-	return imageInfos, strings.Join(imageRefs, ",")
-}
-
-func extractMatchingImages(policyContext *api.PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) ([]apiutils.ImageInfo, string, error) {
-	var (
-		images map[string]map[string]apiutils.ImageInfo
-		err    error
-	)
-	images = policyContext.JSONContext().ImageInfo()
-	if rule.ImageExtractors != nil {
-		resource := policyContext.NewResource()
-		images, err = policyContext.JSONContext().GenerateCustomImageInfo(&resource, rule.ImageExtractors, cfg)
-		if err != nil {
-			// if we get an error while generating custom images from image extractors,
-			// don't check for matching images in imageExtractors
-			return nil, "", err
-		}
-	}
-	matchingImages, imageRefs := getMatchingImages(images, rule)
-	return matchingImages, imageRefs, nil
-}
-
-func VerifyAndPatchImages(
+func verifyAndPatchImages(
 	ctx context.Context,
 	rclient registryclient.Client,
 	policyContext *api.PolicyContext,
 	cfg config.Configuration,
-) (*api.EngineResponse, *ImageVerificationMetadata) {
+) (*api.EngineResponse, *api.ImageVerificationMetadata) {
 	resp := &api.EngineResponse{}
 
 	policy := policyContext.Policy()
@@ -90,7 +53,7 @@ func VerifyAndPatchImages(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	ivm := &ImageVerificationMetadata{}
+	ivm := &api.ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy())
 	applyRules := policy.GetSpec().GetApplyRules()
 
@@ -169,6 +132,43 @@ func VerifyAndPatchImages(
 	return resp, ivm
 }
 
+func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string) {
+	imageInfos := []apiutils.ImageInfo{}
+	imageRefs := []string{}
+	for _, infoMap := range images {
+		for _, imageInfo := range infoMap {
+			image := imageInfo.String()
+			for _, verifyImage := range rule.VerifyImages {
+				verifyImage = *verifyImage.Convert()
+				imageRefs = append(imageRefs, verifyImage.ImageReferences...)
+				if imageMatches(image, verifyImage.ImageReferences) {
+					imageInfos = append(imageInfos, imageInfo)
+				}
+			}
+		}
+	}
+	return imageInfos, strings.Join(imageRefs, ",")
+}
+
+func extractMatchingImages(policyContext *api.PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) ([]apiutils.ImageInfo, string, error) {
+	var (
+		images map[string]map[string]apiutils.ImageInfo
+		err    error
+	)
+	images = policyContext.JSONContext().ImageInfo()
+	if rule.ImageExtractors != nil {
+		resource := policyContext.NewResource()
+		images, err = policyContext.JSONContext().GenerateCustomImageInfo(&resource, rule.ImageExtractors, cfg)
+		if err != nil {
+			// if we get an error while generating custom images from image extractors,
+			// don't check for matching images in imageExtractors
+			return nil, "", err
+		}
+	}
+	matchingImages, imageRefs := getMatchingImages(images, rule)
+	return matchingImages, imageRefs, nil
+}
+
 func appendResponse(resp *api.EngineResponse, rule *kyvernov1.Rule, msg string, status api.RuleStatus) {
 	rr := ruleResponse(*rule, api.ImageVerify, msg, status)
 	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
@@ -202,7 +202,7 @@ type imageVerifier struct {
 	policyContext *api.PolicyContext
 	rule          *kyvernov1.Rule
 	resp          *api.EngineResponse
-	ivm           *ImageVerificationMetadata
+	ivm           *api.ImageVerificationMetadata
 }
 
 // verify applies policy rules to each matching image. The policy rule results and annotation patches are
@@ -215,7 +215,7 @@ func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.Image
 		image := imageInfo.String()
 
 		if hasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
-			msg := imageVerifyAnnotationKey + " annotation cannot be changed"
+			msg := api.ImageVerifyAnnotationKey + " annotation cannot be changed"
 			iv.logger.Info("image verification error", "reason", msg)
 			ruleResp := ruleResponse(*iv.rule, api.ImageVerify, msg, api.RuleStatusFail)
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
@@ -256,7 +256,7 @@ func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.Image
 		if ruleResp != nil {
 			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
 				verified := ruleResp.Status == api.RuleStatusPass
-				iv.ivm.add(image, verified)
+				iv.ivm.Add(image, verified)
 			}
 
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
@@ -294,7 +294,7 @@ func hasImageVerifiedAnnotationChanged(ctx *api.PolicyContext, log logr.Logger) 
 		return false
 	}
 
-	key := imageVerifyAnnotationKey
+	key := api.ImageVerifyAnnotationKey
 	newResource := ctx.NewResource()
 	oldResource := ctx.OldResource()
 	newValue := newResource.GetAnnotations()[key]

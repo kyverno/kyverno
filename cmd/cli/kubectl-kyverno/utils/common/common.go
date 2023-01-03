@@ -517,7 +517,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := engine.VerifyAndPatchImages(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
+	verifyImageResponse, _ := engine.NewEngine().VerifyAndPatchImages(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)

@@ -83,7 +83,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	}
 	var engineResponses []*api.EngineResponse
 	var patches [][]byte
-	verifiedImageData := &engine.ImageVerificationMetadata{}
+	verifiedImageData := &api.ImageVerificationMetadata{}
 	for _, policy := range policies {
 		tracing.ChildSpan(
 			ctx,
@@ -91,7 +91,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy)
-				resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext, h.cfg)
+				resp, ivm := engine.NewEngine().VerifyAndPatchImages(ctx, h.rclient, policyContext, h.cfg)
 
 				engineResponses = append(engineResponses, resp)
 				patches = append(patches, resp.GetPatches()...)
