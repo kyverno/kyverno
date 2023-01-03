@@ -12,6 +12,7 @@ import (
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
@@ -38,6 +39,7 @@ const (
 	ControllerName         = "background-scan-controller"
 	maxRetries             = 10
 	annotationLastScanTime = "audit.kyverno.io/last-scan-time"
+	enqueueDelay           = 30 * time.Second
 )
 
 type controller struct {
@@ -62,6 +64,8 @@ type controller struct {
 	metadataCache          resource.MetadataCache
 	informerCacheResolvers resolvers.ConfigmapResolver
 	forceDelay             time.Duration
+
+	cfg config.Configuration
 }
 
 func NewController(
@@ -75,6 +79,7 @@ func NewController(
 	metadataCache resource.MetadataCache,
 	informerCacheResolvers resolvers.ConfigmapResolver,
 	forceDelay time.Duration,
+	cfg config.Configuration,
 ) controllers.Controller {
 	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
@@ -94,6 +99,7 @@ func NewController(
 		metadataCache:          metadataCache,
 		informerCacheResolvers: informerCacheResolvers,
 		forceDelay:             forceDelay,
+		cfg:                    cfg,
 	}
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
@@ -102,17 +108,10 @@ func NewController(
 		if eventType == resource.Deleted {
 			return
 		}
-		selector, err := reportutils.SelectorResourceUidEquals(uid)
-		if err != nil {
-			logger.Error(err, "failed to create label selector")
-		}
-		if err := c.enqueue(selector); err != nil {
-			logger.Error(err, "failed to enqueue")
-		}
 		if res.Namespace == "" {
-			c.queue.Add(string(uid))
+			c.queue.AddAfter(string(uid), enqueueDelay)
 		} else {
-			c.queue.Add(res.Namespace + "/" + string(uid))
+			c.queue.AddAfter(res.Namespace+"/"+string(uid), enqueueDelay)
 		}
 	})
 	return &c
@@ -239,7 +238,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 	}
 	//	if the resource changed, we need to rebuild the report
 	if force || !reportutils.CompareHash(meta, resource.Hash) {
-		scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers)
+		scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers, c.cfg)
 		before, err := c.getReport(ctx, meta.GetNamespace(), meta.GetName())
 		if err != nil {
 			return nil
@@ -329,7 +328,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		}
 		// creations
 		if len(toCreate) > 0 {
-			scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers)
+			scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers, c.cfg)
 			resource, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
 			if err != nil {
 				return err
@@ -385,7 +384,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) error {
 	// try to find resource from the cache
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)

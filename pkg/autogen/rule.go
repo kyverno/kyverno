@@ -6,7 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/utils"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -51,7 +51,7 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if !reflect.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
 	}
-	kyvernoAnyAllConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.GetAnyAllConditions())
+	kyvernoAnyAllConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.GetAnyAllConditions())
 	switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		if !reflect.DeepEqual(typedAnyAllConditions, kyvernov1.AnyAllConditions{}) {

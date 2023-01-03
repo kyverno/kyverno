@@ -6,7 +6,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -97,7 +97,7 @@ func Test_ForceMutateSubstituteVars(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
 	err = context.AddResource(ctx, rawResource)
@@ -202,7 +202,7 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
 	err = context.AddResource(ctx, rawResource)
@@ -288,7 +288,7 @@ func Test_ForceMutateSubstituteVarsWithPatchStrategicMerge(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
 	err = context.AddResource(ctx, rawResource)
