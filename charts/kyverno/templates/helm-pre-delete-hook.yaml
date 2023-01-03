@@ -21,6 +21,8 @@ spec:
             - >-
               kubectl delete validatingwebhookconfiguration kyverno-policy-validating-webhook-cfg;
               kubectl delete validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg;
+              kubectl delete validatingwebhookconfiguration kyverno-exception-validating-webhook-cfg;
+              kubectl delete validatingwebhookconfiguration kyverno-cleanup-validating-webhook-cfg;
               kubectl delete mutatingwebhookconfiguration kyverno-policy-mutating-webhook-cfg;
               kubectl delete mutatingwebhookconfiguration kyverno-resource-mutating-webhook-cfg;
               kubectl delete mutatingwebhookconfiguration kyverno-verify-mutating-webhook-cfg;
