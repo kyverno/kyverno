@@ -32106,7 +32106,7 @@ spec:
           image: "ghcr.io/kyverno/kyvernopre:latest"
           imagePullPolicy: IfNotPresent
           args:
-              - --loggingFormat=text
+            - --loggingFormat=text
           resources: 
             limits:
               cpu: 100m
