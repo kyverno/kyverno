@@ -37,8 +37,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// Validate applies validation rules from policy on the resource
-func Validate(ctx context.Context, rclient registryclient.Client, policyContext *api.PolicyContext, cfg config.Configuration) (resp *api.EngineResponse) {
+// engineValidate applies validation rules from policy on the resource
+func engineValidate(ctx context.Context, rclient registryclient.Client, policyContext *api.PolicyContext, cfg config.Configuration) (resp *api.EngineResponse) {
 	resp = &api.EngineResponse{}
 	startTime := time.Now()
 

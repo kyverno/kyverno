@@ -509,7 +509,7 @@ OuterLoop:
 	var info Info
 	var validateResponse *api.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.Validate(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
+		validateResponse = engine.NewEngine().Validate(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 

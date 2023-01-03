@@ -160,7 +160,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	policyContext = policyContext.WithNewResource(*resource)
 
 	cfg := config.NewDefaultConfiguration()
-	er = engine.Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	er = engine.NewEngine().Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 

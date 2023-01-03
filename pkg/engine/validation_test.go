@@ -135,7 +135,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 		"validation error: imagePullPolicy 'Always' required with tag 'latest'. rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
 	}
 
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -240,7 +240,7 @@ func TestValidate_image_tag_pass(t *testing.T) {
 		"validation rule 'validate-tag' passed.",
 		"validation rule 'validate-latest' passed.",
 	}
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -319,7 +319,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -407,7 +407,7 @@ func TestValidate_host_network_port(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -502,7 +502,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -595,7 +595,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	assert.NilError(t, err)
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -670,7 +670,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -748,7 +748,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -827,7 +827,7 @@ func TestValidate_inequality_List_Processing(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -912,7 +912,7 @@ func TestValidate_inequality_List_ProcessingBrackets(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -991,7 +991,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -1071,7 +1071,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -1151,7 +1151,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -1226,7 +1226,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -1301,7 +1301,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -1394,7 +1394,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -1486,7 +1486,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -1564,7 +1564,7 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
-	er := Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	er := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
@@ -1654,7 +1654,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 	assert.NilError(t, err)
 
 	policyContext := api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
-	er := Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	er := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
@@ -1712,7 +1712,7 @@ func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContext := api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
-	er := Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	er := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation error: rule not-operator-with-variable-should-alway-fail-validation failed at path /spec/content/")
 }
@@ -1800,7 +1800,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 	assert.NilError(t, err)
 
 	policyContext := api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
-	er := Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	er := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusError)
@@ -1890,7 +1890,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 	assert.NilError(t, err)
 
 	policyContext := api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
-	er := Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	er := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
@@ -1992,7 +1992,7 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 	assert.NilError(t, err)
 
 	policyContext := api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
-	er := Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	er := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "The animal cow is not in the allowed list of animals.")
 }
@@ -2042,7 +2042,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 		assert.NilError(t, err)
 
 		policyContext := api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
-		er := Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+		er := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 
 		for i, rule := range er.PolicyResponse.Rules {
 			assert.Equal(t, er.PolicyResponse.Rules[i].Status, test.expectedResults[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedResults[i].String(), er.PolicyResponse.Rules[i].Status.String())
@@ -2206,7 +2206,7 @@ func executeTest(t *testing.T, test testCase) {
 		WithOldResource(oldR).
 		WithAdmissionInfo(userInfo)
 
-	resp := Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	resp := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	if resp.IsSuccessful() && test.requestDenied {
 		t.Errorf("Testcase has failed, policy: %v", policy.Name)
 	}
@@ -2305,7 +2305,7 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 	msgs := []string{
 		"restrict pod counts to be no more than 10 on node minikube",
 	}
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -2399,7 +2399,7 @@ func Test_EmptyStringInDenyCondition(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -2493,7 +2493,7 @@ func Test_StringInDenyCondition(t *testing.T) {
 	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	er := Validate(
+	er := engineValidate(
 		context.TODO(),
 		registryclient.NewOrDie(),
 		api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured),
@@ -3173,7 +3173,7 @@ func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string,
 	assert.NilError(t, err)
 
 	policyContext := api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
-	er := Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	er := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, status)
 	if msg != "" {
@@ -3233,12 +3233,12 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	policyContextCreate := api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
-	engineResponseCreate := Validate(context.TODO(), registryclient.NewOrDie(), policyContextCreate, cfg)
+	engineResponseCreate := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContextCreate, cfg)
 	assert.Equal(t, len(engineResponseCreate.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 
 	policyContextDelete := api.NewPolicyContextWithJsonContext(ctx).WithPolicy(&policy).WithOldResource(*resourceUnstructured)
-	engineResponseDelete := Validate(context.TODO(), registryclient.NewOrDie(), policyContextDelete, cfg)
+	engineResponseDelete := engineValidate(context.TODO(), registryclient.NewOrDie(), policyContextDelete, cfg)
 	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
 }
 
@@ -3297,7 +3297,7 @@ func Test_ValidatePattern_anyPattern(t *testing.T) {
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
-			er := Validate(
+			er := engineValidate(
 				context.TODO(),
 				registryclient.NewOrDie(),
 				api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),

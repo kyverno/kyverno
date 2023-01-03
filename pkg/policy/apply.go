@@ -84,7 +84,7 @@ func applyPolicy(
 		WithExcludeGroupRole(excludeGroupRole...).
 		WithInformerCacheResolver(informerCacheResolvers)
 
-	engineResponseValidation = engine.Validate(context.TODO(), rclient, policyCtx, cfg)
+	engineResponseValidation = engine.NewEngine().Validate(context.TODO(), rclient, policyCtx, cfg)
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	return engineResponses
