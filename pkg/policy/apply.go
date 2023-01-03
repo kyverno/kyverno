@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/api"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -34,7 +33,7 @@ func applyPolicy(
 	informerCacheResolvers resolvers.ConfigmapResolver,
 	namespaceLabels map[string]string,
 	cfg config.Configuration,
-) (responses []*response.EngineResponse) {
+) (responses []*api.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
 		name := resource.GetKind() + "/" + resource.GetName()
@@ -46,8 +45,8 @@ func applyPolicy(
 		logger.V(3).Info("applyPolicy", "resource", name, "processingTime", time.Since(startTime).String())
 	}()
 
-	var engineResponses []*response.EngineResponse
-	var engineResponseMutation, engineResponseValidation *response.EngineResponse
+	var engineResponses []*api.EngineResponse
+	var engineResponseMutation, engineResponseValidation *api.EngineResponse
 	var err error
 
 	ctx := enginecontext.NewContext()
@@ -99,7 +98,7 @@ func mutation(
 	rclient registryclient.Client,
 	informerCacheResolvers resolvers.ConfigmapResolver,
 	namespaceLabels map[string]string,
-) (*response.EngineResponse, error) {
+) (*api.EngineResponse, error) {
 	policyContext := api.NewPolicyContextWithJsonContext(jsonContext).
 		WithPolicy(policy).
 		WithNamespaceLabels(namespaceLabels).
@@ -121,11 +120,11 @@ func mutation(
 }
 
 // getFailedOverallRuleInfo gets detailed info for over-all mutation failure
-func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse *response.EngineResponse, log logr.Logger) (*response.EngineResponse, error) {
+func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse *api.EngineResponse, log logr.Logger) (*api.EngineResponse, error) {
 	rawResource, err := resource.MarshalJSON()
 	if err != nil {
 		log.Error(err, "failed to marshall resource")
-		return &response.EngineResponse{}, err
+		return &api.EngineResponse{}, err
 	}
 
 	// resource does not match so there was a mutation rule violated
@@ -137,19 +136,19 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 		patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches(patches...))
 		if err != nil {
 			log.Error(err, "failed to decode JSON patch", "patches", patches)
-			return &response.EngineResponse{}, err
+			return &api.EngineResponse{}, err
 		}
 
 		// apply the patches returned by mutate to the original resource
 		patchedResource, err := patch.Apply(rawResource)
 		if err != nil {
 			log.Error(err, "failed to apply JSON patch", "patches", patches)
-			return &response.EngineResponse{}, err
+			return &api.EngineResponse{}, err
 		}
 
 		if !jsonpatch.Equal(patchedResource, rawResource) {
 			log.V(4).Info("policy rule conditions not satisfied by resource", "rule", rule.Name)
-			engineResponse.PolicyResponse.Rules[index].Status = response.RuleStatusFail
+			engineResponse.PolicyResponse.Rules[index].Status = api.RuleStatusFail
 			engineResponse.PolicyResponse.Rules[index].Message = fmt.Sprintf("mutation json patches not found at resource path %s", extractPatchPath(patches, log))
 		}
 	}
@@ -171,7 +170,7 @@ func extractPatchPath(patches [][]byte, log logr.Logger) string {
 	return strings.Join(resultPath, ";")
 }
 
-func mergeRuleRespose(mutation, validation *response.EngineResponse) *response.EngineResponse {
+func mergeRuleRespose(mutation, validation *api.EngineResponse) *api.EngineResponse {
 	mutation.PolicyResponse.Rules = append(mutation.PolicyResponse.Rules, validation.PolicyResponse.Rules...)
 	return mutation
 }
