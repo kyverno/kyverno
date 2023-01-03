@@ -485,7 +485,7 @@ OuterLoop:
 		WithClient(c.Client).
 		WithSubresourcesInPolicy(subresources)
 
-	mutateResponse := engine.Mutate(context.Background(), registryclient.NewOrDie(), policyContext)
+	mutateResponse := engine.NewEngine().Mutate(context.Background(), registryclient.NewOrDie(), policyContext)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}

@@ -105,7 +105,7 @@ func mutation(
 		WithNewResource(resource).
 		WithInformerCacheResolver(informerCacheResolvers)
 
-	engineResponse := engine.Mutate(context.TODO(), rclient, policyContext)
+	engineResponse := engine.NewEngine().Mutate(context.TODO(), rclient, policyContext)
 	if !engineResponse.IsSuccessful() {
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil

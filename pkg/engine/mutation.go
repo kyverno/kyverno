@@ -22,8 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *api.PolicyContext) (resp *api.EngineResponse) {
+// engineMutate performs mutation. Overlay first and then mutation patches
+func engineMutate(ctx context.Context, rclient registryclient.Client, policyContext *api.PolicyContext) (resp *api.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy()
 	resp = &api.EngineResponse{
