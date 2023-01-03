@@ -481,8 +481,8 @@ networkPolicy:
   ingressFrom: []
 
 webhooksCleanup:
-  # -- Create a helm pre-delete hook to cleanup webhooks.
-  enabled: false
+  # -- Create a helm post-delete hook to cleanup webhooks.
+  enable: false
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
 

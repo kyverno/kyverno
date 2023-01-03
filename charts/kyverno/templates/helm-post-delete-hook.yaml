@@ -1,12 +1,12 @@
-{{- if .Values.webhooksCleanup.enabled }}
+{{- if .Values.webhooksCleanup.enable }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "kyverno.fullname" . }}-hook-pre-delete
+  name: {{ template "kyverno.fullname" . }}-post-hook-delete
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": pre-delete
+    "helm.sh/hook": post-delete
     "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
 spec:
   template:
