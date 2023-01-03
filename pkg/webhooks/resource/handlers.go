@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
-	engineutils2 "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -24,6 +23,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
@@ -199,7 +199,7 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 
 func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.AdmissionRequest) {
 	if request.Operation == admissionv1.Delete {
-		resource, err := engineutils2.ConvertToUnstructured(request.OldObject.Raw)
+		resource, err := kubeutils.BytesToUnstructured(request.OldObject.Raw)
 		if err != nil {
 			logger.Error(err, "failed to convert object resource to unstructured format")
 		}

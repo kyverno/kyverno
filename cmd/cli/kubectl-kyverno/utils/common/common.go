@@ -24,7 +24,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	ut "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -429,7 +428,7 @@ OuterLoop:
 		log.Log.Error(err, "failed to marshal resource")
 	}
 
-	updatedResource, err := ut.ConvertToUnstructured(resourceRaw)
+	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	if err != nil {
 		log.Log.Error(err, "unable to convert raw resource to unstructured")
 	}
