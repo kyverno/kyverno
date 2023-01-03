@@ -1,4 +1,5 @@
-name: "Issue and PR comment commands"
+name: Issue and PR comment commands
+
 on:
   issue_comment:
     types: [created, edited]
@@ -18,4 +19,3 @@ jobs:
             /lgtm 
             /milestone'
           github-token: "${{ secrets.GITHUB_TOKEN }}"
-          
