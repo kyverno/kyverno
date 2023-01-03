@@ -46,6 +46,8 @@ metadata:
   name: kyverno
   namespace: kyverno
 data:
+  defaultRegistry: "docker.io"
+  enableDefaultRegistryMutation: "true"
   # resource types to be skipped by kyverno policy engine
   resourceFilters: "[*,kyverno,*][Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][Binding,*,*][ReplicaSet,*,*][AdmissionReport,*,*][ClusterAdmissionReport,*,*][BackgroundScanReport,*,*][ClusterBackgroundScanReport,*,*][ClusterRole,*,kyverno:*][ClusterRoleBinding,*,kyverno:*][ServiceAccount,kyverno,kyverno][ConfigMap,kyverno,kyverno][ConfigMap,kyverno,kyverno-metrics][Deployment,kyverno,kyverno][Job,kyverno,kyverno-hook-pre-delete][NetworkPolicy,kyverno,kyverno][PodDisruptionBudget,kyverno,kyverno][Role,kyverno,kyverno:*][RoleBinding,kyverno,kyverno:*][Secret,kyverno,kyverno-svc.kyverno.svc.*][Service,kyverno,kyverno-svc][Service,kyverno,kyverno-svc-metrics][ServiceMonitor,kyverno,kyverno-svc-service-monitor][Pod,kyverno,kyverno-test]"
   webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kyverno"]}]}}]'
@@ -6709,12 +6711,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -6733,6 +6735,8 @@ spec:
                       enum:
                       - audit
                       - enforce
+                      - Audit
+                      - Enforce
                       type: string
                     namespaces:
                       items:
@@ -13067,12 +13071,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -13091,6 +13095,8 @@ spec:
                       enum:
                       - audit
                       - enforce
+                      - Audit
+                      - Enforce
                       type: string
                     namespaces:
                       items:
@@ -19910,12 +19916,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -19934,6 +19940,8 @@ spec:
                       enum:
                       - audit
                       - enforce
+                      - Audit
+                      - Enforce
                       type: string
                     namespaces:
                       items:
@@ -26270,12 +26278,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -26294,6 +26302,8 @@ spec:
                       enum:
                       - audit
                       - enforce
+                      - Audit
+                      - Enforce
                       type: string
                     namespaces:
                       items:

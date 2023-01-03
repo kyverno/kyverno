@@ -97,7 +97,7 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 	for _, operation := range decodedPatch {
 		op := operation.Kind()
 		if op != "add" && op != "remove" && op != "replace" {
-			return fmt.Errorf("Unexpected kind: spec.rules[%d]: %s", ruleIdx, op)
+			return fmt.Errorf("unexpected kind: spec.rules[%d]: %s", ruleIdx, op)
 		}
 		v, _ := operation.ValueInterface()
 		if v != nil {

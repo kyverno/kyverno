@@ -369,7 +369,7 @@ func Test_chained_rules(t *testing.T) {
 		newResource: *resource,
 	}
 
-	err = ctx.AddImageInfos(resource)
+	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
 
 	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
@@ -648,7 +648,7 @@ func Test_foreach(t *testing.T) {
 		newResource: *resource,
 	}
 
-	err = ctx.AddImageInfos(resource)
+	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
 
 	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
@@ -755,7 +755,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 		newResource: *resource,
 	}
 
-	err = ctx.AddImageInfos(resource)
+	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
 
 	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
@@ -881,7 +881,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 		newResource: *resource,
 	}
 
-	err = ctx.AddImageInfos(resource)
+	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
 
 	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
@@ -1031,7 +1031,7 @@ func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *res
 		newResource: *resource,
 	}
 
-	err = ctx.AddImageInfos(resource)
+	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
 
 	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
@@ -1646,7 +1646,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
               }
             }
           }
-        }        
+        }
       ]
     }
   }`)
