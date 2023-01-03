@@ -15,7 +15,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -23,7 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"github.com/kyverno/kyverno/pkg/utils/api"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/pkg/errors"
@@ -38,8 +38,8 @@ import (
 )
 
 // Validate applies validation rules from policy on the resource
-func Validate(ctx context.Context, rclient registryclient.Client, policyContext *response.PolicyContext, cfg config.Configuration) (resp *response.EngineResponse) {
-	resp = &response.EngineResponse{}
+func Validate(ctx context.Context, rclient registryclient.Client, policyContext *api.PolicyContext, cfg config.Configuration) (resp *api.EngineResponse) {
+	resp = &api.EngineResponse{}
 	startTime := time.Now()
 
 	logger := buildLogger(policyContext)
@@ -53,7 +53,7 @@ func Validate(ctx context.Context, rclient registryclient.Client, policyContext 
 	return
 }
 
-func buildLogger(ctx *response.PolicyContext) logr.Logger {
+func buildLogger(ctx *api.PolicyContext) logr.Logger {
 	logger := logging.WithName("EngineValidate").WithValues("policy", ctx.Policy().GetName())
 	if reflect.DeepEqual(ctx.NewResource(), unstructured.Unstructured{}) {
 		oldResource := ctx.OldResource()
@@ -66,8 +66,8 @@ func buildLogger(ctx *response.PolicyContext) logr.Logger {
 	return logger
 }
 
-func buildResponse(ctx *response.PolicyContext, resp *response.EngineResponse, startTime time.Time) {
-	if reflect.DeepEqual(resp, response.EngineResponse{}) {
+func buildResponse(ctx *api.PolicyContext, resp *api.EngineResponse, startTime time.Time) {
+	if reflect.DeepEqual(resp, api.EngineResponse{}) {
 		return
 	}
 
@@ -91,15 +91,15 @@ func buildResponse(ctx *response.PolicyContext, resp *response.EngineResponse, s
 	resp.PolicyResponse.ValidationFailureAction = ctx.Policy().GetSpec().ValidationFailureAction
 
 	for _, v := range ctx.Policy().GetSpec().ValidationFailureActionOverrides {
-		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, response.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces})
+		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, api.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces})
 	}
 
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
 	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 }
 
-func validateResource(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *response.PolicyContext, cfg config.Configuration) *response.EngineResponse {
-	resp := &response.EngineResponse{}
+func validateResource(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *api.PolicyContext, cfg config.Configuration) *api.EngineResponse {
+	resp := &api.EngineResponse{}
 
 	enginectx.JSONContext().Checkpoint()
 	defer enginectx.JSONContext().Restore()
@@ -129,7 +129,7 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 			ctx,
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),
-			func(ctx context.Context, span trace.Span) *response.RuleResponse {
+			func(ctx context.Context, span trace.Span) *api.RuleResponse {
 				hasValidate := rule.HasValidate()
 				hasValidateImage := rule.HasImagesValidationChecks()
 				hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
@@ -168,19 +168,19 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 	return resp
 }
 
-func processValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, policyContext *response.PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+func processValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, policyContext *api.PolicyContext, rule *kyvernov1.Rule) *api.RuleResponse {
 	v := newValidator(log, rclient, policyContext, rule)
 	return v.validate(ctx)
 }
 
-func addRuleResponse(log logr.Logger, resp *response.EngineResponse, ruleResp *response.RuleResponse, startTime time.Time) {
+func addRuleResponse(log logr.Logger, resp *api.EngineResponse, ruleResp *api.RuleResponse, startTime time.Time) {
 	ruleResp.RuleStats.ProcessingTime = time.Since(startTime)
 	ruleResp.RuleStats.RuleExecutionTimestamp = startTime.Unix()
 	log.V(4).Info("finished processing rule", "processingTime", ruleResp.RuleStats.ProcessingTime.String())
 
-	if ruleResp.Status == response.RuleStatusPass || ruleResp.Status == response.RuleStatusFail {
+	if ruleResp.Status == api.RuleStatusPass || ruleResp.Status == api.RuleStatusFail {
 		incrementAppliedCount(resp)
-	} else if ruleResp.Status == response.RuleStatusError {
+	} else if ruleResp.Status == api.RuleStatusError {
 		incrementErrorCount(resp)
 	}
 
@@ -189,7 +189,7 @@ func addRuleResponse(log logr.Logger, resp *response.EngineResponse, ruleResp *r
 
 type validator struct {
 	log              logr.Logger
-	policyContext    *response.PolicyContext
+	policyContext    *api.PolicyContext
 	rule             *kyvernov1.Rule
 	contextEntries   []kyvernov1.ContextEntry
 	anyAllConditions apiextensions.JSON
@@ -202,7 +202,7 @@ type validator struct {
 	nesting          int
 }
 
-func newValidator(log logr.Logger, rclient registryclient.Client, ctx *response.PolicyContext, rule *kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, rclient registryclient.Client, ctx *api.PolicyContext, rule *kyvernov1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
 	return &validator{
 		log:              log,
@@ -219,14 +219,14 @@ func newValidator(log logr.Logger, rclient registryclient.Client, ctx *response.
 	}
 }
 
-func newForEachValidator(foreach kyvernov1.ForEachValidation, rclient registryclient.Client, nesting int, rule *kyvernov1.Rule, ctx *response.PolicyContext, log logr.Logger) (*validator, error) {
+func newForEachValidator(foreach kyvernov1.ForEachValidation, rclient registryclient.Client, nesting int, rule *kyvernov1.Rule, ctx *api.PolicyContext, log logr.Logger) (*validator, error) {
 	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := datautils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
 	}
 
-	nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](foreach.ForEachValidation)
+	nestedForEach, err := apiutils.DeserializeJSONArray[kyvernov1.ForEachValidation](foreach.ForEachValidation)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
 	}
@@ -246,18 +246,18 @@ func newForEachValidator(foreach kyvernov1.ForEachValidation, rclient registrycl
 	}, nil
 }
 
-func (v *validator) validate(ctx context.Context) *response.RuleResponse {
+func (v *validator) validate(ctx context.Context) *api.RuleResponse {
 	if err := v.loadContext(ctx); err != nil {
-		return ruleError(v.rule, response.Validation, "failed to load context", err)
+		return ruleError(v.rule, api.Validation, "failed to load context", err)
 	}
 
 	preconditionsPassed, err := checkPreconditions(v.log, v.policyContext, v.anyAllConditions)
 	if err != nil {
-		return ruleError(v.rule, response.Validation, "failed to evaluate preconditions", err)
+		return ruleError(v.rule, api.Validation, "failed to evaluate preconditions", err)
 	}
 
 	if !preconditionsPassed {
-		return ruleResponse(*v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip)
+		return ruleResponse(*v.rule, api.Validation, "preconditions not met", api.RuleStatusSkip)
 	}
 
 	if v.deny != nil {
@@ -266,7 +266,7 @@ func (v *validator) validate(ctx context.Context) *response.RuleResponse {
 
 	if v.pattern != nil || v.anyPattern != nil {
 		if err = v.substitutePatterns(); err != nil {
-			return ruleError(v.rule, response.Validation, "variable substitution failed", err)
+			return ruleError(v.rule, api.Validation, "variable substitution failed", err)
 		}
 
 		ruleResponse := v.validateResourceWithRule()
@@ -289,7 +289,7 @@ func (v *validator) validate(ctx context.Context) *response.RuleResponse {
 	return nil
 }
 
-func (v *validator) validateForEach(ctx context.Context) *response.RuleResponse {
+func (v *validator) validateForEach(ctx context.Context) *api.RuleResponse {
 	applyCount := 0
 	for _, foreach := range v.forEach {
 		elements, err := evaluateList(foreach.List, (v.policyContext.JSONContext()))
@@ -299,7 +299,7 @@ func (v *validator) validateForEach(ctx context.Context) *response.RuleResponse 
 		}
 
 		resp, count := v.validateElements(ctx, v.rclient, foreach, elements, foreach.ElementScope)
-		if resp.Status != response.RuleStatusPass {
+		if resp.Status != api.RuleStatusPass {
 			return resp
 		}
 
@@ -311,13 +311,13 @@ func (v *validator) validateForEach(ctx context.Context) *response.RuleResponse 
 			return nil
 		}
 
-		return ruleResponse(*v.rule, response.Validation, "rule skipped", response.RuleStatusSkip)
+		return ruleResponse(*v.rule, api.Validation, "rule skipped", api.RuleStatusSkip)
 	}
 
-	return ruleResponse(*v.rule, response.Validation, "rule passed", response.RuleStatusPass)
+	return ruleResponse(*v.rule, api.Validation, "rule passed", api.RuleStatusPass)
 }
 
-func (v *validator) validateElements(ctx context.Context, rclient registryclient.Client, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
+func (v *validator) validateElements(ctx context.Context, rclient registryclient.Client, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*api.RuleResponse, int) {
 	v.policyContext.JSONContext().Checkpoint()
 	defer v.policyContext.JSONContext().Restore()
 	applyCount := 0
@@ -334,41 +334,41 @@ func (v *validator) validateElements(ctx context.Context, rclient registryclient
 		policyContext := v.policyContext.Copy()
 		if err := addElementToContext(policyContext, e, i, v.nesting, elementScope); err != nil {
 			v.log.Error(err, "failed to add element to context")
-			return ruleError(v.rule, response.Validation, "failed to process foreach", err), applyCount
+			return ruleError(v.rule, api.Validation, "failed to process foreach", err), applyCount
 		}
 
 		foreachValidator, err := newForEachValidator(foreach, rclient, v.nesting+1, v.rule, policyContext, v.log)
 		if err != nil {
 			v.log.Error(err, "failed to create foreach validator")
-			return ruleError(v.rule, response.Validation, "failed to create foreach validator", err), applyCount
+			return ruleError(v.rule, api.Validation, "failed to create foreach validator", err), applyCount
 		}
 
 		r := foreachValidator.validate(ctx)
 		if r == nil {
 			v.log.V(2).Info("skip rule due to empty result")
 			continue
-		} else if r.Status == response.RuleStatusSkip {
+		} else if r.Status == api.RuleStatusSkip {
 			v.log.V(2).Info("skip rule", "reason", r.Message)
 			continue
-		} else if r.Status != response.RuleStatusPass {
-			if r.Status == response.RuleStatusError {
+		} else if r.Status != api.RuleStatusPass {
+			if r.Status == api.RuleStatusError {
 				if i < len(elements)-1 {
 					continue
 				}
 				msg := fmt.Sprintf("validation failure: %v", r.Message)
-				return ruleResponse(*v.rule, response.Validation, msg, r.Status), applyCount
+				return ruleResponse(*v.rule, api.Validation, msg, r.Status), applyCount
 			}
 			msg := fmt.Sprintf("validation failure: %v", r.Message)
-			return ruleResponse(*v.rule, response.Validation, msg, r.Status), applyCount
+			return ruleResponse(*v.rule, api.Validation, msg, r.Status), applyCount
 		}
 
 		applyCount++
 	}
 
-	return ruleResponse(*v.rule, response.Validation, "", response.RuleStatusPass), applyCount
+	return ruleResponse(*v.rule, api.Validation, "", api.RuleStatusPass), applyCount
 }
 
-func addElementToContext(ctx *response.PolicyContext, e interface{}, elementIndex, nesting int, elementScope *bool) error {
+func addElementToContext(ctx *api.PolicyContext, e interface{}, elementIndex, nesting int, elementScope *bool) error {
 	data, err := variables.DocumentToUntyped(e)
 	if err != nil {
 		return err
@@ -416,28 +416,28 @@ func (v *validator) loadContext(ctx context.Context) error {
 	return nil
 }
 
-func (v *validator) validateDeny() *response.RuleResponse {
+func (v *validator) validateDeny() *api.RuleResponse {
 	anyAllCond := v.deny.GetAnyAllConditions()
 	anyAllCond, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), anyAllCond)
 	if err != nil {
-		return ruleError(v.rule, response.Validation, "failed to substitute variables in deny conditions", err)
+		return ruleError(v.rule, api.Validation, "failed to substitute variables in deny conditions", err)
 	}
 
 	if err = v.substituteDeny(); err != nil {
-		return ruleError(v.rule, response.Validation, "failed to substitute variables in rule", err)
+		return ruleError(v.rule, api.Validation, "failed to substitute variables in rule", err)
 	}
 
 	denyConditions, err := common.TransformConditions(anyAllCond)
 	if err != nil {
-		return ruleError(v.rule, response.Validation, "invalid deny conditions", err)
+		return ruleError(v.rule, api.Validation, "invalid deny conditions", err)
 	}
 
 	deny := variables.EvaluateConditions(v.log, v.policyContext.JSONContext(), denyConditions)
 	if deny {
-		return ruleResponse(*v.rule, response.Validation, v.getDenyMessage(deny), response.RuleStatusFail)
+		return ruleResponse(*v.rule, api.Validation, v.getDenyMessage(deny), api.RuleStatusFail)
 	}
 
-	return ruleResponse(*v.rule, response.Validation, v.getDenyMessage(deny), response.RuleStatusPass)
+	return ruleResponse(*v.rule, api.Validation, v.getDenyMessage(deny), api.RuleStatusPass)
 }
 
 func (v *validator) getDenyMessage(deny bool) string {
@@ -514,11 +514,11 @@ func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta
 }
 
 // Unstructured
-func (v *validator) validatePodSecurity() *response.RuleResponse {
+func (v *validator) validatePodSecurity() *api.RuleResponse {
 	// Marshal pod metadata and spec
 	podSpec, metadata, err := getSpec(v)
 	if err != nil {
-		return ruleError(v.rule, response.Validation, "Error while getting new resource", err)
+		return ruleError(v.rule, api.Validation, "Error while getting new resource", err)
 	}
 
 	pod := &corev1.Pod{
@@ -527,27 +527,27 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	}
 	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod)
 	if err != nil {
-		return ruleError(v.rule, response.Validation, "failed to parse pod security api version", err)
+		return ruleError(v.rule, api.Validation, "failed to parse pod security api version", err)
 	}
-	podSecurityChecks := &response.PodSecurityChecks{
+	podSecurityChecks := &api.PodSecurityChecks{
 		Level:   v.podSecurity.Level,
 		Version: v.podSecurity.Version,
 		Checks:  pssChecks,
 	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
-		rspn := ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass)
+		rspn := ruleResponse(*v.rule, api.Validation, msg, api.RuleStatusPass)
 		rspn.PodSecurityChecks = podSecurityChecks
 		return rspn
 	} else {
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, v.podSecurity.Level, v.podSecurity.Version, pss.FormatChecksPrint(pssChecks))
-		rspn := ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail)
+		rspn := ruleResponse(*v.rule, api.Validation, msg, api.RuleStatusFail)
 		rspn.PodSecurityChecks = podSecurityChecks
 		return rspn
 	}
 }
 
-func (v *validator) validateResourceWithRule() *response.RuleResponse {
+func (v *validator) validateResourceWithRule() *api.RuleResponse {
 	element := v.policyContext.Element()
 	if !isEmptyUnstructured(&element) {
 		return v.validatePatterns(element)
@@ -562,7 +562,7 @@ func (v *validator) validateResourceWithRule() *response.RuleResponse {
 	return resp
 }
 
-func isDeleteRequest(ctx *response.PolicyContext) bool {
+func isDeleteRequest(ctx *api.PolicyContext) bool {
 	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
 	resource := ctx.NewResource()
 	return isEmptyUnstructured(&resource)
@@ -581,7 +581,7 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(logger logr.Logger, rule *kyvernov1.Rule, ctx *response.PolicyContext) bool {
+func matches(logger logr.Logger, rule *kyvernov1.Rule, ctx *api.PolicyContext) bool {
 	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, ctx)
 
@@ -602,7 +602,7 @@ func matches(logger logr.Logger, rule *kyvernov1.Rule, ctx *response.PolicyConte
 }
 
 // validatePatterns validate pattern and anyPattern
-func (v *validator) validatePatterns(resource unstructured.Unstructured) *response.RuleResponse {
+func (v *validator) validatePatterns(resource unstructured.Unstructured) *api.RuleResponse {
 	if v.pattern != nil {
 		if err := validate.MatchPattern(v.log, resource.Object, v.pattern); err != nil {
 			pe, ok := err.(*validate.PatternError)
@@ -610,22 +610,22 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 				v.log.V(3).Info("validation error", "path", pe.Path, "error", err.Error())
 
 				if pe.Skip {
-					return ruleResponse(*v.rule, response.Validation, pe.Error(), response.RuleStatusSkip)
+					return ruleResponse(*v.rule, api.Validation, pe.Error(), api.RuleStatusSkip)
 				}
 
 				if pe.Path == "" {
-					return ruleResponse(*v.rule, response.Validation, v.buildErrorMessage(err, ""), response.RuleStatusError)
+					return ruleResponse(*v.rule, api.Validation, v.buildErrorMessage(err, ""), api.RuleStatusError)
 				}
 
-				return ruleResponse(*v.rule, response.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusFail)
+				return ruleResponse(*v.rule, api.Validation, v.buildErrorMessage(err, pe.Path), api.RuleStatusFail)
 			}
 
-			return ruleResponse(*v.rule, response.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusError)
+			return ruleResponse(*v.rule, api.Validation, v.buildErrorMessage(err, pe.Path), api.RuleStatusError)
 		}
 
 		v.log.V(4).Info("successfully processed rule")
 		msg := fmt.Sprintf("validation rule '%s' passed.", v.rule.Name)
-		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass)
+		return ruleResponse(*v.rule, api.Validation, msg, api.RuleStatusPass)
 	}
 
 	if v.anyPattern != nil {
@@ -636,14 +636,14 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 		anyPatterns, err := deserializeAnyPattern(v.anyPattern)
 		if err != nil {
 			msg := fmt.Sprintf("failed to deserialize anyPattern, expected type array: %v", err)
-			return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusError)
+			return ruleResponse(*v.rule, api.Validation, msg, api.RuleStatusError)
 		}
 
 		for idx, pattern := range anyPatterns {
 			err := validate.MatchPattern(v.log, resource.Object, pattern)
 			if err == nil {
 				msg := fmt.Sprintf("validation rule '%s' anyPattern[%d] passed.", v.rule.Name, idx)
-				return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass)
+				return ruleResponse(*v.rule, api.Validation, msg, api.RuleStatusPass)
 			}
 
 			if pe, ok := err.(*validate.PatternError); ok {
@@ -672,7 +672,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 			}
 
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' skipped. %s", v.rule.Name, errorStr))
-			return ruleResponse(*v.rule, response.Validation, strings.Join(errorStr, " "), response.RuleStatusSkip)
+			return ruleResponse(*v.rule, api.Validation, strings.Join(errorStr, " "), api.RuleStatusSkip)
 		} else if len(failedAnyPatternsErrors) > 0 {
 			var errorStr []string
 			for _, err := range failedAnyPatternsErrors {
@@ -681,11 +681,11 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", v.rule.Name, errorStr))
 			msg := buildAnyPatternErrorMessage(v.rule, errorStr)
-			return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail)
+			return ruleResponse(*v.rule, api.Validation, msg, api.RuleStatusFail)
 		}
 	}
 
-	return ruleResponse(*v.rule, response.Validation, v.rule.Validation.Message, response.RuleStatusPass)
+	return ruleResponse(*v.rule, api.Validation, v.rule.Validation.Message, api.RuleStatusPass)
 }
 
 func deserializeAnyPattern(anyPattern apiextensions.JSON) ([]interface{}, error) {
@@ -783,7 +783,7 @@ func (v *validator) substituteDeny() error {
 }
 
 // matchesException checks if an exception applies to the resource being admitted
-func matchesException(policyContext *response.PolicyContext, rule *kyvernov1.Rule) (*kyvernov2alpha1.PolicyException, error) {
+func matchesException(policyContext *api.PolicyContext, rule *kyvernov1.Rule) (*kyvernov2alpha1.PolicyException, error) {
 	candidates, err := policyContext.FindExceptions(rule.Name)
 	if err != nil {
 		return nil, err
@@ -800,7 +800,7 @@ func matchesException(policyContext *response.PolicyContext, rule *kyvernov1.Rul
 
 // hasPolicyExceptions returns nil when there are no matching exceptions.
 // A rule response is returned when an exception is matched, or there is an error.
-func hasPolicyExceptions(ctx *response.PolicyContext, rule *kyvernov1.Rule, log logr.Logger) *response.RuleResponse {
+func hasPolicyExceptions(ctx *api.PolicyContext, rule *kyvernov1.Rule, log logr.Logger) *api.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
 	exception, err := matchesException(ctx, rule)
 	// if we found an exception
@@ -808,18 +808,18 @@ func hasPolicyExceptions(ctx *response.PolicyContext, rule *kyvernov1.Rule, log 
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {
 			log.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-			return &response.RuleResponse{
+			return &api.RuleResponse{
 				Name:    rule.Name,
 				Message: "failed to find matched exception " + key,
-				Status:  response.RuleStatusError,
+				Status:  api.RuleStatusError,
 			}
 		}
 
 		log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
-		return &response.RuleResponse{
+		return &api.RuleResponse{
 			Name:    rule.Name,
 			Message: "rule skipped due to policy exception " + key,
-			Status:  response.RuleStatusSkip,
+			Status:  api.RuleStatusSkip,
 		}
 	}
 	return nil
