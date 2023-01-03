@@ -91,7 +91,12 @@ func (h *imageVerificationHandler) handleVerifyImages(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy)
-				resp, ivm := engine.NewEngine().VerifyAndPatchImages(ctx, h.rclient, policyContext, h.cfg)
+				resp, ivm := engine.NewEngine(
+					// TODO: client
+					nil,
+					h.rclient,
+					h.cfg,
+				).VerifyAndPatchImages(ctx, policyContext)
 
 				engineResponses = append(engineResponses, resp)
 				patches = append(patches, resp.GetPatches()...)

@@ -93,7 +93,11 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
 		WithInformerCacheResolver(s.informerCacheResolvers)
-	return engine.NewEngine().Validate(ctx, s.rclient, policyCtx, s.cfg), nil
+	return engine.NewEngine(
+		s.client,
+		s.rclient,
+		s.cfg,
+	).Validate(ctx, policyCtx), nil
 }
 
 func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*api.EngineResponse, error) {
@@ -117,7 +121,11 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
 		WithInformerCacheResolver(s.informerCacheResolvers)
-	response, _ := engine.NewEngine().VerifyAndPatchImages(ctx, s.rclient, policyCtx, s.cfg)
+	response, _ := engine.NewEngine(
+		s.client,
+		s.rclient,
+		s.cfg,
+	).VerifyAndPatchImages(ctx, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}

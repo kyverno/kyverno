@@ -532,11 +532,13 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
-			er := engine.NewEngine().Validate(
-				context.TODO(),
+			er := engine.NewEngine(
+				nil,
 				registryclient.NewOrDie(),
-				api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
 				cfg,
+			).Validate(
+				context.TODO(),
+				api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
 			)
 			if tc.blocked && tc.messages != nil {
 				for _, r := range er.PolicyResponse.Rules {
@@ -598,7 +600,11 @@ func Test_RuleSelector(t *testing.T) {
 	ctx := api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
 	cfg := config.NewDefaultConfiguration()
-	resp := engine.NewEngine().Validate(context.TODO(), registryclient.NewOrDie(), ctx, cfg)
+	resp := engine.NewEngine(
+		nil,
+		registryclient.NewOrDie(),
+		cfg,
+	).Validate(context.TODO(), ctx)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 2)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
@@ -609,7 +615,11 @@ func Test_RuleSelector(t *testing.T) {
 	applyOne := kyvernov1.ApplyOne
 	policy.Spec.ApplyRules = &applyOne
 
-	resp = engine.NewEngine().Validate(context.TODO(), registryclient.NewOrDie(), ctx, cfg)
+	resp = engine.NewEngine(
+		nil,
+		registryclient.NewOrDie(),
+		cfg,
+	).Validate(context.TODO(), ctx)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 

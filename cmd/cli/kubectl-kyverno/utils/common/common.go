@@ -485,7 +485,11 @@ OuterLoop:
 		WithClient(c.Client).
 		WithSubresourcesInPolicy(subresources)
 
-	mutateResponse := engine.NewEngine().Mutate(context.Background(), registryclient.NewOrDie(), policyContext)
+	mutateResponse := engine.NewEngine(
+		nil,
+		registryclient.NewOrDie(),
+		cfg,
+	).Mutate(context.Background(), policyContext)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -509,7 +513,11 @@ OuterLoop:
 	var info Info
 	var validateResponse *api.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.NewEngine().Validate(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
+		validateResponse = engine.NewEngine(
+			nil,
+			registryclient.NewOrDie(),
+			cfg,
+		).Validate(context.Background(), policyContext)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
@@ -517,7 +525,11 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := engine.NewEngine().VerifyAndPatchImages(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
+	verifyImageResponse, _ := engine.NewEngine(
+		nil,
+		registryclient.NewOrDie(),
+		cfg,
+	).VerifyAndPatchImages(context.Background(), policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)

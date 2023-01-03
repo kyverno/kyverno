@@ -114,7 +114,12 @@ func (v *validationHandler) HandleValidation(
 					failurePolicy = kyvernov1.Fail
 				}
 
-				engineResponse := engine.NewEngine().Validate(ctx, v.rclient, policyContext, v.cfg)
+				engineResponse := engine.NewEngine(
+					// TODO: client
+					nil,
+					v.rclient,
+					v.cfg,
+				).Validate(ctx, policyContext)
 				if engineResponse.IsNil() {
 					// we get an empty response if old and new resources created the same response
 					// allow updates if resource update doesnt change the policy evaluation
@@ -173,7 +178,12 @@ func (v *validationHandler) buildAuditResponses(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
-				responses = append(responses, engine.NewEngine().Validate(ctx, v.rclient, policyContext, v.cfg))
+				responses = append(responses, engine.NewEngine(
+					// TODO: client
+					nil,
+					v.rclient,
+					v.cfg,
+				).Validate(ctx, policyContext))
 			},
 		)
 	}

@@ -158,7 +158,13 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 		policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
 
-	engineResponse := engine.NewEngine().Mutate(ctx, h.rclient, policyContext)
+	engineResponse := engine.NewEngine(
+		// TODO: client
+		nil,
+		h.rclient,
+		// TODO: config
+		nil,
+	).Mutate(ctx, policyContext)
 	policyPatches := engineResponse.GetPatches()
 
 	if !engineResponse.IsSuccessful() {

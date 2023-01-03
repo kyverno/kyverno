@@ -146,8 +146,14 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	}
 
 	policyContext := api.NewPolicyContext().WithPolicy(policy).WithNewResource(*resource)
+	cfg := config.NewDefaultConfiguration()
 
-	er := engine.NewEngine().Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := engine.NewEngine(
+		// TODO: client
+		nil,
+		registryclient.NewOrDie(),
+		cfg,
+	).Mutate(context.TODO(), policyContext)
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -159,8 +165,12 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 
 	policyContext = policyContext.WithNewResource(*resource)
 
-	cfg := config.NewDefaultConfiguration()
-	er = engine.NewEngine().Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	er = engine.NewEngine(
+		// TODO: client
+		nil,
+		registryclient.NewOrDie(),
+		cfg,
+	).Validate(context.TODO(), policyContext)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 

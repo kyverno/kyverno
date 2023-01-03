@@ -84,7 +84,11 @@ func applyPolicy(
 		WithExcludeGroupRole(excludeGroupRole...).
 		WithInformerCacheResolver(informerCacheResolvers)
 
-	engineResponseValidation = engine.NewEngine().Validate(context.TODO(), rclient, policyCtx, cfg)
+	engineResponseValidation = engine.NewEngine(
+		client,
+		rclient,
+		cfg,
+	).Validate(context.TODO(), policyCtx)
 	engineResponses = append(engineResponses, mergeRuleRespose(engineResponseMutation, engineResponseValidation))
 
 	return engineResponses
@@ -105,7 +109,13 @@ func mutation(
 		WithNewResource(resource).
 		WithInformerCacheResolver(informerCacheResolvers)
 
-	engineResponse := engine.NewEngine().Mutate(context.TODO(), rclient, policyContext)
+	engineResponse := engine.NewEngine(
+		// TODO: client
+		nil,
+		rclient,
+		// TODO: config
+		nil,
+	).Mutate(context.TODO(), policyContext)
 	if !engineResponse.IsSuccessful() {
 		log.V(4).Info("failed to apply mutation rules; reporting them")
 		return engineResponse, nil
