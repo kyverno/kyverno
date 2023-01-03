@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -23,7 +24,7 @@ type resourceInfo struct {
 	parentResourceGVR metav1.GroupVersionResource
 }
 
-func loadTargets(targets []kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.Logger) ([]resourceInfo, error) {
+func loadTargets(targets []kyvernov1.ResourceSpec, ctx *api.PolicyContext, logger logr.Logger) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	var errors []error
 
@@ -46,23 +47,23 @@ func loadTargets(targets []kyvernov1.ResourceSpec, ctx *PolicyContext, logger lo
 	return targetObjects, multierr.Combine(errors...)
 }
 
-func resolveSpec(i int, target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.Logger) (kyvernov1.ResourceSpec, error) {
-	kind, err := variables.SubstituteAll(logger, ctx.jsonContext, target.Kind)
+func resolveSpec(i int, target kyvernov1.ResourceSpec, ctx *api.PolicyContext, logger logr.Logger) (kyvernov1.ResourceSpec, error) {
+	kind, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Kind)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s: %v", i, target.Kind, err)
 	}
 
-	apiversion, err := variables.SubstituteAll(logger, ctx.jsonContext, target.APIVersion)
+	apiversion, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.APIVersion)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].APIVersion %s: %v", i, target.APIVersion, err)
 	}
 
-	namespace, err := variables.SubstituteAll(logger, ctx.jsonContext, target.Namespace)
+	namespace, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Namespace)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Namespace %s: %v", i, target.Namespace, err)
 	}
 
-	name, err := variables.SubstituteAll(logger, ctx.jsonContext, target.Name)
+	name, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Name)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Name %s: %v", i, target.Name, err)
 	}
@@ -75,17 +76,17 @@ func resolveSpec(i int, target kyvernov1.ResourceSpec, ctx *PolicyContext, logge
 	}, nil
 }
 
-func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext) ([]resourceInfo, error) {
+func getTargets(target kyvernov1.ResourceSpec, ctx *api.PolicyContext) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	namespace := target.Namespace
 	name := target.Name
 
 	// if it's namespaced policy, targets has to be loaded only from the policy's namespace
-	if ctx.policy.IsNamespaced() {
-		namespace = ctx.policy.GetNamespace()
+	if ctx.Policy().IsNamespaced() {
+		namespace = ctx.Policy().GetNamespace()
 	}
 
-	apiResource, parentAPIResource, _, err := ctx.client.Discovery().FindResource(target.APIVersion, target.Kind)
+	apiResource, parentAPIResource, _, err := ctx.Client().Discovery().FindResource(target.APIVersion, target.Kind)
 	if err != nil {
 		return nil, err
 	}
@@ -102,14 +103,14 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext) ([]resourceIn
 				Version: parentAPIResource.Version,
 			}.String()
 			subresourceName = strings.Split(apiResource.Name, "/")[1]
-			obj, err = ctx.client.GetResource(context.TODO(), apiVersion, parentAPIResource.Kind, namespace, name, subresourceName)
+			obj, err = ctx.Client().GetResource(context.TODO(), apiVersion, parentAPIResource.Kind, namespace, name, subresourceName)
 			parentResourceGVR = metav1.GroupVersionResource{
 				Group:    parentAPIResource.Group,
 				Version:  parentAPIResource.Version,
 				Resource: parentAPIResource.Name,
 			}
 		} else {
-			obj, err = ctx.client.GetResource(context.TODO(), target.APIVersion, target.Kind, namespace, name)
+			obj, err = ctx.Client().GetResource(context.TODO(), target.APIVersion, target.Kind, namespace, name)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to get target %s/%s %s/%s : %v", target.APIVersion, target.Kind, namespace, name, err)
@@ -123,7 +124,7 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext) ([]resourceIn
 			Group:   parentAPIResource.Group,
 			Version: parentAPIResource.Version,
 		}.String()
-		objList, err := ctx.client.ListResource(context.TODO(), apiVersion, parentAPIResource.Kind, "", nil)
+		objList, err := ctx.Client().ListResource(context.TODO(), apiVersion, parentAPIResource.Kind, "", nil)
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +139,7 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext) ([]resourceIn
 		for i := range parentObjects {
 			parentObj := parentObjects[i]
 			subresourceName := strings.Split(apiResource.Name, "/")[1]
-			obj, err := ctx.client.GetResource(context.TODO(), parentObj.GetAPIVersion(), parentAPIResource.Kind, parentObj.GetNamespace(), parentObj.GetName(), subresourceName)
+			obj, err := ctx.Client().GetResource(context.TODO(), parentObj.GetAPIVersion(), parentAPIResource.Kind, parentObj.GetNamespace(), parentObj.GetName(), subresourceName)
 			if err != nil {
 				return nil, err
 			}
@@ -151,7 +152,7 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext) ([]resourceIn
 		}
 	} else {
 		// list all targets if wildcard is specified
-		objList, err := ctx.client.ListResource(context.TODO(), target.APIVersion, target.Kind, "", nil)
+		objList, err := ctx.Client().ListResource(context.TODO(), target.APIVersion, target.Kind, "", nil)
 		if err != nil {
 			return nil, err
 		}

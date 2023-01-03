@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -27,7 +28,7 @@ import (
 )
 
 type ImageVerificationHandler interface {
-	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext) ([]byte, []string, error)
+	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *api.PolicyContext) ([]byte, []string, error)
 }
 
 type imageVerificationHandler struct {
@@ -61,7 +62,7 @@ func (h *imageVerificationHandler) Handle(
 	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
-	policyContext *engine.PolicyContext,
+	policyContext *api.PolicyContext,
 ) ([]byte, []string, error) {
 	ok, message, imagePatches, warnings := h.handleVerifyImages(ctx, h.log, request, policyContext, policies)
 	if !ok {
@@ -75,7 +76,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	ctx context.Context,
 	logger logr.Logger,
 	request *admissionv1.AdmissionRequest,
-	policyContext *engine.PolicyContext,
+	policyContext *api.PolicyContext,
 	policies []kyvernov1.PolicyInterface,
 ) (bool, string, []byte, []string) {
 	if len(policies) == 0 {
@@ -129,13 +130,13 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	return true, "", jsonutils.JoinPatches(patches...), warnings
 }
 
-func hasAnnotations(context *engine.PolicyContext) bool {
+func hasAnnotations(context *api.PolicyContext) bool {
 	newResource := context.NewResource()
 	annotations := newResource.GetAnnotations()
 	return len(annotations) != 0
 }
 
-func isResourceDeleted(policyContext *engine.PolicyContext) bool {
+func isResourceDeleted(policyContext *api.PolicyContext) bool {
 	var deletionTimeStamp *metav1.Time
 	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
 		resource := policyContext.NewResource()

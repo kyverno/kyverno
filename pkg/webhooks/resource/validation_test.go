@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	response "github.com/kyverno/kyverno/pkg/engine/api"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -535,7 +536,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			er := engine.Validate(
 				context.TODO(),
 				registryclient.NewOrDie(),
-				engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
+				api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured),
 				cfg,
 			)
 			if tc.blocked && tc.messages != nil {
@@ -595,7 +596,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, resourceUnstructured != nil)
 
-	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	ctx := api.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
 	cfg := config.NewDefaultConfiguration()
 	resp := engine.Validate(context.TODO(), registryclient.NewOrDie(), ctx, cfg)

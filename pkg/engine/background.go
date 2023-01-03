@@ -18,21 +18,22 @@ import (
 //   - the caller has to check the ruleResponse to determine whether the path exist
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func ApplyBackgroundChecks(rclient registryclient.Client, policyContext *PolicyContext) (resp *api.EngineResponse) {
+func ApplyBackgroundChecks(rclient registryclient.Client, policyContext *api.PolicyContext) (resp *api.EngineResponse) {
 	policyStartTime := time.Now()
 	return filterRules(rclient, policyContext, policyStartTime)
 }
 
-func filterRules(rclient registryclient.Client, policyContext *PolicyContext, startTime time.Time) *api.EngineResponse {
-	kind := policyContext.newResource.GetKind()
-	name := policyContext.newResource.GetName()
-	namespace := policyContext.newResource.GetNamespace()
-	apiVersion := policyContext.newResource.GetAPIVersion()
+func filterRules(rclient registryclient.Client, policyContext *api.PolicyContext, startTime time.Time) *api.EngineResponse {
+	newResource := policyContext.NewResource()
+	kind := newResource.GetKind()
+	name := newResource.GetName()
+	namespace := newResource.GetNamespace()
+	apiVersion := newResource.GetAPIVersion()
 	resp := &api.EngineResponse{
 		PolicyResponse: api.PolicyResponse{
 			Policy: api.PolicySpec{
-				Name:      policyContext.policy.GetName(),
-				Namespace: policyContext.policy.GetNamespace(),
+				Name:      policyContext.Policy().GetName(),
+				Namespace: policyContext.Policy().GetNamespace(),
 			},
 			PolicyStats: api.PolicyStats{
 				PolicyExecutionTimestamp: startTime.Unix(),
@@ -46,13 +47,13 @@ func filterRules(rclient registryclient.Client, policyContext *PolicyContext, st
 		},
 	}
 
-	if policyContext.excludeResourceFunc(kind, namespace, name) {
+	if policyContext.ExcludeResource(kind, namespace, name) {
 		logging.WithName("ApplyBackgroundChecks").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
 		return resp
 	}
 
-	applyRules := policyContext.policy.GetSpec().GetApplyRules()
-	for _, rule := range autogen.ComputeRules(policyContext.policy) {
+	applyRules := policyContext.Policy().GetSpec().GetApplyRules()
+	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		if ruleResp := filterRule(rclient, rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != api.RuleStatusSkip {
@@ -64,7 +65,7 @@ func filterRules(rclient registryclient.Client, policyContext *PolicyContext, st
 	return resp
 }
 
-func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContext *PolicyContext) *api.RuleResponse {
+func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContext *api.PolicyContext) *api.RuleResponse {
 	if !rule.HasGenerate() && !rule.IsMutateExisting() {
 		return nil
 	}
@@ -83,13 +84,13 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 
 	startTime := time.Now()
 
-	policy := policyContext.policy
-	newResource := policyContext.newResource
-	oldResource := policyContext.oldResource
-	admissionInfo := policyContext.admissionInfo
-	ctx := policyContext.jsonContext
-	excludeGroupRole := policyContext.excludeGroupRole
-	namespaceLabels := policyContext.namespaceLabels
+	policy := policyContext.Policy()
+	newResource := policyContext.NewResource()
+	oldResource := policyContext.OldResource()
+	admissionInfo := policyContext.AdmissionInfo()
+	ctx := policyContext.JSONContext()
+	excludeGroupRole := policyContext.ExcludeGroupRole()
+	namespaceLabels := policyContext.NamespaceLabels()
 
 	logger = logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
@@ -97,10 +98,10 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
 
-	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err != nil {
+	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err != nil {
 		if ruleType == api.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err == nil {
+			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err == nil {
 				return &api.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,
@@ -116,8 +117,8 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 		return nil
 	}
 
-	policyContext.jsonContext.Checkpoint()
-	defer policyContext.jsonContext.Restore()
+	policyContext.JSONContext().Checkpoint()
+	defer policyContext.JSONContext().Restore()
 
 	if err := LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())

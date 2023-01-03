@@ -184,7 +184,7 @@ func Test_CosignMockAttest_fail(t *testing.T) {
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, api.RuleStatusFail)
 }
 
-func buildContext(t *testing.T, policy, resource string, oldResource string) *PolicyContext {
+func buildContext(t *testing.T, policy, resource string, oldResource string) *api.PolicyContext {
 	var cpol kyverno.ClusterPolicy
 	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
@@ -196,11 +196,9 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	err = enginecontext.AddResource(ctx, []byte(resource))
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &cpol,
-		jsonContext: ctx,
-		newResource: *resourceUnstructured,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&cpol).
+		WithNewResource(*resourceUnstructured)
 
 	if oldResource != "" {
 		oldResourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(oldResource))
@@ -209,7 +207,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 		err = enginecontext.AddOldResource(ctx, []byte(oldResource))
 		assert.NilError(t, err)
 
-		policyContext.oldResource = *oldResourceUnstructured
+		policyContext = policyContext.WithOldResource(*oldResourceUnstructured)
 	}
 
 	if err := ctx.AddImageInfos(resourceUnstructured, cfg); err != nil {
@@ -438,7 +436,7 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 	policyContext := buildContext(t, testConfigMapMissing, ghcrImage, "")
 	resolver, err := resolvers.NewClientBasedResolver(kubefake.NewSimpleClientset())
 	assert.NilError(t, err)
-	policyContext.informerCacheResolvers = resolver
+	policyContext = policyContext.WithInformerCacheResolver(resolver)
 	cosign.ClearMock()
 	resp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
@@ -447,7 +445,7 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
-	policyContext.policy.GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
+	policyContext.Policy().GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
 	cosign.ClearMock()
 	engineResp, _ := VerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
@@ -523,7 +521,7 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	rule := newStaticKeyRule("match-all", "*", testOtherKey)
-	spec := policyContext.policy.GetSpec()
+	spec := policyContext.Policy().GetSpec()
 	spec.Rules = append(spec.Rules, *rule)
 
 	applyAll := kyverno.ApplyAll

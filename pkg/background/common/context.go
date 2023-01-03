@@ -9,7 +9,7 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -24,7 +24,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 	informerCacheResolvers resolvers.ConfigmapResolver,
 	namespaceLabels map[string]string,
 	logger logr.Logger,
-) (*engine.PolicyContext, bool, error) {
+) (*api.PolicyContext, bool, error) {
 	ctx := context.NewContext()
 	var new, old unstructured.Unstructured
 	var err error
@@ -79,7 +79,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
-	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(policy).
 		WithNewResource(*trigger).
 		WithOldResource(old).

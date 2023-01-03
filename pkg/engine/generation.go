@@ -12,16 +12,17 @@ import (
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
-func GenerateResponse(rclient registryclient.Client, policyContext *PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *api.EngineResponse) {
+func GenerateResponse(rclient registryclient.Client, policyContext *api.PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *api.EngineResponse) {
 	policyStartTime := time.Now()
 	return filterGenerateRules(rclient, policyContext, gr.Spec.Policy, policyStartTime)
 }
 
-func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyContext, policyNameKey string, startTime time.Time) *api.EngineResponse {
-	kind := policyContext.newResource.GetKind()
-	name := policyContext.newResource.GetName()
-	namespace := policyContext.newResource.GetNamespace()
-	apiVersion := policyContext.newResource.GetAPIVersion()
+func filterGenerateRules(rclient registryclient.Client, policyContext *api.PolicyContext, policyNameKey string, startTime time.Time) *api.EngineResponse {
+	newResource := policyContext.NewResource()
+	kind := newResource.GetKind()
+	name := newResource.GetName()
+	namespace := newResource.GetNamespace()
+	apiVersion := newResource.GetAPIVersion()
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(policyNameKey)
 	if err != nil {
 		logging.Error(err, "failed to spilt name and namespace", policyNameKey)
@@ -45,12 +46,12 @@ func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyCon
 		},
 	}
 
-	if policyContext.excludeResourceFunc(kind, namespace, name) {
+	if policyContext.ExcludeResource(kind, namespace, name) {
 		logging.WithName("Generate").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
 		return resp
 	}
 
-	for _, rule := range autogen.ComputeRules(policyContext.policy) {
+	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		if ruleResp := filterRule(rclient, rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}

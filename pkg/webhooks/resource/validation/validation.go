@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -32,7 +33,7 @@ type ValidationHandler interface {
 	// HandleValidation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleValidation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
+	HandleValidation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *api.PolicyContext, map[string]string, time.Time) (bool, string, []string)
 }
 
 func NewValidationHandler(
@@ -75,7 +76,7 @@ func (v *validationHandler) HandleValidation(
 	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
-	policyContext *engine.PolicyContext,
+	policyContext *api.PolicyContext,
 	namespaceLabels map[string]string,
 	admissionRequestTimestamp time.Time,
 ) (bool, string, []string) {

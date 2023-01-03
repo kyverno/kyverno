@@ -35,7 +35,7 @@ const (
 //go:embed resources/default-config.yaml
 var defaultConfigBytes []byte
 
-func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *api.RuleResponse {
+func processYAMLValidationRule(log logr.Logger, ctx *api.PolicyContext, rule *kyvernov1.Rule) *api.RuleResponse {
 	if isDeleteRequest(ctx) {
 		return nil
 	}
@@ -43,7 +43,7 @@ func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvern
 	return ruleResp
 }
 
-func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *api.RuleResponse {
+func handleVerifyManifest(ctx *api.PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *api.RuleResponse {
 	verified, reason, err := verifyManifest(ctx, *rule.Validation.Manifests, logger)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
@@ -56,9 +56,9 @@ func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.
 	return ruleResponse(*rule, api.Validation, reason, api.RuleStatusPass)
 }
 
-func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
+func verifyManifest(policyContext *api.PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
 	// load AdmissionRequest
-	request, err := policyContext.jsonContext.Query("request")
+	request, err := policyContext.JSONContext().Query("request")
 	if err != nil {
 		return false, "", errors.Wrapf(err, "failed to get a request from policyContext")
 	}
@@ -106,7 +106,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 	}
 	if !vo.DisableDryRun {
 		// check if kyverno can 'create' dryrun resource
-		ok, err := checkDryRunPermission(policyContext.client, adreq.Kind.Kind, vo.DryRunNamespace)
+		ok, err := checkDryRunPermission(policyContext.Client(), adreq.Kind.Kind, vo.DryRunNamespace)
 		if err != nil {
 			logger.V(1).Info("failed to check permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind, "error", err.Error())
 			vo.DisableDryRun = true

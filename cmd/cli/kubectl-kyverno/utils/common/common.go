@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	response "github.com/kyverno/kyverno/pkg/engine/api"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -463,10 +464,7 @@ OuterLoop:
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
-	subresources := make([]struct {
-		APIResource    metav1.APIResource
-		ParentResource metav1.APIResource
-	}, 0)
+	subresources := make([]api.SubResourceInPolicy, 0)
 
 	// If --cluster flag is not set, then we need to add subresources to the context
 	if c.Client == nil {
@@ -480,7 +478,7 @@ OuterLoop:
 		}
 	}
 
-	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).
@@ -1074,7 +1072,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 }
 
 // handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
-func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
+func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext api.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
 	resource := policyContext.NewResource()
 	objects := []runtime.Object{&resource}
 	resources := []*unstructured.Unstructured{}

@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	response "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
@@ -86,7 +87,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 	if err := enginectx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
-	policyCtx := engine.NewPolicyContextWithJsonContext(enginectx).
+	policyCtx := api.NewPolicyContextWithJsonContext(enginectx).
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithClient(s.client).
@@ -110,7 +111,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	if err := enginectx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
-	policyCtx := engine.NewPolicyContextWithJsonContext(enginectx).
+	policyCtx := api.NewPolicyContextWithJsonContext(enginectx).
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithClient(s.client).

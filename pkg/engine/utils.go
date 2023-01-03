@@ -424,8 +424,8 @@ func ManagedPodResource(policy kyvernov1.PolicyInterface, resource unstructured.
 	return false
 }
 
-func checkPreconditions(logger logr.Logger, ctx *PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
-	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.jsonContext, anyAllConditions)
+func checkPreconditions(logger logr.Logger, ctx *api.PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
+	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.JSONContext(), anyAllConditions)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
 	}
@@ -435,7 +435,7 @@ func checkPreconditions(logger logr.Logger, ctx *PolicyContext, anyAllConditions
 		return false, errors.Wrapf(err, "failed to parse preconditions")
 	}
 
-	pass := variables.EvaluateConditions(logger, ctx.jsonContext, typeConditions)
+	pass := variables.EvaluateConditions(logger, ctx.JSONContext(), typeConditions)
 	return pass, nil
 }
 

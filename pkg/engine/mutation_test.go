@@ -10,6 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	response "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -90,11 +91,10 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resourceUnstructured,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resourceUnstructured)
+
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	t.Log(string(expectedPatch))
 
@@ -164,11 +164,10 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resourceUnstructured,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resourceUnstructured)
+
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
@@ -260,11 +259,9 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resourceUnstructured,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resourceUnstructured)
 
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
@@ -363,11 +360,9 @@ func Test_chained_rules(t *testing.T) {
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resource,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resource)
 
 	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
@@ -457,11 +452,9 @@ func Test_precondition(t *testing.T) {
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resourceUnstructured,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resourceUnstructured)
 
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	t.Log(string(expectedPatch))
@@ -554,11 +547,9 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resourceUnstructured,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resourceUnstructured)
 
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	t.Log(string(expectedPatch))
@@ -642,11 +633,9 @@ func Test_foreach(t *testing.T) {
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resource,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resource)
 
 	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
@@ -749,11 +738,9 @@ func Test_foreach_element_mutation(t *testing.T) {
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resource,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resource)
 
 	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
@@ -875,11 +862,9 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resource,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resource)
 
 	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
@@ -1025,11 +1010,9 @@ func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *res
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resource,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resource)
 
 	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
@@ -1551,7 +1534,6 @@ func Test_mutate_existing_resources(t *testing.T) {
 		},
 	}
 
-	var policyContext *PolicyContext
 	for _, test := range tests {
 		var policy kyverno.ClusterPolicy
 		err := json.Unmarshal(test.policy, &policy)
@@ -1560,6 +1542,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 		trigger, err := kubeutils.BytesToUnstructured(test.trigger)
 		assert.NilError(t, err)
 
+		var policyContext *api.PolicyContext
 		for _, target := range test.targets {
 			target, err := kubeutils.BytesToUnstructured(target)
 			assert.NilError(t, err)
@@ -1581,12 +1564,10 @@ func Test_mutate_existing_resources(t *testing.T) {
 			_, err = dclient.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
 			assert.NilError(t, err)
 
-			policyContext = &PolicyContext{
-				client:      dclient,
-				policy:      &policy,
-				jsonContext: ctx,
-				newResource: *trigger,
-			}
+			policyContext = api.NewPolicyContextWithJsonContext(ctx).
+				WithPolicy(&policy).
+				WithNewResource(*trigger).
+				WithClient(dclient)
 		}
 		er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 
@@ -1690,11 +1671,9 @@ func Test_RuleSelectorMutate(t *testing.T) {
 	_, err = ctx.Query("request.object.metadata.name")
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &policy,
-		jsonContext: ctx,
-		newResource: *resourceUnstructured,
-	}
+	policyContext := api.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resourceUnstructured)
 
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 2)
@@ -1709,7 +1688,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 	}
 
 	applyOne := kyverno.ApplyOne
-	policyContext.policy.GetSpec().ApplyRules = &applyOne
+	policyContext.Policy().GetSpec().ApplyRules = &applyOne
 
 	er = Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
@@ -2071,11 +2050,9 @@ func Test_SpecialCharacters(t *testing.T) {
 			}
 
 			// Create policy context.
-			policyContext := &PolicyContext{
-				policy:      &policy,
-				jsonContext: ctx,
-				newResource: *resource,
-			}
+			policyContext := api.NewPolicyContextWithJsonContext(ctx).
+				WithPolicy(&policy).
+				WithNewResource(*resource)
 
 			// Mutate and make sure that we got the expected amount of rules.
 			patches := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext).GetPatches()

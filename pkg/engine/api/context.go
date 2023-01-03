@@ -1,6 +1,8 @@
-package engine
+package api
 
 import (
+	"context"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
@@ -12,6 +14,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -20,6 +23,11 @@ import (
 
 // ExcludeFunc is a function used to determine if a resource is excluded
 type ExcludeFunc = func(kind, namespace, name string) bool
+
+type SubResourceInPolicy struct {
+	APIResource    metav1.APIResource
+	ParentResource metav1.APIResource
+}
 
 // PolicyContext contains the contexts for engine to process
 type PolicyContext struct {
@@ -74,10 +82,7 @@ type PolicyContext struct {
 	// subresourcesInPolicy represents the APIResources that are subresources along with their parent resource.
 	// This is used to determine if a resource is a subresource. It is only used when the policy context is populated
 	// by kyverno CLI. In all other cases when connected to a cluster, this is empty.
-	subresourcesInPolicy []struct {
-		APIResource    metav1.APIResource
-		ParentResource metav1.APIResource
-	}
+	subresourcesInPolicy []SubResourceInPolicy
 
 	// peLister list all policy exceptions
 	peLister kyvernov2alpha1listers.PolicyExceptionLister
@@ -97,8 +102,43 @@ func (c *PolicyContext) OldResource() unstructured.Unstructured {
 	return c.oldResource
 }
 
+func (c *PolicyContext) SubResource() string {
+	return c.subresource
+}
+
+func (c *PolicyContext) RequestbResource() metav1.GroupVersionResource {
+	return c.requestResource
+}
+
+func (c *PolicyContext) SubResourcesInPolicy() []SubResourceInPolicy {
+	return c.subresourcesInPolicy
+}
+
 func (c *PolicyContext) AdmissionInfo() kyvernov1beta1.RequestInfo {
 	return c.admissionInfo
+}
+
+func (c *PolicyContext) AdmissionOperation() bool {
+	return c.admissionOperation
+}
+
+func (c *PolicyContext) NamespaceLabels() map[string]string {
+	return c.namespaceLabels
+}
+
+func (c *PolicyContext) Element() unstructured.Unstructured {
+	return c.element
+}
+
+func (c *PolicyContext) ExcludeGroupRole() []string {
+	return c.excludeGroupRole
+}
+
+func (c *PolicyContext) ExcludeResource(kind, namespace, name string) bool {
+	if c.excludeResourceFunc == nil {
+		return false
+	}
+	return c.excludeResourceFunc(kind, namespace, name)
 }
 
 func (c *PolicyContext) JSONContext() enginectx.Interface {
@@ -124,6 +164,10 @@ func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyEx
 		}
 	}
 	return result, nil
+}
+
+func (c *PolicyContext) ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error) {
+	return c.informerCacheResolvers.Get(ctx, namespace, name)
 }
 
 func (c *PolicyContext) Client() dclient.Interface {
@@ -212,11 +256,7 @@ func (c *PolicyContext) WithSubresource(subresource string) *PolicyContext {
 	return copy
 }
 
-func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []struct {
-	APIResource    metav1.APIResource
-	ParentResource metav1.APIResource
-},
-) *PolicyContext {
+func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []SubResourceInPolicy) *PolicyContext {
 	copy := c.Copy()
 	copy.subresourcesInPolicy = subresourcesInPolicy
 	return copy
@@ -226,6 +266,10 @@ func (c *PolicyContext) WithExceptions(peLister kyvernov2alpha1listers.PolicyExc
 	copy := c.Copy()
 	copy.peLister = peLister
 	return copy
+}
+
+func (c *PolicyContext) WithElement(element unstructured.Unstructured) {
+	c.element = element
 }
 
 // Constructors

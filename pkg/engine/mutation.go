@@ -23,14 +23,14 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext) (resp *api.EngineResponse) {
+func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *api.PolicyContext) (resp *api.EngineResponse) {
 	startTime := time.Now()
-	policy := policyContext.policy
+	policy := policyContext.Policy()
 	resp = &api.EngineResponse{
 		Policy: policy,
 	}
-	matchedResource := policyContext.newResource
-	enginectx := policyContext.jsonContext
+	matchedResource := policyContext.NewResource()
+	enginectx := policyContext.JSONContext()
 	var skippedRules []string
 
 	logger := logging.WithName("EngineMutate").WithValues("policy", policy.GetName(), "kind", matchedResource.GetKind(),
@@ -41,8 +41,8 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 	startMutateResultResponse(resp, policy, matchedResource)
 	defer endMutateResultResponse(logger, resp, startTime)
 
-	policyContext.jsonContext.Checkpoint()
-	defer policyContext.jsonContext.Restore()
+	policyContext.JSONContext().Checkpoint()
+	defer policyContext.JSONContext().Restore()
 
 	var err error
 	applyRules := policy.GetSpec().GetApplyRules()
@@ -60,13 +60,13 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 			func(ctx context.Context, span trace.Span) {
 				logger := logger.WithValues("rule", rule.Name)
 				var excludeResource []string
-				if len(policyContext.excludeGroupRole) > 0 {
-					excludeResource = policyContext.excludeGroupRole
+				if len(policyContext.ExcludeGroupRole()) > 0 {
+					excludeResource = policyContext.ExcludeGroupRole()
 				}
 
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
-				if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.admissionInfo, excludeResource, policyContext.namespaceLabels, policyContext.policy.GetNamespace(), policyContext.subresource); err != nil {
+				if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.AdmissionInfo(), excludeResource, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), policyContext.SubResource()); err != nil {
 					logger.V(4).Info("rule not matched", "reason", err.Error())
 					skippedRules = append(skippedRules, rule.Name)
 					return
@@ -80,8 +80,8 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 				}
 
 				logger.V(3).Info("processing mutate rule", "applyRules", applyRules)
-				resource, err := policyContext.jsonContext.Query("request.object")
-				policyContext.jsonContext.Reset()
+				resource, err := policyContext.JSONContext().Query("request.object")
+				policyContext.JSONContext().Reset()
 				if err == nil && resource != nil {
 					if err := enginectx.AddResource(resource.(map[string]interface{})); err != nil {
 						logger.Error(err, "unable to update resource object")
@@ -101,7 +101,7 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 
 				ruleCopy := rule.DeepCopy()
 				var patchedResources []resourceInfo
-				if !policyContext.admissionOperation && rule.IsMutateExisting() {
+				if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
 					targets, err := loadTargets(ruleCopy.Mutation.Targets, policyContext, logger)
 					if err != nil {
 						rr := ruleResponse(rule, api.Mutation, err.Error(), api.RuleStatusError)
@@ -111,12 +111,12 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 					}
 				} else {
 					var parentResourceGVR metav1.GroupVersionResource
-					if policyContext.subresource != "" {
-						parentResourceGVR = policyContext.requestResource
+					if policyContext.SubResource() != "" {
+						parentResourceGVR = policyContext.RequestbResource()
 					}
 					patchedResources = append(patchedResources, resourceInfo{
 						unstructured:      matchedResource,
-						subresource:       policyContext.subresource,
+						subresource:       policyContext.SubResource(),
 						parentResourceGVR: parentResourceGVR,
 					})
 				}
@@ -126,9 +126,9 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 						continue
 					}
 
-					if !policyContext.admissionOperation && rule.IsMutateExisting() {
+					if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
 						policyContext := policyContext.Copy()
-						if err := policyContext.jsonContext.AddTargetResource(patchedResource.unstructured.Object); err != nil {
+						if err := policyContext.JSONContext().AddTargetResource(patchedResource.unstructured.Object); err != nil {
 							logging.Error(err, "failed to add target resource to the context")
 							continue
 						}
@@ -184,7 +184,7 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 	return resp
 }
 
-func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
+func mutateResource(rule *kyvernov1.Rule, ctx *api.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
 	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
 	if err != nil {
 		return mutate.NewErrorResponse("failed to evaluate preconditions", err)
@@ -199,7 +199,7 @@ func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructu
 
 type forEachMutator struct {
 	rule          *kyvernov1.Rule
-	policyContext *PolicyContext
+	policyContext *api.PolicyContext
 	foreach       []kyvernov1.ForEachMutation
 	resource      resourceInfo
 	nesting       int

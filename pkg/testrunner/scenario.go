@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/stretchr/testify/assert"
@@ -145,7 +146,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		t.FailNow()
 	}
 
-	policyContext := engine.NewPolicyContext().WithPolicy(policy).WithNewResource(*resource)
+	policyContext := api.NewPolicyContext().WithPolicy(policy).WithNewResource(*resource)
 
 	er := engine.Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	t.Log("---Mutation---")

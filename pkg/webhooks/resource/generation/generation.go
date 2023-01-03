@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -33,7 +34,7 @@ import (
 type GenerationHandler interface {
 	// TODO: why do we need to expose that ?
 	HandleUpdatesForGenerateRules(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface)
-	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time)
+	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *api.PolicyContext, time.Time)
 }
 
 func NewGenerationHandler(
@@ -80,7 +81,7 @@ func (h *generationHandler) Handle(
 	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
-	policyContext *engine.PolicyContext,
+	policyContext *api.PolicyContext,
 	admissionRequestTimestamp time.Time,
 ) {
 	h.log.V(6).Info("update request for generate policy")

@@ -5,7 +5,7 @@ import (
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/pkg/errors"
@@ -14,7 +14,7 @@ import (
 )
 
 type PolicyContextBuilder interface {
-	Build(*admissionv1.AdmissionRequest) (*engine.PolicyContext, error)
+	Build(*admissionv1.AdmissionRequest) (*api.PolicyContext, error)
 }
 
 type policyContextBuilder struct {
@@ -44,7 +44,7 @@ func NewPolicyContextBuilder(
 	}
 }
 
-func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest) (*engine.PolicyContext, error) {
+func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest) (*api.PolicyContext, error) {
 	userRequestInfo := kyvernov1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
@@ -54,5 +54,5 @@ func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest) (*en
 		userRequestInfo.Roles = roles
 		userRequestInfo.ClusterRoles = clusterRoles
 	}
-	return engine.NewPolicyContextFromAdmissionRequest(request, userRequestInfo, b.configuration, b.client, b.informerCacheResolvers, b.peLister)
+	return api.NewPolicyContextFromAdmissionRequest(request, userRequestInfo, b.configuration, b.client, b.informerCacheResolvers, b.peLister)
 }

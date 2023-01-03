@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	response "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
@@ -76,7 +77,7 @@ func applyPolicy(
 		logger.Error(err, "failed to process mutation rule")
 	}
 
-	policyCtx := engine.NewPolicyContextWithJsonContext(ctx).
+	policyCtx := api.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(policy).
 		WithNewResource(resource).
 		WithNamespaceLabels(namespaceLabels).
@@ -99,7 +100,7 @@ func mutation(
 	informerCacheResolvers resolvers.ConfigmapResolver,
 	namespaceLabels map[string]string,
 ) (*response.EngineResponse, error) {
-	policyContext := engine.NewPolicyContextWithJsonContext(jsonContext).
+	policyContext := api.NewPolicyContextWithJsonContext(jsonContext).
 		WithPolicy(policy).
 		WithNamespaceLabels(namespaceLabels).
 		WithNewResource(resource).

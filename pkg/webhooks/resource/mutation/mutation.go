@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -31,7 +32,7 @@ type MutationHandler interface {
 	// HandleMutation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleMutation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time) ([]byte, []string, error)
+	HandleMutation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *api.PolicyContext, time.Time) ([]byte, []string, error)
 }
 
 func NewMutationHandler(
@@ -65,7 +66,7 @@ func (h *mutationHandler) HandleMutation(
 	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
-	policyContext *engine.PolicyContext,
+	policyContext *api.PolicyContext,
 	admissionRequestTimestamp time.Time,
 ) ([]byte, []string, error) {
 	mutatePatches, mutateEngineResponses, err := h.applyMutations(ctx, request, policies, policyContext)
@@ -82,7 +83,7 @@ func (v *mutationHandler) applyMutations(
 	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
-	policyContext *engine.PolicyContext,
+	policyContext *api.PolicyContext,
 ) ([]byte, []*response.EngineResponse, error) {
 	if len(policies) == 0 {
 		return nil, nil, nil
@@ -153,7 +154,7 @@ func (v *mutationHandler) applyMutations(
 	return jsonutils.JoinPatches(patches...), engineResponses, nil
 }
 
-func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (*response.EngineResponse, [][]byte, error) {
+func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv1.AdmissionRequest, policyContext *api.PolicyContext) (*response.EngineResponse, [][]byte, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 		policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
@@ -186,7 +187,7 @@ func logMutationResponse(patches [][]byte, engineResponses []*response.EngineRes
 	}
 }
 
-func isResourceDeleted(policyContext *engine.PolicyContext) bool {
+func isResourceDeleted(policyContext *api.PolicyContext) bool {
 	var deletionTimeStamp *metav1.Time
 	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
 		resource := policyContext.NewResource()
