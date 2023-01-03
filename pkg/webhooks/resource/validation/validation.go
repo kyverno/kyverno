@@ -12,7 +12,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/api"
-	response "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
@@ -102,7 +101,7 @@ func (v *validationHandler) HandleValidation(
 		return true, "", nil
 	}
 
-	var engineResponses []*response.EngineResponse
+	var engineResponses []*api.EngineResponse
 	failurePolicy := kyvernov1.Ignore
 	for _, policy := range policies {
 		tracing.ChildSpan(
@@ -160,13 +159,13 @@ func (v *validationHandler) buildAuditResponses(
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-) ([]*response.EngineResponse, error) {
+) ([]*api.EngineResponse, error) {
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
 		return nil, err
 	}
-	var responses []*response.EngineResponse
+	var responses []*api.EngineResponse
 	for _, policy := range policies {
 		tracing.ChildSpan(
 			ctx,
@@ -186,7 +185,7 @@ func (v *validationHandler) handleAudit(
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-	engineResponses ...*response.EngineResponse,
+	engineResponses ...*api.EngineResponse,
 ) {
 	if !v.admissionReports {
 		return
