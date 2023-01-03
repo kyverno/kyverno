@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -66,7 +65,7 @@ func newAdmissionRequestPayload(request *admissionv1.AdmissionRequest) (*admissi
 	}
 	options := new(unstructured.Unstructured)
 	if request.Options.Raw != nil {
-		options, err = engineutils.ConvertToUnstructured(request.Options.Raw)
+		options, err = kubeutils.BytesToUnstructured(request.Options.Raw)
 		if err != nil {
 			return nil, err
 		}

@@ -35,7 +35,8 @@ func Command() *cobra.Command {
 	var queries []string
 	cmd := &cobra.Command{
 		Use:          "query [-i input] [-q query|query]...",
-		Short:        strings.Join(description, "\n"),
+		Short:        description[0],
+		Long:         strings.Join(description, "\n"),
 		SilenceUsage: true,
 		Example:      strings.Join(examples, "\n\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
