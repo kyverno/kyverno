@@ -23,7 +23,8 @@ var examples = []string{
 func Command() *cobra.Command {
 	return &cobra.Command{
 		Use:          "function [function_name]...",
-		Short:        strings.Join(description, "\n"),
+		Short:        description[0],
+		Long:         strings.Join(description, "\n"),
 		Example:      strings.Join(examples, "\n\n"),
 		SilenceUsage: true,
 		Run: func(cmd *cobra.Command, args []string) {
