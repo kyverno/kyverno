@@ -613,3 +613,15 @@ type DryRunOption struct {
 type IgnoreFieldList []ObjectFieldBinding
 
 type ObjectFieldBinding k8smanifest.ObjectFieldBinding
+
+// RequestType can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.
+type RequestType string
+
+const (
+	Create  RequestType = "CREATE"
+	Connect RequestType = "CONNECT"
+	Update  RequestType = "UPDATE"
+	Delete  RequestType = "DELETE"
+)
+
+type RequestTypes []RequestType
