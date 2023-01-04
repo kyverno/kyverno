@@ -427,9 +427,9 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 	}
 	defer func() {
 		if report.GetNamespace() == "" {
-			c.queue.AddAfter(report.GetName(), enqueueDelay)
+			c.queue.AddAfter(report.GetName(), c.forceDelay)
 		} else {
-			c.queue.AddAfter(report.GetNamespace()+"/"+report.GetName(), enqueueDelay)
+			c.queue.AddAfter(report.GetNamespace()+"/"+report.GetName(), c.forceDelay)
 		}
 	}()
 	return c.updateReport(ctx, report, gvk, resource)
