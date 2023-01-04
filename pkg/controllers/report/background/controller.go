@@ -12,11 +12,13 @@ import (
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -38,6 +40,7 @@ const (
 	ControllerName         = "background-scan-controller"
 	maxRetries             = 10
 	annotationLastScanTime = "audit.kyverno.io/last-scan-time"
+	enqueueDelay           = 30 * time.Second
 )
 
 type controller struct {
@@ -62,6 +65,10 @@ type controller struct {
 	metadataCache          resource.MetadataCache
 	informerCacheResolvers resolvers.ConfigmapResolver
 	forceDelay             time.Duration
+
+	// config
+	config   config.Configuration
+	eventGen event.Interface
 }
 
 func NewController(
@@ -75,6 +82,8 @@ func NewController(
 	metadataCache resource.MetadataCache,
 	informerCacheResolvers resolvers.ConfigmapResolver,
 	forceDelay time.Duration,
+	config config.Configuration,
+	eventGen event.Interface,
 ) controllers.Controller {
 	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
@@ -94,6 +103,8 @@ func NewController(
 		metadataCache:          metadataCache,
 		informerCacheResolvers: informerCacheResolvers,
 		forceDelay:             forceDelay,
+		config:                 config,
+		eventGen:               eventGen,
 	}
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
@@ -102,17 +113,10 @@ func NewController(
 		if eventType == resource.Deleted {
 			return
 		}
-		selector, err := reportutils.SelectorResourceUidEquals(uid)
-		if err != nil {
-			logger.Error(err, "failed to create label selector")
-		}
-		if err := c.enqueue(selector); err != nil {
-			logger.Error(err, "failed to enqueue")
-		}
 		if res.Namespace == "" {
-			c.queue.Add(string(uid))
+			c.queue.AddAfter(string(uid), enqueueDelay)
 		} else {
-			c.queue.Add(res.Namespace + "/" + string(uid))
+			c.queue.AddAfter(res.Namespace+"/"+string(uid), enqueueDelay)
 		}
 	})
 	return &c
@@ -231,15 +235,18 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 	} else {
 		annTime, err := time.Parse(time.RFC3339, metaAnnotations[annotationLastScanTime])
 		if err != nil {
-			logger.Error(err, "failed to parse last scan time", "namespace", resource.Namespace, "name", resource.Name)
+			logger.Error(err, "failed to parse last scan time annotation", "namespace", resource.Namespace, "name", resource.Name, "hash", resource.Hash)
 			force = true
 		} else {
 			force = time.Now().After(annTime.Add(c.forceDelay))
 		}
 	}
+	if force {
+		logger.Info("force bg scan report", "namespace", resource.Namespace, "name", resource.Name, "hash", resource.Hash)
+	}
 	//	if the resource changed, we need to rebuild the report
 	if force || !reportutils.CompareHash(meta, resource.Hash) {
-		scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers)
+		scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers, c.config)
 		before, err := c.getReport(ctx, meta.GetNamespace(), meta.GetName())
 		if err != nil {
 			return nil
@@ -267,6 +274,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 				logger.Error(result.Error, "failed to apply policy")
 			} else {
 				responses = append(responses, result.EngineResponse)
+				utils.GenerateEvents(logger, c.eventGen, c.config, result.EngineResponse)
 			}
 		}
 		controllerutils.SetAnnotation(report, annotationLastScanTime, time.Now().Format(time.RFC3339))
@@ -329,7 +337,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		}
 		// creations
 		if len(toCreate) > 0 {
-			scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers)
+			scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers, c.config)
 			resource, err := c.client.GetResource(ctx, gvk.GroupVersion().String(), gvk.Kind, resource.Namespace, resource.Name)
 			if err != nil {
 				return err
@@ -349,6 +357,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 				} else {
 					reportutils.SetPolicyLabel(report, result.EngineResponse.Policy)
 					ruleResults = append(ruleResults, reportutils.EngineResponseToReportResults(result.EngineResponse)...)
+					utils.GenerateEvents(logger, c.eventGen, c.config, result.EngineResponse)
 				}
 			}
 		}
@@ -385,7 +394,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) error {
 	// try to find resource from the cache
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)

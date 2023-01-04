@@ -59,15 +59,7 @@ func ReportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
 	if !reflect.DeepEqual(before.GetAnnotations(), after.GetAnnotations()) {
 		return false
 	}
-	bLabels := sets.New[string]()
-	aLabels := sets.New[string]()
-	for key := range before.GetLabels() {
-		bLabels.Insert(key)
-	}
-	for key := range after.GetLabels() {
-		aLabels.Insert(key)
-	}
-	if !aLabels.Equal(bLabels) {
+	if !reflect.DeepEqual(before.GetLabels(), after.GetLabels()) {
 		return false
 	}
 	b := before.GetResults()
