@@ -8223,7 +8223,7 @@ spec:
                             rule execution. This is useful for finer control of when
                             an rule is applied. A condition can reference object data
                             using JMESPath notation. Here, all of the conditions need
-                            to pass
+                            to pass.
                           items:
                             properties:
                               key:
@@ -8264,7 +8264,7 @@ spec:
                             rule execution. This is useful for finer control of when
                             an rule is applied. A condition can reference object data
                             using JMESPath notation. Here, at least one of the conditions
-                            need to pass
+                            need to pass.
                           items:
                             properties:
                               key:
@@ -8324,7 +8324,7 @@ spec:
                                     conditional rule execution. This is useful for
                                     finer control of when an rule is applied. A condition
                                     can reference object data using JMESPath notation.
-                                    Here, all of the conditions need to pass
+                                    Here, all of the conditions need to pass.
                                   items:
                                     properties:
                                       key:
@@ -8367,7 +8367,7 @@ spec:
                                     conditional rule execution. This is useful for
                                     finer control of when an rule is applied. A condition
                                     can reference object data using JMESPath notation.
-                                    Here, at least one of the conditions need to pass
+                                    Here, at least one of the conditions need to pass.
                                   items:
                                     properties:
                                       key:
