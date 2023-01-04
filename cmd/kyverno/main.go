@@ -171,6 +171,7 @@ func createReportControllers(
 	configMapResolver resolvers.ConfigmapResolver,
 	backgroundScanInterval time.Duration,
 	configuration config.Configuration,
+	eventGenerator event.Interface,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -227,6 +228,7 @@ func createReportControllers(
 					configMapResolver,
 					backgroundScanInterval,
 					configuration,
+					eventGenerator,
 				),
 				backgroundScanWorkers,
 			))
@@ -343,6 +345,7 @@ func createrLeaderControllers(
 		configMapResolver,
 		backgroundScanInterval,
 		configuration,
+		eventGenerator,
 	)
 	return append(
 			[]internal.Controller{
