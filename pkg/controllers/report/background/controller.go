@@ -159,26 +159,29 @@ func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) enqueue(selector labels.Selector) error {
-	bgscans, err := c.bgscanrLister.List(selector)
-	if err != nil {
-		return err
+	for _, key := range c.metadataCache.GetAllResourceKeys() {
+		c.queue.Add(key)
 	}
-	for _, bgscan := range bgscans {
-		err = c.bgscanEnqueue(bgscan)
-		if err != nil {
-			logger.Error(err, "failed to enqueue")
-		}
-	}
-	cbgscans, err := c.cbgscanrLister.List(selector)
-	if err != nil {
-		return err
-	}
-	for _, cbgscan := range cbgscans {
-		err = c.cbgscanEnqueue(cbgscan)
-		if err != nil {
-			logger.Error(err, "failed to enqueue")
-		}
-	}
+	// bgscans, err := c.bgscanrLister.List(selector)
+	// if err != nil {
+	// 	return err
+	// }
+	// for _, bgscan := range bgscans {
+	// 	err = c.bgscanEnqueue(bgscan)
+	// 	if err != nil {
+	// 		logger.Error(err, "failed to enqueue")
+	// 	}
+	// }
+	// cbgscans, err := c.cbgscanrLister.List(selector)
+	// if err != nil {
+	// 	return err
+	// }
+	// for _, cbgscan := range cbgscans {
+	// 	err = c.cbgscanEnqueue(cbgscan)
+	// 	if err != nil {
+	// 		logger.Error(err, "failed to enqueue")
+	// 	}
+	// }
 	return nil
 }
 
