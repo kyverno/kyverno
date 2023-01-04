@@ -56,14 +56,6 @@ type PolicyContext struct {
 	// and `requestResource: {group:"apps", version:"v1beta1", resource:"deployments"}` (indicating the resource of the original API request).
 	requestResource metav1.GroupVersionResource
 
-	// Dynamic client - used for api lookups
-	client dclient.Interface
-
-	// Config handler
-	excludeGroupRole []string
-
-	excludeResourceFunc ExcludeFunc
-
 	// jsonContext is the variable context
 	jsonContext enginectx.Interface
 
@@ -73,9 +65,6 @@ type PolicyContext struct {
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
 
-	// informerCacheResolvers - used to get resources from informer cache
-	informerCacheResolvers resolvers.ConfigmapResolver
-
 	// subresource is the subresource being requested, if any (for example, "status" or "scale")
 	subresource string
 
@@ -83,6 +72,18 @@ type PolicyContext struct {
 	// This is used to determine if a resource is a subresource. It is only used when the policy context is populated
 	// by kyverno CLI. In all other cases when connected to a cluster, this is empty.
 	subresourcesInPolicy []SubResourceInPolicy
+
+	// TODO: remove fields below
+	// Dynamic client - used for api lookups
+	client dclient.Interface
+
+	// Config handler
+	excludeGroupRole []string
+
+	excludeResourceFunc ExcludeFunc
+
+	// informerCacheResolvers - used to get resources from informer cache
+	informerCacheResolvers resolvers.ConfigmapResolver
 
 	// peLister list all policy exceptions
 	peLister kyvernov2alpha1listers.PolicyExceptionLister
