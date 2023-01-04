@@ -3,7 +3,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.cleanup-controller.name" . }}
+  name: {{ template "kyverno.name" . }}:cleanup-controller
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
 rules:
