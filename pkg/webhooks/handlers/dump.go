@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/utils"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,33 +58,33 @@ type admissionRequestPayload struct {
 	Options            unstructured.Unstructured    `json:"options,omitempty"`
 }
 
-func newAdmissionRequestPayload(rq *admissionv1.AdmissionRequest) (*admissionRequestPayload, error) {
-	newResource, oldResource, err := utils.ExtractResources(nil, rq)
+func newAdmissionRequestPayload(request *admissionv1.AdmissionRequest) (*admissionRequestPayload, error) {
+	newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
 	if err != nil {
 		return nil, err
 	}
 	options := new(unstructured.Unstructured)
-	if rq.Options.Raw != nil {
-		options, err = engineutils.ConvertToUnstructured(rq.Options.Raw)
+	if request.Options.Raw != nil {
+		options, err = kubeutils.BytesToUnstructured(request.Options.Raw)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return redactPayload(&admissionRequestPayload{
-		UID:                rq.UID,
-		Kind:               rq.Kind,
-		Resource:           rq.Resource,
-		SubResource:        rq.SubResource,
-		RequestKind:        rq.RequestKind,
-		RequestResource:    rq.RequestResource,
-		RequestSubResource: rq.RequestSubResource,
-		Name:               rq.Name,
-		Namespace:          rq.Namespace,
-		Operation:          string(rq.Operation),
-		UserInfo:           rq.UserInfo,
+		UID:                request.UID,
+		Kind:               request.Kind,
+		Resource:           request.Resource,
+		SubResource:        request.SubResource,
+		RequestKind:        request.RequestKind,
+		RequestResource:    request.RequestResource,
+		RequestSubResource: request.RequestSubResource,
+		Name:               request.Name,
+		Namespace:          request.Namespace,
+		Operation:          string(request.Operation),
+		UserInfo:           request.UserInfo,
 		Object:             newResource,
 		OldObject:          oldResource,
-		DryRun:             rq.DryRun,
+		DryRun:             request.DryRun,
 		Options:            *options,
 	})
 }
@@ -92,14 +92,14 @@ func newAdmissionRequestPayload(rq *admissionv1.AdmissionRequest) (*admissionReq
 func redactPayload(payload *admissionRequestPayload) (*admissionRequestPayload, error) {
 	if strings.EqualFold(payload.Kind.Kind, "Secret") {
 		if payload.Object.Object != nil {
-			obj, err := utils.RedactSecret(&payload.Object)
+			obj, err := kubeutils.RedactSecret(&payload.Object)
 			if err != nil {
 				return nil, err
 			}
 			payload.Object = obj
 		}
 		if payload.OldObject.Object != nil {
-			oldObj, err := utils.RedactSecret(&payload.OldObject)
+			oldObj, err := kubeutils.RedactSecret(&payload.OldObject)
 			if err != nil {
 				return nil, err
 			}

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"sync"
 
+	valid "github.com/asaskevich/govalidator"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
@@ -130,6 +131,10 @@ func KyvernoConfigMapName() string {
 
 // Configuration to be used by consumer to check filters
 type Configuration interface {
+	// GetDefaultRegistry return default image registry
+	GetDefaultRegistry() string
+	// GetEnableDefaultRegistryMutation return if should mutate image registry
+	GetEnableDefaultRegistryMutation() bool
 	// ToFilter checks if the given resource is set to be filtered in the configuration
 	ToFilter(kind, namespace, name string) bool
 	// GetExcludeGroupRole return exclude roles
@@ -148,18 +153,22 @@ type Configuration interface {
 
 // configuration stores the configuration
 type configuration struct {
-	mux                   sync.RWMutex
-	filters               []filter
-	excludeGroupRole      []string
-	excludeUsername       []string
-	webhooks              []WebhookConfig
-	generateSuccessEvents bool
+	defaultRegistry               string
+	enableDefaultRegistryMutation bool
+	excludeGroupRole              []string
+	excludeUsername               []string
+	filters                       []filter
+	generateSuccessEvents         bool
+	mux                           sync.RWMutex
+	webhooks                      []WebhookConfig
 }
 
 // NewDefaultConfiguration ...
 func NewDefaultConfiguration() *configuration {
 	return &configuration{
-		excludeGroupRole: defaultExcludeGroupRole,
+		defaultRegistry:               "docker.io",
+		enableDefaultRegistryMutation: true,
+		excludeGroupRole:              defaultExcludeGroupRole,
 	}
 }
 
@@ -197,6 +206,18 @@ func (cd *configuration) GetExcludeGroupRole() []string {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.excludeGroupRole
+}
+
+func (cd *configuration) GetDefaultRegistry() string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.defaultRegistry
+}
+
+func (cd *configuration) GetEnableDefaultRegistryMutation() bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.enableDefaultRegistryMutation
 }
 
 func (cd *configuration) GetExcludeUsername() []string {
@@ -250,6 +271,28 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.webhooks = nil
 	// load filters
 	cd.filters = parseKinds(cm.Data["resourceFilters"])
+	newDefaultRegistry, ok := cm.Data["defaultRegistry"]
+	if !ok {
+		logger.V(4).Info("configuration: No defaultRegistry defined in ConfigMap")
+	} else {
+		if valid.IsDNSName(newDefaultRegistry) {
+			logger.V(4).Info("Updated defaultRegistry config parameter.", "oldDefaultRegistry", cd.defaultRegistry, "newDefaultRegistry", newDefaultRegistry)
+			cd.defaultRegistry = newDefaultRegistry
+		} else {
+			logger.V(4).Info("defaultRegistry didn't change because the provided config value isn't a valid DNS hostname")
+		}
+	}
+	enableDefaultRegistryMutation, ok := cm.Data["enableDefaultRegistryMutation"]
+	if !ok {
+		logger.V(4).Info("configuration: No enableDefaultRegistryMutation defined in ConfigMap")
+	} else {
+		newEnableDefaultRegistryMutation, err := strconv.ParseBool(enableDefaultRegistryMutation)
+		if err != nil {
+			logger.V(4).Info("configuration: Invalid value for enableDefaultRegistryMutation defined in ConfigMap. enableDefaultRegistryMutation didn't change")
+		}
+		logger.V(4).Info("Updated enableDefaultRegistryMutation config parameter", "oldEnableDefaultRegistryMutation", cd.enableDefaultRegistryMutation, "newEnableDefaultRegistryMutation", newEnableDefaultRegistryMutation)
+		cd.enableDefaultRegistryMutation = newEnableDefaultRegistryMutation
+	}
 	// load excludeGroupRole
 	cd.excludeGroupRole = append(cd.excludeGroupRole, parseRbac(cm.Data["excludeGroupRole"])...)
 	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
@@ -281,6 +324,8 @@ func (cd *configuration) unload() {
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
 	cd.filters = []filter{}
+	cd.defaultRegistry = "docker.io"
+	cd.enableDefaultRegistryMutation = true
 	cd.excludeGroupRole = []string{}
 	cd.excludeUsername = []string{}
 	cd.generateSuccessEvents = false

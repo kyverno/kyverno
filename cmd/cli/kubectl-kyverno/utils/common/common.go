@@ -21,10 +21,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	ut "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -429,7 +429,7 @@ OuterLoop:
 		log.Log.Error(err, "failed to marshal resource")
 	}
 
-	updatedResource, err := ut.ConvertToUnstructured(resourceRaw)
+	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	if err != nil {
 		log.Log.Error(err, "unable to convert raw resource to unstructured")
 	}
@@ -452,7 +452,8 @@ OuterLoop:
 		}
 	}
 
-	if err := ctx.AddImageInfos(c.Resource); err != nil {
+	cfg := config.NewDefaultConfiguration()
+	if err := ctx.AddImageInfos(c.Resource, cfg); err != nil {
 		if err != nil {
 			log.Log.Error(err, "failed to add image variables to context")
 		}
@@ -511,7 +512,7 @@ OuterLoop:
 	var info Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.Validate(context.Background(), registryclient.NewOrDie(), policyContext)
+		validateResponse = engine.Validate(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
@@ -519,7 +520,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := engine.VerifyAndPatchImages(context.Background(), registryclient.NewOrDie(), policyContext)
+	verifyImageResponse, _ := engine.VerifyAndPatchImages(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)

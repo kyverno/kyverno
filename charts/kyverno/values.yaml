@@ -304,6 +304,12 @@ excludeKyvernoNamespace: true
 resourceFiltersExcludeNamespaces: []
 
 config:
+  # -- The registry hostname used for the image mutation.
+  defaultRegistry: docker.io
+
+  # -- Enable registry mutation for container images. Enabled by default.
+  enableDefaultRegistryMutation: true
+
   # -- Resource types to be skipped by the Kyverno policy engine.
   # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
   # These are joined together without spaces, run through `tpl`, and the result is set in the config map.
@@ -476,7 +482,7 @@ networkPolicy:
 
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
-  enable: false
+  enabled: false
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
 

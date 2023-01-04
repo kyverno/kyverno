@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -43,6 +44,7 @@ func NewValidationHandler(
 	eventGen event.Interface,
 	admissionReports bool,
 	metrics metrics.MetricsConfigManager,
+	cfg config.Configuration,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -53,6 +55,7 @@ func NewValidationHandler(
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
 		metrics:          metrics,
+		cfg:              cfg,
 	}
 }
 
@@ -65,6 +68,7 @@ type validationHandler struct {
 	eventGen         event.Interface
 	admissionReports bool
 	metrics          metrics.MetricsConfigManager
+	cfg              config.Configuration
 }
 
 func (v *validationHandler) HandleValidation(
@@ -85,7 +89,7 @@ func (v *validationHandler) HandleValidation(
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
+	if reflect.DeepEqual(policyContext.NewResource(), unstructured.Unstructured{}) {
 		resource := policyContext.NewResource()
 		deletionTimeStamp = resource.GetDeletionTimestamp()
 	} else {
@@ -110,7 +114,7 @@ func (v *validationHandler) HandleValidation(
 					failurePolicy = kyvernov1.Fail
 				}
 
-				engineResponse := engine.Validate(ctx, v.rclient, policyContext)
+				engineResponse := engine.Validate(ctx, v.rclient, policyContext, v.cfg)
 				if engineResponse.IsNil() {
 					// we get an empty response if old and new resources created the same response
 					// allow updates if resource update doesnt change the policy evaluation
@@ -169,7 +173,7 @@ func (v *validationHandler) buildAuditResponses(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
-				responses = append(responses, engine.Validate(ctx, v.rclient, policyContext))
+				responses = append(responses, engine.Validate(ctx, v.rclient, policyContext, v.cfg))
 			},
 		)
 	}
