@@ -56,8 +56,14 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 		return NewResponse(response.RuleStatusSkip, resource, nil, "no patches applied")
 	}
 
-	if err := ctx.AddResource(patchedResource.Object); err != nil {
-		return NewErrorResponse("failed to update patched resource in the JSON context", err)
+	if rule.IsMutateExisting() {
+		if err := ctx.AddTargetResource(patchedResource.Object); err != nil {
+			return NewErrorResponse("failed to update patched resource in the JSON context", err)
+		}
+	} else {
+		if err := ctx.AddResource(patchedResource.Object); err != nil {
+			return NewErrorResponse("failed to update patched resource in the JSON context", err)
+		}
 	}
 
 	return NewResponse(response.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
