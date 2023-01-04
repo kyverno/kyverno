@@ -64,7 +64,7 @@ func (h *handlers) lookupPolicy(namespace, name string) (kyvernov2alpha1.Cleanup
 func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface, cfg config.Configuration) error {
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
-	debug := logger.V(5)
+	debug := logger.V(4)
 	var errs []error
 	for kind := range kinds {
 		debug := debug.WithValues("kind", kind)
