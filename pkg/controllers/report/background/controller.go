@@ -425,5 +425,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, _, names
 		}
 		return err
 	}
+	defer func() {
+		if report.GetNamespace() == "" {
+			c.queue.AddAfter(report.GetName(), enqueueDelay)
+		} else {
+			c.queue.AddAfter(report.GetNamespace()+"/"+report.GetName(), enqueueDelay)
+		}
+	}()
 	return c.updateReport(ctx, report, gvk, resource)
 }
