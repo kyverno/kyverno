@@ -94,19 +94,38 @@ func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, do
 	return substituteAll(log, ctx, untypedDoc, newPreconditionsVariableResolver(log))
 }
 
-func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule kyvernov1.Rule) (_ kyvernov1.Rule, err error) {
-	var rule interface{}
-	rule, err = DocumentToUntyped(typedRule)
+func SubstituteAllInType[T any](log logr.Logger, ctx context.EvalInterface, t *T) (*T, error) {
+	untyped, err := DocumentToUntyped(t)
 	if err != nil {
-		return typedRule, err
+		return nil, err
 	}
 
-	rule, err = SubstituteAll(log, ctx, rule)
+	untypedResults, err := SubstituteAll(log, ctx, untyped)
 	if err != nil {
-		return typedRule, err
+		return nil, err
 	}
 
-	return UntypedToRule(rule)
+	jsonBytes, err := json.Marshal(untypedResults)
+	if err != nil {
+		return nil, err
+	}
+
+	var result T
+	err = json.Unmarshal(jsonBytes, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, rule kyvernov1.Rule) (_ kyvernov1.Rule, err error) {
+	result, err := SubstituteAllInType(log, ctx, &rule)
+	if err != nil {
+		return kyvernov1.Rule{}, err
+	}
+
+	return *result, nil
 }
 
 func DocumentToUntyped(doc interface{}) (interface{}, error) {
