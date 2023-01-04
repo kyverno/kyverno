@@ -12,8 +12,8 @@ import (
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -77,7 +77,7 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 	ctx := enginecontext.NewContext()
 	err = enginecontext.AddResource(ctx, resourceRaw)
@@ -157,7 +157,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -253,7 +253,7 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -356,7 +356,7 @@ func Test_chained_rules(t *testing.T) {
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
-	resource, err := utils.ConvertToUnstructured(resourceRaw)
+	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -450,7 +450,7 @@ func Test_precondition(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -547,7 +547,7 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyraw, &policy)
 	assert.NilError(t, err)
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -635,7 +635,7 @@ func Test_foreach(t *testing.T) {
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
-	resource, err := utils.ConvertToUnstructured(resourceRaw)
+	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -742,7 +742,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
-	resource, err := utils.ConvertToUnstructured(resourceRaw)
+	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -868,7 +868,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
-	resource, err := utils.ConvertToUnstructured(resourceRaw)
+	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -1018,7 +1018,7 @@ func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *res
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
 
-	resource, err := utils.ConvertToUnstructured(resourceRaw)
+	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -1557,11 +1557,11 @@ func Test_mutate_existing_resources(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		trigger, err := utils.ConvertToUnstructured(test.trigger)
+		trigger, err := kubeutils.BytesToUnstructured(test.trigger)
 		assert.NilError(t, err)
 
 		for _, target := range test.targets {
-			target, err := utils.ConvertToUnstructured(target)
+			target, err := kubeutils.BytesToUnstructured(target)
 			assert.NilError(t, err)
 
 			ctx := enginecontext.NewContext()
@@ -1679,7 +1679,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 		t.Error(err)
 	}
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 	ctx := enginecontext.NewContext()
 	err = enginecontext.AddResource(ctx, resourceRaw)
@@ -2058,7 +2058,7 @@ func Test_SpecialCharacters(t *testing.T) {
 			}
 
 			// Parse resource document.
-			resource, err := utils.ConvertToUnstructured(tt.documentRaw)
+			resource, err := kubeutils.BytesToUnstructured(tt.documentRaw)
 			if err != nil {
 				t.Fatalf("ConvertToUnstructured() error = %v", err)
 			}

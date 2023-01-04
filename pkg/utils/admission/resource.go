@@ -3,7 +3,7 @@ package admission
 import (
 	"fmt"
 
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -50,7 +50,7 @@ func ExtractResources(newRaw []byte, request *admissionv1.AdmissionRequest) (uns
 
 // ConvertResource converts raw bytes to an unstructured object
 func ConvertResource(raw []byte, group, version, kind, namespace string) (unstructured.Unstructured, error) {
-	obj, err := engineutils.ConvertToUnstructured(raw)
+	obj, err := kubeutils.BytesToUnstructured(raw)
 	if err != nil {
 		return unstructured.Unstructured{}, fmt.Errorf("failed to convert raw to unstructured: %v", err)
 	}
