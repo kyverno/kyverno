@@ -7,18 +7,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	kubefake "k8s.io/client-go/kubernetes/fake"
-
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 )
 
 var testPolicyGood = `{
@@ -186,7 +186,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(resource))
+	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(resource))
 	assert.NilError(t, err)
 
 	ctx := enginecontext.NewContext()
@@ -200,7 +200,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	}
 
 	if oldResource != "" {
-		oldResourceUnstructured, err := utils.ConvertToUnstructured([]byte(oldResource))
+		oldResourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(oldResource))
 		assert.NilError(t, err)
 
 		err = enginecontext.AddOldResource(ctx, []byte(oldResource))
