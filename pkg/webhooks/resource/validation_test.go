@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"testing"
 
-	log "github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
+	log "github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"gotest.tools/assert"
 )
@@ -528,7 +527,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			var policy kyvernov1.ClusterPolicy
 			err := json.Unmarshal(tc.rawPolicy, &policy)
 			assert.NilError(t, err)
-			resourceUnstructured, err := utils.ConvertToUnstructured(tc.rawResource)
+			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
 			er := engine.Validate(
@@ -589,7 +588,7 @@ func Test_RuleSelector(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	assert.Assert(t, resourceUnstructured != nil)
 

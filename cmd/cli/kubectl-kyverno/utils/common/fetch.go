@@ -14,7 +14,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -299,7 +298,7 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 		return nil, err
 	}
 
-	resource, err := engineutils.ConvertToUnstructured(resourceJSON)
+	resource, err := kubeutils.BytesToUnstructured(resourceJSON)
 	if err != nil {
 		return nil, err
 	}
