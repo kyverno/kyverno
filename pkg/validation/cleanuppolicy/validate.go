@@ -52,7 +52,7 @@ func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface,
 		return err
 	}
 
-	if err := validateVairables(logger, policy); err != nil {
+	if err := validateVariables(logger, policy); err != nil {
 		return err
 	}
 	return nil
