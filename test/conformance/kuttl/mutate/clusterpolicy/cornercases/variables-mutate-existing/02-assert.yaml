@@ -1,0 +1,15 @@
+apiVersion: v1
+data:
+  fookey: fakeval
+kind: ConfigMap
+metadata:
+  name: mycm
+  namespace: foo
+  labels:
+    kyverno.io/watch: "true"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+  namespace: foo
