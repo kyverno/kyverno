@@ -57,9 +57,7 @@ type controller struct {
 	nsLister       corev1listers.NamespaceLister
 
 	// queue
-	queue          workqueue.RateLimitingInterface
-	bgscanEnqueue  controllerutils.EnqueueFunc
-	cbgscanEnqueue controllerutils.EnqueueFunc
+	queue workqueue.RateLimitingInterface
 
 	// cache
 	metadataCache          resource.MetadataCache
@@ -98,14 +96,14 @@ func NewController(
 		cbgscanrLister:         cbgscanr.Lister(),
 		nsLister:               nsInformer.Lister(),
 		queue:                  queue,
-		bgscanEnqueue:          controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue),
-		cbgscanEnqueue:         controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue),
 		metadataCache:          metadataCache,
 		informerCacheResolvers: informerCacheResolvers,
 		forceDelay:             forceDelay,
 		config:                 config,
 		eventGen:               eventGen,
 	}
+	controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue)
+	controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue)
 	controllerutils.AddEventHandlersT(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlersT(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	c.metadataCache.AddEventHandler(func(eventType resource.EventType, uid types.UID, _ schema.GroupVersionKind, res resource.Resource) {
@@ -127,62 +125,23 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
-	selector, err := reportutils.SelectorPolicyDoesNotExist(obj)
-	if err != nil {
-		logger.Error(err, "failed to create label selector")
-	}
-	if err := c.enqueue(selector); err != nil {
-		logger.Error(err, "failed to enqueue")
-	}
+	c.enqueueResources()
 }
 
 func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
 	if old.GetResourceVersion() != obj.GetResourceVersion() {
-		selector, err := reportutils.SelectorPolicyNotEquals(obj)
-		if err != nil {
-			logger.Error(err, "failed to create label selector")
-		}
-		if err := c.enqueue(selector); err != nil {
-			logger.Error(err, "failed to enqueue")
-		}
+		c.enqueueResources()
 	}
 }
 
 func (c *controller) deletePolicy(obj kyvernov1.PolicyInterface) {
-	selector, err := reportutils.SelectorPolicyExists(obj)
-	if err != nil {
-		logger.Error(err, "failed to create label selector")
-	}
-	if err := c.enqueue(selector); err != nil {
-		logger.Error(err, "failed to enqueue")
-	}
+	c.enqueueResources()
 }
 
-func (c *controller) enqueue(selector labels.Selector) error {
+func (c *controller) enqueueResources() {
 	for _, key := range c.metadataCache.GetAllResourceKeys() {
 		c.queue.Add(key)
 	}
-	// bgscans, err := c.bgscanrLister.List(selector)
-	// if err != nil {
-	// 	return err
-	// }
-	// for _, bgscan := range bgscans {
-	// 	err = c.bgscanEnqueue(bgscan)
-	// 	if err != nil {
-	// 		logger.Error(err, "failed to enqueue")
-	// 	}
-	// }
-	// cbgscans, err := c.cbgscanrLister.List(selector)
-	// if err != nil {
-	// 	return err
-	// }
-	// for _, cbgscan := range cbgscans {
-	// 	err = c.cbgscanEnqueue(cbgscan)
-	// 	if err != nil {
-	// 		logger.Error(err, "failed to enqueue")
-	// 	}
-	// }
-	return nil
 }
 
 // TODO: utils
