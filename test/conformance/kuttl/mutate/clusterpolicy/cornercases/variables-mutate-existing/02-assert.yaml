@@ -13,8 +13,3 @@ kind: Pod
 metadata:
   name: mypod
   namespace: foo
-spec:
-  volumes:
-    - name: mycm
-      configMap:
-        name: mycm
