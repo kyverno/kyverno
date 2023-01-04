@@ -91,7 +91,7 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 	return nil
 }
 
-func validateVairables(logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface) error {
+func validateVariables(logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface) error {
 	ctx := enginecontext.NewMockContext(allowedVariables)
 
 	c := policy.GetSpec().Conditions
