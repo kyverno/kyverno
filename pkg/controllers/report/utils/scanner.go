@@ -32,7 +32,13 @@ type Scanner interface {
 	ScanResource(context.Context, unstructured.Unstructured, map[string]string, ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult
 }
 
-func NewScanner(logger logr.Logger, client dclient.Interface, rclient registryclient.Client, informerCacheResolvers resolvers.ConfigmapResolver, excludeGroupRole ...string) Scanner {
+func NewScanner(
+	logger logr.Logger,
+	client dclient.Interface,
+	rclient registryclient.Client,
+	informerCacheResolvers resolvers.ConfigmapResolver,
+	excludeGroupRole ...string,
+) Scanner {
 	return &scanner{
 		logger:                 logger,
 		client:                 client,
