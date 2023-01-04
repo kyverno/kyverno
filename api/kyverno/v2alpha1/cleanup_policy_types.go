@@ -164,7 +164,7 @@ type CleanupPolicySpec struct {
 	// The schedule in Cron format
 	Schedule string `json:"schedule"`
 
-	// Conditions defines conditions used to select resources which user needs to delete
+	// Conditions defines the conditions used to select the resources which will be cleaned up.
 	// +optional
 	Conditions *kyvernov2beta1.AnyAllConditions `json:"conditions,omitempty"`
 }

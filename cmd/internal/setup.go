@@ -10,7 +10,7 @@ import (
 func shutdown(logger logr.Logger, sdowns ...context.CancelFunc) context.CancelFunc {
 	return func() {
 		for i := range sdowns {
-			logger.Info("shuting down...")
+			logger.Info("shutting down...")
 			defer sdowns[i]()
 		}
 	}
