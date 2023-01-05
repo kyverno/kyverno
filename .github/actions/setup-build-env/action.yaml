@@ -21,6 +21,3 @@ runs:
     - shell: bash
       run: |
         make build-all install-tools
-    - shell: bash
-      run: |
-        make build-all install-tools
