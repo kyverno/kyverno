@@ -110,7 +110,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 					// check conditions
 					if spec.Conditions != nil {
 						enginectx := enginecontext.NewContext()
-						if err := enginectx.AddResource(resource.Object); err != nil {
+						if err := enginectx.AddTargetResource(resource.Object); err != nil {
 							debug.Error(err, "failed to add resource in context")
 							errs = append(errs, err)
 							continue

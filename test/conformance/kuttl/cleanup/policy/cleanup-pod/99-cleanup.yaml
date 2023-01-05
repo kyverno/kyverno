@@ -1,0 +1,5 @@
+# A clean-up is presently required because kuttl does not do a reliable job of cleaning up both cluster-scoped objects.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete -f 00-manifests.yaml,01-policy.yaml --force --wait=true --ignore-not-found=true
