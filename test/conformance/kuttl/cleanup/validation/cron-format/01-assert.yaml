@@ -2,15 +2,8 @@ apiVersion: kyverno.io/v2alpha1
 kind: ClusterCleanupPolicy
 metadata:
   name: cleanuppolicy
-spec:
-  match:
-    any:
-    - resources:
-        kinds:
-          - Pod
+status:
   conditions:
-    any:
-    - key: "{{ target.metadata.name }}"
-      operator: Equals
-      value: example
-  schedule: "* * * * *"
+  - reason: Succeeded
+    status: "True"
+    type: Ready
