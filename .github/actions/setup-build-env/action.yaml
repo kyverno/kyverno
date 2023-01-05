@@ -5,8 +5,7 @@ description: Clone repo, unshallow, setup go, cache and install tools.
 inputs:
   unshallow:
     description: git unshallow
-    required: false
-    default: true
+    default: 'true'
 
 runs:
   using: composite
@@ -19,6 +18,9 @@ runs:
       with:
         go-version: ~1.19.4
         cache: true
+    - shell: bash
+      run: |
+        make build-all install-tools
     - shell: bash
       run: |
         make build-all install-tools
