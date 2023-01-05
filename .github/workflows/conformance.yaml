@@ -32,7 +32,7 @@ jobs:
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
           make kind-create-cluster kind-deploy-kyverno
       - name: Wait for Kyverno to start
-        run: sleep 60
+        uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
         run: make test-kuttl
       - name: Debug failure

@@ -5,23 +5,19 @@ description: Show kyverno pods logs
 runs:
   using: composite
   steps:
-    - name: Webhook configurations
-      shell: bash
+    - shell: bash
       run: |
         kubectl get mutatingwebhookconfigurations
         kubectl get validatingwebhookconfigurations
-    - name: Kyverno pods
-      shell: bash
+    - shell: bash
       run: |
         kubectl -n kyverno get pod
         kubectl -n kyverno describe pod | grep -i events -A10
-    - name: Kyverno previous pods logs (if any)
-      shell: bash
+    - shell: bash
       run: |
         kubectl -n kyverno logs deploy/kyverno --all-containers -p || true
         kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers -p || true
-    - name: Kyverno pods logs
-      shell: bash
+    - shell: bash
       run: |
         kubectl -n kyverno logs deploy/kyverno --all-containers
         kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers
