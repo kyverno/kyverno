@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v2alpha1
+kind: CleanupPolicy
+metadata:
+  name: cleanup-pod
+  namespace: default
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

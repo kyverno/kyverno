@@ -10,7 +10,7 @@ spec:
           - Pod
   conditions:
     any:
-    - key: "{{ request.name }}"
+    - key: "{{ target.metadata.name }}"
       operator: Equals
       value: example
   schedule: "* * * * *"
