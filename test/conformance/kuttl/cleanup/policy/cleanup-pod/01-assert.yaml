@@ -3,8 +3,15 @@ kind: CleanupPolicy
 metadata:
   name: cleanup-pod
   namespace: default
-status:
+spec:
+  match:
+    any:
+    - resources:
+        kinds:
+          - Pod
   conditions:
-  - reason: Succeeded
-    status: "True"
-    type: Ready
+    any:
+    - key: "{{ target.metadata.name }}"
+      operator: Equals
+      value: example
+  schedule: "*/1 * * * *"
