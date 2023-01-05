@@ -11,19 +11,13 @@ jobs:
   helm-tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - uses: actions/setup-python@5ccb29d8773c3f3f653e1705f474dfaa8a06a912 # v4.4.0
         with:
           python-version: 3.7
-
       - name: Set up chart-testing
         uses: helm/chart-testing-action@afea100a513515fbd68b0e72a7bb0ae34cb62aec # v2.3.1
-
       - name: Run chart-testing (lint)
         run: ct lint --target-branch=main --check-version-increment=false
 
@@ -36,10 +30,8 @@ jobs:
       id-token: write 
       pages: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-        with:
-          fetch-depth: 0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
 
       - name: Install Helm
         uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
@@ -50,7 +42,6 @@ jobs:
         uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
         with:
           cosign-release: 'v1.13.0'
-
 
       - name: Set version
         run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
