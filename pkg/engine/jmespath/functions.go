@@ -1119,11 +1119,7 @@ func jpTimeConvert(arguments []interface{}) (interface{}, error) {
 	}
 
 	var t time.Time
-	if layout.String() != "" {
-		t, err = time.Parse(layout.String(), ts.String())
-	} else {
-		t, err = time.Parse(time.RFC3339, ts.String())
-	}
+	t, err = time.Parse(layout.String(), ts.String())
 	if err != nil {
 		return nil, err
 	}

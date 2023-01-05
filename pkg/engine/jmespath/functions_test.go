@@ -1586,7 +1586,7 @@ func Test_TimeConvert(t *testing.T) {
 		expectedResult string
 	}{
 		{
-			test:           "time_convert('', '2021-01-02T15:04:05-07:00')",
+			test:           "time_convert('2006-01-02T15:04:05Z07:00', '2021-01-02T15:04:05-07:00')",
 			expectedResult: "2021-01-02T15:04:05-07:00",
 		},
 		{
