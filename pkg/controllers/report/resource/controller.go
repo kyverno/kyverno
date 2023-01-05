@@ -55,6 +55,7 @@ type EventHandler func(EventType, types.UID, schema.GroupVersionKind, Resource)
 
 type MetadataCache interface {
 	GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool)
+	GetAllResourceKeys() []string
 	AddEventHandler(EventHandler)
 	Warmup(ctx context.Context) error
 }
@@ -121,6 +122,22 @@ func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersi
 		}
 	}
 	return Resource{}, schema.GroupVersionKind{}, false
+}
+
+func (c *controller) GetAllResourceKeys() []string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	var keys []string
+	for _, watcher := range c.dynamicWatchers {
+		for uid, resource := range watcher.hashes {
+			key := string(uid)
+			if resource.Namespace != "" {
+				key = resource.Namespace + "/" + key
+			}
+			keys = append(keys, key)
+		}
+	}
+	return keys
 }
 
 func (c *controller) AddEventHandler(eventHandler EventHandler) {
