@@ -26,6 +26,8 @@ jobs:
           fetch-depth: 0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        with:
+          unshallow: false
       - name: Setup TEST_GIT_BRANCH
         run: |
           if [[ ${{ github.event_name }} == "push" ]]
