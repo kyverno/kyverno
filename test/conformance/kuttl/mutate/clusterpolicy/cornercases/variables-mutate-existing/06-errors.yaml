@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unwatched
+  namespace: foo
+  annotations:
+    corp.org/random: bar
