@@ -14,5 +14,4 @@ runs:
       run: |
         export KIND_IMAGE=kindest/node:${{ inputs.version }}
         make kind-create-cluster kind-deploy-kyverno
-    - shell: bash
-      uses: ./.github/actions/kyverno-wait-ready
+    - uses: ./.github/actions/kyverno-wait-ready
