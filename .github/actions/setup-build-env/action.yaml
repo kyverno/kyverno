@@ -5,9 +5,6 @@ description: Clone repo, unshallow, setup go, cache and install tools.
 runs:
   using: composite
   steps:
-    - shell: bash
-      run: |
-        git fetch --prune --unshallow
     - uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
       with:
         go-version: ~1.19.4
