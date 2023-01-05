@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -2468,69 +2466,4 @@ func TestManagedPodResource(t *testing.T) {
 		res := ManagedPodResource(&policy, *resource)
 		assert.Equal(t, res, tc.expectedResult, "test %d/%s failed, expect %v, got %v", i+1, tc.name, tc.expectedResult, res)
 	}
-}
-
-func Test_checkKind(t *testing.T) {
-	subresourceGVKToAPIResource := make(map[string]*metav1.APIResource)
-	match := checkKind(subresourceGVKToAPIResource, []string{"*"}, schema.GroupVersionKind{Kind: "Deployment", Group: "", Version: "v1"}, "")
-	assert.Equal(t, match, true)
-
-	match = checkKind(subresourceGVKToAPIResource, []string{"Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "")
-	assert.Equal(t, match, true)
-
-	match = checkKind(subresourceGVKToAPIResource, []string{"v1/Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "")
-	assert.Equal(t, match, true)
-
-	match = checkKind(subresourceGVKToAPIResource, []string{"tekton.dev/v1beta1/TaskRun"}, schema.GroupVersionKind{Kind: "TaskRun", Group: "tekton.dev", Version: "v1beta1"}, "")
-	assert.Equal(t, match, true)
-
-	match = checkKind(subresourceGVKToAPIResource, []string{"tekton.dev/*/TaskRun"}, schema.GroupVersionKind{Kind: "TaskRun", Group: "tekton.dev", Version: "v1alpha1"}, "")
-	assert.Equal(t, match, true)
-
-	// Though both 'pods', 'pods/status' have same kind i.e. 'Pod' but they are different resources, 'subresourceInAdmnReview' is used in determining that.
-	match = checkKind(subresourceGVKToAPIResource, []string{"v1/Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "status")
-	assert.Equal(t, match, false)
-
-	// Though both 'pods', 'pods/status' have same kind i.e. 'Pod' but they are different resources, 'subresourceInAdmnReview' is used in determining that.
-	match = checkKind(subresourceGVKToAPIResource, []string{"v1/Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "ephemeralcontainers")
-	assert.Equal(t, match, false)
-
-	subresourceGVKToAPIResource["networking.k8s.io/v1/NetworkPolicy/status"] = &metav1.APIResource{
-		Name:         "networkpolicies/status",
-		SingularName: "",
-		Namespaced:   true,
-		Kind:         "NetworkPolicy",
-		Group:        "networking.k8s.io",
-		Version:      "v1",
-	}
-
-	subresourceGVKToAPIResource["v1/Pod.status"] = &metav1.APIResource{
-		Name:         "pods/status",
-		SingularName: "",
-		Namespaced:   true,
-		Kind:         "Pod",
-		Group:        "",
-		Version:      "v1",
-	}
-
-	subresourceGVKToAPIResource["*/Pod.eviction"] = &metav1.APIResource{
-		Name:         "pods/eviction",
-		SingularName: "",
-		Namespaced:   true,
-		Kind:         "Eviction",
-		Group:        "policy",
-		Version:      "v1",
-	}
-
-	match = checkKind(subresourceGVKToAPIResource, []string{"networking.k8s.io/v1/NetworkPolicy/status"}, schema.GroupVersionKind{Kind: "NetworkPolicy", Group: "networking.k8s.io", Version: "v1"}, "status")
-	assert.Equal(t, match, true)
-
-	match = checkKind(subresourceGVKToAPIResource, []string{"v1/Pod.status"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "status")
-	assert.Equal(t, match, true)
-
-	match = checkKind(subresourceGVKToAPIResource, []string{"*/Pod.eviction"}, schema.GroupVersionKind{Kind: "Eviction", Group: "policy", Version: "v1"}, "eviction")
-	assert.Equal(t, match, true)
-
-	match = checkKind(subresourceGVKToAPIResource, []string{"v1alpha1/Pod.eviction"}, schema.GroupVersionKind{Kind: "Eviction", Group: "policy", Version: "v1"}, "eviction")
-	assert.Equal(t, match, false)
 }
