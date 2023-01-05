@@ -104,12 +104,15 @@ func VerifyAndPatchImages(
 					return
 				}
 
-				if !matches(logger, rule, policyContext) {
+				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
+				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+
+				if !matches(logger, rule, policyContext, subresourceGVKToAPIResource) {
 					return
 				}
 
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(policyContext, rule, logger)
+				ruleResp := hasPolicyExceptions(policyContext, rule, subresourceGVKToAPIResource, logger)
 				if ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return
