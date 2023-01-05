@@ -1579,3 +1579,33 @@ func Test_TimeAdd(t *testing.T) {
 		})
 	}
 }
+
+func Test_TimeConvert(t *testing.T) {
+	testCases := []struct {
+		test           string
+		expectedResult string
+	}{
+		{
+			test:           "time_convert('', '2021-01-02T15:04:05-07:00')",
+			expectedResult: "2021-01-02T15:04:05-07:00",
+		},
+		{
+			test:           "time_convert('Mon Jan 02 15:04:05 MST 2006', 'Sat Jan 02 15:04:05 MST 2021')",
+			expectedResult: "2021-01-02T15:04:05Z",
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := New(tc.test)
+			assert.NilError(t, err)
+
+			res, err := query.Search("")
+			assert.NilError(t, err)
+
+			result, ok := res.(string)
+			assert.Assert(t, ok)
+
+			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}

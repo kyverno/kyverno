@@ -81,6 +81,7 @@ var (
 	random                 = "random"
 	x509_decode            = "x509_decode"
 	timeAdd                = "time_add"
+	timeConvert            = "time_convert"
 )
 
 const (
@@ -474,6 +475,18 @@ func GetFunctions() []*FunctionEntry {
 			},
 			ReturnType: []JpType{JpString},
 			Note:       "adds duration (third string) to a time value (second string) of a specified layout (first string)",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeConvert,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeConvert,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "changes a time value of a given layout to RFC 3339",
 		},
 	}
 }
@@ -1091,4 +1104,29 @@ func jpTimeAdd(arguments []interface{}) (interface{}, error) {
 	}
 
 	return t.Add(d).Format(time.RFC3339), nil
+}
+
+func jpTimeConvert(arguments []interface{}) (interface{}, error) {
+	var err error
+	layout, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	ts, err := validateArg("", arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t time.Time
+	if layout.String() != "" {
+		t, err = time.Parse(layout.String(), ts.String())
+	} else {
+		t, err = time.Parse(time.RFC3339, ts.String())
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return t.Format(time.RFC3339), nil
 }
