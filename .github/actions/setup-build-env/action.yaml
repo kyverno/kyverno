@@ -5,9 +5,6 @@ description: Clone repo, unshallow, setup go, cache and install tools.
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-      with:
-        fetch-depth: 0
     - shell: bash
       run: |
         git fetch --prune --unshallow

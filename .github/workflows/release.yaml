@@ -136,6 +136,9 @@ jobs:
       - name: Set version
         id: version
         run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
+        with:
+          fetch-depth: 0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - uses: creekorful/goreportcard-action@1f35ced8cdac2cba28c9a2f2288a16aacfd507f9 # pin@v1.0
@@ -169,6 +172,9 @@ jobs:
       - name: Set version
         id: version
         run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
+        with:
+          fetch-depth: 0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Setup Flux CLI
@@ -223,6 +229,9 @@ jobs:
     needs:
       - create-release
     steps:
+      - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
+        with:
+          fetch-depth: 0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Check Tag
