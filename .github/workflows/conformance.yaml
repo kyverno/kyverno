@@ -22,6 +22,8 @@ jobs:
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        with:
+          build-cache-key: run-conformance
       - name: Prepare environment
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
