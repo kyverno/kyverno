@@ -70,8 +70,12 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	}
 
 	logger := logging.WithName("exception")
+
+	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
+	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(policyContext, &rule, logger)
+	ruleResp := hasPolicyExceptions(policyContext, &rule, subresourceGVKToAPIResource, logger)
 	if ruleResp != nil {
 		return ruleResp
 	}
@@ -93,9 +97,6 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 
 	logger = logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
-
-	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
 
 	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err != nil {
 		if ruleType == response.Generation {

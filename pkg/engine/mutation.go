@@ -73,7 +73,7 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 				}
 
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(policyContext, &computeRules[i], logger)
+				ruleResp := hasPolicyExceptions(policyContext, &computeRules[i], subresourceGVKToAPIResource, logger)
 				if ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return
