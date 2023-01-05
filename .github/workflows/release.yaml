@@ -136,27 +136,10 @@ jobs:
       - name: Set version
         id: version
         run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
-
       - name: Checkout
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
-        with:
-          go-version: ~1.19.4
-
-      - name: Cache Go modules
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # pin@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - uses: creekorful/goreportcard-action@1f35ced8cdac2cba28c9a2f2288a16aacfd507f9 # pin@v1.0
 
       - name: Make Release
@@ -188,17 +171,10 @@ jobs:
       - name: Set version
         id: version
         run: echo "version=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
-
       - name: Checkout
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
-        with:
-          go-version: ~1.19.4
-
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: Setup Flux CLI
         uses: fluxcd/flux2/action@f58b82fb4ed53939dc1c9d7e370deab885527368 # v0.38.2
         with:
@@ -253,17 +229,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: Check Tag
         id: check-tag
         run: |
           if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "match=true" >> $GITHUB_OUTPUT
           fi
-
       - name: Update new version in krew-index
         if: steps.check-tag.outputs.match == 'true'
         uses: rajatjindal/krew-release-bot@92da038bbf995803124a8e50ebd438b2f37bbbb0 # pin@v0.0.43
