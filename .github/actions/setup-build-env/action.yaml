@@ -21,4 +21,4 @@ runs:
         cache: true
     - shell: bash
       run: |
-        make install-tools
+        make build-all install-tools
