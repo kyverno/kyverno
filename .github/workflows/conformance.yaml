@@ -34,7 +34,7 @@ jobs:
       - name: Wait for Kyverno to start
         run: sleep 60
       - name: Test with kuttl
-        run: make test-kuttlxxx
+        run: make test-kuttl
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
