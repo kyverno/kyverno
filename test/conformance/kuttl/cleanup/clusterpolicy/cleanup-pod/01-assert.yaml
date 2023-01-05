@@ -9,8 +9,12 @@ spec:
         kinds:
           - Pod
   conditions:
-    any:
+    all:
     - key: "{{ target.metadata.name }}"
       operator: Equals
       value: example
+    - key: "{{ target.metadata.namespace }}"
+      operator: Equals
+      value: default
+  ## execute every minute
   schedule: "*/1 * * * *"
