@@ -57,7 +57,7 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.4.0
 	golang.org/x/exp v0.0.0-20221230185412-738e83a70c30
-	golang.org/x/text v0.5.0
+	golang.org/x/text v0.6.0
 	google.golang.org/grpc v1.51.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
