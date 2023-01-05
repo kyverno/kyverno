@@ -25,6 +25,8 @@ jobs:
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        with:
+          build-cache-prfix: cli-test
       - name: Setup TEST_GIT_BRANCH
         run: |
           if [[ ${{ github.event_name }} == "push" ]]
