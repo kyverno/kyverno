@@ -26,6 +26,7 @@ jobs:
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
           go-version: ~1.19.4
+          cache: true
       - name: Prepare environment
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
@@ -33,6 +34,6 @@ jobs:
       - name: Wait for Kyverno to start
         run: sleep 60
       - name: Test with kuttl
-        run: make test-kuttl
+        run: make test-kuttlxxx
       - name: Debug failure
         uses: ./.github/actions/kyverno-logs
