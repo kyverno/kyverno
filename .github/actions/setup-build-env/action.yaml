@@ -6,6 +6,12 @@ inputs:
   unshallow:
     description: git unshallow
     default: 'true'
+  go-pkg-cache-prefix:
+    description: go modules cache prefix
+    default: go-pkg-mod
+  build-cache-prefix:
+    description: build cache prefix
+    default: ${{ github.job }}
 
 runs:
   using: composite
@@ -18,9 +24,15 @@ runs:
       with:
         go-version: ~1.19.4
     - uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
+      if: ${{ inputs.go-pkg-cache-prefix }}
       with:
         path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-pkg-mod-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-${{ inputs.go-pkg-cache-prefix }}-${{ hashFiles('**/go.sum') }}
+    - uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
+      if: ${{ inputs.build-cache-prefix }}
+      with:
+        path: ~/.cache/go-build
+        key: ${{ runner.os }}-${{ inputs.build-cache-prefix }}-${{ hashFiles('**/go.sum') }}-${{ hashFiles('Makefile') }}
     - shell: bash
       run: |
         go mod download
