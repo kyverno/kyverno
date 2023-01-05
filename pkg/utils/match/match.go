@@ -8,6 +8,7 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/logging"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.uber.org/multierr"
 	"golang.org/x/text/cases"
@@ -32,6 +33,8 @@ func CheckMatchesResources(
 	resource unstructured.Unstructured,
 	statement kyvernov2beta1.MatchResources,
 	namespaceLabels map[string]string,
+	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+	subresourceInAdmnReview string,
 	// policyNamespace string,
 ) error {
 	var errs []error
@@ -45,6 +48,8 @@ func CheckMatchesResources(
 				rmr,
 				resource,
 				namespaceLabels,
+				subresourceGVKToAPIResource,
+				subresourceInAdmnReview,
 			)) == 0 {
 				oneMatched = true
 				break
@@ -62,6 +67,8 @@ func CheckMatchesResources(
 					rmr,
 					resource,
 					namespaceLabels,
+					subresourceGVKToAPIResource,
+					subresourceInAdmnReview,
 				)...,
 			)
 		}
@@ -73,6 +80,8 @@ func checkResourceFilter(
 	statement kyvernov1.ResourceFilter,
 	resource unstructured.Unstructured,
 	namespaceLabels map[string]string,
+	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+	subresourceInAdmnReview string,
 ) []error {
 	var errs []error
 	// checking if the block is empty
@@ -84,6 +93,8 @@ func checkResourceFilter(
 		statement.ResourceDescription,
 		resource,
 		namespaceLabels,
+		subresourceGVKToAPIResource,
+		subresourceInAdmnReview,
 	)
 	errs = append(errs, matchErrs...)
 	return errs
@@ -93,10 +104,12 @@ func checkResourceDescription(
 	conditionBlock kyvernov1.ResourceDescription,
 	resource unstructured.Unstructured,
 	namespaceLabels map[string]string,
+	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+	subresourceInAdmnReview string,
 ) []error {
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
-		if !checkKind(conditionBlock.Kinds, resource.GetKind(), resource.GroupVersionKind()) {
+		if !CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
@@ -154,29 +167,30 @@ func checkResourceDescription(
 	return errs
 }
 
-func checkKind(kinds []string, resourceKind string, gvk schema.GroupVersionKind) bool {
+func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string) bool {
 	title := cases.Title(language.Und, cases.NoLower)
+	result := false
 	for _, k := range kinds {
-		parts := strings.Split(k, "/")
-		if len(parts) == 1 {
-			if k == "*" || resourceKind == title.String(k) {
-				return true
+		if k != "*" {
+			gv, kind := kubeutils.GetKindFromGVK(k)
+			apiResource, ok := subresourceGVKToAPIResource[k]
+			if ok {
+				result = apiResource.Group == gvk.Group && (apiResource.Version == gvk.Version || strings.Contains(gv, "*")) && apiResource.Kind == gvk.Kind
+			} else { // if the kind is not found in the subresourceGVKToAPIResource, then it is not a subresource
+				result = title.String(kind) == gvk.Kind && subresourceInAdmnReview == ""
+				if gv != "" {
+					result = result && kubeutils.GroupVersionMatches(gv, gvk.GroupVersion().String())
+				}
 			}
+		} else {
+			result = true
 		}
-		if len(parts) == 2 {
-			kindParts := strings.SplitN(parts[1], ".", 2)
-			if gvk.Kind == title.String(kindParts[0]) && gvk.Version == parts[0] {
-				return true
-			}
-		}
-		if len(parts) == 3 || len(parts) == 4 {
-			kindParts := strings.SplitN(parts[2], ".", 2)
-			if gvk.Group == parts[0] && (gvk.Version == parts[1] || parts[1] == "*") && gvk.Kind == title.String(kindParts[0]) {
-				return true
-			}
+
+		if result {
+			break
 		}
 	}
-	return false
+	return result
 }
 
 func checkName(name, resourceName string) bool {
