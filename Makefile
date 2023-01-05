@@ -719,8 +719,6 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
-	@echo Restart kyverno pods... >&2
-	@kubectl rollout restart deployment -n kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
