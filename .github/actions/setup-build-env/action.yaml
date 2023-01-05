@@ -22,7 +22,6 @@ runs:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-pkg-mod-${{ hashFiles('**/go.sum') }}-${{ hashFiles('Makefile') }}
     - uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # v3.2.2
-      if: ${{ inputs.build-cache-prefix }}
       with:
         path: ~/.cache/kyverno/tools
         key: ${{ runner.os }}-cache-kyverno-tools-${{ hashFiles('**/go.sum') }}-${{ hashFiles('Makefile') }}
