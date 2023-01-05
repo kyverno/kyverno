@@ -19,5 +19,5 @@ jobs:
           base: ${{ github.ref_name }}
           required_approval_count: 1
           require_passed_checks: false
-          sort: 'updated'
-          direction: 'asc'
+          sort: updated
+          direction: asc
