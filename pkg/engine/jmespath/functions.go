@@ -81,7 +81,7 @@ var (
 	random                 = "random"
 	x509_decode            = "x509_decode"
 	timeAdd                = "time_add"
-	timeConvert            = "time_convert"
+	timeParse              = "time_parse"
 )
 
 const (
@@ -478,12 +478,12 @@ func GetFunctions() []*FunctionEntry {
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
-				Name: timeConvert,
+				Name: timeParse,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
 				},
-				Handler: jpTimeConvert,
+				Handler: jpTimeParse,
 			},
 			ReturnType: []JpType{JpString},
 			Note:       "changes a time value of a given layout to RFC 3339",
@@ -1106,7 +1106,7 @@ func jpTimeAdd(arguments []interface{}) (interface{}, error) {
 	return t.Add(d).Format(time.RFC3339), nil
 }
 
-func jpTimeConvert(arguments []interface{}) (interface{}, error) {
+func jpTimeParse(arguments []interface{}) (interface{}, error) {
 	var err error
 	layout, err := validateArg("", arguments, 0, reflect.String)
 	if err != nil {

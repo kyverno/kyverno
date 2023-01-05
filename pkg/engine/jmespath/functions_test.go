@@ -1580,17 +1580,17 @@ func Test_TimeAdd(t *testing.T) {
 	}
 }
 
-func Test_TimeConvert(t *testing.T) {
+func Test_TimeParse(t *testing.T) {
 	testCases := []struct {
 		test           string
 		expectedResult string
 	}{
 		{
-			test:           "time_convert('2006-01-02T15:04:05Z07:00', '2021-01-02T15:04:05-07:00')",
+			test:           "time_parse('2006-01-02T15:04:05Z07:00', '2021-01-02T15:04:05-07:00')",
 			expectedResult: "2021-01-02T15:04:05-07:00",
 		},
 		{
-			test:           "time_convert('Mon Jan 02 15:04:05 MST 2006', 'Sat Jan 02 15:04:05 MST 2021')",
+			test:           "time_parse('Mon Jan 02 15:04:05 MST 2006', 'Sat Jan 02 15:04:05 MST 2021')",
 			expectedResult: "2021-01-02T15:04:05Z",
 		},
 	}
