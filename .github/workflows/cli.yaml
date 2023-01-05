@@ -26,7 +26,7 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
-          build-cache-prfix: cli-test
+          build-cache-key: cli-test
       - name: Setup TEST_GIT_BRANCH
         run: |
           if [[ ${{ github.event_name }} == "push" ]]
