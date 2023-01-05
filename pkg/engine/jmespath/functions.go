@@ -473,6 +473,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpTimeAdd,
 			},
 			ReturnType: []JpType{JpString},
+			Note:       "adds duration (third string) to a time value (second string) of a specified layout (first string)",
 		},
 	}
 }
