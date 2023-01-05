@@ -36,4 +36,5 @@ jobs:
       - name: Test with kuttl
         run: make test-kuttlxxx
       - name: Debug failure
+        if: failure()
         uses: ./.github/actions/kyverno-logs
