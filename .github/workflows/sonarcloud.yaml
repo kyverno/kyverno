@@ -2,9 +2,9 @@ name: Sonarcloud workflow
 
 on:
   push:
-    branches:
-      - 'main'
-      - 'release*'
+    # branches:
+    #   - 'main'
+    #   - 'release*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,14 +15,20 @@ permissions:
 
 jobs:
   sonarcloud:
-    if: ${{ secrets.SONAR_TOKEN }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Check secret
+        id: checksecret
+        uses: ./.github/actions/is-defined
+        with:
+          value: ${{ secrets.SONAR_TOKEN }}
       - name: Setup build env
+        if: steps.checksecret.outputs.result == 'true'
         uses: ./.github/actions/setup-build-env
       - name: SonarCloud Scan
+        if: steps.checksecret.outputs.result == 'true'
         uses: sonarsource/sonarcloud-github-action@cb201f3b2d7a38231a8c042dfea4539c8bea180b # v1.8
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
