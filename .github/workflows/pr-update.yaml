@@ -7,7 +7,20 @@ on:
       - 'release-*'
 
 jobs:
+  checksecret:
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.check.outputs.result }}
+    steps:
+      - name: Check secret
+        id: check
+        uses: ./.github/actions/is-defined
+        with:
+          value: ${{ secrets.PR_UPDATE_TOKEN }}
+
   autoupdate:
+    needs: [checksecret]
+    if: needs.checksecret.outputs.result == 'true'
     permissions:
       pull-requests: write
     runs-on: ubuntu-latest
