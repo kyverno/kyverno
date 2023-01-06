@@ -1579,3 +1579,63 @@ func Test_TimeToCron(t *testing.T) {
 		})
 	}
 }
+
+func Test_TimeAdd(t *testing.T) {
+	testCases := []struct {
+		test           string
+		expectedResult string
+	}{
+		{
+			test:           "time_add('', '2021-01-02T15:04:05-07:00', '3h')",
+			expectedResult: "2021-01-02T18:04:05-07:00",
+		},
+		{
+			test:           "time_add('Mon Jan 02 15:04:05 MST 2006', 'Sat Jan 02 15:04:05 MST 2021', '5h30m40s')",
+			expectedResult: "2021-01-02T20:34:45Z",
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := New(tc.test)
+			assert.NilError(t, err)
+
+			res, err := query.Search("")
+			assert.NilError(t, err)
+
+			result, ok := res.(string)
+			assert.Assert(t, ok)
+
+			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
+
+func Test_TimeParse(t *testing.T) {
+	testCases := []struct {
+		test           string
+		expectedResult string
+	}{
+		{
+			test:           "time_parse('2006-01-02T15:04:05Z07:00', '2021-01-02T15:04:05-07:00')",
+			expectedResult: "2021-01-02T15:04:05-07:00",
+		},
+		{
+			test:           "time_parse('Mon Jan 02 15:04:05 MST 2006', 'Sat Jan 02 15:04:05 MST 2021')",
+			expectedResult: "2021-01-02T15:04:05Z",
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := New(tc.test)
+			assert.NilError(t, err)
+
+			res, err := query.Search("")
+			assert.NilError(t, err)
+
+			result, ok := res.(string)
+			assert.Assert(t, ok)
+
+			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
