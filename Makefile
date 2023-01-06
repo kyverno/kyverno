@@ -155,6 +155,27 @@ vet: ## Run go vet
 	@echo Go vet... >&2
 	@go vet ./...
 
+.PHONY: imports
+imports: $(GOIMPORTS)
+	@echo Go imports... >&2
+	@$(GOIMPORTS) -w .
+
+.PHONY: fmt-check
+fmt-check: fmt
+	@echo Checking code format... >&2
+	@git --no-pager diff .
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make fmt".' >&2
+	@echo 'To correct this, locally run "make fmt" and commit the changes.' >&2
+	@git diff --quiet --exit-code .
+
+.PHONY: imports-check
+imports-check: imports
+	@echo Checking go imports... >&2
+	@git --no-pager diff .
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make imports-check".' >&2
+	@echo 'To correct this, locally run "make imports" and commit the changes.' >&2
+	@git diff --quiet --exit-code .
+
 .PHONY: unused-package-check
 unused-package-check:
 	@tidy=$$(go mod tidy); \
