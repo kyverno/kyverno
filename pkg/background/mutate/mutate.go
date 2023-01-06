@@ -128,7 +128,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				}
 
 				if r.Status == response.RuleStatusPass {
-					patchedNew.SetResourceVersion("")
+					patchedNew.SetResourceVersion(patched.GetResourceVersion())
 					var updateErr error
 					if patchedTargetSubresourceName == "status" {
 						_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
