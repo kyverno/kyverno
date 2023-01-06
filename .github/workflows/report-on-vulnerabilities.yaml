@@ -49,17 +49,17 @@ jobs:
     if: contains(needs.scan.outputs.results, 'SchemaVersion')
     needs: scan
     steps:
-      - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
+      - name: Checkout
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: Download scan
         uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7 # v3.0.1
         with:
           name: scan.json
-
       - name: Set scan output
         id: set-scan-output
         run: echo "results=$(cat scan.json)" >> $GITHUB_OUTPUT
-
       - uses: JasonEtco/create-an-issue@e27dddc79c92bc6e4562f268fffa5ed752639abd # v2.9.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
