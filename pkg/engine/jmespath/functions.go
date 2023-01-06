@@ -83,6 +83,7 @@ var (
 	x509_decode            = "x509_decode"
 	timeAdd                = "time_add"
 	timeParse              = "time_parse"
+	timeToCron             = "time_to_cron"
 )
 
 const (
@@ -491,6 +492,17 @@ func GetFunctions() []*FunctionEntry {
 			},
 			ReturnType: []JpType{JpObject},
 			Note:       "decodes an x.509 certificate to an object. you may also use this in conjunction with `base64_decode` jmespath function to decode a base64-encoded certificate",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeToCron,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeToCron,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "converts an absolute time (RFC 3339) to a cron expression (string).",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -1120,6 +1132,31 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return res, nil
+}
+
+func jpTimeToCron(arguments []interface{}) (interface{}, error) {
+	var err error
+
+	ts, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t time.Time
+	t, err = time.Parse(time.RFC3339, ts.String())
+	if err != nil {
+		return nil, err
+	}
+	t = t.UTC()
+
+	var cron string = ""
+	cron += strconv.Itoa(t.Minute()) + " "
+	cron += strconv.Itoa(t.Hour()) + " "
+	cron += strconv.Itoa(t.Day()) + " "
+	cron += strconv.Itoa(int(t.Month())) + " "
+	cron += strconv.Itoa(int(t.Weekday()))
+
+	return cron, nil
 }
 
 func jpTimeAdd(arguments []interface{}) (interface{}, error) {

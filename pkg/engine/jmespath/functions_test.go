@@ -1550,6 +1550,36 @@ UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 	}
 }
 
+func Test_TimeToCron(t *testing.T) {
+	testCases := []struct {
+		test           string
+		expectedResult string
+	}{
+		{
+			test:           "time_to_cron('2023-02-02T15:04:05Z')",
+			expectedResult: "4 15 2 2 4",
+		},
+		{
+			test:           "time_to_cron('2023-02-02T15:04:05-07:00')",
+			expectedResult: "4 22 2 2 4",
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := New(tc.test)
+			assert.NilError(t, err)
+
+			res, err := query.Search("")
+			assert.NilError(t, err)
+
+			result, ok := res.(string)
+			assert.Assert(t, ok)
+
+			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
+
 func Test_TimeAdd(t *testing.T) {
 	testCases := []struct {
 		test           string
