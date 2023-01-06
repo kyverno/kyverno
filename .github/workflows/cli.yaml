@@ -1,4 +1,5 @@
 name: cli
+
 on:
   push:
     branches:
@@ -16,34 +17,17 @@ on:
       - 'README.md'
       - '.github/config.yml'
 
-permissions: read-all
-
 jobs:
   cli-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go 
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
         with:
-          go-version: ~1.19.4
-
-      - name: Cache Go modules
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # pin@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Test Policy
+          build-cache-key: cli-test
+      - name: Setup TEST_GIT_BRANCH
         run: |
           if [[ ${{ github.event_name }} == "push" ]]
           then
@@ -52,7 +36,11 @@ jobs:
           then
             export TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}
           fi
-          make -j4 test-cli
+      - name: Test CLI
+        run: |
+          make test-cli
+      - name: Test CLI (failures)
+        run: |
           CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno
           $CLI_PATH test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
           $CLI_PATH test ./test/cli/test-fail/missing-rule && exit 1 || exit 0

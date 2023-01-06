@@ -46,6 +46,8 @@ metadata:
   name: kyverno
   namespace: kyverno
 data:
+  defaultRegistry: "docker.io"
+  enableDefaultRegistryMutation: "true"
   # resource types to be skipped by kyverno policy engine
   resourceFilters: "[*,kyverno,*][Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][Binding,*,*][ReplicaSet,*,*][AdmissionReport,*,*][ClusterAdmissionReport,*,*][BackgroundScanReport,*,*][ClusterBackgroundScanReport,*,*][ClusterRole,*,kyverno:*][ClusterRoleBinding,*,kyverno:*][ServiceAccount,kyverno,kyverno][ConfigMap,kyverno,kyverno][ConfigMap,kyverno,kyverno-metrics][Deployment,kyverno,kyverno][Job,kyverno,kyverno-hook-pre-delete][NetworkPolicy,kyverno,kyverno][PodDisruptionBudget,kyverno,kyverno][Role,kyverno,kyverno:*][RoleBinding,kyverno,kyverno:*][Secret,kyverno,kyverno-svc.kyverno.svc.*][Service,kyverno,kyverno-svc][Service,kyverno,kyverno-svc-metrics][ServiceMonitor,kyverno,kyverno-svc-service-monitor][Pod,kyverno,kyverno-test]"
   webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kyverno"]}]}}]'
@@ -769,14 +771,14 @@ spec:
             description: Spec declares policy behaviors.
             properties:
               conditions:
-                description: Conditions defines conditions used to select resources
-                  which user needs to delete
+                description: Conditions defines the conditions used to select the
+                  resources which will be cleaned up.
                 properties:
                   all:
                     description: AllConditions enable variable-based conditional rule
                       execution. This is useful for finer control of when an rule
                       is applied. A condition can reference object data using JMESPath
-                      notation. Here, all of the conditions need to pass
+                      notation. Here, all of the conditions need to pass.
                     items:
                       properties:
                         key:
@@ -816,7 +818,7 @@ spec:
                     description: AnyConditions enable variable-based conditional rule
                       execution. This is useful for finer control of when an rule
                       is applied. A condition can reference object data using JMESPath
-                      notation. Here, at least one of the conditions need to pass
+                      notation. Here, at least one of the conditions need to pass.
                     items:
                       properties:
                         key:
@@ -2471,14 +2473,14 @@ spec:
             description: Spec declares policy behaviors.
             properties:
               conditions:
-                description: Conditions defines conditions used to select resources
-                  which user needs to delete
+                description: Conditions defines the conditions used to select the
+                  resources which will be cleaned up.
                 properties:
                   all:
                     description: AllConditions enable variable-based conditional rule
                       execution. This is useful for finer control of when an rule
                       is applied. A condition can reference object data using JMESPath
-                      notation. Here, all of the conditions need to pass
+                      notation. Here, all of the conditions need to pass.
                     items:
                       properties:
                         key:
@@ -2518,7 +2520,7 @@ spec:
                     description: AnyConditions enable variable-based conditional rule
                       execution. This is useful for finer control of when an rule
                       is applied. A condition can reference object data using JMESPath
-                      notation. Here, at least one of the conditions need to pass
+                      notation. Here, at least one of the conditions need to pass.
                     items:
                       properties:
                         key:
@@ -6709,12 +6711,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -6733,6 +6735,8 @@ spec:
                       enum:
                       - audit
                       - enforce
+                      - Audit
+                      - Enforce
                       type: string
                     namespaces:
                       items:
@@ -11691,7 +11695,7 @@ spec:
                             rule execution. This is useful for finer control of when
                             an rule is applied. A condition can reference object data
                             using JMESPath notation. Here, all of the conditions need
-                            to pass
+                            to pass.
                           items:
                             properties:
                               key:
@@ -11732,7 +11736,7 @@ spec:
                             rule execution. This is useful for finer control of when
                             an rule is applied. A condition can reference object data
                             using JMESPath notation. Here, at least one of the conditions
-                            need to pass
+                            need to pass.
                           items:
                             properties:
                               key:
@@ -11792,7 +11796,7 @@ spec:
                                     conditional rule execution. This is useful for
                                     finer control of when an rule is applied. A condition
                                     can reference object data using JMESPath notation.
-                                    Here, all of the conditions need to pass
+                                    Here, all of the conditions need to pass.
                                   items:
                                     properties:
                                       key:
@@ -11835,7 +11839,7 @@ spec:
                                     conditional rule execution. This is useful for
                                     finer control of when an rule is applied. A condition
                                     can reference object data using JMESPath notation.
-                                    Here, at least one of the conditions need to pass
+                                    Here, at least one of the conditions need to pass.
                                   items:
                                     properties:
                                       key:
@@ -13067,12 +13071,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -13091,6 +13095,8 @@ spec:
                       enum:
                       - audit
                       - enforce
+                      - Audit
+                      - Enforce
                       type: string
                     namespaces:
                       items:
@@ -19910,12 +19916,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -19934,6 +19940,8 @@ spec:
                       enum:
                       - audit
                       - enforce
+                      - Audit
+                      - Enforce
                       type: string
                     namespaces:
                       items:
@@ -24894,7 +24902,7 @@ spec:
                             rule execution. This is useful for finer control of when
                             an rule is applied. A condition can reference object data
                             using JMESPath notation. Here, all of the conditions need
-                            to pass
+                            to pass.
                           items:
                             properties:
                               key:
@@ -24935,7 +24943,7 @@ spec:
                             rule execution. This is useful for finer control of when
                             an rule is applied. A condition can reference object data
                             using JMESPath notation. Here, at least one of the conditions
-                            need to pass
+                            need to pass.
                           items:
                             properties:
                               key:
@@ -24995,7 +25003,7 @@ spec:
                                     conditional rule execution. This is useful for
                                     finer control of when an rule is applied. A condition
                                     can reference object data using JMESPath notation.
-                                    Here, all of the conditions need to pass
+                                    Here, all of the conditions need to pass.
                                   items:
                                     properties:
                                       key:
@@ -25038,7 +25046,7 @@ spec:
                                     conditional rule execution. This is useful for
                                     finer control of when an rule is applied. A condition
                                     can reference object data using JMESPath notation.
-                                    Here, at least one of the conditions need to pass
+                                    Here, at least one of the conditions need to pass.
                                   items:
                                     properties:
                                       key:
@@ -26270,12 +26278,12 @@ spec:
                   to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
@@ -26294,6 +26302,8 @@ spec:
                       enum:
                       - audit
                       - enforce
+                      - Audit
+                      - Enforce
                       type: string
                     namespaces:
                       items:
@@ -31428,7 +31438,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno-cleanup-controller
+  name: kyverno:cleanup-controller
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -31699,7 +31709,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kyverno-cleanup-controller
+  name: kyverno:cleanup-controller
 subjects:
 - kind: ServiceAccount
   name: kyverno-cleanup-controller
@@ -32096,7 +32106,7 @@ spec:
           image: "ghcr.io/kyverno/kyvernopre:latest"
           imagePullPolicy: IfNotPresent
           args:
-              - --loggingFormat=text
+            - --loggingFormat=text
           resources: 
             limits:
               cpu: 100m

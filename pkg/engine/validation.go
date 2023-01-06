@@ -14,6 +14,7 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
@@ -37,7 +38,7 @@ import (
 )
 
 // Validate applies validation rules from policy on the resource
-func Validate(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Validate(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext, cfg config.Configuration) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
 
@@ -48,7 +49,7 @@ func Validate(ctx context.Context, rclient registryclient.Client, policyContext 
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	resp = validateResource(ctx, logger, rclient, policyContext)
+	resp = validateResource(ctx, logger, rclient, policyContext, cfg)
 	return
 }
 
@@ -95,7 +96,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
 }
 
-func validateResource(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext) *response.EngineResponse {
+func validateResource(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, cfg config.Configuration) *response.EngineResponse {
 	resp := &response.EngineResponse{}
 
 	enginectx.jsonContext.Checkpoint()
@@ -132,11 +133,14 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 					return nil
 				}
 				log = log.WithValues("rule", rule.Name)
-				if !matches(log, rule, enginectx) {
+				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
+				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, enginectx)
+
+				if !matches(log, rule, enginectx, subresourceGVKToAPIResource) {
 					return nil
 				}
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(enginectx, rule, log)
+				ruleResp := hasPolicyExceptions(enginectx, rule, subresourceGVKToAPIResource, log)
 				if ruleResp != nil {
 					return ruleResp
 				}
@@ -145,7 +149,7 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 				if hasValidate && !hasYAMLSignatureVerify {
 					return processValidationRule(ctx, log, rclient, enginectx, rule)
 				} else if hasValidateImage {
-					return processImageValidationRule(ctx, log, rclient, enginectx, rule)
+					return processImageValidationRule(ctx, log, rclient, enginectx, rule, cfg)
 				} else if hasYAMLSignatureVerify {
 					return processYAMLValidationRule(log, enginectx, rule)
 				}
@@ -572,10 +576,7 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(logger logr.Logger, rule *kyvernov1.Rule, ctx *PolicyContext) bool {
-	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, ctx)
-
+func matches(logger logr.Logger, rule *kyvernov1.Rule, ctx *PolicyContext, subresourceGVKToAPIResource map[string]*metav1.APIResource) bool {
 	err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.newResource, *rule, ctx.admissionInfo, ctx.excludeGroupRole, ctx.namespaceLabels, "", ctx.subresource)
 	if err == nil {
 		return true
@@ -774,13 +775,13 @@ func (v *validator) substituteDeny() error {
 }
 
 // matchesException checks if an exception applies to the resource being admitted
-func matchesException(policyContext *PolicyContext, rule *kyvernov1.Rule) (*kyvernov2alpha1.PolicyException, error) {
+func matchesException(policyContext *PolicyContext, rule *kyvernov1.Rule, subresourceGVKToAPIResource map[string]*metav1.APIResource) (*kyvernov2alpha1.PolicyException, error) {
 	candidates, err := policyContext.FindExceptions(rule.Name)
 	if err != nil {
 		return nil, err
 	}
 	for _, candidate := range candidates {
-		err := matched.CheckMatchesResources(policyContext.newResource, candidate.Spec.Match, policyContext.namespaceLabels)
+		err := matched.CheckMatchesResources(policyContext.newResource, candidate.Spec.Match, policyContext.namespaceLabels, subresourceGVKToAPIResource, policyContext.subresource)
 		// if there's no error it means a match
 		if err == nil {
 			return candidate, nil
@@ -791,9 +792,9 @@ func matchesException(policyContext *PolicyContext, rule *kyvernov1.Rule) (*kyve
 
 // hasPolicyExceptions returns nil when there are no matching exceptions.
 // A rule response is returned when an exception is matched, or there is an error.
-func hasPolicyExceptions(ctx *PolicyContext, rule *kyvernov1.Rule, log logr.Logger) *response.RuleResponse {
+func hasPolicyExceptions(ctx *PolicyContext, rule *kyvernov1.Rule, subresourceGVKToAPIResource map[string]*metav1.APIResource, log logr.Logger) *response.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(ctx, rule)
+	exception, err := matchesException(ctx, rule, subresourceGVKToAPIResource)
 	// if we found an exception
 	if err == nil && exception != nil {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
