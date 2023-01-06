@@ -16,11 +16,9 @@ concurrency:
 
 permissions:
   contents: read
-  packages: write
-  id-token: write
 
 jobs:
-  pre-checks:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -58,20 +56,10 @@ jobs:
       - name: Checking unused pkgs using go mod tidy
         run: |
           make unused-package-check
-
       - name: Go vet
         run: |
           make vet
-
-  tests:
-    runs-on: ubuntu-latest
-    needs: pre-checks
-    steps:
-      - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
-      - name: Setup build env
-        uses: ./.github/actions/setup-build-env
-      - name: Kyverno unit test
+      - name: Unit test
         run: |
           export PROJECT_PATH=$(pwd)
           make test-unit
