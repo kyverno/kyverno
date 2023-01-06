@@ -186,9 +186,6 @@ func (c *controller) buildCronJob(cronJob *batchv1.CronJob, pol kyvernov2alpha1.
 									SeccompProfile: &corev1.SeccompProfile{
 										Type: corev1.SeccompProfileTypeRuntimeDefault,
 									},
-									Capabilities: &corev1.Capabilities{
-										Drop: []corev1.Capability{"ALL"},
-									},
 								},
 							},
 						},
