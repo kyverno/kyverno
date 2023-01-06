@@ -5,17 +5,10 @@ on:
     branches:
       - 'main'
       - 'release*'
-    paths-ignore:
-      - 'README.md'
-      - 'docs/**'
-      - '.github/config.yml'
   pull_request:
     branches:
       - 'main'
       - 'release*'
-    paths-ignore:
-      - 'README.md'
-      - '.github/config.yml'
 
 permissions:
   contents: read
