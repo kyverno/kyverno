@@ -8,6 +8,7 @@ on:
 
 jobs:
   autoupdate:
+    if: ${{ secrets.PR_UPDATE_TOKEN }}
     permissions:
       pull-requests: write
     runs-on: ubuntu-latest
