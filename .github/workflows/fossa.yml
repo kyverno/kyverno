@@ -14,7 +14,6 @@ permissions:
 
 jobs:
   fossa-scan:
-    if: ${{ secrets.FOSSA_API_KEY }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
