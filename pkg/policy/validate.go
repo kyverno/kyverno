@@ -407,7 +407,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 			checkForScaleSubresource(validationJson, allKinds, &warnings)
 			checkForStatusSubresource(validationJson, allKinds, &warnings)
-			checkForEphemeralContainersSubresource(validationJson, allKinds, &warnings)
 		}
 
 		if rule.HasMutate() {
@@ -421,7 +420,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 			checkForScaleSubresource(mutationJson, allKinds, &warnings)
 			checkForStatusSubresource(mutationJson, allKinds, &warnings)
-			checkForEphemeralContainersSubresource(mutationJson, allKinds, &warnings)
 		}
 	}
 	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
@@ -1335,18 +1333,6 @@ func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings 
 			}
 		}
 		msg := "You are matching on status but not including the status subresource in the policy."
-		*warnings = append(*warnings, msg)
-	}
-}
-
-func checkForEphemeralContainersSubresource(ruleTypeJson []byte, allKinds []string, warnings *[]string) {
-	if strings.Contains(string(ruleTypeJson), "ephemeralcontainers") {
-		for _, kind := range allKinds {
-			if strings.Contains(strings.ToLower(kind), "ephemeralcontainers") {
-				return
-			}
-		}
-		msg := "You are matching on ephemeralcontainers but not including the ephemeralcontainers subresource in the policy."
 		*warnings = append(*warnings, msg)
 	}
 }
