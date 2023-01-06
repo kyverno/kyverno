@@ -1,6 +1,7 @@
 name: Sonarcloud workflow
 
 on:
+  pull_request:
   push:
     # branches:
     #   - 'main'
