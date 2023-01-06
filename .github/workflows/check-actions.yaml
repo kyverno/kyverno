@@ -1,0 +1,25 @@
+name: Check actions
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'release*'
+  pull_request:
+    branches:
+      - 'main'
+      - 'release*'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Ensure SHA pinned actions
+        uses: zgosalvez/github-actions-ensure-sha-pinned-actions@fe7afd3f619254d126dcb69aabacc269f8ef8fd7 # v2.0.3
+        with:
+          # slsa-github-generator requires using a semver tag for reusable workflows. 
+          # See: https://github.com/slsa-framework/slsa-github-generator#referencing-slsa-builders-and-generators
+          allowlist: |
+            slsa-framework/slsa-github-generator
