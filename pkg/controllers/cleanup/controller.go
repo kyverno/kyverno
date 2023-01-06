@@ -156,6 +156,9 @@ func (c *controller) buildCronJob(cronJob *batchv1.CronJob, pol kyvernov2alpha1.
 	}
 	var successfulJobsHistoryLimit int32 = 0
 	var failedJobsHistoryLimit int32 = 1
+	var boolFalse bool = false
+	var boolTrue bool = true
+	var int1000 int64 = 1000
 	// set spec
 	cronJob.Spec = batchv1.CronJobSpec{
 		Schedule:                   pol.GetSpec().Schedule,
@@ -177,6 +180,17 @@ func (c *controller) buildCronJob(cronJob *batchv1.CronJob, pol kyvernov2alpha1.
 									// "--cacert",
 									// "/tmp/ca.crt",
 									fmt.Sprintf("%s%s?policy=%s", c.cleanupService, CleanupServicePath, policyName),
+								},
+								SecurityContext: &corev1.SecurityContext{
+									AllowPrivilegeEscalation: &boolFalse,
+									RunAsNonRoot:             &boolTrue,
+									RunAsUser:                &int1000,
+									SeccompProfile: &corev1.SeccompProfile{
+										Type: corev1.SeccompProfileTypeRuntimeDefault,
+									},
+									Capabilities: &corev1.Capabilities{
+										Drop: []corev1.Capability{"ALL"},
+									},
 								},
 							},
 						},
