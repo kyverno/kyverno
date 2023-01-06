@@ -109,7 +109,8 @@ func checkResourceDescription(
 ) []error {
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
-		if !CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview) {
+		// Matching on ephemeralcontainers even when they are not explicitly specified is only applicable to policies.
+		if !CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview, false) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
@@ -167,7 +168,10 @@ func checkResourceDescription(
 	return errs
 }
 
-func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string) bool {
+// CheckKind checks if the resource kind matches the kinds in the policy. If the policy matches on subresources, then those resources are
+// present in the subresourceGVKToAPIResource map. Set allowEphemeralContainers to true to allow ephemeral containers to be matched even when the
+// policy does not explicitly match on ephemeral containers and only matches on pods.
+func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string, allowEphemeralContainers bool) bool {
 	title := cases.Title(language.Und, cases.NoLower)
 	result := false
 	for _, k := range kinds {
@@ -177,7 +181,9 @@ func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds
 			if ok {
 				result = apiResource.Group == gvk.Group && (apiResource.Version == gvk.Version || strings.Contains(gv, "*")) && apiResource.Kind == gvk.Kind
 			} else { // if the kind is not found in the subresourceGVKToAPIResource, then it is not a subresource
-				result = title.String(kind) == gvk.Kind && subresourceInAdmnReview == ""
+				result = title.String(kind) == gvk.Kind &&
+					(subresourceInAdmnReview == "" ||
+						(allowEphemeralContainers && subresourceInAdmnReview == "ephemeralcontainers"))
 				if gv != "" {
 					result = result && kubeutils.GroupVersionMatches(gv, gvk.GroupVersion().String())
 				}
