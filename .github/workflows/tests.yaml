@@ -1,4 +1,4 @@
-name: tests
+name: Tests
 
 on:
   push:
@@ -9,6 +9,10 @@ on:
     branches:
       - 'main'
       - 'release*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
