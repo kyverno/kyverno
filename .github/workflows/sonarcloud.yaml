@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   sonarcloud:
+    if: ${{ secrets.SONAR_TOKEN }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
