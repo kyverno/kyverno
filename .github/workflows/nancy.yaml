@@ -6,6 +6,9 @@ on:
       - 'main'
       - 'release*'
 
+permissions:
+  contents: read
+
 jobs:
   nancy:
     runs-on: ubuntu-latest

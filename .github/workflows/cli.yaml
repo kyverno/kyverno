@@ -17,6 +17,9 @@ on:
       - 'README.md'
       - '.github/config.yml'
 
+permissions:
+  contents: read
+
 jobs:
   cli-test:
     runs-on: ubuntu-latest
