@@ -31,6 +31,11 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 	var rules []admissionregistrationv1.RuleWithOperations
 	for gvr := range wh.rules {
 		resources := sets.New(gvr.Resource)
+		ephemeralContainersGVR := schema.GroupVersionResource{Resource: "pods/ephemeralcontainers", Group: "", Version: "v1"}
+		_, rulesContainEphemeralContainers := wh.rules[ephemeralContainersGVR]
+		if resources.Has("pods") && !rulesContainEphemeralContainers {
+			resources.Insert("pods/ephemeralcontainers")
+		}
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvr.Group},
