@@ -1,4 +1,5 @@
 name: tests
+
 on:
   push:
     branches:
@@ -22,16 +23,6 @@ jobs:
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
-
-      # see https://michaelheap.com/ensure-github-actions-pinned-sha/
-      - name: Ensure SHA pinned actions
-        uses: zgosalvez/github-actions-ensure-sha-pinned-actions@af2eb3226618e2494e3d9084f515ad6dcf16e229 # pin@v2.0.1
-        with:
-          # slsa-github-generator requires using a semver tag for reusable workflows. 
-          # See: https://github.com/slsa-framework/slsa-github-generator#referencing-slsa-builders-and-generators
-          allowlist: |
-            slsa-framework/slsa-github-generator
-
       - name: golangci-lint
         uses: golangci/golangci-lint-action@0ad9a0988b3973e851ab0a07adf248ec2e100376 # pin@v3
         with:
