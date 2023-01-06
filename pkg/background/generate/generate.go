@@ -352,11 +352,6 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			return nil, processExisting, err
 		}
 
-		if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
-			log.Error(err, "variable substitution failed for rule %s", rule.Name)
-			return nil, processExisting, err
-		}
-
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
 			if len(rule.Generation.ForEachGeneration) > 0 && (rule.Generation.Kind != "" || rule.Generation.Name != "" || rule.Generation.Namespace != "") {
 				log.Error(err, "Generate rule cannot be written individually when foreach specified in Generate block, All the Generate rules must be specified inside the foreach block")
@@ -364,6 +359,10 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			if len(rule.Generation.ForEachGeneration) > 0 {
 				genResource, err = applyForEachGenerateRules(log, c.rclient, c.client, rule, resource, jsonContext, policyContext, ur)
 			} else {
+				if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
+					log.Error(err, "variable substitution failed for rule %s", rule.Name)
+					return nil, processExisting, err
+				}
 				genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
 			}
 			if err != nil {
