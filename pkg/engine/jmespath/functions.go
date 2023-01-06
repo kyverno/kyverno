@@ -500,7 +500,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpTimeToCron,
 			},
 			ReturnType: []JpType{JpString},
-			Note: "converts an absolute time (RFC 3339) to a cron expression (string).",
+			Note:       "converts an absolute time (RFC 3339) to a cron expression (string).",
 		},
 	}
 }
