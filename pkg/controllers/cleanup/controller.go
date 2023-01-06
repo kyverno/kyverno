@@ -156,8 +156,8 @@ func (c *controller) buildCronJob(cronJob *batchv1.CronJob, pol kyvernov2alpha1.
 	}
 	var successfulJobsHistoryLimit int32 = 0
 	var failedJobsHistoryLimit int32 = 1
-	var boolFalse = false
-	var boolTrue = true
+	var boolFalse bool = false
+	var boolTrue bool = true
 	var int1000 int64 = 1000
 	// set spec
 	cronJob.Spec = batchv1.CronJobSpec{
