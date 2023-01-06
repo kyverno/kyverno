@@ -116,7 +116,8 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
-		if !matched.CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview) {
+		// Matching on ephemeralcontainers even when they are not explicitly specified for backward compatibility.
+		if !matched.CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview, true) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
