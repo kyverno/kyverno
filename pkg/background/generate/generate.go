@@ -605,13 +605,8 @@ func applyForEachGenerateRules(log logr.Logger, rclient registryclient.Client, c
 	policy := policyContext.Policy()
 	var newGenResources []kyvernov1.ResourceSpec
 	for _, fe := range rule.Generation.ForEachGeneration {
-		if err := engine.LoadContext(context.TODO(), log, rclient, rule.Context, policyContext, rule.Name); err != nil {
-			log.Error(err, "failed to load context")
-			return newGenResources, err
-		}
-
 		if fe.List == "" {
-			log.Error(errors.New("Foreach inside generate with an empty or null List attribute"), "cannot generate a policy rule with an empty or null List attribute")
+			log.Error(errors.New("foreach inside generate with an empty or null List attribute"), "cannot generate a policy rule with an empty or null List attribute")
 			break
 		}
 		elements, err := engine.RunEvaluateList(fe.List, ctx)
