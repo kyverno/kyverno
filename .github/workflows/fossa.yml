@@ -19,9 +19,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Check secret
+        id: checksecret
+        uses: ./.github/actions/is-defined
+        with:
+          value: ${{ secrets.FOSSA_API_KEY }}
       - name: Setup build env
+        if: steps.checksecret.outputs.result == 'true'
         uses: ./.github/actions/setup-build-env
       - name: Run FOSSA analysis
+        if: steps.checksecret.outputs.result == 'true'
         uses: fossas/fossa-action@f61a4c0c263690f2ddb54b9822a719c25a7b608f # v1.3.1
         with:
           api-key: ${{ secrets.FOSSA_API_KEY }}
