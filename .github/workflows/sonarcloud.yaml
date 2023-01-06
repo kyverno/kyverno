@@ -1,11 +1,10 @@
 name: Sonarcloud workflow
 
 on:
-  pull_request:
   push:
-    # branches:
-    #   - 'main'
-    #   - 'release*'
+    branches:
+      - 'main'
+      - 'release*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
