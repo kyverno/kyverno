@@ -6,6 +6,9 @@ on:
       - 'main'
       - 'release*'
 
+permissions:
+  contents: read
+
 jobs:
   sonarcloud:
     runs-on: ubuntu-latest
