@@ -32,34 +32,13 @@ jobs:
         with:
           version: v1.48
           skip-cache: true
-      - name: gofmt check
-        run: |
-          if [ "$(gofmt -s -l . | wc -l)" -ne 0 ]
-          then
-           echo "The following files were found to be not go formatted:"
-           gofmt -s -l .
-           echo "Please run 'make fmt' to go format the above files."
-           exit 1
-          fi
-
-      - name: goimports
-        run: |
-          go install golang.org/x/tools/cmd/goimports@f112c43328372460f7ac5bc951711609e22b01cc # v0.2.0
-          if [ "$(goimports -l . | wc -l)" -ne 0 ]
-          then
-           echo "The following files were found to have import formatting issues:"
-           goimports -l -l .
-           echo "Please run 'make fmt' to go format the above files."
-           exit 1
-          fi
-
+      - name: go fmt check
+        run: make fmt-check
+      - name: goimports check
+        run: make imports-check
       - name: Checking unused pkgs using go mod tidy
-        run: |
-          make unused-package-check
+        run: make unused-package-check
       - name: Go vet
-        run: |
-          make vet
+        run: make vet
       - name: Unit test
-        run: |
-          export PROJECT_PATH=$(pwd)
-          make test-unit
+        run: make test-unit
