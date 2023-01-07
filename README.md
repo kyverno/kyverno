@@ -3,7 +3,7 @@
 **Kubernetes Native Policy Management 🎉**
 
 ![build](https://github.com/kyverno/kyverno/workflows/build/badge.svg)
-![prereleaser](https://github.com/kyverno/kyverno/workflows/prereleaser/badge.svg)
+![releaser](https://github.com/kyverno/kyverno/workflows/releaser/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno)
 ![License: Apache-2.0](https://img.shields.io/github/license/kyverno/kyverno?color=blue)
 [![GitHub Repo stars](https://img.shields.io/github/stars/kyverno/kyverno)](https://github.com/kyverno/kyverno/stargazers)
