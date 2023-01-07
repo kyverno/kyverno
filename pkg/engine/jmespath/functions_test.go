@@ -1639,3 +1639,41 @@ func Test_TimeParse(t *testing.T) {
 		})
 	}
 }
+
+func Test_TimeNow(t *testing.T) {
+	testCases := []struct {
+		test           string
+		expectedResult string
+	}{
+		{
+			test:           "time_now('')",
+			expectedResult: "",
+		},
+		{
+			test:           "time_now('Mon Jan 02 15:04:05 MST 2006')",
+			expectedResult: "",
+		},
+		{
+			test:           "time_now('2006-01-02T15:04:05Z07:00')",
+			expectedResult: "",
+		},
+		{
+			test:           "time_now('qwerty')",
+			expectedResult: "",
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := New(tc.test)
+			assert.NilError(t, err)
+
+			res, err := query.Search("")
+			assert.NilError(t, err)
+
+			result, ok := res.(string)
+			assert.Assert(t, ok)
+
+			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
