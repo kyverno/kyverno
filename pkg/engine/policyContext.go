@@ -130,6 +130,12 @@ func (c *PolicyContext) Client() dclient.Interface {
 	return c.client
 }
 
+// Setters
+
+func (c *PolicyContext) SetElement(element unstructured.Unstructured) {
+	c.element = element
+}
+
 // Mutators
 
 func (c *PolicyContext) WithPolicy(policy kyvernov1.PolicyInterface) *PolicyContext {

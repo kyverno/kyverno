@@ -616,13 +616,15 @@ func applyForEachGenerateRules(log logr.Logger, rclient registryclient.Client, c
 		}
 
 		for i, element := range elements {
-			if element == "" {
+			if element == nil {
 				continue
 			}
+			fmt.Println("MdSahil: element of elements", element)
+			nesting := 0
 
-			if err := addElementToContext(policyContext, element, i, 0); err != nil {
+			if err := addElementToContext(policyContext, element, i, nesting); err != nil {
 				log.Error(err, "failed to add element to context")
-				return ruleError(v.rule, response.Validation, "failed to process foreach", err), applyCount
+				return newGenResources, err
 			}
 
 			tempNewGenResources, err := generateElements(log, client, rule, resource, ctx, policy, ur, fe, element)
@@ -815,6 +817,12 @@ func addElementToContext(ctx *engine.PolicyContext, element interface{}, element
 	if err := ctx.JSONContext().AddElement(data, elementIndex, nesting); err != nil {
 		err = fmt.Errorf("%v failed to add element (%v) to JSON context", err, element)
 		return err
+	}
+	dataMap, ok := data.(map[string]interface{})
+	if ok {
+		u := unstructured.Unstructured{}
+		u.SetUnstructuredContent(dataMap)
+		ctx.SetElement(u)
 	}
 	return nil
 }
