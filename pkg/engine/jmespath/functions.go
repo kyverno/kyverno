@@ -81,6 +81,9 @@ var (
 	objectFromLists        = "object_from_lists"
 	random                 = "random"
 	x509_decode            = "x509_decode"
+	timeAdd                = "time_add"
+	timeParse              = "time_parse"
+	timeToCron             = "time_to_cron"
 )
 
 const (
@@ -489,6 +492,42 @@ func GetFunctions() []*FunctionEntry {
 			},
 			ReturnType: []JpType{JpObject},
 			Note:       "decodes an x.509 certificate to an object. you may also use this in conjunction with `base64_decode` jmespath function to decode a base64-encoded certificate",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeToCron,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeToCron,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "converts an absolute time (RFC 3339) to a cron expression (string).",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeAdd,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeAdd,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "adds duration (third string) to a time value (second string) of a specified layout (first string)",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeParse,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeParse,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "changes a time value of a given layout to RFC 3339",
 		},
 	}
 }
@@ -1093,4 +1132,86 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return res, nil
+}
+
+func jpTimeToCron(arguments []interface{}) (interface{}, error) {
+	var err error
+
+	ts, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t time.Time
+	t, err = time.Parse(time.RFC3339, ts.String())
+	if err != nil {
+		return nil, err
+	}
+	t = t.UTC()
+
+	var cron string = ""
+	cron += strconv.Itoa(t.Minute()) + " "
+	cron += strconv.Itoa(t.Hour()) + " "
+	cron += strconv.Itoa(t.Day()) + " "
+	cron += strconv.Itoa(int(t.Month())) + " "
+	cron += strconv.Itoa(int(t.Weekday()))
+
+	return cron, nil
+}
+
+func jpTimeAdd(arguments []interface{}) (interface{}, error) {
+	var err error
+	layout, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	ts, err := validateArg("", arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	dr, err := validateArg("", arguments, 2, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t time.Time
+	if layout.String() != "" {
+		t, err = time.Parse(layout.String(), ts.String())
+	} else {
+		t, err = time.Parse(time.RFC3339, ts.String())
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var d time.Duration
+	d, err = time.ParseDuration(dr.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return t.Add(d).Format(time.RFC3339), nil
+}
+
+func jpTimeParse(arguments []interface{}) (interface{}, error) {
+	var err error
+	layout, err := validateArg("", arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	ts, err := validateArg("", arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	var t time.Time
+	t, err = time.Parse(layout.String(), ts.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return t.Format(time.RFC3339), nil
 }

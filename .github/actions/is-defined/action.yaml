@@ -1,0 +1,21 @@
+name: Checks if an input is defined
+
+description: Checks if an input is defined and outputs 'true' or 'false'.
+
+inputs:
+  value:
+    description: value to test
+    required: true
+
+outputs:
+  result:
+    description: outputs 'true' or 'false' if input value is defined or not
+    value: ${{ steps.check.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      id: check
+      run: |
+        echo "result=${{ inputs.value != '' }}" >> $GITHUB_OUTPUT
