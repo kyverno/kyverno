@@ -5,14 +5,19 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/logging"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,7 +40,8 @@ func CheckMatchesResources(
 	namespaceLabels map[string]string,
 	subresourceGVKToAPIResource map[string]*metav1.APIResource,
 	subresourceInAdmnReview string,
-	// policyNamespace string,
+	admissionInfo kyvernov1beta1.RequestInfo,
+	excludeGroupRole []string,
 ) error {
 	var errs []error
 	if len(statement.Any) > 0 {
@@ -50,6 +56,8 @@ func CheckMatchesResources(
 				namespaceLabels,
 				subresourceGVKToAPIResource,
 				subresourceInAdmnReview,
+				admissionInfo,
+				excludeGroupRole,
 			)) == 0 {
 				oneMatched = true
 				break
@@ -69,6 +77,8 @@ func CheckMatchesResources(
 					namespaceLabels,
 					subresourceGVKToAPIResource,
 					subresourceInAdmnReview,
+					admissionInfo,
+					excludeGroupRole,
 				)...,
 			)
 		}
@@ -82,6 +92,8 @@ func checkResourceFilter(
 	namespaceLabels map[string]string,
 	subresourceGVKToAPIResource map[string]*metav1.APIResource,
 	subresourceInAdmnReview string,
+	admissionInfo kyvernov1beta1.RequestInfo,
+	excludeGroupRole []string,
 ) []error {
 	var errs []error
 	// checking if the block is empty
@@ -96,8 +108,72 @@ func checkResourceFilter(
 		subresourceGVKToAPIResource,
 		subresourceInAdmnReview,
 	)
+	userErrs := checkUserInfo(
+		statement.UserInfo,
+		admissionInfo,
+		excludeGroupRole,
+	)
 	errs = append(errs, matchErrs...)
+	errs = append(errs, userErrs...)
 	return errs
+}
+
+func checkUserInfo(
+	userInfo kyvernov1.UserInfo,
+	admissionInfo kyvernov1beta1.RequestInfo,
+	excludeGroupRole []string,
+) []error {
+	var errs []error
+	var excludeKeys []string
+	excludeKeys = append(excludeKeys, admissionInfo.AdmissionUserInfo.Groups...)
+	excludeKeys = append(excludeKeys, admissionInfo.AdmissionUserInfo.Username)
+	if len(userInfo.Roles) > 0 && !datautils.SliceContains(excludeKeys, excludeGroupRole...) {
+		if !datautils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
+			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
+		}
+	}
+	if len(userInfo.ClusterRoles) > 0 && !datautils.SliceContains(excludeKeys, excludeGroupRole...) {
+		if !datautils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+			errs = append(errs, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
+		}
+	}
+	if len(userInfo.Subjects) > 0 {
+		if !checkSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, excludeGroupRole) {
+			errs = append(errs, fmt.Errorf("user info does not match subject for the given conditionBlock"))
+		}
+	}
+	return errs
+}
+
+// matchSubjects return true if one of ruleSubjects exist in userInfo
+func checkSubjects(
+	ruleSubjects []rbacv1.Subject,
+	userInfo authenticationv1.UserInfo,
+	excludeGroupRole []string,
+) bool {
+	const SaPrefix = "system:serviceaccount:"
+	userGroups := append(userInfo.Groups, userInfo.Username)
+	// TODO: see issue https://github.com/kyverno/kyverno/issues/861
+	for _, e := range excludeGroupRole {
+		ruleSubjects = append(ruleSubjects, rbacv1.Subject{Kind: "Group", Name: e})
+	}
+	for _, subject := range ruleSubjects {
+		switch subject.Kind {
+		case "ServiceAccount":
+			if len(userInfo.Username) <= len(SaPrefix) {
+				continue
+			}
+			subjectServiceAccount := subject.Namespace + ":" + subject.Name
+			if userInfo.Username[len(SaPrefix):] == subjectServiceAccount {
+				return true
+			}
+		case "User", "Group":
+			if slices.Contains(userGroups, subject.Name) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func checkResourceDescription(

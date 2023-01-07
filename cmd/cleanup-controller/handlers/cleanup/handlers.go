@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -94,13 +95,30 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						debug.Info("resource namespace didn't match policy namespace", "result", err)
 					}
 					// match resource with match/exclude clause
-					matched := match.CheckMatchesResources(resource, spec.MatchResources, nsLabels, nil, "")
+					matched := match.CheckMatchesResources(
+						resource,
+						spec.MatchResources,
+						nsLabels,
+						nil,
+						"",
+						kyvernov1beta1.RequestInfo{},
+						nil,
+					)
 					if matched != nil {
 						debug.Info("resource/match didn't match", "result", matched)
 						continue
 					}
 					if spec.ExcludeResources != nil {
-						excluded := match.CheckMatchesResources(resource, *spec.ExcludeResources, nsLabels, nil, "")
+						excluded := match.CheckMatchesResources(
+							resource,
+							*spec.ExcludeResources,
+							nsLabels,
+							nil,
+							"",
+							// TODO(eddycharly): we don't have user info here
+							kyvernov1beta1.RequestInfo{},
+							nil,
+						)
 						if excluded == nil {
 							debug.Info("resource/exclude matched")
 							continue
