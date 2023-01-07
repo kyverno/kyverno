@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"testing"
+	"time"
 
 	"gotest.tools/assert"
 )
@@ -1642,24 +1643,20 @@ func Test_TimeParse(t *testing.T) {
 
 func Test_TimeNow(t *testing.T) {
 	testCases := []struct {
-		test           string
-		expectedResult string
+		test   string
+		layout string
 	}{
 		{
-			test:           "time_now('')",
-			expectedResult: "",
+			test:   "time_now('')",
+			layout: "2006-01-02T15:04:05Z07:00",
 		},
 		{
-			test:           "time_now('Mon Jan 02 15:04:05 MST 2006')",
-			expectedResult: "",
+			test:   "time_now('Mon Jan 02 15:04:05 MST 2006')",
+			layout: "Mon Jan 02 15:04:05 MST 2006",
 		},
 		{
-			test:           "time_now('2006-01-02T15:04:05Z07:00')",
-			expectedResult: "",
-		},
-		{
-			test:           "time_now('qwerty')",
-			expectedResult: "",
+			test:   "time_now('2006-01-02T15:04:05Z07:00')",
+			layout: "2006-01-02T15:04:05Z07:00",
 		},
 	}
 	for i, tc := range testCases {
@@ -1673,7 +1670,7 @@ func Test_TimeNow(t *testing.T) {
 			result, ok := res.(string)
 			assert.Assert(t, ok)
 
-			assert.Equal(t, result, tc.expectedResult)
+			assert.Equal(t, result, time.Now().Format(tc.layout))
 		})
 	}
 }
