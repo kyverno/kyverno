@@ -615,7 +615,16 @@ func applyForEachGenerateRules(log logr.Logger, rclient registryclient.Client, c
 			continue
 		}
 
-		for _, element := range elements {
+		for i, element := range elements {
+			if element == "" {
+				continue
+			}
+
+			// if err := addElementToContext(policyContext, element, i, 0); err != nil {
+			// 	log.Error(err, "failed to add element to context")
+			// 	return ruleError(v.rule, response.Validation, "failed to process foreach", err), applyCount
+			// }
+
 			tempNewGenResources, err := generateElements(log, client, rule, resource, ctx, policy, ur, fe, element)
 			if err != nil {
 				continue
@@ -796,6 +805,18 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 		}
 	}
 	return newGenResources, nil
+}
+
+func addElementToContext(ctx *engine.PolicyContext, element interface{}, elementIndex, nesting int) error {
+	data, err := variables.DocumentToUntyped(element)
+	if err != nil {
+		return err
+	}
+	if err := ctx.JSONContext().AddElement(data, elementIndex, nesting); err != nil {
+		err = fmt.Errorf("%v failed to add element (%v) to JSON context", err, element)
+		return err
+	}
+	return nil
 }
 
 func newGenResource(genAPIVersion, genKind, genNamespace, genName string) kyvernov1.ResourceSpec {
