@@ -650,8 +650,8 @@ release-notes:
 #########
 
 .PHONY: debug-deploy
-debug-deploy: codegen-install ## Install debug manifests
-	@kubectl create -f ./config/install_debug.yaml || kubectl replace -f ./config/install_debug.yaml
+debug-deploy: codegen-manifest-debug ## Install debug manifests
+	@kubectl create -f ./.manifest/debug.yaml || kubectl replace -f ./.manifest/debug.yaml
 
 ##########
 # GITHUB #
