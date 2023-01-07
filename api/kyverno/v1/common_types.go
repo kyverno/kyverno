@@ -602,6 +602,10 @@ type ForEachGeneration struct {
 	// CloneList specifies the list of source resource used to populate each generated resource.
 	// +optional
 	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
+
+	// Foreach declares a nested foreach iterator
+	// +optional
+	ForEachGeneration *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
 func (g *ForEachGeneration) GetData() apiextensions.JSON {

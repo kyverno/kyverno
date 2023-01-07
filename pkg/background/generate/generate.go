@@ -620,10 +620,10 @@ func applyForEachGenerateRules(log logr.Logger, rclient registryclient.Client, c
 				continue
 			}
 
-			// if err := addElementToContext(policyContext, element, i, 0); err != nil {
-			// 	log.Error(err, "failed to add element to context")
-			// 	return ruleError(v.rule, response.Validation, "failed to process foreach", err), applyCount
-			// }
+			if err := addElementToContext(policyContext, element, i, 0); err != nil {
+				log.Error(err, "failed to add element to context")
+				return ruleError(v.rule, response.Validation, "failed to process foreach", err), applyCount
+			}
 
 			tempNewGenResources, err := generateElements(log, client, rule, resource, ctx, policy, ur, fe, element)
 			if err != nil {
