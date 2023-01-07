@@ -101,7 +101,8 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						nsLabels,
 						nil,
 						"",
-						// TODO(eddycharly): we don't have user info here
+						// TODO(eddycharly): we don't have user info here, we should check that
+						// we don't have user conditions in the policy rule
 						kyvernov1beta1.RequestInfo{},
 						nil,
 					)
@@ -116,7 +117,8 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 							nsLabels,
 							nil,
 							"",
-							// TODO(eddycharly): we don't have user info here
+							// TODO(eddycharly): we don't have user info here, we should check that
+							// we don't have user conditions in the policy rule
 							kyvernov1beta1.RequestInfo{},
 							nil,
 						)
