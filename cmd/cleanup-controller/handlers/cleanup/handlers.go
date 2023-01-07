@@ -101,6 +101,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						nsLabels,
 						nil,
 						"",
+						// TODO(eddycharly): we don't have user info here
 						kyvernov1beta1.RequestInfo{},
 						nil,
 					)
