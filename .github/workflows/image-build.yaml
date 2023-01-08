@@ -5,40 +5,23 @@ on:
       - 'main'
       - 'release*'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions: 
   contents: read
   packages: write
   id-token: write 
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   pre-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
-        with:
-          go-version: ~1.19.4
-
-      - name: Cache Go modules
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # pin@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: gofmt check
         run: |
           if [ "$(gofmt -s -l . | wc -l)" -ne 0 ]
@@ -48,7 +31,6 @@ jobs:
            echo "Please run 'make fmt' to go format the above files."
            exit 1
           fi
-
       - name: goimports
         run: |
           if [ "$(goimports -l . | wc -l)" -ne 0 ]
@@ -58,10 +40,8 @@ jobs:
            echo "Please run 'make fmt' to go format the above files."
            exit 1
           fi
-
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@53f8eabb87b40b1a2c63ec75b0d418bd0f4aa919 # v2.2.2
-
       - name: Checking unused pkgs using go mod tidy
         run: |
           make unused-package-check
@@ -71,26 +51,9 @@ jobs:
     needs: pre-checks
     steps:
       - name: Checkout
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
-        with:
-          go-version: ~1.19.4
-
-      - name: Cache Go modules
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # pin@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: ko build
         run: make ko-build-kyvernopre
 
@@ -99,29 +62,11 @@ jobs:
     needs: pre-checks
     steps:
       - name: Checkout
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
-        with:
-          go-version: ~1.19.4
-
-      - name: Cache Go modules
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # pin@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: ko build
         run: make ko-build-kyverno
-
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5
         with:
@@ -136,26 +81,9 @@ jobs:
     needs: pre-checks
     steps:
       - name: Checkout
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
-        with:
-          go-version: ~1.19.4
-
-      - name: Cache Go modules
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # pin@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: ko build
         run: make ko-build-cleanup-controller
 
@@ -164,25 +92,8 @@ jobs:
     needs: pre-checks
     steps:
       - name: Checkout
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
-        with:
-          go-version: ~1.19.4
-
-      - name: Cache Go modules
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # pin@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
       - name: ko build
         run: make ko-build-cli

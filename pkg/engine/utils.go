@@ -17,19 +17,16 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/logging"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // EngineStats stores in the statistics for a single application of resource
@@ -38,32 +35,6 @@ type EngineStats struct {
 	ExecutionTime time.Duration
 	// Count of rules that were applied successfully
 	RulesAppliedCount int
-}
-
-func checkKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string) bool {
-	title := cases.Title(language.Und, cases.NoLower)
-	result := false
-	for _, k := range kinds {
-		if k != "*" {
-			gv, kind := kubeutils.GetKindFromGVK(k)
-			apiResource, ok := subresourceGVKToAPIResource[k]
-			if ok {
-				result = apiResource.Group == gvk.Group && (apiResource.Version == gvk.Version || strings.Contains(gv, "*")) && apiResource.Kind == gvk.Kind
-			} else { // if the kind is not found in the subresourceGVKToAPIResource, then it is not a subresource
-				result = title.String(kind) == gvk.Kind && subresourceInAdmnReview == ""
-				if gv != "" {
-					result = result && kubeutils.GroupVersionMatches(gv, gvk.GroupVersion().String())
-				}
-			}
-		} else {
-			result = true
-		}
-
-		if result {
-			break
-		}
-	}
-	return result
 }
 
 func checkName(name, resourceName string) bool {
@@ -145,7 +116,8 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
-		if !checkKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview) {
+		// Matching on ephemeralcontainers even when they are not explicitly specified for backward compatibility.
+		if !matched.CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview, true) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}

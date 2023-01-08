@@ -1,4 +1,5 @@
-name: tests
+name: Tests
+
 on:
   push:
     branches:
@@ -9,95 +10,35 @@ on:
       - 'main'
       - 'release*'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
-  packages: write
-  id-token: write
 
 jobs:
-  pre-checks:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      # see https://michaelheap.com/ensure-github-actions-pinned-sha/
-      - name: Ensure SHA pinned actions
-        uses: zgosalvez/github-actions-ensure-sha-pinned-actions@fe7afd3f619254d126dcb69aabacc269f8ef8fd7 # pin@v2.0.3
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
         with:
-          # slsa-github-generator requires using a semver tag for reusable workflows. 
-          # See: https://github.com/slsa-framework/slsa-github-generator#referencing-slsa-builders-and-generators
-          allowlist: |
-            slsa-framework/slsa-github-generator
-
-      - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
-        with:
-          go-version: ~1.19.4
-
+          build-cache-key: pre-checks
       - name: golangci-lint
         uses: golangci/golangci-lint-action@0ad9a0988b3973e851ab0a07adf248ec2e100376 # pin@v3
         with:
           version: v1.48
-
-      - name: gofmt check
-        run: |
-          if [ "$(gofmt -s -l . | wc -l)" -ne 0 ]
-          then
-           echo "The following files were found to be not go formatted:"
-           gofmt -s -l .
-           echo "Please run 'make fmt' to go format the above files."
-           exit 1
-          fi
-
-      - name: goimports
-        run: |
-          go install golang.org/x/tools/cmd/goimports@f112c43328372460f7ac5bc951711609e22b01cc # v0.2.0
-          if [ "$(goimports -l . | wc -l)" -ne 0 ]
-          then
-           echo "The following files were found to have import formatting issues:"
-           goimports -l -l .
-           echo "Please run 'make fmt' to go format the above files."
-           exit 1
-          fi
-
+          skip-cache: true
+      - name: go fmt check
+        run: make fmt-check
+      - name: goimports check
+        run: make imports-check
       - name: Checking unused pkgs using go mod tidy
-        run: |
-          make unused-package-check
-
+        run: make unused-package-check
       - name: Go vet
-        run: |
-          make vet
-
-  tests:
-    runs-on: ubuntu-latest
-    needs: pre-checks
-    steps:
-      - name: Checkout
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
-        with:
-          go-version: ~1.19.4
-
-      - name: Cache Go modules
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # pin@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Kyverno unit test
-        run: |
-          export PROJECT_PATH=$(pwd)
-          make test-unit
+        run: make vet
+      - name: Unit test
+        run: make test-unit

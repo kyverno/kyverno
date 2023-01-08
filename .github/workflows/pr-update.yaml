@@ -7,7 +7,22 @@ on:
       - 'release-*'
 
 jobs:
+  checksecret:
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.check.outputs.result }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Check secret
+        id: check
+        uses: ./.github/actions/is-defined
+        with:
+          value: ${{ secrets.PR_UPDATE_TOKEN }}
+
   autoupdate:
+    needs: [checksecret]
+    if: needs.checksecret.outputs.result == 'true'
     permissions:
       pull-requests: write
     runs-on: ubuntu-latest
@@ -19,5 +34,5 @@ jobs:
           base: ${{ github.ref_name }}
           required_approval_count: 1
           require_passed_checks: false
-          sort: 'updated'
-          direction: 'asc'
+          sort: updated
+          direction: asc

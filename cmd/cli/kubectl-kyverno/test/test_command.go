@@ -145,10 +145,12 @@ subresources:
   - subresource:
       name: <name of subresource>
       kind: <kind of subresource>
+      group: <group of subresource>
       version: <version of subresource>
     parentResource:
       name: <name of parent resource>
       kind: <kind of parent resource>
+      group: <group of parent resource>
       version: <version of parent resource>
 
 **RESULT DESCRIPTIONS**:

@@ -5,13 +5,19 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/logging"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -32,7 +38,10 @@ func CheckMatchesResources(
 	resource unstructured.Unstructured,
 	statement kyvernov2beta1.MatchResources,
 	namespaceLabels map[string]string,
-	// policyNamespace string,
+	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+	subresourceInAdmnReview string,
+	admissionInfo kyvernov1beta1.RequestInfo,
+	excludeGroupRole []string,
 ) error {
 	var errs []error
 	if len(statement.Any) > 0 {
@@ -45,6 +54,10 @@ func CheckMatchesResources(
 				rmr,
 				resource,
 				namespaceLabels,
+				subresourceGVKToAPIResource,
+				subresourceInAdmnReview,
+				admissionInfo,
+				excludeGroupRole,
 			)) == 0 {
 				oneMatched = true
 				break
@@ -62,6 +75,10 @@ func CheckMatchesResources(
 					rmr,
 					resource,
 					namespaceLabels,
+					subresourceGVKToAPIResource,
+					subresourceInAdmnReview,
+					admissionInfo,
+					excludeGroupRole,
 				)...,
 			)
 		}
@@ -73,6 +90,10 @@ func checkResourceFilter(
 	statement kyvernov1.ResourceFilter,
 	resource unstructured.Unstructured,
 	namespaceLabels map[string]string,
+	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+	subresourceInAdmnReview string,
+	admissionInfo kyvernov1beta1.RequestInfo,
+	excludeGroupRole []string,
 ) []error {
 	var errs []error
 	// checking if the block is empty
@@ -84,19 +105,88 @@ func checkResourceFilter(
 		statement.ResourceDescription,
 		resource,
 		namespaceLabels,
+		subresourceGVKToAPIResource,
+		subresourceInAdmnReview,
+	)
+	userErrs := checkUserInfo(
+		statement.UserInfo,
+		admissionInfo,
+		excludeGroupRole,
 	)
 	errs = append(errs, matchErrs...)
+	errs = append(errs, userErrs...)
 	return errs
+}
+
+func checkUserInfo(
+	userInfo kyvernov1.UserInfo,
+	admissionInfo kyvernov1beta1.RequestInfo,
+	excludeGroupRole []string,
+) []error {
+	var errs []error
+	var excludeKeys []string
+	excludeKeys = append(excludeKeys, admissionInfo.AdmissionUserInfo.Groups...)
+	excludeKeys = append(excludeKeys, admissionInfo.AdmissionUserInfo.Username)
+	if len(userInfo.Roles) > 0 && !datautils.SliceContains(excludeKeys, excludeGroupRole...) {
+		if !datautils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
+			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
+		}
+	}
+	if len(userInfo.ClusterRoles) > 0 && !datautils.SliceContains(excludeKeys, excludeGroupRole...) {
+		if !datautils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+			errs = append(errs, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
+		}
+	}
+	if len(userInfo.Subjects) > 0 {
+		if !checkSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, excludeGroupRole) {
+			errs = append(errs, fmt.Errorf("user info does not match subject for the given conditionBlock"))
+		}
+	}
+	return errs
+}
+
+// matchSubjects return true if one of ruleSubjects exist in userInfo
+func checkSubjects(
+	ruleSubjects []rbacv1.Subject,
+	userInfo authenticationv1.UserInfo,
+	excludeGroupRole []string,
+) bool {
+	const SaPrefix = "system:serviceaccount:"
+	userGroups := append(userInfo.Groups, userInfo.Username)
+	// TODO: see issue https://github.com/kyverno/kyverno/issues/861
+	for _, e := range excludeGroupRole {
+		ruleSubjects = append(ruleSubjects, rbacv1.Subject{Kind: "Group", Name: e})
+	}
+	for _, subject := range ruleSubjects {
+		switch subject.Kind {
+		case "ServiceAccount":
+			if len(userInfo.Username) <= len(SaPrefix) {
+				continue
+			}
+			subjectServiceAccount := subject.Namespace + ":" + subject.Name
+			if userInfo.Username[len(SaPrefix):] == subjectServiceAccount {
+				return true
+			}
+		case "User", "Group":
+			if slices.Contains(userGroups, subject.Name) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func checkResourceDescription(
 	conditionBlock kyvernov1.ResourceDescription,
 	resource unstructured.Unstructured,
 	namespaceLabels map[string]string,
+	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+	subresourceInAdmnReview string,
 ) []error {
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
-		if !checkKind(conditionBlock.Kinds, resource.GetKind(), resource.GroupVersionKind()) {
+		// Matching on ephemeralcontainers even when they are not explicitly specified is only applicable to policies.
+		if !CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview, false) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
@@ -154,29 +244,35 @@ func checkResourceDescription(
 	return errs
 }
 
-func checkKind(kinds []string, resourceKind string, gvk schema.GroupVersionKind) bool {
+// CheckKind checks if the resource kind matches the kinds in the policy. If the policy matches on subresources, then those resources are
+// present in the subresourceGVKToAPIResource map. Set allowEphemeralContainers to true to allow ephemeral containers to be matched even when the
+// policy does not explicitly match on ephemeral containers and only matches on pods.
+func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string, allowEphemeralContainers bool) bool {
 	title := cases.Title(language.Und, cases.NoLower)
+	result := false
 	for _, k := range kinds {
-		parts := strings.Split(k, "/")
-		if len(parts) == 1 {
-			if k == "*" || resourceKind == title.String(k) {
-				return true
+		if k != "*" {
+			gv, kind := kubeutils.GetKindFromGVK(k)
+			apiResource, ok := subresourceGVKToAPIResource[k]
+			if ok {
+				result = apiResource.Group == gvk.Group && (apiResource.Version == gvk.Version || strings.Contains(gv, "*")) && apiResource.Kind == gvk.Kind
+			} else { // if the kind is not found in the subresourceGVKToAPIResource, then it is not a subresource
+				result = title.String(kind) == gvk.Kind &&
+					(subresourceInAdmnReview == "" ||
+						(allowEphemeralContainers && subresourceInAdmnReview == "ephemeralcontainers"))
+				if gv != "" {
+					result = result && kubeutils.GroupVersionMatches(gv, gvk.GroupVersion().String())
+				}
 			}
+		} else {
+			result = true
 		}
-		if len(parts) == 2 {
-			kindParts := strings.SplitN(parts[1], ".", 2)
-			if gvk.Kind == title.String(kindParts[0]) && gvk.Version == parts[0] {
-				return true
-			}
-		}
-		if len(parts) == 3 || len(parts) == 4 {
-			kindParts := strings.SplitN(parts[2], ".", 2)
-			if gvk.Group == parts[0] && (gvk.Version == parts[1] || parts[1] == "*") && gvk.Kind == title.String(kindParts[0]) {
-				return true
-			}
+
+		if result {
+			break
 		}
 	}
-	return false
+	return result
 }
 
 func checkName(name, resourceName string) bool {

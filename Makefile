@@ -155,6 +155,27 @@ vet: ## Run go vet
 	@echo Go vet... >&2
 	@go vet ./...
 
+.PHONY: imports
+imports: $(GOIMPORTS)
+	@echo Go imports... >&2
+	@$(GOIMPORTS) -w .
+
+.PHONY: fmt-check
+fmt-check: fmt
+	@echo Checking code format... >&2
+	@git --no-pager diff .
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make fmt".' >&2
+	@echo 'To correct this, locally run "make fmt" and commit the changes.' >&2
+	@git diff --quiet --exit-code .
+
+.PHONY: imports-check
+imports-check: imports
+	@echo Checking go imports... >&2
+	@git --no-pager diff .
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make imports-check".' >&2
+	@echo 'To correct this, locally run "make imports" and commit the changes.' >&2
+	@git diff --quiet --exit-code .
+
 .PHONY: unused-package-check
 unused-package-check:
 	@tidy=$$(go mod tidy); \
@@ -629,8 +650,8 @@ release-notes:
 #########
 
 .PHONY: debug-deploy
-debug-deploy: codegen-install ## Install debug manifests
-	@kubectl create -f ./config/install_debug.yaml || kubectl replace -f ./config/install_debug.yaml
+debug-deploy: codegen-manifest-debug ## Install debug manifests
+	@kubectl create -f ./.manifest/debug.yaml || kubectl replace -f ./.manifest/debug.yaml
 
 ##########
 # GITHUB #
@@ -719,8 +740,6 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
-	@echo Restart kyverno pods... >&2
-	@kubectl rollout restart deployment -n kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
