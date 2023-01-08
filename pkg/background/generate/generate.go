@@ -356,8 +356,19 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			if len(rule.Generation.ForEachGeneration) > 0 && (rule.Generation.Kind != "" || rule.Generation.Name != "" || rule.Generation.Namespace != "") {
 				log.Error(err, "Generate rule cannot be written individually when foreach specified in Generate block, All the Generate rules must be specified inside the foreach block")
 			}
-			if len(rule.Generation.ForEachGeneration) > 0 {
-				genResource, err = applyForEachGenerateRules(log, c.rclient, c.client, rule, resource, jsonContext, policyContext, ur)
+			if rule.Generation.ForEachGeneration != nil {
+				g := &forEachGenerate{
+					rule:          rule.DeepCopy(),
+					foreach:       rule.Generation.ForEachGeneration,
+					policyContext: policyContext,
+					log:           log,
+					client:        c.client,
+					rclient:       c.rclient,
+					resource:      resource,
+					ur:            ur,
+					nesting:       0,
+				}
+				genResource, err = g.applyForEachGenerateRules(context.TODO())
 			} else {
 				if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
 					log.Error(err, "variable substitution failed for rule %s", rule.Name)
@@ -432,7 +443,7 @@ func forEachGetResourceInfoForDataAndClone(fe kyvernov1.ForEachGeneration) (kind
 	return
 }
 
-func generateElements(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, fe kyvernov1.ForEachGeneration, element interface{}) ([]kyvernov1.ResourceSpec, error) {
+func forEach(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest, fe kyvernov1.ForEachGeneration, element interface{}) ([]kyvernov1.ResourceSpec, error) {
 	var noGenResource kyvernov1.ResourceSpec
 	var newGenResources []kyvernov1.ResourceSpec
 	rdatas := []GenerateResponse{}
@@ -600,41 +611,74 @@ func generateElements(log logr.Logger, client dclient.Interface, rule kyvernov1.
 	return newGenResources, nil
 }
 
-func applyForEachGenerateRules(log logr.Logger, rclient registryclient.Client, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policyContext *engine.PolicyContext, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
-	policy := policyContext.Policy()
+type forEachGenerate struct {
+	rule          *kyvernov1.Rule
+	policyContext *engine.PolicyContext
+	foreach       []kyvernov1.ForEachGeneration
+	nesting       int
+	client        dclient.Interface
+	rclient       registryclient.Client
+	log           logr.Logger
+	resource      unstructured.Unstructured
+	ur            kyvernov1beta1.UpdateRequest
+}
+
+func (f *forEachGenerate) applyForEachGenerateRules(ctx context.Context) ([]kyvernov1.ResourceSpec, error) {
+	// var applyCount int
+	// policy := f.policyContext.Policy()
+	log := f.log
 	var newGenResources []kyvernov1.ResourceSpec
-	for _, fe := range rule.Generation.ForEachGeneration {
-		if fe.List == "" {
-			log.Error(errors.New("foreach inside generate with an empty or null List attribute"), "cannot generate a policy rule with an empty or null List attribute")
-			break
-		}
-		elements, err := engine.RunEvaluateList(fe.List, ctx)
+
+	for _, fe := range f.rule.Generation.ForEachGeneration {
+		preconditionsPassed, err := engine.CheckPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
 		if err != nil {
-			msg := fmt.Sprintf("failed to evaluate list %s", fe.List)
-			log.Error(err, msg)
+			return newGenResources, err
+		}
+
+		if !preconditionsPassed {
+			log.Info("preconditions not met")
+			return newGenResources, nil
+		}
+
+		elements, err := engine.EvaluateList(fe.List, f.policyContext.JSONContext())
+		if err != nil {
+			err := fmt.Errorf("%v failed to evaluate list %s", err, fe.List)
+			return newGenResources, err
+		}
+
+		newGenResources, err = f.generateElements(ctx, fe, elements)
+		if err != nil {
+			return newGenResources, err
+		}
+
+	}
+	return newGenResources, nil
+}
+
+func (f *forEachGenerate) generateElements(ctx context.Context, foreach kyvernov1.ForEachGeneration, elements []interface{}) ([]kyvernov1.ResourceSpec, error) {
+	f.policyContext.JSONContext().Checkpoint()
+	defer f.policyContext.JSONContext().Restore()
+	var newGenResources []kyvernov1.ResourceSpec
+
+	for i, element := range elements {
+		if element == nil {
 			continue
 		}
 
-		for i, element := range elements {
-			if element == nil {
-				continue
-			}
-			fmt.Println("MdSahil: element of elements", element)
-			nesting := 0
-
-			if err := addElementToContext(policyContext, element, i, nesting); err != nil {
-				log.Error(err, "failed to add element to context")
-				return newGenResources, err
-			}
-
-			tempNewGenResources, err := generateElements(log, client, rule, resource, ctx, policy, ur, fe, element)
-			if err != nil {
-				continue
-			}
-			for _, genResource := range tempNewGenResources {
-				newGenResources = append(newGenResources, genResource)
-			}
+		f.policyContext.JSONContext().Reset()
+		policyContext := f.policyContext.Copy()
+		if err := addElementToContext(policyContext, element, i, f.nesting); err != nil {
+			err := fmt.Errorf("%v failed to add element to context", err)
+			return newGenResources, err
 		}
+
+		// tempNewGenResources, err := forEach(f.log, f.client, f.rule, f.resource, f.policyContext.JSONContext(), f.policyContext.Policy(), f.ur, foreach, element)
+		// if err != nil {
+		// 	continue
+		// }
+		// for _, genResource := range tempNewGenResources {
+		// 	newGenResources = append(newGenResources, genResource)
+		// }
 	}
 	return newGenResources, nil
 }
