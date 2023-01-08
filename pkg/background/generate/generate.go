@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -26,6 +27,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -358,7 +360,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			}
 			if rule.Generation.ForEachGeneration != nil {
 				g := &forEachGenerate{
-					rule:          rule.DeepCopy(),
+					rule:          rule,
 					foreach:       rule.Generation.ForEachGeneration,
 					policyContext: policyContext,
 					log:           log,
@@ -368,7 +370,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 					ur:            ur,
 					nesting:       0,
 				}
-				genResource, err = g.applyForEachGenerateRules(context.TODO())
+				genResource, err = g.generateForEach(context.TODO())
 			} else {
 				if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
 					log.Error(err, "variable substitution failed for rule %s", rule.Name)
@@ -612,7 +614,7 @@ func forEach(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, res
 }
 
 type forEachGenerate struct {
-	rule          *kyvernov1.Rule
+	rule          kyvernov1.Rule
 	policyContext *engine.PolicyContext
 	foreach       []kyvernov1.ForEachGeneration
 	nesting       int
@@ -623,7 +625,7 @@ type forEachGenerate struct {
 	ur            kyvernov1beta1.UpdateRequest
 }
 
-func (f *forEachGenerate) applyForEachGenerateRules(ctx context.Context) ([]kyvernov1.ResourceSpec, error) {
+func (f *forEachGenerate) generateForEach(ctx context.Context) ([]kyvernov1.ResourceSpec, error) {
 	// var applyCount int
 	// policy := f.policyContext.Policy()
 	log := f.log
@@ -665,8 +667,10 @@ func (f *forEachGenerate) generateElements(ctx context.Context, foreach kyvernov
 			continue
 		}
 
-		f.policyContext.JSONContext().Reset()
+		// TODO - this needs to be refactored. The engine should not have a dependency to the CLI code
+		store.SetForEachElement(i)
 
+		f.policyContext.JSONContext().Reset()
 		falseVar := false
 		policyContext := f.policyContext.Copy()
 		if err := engine.AddElementToContext(policyContext, element, i, f.nesting, &falseVar); err != nil {
@@ -674,13 +678,49 @@ func (f *forEachGenerate) generateElements(ctx context.Context, foreach kyvernov
 			return newGenResources, err
 		}
 
-		// tempNewGenResources, err := forEach(f.log, f.client, f.rule, f.resource, f.policyContext.JSONContext(), f.policyContext.Policy(), f.ur, foreach, element)
-		// if err != nil {
-		// 	continue
-		// }
-		// for _, genResource := range tempNewGenResources {
-		// 	newGenResources = append(newGenResources, genResource)
-		// }
+		if err := engine.LoadContext(ctx, f.log, f.rclient, foreach.Context, policyContext, f.rule.Name); err != nil {
+			return newGenResources, err
+		}
+
+		preconditionsPassed, err := engine.CheckPreconditions(f.log, policyContext, foreach.AnyAllConditions)
+		if err != nil {
+			return newGenResources, err
+		}
+
+		if !preconditionsPassed {
+			f.log.Info("mutate.foreach.preconditions not met", "elementIndex", i)
+			continue
+		}
+
+		var tempNewGenResources []kyvernov1.ResourceSpec
+		if foreach.ForEachGeneration != nil {
+			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachGeneration](foreach.ForEachGeneration)
+			if err != nil {
+				return newGenResources, err
+			}
+
+			g := &forEachGenerate{
+				rule:          f.rule,
+				policyContext: f.policyContext,
+				resource:      f.resource,
+				log:           f.log,
+				foreach:       nestedForEach,
+				nesting:       f.nesting + 1,
+			}
+
+			// append not assign
+			tempNewGenResources, err = g.generateForEach(ctx)
+		} else {
+			tempNewGenResources, err = forEach(f.log, f.client, f.rule, f.resource, f.policyContext.JSONContext(), f.policyContext.Policy(), f.ur, foreach, element)
+		}
+
+		if err != nil {
+			return newGenResources, err
+		}
+
+		for _, genResource := range tempNewGenResources {
+			newGenResources = append(newGenResources, genResource)
+		}
 	}
 	return newGenResources, nil
 }
