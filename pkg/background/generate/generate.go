@@ -666,8 +666,10 @@ func (f *forEachGenerate) generateElements(ctx context.Context, foreach kyvernov
 		}
 
 		f.policyContext.JSONContext().Reset()
+
+		falseVar := false
 		policyContext := f.policyContext.Copy()
-		if err := addElementToContext(policyContext, element, i, f.nesting); err != nil {
+		if err := engine.AddElementToContext(policyContext, element, i, f.nesting, &falseVar); err != nil {
 			err := fmt.Errorf("%v failed to add element to context", err)
 			return newGenResources, err
 		}
@@ -851,24 +853,6 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 		}
 	}
 	return newGenResources, nil
-}
-
-func addElementToContext(ctx *engine.PolicyContext, element interface{}, elementIndex, nesting int) error {
-	data, err := variables.DocumentToUntyped(element)
-	if err != nil {
-		return err
-	}
-	if err := ctx.JSONContext().AddElement(data, elementIndex, nesting); err != nil {
-		err = fmt.Errorf("%v failed to add element (%v) to JSON context", err, element)
-		return err
-	}
-	dataMap, ok := data.(map[string]interface{})
-	if ok {
-		u := unstructured.Unstructured{}
-		u.SetUnstructuredContent(dataMap)
-		ctx.SetElement(u)
-	}
-	return nil
 }
 
 func newGenResource(genAPIVersion, genKind, genNamespace, genName string) kyvernov1.ResourceSpec {

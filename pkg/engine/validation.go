@@ -367,6 +367,10 @@ func (v *validator) validateElements(ctx context.Context, rclient registryclient
 	return ruleResponse(*v.rule, response.Validation, "", response.RuleStatusPass), applyCount
 }
 
+func AddElementToContext(ctx *PolicyContext, e interface{}, elementIndex, nesting int, elementScope *bool) error {
+	return addElementToContext(ctx, e, elementIndex, nesting, elementScope)
+}
+
 func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex, nesting int, elementScope *bool) error {
 	data, err := variables.DocumentToUntyped(e)
 	if err != nil {
