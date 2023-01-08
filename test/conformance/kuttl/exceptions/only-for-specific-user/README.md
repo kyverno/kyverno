@@ -9,3 +9,7 @@ The exception should not apply as it is for a specific user and the configmap cr
     - Assert the policy becomes ready
 1.  - Create a policy exception for the cluster policy created above but for a specific user
 1.  - Try to create a confimap expecting it to fail
+
+## Reference Issue(s)
+
+5930
