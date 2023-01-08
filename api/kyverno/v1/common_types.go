@@ -580,6 +580,17 @@ type ForEachGeneration struct {
 	// ResourceSpec contains information to select the resource.
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
+	// Context defines variables and data sources that can be used during rule execution.
+	// +optional
+	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+
+	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	// See: https://kyverno.io/docs/writing-policies/preconditions/
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
+	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+
 	// Synchronize controls if generated resources should be kept in-sync with their source resource.
 	// If Synchronize is set to "true" changes to generated resources will be overwritten with resource
 	// data from Data or the resource specified in the Clone declaration.
