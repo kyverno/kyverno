@@ -623,5 +623,3 @@ const (
 	Update  RequestType = "UPDATE"
 	Delete  RequestType = "DELETE"
 )
-
-type RequestTypes []RequestType
