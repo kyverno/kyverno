@@ -2464,12 +2464,13 @@ which a policy rule is applicable.</p>
 <td>
 <code>requestTypes</code><br/>
 <em>
-<a href="#kyverno.io/v1.RequestType">
-[]RequestType
+<a href="#kyverno.io/v1.RequestTypes">
+RequestTypes
 </a>
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>RequestTypes can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
 </td>
 </tr>
@@ -2955,11 +2956,15 @@ Kubernetes authentication/v1.UserInfo
 <h3 id="kyverno.io/v1.RequestType">RequestType
 (<code>string</code> alias)</p></h3>
 <p>
+<p>RequestType can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.</p>
+</p>
+<h3 id="kyverno.io/v1.RequestTypes">RequestTypes
+(<code>[]github.com/kyverno/kyverno/api/kyverno/v1.RequestType</code> alias)</p></h3>
+<p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>)
 </p>
 <p>
-<p>RequestType can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.</p>
 </p>
 <h3 id="kyverno.io/v1.ResourceDescription">ResourceDescription
 </h3>

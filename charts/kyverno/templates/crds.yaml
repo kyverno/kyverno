@@ -4104,8 +4104,6 @@ spec:
                               UPDATE, CONNECT, DELETE, which are used to match a specific
                               action.
                             type: string
-                          maxItems: 3
-                          minItems: 1
                           type: array
                         resources:
                           description: ResourceDescription contains information about
@@ -4897,8 +4895,6 @@ spec:
                               UPDATE, CONNECT, DELETE, which are used to match a specific
                               action.
                             type: string
-                          maxItems: 3
-                          minItems: 1
                           type: array
                         resources:
                           description: ResourceDescription contains information about
@@ -7320,8 +7316,6 @@ spec:
                                   CREATE, UPDATE, CONNECT, DELETE, which are used
                                   to match a specific action.
                                 type: string
-                              maxItems: 3
-                              minItems: 1
                               type: array
                             resources:
                               description: ResourceDescription contains information
@@ -8149,8 +8143,6 @@ spec:
                                   CREATE, UPDATE, CONNECT, DELETE, which are used
                                   to match a specific action.
                                 type: string
-                              maxItems: 3
-                              minItems: 1
                               type: array
                             resources:
                               description: ResourceDescription contains information
@@ -13704,8 +13696,6 @@ spec:
                                   CREATE, UPDATE, CONNECT, DELETE, which are used
                                   to match a specific action.
                                 type: string
-                              maxItems: 3
-                              minItems: 1
                               type: array
                             resources:
                               description: ResourceDescription contains information
@@ -14533,8 +14523,6 @@ spec:
                                   CREATE, UPDATE, CONNECT, DELETE, which are used
                                   to match a specific action.
                                 type: string
-                              maxItems: 3
-                              minItems: 1
                               type: array
                             resources:
                               description: ResourceDescription contains information
@@ -17379,8 +17367,6 @@ spec:
                               UPDATE, CONNECT, DELETE, which are used to match a specific
                               action.
                             type: string
-                          maxItems: 3
-                          minItems: 1
                           type: array
                         resources:
                           description: ResourceDescription contains information about
@@ -18172,8 +18158,6 @@ spec:
                               UPDATE, CONNECT, DELETE, which are used to match a specific
                               action.
                             type: string
-                          maxItems: 3
-                          minItems: 1
                           type: array
                         resources:
                           description: ResourceDescription contains information about
@@ -20596,8 +20580,6 @@ spec:
                                   CREATE, UPDATE, CONNECT, DELETE, which are used
                                   to match a specific action.
                                 type: string
-                              maxItems: 3
-                              minItems: 1
                               type: array
                             resources:
                               description: ResourceDescription contains information
@@ -21425,8 +21407,6 @@ spec:
                                   CREATE, UPDATE, CONNECT, DELETE, which are used
                                   to match a specific action.
                                 type: string
-                              maxItems: 3
-                              minItems: 1
                               type: array
                             resources:
                               description: ResourceDescription contains information
@@ -26981,8 +26961,6 @@ spec:
                                   CREATE, UPDATE, CONNECT, DELETE, which are used
                                   to match a specific action.
                                 type: string
-                              maxItems: 3
-                              minItems: 1
                               type: array
                             resources:
                               description: ResourceDescription contains information
@@ -27810,8 +27788,6 @@ spec:
                                   CREATE, UPDATE, CONNECT, DELETE, which are used
                                   to match a specific action.
                                 type: string
-                              maxItems: 3
-                              minItems: 1
                               type: array
                             resources:
                               description: ResourceDescription contains information
