@@ -121,6 +121,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
+	logger.V(2).Info("background scan", "interval", c.forceDelay)
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
@@ -395,6 +396,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		return err
 	} else {
 		defer func() {
+			logger.V(4).Info("re-queue for next background scan", "key", key, "interval", c.forceDelay)
 			c.queue.AddAfter(key, c.forceDelay)
 		}()
 		if needsReconcile {
