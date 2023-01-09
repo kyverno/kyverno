@@ -105,7 +105,7 @@ jobs:
 
       - name: Upload SBOM JSON
         if: ${{inputs.tag == 'release'}}
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v2.3.1
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: ${{inputs.image_name}}-bom-cdx
           path: ${{inputs.image_name}}-v*-bom.cdx.json
