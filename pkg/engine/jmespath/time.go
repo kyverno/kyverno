@@ -19,7 +19,7 @@ var (
 	timeBefore   = "time_before"
 	timeAfter    = "time_after"
 	timeBetween  = "time_between"
-	timeTruncate = "time_trancate"
+	timeTruncate = "time_truncate"
 )
 
 func getTimeArg(f string, arguments []interface{}, index int) (time.Time, error) {
