@@ -539,6 +539,18 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 			Note:       "calcutes time in UTC from a given time in RFC 3339 format",
 		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeDiff,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeDiff,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "calculate the difference between a start and end date in RFC3339 format",
+		},
 	}
 }
 

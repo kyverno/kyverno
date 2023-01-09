@@ -156,3 +156,29 @@ func Test_TimeUtc(t *testing.T) {
 		})
 	}
 }
+
+func Test_TimeDiff(t *testing.T) {
+	testCases := []struct {
+		test           string
+		expectedResult string
+	}{
+		{
+			test:           "time_diff('2021-01-02T15:04:05-07:00', '2021-01-10T03:14:05-07:00')",
+			expectedResult: "180h10m0s",
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := New(tc.test)
+			assert.NilError(t, err)
+
+			res, err := query.Search("")
+			assert.NilError(t, err)
+
+			result, ok := res.(string)
+			assert.Assert(t, ok)
+
+			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}

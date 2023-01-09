@@ -15,6 +15,7 @@ var (
 	timeParse  = "time_parse"
 	timeToCron = "time_to_cron"
 	timeUtc    = "time_utc"
+	timeDiff   = "time_diff"
 )
 
 func getTimeArg(f string, arguments []interface{}, index int) (time.Time, error) {
@@ -121,5 +122,15 @@ func jpTimeUtc(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	} else {
 		return t.UTC().Format(time.RFC3339), nil
+	}
+}
+
+func jpTimeDiff(arguments []interface{}) (interface{}, error) {
+	if t1, err := getTimeArg(timeSince, arguments, 0); err != nil {
+		return nil, err
+	} else if t2, err := getTimeArg(timeSince, arguments, 1); err != nil {
+		return nil, err
+	} else {
+		return t2.Sub(t1).String(), nil
 	}
 }
