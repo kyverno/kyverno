@@ -177,9 +177,17 @@ type CleanupPolicyStatus struct {
 // Validate implements programmatic validation
 func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set[string], namespaced bool) (errs field.ErrorList) {
 	errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
-	errs = append(errs, p.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
+	if userInfoErrs := p.MatchResources.ValidateNoUserInfo(path.Child("match")); len(userInfoErrs) != 0 {
+		errs = append(errs, userInfoErrs...)
+	} else {
+		errs = append(errs, p.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
+	}
 	if p.ExcludeResources != nil {
-		errs = append(errs, p.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+		if userInfoErrs := p.ExcludeResources.ValidateNoUserInfo(path.Child("exclude")); len(userInfoErrs) != 0 {
+			errs = append(errs, userInfoErrs...)
+		} else {
+			errs = append(errs, p.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+		}
 	}
 	errs = append(errs, p.ValidateMatchExcludeConflict(path)...)
 	return errs
