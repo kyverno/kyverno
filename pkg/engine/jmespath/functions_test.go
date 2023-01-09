@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"testing"
+	"time"
 
 	"gotest.tools/assert"
 )
@@ -1636,6 +1637,31 @@ func Test_TimeParse(t *testing.T) {
 			assert.Assert(t, ok)
 
 			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
+
+func Test_TimeNow(t *testing.T) {
+	testCases := []struct {
+		test   string
+		layout string
+	}{
+		{
+			test: "time_now()",
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := New(tc.test)
+			assert.NilError(t, err)
+
+			res, err := query.Search("")
+			assert.NilError(t, err)
+
+			result, ok := res.(string)
+			assert.Assert(t, ok)
+
+			assert.Equal(t, result, time.Now().Format(time.RFC3339))
 		})
 	}
 }
