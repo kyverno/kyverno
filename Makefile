@@ -59,7 +59,7 @@ HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
-KUTTL_VERSION                      := v0.0.0-20221129212128-ae4a56e607a7
+KUTTL_VERSION                      := v0.0.0-20230108220859-ef8d83c89156
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
@@ -154,6 +154,27 @@ fmt: ## Run go fmt
 vet: ## Run go vet
 	@echo Go vet... >&2
 	@go vet ./...
+
+.PHONY: imports
+imports: $(GOIMPORTS)
+	@echo Go imports... >&2
+	@$(GOIMPORTS) -w .
+
+.PHONY: fmt-check
+fmt-check: fmt
+	@echo Checking code format... >&2
+	@git --no-pager diff .
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make fmt".' >&2
+	@echo 'To correct this, locally run "make fmt" and commit the changes.' >&2
+	@git diff --quiet --exit-code .
+
+.PHONY: imports-check
+imports-check: imports
+	@echo Checking go imports... >&2
+	@git --no-pager diff .
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make imports-check".' >&2
+	@echo 'To correct this, locally run "make imports" and commit the changes.' >&2
+	@git diff --quiet --exit-code .
 
 .PHONY: unused-package-check
 unused-package-check:

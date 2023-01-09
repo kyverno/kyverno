@@ -2,21 +2,15 @@ package match
 
 import (
 	"fmt"
-	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"github.com/kyverno/kyverno/pkg/engine/wildcards"
-	"github.com/kyverno/kyverno/pkg/logging"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.uber.org/multierr"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func CheckNamespace(statement string, resource unstructured.Unstructured) error {
@@ -35,7 +29,8 @@ func CheckMatchesResources(
 	namespaceLabels map[string]string,
 	subresourceGVKToAPIResource map[string]*metav1.APIResource,
 	subresourceInAdmnReview string,
-	// policyNamespace string,
+	admissionInfo kyvernov1beta1.RequestInfo,
+	excludeGroupRole []string,
 ) error {
 	var errs []error
 	if len(statement.Any) > 0 {
@@ -50,6 +45,8 @@ func CheckMatchesResources(
 				namespaceLabels,
 				subresourceGVKToAPIResource,
 				subresourceInAdmnReview,
+				admissionInfo,
+				excludeGroupRole,
 			)) == 0 {
 				oneMatched = true
 				break
@@ -69,6 +66,8 @@ func CheckMatchesResources(
 					namespaceLabels,
 					subresourceGVKToAPIResource,
 					subresourceInAdmnReview,
+					admissionInfo,
+					excludeGroupRole,
 				)...,
 			)
 		}
@@ -82,6 +81,8 @@ func checkResourceFilter(
 	namespaceLabels map[string]string,
 	subresourceGVKToAPIResource map[string]*metav1.APIResource,
 	subresourceInAdmnReview string,
+	admissionInfo kyvernov1beta1.RequestInfo,
+	excludeGroupRole []string,
 ) []error {
 	var errs []error
 	// checking if the block is empty
@@ -96,7 +97,40 @@ func checkResourceFilter(
 		subresourceGVKToAPIResource,
 		subresourceInAdmnReview,
 	)
+	userErrs := checkUserInfo(
+		statement.UserInfo,
+		admissionInfo,
+		excludeGroupRole,
+	)
 	errs = append(errs, matchErrs...)
+	errs = append(errs, userErrs...)
+	return errs
+}
+
+func checkUserInfo(
+	userInfo kyvernov1.UserInfo,
+	admissionInfo kyvernov1beta1.RequestInfo,
+	excludeGroupRole []string,
+) []error {
+	var errs []error
+	var excludeKeys []string
+	excludeKeys = append(excludeKeys, admissionInfo.AdmissionUserInfo.Groups...)
+	excludeKeys = append(excludeKeys, admissionInfo.AdmissionUserInfo.Username)
+	if len(userInfo.Roles) > 0 && !datautils.SliceContains(excludeKeys, excludeGroupRole...) {
+		if !datautils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
+			errs = append(errs, fmt.Errorf("user info does not match roles for the given conditionBlock"))
+		}
+	}
+	if len(userInfo.ClusterRoles) > 0 && !datautils.SliceContains(excludeKeys, excludeGroupRole...) {
+		if !datautils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
+			errs = append(errs, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
+		}
+	}
+	if len(userInfo.Subjects) > 0 {
+		if !CheckSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, excludeGroupRole) {
+			errs = append(errs, fmt.Errorf("user info does not match subject for the given conditionBlock"))
+		}
+	}
 	return errs
 }
 
@@ -109,7 +143,8 @@ func checkResourceDescription(
 ) []error {
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
-		if !CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview) {
+		// Matching on ephemeralcontainers even when they are not explicitly specified is only applicable to policies.
+		if !CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview, false) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
@@ -118,14 +153,14 @@ func checkResourceDescription(
 		resourceName = resource.GetGenerateName()
 	}
 	if conditionBlock.Name != "" {
-		if !checkName(conditionBlock.Name, resourceName) {
+		if !CheckName(conditionBlock.Name, resourceName) {
 			errs = append(errs, fmt.Errorf("name does not match"))
 		}
 	}
 	if len(conditionBlock.Names) > 0 {
 		noneMatch := true
 		for i := range conditionBlock.Names {
-			if checkName(conditionBlock.Names[i], resourceName) {
+			if CheckName(conditionBlock.Names[i], resourceName) {
 				noneMatch = false
 				break
 			}
@@ -140,12 +175,12 @@ func checkResourceDescription(
 		}
 	}
 	if len(conditionBlock.Annotations) > 0 {
-		if !checkAnnotations(conditionBlock.Annotations, resource.GetAnnotations()) {
+		if !CheckAnnotations(conditionBlock.Annotations, resource.GetAnnotations()) {
 			errs = append(errs, fmt.Errorf("annotations does not match"))
 		}
 	}
 	if conditionBlock.Selector != nil {
-		hasPassed, err := checkSelector(conditionBlock.Selector, resource.GetLabels())
+		hasPassed, err := CheckSelector(conditionBlock.Selector, resource.GetLabels())
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse selector: %v", err))
 		} else {
@@ -155,7 +190,7 @@ func checkResourceDescription(
 		}
 	}
 	if conditionBlock.NamespaceSelector != nil && resource.GetKind() != "Namespace" && resource.GetKind() != "" {
-		hasPassed, err := checkSelector(conditionBlock.NamespaceSelector, namespaceLabels)
+		hasPassed, err := CheckSelector(conditionBlock.NamespaceSelector, namespaceLabels)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
 		} else {
@@ -165,36 +200,6 @@ func checkResourceDescription(
 		}
 	}
 	return errs
-}
-
-func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string) bool {
-	title := cases.Title(language.Und, cases.NoLower)
-	result := false
-	for _, k := range kinds {
-		if k != "*" {
-			gv, kind := kubeutils.GetKindFromGVK(k)
-			apiResource, ok := subresourceGVKToAPIResource[k]
-			if ok {
-				result = apiResource.Group == gvk.Group && (apiResource.Version == gvk.Version || strings.Contains(gv, "*")) && apiResource.Kind == gvk.Kind
-			} else { // if the kind is not found in the subresourceGVKToAPIResource, then it is not a subresource
-				result = title.String(kind) == gvk.Kind && subresourceInAdmnReview == ""
-				if gv != "" {
-					result = result && kubeutils.GroupVersionMatches(gv, gvk.GroupVersion().String())
-				}
-			}
-		} else {
-			result = true
-		}
-
-		if result {
-			break
-		}
-	}
-	return result
-}
-
-func checkName(name, resourceName string) bool {
-	return wildcard.Match(name, resourceName)
 }
 
 func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
@@ -208,36 +213,4 @@ func checkNameSpace(namespaces []string, resource unstructured.Unstructured) boo
 		}
 	}
 	return false
-}
-
-func checkAnnotations(annotations map[string]string, resourceAnnotations map[string]string) bool {
-	if len(annotations) == 0 {
-		return true
-	}
-	for k, v := range annotations {
-		match := false
-		for k1, v1 := range resourceAnnotations {
-			if wildcard.Match(k, k1) && wildcard.Match(v, v1) {
-				match = true
-				break
-			}
-		}
-		if !match {
-			return false
-		}
-	}
-	return true
-}
-
-func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) (bool, error) {
-	wildcards.ReplaceInSelector(labelSelector, resourceLabels)
-	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
-	if err != nil {
-		logging.Error(err, "failed to build label selector")
-		return false, err
-	}
-	if selector.Matches(labels.Set(resourceLabels)) {
-		return true, nil
-	}
-	return false, nil
 }

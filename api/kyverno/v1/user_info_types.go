@@ -57,6 +57,22 @@ func (u *UserInfo) ValidateRoles(path *field.Path) (errs field.ErrorList) {
 	return errs
 }
 
+// ValidateNoUserInfo verifies that no user info is used
+func (u *UserInfo) ValidateNoUserInfo(path *field.Path) (errs field.ErrorList) {
+	if u != nil {
+		if len(u.Roles) != 0 {
+			errs = append(errs, field.Forbidden(path.Child("roles"), "Usage of user info is forbidden"))
+		}
+		if len(u.ClusterRoles) != 0 {
+			errs = append(errs, field.Forbidden(path.Child("clusterRoles"), "Usage of user info is forbidden"))
+		}
+		if len(u.Subjects) != 0 {
+			errs = append(errs, field.Forbidden(path.Child("subjects"), "Usage of user info is forbidden"))
+		}
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (u *UserInfo) Validate(path *field.Path) (errs field.ErrorList) {
 	errs = append(errs, u.ValidateSubjects(path.Child("subjects"))...)

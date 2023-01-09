@@ -273,7 +273,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.filters = parseKinds(cm.Data["resourceFilters"])
 	newDefaultRegistry, ok := cm.Data["defaultRegistry"]
 	if !ok {
-		logger.V(4).Info("configuration: No defaultRegistry defined in ConfigMap")
+		logger.V(6).Info("configuration: No defaultRegistry defined in ConfigMap")
 	} else {
 		if valid.IsDNSName(newDefaultRegistry) {
 			logger.V(4).Info("Updated defaultRegistry config parameter.", "oldDefaultRegistry", cd.defaultRegistry, "newDefaultRegistry", newDefaultRegistry)
@@ -284,7 +284,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	}
 	enableDefaultRegistryMutation, ok := cm.Data["enableDefaultRegistryMutation"]
 	if !ok {
-		logger.V(4).Info("configuration: No enableDefaultRegistryMutation defined in ConfigMap")
+		logger.V(6).Info("configuration: No enableDefaultRegistryMutation defined in ConfigMap")
 	} else {
 		newEnableDefaultRegistryMutation, err := strconv.ParseBool(enableDefaultRegistryMutation)
 		if err != nil {

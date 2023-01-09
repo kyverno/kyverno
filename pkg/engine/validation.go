@@ -775,13 +775,25 @@ func (v *validator) substituteDeny() error {
 }
 
 // matchesException checks if an exception applies to the resource being admitted
-func matchesException(policyContext *PolicyContext, rule *kyvernov1.Rule, subresourceGVKToAPIResource map[string]*metav1.APIResource) (*kyvernov2alpha1.PolicyException, error) {
+func matchesException(
+	policyContext *PolicyContext,
+	rule *kyvernov1.Rule,
+	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+) (*kyvernov2alpha1.PolicyException, error) {
 	candidates, err := policyContext.FindExceptions(rule.Name)
 	if err != nil {
 		return nil, err
 	}
 	for _, candidate := range candidates {
-		err := matched.CheckMatchesResources(policyContext.newResource, candidate.Spec.Match, policyContext.namespaceLabels, subresourceGVKToAPIResource, policyContext.subresource)
+		err := matched.CheckMatchesResources(
+			policyContext.newResource,
+			candidate.Spec.Match,
+			policyContext.namespaceLabels,
+			subresourceGVKToAPIResource,
+			policyContext.subresource,
+			policyContext.admissionInfo,
+			policyContext.excludeGroupRole,
+		)
 		// if there's no error it means a match
 		if err == nil {
 			return candidate, nil
