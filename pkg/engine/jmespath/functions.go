@@ -551,6 +551,55 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 			Note:       "calculate the difference between a start and end date in RFC3339 format",
 		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeBefore,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeBefore,
+			},
+			ReturnType: []JpType{JpBool},
+			Note:       "checks if a time is before another time, both in RFC3339 format",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeAfter,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeAfter,
+			},
+			ReturnType: []JpType{JpBool},
+			Note:       "checks if a time is after another time, both in RFC3339 format",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeBetween,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeBetween,
+			},
+			ReturnType: []JpType{JpBool},
+			Note:       "checks if a time is between a start and end time, all in RFC3339 format",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeTruncate,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeTruncate,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "returns the result of rounding time down to a multiple of duration",
+		},
 	}
 }
 
