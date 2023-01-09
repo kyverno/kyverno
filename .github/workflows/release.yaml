@@ -190,7 +190,7 @@ jobs:
         run: make codegen-manifest-release
 
       - name: Upload yaml manifest
-        uses: svenstaro/upload-release-action@133984371c30d34e38222a64855679a414cb7575 # pin@v2
+        uses: svenstaro/upload-release-action@2728235f7dc9ff598bd86ce3c274b74f802d2208 # pin@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml

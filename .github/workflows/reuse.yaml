@@ -71,7 +71,7 @@ jobs:
           cosign-release: 'v1.13.0'
 
       - name: Cache Go modules
-        uses: actions/cache@4723a57e26efda3a62cbde1812113b730952852d # pin@v3
+        uses: actions/cache@58c146cc91c5b9e778e71775dfe9bf1442ad9a12 # pin@v3
         with:
           path: |
             ~/.cache/go-build
