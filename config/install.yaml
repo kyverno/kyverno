@@ -28674,7 +28674,8 @@ spec:
                   properties:
                     policyName:
                       description: PolicyName identifies the policy to which the exception
-                        is applied.
+                        is applied. The policy name uses the format <namespace>/<name>
+                        unless it references a ClusterPolicy.
                       type: string
                     ruleNames:
                       description: RuleNames identifies the rules to which the exception
