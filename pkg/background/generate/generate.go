@@ -452,6 +452,12 @@ func forEach(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, res
 	var cresp, dresp map[string]interface{}
 	var mode ResourceMode
 
+	tempFe, err := substituteAllInForEach(fe, ctx, log)
+	fe = *tempFe
+	if err != nil {
+		return newGenResources, nil
+	}
+
 	genKind, genName, genNamespace, genAPIVersion, err := forEachGetResourceInfoForDataAndClone(fe)
 	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 	if err != nil {
@@ -611,6 +617,30 @@ func forEach(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, res
 		}
 	}
 	return newGenResources, nil
+}
+
+func substituteAllInForEach(fe kyvernov1.ForEachGeneration, ctx enginecontext.EvalInterface, logger logr.Logger) (*kyvernov1.ForEachGeneration, error) {
+	jsonObj, err := datautils.ToMap(fe)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := variables.SubstituteAll(logger, ctx, jsonObj)
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	var updatedForEach kyvernov1.ForEachGeneration
+	if err := json.Unmarshal(bytes, &updatedForEach); err != nil {
+		return nil, err
+	}
+
+	return &updatedForEach, nil
 }
 
 type forEachGenerate struct {
