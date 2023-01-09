@@ -380,10 +380,7 @@ func GetFunctions() []*FunctionEntry {
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
-				Name: timeNow,
-				Arguments: []ArgSpec{
-					{Types: []JpType{JpString}},
-				},
+				Name:    timeNow,
 				Handler: jpTimeNow,
 			},
 			ReturnType: []JpType{JpString},
@@ -877,26 +874,9 @@ func jpTimeSince(arguments []interface{}) (interface{}, error) {
 }
 
 func jpTimeNow(arguments []interface{}) (interface{}, error) {
-	var err error
-	layout, err := validateArg("", arguments, 0, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	var t time.Time
-
-	t = time.Now()
-	if layout.String() != "" {
-		t, err = time.Parse(layout.String(), t.String())
-	} else {
-		t, err = time.Parse(time.RFC3339, t.String())
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return t.String(), nil
+	var ts time.Time = time.Now()
+	var t string = ts.Format(time.RFC3339)
+	return t, nil
 }
 
 func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {

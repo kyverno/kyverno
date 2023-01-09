@@ -1,0 +1,9 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+  - file: cleanuppolicy-with-subjects.yaml
+    shouldFail: true
+  - file: cleanuppolicy-with-roles.yaml
+    shouldFail: true
+  - file: cleanuppolicy-with-clusterroles.yaml
+    shouldFail: true
