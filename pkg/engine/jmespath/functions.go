@@ -380,10 +380,7 @@ func GetFunctions() []*FunctionEntry {
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
-				Name: timeNow,
-				Arguments: []ArgSpec{
-					{Types: []JpType{JpString}},
-				},
+				Name:    timeNow,
 				Handler: jpTimeNow,
 			},
 			ReturnType: []JpType{JpString},
@@ -877,34 +874,8 @@ func jpTimeSince(arguments []interface{}) (interface{}, error) {
 }
 
 func jpTimeNow(arguments []interface{}) (interface{}, error) {
-	var err error
-	layout, err := validateArg("", arguments, 0, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
 	var ts time.Time = time.Now()
-	var t string
-	if layout.String() != "" {
-		t = ts.Format(layout.String())
-	} else {
-		t = ts.Format(time.RFC3339)
-	}
-
-	// time.Format does not return an error
-	// so we are reverse checking to verify time format string is valid
-	if layout.String() != "" {
-		ts, err = time.Parse(layout.String(), t)
-		// if layout is invalid, golang returns 0000-01-01 00:00:00 +0000 UTC
-		// if the year is 0, then something went wrong
-		if ts.Year() == 0 {
-			return nil, fmt.Errorf("'%v' is an invalid layout format", layout.String())
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-
+	var t string = ts.Format(time.RFC3339)
 	return t, nil
 }
 

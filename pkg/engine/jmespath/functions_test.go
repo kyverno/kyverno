@@ -1647,16 +1647,7 @@ func Test_TimeNow(t *testing.T) {
 		layout string
 	}{
 		{
-			test:   "time_now('')",
-			layout: "2006-01-02T15:04:05Z07:00",
-		},
-		{
-			test:   "time_now('Mon Jan 02 15:04:05 MST 2006')",
-			layout: "Mon Jan 02 15:04:05 MST 2006",
-		},
-		{
-			test:   "time_now('2006-01-02T15:04:05Z07:00')",
-			layout: "2006-01-02T15:04:05Z07:00",
+			test: "time_now()",
 		},
 	}
 	for i, tc := range testCases {
@@ -1670,7 +1661,7 @@ func Test_TimeNow(t *testing.T) {
 			result, ok := res.(string)
 			assert.Assert(t, ok)
 
-			assert.Equal(t, result, time.Now().Format(tc.layout))
+			assert.Equal(t, result, time.Now().Format(time.RFC3339))
 		})
 	}
 }
