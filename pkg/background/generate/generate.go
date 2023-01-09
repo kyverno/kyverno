@@ -355,11 +355,11 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
-			if len(rule.Generation.ForEachGeneration) > 0 && (rule.Generation.Kind != "" || rule.Generation.Name != "" || rule.Generation.Namespace != "") {
+			if rule.Generation.ForEachGeneration != nil && (rule.Generation.Kind != "" || rule.Generation.Name != "" || rule.Generation.Namespace != "") {
 				log.Error(err, "Generate rule cannot be written individually when foreach specified in Generate block, All the Generate rules must be specified inside the foreach block")
 			}
 			if rule.Generation.ForEachGeneration != nil {
-				g := &forEachGenerate{
+				g := &forEachGenerator{
 					rule:          rule,
 					foreach:       rule.Generation.ForEachGeneration,
 					policyContext: policyContext,
@@ -643,7 +643,7 @@ func substituteAllInForEach(fe kyvernov1.ForEachGeneration, ctx enginecontext.Ev
 	return &updatedForEach, nil
 }
 
-type forEachGenerate struct {
+type forEachGenerator struct {
 	rule          kyvernov1.Rule
 	policyContext *engine.PolicyContext
 	foreach       []kyvernov1.ForEachGeneration
@@ -655,7 +655,7 @@ type forEachGenerate struct {
 	ur            kyvernov1beta1.UpdateRequest
 }
 
-func (f *forEachGenerate) generateForEach(ctx context.Context) ([]kyvernov1.ResourceSpec, error) {
+func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.ResourceSpec, error) {
 	// var applyCount int
 	// policy := f.policyContext.Policy()
 	log := f.log
@@ -687,7 +687,7 @@ func (f *forEachGenerate) generateForEach(ctx context.Context) ([]kyvernov1.Reso
 	return newGenResources, nil
 }
 
-func (f *forEachGenerate) generateElements(ctx context.Context, foreach kyvernov1.ForEachGeneration, elements []interface{}) ([]kyvernov1.ResourceSpec, error) {
+func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyvernov1.ForEachGeneration, elements []interface{}) ([]kyvernov1.ResourceSpec, error) {
 	f.policyContext.JSONContext().Checkpoint()
 	defer f.policyContext.JSONContext().Restore()
 	var newGenResources []kyvernov1.ResourceSpec
@@ -729,7 +729,7 @@ func (f *forEachGenerate) generateElements(ctx context.Context, foreach kyvernov
 				return newGenResources, err
 			}
 
-			g := &forEachGenerate{
+			g := &forEachGenerator{
 				rule:          f.rule,
 				policyContext: f.policyContext,
 				resource:      f.resource,
