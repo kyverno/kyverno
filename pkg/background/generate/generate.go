@@ -656,7 +656,7 @@ type forEachGenerator struct {
 }
 
 func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.ResourceSpec, error) {
-	// var applyCount int
+	var applyCount int
 	// policy := f.policyContext.Policy()
 	log := f.log
 	var newGenResources []kyvernov1.ResourceSpec
@@ -682,8 +682,10 @@ func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.Res
 		if err != nil {
 			return newGenResources, err
 		}
-
+		applyCount++
 	}
+	msg := fmt.Sprintf("%d elements processed", applyCount)
+	log.Info(msg)
 	return newGenResources, nil
 }
 
