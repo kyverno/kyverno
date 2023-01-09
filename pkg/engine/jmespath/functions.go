@@ -383,6 +383,14 @@ func GetFunctions() []*FunctionEntry {
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
+				Name:    timeNowUtc,
+				Handler: jpTimeNowUtc,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "returns current UTC time in RFC 3339 format",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
 				Name: pathCanonicalize,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},

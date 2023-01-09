@@ -10,6 +10,7 @@ import (
 var (
 	timeSince  = "time_since"
 	timeNow    = "time_now"
+	timeNowUtc = "time_now_utc"
 	timeAdd    = "time_add"
 	timeParse  = "time_parse"
 	timeToCron = "time_to_cron"
@@ -73,6 +74,10 @@ func jpTimeSince(arguments []interface{}) (interface{}, error) {
 
 func jpTimeNow(arguments []interface{}) (interface{}, error) {
 	return time.Now().Format(time.RFC3339), nil
+}
+
+func jpTimeNowUtc(arguments []interface{}) (interface{}, error) {
+	return time.Now().UTC().Format(time.RFC3339), nil
 }
 
 func jpTimeToCron(arguments []interface{}) (interface{}, error) {
