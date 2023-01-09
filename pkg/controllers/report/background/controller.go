@@ -121,7 +121,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	logger.V(2).Info("background scan", "interval", c.forceDelay)
+	logger.Info("background scan", "interval", c.forceDelay.Abs().String())
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
@@ -146,7 +146,7 @@ func (c *controller) enqueueResources() {
 }
 
 // TODO: utils
-func (c *controller) fetchClusterPolicies(logger logr.Logger) ([]kyvernov1.PolicyInterface, error) {
+func (c *controller) fetchClusterPolicies() ([]kyvernov1.PolicyInterface, error) {
 	var policies []kyvernov1.PolicyInterface
 	if cpols, err := c.cpolLister.List(labels.Everything()); err != nil {
 		return nil, err
@@ -159,7 +159,7 @@ func (c *controller) fetchClusterPolicies(logger logr.Logger) ([]kyvernov1.Polic
 }
 
 // TODO: utils
-func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyvernov1.PolicyInterface, error) {
+func (c *controller) fetchPolicies(namespace string) ([]kyvernov1.PolicyInterface, error) {
 	var policies []kyvernov1.PolicyInterface
 	if pols, err := c.polLister.Policies(namespace).List(labels.Everything()); err != nil {
 		return nil, err
@@ -353,7 +353,7 @@ func (c *controller) reconcileReport(
 	}
 }
 
-func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namespace, name string) error {
 	// try to find resource from the cache
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
@@ -375,19 +375,19 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 	}
 	// load all policies
-	policies, err := c.fetchClusterPolicies(logger)
+	policies, err := c.fetchClusterPolicies()
 	if err != nil {
 		return err
 	}
 	if namespace != "" {
-		pols, err := c.fetchPolicies(logger, namespace)
+		pols, err := c.fetchPolicies(namespace)
 		if err != nil {
 			return err
 		}
 		policies = append(policies, pols...)
 	}
 	// load background policies
-	backgroundPolicies := utils.RemoveNonBackgroundPolicies(logger, policies...)
+	backgroundPolicies := utils.RemoveNonBackgroundPolicies(policies...)
 	if err != nil {
 		return err
 	}
@@ -396,7 +396,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		return err
 	} else {
 		defer func() {
-			logger.V(4).Info("re-queue for next background scan", "key", key, "interval", c.forceDelay)
 			c.queue.AddAfter(key, c.forceDelay)
 		}()
 		if needsReconcile {
