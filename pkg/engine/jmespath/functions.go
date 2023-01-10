@@ -70,8 +70,6 @@ var (
 	modulo                 = "modulo"
 	base64Decode           = "base64_decode"
 	base64Encode           = "base64_encode"
-	timeSince              = "time_since"
-	timeNow                = "time_now"
 	pathCanonicalize       = "path_canonicalize"
 	truncate               = "truncate"
 	semverCompare          = "semver_compare"
@@ -81,9 +79,6 @@ var (
 	objectFromLists        = "object_from_lists"
 	random                 = "random"
 	x509_decode            = "x509_decode"
-	timeAdd                = "time_add"
-	timeParse              = "time_parse"
-	timeToCron             = "time_to_cron"
 )
 
 const (
@@ -388,6 +383,14 @@ func GetFunctions() []*FunctionEntry {
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
+				Name:    timeNowUtc,
+				Handler: jpTimeNowUtc,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "returns current UTC time in RFC 3339 format",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
 				Name: pathCanonicalize,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
@@ -499,7 +502,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpTimeToCron,
 			},
 			ReturnType: []JpType{JpString},
-			Note:       "converts an absolute time (RFC 3339) to a cron expression (string).",
+			Note:       "converts a time (RFC 3339) to a cron expression (string).",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -507,12 +510,11 @@ func GetFunctions() []*FunctionEntry {
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
-					{Types: []JpType{JpString}},
 				},
 				Handler: jpTimeAdd,
 			},
 			ReturnType: []JpType{JpString},
-			Note:       "adds duration (third string) to a time value (second string) of a specified layout (first string)",
+			Note:       "adds duration (second string) to a time value (first string)",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -525,6 +527,78 @@ func GetFunctions() []*FunctionEntry {
 			},
 			ReturnType: []JpType{JpString},
 			Note:       "changes a time value of a given layout to RFC 3339",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeUtc,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeUtc,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "calcutes time in UTC from a given time in RFC 3339 format",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeDiff,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeDiff,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "calculate the difference between a start and end date in RFC3339 format",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeBefore,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeBefore,
+			},
+			ReturnType: []JpType{JpBool},
+			Note:       "checks if a time is before another time, both in RFC3339 format",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeAfter,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeAfter,
+			},
+			ReturnType: []JpType{JpBool},
+			Note:       "checks if a time is after another time, both in RFC3339 format",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeBetween,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeBetween,
+			},
+			ReturnType: []JpType{JpBool},
+			Note:       "checks if a time is between a start and end time, all in RFC3339 format",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeTruncate,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpTimeTruncate,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "returns the result of rounding time down to a multiple of duration",
 		},
 	}
 }
@@ -830,55 +904,6 @@ func jpBase64Encode(arguments []interface{}) (interface{}, error) {
 	return base64.StdEncoding.EncodeToString([]byte(str.String())), nil
 }
 
-func jpTimeSince(arguments []interface{}) (interface{}, error) {
-	var err error
-	layout, err := validateArg("", arguments, 0, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	ts1, err := validateArg("", arguments, 1, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	ts2, err := validateArg("", arguments, 2, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	var t1, t2 time.Time
-	if layout.String() != "" {
-		t1, err = time.Parse(layout.String(), ts1.String())
-	} else {
-		t1, err = time.Parse(time.RFC3339, ts1.String())
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	t2 = time.Now()
-	if ts2.String() != "" {
-		if layout.String() != "" {
-			t2, err = time.Parse(layout.String(), ts2.String())
-		} else {
-			t2, err = time.Parse(time.RFC3339, ts2.String())
-		}
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return t2.Sub(t1).String(), nil
-}
-
-func jpTimeNow(arguments []interface{}) (interface{}, error) {
-	var ts time.Time = time.Now()
-	var t string = ts.Format(time.RFC3339)
-	return t, nil
-}
-
 func jpPathCanonicalize(arguments []interface{}) (interface{}, error) {
 	var err error
 	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
@@ -1112,86 +1137,4 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	}
 
 	return res, nil
-}
-
-func jpTimeToCron(arguments []interface{}) (interface{}, error) {
-	var err error
-
-	ts, err := validateArg("", arguments, 0, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	var t time.Time
-	t, err = time.Parse(time.RFC3339, ts.String())
-	if err != nil {
-		return nil, err
-	}
-	t = t.UTC()
-
-	var cron string = ""
-	cron += strconv.Itoa(t.Minute()) + " "
-	cron += strconv.Itoa(t.Hour()) + " "
-	cron += strconv.Itoa(t.Day()) + " "
-	cron += strconv.Itoa(int(t.Month())) + " "
-	cron += strconv.Itoa(int(t.Weekday()))
-
-	return cron, nil
-}
-
-func jpTimeAdd(arguments []interface{}) (interface{}, error) {
-	var err error
-	layout, err := validateArg("", arguments, 0, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	ts, err := validateArg("", arguments, 1, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	dr, err := validateArg("", arguments, 2, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	var t time.Time
-	if layout.String() != "" {
-		t, err = time.Parse(layout.String(), ts.String())
-	} else {
-		t, err = time.Parse(time.RFC3339, ts.String())
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	var d time.Duration
-	d, err = time.ParseDuration(dr.String())
-	if err != nil {
-		return nil, err
-	}
-
-	return t.Add(d).Format(time.RFC3339), nil
-}
-
-func jpTimeParse(arguments []interface{}) (interface{}, error) {
-	var err error
-	layout, err := validateArg("", arguments, 0, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	ts, err := validateArg("", arguments, 1, reflect.String)
-	if err != nil {
-		return nil, err
-	}
-
-	var t time.Time
-	t, err = time.Parse(layout.String(), ts.String())
-	if err != nil {
-		return nil, err
-	}
-
-	return t.Format(time.RFC3339), nil
 }
