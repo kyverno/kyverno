@@ -46,10 +46,10 @@ func GetOperatorFromStringPattern(pattern string) Operator {
 	if pattern[:len(NotEqual)] == string(NotEqual) {
 		return NotEqual
 	}
-	if match, _ := regexp.Match(`^(\d+(\.\d+)?)([^-]*)!-(\d+(\.\d+)?)([^-]*)$`, []byte(pattern)); match {
+	if match, _ := regexp.Match(`^(-\d|\d+(\.\d+)?)([^-]*)!-(-\d|\d+(\.\d+)?)([^-]*)$`, []byte(pattern)); match {
 		return NotInRange
 	}
-	if match, _ := regexp.Match(`^(\d+(\.\d+)?)([^-]*)-(\d+(\.\d+)?)([^-]*)$`, []byte(pattern)); match {
+	if match, _ := regexp.Match(`^(-\d|\d+(\.\d+)?)([^-]*)-(-\d|\d+(\.\d+)?)([^-]*)$`, []byte(pattern)); match {
 		return InRange
 	}
 	return Equal
