@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/engine/pattern"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"go.uber.org/multierr"
 )
@@ -95,13 +95,13 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		switch resource := resourceElement.(type) {
 		case []interface{}:
 			for _, res := range resource {
-				if !common.ValidateValueWithPattern(log, res, patternElement) {
+				if !pattern.Validate(log, res, patternElement) {
 					return path, fmt.Errorf("resource value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 				}
 			}
 			return "", nil
 		default:
-			if !common.ValidateValueWithPattern(log, resourceElement, patternElement) {
+			if !pattern.Validate(log, resourceElement, patternElement) {
 				return path, fmt.Errorf("resource value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 			}
 		}
