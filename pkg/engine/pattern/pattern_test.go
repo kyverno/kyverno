@@ -329,6 +329,21 @@ func TestValidateQuantity_InvalidQuantity(t *testing.T) {
 	assert.Assert(t, !validateString(logging.GlobalLogger(), "gii", "1024Gi", operator.Equal))
 }
 
+func TestValidateDuration(t *testing.T) {
+	assert.Assert(t, validateString(logging.GlobalLogger(), "12s", "12s", operator.Equal))
+	assert.Assert(t, validateString(logging.GlobalLogger(), "12s", "15s", operator.NotEqual))
+	assert.Assert(t, validateString(logging.GlobalLogger(), "12s", "15s", operator.Less))
+	assert.Assert(t, validateString(logging.GlobalLogger(), "12s", "15s", operator.LessEqual))
+	assert.Assert(t, validateString(logging.GlobalLogger(), "12s", "12s", operator.LessEqual))
+	assert.Assert(t, !validateString(logging.GlobalLogger(), "15s", "12s", operator.Less))
+	assert.Assert(t, !validateString(logging.GlobalLogger(), "15s", "12s", operator.LessEqual))
+	assert.Assert(t, validateString(logging.GlobalLogger(), "15s", "12s", operator.More))
+	assert.Assert(t, validateString(logging.GlobalLogger(), "15s", "12s", operator.MoreEqual))
+	assert.Assert(t, validateString(logging.GlobalLogger(), "12s", "12s", operator.MoreEqual))
+	assert.Assert(t, !validateString(logging.GlobalLogger(), "12s", "15s", operator.More))
+	assert.Assert(t, !validateString(logging.GlobalLogger(), "12s", "15s", operator.MoreEqual))
+}
+
 func TestValidateQuantity_Equal(t *testing.T) {
 	assert.Assert(t, validateString(logging.GlobalLogger(), "1024Gi", "1024Gi", operator.Equal))
 	assert.Assert(t, validateString(logging.GlobalLogger(), "1024Mi", "1Gi", operator.Equal))

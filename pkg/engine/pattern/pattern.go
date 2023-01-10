@@ -5,6 +5,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
@@ -197,27 +198,26 @@ func validateString(log logr.Logger, value interface{}, pattern string, op opera
 }
 
 func compareDuration(log logr.Logger, value interface{}, pattern string, op operator.Operator) bool {
-	if pattern, err := apiresource.ParseQuantity(pattern); err != nil {
+	if pattern, err := time.ParseDuration(pattern); err != nil {
 		return false
 	} else if value, err := convertNumberToString(value); err != nil {
 		return false
-	} else if value, err := apiresource.ParseQuantity(value); err != nil {
+	} else if value, err := time.ParseDuration(value); err != nil {
 		return false
 	} else {
-		result := value.Cmp(pattern)
 		switch op {
 		case operator.Equal:
-			return result == int(equal)
+			return value == pattern
 		case operator.NotEqual:
-			return result != int(equal)
+			return value != pattern
 		case operator.More:
-			return result == int(greaterThan)
+			return value > pattern
 		case operator.Less:
-			return result == int(lessThan)
+			return value < pattern
 		case operator.MoreEqual:
-			return (result == int(equal)) || (result == int(greaterThan))
+			return value >= pattern
 		case operator.LessEqual:
-			return (result == int(equal)) || (result == int(lessThan))
+			return value <= pattern
 		}
 		return false
 	}
