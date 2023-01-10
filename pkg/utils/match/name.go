@@ -4,6 +4,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
-func CheckName(name, resourceName string) bool {
-	return wildcard.Match(name, resourceName)
+func CheckName(expected, actual string) bool {
+	return wildcard.Match(expected, actual)
 }
