@@ -5,6 +5,4 @@ metadata:
   namespace: default
 spec:
   containers:
-  - image: ghcr.io/kyverno/test-verify-image:signed
-    imagePullPolicy: IfNotPresent
-    name: signed
+  - name: signed
