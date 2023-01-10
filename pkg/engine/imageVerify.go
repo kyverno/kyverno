@@ -339,11 +339,8 @@ func (iv *imageVerifier) verifyImage(
 	}
 
 	if len(imageVerify.Attestors) > 0 {
-		for _, image := range imageVerify.ImageReferences {
-			if !wildcard.Match(image, imageInfo.String()) {
-				iv.logger.V(5).Info("images mismatch, skipping", "expected", image, "received", imageInfo.String())
-				return nil, ""
-			}
+		if !matchImageReferences(imageVerify.ImageReferences, imageInfo.String()) {
+			return nil, ""
 		}
 
 		ruleResp, cosignResp := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo, "")
@@ -728,4 +725,13 @@ func evaluateConditions(
 
 	pass := variables.EvaluateAnyAllConditions(log, ctx, c)
 	return pass, nil
+}
+
+func matchImageReferences(imageReferences []string, image string) bool {
+	for _, imageRef := range imageReferences {
+		if wildcard.Match(imageRef, image) {
+			return true
+		}
+	}
+	return false
 }
