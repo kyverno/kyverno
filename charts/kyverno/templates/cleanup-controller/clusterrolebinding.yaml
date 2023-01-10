@@ -9,7 +9,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ template "kyverno.name" . }}:cleanup-controller
+  name: {{ template "kyverno.cleanup-controller.name" . }}
 subjects:
 - kind: ServiceAccount
   name: {{ template "kyverno.cleanup-controller.serviceAccountName" . }}
