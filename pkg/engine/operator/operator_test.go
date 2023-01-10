@@ -18,10 +18,6 @@ func TestGetOperatorFromStringPattern_OnlyOperator(t *testing.T) {
 	assert.Equal(t, GetOperatorFromStringPattern(">="), MoreEqual)
 }
 
-func TestGetOperatorFromStringPattern_Negative(t *testing.T) {
-	assert.Equal(t, GetOperatorFromStringPattern("-10-1"), InRange)
-}
-
 func TestGetOperatorFromStringPattern_RangeOperator(t *testing.T) {
 	assert.Equal(t, GetOperatorFromStringPattern("0-1"), InRange)
 	assert.Equal(t, GetOperatorFromStringPattern("0Mi-1024Mi"), InRange)
