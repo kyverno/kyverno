@@ -502,7 +502,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpTimeToCron,
 			},
 			ReturnType: []JpType{JpString},
-			Note:       "converts an time (RFC 3339) to a cron expression (string).",
+			Note:       "converts a time (RFC 3339) to a cron expression (string).",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
