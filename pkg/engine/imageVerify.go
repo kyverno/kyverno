@@ -340,7 +340,8 @@ func (iv *imageVerifier) verifyImage(
 	}
 
 	if len(imageVerify.Attestors) > 0 {
-		if !datautils.SliceContains(imageVerify.ImageReferences, imageInfo.String()) {
+		if !datautils.SliceContains(imageVerify.ImageReferences, "*") &&
+			!datautils.SliceContains(imageVerify.ImageReferences, imageInfo.String()) {
 			iv.logger.V(5).Info("images mismatch, skipping", "expected", imageVerify.ImageReferences, "received", imageInfo.String())
 			return nil, ""
 		}
