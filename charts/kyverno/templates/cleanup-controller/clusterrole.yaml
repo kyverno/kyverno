@@ -3,7 +3,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.cleanup-controller.name" . }}
+  name: {{ template "kyverno.cleanup-controller.roleName" . }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
 aggregationRule:
@@ -14,7 +14,7 @@ aggregationRule:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.cleanup-controller.name" . }}:core
+  name: {{ template "kyverno.cleanup-controller.roleName" . }}:core
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
 rules:
@@ -69,7 +69,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.cleanup-controller.name" $ }}:additional
+  name: {{ template "kyverno.cleanup-controller.roleName" $ }}:additional
   labels:
     {{- include "kyverno.cleanup-controller.labels" $ | nindent 4 }}
 rules:
