@@ -93,7 +93,9 @@ app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 
 {{/* matchLabels */}}
 {{- define "kyverno.matchLabels" -}}
+{{- if .Values.templating.enabled -}}
 app: kyverno
+{{- end }}
 app.kubernetes.io/name: {{ template "kyverno.name" . }}
 {{- if not .Values.templating.enabled }}
 app.kubernetes.io/instance: {{ .Release.Name }}
