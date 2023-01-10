@@ -21,7 +21,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
@@ -340,10 +339,11 @@ func (iv *imageVerifier) verifyImage(
 	}
 
 	if len(imageVerify.Attestors) > 0 {
-		if !datautils.SliceContains(imageVerify.ImageReferences, "*") &&
-			!datautils.SliceContains(imageVerify.ImageReferences, imageInfo.String()) {
-			iv.logger.V(5).Info("images mismatch, skipping", "expected", imageVerify.ImageReferences, "received", imageInfo.String())
-			return nil, ""
+		for _, image := range imageVerify.ImageReferences {
+			if !wildcard.Match(image, imageInfo.String()) {
+				iv.logger.V(5).Info("images mismatch, skipping", "expected", image, "received", imageInfo.String())
+				return nil, ""
+			}
 		}
 
 		ruleResp, cosignResp := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo, "")
