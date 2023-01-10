@@ -30376,6 +30376,23 @@ metadata:
     app.kubernetes.io/component: cleanup-controller
     app.kubernetes.io/name: kyverno-cleanup-controller
     app.kubernetes.io/instance: kyverno
+aggregationRule:
+  clusterRoleSelectors:
+    - matchLabels:
+        app.kubernetes.io/component: cleanup-controller
+        app.kubernetes.io/name: kyverno-cleanup-controller
+        app.kubernetes.io/instance: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:cleanup-controller:core
+  labels:
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/name: kyverno-cleanup-controller
+    app.kubernetes.io/instance: kyverno
 rules:
   - apiGroups:
       - admissionregistration.k8s.io
@@ -30630,7 +30647,7 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kyverno-cleanup-controller
+  name: kyverno:cleanup-controller
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -30668,7 +30685,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: kyverno-cleanup-controller
+  name: kyverno:cleanup-controller
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -30742,7 +30759,7 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kyverno-cleanup-controller
+  name: kyverno:cleanup-controller
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
@@ -30753,7 +30770,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: kyverno-cleanup-controller
+  name: kyverno:cleanup-controller
 subjects:
 - kind: ServiceAccount
   name: kyverno-cleanup-controller
