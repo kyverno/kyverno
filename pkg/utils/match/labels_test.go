@@ -124,6 +124,14 @@ func TestCheckSelector(t *testing.T) {
 			actual: map[string]string{},
 		},
 		want: false,
+	}, {
+		args: args{
+			expected: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"abc/def/ghi": "*"},
+			},
+			actual: map[string]string{},
+		},
+		wantErr: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
