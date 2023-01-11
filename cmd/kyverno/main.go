@@ -690,6 +690,7 @@ func main() {
 	// wait for termination signal
 	<-signalCtx.Done()
 	wg.Wait()
+	server.Stop()
 	// wait for server cleanup
 	<-server.Cleanup()
 	// say goodbye...

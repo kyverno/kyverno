@@ -32,7 +32,7 @@ type Server interface {
 	// Run TLS server in separate thread and returns control immediately
 	Run(<-chan struct{})
 	// Stop TLS server and returns control after the server is shut down
-	Stop(context.Context)
+	Stop()
 	// Cleanup returns the chanel used to wait for the server to clean up resources
 	Cleanup() <-chan struct{}
 }
@@ -195,7 +195,10 @@ func (s *server) Run(stopCh <-chan struct{}) {
 	logger.Info("starting service")
 }
 
-func (s *server) Stop(ctx context.Context) {
+func (s *server) Stop() {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	s.cleanup(ctx)
 	err := s.server.Shutdown(ctx)
 	if err != nil {
