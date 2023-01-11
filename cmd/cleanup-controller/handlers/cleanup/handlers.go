@@ -157,7 +157,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 							continue
 						}
 					}
-					debug.Info("resource matched, it will be deleted...")
+					logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 					if err := h.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 						debug.Error(err, "failed to delete resource")
 						errs = append(errs, err)
