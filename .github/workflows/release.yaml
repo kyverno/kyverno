@@ -189,12 +189,20 @@ jobs:
       - name: Build yaml manifest
         run: make codegen-manifest-release
 
-      - name: Upload yaml manifest
-        uses: svenstaro/upload-release-action@133984371c30d34e38222a64855679a414cb7575 # pin@v2
+      - name: Upload install manifest
+        uses: svenstaro/upload-release-action@2728235f7dc9ff598bd86ce3c274b74f802d2208 # 2.4.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml
           asset_name: install.yaml
+          tag: ${{ github.ref }}
+
+      - name: Upload CRD manifest
+        uses: svenstaro/upload-release-action@2728235f7dc9ff598bd86ce3c274b74f802d2208 # 2.4.0
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: config/crds/*.yaml
+          file_glob: true
           tag: ${{ github.ref }}
 
       - name: Login to GHCR
