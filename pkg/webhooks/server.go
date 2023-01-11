@@ -33,8 +33,6 @@ type Server interface {
 	Run(<-chan struct{})
 	// Stop TLS server and returns control after the server is shut down
 	Stop()
-	// Cleanup returns the chanel used to wait for the server to clean up resources
-	Cleanup() <-chan struct{}
 }
 
 type ExceptionHandlers interface {
@@ -62,7 +60,6 @@ type server struct {
 	mwcClient   controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration]
 	vwcClient   controllerutils.DeleteClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease]
-	cleanUp     chan struct{}
 }
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -181,7 +178,6 @@ func NewServer(
 		vwcClient:   vwcClient,
 		leaseClient: leaseClient,
 		runtime:     runtime,
-		cleanUp:     make(chan struct{}),
 	}
 }
 
@@ -193,6 +189,9 @@ func (s *server) Run(stopCh <-chan struct{}) {
 		}
 	}()
 	logger.Info("starting service")
+
+	<-stopCh
+	s.Stop()
 }
 
 func (s *server) Stop() {
@@ -208,10 +207,6 @@ func (s *server) Stop() {
 			logger.Error(err, "server shut down failed")
 		}
 	}
-}
-
-func (s *server) Cleanup() <-chan struct{} {
-	return s.cleanUp
 }
 
 func (s *server) cleanup(ctx context.Context) {
@@ -239,7 +234,6 @@ func (s *server) cleanup(ctx context.Context) {
 		deleteMwc(config.PolicyMutatingWebhookConfigurationName)
 		deleteMwc(config.VerifyMutatingWebhookConfigurationName)
 	}
-	close(s.cleanUp)
 }
 
 func registerWebhookHandlers(

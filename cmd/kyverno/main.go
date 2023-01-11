@@ -687,12 +687,7 @@ func main() {
 	}
 	// start webhooks server
 	server.Run(signalCtx.Done())
-	// wait for termination signal
-	<-signalCtx.Done()
 	wg.Wait()
-	server.Stop()
-	// wait for server cleanup
-	<-server.Cleanup()
 	// say goodbye...
 	logger.V(2).Info("Kyverno shutdown successful")
 }
