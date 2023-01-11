@@ -5,12 +5,14 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	match "github.com/kyverno/kyverno/pkg/utils/match"
+	"github.com/kyverno/kyverno/pkg/utils/match"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -38,7 +40,7 @@ func New(
 	}
 }
 
-func (h *handlers) Cleanup(ctx context.Context, logger logr.Logger, name string, _ time.Time) error {
+func (h *handlers) Cleanup(ctx context.Context, logger logr.Logger, name string, _ time.Time, cfg config.Configuration) error {
 	logger.Info("cleaning up...")
 	defer logger.Info("done")
 	namespace, name, err := cache.SplitMetaNamespaceKey(name)
@@ -49,7 +51,7 @@ func (h *handlers) Cleanup(ctx context.Context, logger logr.Logger, name string,
 	if err != nil {
 		return err
 	}
-	return h.executePolicy(ctx, logger, policy)
+	return h.executePolicy(ctx, logger, policy, cfg)
 }
 
 func (h *handlers) lookupPolicy(namespace, name string) (kyvernov2alpha1.CleanupPolicyInterface, error) {
@@ -60,10 +62,10 @@ func (h *handlers) lookupPolicy(namespace, name string) (kyvernov2alpha1.Cleanup
 	}
 }
 
-func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface) error {
+func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyInterface, cfg config.Configuration) error {
 	spec := policy.GetSpec()
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
-	debug := logger.V(5)
+	debug := logger.V(4)
 	var errs []error
 	for kind := range kinds {
 		debug := debug.WithValues("kind", kind)
@@ -93,13 +95,33 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						debug.Info("resource namespace didn't match policy namespace", "result", err)
 					}
 					// match resource with match/exclude clause
-					matched := match.CheckMatchesResources(resource, spec.MatchResources, nsLabels)
+					matched := match.CheckMatchesResources(
+						resource,
+						spec.MatchResources,
+						nsLabels,
+						nil,
+						"",
+						// TODO(eddycharly): we don't have user info here, we should check that
+						// we don't have user conditions in the policy rule
+						kyvernov1beta1.RequestInfo{},
+						nil,
+					)
 					if matched != nil {
 						debug.Info("resource/match didn't match", "result", matched)
 						continue
 					}
 					if spec.ExcludeResources != nil {
-						excluded := match.CheckMatchesResources(resource, *spec.ExcludeResources, nsLabels)
+						excluded := match.CheckMatchesResources(
+							resource,
+							*spec.ExcludeResources,
+							nsLabels,
+							nil,
+							"",
+							// TODO(eddycharly): we don't have user info here, we should check that
+							// we don't have user conditions in the policy rule
+							kyvernov1beta1.RequestInfo{},
+							nil,
+						)
 						if excluded == nil {
 							debug.Info("resource/exclude matched")
 							continue
@@ -110,7 +132,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 					// check conditions
 					if spec.Conditions != nil {
 						enginectx := enginecontext.NewContext()
-						if err := enginectx.AddResource(resource.Object); err != nil {
+						if err := enginectx.AddTargetResource(resource.Object); err != nil {
 							debug.Error(err, "failed to add resource in context")
 							errs = append(errs, err)
 							continue
@@ -120,7 +142,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 							errs = append(errs, err)
 							continue
 						}
-						if err := enginectx.AddImageInfos(&resource); err != nil {
+						if err := enginectx.AddImageInfos(&resource, cfg); err != nil {
 							debug.Error(err, "failed to add image infos in context")
 							errs = append(errs, err)
 							continue

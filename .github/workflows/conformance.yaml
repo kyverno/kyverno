@@ -1,4 +1,5 @@
 name: Conformance tests
+
 on:
   pull_request:
     branches:
@@ -18,28 +19,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-      - name: Setup go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
         with:
-          go-version: ~1.19.4
-      - name: Prepare environment
-        run: |
-          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
-          make kind-create-cluster kind-deploy-kyverno
-      - name: Wait for Kyverno to start
-        run: sleep 60
+          build-cache-key: run-conformance
+      - name: Setup test env
+        uses: ./.github/actions/setup-test-env
+        with:
+          version: ${{ matrix.k8s-version }}
       - name: Test with kuttl
         run: make test-kuttl
       - name: Debug failure
         if: failure()
-        run: |
-          kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations
-          kubectl -n kyverno get pod
-          kubectl -n kyverno describe pod | grep -i events -A10
-          kubectl -n kyverno logs deploy/kyverno --all-containers -p || true
-          kubectl -n kyverno logs deploy/kyverno --all-containers
-          kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers -p || true
-          kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers
+        uses: ./.github/actions/kyverno-logs

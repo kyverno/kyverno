@@ -31,6 +31,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
+{{- define "kyverno.cleanup-controller.roleName" -}}
+{{ .Release.Name }}:cleanup-controller
+{{- end -}}
+
 {{/* Create the name of the service account to use */}}
 {{- define "kyverno.cleanup-controller.serviceAccountName" -}}
 {{- if .Values.cleanupController.rbac.create -}}

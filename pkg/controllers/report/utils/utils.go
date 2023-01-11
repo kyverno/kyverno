@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func CanBackgroundProcess(logger logr.Logger, p kyvernov1.PolicyInterface) bool {
+func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	if !p.BackgroundProcessingEnabled() {
 		return false
 	}
@@ -34,17 +34,17 @@ func BuildKindSet(logger logr.Logger, policies ...kyvernov1.PolicyInterface) set
 	return kinds
 }
 
-func RemoveNonBackgroundPolicies(logger logr.Logger, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
+func RemoveNonBackgroundPolicies(policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
 	var backgroundPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
-		if CanBackgroundProcess(logger, pol) {
+		if CanBackgroundProcess(pol) {
 			backgroundPolicies = append(backgroundPolicies, pol)
 		}
 	}
 	return backgroundPolicies
 }
 
-func RemoveNonValidationPolicies(logger logr.Logger, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
+func RemoveNonValidationPolicies(policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
 	var validationPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		spec := pol.GetSpec()
@@ -59,15 +59,7 @@ func ReportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
 	if !reflect.DeepEqual(before.GetAnnotations(), after.GetAnnotations()) {
 		return false
 	}
-	bLabels := sets.New[string]()
-	aLabels := sets.New[string]()
-	for key := range before.GetLabels() {
-		bLabels.Insert(key)
-	}
-	for key := range after.GetLabels() {
-		aLabels.Insert(key)
-	}
-	if !aLabels.Equal(bLabels) {
+	if !reflect.DeepEqual(before.GetLabels(), after.GetLabels()) {
 		return false
 	}
 	b := before.GetResults()

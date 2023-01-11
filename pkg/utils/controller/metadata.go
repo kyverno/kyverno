@@ -50,6 +50,15 @@ func SetAnnotation(obj metav1.Object, key, value string) {
 	obj.SetAnnotations(annotations)
 }
 
+func HasAnnotation(obj metav1.Object, key string) bool {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+	_, exists := annotations[key]
+	return exists
+}
+
 func SetOwner(obj metav1.Object, apiVersion, kind, name string, uid types.UID) {
 	obj.SetOwnerReferences([]metav1.OwnerReference{{
 		APIVersion: apiVersion,

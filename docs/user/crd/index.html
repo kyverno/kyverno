@@ -167,7 +167,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -508,7 +508,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -3609,7 +3609,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -5226,7 +5226,7 @@ AnyAllConditions
 </td>
 <td>
 <em>(Optional)</em>
-<p>Conditions defines conditions used to select resources which user needs to delete</p>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
 </table>
@@ -5361,7 +5361,7 @@ AnyAllConditions
 </td>
 <td>
 <em>(Optional)</em>
-<p>Conditions defines conditions used to select resources which user needs to delete</p>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
 </table>
@@ -5552,7 +5552,7 @@ AnyAllConditions
 </td>
 <td>
 <em>(Optional)</em>
-<p>Conditions defines conditions used to select resources which user needs to delete</p>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
 </td>
 </tr>
 </tbody>
@@ -5616,7 +5616,9 @@ string
 </em>
 </td>
 <td>
-<p>PolicyName identifies the policy to which the exception is applied.</p>
+<p>PolicyName identifies the policy to which the exception is applied.
+The policy name uses the format <namespace>/<name> unless it
+references a ClusterPolicy.</p>
 </td>
 </tr>
 <tr>
@@ -5806,7 +5808,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -6031,7 +6033,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -6168,7 +6170,7 @@ PolicyStatus
 <p>AnyConditions enable variable-based conditional rule execution. This is useful for
 finer control of when an rule is applied. A condition can reference object data
 using JMESPath notation.
-Here, at least one of the conditions need to pass</p>
+Here, at least one of the conditions need to pass.</p>
 </td>
 </tr>
 <tr>
@@ -6185,7 +6187,7 @@ Here, at least one of the conditions need to pass</p>
 <p>AllConditions enable variable-based conditional rule execution. This is useful for
 finer control of when an rule is applied. A condition can reference object data
 using JMESPath notation.
-Here, all of the conditions need to pass</p>
+Here, all of the conditions need to pass.</p>
 </td>
 </tr>
 </tbody>
@@ -6861,7 +6863,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>

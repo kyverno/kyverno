@@ -79,7 +79,7 @@ spec:
           imagePullPolicy: {{ default .Values.image.pullPolicy .Values.initImage.pullPolicy }}
           {{- if .Values.initContainer.extraArgs }}
           args:
-              {{ tpl (toYaml .Values.initContainer.extraArgs) . }}
+              {{- tpl (toYaml .Values.initContainer.extraArgs) . | nindent 12 }}
           {{- end }}
           {{- with .Values.initResources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}

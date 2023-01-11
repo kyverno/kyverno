@@ -55,6 +55,7 @@ type EventHandler func(EventType, types.UID, schema.GroupVersionKind, Resource)
 
 type MetadataCache interface {
 	GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool)
+	GetAllResourceKeys() []string
 	AddEventHandler(EventHandler)
 	Warmup(ctx context.Context) error
 }
@@ -121,6 +122,22 @@ func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersi
 		}
 	}
 	return Resource{}, schema.GroupVersionKind{}, false
+}
+
+func (c *controller) GetAllResourceKeys() []string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	var keys []string
+	for _, watcher := range c.dynamicWatchers {
+		for uid, resource := range watcher.hashes {
+			key := string(uid)
+			if resource.Namespace != "" {
+				key = resource.Namespace + "/" + key
+			}
+			keys = append(keys, key)
+		}
+	}
+	return keys
 }
 
 func (c *controller) AddEventHandler(eventHandler EventHandler) {
@@ -199,11 +216,11 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	policies, err := c.fetchPolicies(logger, metav1.NamespaceAll)
+	policies, err := c.fetchPolicies(metav1.NamespaceAll)
 	if err != nil {
 		return err
 	}
-	kinds := utils.BuildKindSet(logger, utils.RemoveNonValidationPolicies(logger, append(clusterPolicies, policies...)...)...)
+	kinds := utils.BuildKindSet(logger, utils.RemoveNonValidationPolicies(append(clusterPolicies, policies...)...)...)
 	gvrs := map[schema.GroupVersionKind]schema.GroupVersionResource{}
 	for _, kind := range sets.List(kinds) {
 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
@@ -308,7 +325,7 @@ func (c *controller) fetchClusterPolicies(logger logr.Logger) ([]kyvernov1.Polic
 	return policies, nil
 }
 
-func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyvernov1.PolicyInterface, error) {
+func (c *controller) fetchPolicies(namespace string) ([]kyvernov1.PolicyInterface, error) {
 	var policies []kyvernov1.PolicyInterface
 	if pols, err := c.polLister.Policies(namespace).List(labels.Everything()); err != nil {
 		return nil, err

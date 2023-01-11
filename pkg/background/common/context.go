@@ -12,7 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
-	utils "github.com/kyverno/kyverno/pkg/utils"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -34,7 +34,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 			return nil, false, errors.Wrap(err, "failed to load request in context")
 		}
 
-		new, old, err = utils.ExtractResources(nil, ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
+		new, old, err = admissionutils.ExtractResources(nil, ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
 		if err != nil {
 			return nil, false, errors.Wrap(err, "failed to load request in context")
 		}
@@ -75,7 +75,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 		return nil, false, errors.Wrapf(err, "failed to load UserInfo in context")
 	}
 
-	if err := ctx.AddImageInfos(trigger); err != nil {
+	if err := ctx.AddImageInfos(trigger, cfg); err != nil {
 		logger.Error(err, "unable to add image info to variables context")
 	}
 

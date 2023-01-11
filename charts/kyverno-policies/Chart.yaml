@@ -27,3 +27,5 @@ annotations:
       description: Add ability to configure autogen behavior
     - kind: fixed
       description: Support for customLabels, they were ignored up to now
+    - kind: removed
+      description: "Walk back change in PSS policy to send to to_upper"

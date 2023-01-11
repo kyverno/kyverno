@@ -22,7 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	"github.com/kyverno/kyverno/pkg/utils"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
@@ -97,7 +97,7 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 	for _, operation := range decodedPatch {
 		op := operation.Kind()
 		if op != "add" && op != "remove" && op != "replace" {
-			return fmt.Errorf("Unexpected kind: spec.rules[%d]: %s", ruleIdx, op)
+			return fmt.Errorf("unexpected kind: spec.rules[%d]: %s", ruleIdx, op)
 		}
 		v, _ := operation.ValueInterface()
 		if v != nil {
@@ -407,7 +407,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 			checkForScaleSubresource(validationJson, allKinds, &warnings)
 			checkForStatusSubresource(validationJson, allKinds, &warnings)
-			checkForEphemeralContainersSubresource(validationJson, allKinds, &warnings)
 		}
 
 		if rule.HasMutate() {
@@ -421,7 +420,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 			checkForScaleSubresource(mutationJson, allKinds, &warnings)
 			checkForStatusSubresource(mutationJson, allKinds, &warnings)
-			checkForEphemeralContainersSubresource(mutationJson, allKinds, &warnings)
 		}
 	}
 	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
@@ -498,7 +496,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 		}
 
 		ctx := buildContext(ruleCopy, background)
-		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !checkNotFoundErr(err) {
+		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
 			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
 		}
 	}
@@ -645,21 +643,6 @@ func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.Mo
 			ctx.AddVariable(contextEntry.Name + ".data.*")
 		}
 	}
-}
-
-func checkNotFoundErr(err error) bool {
-	if err != nil {
-		switch err.(type) {
-		case jmespath.NotFoundError:
-			return true
-		case enginecontext.InvalidVariableError:
-			return false
-		default:
-			return false
-		}
-	}
-
-	return true
 }
 
 func validateElementInForEach(document apiextensions.JSON) error {
@@ -898,7 +881,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 	}
 
 	// conditions are currently in the form of []interface{}
-	kyvernoConditions, err := utils.ApiextensionsJsonToKyvernoConditions(conditions)
+	kyvernoConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(conditions)
 	if err != nil {
 		return schemaKey, err
 	}
@@ -1224,7 +1207,7 @@ func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule)
 			}
 
 			if rule.Validation.Deny != nil {
-				kyvernoConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.Validation.Deny.GetAnyAllConditions())
+				kyvernoConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.Validation.Deny.GetAnyAllConditions())
 				switch typedConditions := kyvernoConditions.(type) {
 				case []kyvernov1.Condition: // backwards compatibility
 					for _, condition := range typedConditions {
@@ -1350,18 +1333,6 @@ func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings 
 			}
 		}
 		msg := "You are matching on status but not including the status subresource in the policy."
-		*warnings = append(*warnings, msg)
-	}
-}
-
-func checkForEphemeralContainersSubresource(ruleTypeJson []byte, allKinds []string, warnings *[]string) {
-	if strings.Contains(string(ruleTypeJson), "ephemeralcontainers") {
-		for _, kind := range allKinds {
-			if strings.Contains(strings.ToLower(kind), "ephemeralcontainers") {
-				return
-			}
-		}
-		msg := "You are matching on ephemeralcontainers but not including the ephemeralcontainers subresource in the policy."
 		*warnings = append(*warnings, msg)
 	}
 }
