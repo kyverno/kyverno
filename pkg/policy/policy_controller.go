@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -31,7 +30,6 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -593,43 +591,4 @@ func updateUR(kyvernoClient versioned.Interface, urLister kyvernov1beta1listers.
 			}
 		}
 	}
-}
-
-func missingAutoGenRules(policy kyvernov1.PolicyInterface, log logr.Logger) bool {
-	var podRuleName []string
-	ruleCount := 1
-	spec := policy.GetSpec()
-	if canApplyAutoGen, _ := autogen.CanAutoGen(spec); canApplyAutoGen {
-		for _, rule := range autogen.ComputeRules(policy) {
-			podRuleName = append(podRuleName, rule.Name)
-		}
-	}
-
-	if len(podRuleName) > 0 {
-		annotations := policy.GetAnnotations()
-		val, ok := annotations[kyvernov1.PodControllersAnnotation]
-		if !ok {
-			return true
-		}
-		if val == "none" {
-			return false
-		}
-		res := strings.Split(val, ",")
-
-		if len(res) == 1 {
-			ruleCount = 2
-		}
-		if len(res) > 1 {
-			if slices.Contains(res, "CronJob") {
-				ruleCount = 3
-			} else {
-				ruleCount = 2
-			}
-		}
-
-		if len(autogen.ComputeRules(policy)) != (ruleCount * len(podRuleName)) {
-			return true
-		}
-	}
-	return false
 }
