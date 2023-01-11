@@ -177,7 +177,7 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@f58b82fb4ed53939dc1c9d7e370deab885527368 # v0.38.2
+        uses: fluxcd/flux2/action@a9f53b4f1aef910fab68f790f7bf5b49c9a1677c # v0.38.3
         with:
           version: 0.35.0
 
