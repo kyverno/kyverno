@@ -303,6 +303,7 @@ func createrLeaderControllers(
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		kubeKyvernoInformer.Coordination().V1().Leases(),
+		kubeInformer.Rbac().V1().ClusterRoles(),
 		serverIP,
 		int32(webhookTimeout),
 		autoUpdateWebhooks,
