@@ -7,8 +7,7 @@ metadata:
     name: emergency
 spec:
   results:
-  - message: rule skipped due to policy exception default/testpolex
-    policy: require-labels
+  - policy: require-labels
     result: skip
     rule: require-team
     scored: true

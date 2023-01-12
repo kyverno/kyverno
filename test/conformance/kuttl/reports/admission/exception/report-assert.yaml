@@ -11,8 +11,7 @@ spec:
     kind: ConfigMap
     name: emergency
   results:
-  - message: rule skipped due to policy exception default/testpolex
-    policy: require-labels
+  - policy: require-labels
     resources:
     - apiVersion: v1
       kind: ConfigMap
