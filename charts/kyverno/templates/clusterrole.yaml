@@ -184,4 +184,5 @@ rules:
   - patch
   - update
   - watch
+  - deletecollection
 {{- end }}
