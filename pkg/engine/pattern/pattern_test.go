@@ -319,8 +319,26 @@ func TestValidateValueWithStringPattern_Ranges(t *testing.T) {
 
 	assert.Assert(t, validateStringPattern(logger, -9, "-10-8"))
 	assert.Assert(t, !validateStringPattern(logger, 9, "-10--8"))
+
 	assert.Assert(t, validateStringPattern(logger, 9, "-10!--8"))
+	assert.Assert(t, validateStringPattern(logger, "9Mi", "-10Mi!--8Mi"))
+
 	assert.Assert(t, !validateStringPattern(logger, -9, "-10!--8"))
+
+	assert.Assert(t, validateStringPattern(logger, "-9Mi", "-10Mi-8Mi"))
+	assert.Assert(t, validateStringPattern(logger, "9Mi", "-10Mi!-8Mi"))
+
+	assert.Assert(t, validateStringPattern(logger, 0, "-10-+8"))
+	assert.Assert(t, validateStringPattern(logger, "7Mi", "-10Mi-+8Mi"))
+
+	assert.Assert(t, validateStringPattern(logger, 10, "-10!-+8"))
+	assert.Assert(t, validateStringPattern(logger, "10Mi", "-10Mi!-+8Mi"))
+
+	assert.Assert(t, validateStringPattern(logger, 0, "+0-+1"))
+	assert.Assert(t, validateStringPattern(logger, "10Mi", "+0Mi-+1024Mi"))
+
+	assert.Assert(t, validateStringPattern(logger, 10, "+0!-+1"))
+	assert.Assert(t, validateStringPattern(logger, "1025Mi", "+0Mi!-+1024Mi"))
 
 }
 
