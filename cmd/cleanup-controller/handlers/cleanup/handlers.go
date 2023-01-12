@@ -2,6 +2,7 @@ package cleanup
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -11,12 +12,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/event"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
 	"go.uber.org/multierr"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 )
 
 type handlers struct {
@@ -24,6 +30,7 @@ type handlers struct {
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
 	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
+	recorder   record.EventRecorder
 }
 
 func New(
@@ -37,6 +44,7 @@ func New(
 		cpolLister: cpolLister,
 		polLister:  polLister,
 		nsLister:   nsLister,
+		recorder:   newRecorder(client),
 	}
 }
 
@@ -164,10 +172,24 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						errs = append(errs, err)
 					} else {
 						debug.Info("deleted")
+						h.createEvent(policy, resource)
 					}
 				}
 			}
 		}
 	}
 	return multierr.Combine(errs...)
+}
+
+func (h *handlers) createEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resource unstructured.Unstructured) {
+	msg := fmt.Sprintf("successfully cleaned up the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName())
+
+	var cleanuppol runtime.Object
+	if policy.GetNamespace() == "" {
+		cleanuppol = policy.(*kyvernov2alpha1.ClusterCleanupPolicy)
+	} else if policy.GetNamespace() != "" {
+		cleanuppol = policy.(*kyvernov2alpha1.CleanupPolicy)
+	}
+
+	h.recorder.Event(cleanuppol, corev1.EventTypeNormal, event.PolicyApplied.String(), msg)
 }
