@@ -17,9 +17,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,9 +33,11 @@ import (
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	coordinationv1informers "k8s.io/client-go/informers/coordination/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
+	rbacv1informers "k8s.io/client-go/informers/rbac/v1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -46,7 +50,6 @@ const (
 	AnnotationLastRequestTime = "kyverno.io/last-request-time"
 	IdleDeadline              = tickerInterval * 10
 	maxRetries                = 10
-	managedByLabel            = "webhook.kyverno.io/managed-by"
 	tickerInterval            = 10 * time.Second
 )
 
@@ -77,13 +80,14 @@ type controller struct {
 	kyvernoClient   versioned.Interface
 
 	// listers
-	mwcLister       admissionregistrationv1listers.MutatingWebhookConfigurationLister
-	vwcLister       admissionregistrationv1listers.ValidatingWebhookConfigurationLister
-	cpolLister      kyvernov1listers.ClusterPolicyLister
-	polLister       kyvernov1listers.PolicyLister
-	secretLister    corev1listers.SecretLister
-	configMapLister corev1listers.ConfigMapLister
-	leaseLister     coordinationv1listers.LeaseLister
+	mwcLister         admissionregistrationv1listers.MutatingWebhookConfigurationLister
+	vwcLister         admissionregistrationv1listers.ValidatingWebhookConfigurationLister
+	cpolLister        kyvernov1listers.ClusterPolicyLister
+	polLister         kyvernov1listers.PolicyLister
+	secretLister      corev1listers.SecretLister
+	configMapLister   corev1listers.ConfigMapLister
+	leaseLister       coordinationv1listers.LeaseLister
+	clusterroleLister rbacv1listers.ClusterRoleLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -113,6 +117,7 @@ func NewController(
 	secretInformer corev1informers.SecretInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
 	leaseInformer coordinationv1informers.LeaseInformer,
+	clusterroleInformer rbacv1informers.ClusterRoleInformer,
 	server string,
 	defaultTimeout int32,
 	autoUpdateWebhooks bool,
@@ -133,6 +138,7 @@ func NewController(
 		secretLister:       secretInformer.Lister(),
 		configMapLister:    configMapInformer.Lister(),
 		leaseLister:        leaseInformer.Lister(),
+		clusterroleLister:  clusterroleInformer.Lister(),
 		queue:              queue,
 		server:             server,
 		defaultTimeout:     defaultTimeout,
@@ -510,7 +516,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 func (c *controller) buildVerifyMutatingWebhookConfiguration(caBundle []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
 	return &admissionregistrationv1.MutatingWebhookConfiguration{
-			ObjectMeta: objectMeta(config.VerifyMutatingWebhookConfigurationName),
+			ObjectMeta: objectMeta(config.VerifyMutatingWebhookConfigurationName, c.buildOwner()...),
 			Webhooks: []admissionregistrationv1.MutatingWebhook{{
 				Name:         config.VerifyMutatingWebhookName,
 				ClientConfig: c.clientConfig(caBundle, config.VerifyMutatingWebhookServicePath),
@@ -536,7 +542,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(caBundle []byte) (*
 
 func (c *controller) buildPolicyMutatingWebhookConfiguration(caBundle []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
 	return &admissionregistrationv1.MutatingWebhookConfiguration{
-			ObjectMeta: objectMeta(config.PolicyMutatingWebhookConfigurationName),
+			ObjectMeta: objectMeta(config.PolicyMutatingWebhookConfigurationName, c.buildOwner()...),
 			Webhooks: []admissionregistrationv1.MutatingWebhook{{
 				Name:         config.PolicyMutatingWebhookName,
 				ClientConfig: c.clientConfig(caBundle, config.PolicyMutatingWebhookServicePath),
@@ -558,7 +564,7 @@ func (c *controller) buildPolicyMutatingWebhookConfiguration(caBundle []byte) (*
 
 func (c *controller) buildPolicyValidatingWebhookConfiguration(caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-			ObjectMeta: objectMeta(config.PolicyValidatingWebhookConfigurationName),
+			ObjectMeta: objectMeta(config.PolicyValidatingWebhookConfigurationName, c.buildOwner()...),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 				Name:         config.PolicyValidatingWebhookName,
 				ClientConfig: c.clientConfig(caBundle, config.PolicyValidatingWebhookServicePath),
@@ -579,7 +585,7 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(caBundle []byte) 
 
 func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(caBundle []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
 	return &admissionregistrationv1.MutatingWebhookConfiguration{
-			ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName),
+			ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName, c.buildOwner()...),
 			Webhooks: []admissionregistrationv1.MutatingWebhook{{
 				Name:         config.MutatingWebhookName + "-ignore",
 				ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/ignore"),
@@ -606,7 +612,7 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(caBundle [
 
 func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
 	result := admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName),
+		ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName, c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 	}
 	if c.watchdogCheck() {
@@ -685,7 +691,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(caBundle
 		sideEffects = &noneOnDryRun
 	}
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName),
+			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, c.buildOwner()...),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 				Name:         config.ValidatingWebhookName + "-ignore",
 				ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
@@ -713,7 +719,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(caBundle
 
 func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	result := admissionregistrationv1.ValidatingWebhookConfiguration{
-		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName),
+		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, c.buildOwner()...),
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
 	if c.watchdogCheck() {
@@ -865,4 +871,30 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			dst.maxWebhookTimeout = *spec.WebhookTimeoutSeconds
 		}
 	}
+}
+
+func (c *controller) buildOwner() []metav1.OwnerReference {
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		utils.KyvernoComponentLabel: "kyverno",
+	}))
+
+	clusterroles, err := c.clusterroleLister.List(selector)
+	if err != nil {
+		logger.Error(err, "failed to fetch kyverno clusterroles, won't set owners for webhook configurations")
+		return nil
+	}
+
+	for _, clusterrole := range clusterroles {
+		if wildcard.Match("*:webhook", clusterrole.GetName()) {
+			return []metav1.OwnerReference{
+				{
+					APIVersion: "rbac.authorization.k8s.io/v1",
+					Kind:       "ClusterRole",
+					Name:       clusterrole.GetName(),
+					UID:        clusterrole.GetUID(),
+				},
+			}
+		}
+	}
+	return nil
 }
