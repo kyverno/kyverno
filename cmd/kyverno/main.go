@@ -303,6 +303,7 @@ func createrLeaderControllers(
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		kubeKyvernoInformer.Coordination().V1().Leases(),
+		kubeInformer.Rbac().V1().ClusterRoles(),
 		serverIP,
 		int32(webhookTimeout),
 		autoUpdateWebhooks,
@@ -687,11 +688,7 @@ func main() {
 	}
 	// start webhooks server
 	server.Run(signalCtx.Done())
-	// wait for termination signal
-	<-signalCtx.Done()
 	wg.Wait()
-	// wait for server cleanup
-	<-server.Cleanup()
 	// say goodbye...
 	logger.V(2).Info("Kyverno shutdown successful")
 }

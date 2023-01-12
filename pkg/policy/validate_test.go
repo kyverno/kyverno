@@ -3,11 +3,9 @@ package policy
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -952,44 +950,6 @@ func Test_Validate_Any_Kind(t *testing.T) {
 	openApiManager, _ := openapi.NewManager()
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
-}
-
-func Test_checkAutoGenRules(t *testing.T) {
-	testCases := []struct {
-		name           string
-		policy         []byte
-		expectedResult bool
-	}{
-		{
-			name:           "rule-missing-autogen-cronjob",
-			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"Deployment,CronJob"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}},{"match":{"resources":{"kinds":["Deployment"]}},"name":"autogen-block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"spec":{"template":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}}}]}}`),
-			expectedResult: true,
-		},
-		{
-			name:           "rule-missing-autogen-deployment",
-			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"Deployment,CronJob"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}},{"match":{"resources":{"kinds":["CronJob"]}},"name":"autogen-cronjob-block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}}}}}]}}`),
-			expectedResult: true,
-		},
-		{
-			name:           "rule-missing-autogen-all",
-			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"Deployment,CronJob,StatefulSet,Job,DaemonSet"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}]}}`),
-			expectedResult: true,
-		},
-		{
-			name:           "rule-with-autogen-disabled",
-			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"none"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}]}}`),
-			expectedResult: false,
-		},
-	}
-
-	for _, test := range testCases {
-		var policy kyverno.ClusterPolicy
-		err := json.Unmarshal(test.policy, &policy)
-		assert.NilError(t, err)
-
-		res := missingAutoGenRules(&policy, logging.GlobalLogger())
-		assert.Equal(t, test.expectedResult, res, fmt.Sprintf("test %s failed", test.name))
-	}
 }
 
 func Test_Validate_ApiCall(t *testing.T) {

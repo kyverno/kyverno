@@ -2,26 +2,15 @@ package match
 
 import (
 	"fmt"
-	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"github.com/kyverno/kyverno/pkg/engine/wildcards"
-	"github.com/kyverno/kyverno/pkg/logging"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/slices"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-	authenticationv1 "k8s.io/api/authentication/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func CheckNamespace(statement string, resource unstructured.Unstructured) error {
@@ -138,42 +127,11 @@ func checkUserInfo(
 		}
 	}
 	if len(userInfo.Subjects) > 0 {
-		if !checkSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, excludeGroupRole) {
+		if !CheckSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, excludeGroupRole) {
 			errs = append(errs, fmt.Errorf("user info does not match subject for the given conditionBlock"))
 		}
 	}
 	return errs
-}
-
-// matchSubjects return true if one of ruleSubjects exist in userInfo
-func checkSubjects(
-	ruleSubjects []rbacv1.Subject,
-	userInfo authenticationv1.UserInfo,
-	excludeGroupRole []string,
-) bool {
-	const SaPrefix = "system:serviceaccount:"
-	userGroups := append(userInfo.Groups, userInfo.Username)
-	// TODO: see issue https://github.com/kyverno/kyverno/issues/861
-	for _, e := range excludeGroupRole {
-		ruleSubjects = append(ruleSubjects, rbacv1.Subject{Kind: "Group", Name: e})
-	}
-	for _, subject := range ruleSubjects {
-		switch subject.Kind {
-		case "ServiceAccount":
-			if len(userInfo.Username) <= len(SaPrefix) {
-				continue
-			}
-			subjectServiceAccount := subject.Namespace + ":" + subject.Name
-			if userInfo.Username[len(SaPrefix):] == subjectServiceAccount {
-				return true
-			}
-		case "User", "Group":
-			if slices.Contains(userGroups, subject.Name) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func checkResourceDescription(
@@ -195,14 +153,14 @@ func checkResourceDescription(
 		resourceName = resource.GetGenerateName()
 	}
 	if conditionBlock.Name != "" {
-		if !checkName(conditionBlock.Name, resourceName) {
+		if !CheckName(conditionBlock.Name, resourceName) {
 			errs = append(errs, fmt.Errorf("name does not match"))
 		}
 	}
 	if len(conditionBlock.Names) > 0 {
 		noneMatch := true
 		for i := range conditionBlock.Names {
-			if checkName(conditionBlock.Names[i], resourceName) {
+			if CheckName(conditionBlock.Names[i], resourceName) {
 				noneMatch = false
 				break
 			}
@@ -217,12 +175,12 @@ func checkResourceDescription(
 		}
 	}
 	if len(conditionBlock.Annotations) > 0 {
-		if !checkAnnotations(conditionBlock.Annotations, resource.GetAnnotations()) {
+		if !CheckAnnotations(conditionBlock.Annotations, resource.GetAnnotations()) {
 			errs = append(errs, fmt.Errorf("annotations does not match"))
 		}
 	}
 	if conditionBlock.Selector != nil {
-		hasPassed, err := checkSelector(conditionBlock.Selector, resource.GetLabels())
+		hasPassed, err := CheckSelector(conditionBlock.Selector, resource.GetLabels())
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse selector: %v", err))
 		} else {
@@ -232,7 +190,7 @@ func checkResourceDescription(
 		}
 	}
 	if conditionBlock.NamespaceSelector != nil && resource.GetKind() != "Namespace" && resource.GetKind() != "" {
-		hasPassed, err := checkSelector(conditionBlock.NamespaceSelector, namespaceLabels)
+		hasPassed, err := CheckSelector(conditionBlock.NamespaceSelector, namespaceLabels)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
 		} else {
@@ -242,41 +200,6 @@ func checkResourceDescription(
 		}
 	}
 	return errs
-}
-
-// CheckKind checks if the resource kind matches the kinds in the policy. If the policy matches on subresources, then those resources are
-// present in the subresourceGVKToAPIResource map. Set allowEphemeralContainers to true to allow ephemeral containers to be matched even when the
-// policy does not explicitly match on ephemeral containers and only matches on pods.
-func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string, allowEphemeralContainers bool) bool {
-	title := cases.Title(language.Und, cases.NoLower)
-	result := false
-	for _, k := range kinds {
-		if k != "*" {
-			gv, kind := kubeutils.GetKindFromGVK(k)
-			apiResource, ok := subresourceGVKToAPIResource[k]
-			if ok {
-				result = apiResource.Group == gvk.Group && (apiResource.Version == gvk.Version || strings.Contains(gv, "*")) && apiResource.Kind == gvk.Kind
-			} else { // if the kind is not found in the subresourceGVKToAPIResource, then it is not a subresource
-				result = title.String(kind) == gvk.Kind &&
-					(subresourceInAdmnReview == "" ||
-						(allowEphemeralContainers && subresourceInAdmnReview == "ephemeralcontainers"))
-				if gv != "" {
-					result = result && kubeutils.GroupVersionMatches(gv, gvk.GroupVersion().String())
-				}
-			}
-		} else {
-			result = true
-		}
-
-		if result {
-			break
-		}
-	}
-	return result
-}
-
-func checkName(name, resourceName string) bool {
-	return wildcard.Match(name, resourceName)
 }
 
 func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
@@ -290,36 +213,4 @@ func checkNameSpace(namespaces []string, resource unstructured.Unstructured) boo
 		}
 	}
 	return false
-}
-
-func checkAnnotations(annotations map[string]string, resourceAnnotations map[string]string) bool {
-	if len(annotations) == 0 {
-		return true
-	}
-	for k, v := range annotations {
-		match := false
-		for k1, v1 := range resourceAnnotations {
-			if wildcard.Match(k, k1) && wildcard.Match(v, v1) {
-				match = true
-				break
-			}
-		}
-		if !match {
-			return false
-		}
-	}
-	return true
-}
-
-func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[string]string) (bool, error) {
-	wildcards.ReplaceInSelector(labelSelector, resourceLabels)
-	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
-	if err != nil {
-		logging.Error(err, "failed to build label selector")
-		return false, err
-	}
-	if selector.Matches(labels.Set(resourceLabels)) {
-		return true, nil
-	}
-	return false, nil
 }
