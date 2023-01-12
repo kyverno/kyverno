@@ -176,6 +176,7 @@ func createReportControllers(
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	kyvernoV2Alpha1 := kyvernoInformer.Kyverno().V2alpha1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
@@ -224,6 +225,7 @@ func createReportControllers(
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
+					kyvernoV2Alpha1.PolicyExceptions(),
 					resourceReportController,
 					configMapResolver,
 					backgroundScanInterval,
