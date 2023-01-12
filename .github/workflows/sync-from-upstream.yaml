@@ -17,6 +17,6 @@ jobs:
           # Fetch tags from upstream repo
           git fetch https://github.com/kyverno/kyverno --tags
           # Remove release candidates local tags
-          git tag -d $(git tag -l | grep "\-rc")
+          git tag -d $(git tag -l | grep -E "\-rc|\-beta")
           git push --tags
 
