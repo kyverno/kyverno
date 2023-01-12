@@ -3,6 +3,7 @@ package pattern
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -176,9 +177,9 @@ func validateStringPattern(log logr.Logger, value interface{}, pattern string) b
 	if op == operator.InRange {
 		// Upon encountering InRange operator split the string by `-` and basically
 		// verify the result of (x >= leftEndpoint & x <= rightEndpoint)
-		endpoints := strings.Split(pattern, "-")
-		return validateStringPattern(log, value, fmt.Sprintf(">= %s", endpoints[0])) &&
-			validateStringPattern(log, value, fmt.Sprintf("<= %s", endpoints[1]))
+		leftEndpoint, rightEndpoint := splitPattern(pattern)
+		return validateStringPattern(log, value, fmt.Sprintf(">= %s", leftEndpoint)) &&
+			validateStringPattern(log, value, fmt.Sprintf("<= %s", rightEndpoint))
 	} else if op == operator.NotInRange {
 		// Upon encountering NotInRange operator split the string by `!-` and basically
 		// verify the result of (x < leftEndpoint | x > rightEndpoint)
@@ -189,6 +190,12 @@ func validateStringPattern(log logr.Logger, value interface{}, pattern string) b
 		pattern := strings.TrimSpace(pattern[len(op):])
 		return validateString(log, value, pattern, op)
 	}
+}
+
+func splitPattern(pattern string) (string, string) {
+	match := regexp.MustCompile(`^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`).
+		FindStringSubmatch(pattern)
+	return match[1], match[2]
 }
 
 func validateString(log logr.Logger, value interface{}, pattern string, op operator.Operator) bool {

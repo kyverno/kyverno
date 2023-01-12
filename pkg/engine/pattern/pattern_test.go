@@ -316,6 +316,12 @@ func TestValidateValueWithStringPattern_Ranges(t *testing.T) {
 	assert.Assert(t, !validateStringPattern(logger, "256Mi", "128Mi!-512Mi"))
 	assert.Assert(t, validateStringPattern(logger, "1024Mi", "128Mi!-512Mi"))
 	assert.Assert(t, validateStringPattern(logger, "64Mi", "128Mi!-512Mi"))
+
+	assert.Assert(t, validateStringPattern(logger, -9, "-10-8"))
+	assert.Assert(t, !validateStringPattern(logger, 9, "-10--8"))
+	assert.Assert(t, validateStringPattern(logger, 9, "-10!--8"))
+	assert.Assert(t, !validateStringPattern(logger, -9, "-10!--8"))
+
 }
 
 func TestValidateNumberWithStr_LessFloatAndInt(t *testing.T) {
@@ -371,41 +377,6 @@ func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {
 
 func TestGetOperatorFromStringPattern_EmptyString(t *testing.T) {
 	assert.Equal(t, operator.GetOperatorFromStringPattern(""), operator.Equal)
-}
-
-func TestGetOperatorFromStringPattern_RangeOperator(t *testing.T) {
-	assert.Equal(t, operator.GetOperatorFromStringPattern("0-1"), operator.InRange)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("0Mi-1024Mi"), operator.InRange)
-
-	assert.Equal(t, operator.GetOperatorFromStringPattern("0!-1"), operator.NotInRange)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("0Mi!-1024Mi"), operator.NotInRange)
-
-	assert.Equal(t, operator.GetOperatorFromStringPattern("text1024Mi-2048Mi"), operator.Equal)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("test-value"), operator.Equal)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("value-*"), operator.Equal)
-
-	assert.Equal(t, operator.GetOperatorFromStringPattern("text1024Mi!-2048Mi"), operator.Equal)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("test!-value"), operator.Equal)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("value!-*"), operator.Equal)
-
-	assert.Equal(t, operator.GetOperatorFromStringPattern("-10--8"), operator.InRange)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("-10Mi--8Mi"), operator.InRange)
-
-	assert.Equal(t, operator.GetOperatorFromStringPattern("-10!--8"), operator.NotInRange)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("-10Mi!--8Mi"), operator.NotInRange)
-
-	assert.Equal(t, operator.GetOperatorFromStringPattern("-10-+8"), operator.InRange)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("-10Mi-+8Mi"), operator.InRange)
-
-	assert.Equal(t, operator.GetOperatorFromStringPattern("-10!-+8"), operator.NotInRange)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("-10Mi!-+8Mi"), operator.NotInRange)
-
-	assert.Equal(t, operator.GetOperatorFromStringPattern("+0-+1"), operator.InRange)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("+0Mi-+1024Mi"), operator.InRange)
-
-	assert.Equal(t, operator.GetOperatorFromStringPattern("+0!-+1"), operator.NotInRange)
-	assert.Equal(t, operator.GetOperatorFromStringPattern("+0Mi!-+1024Mi"), operator.NotInRange)
-
 }
 
 func TestValidateKernelVersion_NotEquals(t *testing.T) {
