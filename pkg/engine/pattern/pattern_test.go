@@ -373,6 +373,41 @@ func TestGetOperatorFromStringPattern_EmptyString(t *testing.T) {
 	assert.Equal(t, operator.GetOperatorFromStringPattern(""), operator.Equal)
 }
 
+func TestGetOperatorFromStringPattern_RangeOperator(t *testing.T) {
+	assert.Equal(t, operator.GetOperatorFromStringPattern("0-1"), operator.InRange)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("0Mi-1024Mi"), operator.InRange)
+
+	assert.Equal(t, operator.GetOperatorFromStringPattern("0!-1"), operator.NotInRange)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("0Mi!-1024Mi"), operator.NotInRange)
+
+	assert.Equal(t, operator.GetOperatorFromStringPattern("text1024Mi-2048Mi"), operator.Equal)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("test-value"), operator.Equal)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("value-*"), operator.Equal)
+
+	assert.Equal(t, operator.GetOperatorFromStringPattern("text1024Mi!-2048Mi"), operator.Equal)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("test!-value"), operator.Equal)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("value!-*"), operator.Equal)
+
+	assert.Equal(t, operator.GetOperatorFromStringPattern("-10--8"), operator.InRange)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("-10Mi--8Mi"), operator.InRange)
+
+	assert.Equal(t, operator.GetOperatorFromStringPattern("-10!--8"), operator.NotInRange)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("-10Mi!--8Mi"), operator.NotInRange)
+
+	assert.Equal(t, operator.GetOperatorFromStringPattern("-10-+8"), operator.InRange)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("-10Mi-+8Mi"), operator.InRange)
+
+	assert.Equal(t, operator.GetOperatorFromStringPattern("-10!-+8"), operator.NotInRange)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("-10Mi!-+8Mi"), operator.NotInRange)
+
+	assert.Equal(t, operator.GetOperatorFromStringPattern("+0-+1"), operator.InRange)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("+0Mi-+1024Mi"), operator.InRange)
+
+	assert.Equal(t, operator.GetOperatorFromStringPattern("+0!-+1"), operator.NotInRange)
+	assert.Equal(t, operator.GetOperatorFromStringPattern("+0Mi!-+1024Mi"), operator.NotInRange)
+
+}
+
 func TestValidateKernelVersion_NotEquals(t *testing.T) {
 	assert.Assert(t, validateStringPattern(logger, "5.16.5-arch1-1", "!5.10.84-1"))
 	assert.Assert(t, !validateStringPattern(logger, "5.10.84-1", "!5.10.84-1"))
