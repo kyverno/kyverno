@@ -1,6 +1,6 @@
 ## Description
 
-This test creates a policy, a policy exception and configmap.
+This test creates a policy, a policy exception and a configmap.
 It makes sure the generated admission report contains a skipped result instead of a failed one.
 
 ## Steps
