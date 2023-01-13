@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"strings"
+
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -9,7 +11,9 @@ import (
 
 func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.Configuration, results ...*response.EngineResponse) {
 	for _, result := range results {
-		eventInfos := generateFailEvents(logger, result)
+		var eventInfos []event.Info
+		eventInfos = append(eventInfos, generateFailEvents(logger, result)...)
+		eventInfos = append(eventInfos, generateExceptionEvents(logger, result)...)
 		if config.GetGenerateSuccessEvents() {
 			eventInfos = append(eventInfos, generateSuccessEvents(logger, result)...)
 		}
@@ -24,6 +28,18 @@ func generateSuccessEvents(log logr.Logger, ers ...*response.EngineResponse) (ev
 			logger.V(4).Info("generating event on policy for success rules")
 			e := event.NewPolicyAppliedEvent(event.PolicyController, er)
 			eventInfos = append(eventInfos, e)
+		}
+	}
+	return eventInfos
+}
+
+func generateExceptionEvents(log logr.Logger, ers ...*response.EngineResponse) (eventInfos []event.Info) {
+	for _, er := range ers {
+		for i, ruleResp := range er.PolicyResponse.Rules {
+			isException := strings.Contains(ruleResp.Message, "rule skipped due to policy exception")
+			if ruleResp.Status == response.RuleStatusSkip && isException {
+				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i])...)
+			}
 		}
 	}
 	return eventInfos
