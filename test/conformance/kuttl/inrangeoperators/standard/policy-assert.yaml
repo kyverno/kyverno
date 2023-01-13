@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: validate-replica-count
+  name: check-value
 status:
   conditions:
   - reason: Succeeded
