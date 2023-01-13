@@ -375,10 +375,7 @@ func GetFunctions() []*FunctionEntry {
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
-				Name: timeNow,
-				Arguments: []ArgSpec{
-					{Types: []JpType{JpString}},
-				},
+				Name:    timeNow,
 				Handler: jpTimeNow,
 			},
 			ReturnType: []JpType{JpString},
