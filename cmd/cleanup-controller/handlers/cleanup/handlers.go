@@ -170,9 +170,10 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 					if err := h.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 						debug.Error(err, "failed to delete resource")
 						errs = append(errs, err)
+						h.createEvent(policy, resource, err)
 					} else {
 						debug.Info("deleted")
-						h.createEvent(policy, resource)
+						h.createEvent(policy, resource, nil)
 					}
 				}
 			}
@@ -181,9 +182,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 	return multierr.Combine(errs...)
 }
 
-func (h *handlers) createEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resource unstructured.Unstructured) {
-	msg := fmt.Sprintf("successfully cleaned up the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName())
-
+func (h *handlers) createEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resource unstructured.Unstructured, err error) {
 	var cleanuppol runtime.Object
 	if policy.GetNamespace() == "" {
 		cleanuppol = policy.(*kyvernov2alpha1.ClusterCleanupPolicy)
@@ -191,5 +190,12 @@ func (h *handlers) createEvent(policy kyvernov2alpha1.CleanupPolicyInterface, re
 		cleanuppol = policy.(*kyvernov2alpha1.CleanupPolicy)
 	}
 
-	h.recorder.Event(cleanuppol, corev1.EventTypeNormal, event.PolicyApplied.String(), msg)
+	switch err == nil {
+	case true:
+		msg := fmt.Sprintf("successfully cleaned up the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName())
+		h.recorder.Event(cleanuppol, corev1.EventTypeNormal, event.PolicyApplied.String(), msg)
+	case false:
+		msg := fmt.Sprintf("failed to clean up the target resource %v/%v/%v: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error())
+		h.recorder.Event(cleanuppol, corev1.EventTypeWarning, event.PolicyError.String(), msg)
+	}
 }
