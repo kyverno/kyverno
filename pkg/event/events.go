@@ -126,23 +126,27 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 }
 
 func NewPolicyExceptionEvents(engineResponse *response.EngineResponse, ruleResp *response.RuleResponse) []Info {
-	var messageBuilder strings.Builder
-	defer messageBuilder.Reset()
 	exceptionName, exceptionNamespace := getExceptionEventInfoFromRuleResponseMsg(ruleResp.Message)
-	fmt.Fprintf(&messageBuilder, "resource %s was skipped from rule %s due to policy exception %s/%s", engineResponse.PatchedResource.GetName(), ruleResp.Name, exceptionNamespace, exceptionName)
+	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", engineResponse.PatchedResource.GetName(), ruleResp.Name, exceptionNamespace, exceptionName)
+	var exceptionMessage string
+	if engineResponse.PolicyResponse.Policy.Namespace == "" {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", engineResponse.PatchedResource.GetName(), engineResponse.PolicyResponse.Policy.Name, ruleResp.Name)
+	} else {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", engineResponse.PatchedResource.GetName(), engineResponse.PolicyResponse.Policy.Namespace, engineResponse.PolicyResponse.Policy.Name, ruleResp.Name)
+	}
 	policyEvent := Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
 		Name:      engineResponse.PolicyResponse.Policy.Name,
 		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
 		Reason:    PolicySkipped.String(),
-		Message:   messageBuilder.String(),
+		Message:   policyMessage,
 	}
 	exceptionEvent := Info{
 		Kind:      "PolicyException",
 		Name:      exceptionName,
 		Namespace: exceptionNamespace,
 		Reason:    PolicySkipped.String(),
-		Message:   messageBuilder.String(),
+		Message:   exceptionMessage,
 	}
 	return []Info{policyEvent, exceptionEvent}
 }
