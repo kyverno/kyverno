@@ -174,7 +174,7 @@ func AddFuncT[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K]) addF
 
 func AddFuncTWithOperationMessage[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K], kind string) addFuncT[K] {
 	return func(obj K) {
-		if obj.GetNamespace() == "" {
+		if obj.GetNamespace() != "" {
 			logger = logger.WithValues("namespace", obj.GetNamespace())
 		}
 		logger.Info("added", "kind", kind, "name", obj.GetName())
@@ -184,13 +184,9 @@ func AddFuncTWithOperationMessage[K metav1.Object](logger logr.Logger, enqueue E
 	}
 }
 
-func UpdateFuncTWithOperationMessage[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K], kind string) updateFuncT[K] {
+func UpdateFuncT[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K]) updateFuncT[K] {
 	return func(old, obj K) {
 		if old.GetResourceVersion() != obj.GetResourceVersion() {
-			if obj.GetNamespace() == "" {
-				logger = logger.WithValues("namespace", obj.GetNamespace())
-			}
-			logger.Info("added", "kind", kind, "name", obj.GetName())
 			if err := enqueue(obj); err != nil {
 				logger.Error(err, "failed to enqueue object", "obj", obj)
 			}
@@ -198,9 +194,13 @@ func UpdateFuncTWithOperationMessage[K metav1.Object](logger logr.Logger, enqueu
 	}
 }
 
-func UpdateFuncT[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K]) updateFuncT[K] {
+func UpdateFuncTWithOperationMessage[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K], kind string) updateFuncT[K] {
 	return func(old, obj K) {
 		if old.GetResourceVersion() != obj.GetResourceVersion() {
+			if obj.GetNamespace() != "" {
+				logger = logger.WithValues("namespace", obj.GetNamespace())
+			}
+			logger.Info("updated", "kind", kind, "name", obj.GetName())
 			if err := enqueue(obj); err != nil {
 				logger.Error(err, "failed to enqueue object", "obj", obj)
 			}
@@ -218,10 +218,10 @@ func DeleteFuncT[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K]) d
 
 func DeleteFuncTWithOperationMessage[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K], kind string) deleteFuncT[K] {
 	return func(obj K) {
-		if obj.GetNamespace() == "" {
+		if obj.GetNamespace() != "" {
 			logger = logger.WithValues("namespace", obj.GetNamespace())
 		}
-		logger.Info("added", "kind", kind, "name", obj.GetName())
+		logger.Info("deleted", "kind", kind, "name", obj.GetName())
 		if err := enqueue(obj); err != nil {
 			logger.Error(err, "failed to enqueue object", "obj", obj)
 		}
