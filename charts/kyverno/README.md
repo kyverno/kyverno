@@ -127,6 +127,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
 | rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions for background scans and context.apiCalls to add in the cluster role |
 | image.registry | string | `nil` | Image registry |
 | image.repository | string | `"ghcr.io/kyverno/kyverno"` | Image repository |
 | image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |

@@ -91,6 +91,26 @@ rules:
   - get
   - list
   - watch
+{{- with .Values.rbac.clusterRole.extraResources }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "kyverno.fullname" . }}:additional
+  labels:
+    {{- include "kyverno.labels" . | nindent 4 }}
+rules:
+  {{- range . }}
+  - apiGroups:
+      {{- toYaml .apiGroups | nindent 6 }}
+    resources:
+      {{- toYaml .resources | nindent 6 }}
+    verbs:
+      - get
+      - list
+      - watch
+  {{- end }}
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

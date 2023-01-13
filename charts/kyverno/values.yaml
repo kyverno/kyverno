@@ -28,6 +28,13 @@ rbac:
     # -- Annotations for the ServiceAccount
     annotations: {}
       # example.com/annotation: value
+  clusterRole:
+    # -- Extra resource permissions for background scans and context.apiCalls to add in the cluster role
+    extraResources: []
+    # - apiGroups:
+    #     - ''
+    #   resources:
+    #     - pods
 
 image:
   # -- Image registry

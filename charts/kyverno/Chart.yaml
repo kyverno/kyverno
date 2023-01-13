@@ -26,7 +26,5 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
-    - kind: changed
-      description: Syntax change for webhooksCleanup switch to match with the rest of the file
-    - kind: fixed
-      description: Handle multiple extraArgs in init container
+    - kind: added
+      description: Additional role entries support for background scans and context.apiCalls
