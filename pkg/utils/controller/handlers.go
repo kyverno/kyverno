@@ -172,18 +172,6 @@ func AddFuncT[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K]) addF
 	}
 }
 
-func AddFuncTWithOperationMessage[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K], kind string) addFuncT[K] {
-	return func(obj K) {
-		if obj.GetNamespace() != "" {
-			logger = logger.WithValues("namespace", obj.GetNamespace())
-		}
-		logger.Info("added", "kind", kind, "name", obj.GetName())
-		if err := enqueue(obj); err != nil {
-			logger.Error(err, "failed to enqueue object", "obj", obj)
-		}
-	}
-}
-
 func UpdateFuncT[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K]) updateFuncT[K] {
 	return func(old, obj K) {
 		if old.GetResourceVersion() != obj.GetResourceVersion() {
@@ -194,34 +182,8 @@ func UpdateFuncT[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K]) u
 	}
 }
 
-func UpdateFuncTWithOperationMessage[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K], kind string) updateFuncT[K] {
-	return func(old, obj K) {
-		if old.GetResourceVersion() != obj.GetResourceVersion() {
-			if obj.GetNamespace() != "" {
-				logger = logger.WithValues("namespace", obj.GetNamespace())
-			}
-			logger.Info("updated", "kind", kind, "name", obj.GetName())
-			if err := enqueue(obj); err != nil {
-				logger.Error(err, "failed to enqueue object", "obj", obj)
-			}
-		}
-	}
-}
-
 func DeleteFuncT[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K]) deleteFuncT[K] {
 	return func(obj K) {
-		if err := enqueue(obj); err != nil {
-			logger.Error(err, "failed to enqueue object", "obj", obj)
-		}
-	}
-}
-
-func DeleteFuncTWithOperationMessage[K metav1.Object](logger logr.Logger, enqueue EnqueueFuncT[K], kind string) deleteFuncT[K] {
-	return func(obj K) {
-		if obj.GetNamespace() != "" {
-			logger = logger.WithValues("namespace", obj.GetNamespace())
-		}
-		logger.Info("deleted", "kind", kind, "name", obj.GetName())
 		if err := enqueue(obj); err != nil {
 			logger.Error(err, "failed to enqueue object", "obj", obj)
 		}
