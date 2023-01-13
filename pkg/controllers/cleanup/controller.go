@@ -38,9 +38,8 @@ type controller struct {
 	cjLister   batchv1listers.CronJobLister
 
 	// queue
-	queue       workqueue.RateLimitingInterface
-	cpolEnqueue controllerutils.EnqueueFuncT[*kyvernov2alpha1.ClusterCleanupPolicy]
-	polEnqueue  controllerutils.EnqueueFuncT[*kyvernov2alpha1.CleanupPolicy]
+	queue   workqueue.RateLimitingInterface
+	enqueue controllerutils.EnqueueFuncT[kyvernov2alpha1.CleanupPolicyInterface]
 
 	// config
 	cleanupService string
@@ -60,16 +59,44 @@ func NewController(
 	cleanupService string,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
+	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2alpha1.CleanupPolicyInterface]
+	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
+	enqueueFunc := func(logger logr.Logger, operation, kind string) controllerutils.EnqueueFuncT[kyvernov2alpha1.CleanupPolicyInterface] {
+		logger = logger.WithValues("kind", kind, "operation", operation)
+		return func(obj kyvernov2alpha1.CleanupPolicyInterface) error {
+			logger = logger.WithValues("name", obj.GetName())
+			if obj.GetNamespace() != "" {
+				logger = logger.WithValues("namespace", obj.GetNamespace())
+			}
+			logger.Info(operation)
+			if err := baseEnqueueFunc(obj); err != nil {
+				logger.Error(err, "failed to enqueue object", "obj", obj)
+				return err
+			}
+			return nil
+		}
+	}
 	c := &controller{
 		client:         client,
 		cpolLister:     cpolInformer.Lister(),
 		polLister:      polInformer.Lister(),
 		cjLister:       cjInformer.Lister(),
 		queue:          queue,
-		cpolEnqueue:    controllerutils.AddDefaultEventHandlersT[*kyvernov2alpha1.ClusterCleanupPolicy](logger, cpolInformer.Informer(), queue),
-		polEnqueue:     controllerutils.AddDefaultEventHandlersT[*kyvernov2alpha1.CleanupPolicy](logger, polInformer.Informer(), queue),
 		cleanupService: cleanupService,
+		enqueue:        baseEnqueueFunc,
 	}
+	controllerutils.AddEventHandlersT(
+		cpolInformer.Informer(),
+		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "ClusterCleanupPolicy")),
+		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "ClusterCleanupPolicy")),
+		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "ClusterCleanupPolicy")),
+	)
+	controllerutils.AddEventHandlersT(
+		polInformer.Informer(),
+		controllerutils.AddFuncT(logger, enqueueFunc(logger, "added", "CleanupPolicy")),
+		controllerutils.UpdateFuncT(logger, enqueueFunc(logger, "updated", "CleanupPolicy")),
+		controllerutils.DeleteFuncT(logger, enqueueFunc(logger, "deleted", "CleanupPolicy")),
+	)
 	controllerutils.AddEventHandlersT(
 		cjInformer.Informer(),
 		func(n *batchv1.CronJob) { c.enqueueCronJob(n) },
@@ -91,7 +118,7 @@ func (c *controller) enqueueCronJob(n *batchv1.CronJob) {
 					Name: n.OwnerReferences[0].Name,
 				},
 			}
-			err := c.cpolEnqueue(cpol)
+			err := c.enqueue(cpol)
 			if err != nil {
 				logger.Error(err, "failed to enqueue ClusterCleanupPolicy object", cpol)
 			}
@@ -102,7 +129,7 @@ func (c *controller) enqueueCronJob(n *batchv1.CronJob) {
 					Namespace: n.Namespace,
 				},
 			}
-			err := c.polEnqueue(pol)
+			err := c.enqueue(pol)
 			if err != nil {
 				logger.Error(err, "failed to enqueue CleanupPolicy object", pol)
 			}
