@@ -88,9 +88,9 @@ func NewController(
 
 	controllerutils.AddEventHandlersT(
 		polInformer.Informer(),
-		controllerutils.AddFuncTWithOperationMessage(logger, c.cpolEnqueue, "CleanupPolicy"),
-		controllerutils.UpdateFuncTWithOperationMessage(logger, c.cpolEnqueue, "CleanupPolicy"),
-		controllerutils.DeleteFuncTWithOperationMessage(logger, c.cpolEnqueue, "CleanupPolicy"))
+		controllerutils.AddFuncTWithOperationMessage(logger, c.polEnqueue, "CleanupPolicy"),
+		controllerutils.UpdateFuncTWithOperationMessage(logger, c.polEnqueue, "CleanupPolicy"),
+		controllerutils.DeleteFuncTWithOperationMessage(logger, c.polEnqueue, "CleanupPolicy"))
 
 	controllerutils.AddEventHandlersT(
 		cjInformer.Informer(),
