@@ -66,10 +66,32 @@ func NewController(
 		polLister:      polInformer.Lister(),
 		cjLister:       cjInformer.Lister(),
 		queue:          queue,
-		cpolEnqueue:    controllerutils.AddDefaultEventHandlersT[*kyvernov2alpha1.ClusterCleanupPolicy](logger, cpolInformer.Informer(), queue),
-		polEnqueue:     controllerutils.AddDefaultEventHandlersT[*kyvernov2alpha1.CleanupPolicy](logger, polInformer.Informer(), queue),
 		cleanupService: cleanupService,
 	}
+
+	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2alpha1.CleanupPolicyInterface]
+	baseEnqueueFunc := controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(queue)))
+	c.cpolEnqueue = func(cpol *kyvernov2alpha1.ClusterCleanupPolicy) error {
+		return baseEnqueueFunc(cpol)
+	}
+
+	controllerutils.AddEventHandlersT(
+		cpolInformer.Informer(),
+		controllerutils.AddFuncTWithOperationMessage(logger, c.cpolEnqueue, "ClusterCleanupPolicy"),
+		controllerutils.UpdateFuncTWithOperationMessage(logger, c.cpolEnqueue, "ClusterCleanupPolicy"),
+		controllerutils.DeleteFuncTWithOperationMessage(logger, c.cpolEnqueue, "ClusterCleanupPolicy"),
+	)
+
+	c.polEnqueue = func(cpol *kyvernov2alpha1.CleanupPolicy) error {
+		return baseEnqueueFunc(cpol)
+	}
+
+	controllerutils.AddEventHandlersT(
+		polInformer.Informer(),
+		controllerutils.AddFuncTWithOperationMessage(logger, c.cpolEnqueue, "CleanupPolicy"),
+		controllerutils.UpdateFuncTWithOperationMessage(logger, c.cpolEnqueue, "CleanupPolicy"),
+		controllerutils.DeleteFuncTWithOperationMessage(logger, c.cpolEnqueue, "CleanupPolicy"))
+
 	controllerutils.AddEventHandlersT(
 		cjInformer.Informer(),
 		func(n *batchv1.CronJob) { c.enqueueCronJob(n) },
@@ -82,6 +104,11 @@ func NewController(
 func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger.V(3), ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
+
+// func (c *controller) enqueueCleanPol(n kyvernov2alpha1.CleanupPolicyInterface) func() error {
+// 	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2alpha1.CleanupPolicyInterface]
+// 	return controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(c.queue)))
+// }
 
 func (c *controller) enqueueCronJob(n *batchv1.CronJob) {
 	if len(n.OwnerReferences) == 1 {
