@@ -105,11 +105,6 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger.V(3), ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-// func (c *controller) enqueueCleanPol(n kyvernov2alpha1.CleanupPolicyInterface) func() error {
-// 	keyFunc := controllerutils.MetaNamespaceKeyT[kyvernov2alpha1.CleanupPolicyInterface]
-// 	return controllerutils.LogError(logger, controllerutils.Parse(keyFunc, controllerutils.Queue(c.queue)))
-// }
-
 func (c *controller) enqueueCronJob(n *batchv1.CronJob) {
 	if len(n.OwnerReferences) == 1 {
 		if n.OwnerReferences[0].Kind == "ClusterCleanupPolicy" {
