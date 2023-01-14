@@ -177,9 +177,14 @@ func validateStringPattern(log logr.Logger, value interface{}, pattern string) b
 	if op == operator.InRange {
 		// Upon encountering InRange operator split the string by `-` and basically
 		// verify the result of (x >= leftEndpoint & x <= rightEndpoint)
-		leftEndpoint, rightEndpoint := splitPattern(pattern)
-		return validateStringPattern(log, value, fmt.Sprintf(">= %s", leftEndpoint)) &&
-			validateStringPattern(log, value, fmt.Sprintf("<= %s", rightEndpoint))
+		if r, err := regexp.Compile(operator.InRangeRegex); err == nil {
+			if endpoints, ok := split(pattern, r); ok {
+				return validateStringPattern(log, value, fmt.Sprintf(">= %s", endpoints[1])) &&
+					validateStringPattern(log, value, fmt.Sprintf("<= %s", endpoints[2]))
+			}
+			return false
+		}
+		return false
 	} else if op == operator.NotInRange {
 		// Upon encountering NotInRange operator split the string by `!-` and basically
 		// verify the result of (x < leftEndpoint | x > rightEndpoint)
@@ -192,10 +197,9 @@ func validateStringPattern(log logr.Logger, value interface{}, pattern string) b
 	}
 }
 
-func splitPattern(pattern string) (string, string) {
-	match := regexp.MustCompile(`^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`).
-		FindStringSubmatch(pattern)
-	return match[1], match[2]
+func split(pattern string, r *regexp.Regexp) ([]string, bool) {
+	match := r.FindStringSubmatch(pattern)
+	return match, len(match) > 0
 }
 
 func validateString(log logr.Logger, value interface{}, pattern string, op operator.Operator) bool {

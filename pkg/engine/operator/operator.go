@@ -23,7 +23,9 @@ const (
 	// InRange stands for -
 	InRange Operator = "-"
 	// NotInRange stands for !-
-	NotInRange Operator = "!-"
+	NotInRange      Operator = "!-"
+	NotInRangeRegex          = `^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)!-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`
+	InRangeRegex             = `^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`
 )
 
 // GetOperatorFromStringPattern parses opeartor from pattern
@@ -46,10 +48,10 @@ func GetOperatorFromStringPattern(pattern string) Operator {
 	if pattern[:len(NotEqual)] == string(NotEqual) {
 		return NotEqual
 	}
-	if match, _ := regexp.Match(`^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)!-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`, []byte(pattern)); match {
+	if match, _ := regexp.Match(NotInRangeRegex, []byte(pattern)); match {
 		return NotInRange
 	}
-	if match, _ := regexp.Match(`^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`, []byte(pattern)); match {
+	if match, _ := regexp.Match(InRangeRegex, []byte(pattern)); match {
 		return InRange
 	}
 	return Equal
