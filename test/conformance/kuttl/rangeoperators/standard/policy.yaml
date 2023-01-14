@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: check-value
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   rules:
     - name: check-value
       match:
