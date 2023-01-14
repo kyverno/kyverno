@@ -818,7 +818,6 @@ func hasPolicyExceptions(ctx *PolicyContext, rule *kyvernov1.Rule, subresourceGV
 				Status:  response.RuleStatusError,
 			}
 		}
-
 		log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
 		return &response.RuleResponse{
 			Name:    rule.Name,

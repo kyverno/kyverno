@@ -176,6 +176,7 @@ func createReportControllers(
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	kyvernoV2Alpha1 := kyvernoInformer.Kyverno().V2alpha1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
@@ -224,6 +225,7 @@ func createReportControllers(
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
+					kyvernoV2Alpha1.PolicyExceptions(),
 					resourceReportController,
 					configMapResolver,
 					backgroundScanInterval,
@@ -303,6 +305,7 @@ func createrLeaderControllers(
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		kubeKyvernoInformer.Coordination().V1().Leases(),
+		kubeInformer.Rbac().V1().ClusterRoles(),
 		serverIP,
 		int32(webhookTimeout),
 		autoUpdateWebhooks,
@@ -687,11 +690,7 @@ func main() {
 	}
 	// start webhooks server
 	server.Run(signalCtx.Done())
-	// wait for termination signal
-	<-signalCtx.Done()
 	wg.Wait()
-	// wait for server cleanup
-	<-server.Cleanup()
 	// say goodbye...
 	logger.V(2).Info("Kyverno shutdown successful")
 }

@@ -177,7 +177,7 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@f58b82fb4ed53939dc1c9d7e370deab885527368 # v0.38.2
+        uses: fluxcd/flux2/action@a9f53b4f1aef910fab68f790f7bf5b49c9a1677c # v0.38.3
         with:
           version: 0.35.0
 
@@ -189,12 +189,20 @@ jobs:
       - name: Build yaml manifest
         run: make codegen-manifest-release
 
-      - name: Upload yaml manifest
-        uses: svenstaro/upload-release-action@2728235f7dc9ff598bd86ce3c274b74f802d2208 # pin@v2
+      - name: Upload install manifest
+        uses: svenstaro/upload-release-action@2728235f7dc9ff598bd86ce3c274b74f802d2208 # 2.4.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml
           asset_name: install.yaml
+          tag: ${{ github.ref }}
+
+      - name: Upload CRD manifest
+        uses: svenstaro/upload-release-action@2728235f7dc9ff598bd86ce3c274b74f802d2208 # 2.4.0
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: config/crds/*.yaml
+          file_glob: true
           tag: ${{ github.ref }}
 
       - name: Login to GHCR
