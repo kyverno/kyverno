@@ -24,8 +24,8 @@ const (
 	InRange Operator = "-"
 	// NotInRange stands for !-
 	NotInRange      Operator = "!-"
-	NotInRangeRegex          = `^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)!-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`
-	InRangeRegex             = `^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`
+	NotInRangeRegex string   = `^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)!-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`
+	InRangeRegex    string   = `^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`
 )
 
 // GetOperatorFromStringPattern parses opeartor from pattern
