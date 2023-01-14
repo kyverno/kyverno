@@ -117,7 +117,7 @@ func jpTimeParse(arguments []interface{}) (interface{}, error) {
 	} else if t, err := time.Parse(layout.String(), ts.String()); err != nil {
 		return nil, err
 	} else {
-		return t.Format(time.RFC3339), nil
+		return time.Unix(t.Unix(), 0).Format(time.RFC3339), nil
 	}
 }
 

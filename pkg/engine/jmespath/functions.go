@@ -999,7 +999,7 @@ func jpItems(arguments []interface{}) (interface{}, error) {
 
 	arrayOfObj := make([]map[string]interface{}, 0)
 
-	keys := []string{}
+	var keys []string
 
 	// Sort the keys so that the output is deterministic
 	for key := range input {
