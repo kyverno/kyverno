@@ -177,20 +177,19 @@ func validateStringPattern(log logr.Logger, value interface{}, pattern string) b
 	if op == operator.InRange {
 		// Upon encountering InRange operator split the string by `-` and basically
 		// verify the result of (x >= leftEndpoint & x <= rightEndpoint)
-		if r, err := regexp.Compile(operator.InRangeRegex); err == nil {
-			if endpoints, ok := split(pattern, r); ok {
-				return validateStringPattern(log, value, fmt.Sprintf(">= %s", endpoints[1])) &&
-					validateStringPattern(log, value, fmt.Sprintf("<= %s", endpoints[2]))
-			}
-			return false
+		if endpoints, ok := split(pattern, operator.InRangeRegex); ok {
+			return validateStringPattern(log, value, fmt.Sprintf(">= %s", endpoints[1])) &&
+				validateStringPattern(log, value, fmt.Sprintf("<= %s", endpoints[2]))
 		}
 		return false
 	} else if op == operator.NotInRange {
 		// Upon encountering NotInRange operator split the string by `!-` and basically
 		// verify the result of (x < leftEndpoint | x > rightEndpoint)
-		endpoints := strings.Split(pattern, "!-")
-		return validateStringPattern(log, value, fmt.Sprintf("< %s", endpoints[0])) ||
-			validateStringPattern(log, value, fmt.Sprintf("> %s", endpoints[1]))
+		if endpoints, ok := split(pattern, operator.NotInRangeRegex); ok {
+			return validateStringPattern(log, value, fmt.Sprintf("< %s", endpoints[0])) ||
+				validateStringPattern(log, value, fmt.Sprintf("> %s", endpoints[1]))
+		}
+		return false
 	} else {
 		pattern := strings.TrimSpace(pattern[len(op):])
 		return validateString(log, value, pattern, op)
