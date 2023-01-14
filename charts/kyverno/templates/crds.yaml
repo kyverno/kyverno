@@ -6623,6 +6623,14 @@ spec:
                               signing, for example an email address Deprecated. Use
                               KeylessAttestor instead.
                             type: string
+                          type:
+                            description: Type specifies the method of signature validation.
+                              The allowed options are Cosign and NotaryV2. By default
+                              Cosign is used if a type is not specified.
+                            enum:
+                            - Cosign
+                            - NotaryV2
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -9934,6 +9942,14 @@ spec:
                                 description: Subject is the identity used for keyless
                                   signing, for example an email address Deprecated.
                                   Use KeylessAttestor instead.
+                                type: string
+                              type:
+                                description: Type specifies the method of signature
+                                  validation. The allowed options are Cosign and NotaryV2.
+                                  By default Cosign is used if a type is not specified.
+                                enum:
+                                - Cosign
+                                - NotaryV2
                                 type: string
                               verifyDigest:
                                 default: true
@@ -12983,6 +12999,14 @@ spec:
                               i.e. have matched passed a signature or attestation
                               check.
                             type: boolean
+                          type:
+                            description: Type specifies the method of signature validation.
+                              The allowed options are Cosign and NotaryV2. By default
+                              Cosign is used if a type is not specified.
+                            enum:
+                            - Cosign
+                            - NotaryV2
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -16294,6 +16318,14 @@ spec:
                                 description: Subject is the identity used for keyless
                                   signing, for example an email address Deprecated.
                                   Use KeylessAttestor instead.
+                                type: string
+                              type:
+                                description: Type specifies the method of signature
+                                  validation. The allowed options are Cosign and NotaryV2.
+                                  By default Cosign is used if a type is not specified.
+                                enum:
+                                - Cosign
+                                - NotaryV2
                                 type: string
                               verifyDigest:
                                 default: true
@@ -19826,6 +19858,14 @@ spec:
                               signing, for example an email address Deprecated. Use
                               KeylessAttestor instead.
                             type: string
+                          type:
+                            description: Type specifies the method of signature validation.
+                              The allowed options are Cosign and NotaryV2. By default
+                              Cosign is used if a type is not specified.
+                            enum:
+                            - Cosign
+                            - NotaryV2
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -23139,6 +23179,14 @@ spec:
                                   signing, for example an email address Deprecated.
                                   Use KeylessAttestor instead.
                                 type: string
+                              type:
+                                description: Type specifies the method of signature
+                                  validation. The allowed options are Cosign and NotaryV2.
+                                  By default Cosign is used if a type is not specified.
+                                enum:
+                                - Cosign
+                                - NotaryV2
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -26188,6 +26236,14 @@ spec:
                               i.e. have matched passed a signature or attestation
                               check.
                             type: boolean
+                          type:
+                            description: Type specifies the method of signature validation.
+                              The allowed options are Cosign and NotaryV2. By default
+                              Cosign is used if a type is not specified.
+                            enum:
+                            - Cosign
+                            - NotaryV2
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -29499,6 +29555,14 @@ spec:
                                 description: Subject is the identity used for keyless
                                   signing, for example an email address Deprecated.
                                   Use KeylessAttestor instead.
+                                type: string
+                              type:
+                                description: Type specifies the method of signature
+                                  validation. The allowed options are Cosign and NotaryV2.
+                                  By default Cosign is used if a type is not specified.
+                                enum:
+                                - Cosign
+                                - NotaryV2
                                 type: string
                               verifyDigest:
                                 default: true

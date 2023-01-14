@@ -11,7 +11,7 @@ import (
 
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/cosign"
+	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/notaryproject/notation-core-go/signature"
@@ -29,29 +29,24 @@ import (
 	_ "github.com/notaryproject/notation-core-go/signature/jws"
 )
 
-type Options struct {
-	Reference    string
-	Certificates string
-	Identities   string
-}
-
-func NewVerifier() *Verifier {
-	return &Verifier{
+func NewVerifier() images.ImageVerifier {
+	return &notaryV2Verifier{
 		log: logging.WithName("NotaryV2"),
 	}
 }
 
-type Verifier struct {
+type notaryV2Verifier struct {
 	trustCerts            []*x509.Certificate
 	trustedX509Identities map[string]string
 	log                   logr.Logger
 }
 
-func (v *Verifier) Verify(opts *Options) (*cosign.Response, error) {
-	v.log.V(2).Info("verifying image", "reference", opts.Reference)
+func (v *notaryV2Verifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
+	v.log.V(2).Info("verifying image", "reference", opts.ImageRef)
 
 	var err error
-	v.trustCerts, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(opts.Certificates)))
+	certs := combineCerts(opts)
+	v.trustCerts, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certs)))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse certificates")
 	}
@@ -63,9 +58,9 @@ func (v *Verifier) Verify(opts *Options) (*cosign.Response, error) {
 		}
 	}
 
-	repo, parsedRef, err := parseReference(opts.Reference)
+	repo, parsedRef, err := parseReference(ctx, opts.ImageRef, opts.RegistryClient)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.Reference)
+		return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
 
 	// check that a digest is received
@@ -133,23 +128,36 @@ func (v *Verifier) Verify(opts *Options) (*cosign.Response, error) {
 			continue
 		}
 
-		// @TODO verify annotations
+		// TODO verify annotations
 		outcome.SignedAnnotations = payload.TargetArtifact.Annotations
 
 		// signature verification succeeds if there is at least one good signature
-		return &cosign.Response{Digest: artifactDigest.String()}, nil
+		return &images.Response{Digest: artifactDigest.String()}, nil
 	}
 
 	return nil, multierr.Combine(errs...)
 }
 
-func parseReference(ref string) (*notationregistry.RepositoryClient, registry.Reference, error) {
+func combineCerts(opts images.Options) string {
+	certs := opts.Cert
+	if opts.CertChain != "" {
+		if certs != "" {
+			certs = certs + "\n"
+		}
+
+		certs = certs + opts.CertChain
+	}
+
+	return certs
+}
+
+func parseReference(ctx context.Context, ref string, registryClient registryclient.Client) (*notationregistry.RepositoryClient, registry.Reference, error) {
 	parsedRef, err := registry.ParseReference(ref)
 	if err != nil {
 		return nil, registry.Reference{}, errors.Wrapf(err, "failed to parse registry reference %s", ref)
 	}
 
-	authClient, plainHTTP, err := getAuthClient(parsedRef)
+	authClient, plainHTTP, err := getAuthClient(ctx, parsedRef, registryClient)
 	if err != nil {
 		return nil, registry.Reference{}, err
 	}
@@ -175,13 +183,12 @@ func (ir *imageResource) RegistryStr() string {
 	return ir.ref.Registry
 }
 
-func getAuthClient(ref registry.Reference) (*auth.Client, bool, error) {
-	dc := registryclient.DefaultClient
-	if err := dc.RefreshKeychainPullSecrets(); err != nil {
+func getAuthClient(ctx context.Context, ref registry.Reference, rc registryclient.Client) (*auth.Client, bool, error) {
+	if err := rc.RefreshKeychainPullSecrets(ctx); err != nil {
 		return nil, false, errors.Wrapf(err, "failed to refresh image pull secrets")
 	}
 
-	authn, err := dc.Keychain().Resolve(&imageResource{ref})
+	authn, err := rc.Keychain().Resolve(&imageResource{ref})
 	if err != nil {
 		return nil, false, errors.Wrapf(err, "failed to resolve auth for %s", ref.String())
 	}
@@ -257,7 +264,7 @@ func isCriticalFailure(result *verification.VerificationResult) bool {
 	return result.Action == verification.Enforced && !result.Success
 }
 
-func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigManifest notationregistry.SignatureManifest, outcome *verification.SignatureVerificationOutcome) error {
+func (v *notaryV2Verifier) processSignature(ctx context.Context, sigBlob []byte, sigManifest notationregistry.SignatureManifest, outcome *verification.SignatureVerificationOutcome) error {
 
 	// verify integrity first. notation will always verify integrity no matter what the signing scheme is
 	envContent, integrityResult := v.verifyIntegrity(sigBlob, sigManifest, outcome)
@@ -303,7 +310,7 @@ func (v *Verifier) processSignature(ctx context.Context, sigBlob []byte, sigMani
 	return nil
 }
 
-func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest notationregistry.SignatureManifest, outcome *verification.SignatureVerificationOutcome) (*signature.EnvelopeContent, *verification.VerificationResult) {
+func (v *notaryV2Verifier) verifyIntegrity(sigBlob []byte, sigManifest notationregistry.SignatureManifest, outcome *verification.SignatureVerificationOutcome) (*signature.EnvelopeContent, *verification.VerificationResult) {
 	// parse the signature
 	sigEnv, err := signature.ParseEnvelope(sigManifest.Blob.MediaType, sigBlob)
 	if err != nil {
@@ -354,7 +361,7 @@ func (v *Verifier) verifyIntegrity(sigBlob []byte, sigManifest notationregistry.
 	}
 }
 
-func (v *Verifier) verifyAuthenticity(trustCerts []*x509.Certificate, outcome *verification.SignatureVerificationOutcome) *verification.VerificationResult {
+func (v *notaryV2Verifier) verifyAuthenticity(trustCerts []*x509.Certificate, outcome *verification.SignatureVerificationOutcome) *verification.VerificationResult {
 	if len(trustCerts) < 1 {
 		return &verification.VerificationResult{
 			Success: false,
@@ -390,7 +397,7 @@ func (v *Verifier) verifyAuthenticity(trustCerts []*x509.Certificate, outcome *v
 	}
 }
 
-func (v *Verifier) verifyExpiry(outcome *verification.SignatureVerificationOutcome) *verification.VerificationResult {
+func (v *notaryV2Verifier) verifyExpiry(outcome *verification.SignatureVerificationOutcome) *verification.VerificationResult {
 	if expiry := outcome.EnvelopeContent.SignerInfo.SignedAttributes.Expiry; !expiry.IsZero() && !time.Now().Before(expiry) {
 		return &verification.VerificationResult{
 			Success: false,
@@ -407,7 +414,7 @@ func (v *Verifier) verifyExpiry(outcome *verification.SignatureVerificationOutco
 	}
 }
 
-func (v *Verifier) verifyAuthenticTimestamp(outcome *verification.SignatureVerificationOutcome) *verification.VerificationResult {
+func (v *notaryV2Verifier) verifyAuthenticTimestamp(outcome *verification.SignatureVerificationOutcome) *verification.VerificationResult {
 	invalidTimestamp := false
 	var err error
 
@@ -460,7 +467,7 @@ func (v *Verifier) verifyAuthenticTimestamp(outcome *verification.SignatureVerif
 }
 
 // verifyX509TrustedIdentities verified x509 trusted identities. This functions uses the VerificationResult from x509 trust store verification and modifies it
-func (v *Verifier) verifyX509TrustedIdentities(outcome *verification.SignatureVerificationOutcome, authenticityResult *verification.VerificationResult) {
+func (v *notaryV2Verifier) verifyX509TrustedIdentities(outcome *verification.SignatureVerificationOutcome, authenticityResult *verification.VerificationResult) {
 	// verify trusted identities
 	err := verifyX509TrustedIdentities(v.trustedX509Identities, outcome.EnvelopeContent.SignerInfo.CertificateChain)
 	if err != nil {
@@ -532,4 +539,8 @@ func isSubsetDN(dn1 map[string]string, dn2 map[string]string) bool {
 		}
 	}
 	return true
+}
+
+func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
+	return nil, errors.Errorf("not implemented")
 }

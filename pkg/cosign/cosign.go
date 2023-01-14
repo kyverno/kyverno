@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/images"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -35,32 +35,13 @@ import (
 // ImageSignatureRepository is an alternate signature repository
 var ImageSignatureRepository string
 
-type Options struct {
-	ImageRef             string
-	FetchAttestations    bool
-	Key                  string
-	Cert                 string
-	CertChain            string
-	Roots                string
-	Subject              string
-	Issuer               string
-	AdditionalExtensions map[string]string
-	Annotations          map[string]string
-	Repository           string
-	RekorURL             string
-	SignatureAlgorithm   string
-	PredicateType        string
+func NewVerifier() images.ImageVerifier {
+	return &cosignVerifier{}
 }
 
-type Response struct {
-	Digest     string
-	Statements []map[string]interface{}
-}
+type cosignVerifier struct{}
 
-type CosignError struct{}
-
-// VerifySignature verifies that the image has the expected signatures
-func VerifySignature(ctx context.Context, rclient registryclient.Client, opts Options) (*Response, error) {
+func (v *cosignVerifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
 	ref, err := name.ParseReference(opts.ImageRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image %s", opts.ImageRef)
@@ -71,7 +52,7 @@ func VerifySignature(ctx context.Context, rclient registryclient.Client, opts Op
 		"",
 		"VERIFY IMG SIGS",
 		func(ctx context.Context, span trace.Span) ([]oci.Signature, bool, error) {
-			cosignOpts, err := buildCosignOptions(ctx, rclient, opts)
+			cosignOpts, err := buildCosignOptions(ctx, opts)
 			if err != nil {
 				return nil, false, err
 			}
@@ -106,10 +87,10 @@ func VerifySignature(ctx context.Context, rclient registryclient.Client, opts Op
 		}
 	}
 
-	return &Response{Digest: digest}, nil
+	return &images.Response{Digest: digest}, nil
 }
 
-func buildCosignOptions(ctx context.Context, rclient registryclient.Client, opts Options) (*cosign.CheckOpts, error) {
+func buildCosignOptions(ctx context.Context, opts images.Options) (*cosign.CheckOpts, error) {
 	var remoteOpts []remote.Option
 	var err error
 	signatureAlgorithmMap := map[string]crypto.Hash{
@@ -122,7 +103,7 @@ func buildCosignOptions(ctx context.Context, rclient registryclient.Client, opts
 	if err != nil {
 		return nil, errors.Wrap(err, "constructing client options")
 	}
-	remoteOpts = append(remoteOpts, rclient.BuildRemoteOption(ctx))
+	remoteOpts = append(remoteOpts, opts.RegistryClient.BuildRemoteOption(ctx))
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
@@ -251,10 +232,8 @@ func loadCertChain(pem []byte) ([]*x509.Certificate, error) {
 	return cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(pem))
 }
 
-// FetchAttestations retrieves signed attestations and decodes them into in-toto statements
-// https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func FetchAttestations(ctx context.Context, rclient registryclient.Client, opts Options) (*Response, error) {
-	cosignOpts, err := buildCosignOptions(ctx, rclient, opts)
+func (v *cosignVerifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
+	cosignOpts, err := buildCosignOptions(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +292,7 @@ func FetchAttestations(ctx context.Context, rclient registryclient.Client, opts 
 		return nil, err
 	}
 
-	return &Response{Digest: digest, Statements: inTotoStatements}, nil
+	return &images.Response{Digest: digest, Statements: inTotoStatements}, nil
 }
 
 func matchPredicateType(sig oci.Signature, expectedPredicateType string) (bool, string, error) {
