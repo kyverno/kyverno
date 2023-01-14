@@ -589,13 +589,12 @@ func (iv *imageVerifier) buildVerifier(
 	imageVerify kyvernov1.ImageVerification,
 	image string,
 	attestation *kyvernov1.Attestation) (images.ImageVerifier, *images.Options, string) {
-	if imageVerify.Type == kyvernov1.Cosign {
-		return iv.buildCosignVerifier(attestor, imageVerify, image, attestation)
-	} else if imageVerify.Type == kyvernov1.NotaryV2 {
+	switch imageVerify.Type {
+	case kyvernov1.NotaryV2:
 		return iv.buildNotaryV2Verifier(attestor, imageVerify, image)
+	default:
+		return iv.buildCosignVerifier(attestor, imageVerify, image, attestation)
 	}
-
-	return nil, nil, ""
 }
 
 func (iv *imageVerifier) buildCosignVerifier(
@@ -605,9 +604,10 @@ func (iv *imageVerifier) buildCosignVerifier(
 	attestation *kyvernov1.Attestation) (images.ImageVerifier, *images.Options, string) {
 	path := ""
 	opts := &images.Options{
-		ImageRef:    image,
-		Repository:  imageVerify.Repository,
-		Annotations: imageVerify.Annotations,
+		ImageRef:       image,
+		Repository:     imageVerify.Repository,
+		Annotations:    imageVerify.Annotations,
+		RegistryClient: iv.rclient,
 	}
 
 	if imageVerify.Roots != "" {
@@ -667,10 +667,13 @@ func (iv *imageVerifier) buildNotaryV2Verifier(
 	imageVerify kyvernov1.ImageVerification,
 	image string) (images.ImageVerifier, *images.Options, string) {
 	path := ""
-	opts := &images.Options{}
-	opts.ImageRef = image
-	opts.Cert = attestor.Certificates.Certificate
-	opts.CertChain = attestor.Certificates.CertificateChain
+	opts := &images.Options{
+		ImageRef:       image,
+		Cert:           attestor.Certificates.Certificate,
+		CertChain:      attestor.Certificates.CertificateChain,
+		RegistryClient: iv.rclient,
+	}
+
 	return notaryv2.NewVerifier(), opts, path
 }
 
