@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.18
+go 1.19
 
 require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
