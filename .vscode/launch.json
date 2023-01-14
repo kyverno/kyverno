@@ -12,7 +12,7 @@
             },
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
-                "--serverIP=172.23.218.158:9443",
+                "--serverIP=<SERVER-IP>:9443",
                 "--v=2",
             ],
         },
