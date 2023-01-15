@@ -11,9 +11,11 @@ import (
 )
 
 const (
-	PolicyAnnotation = "policies.kyverno.io/last-applied-patches"
-	policyAnnotation = "policies.kyverno.io~1last-applied-patches"
-	oldAnnotation    = "policies.kyverno.io~1patches"
+	PolicyAnnotation      = "policies.kyverno.io/last-applied-patches"
+	policyAnnotation      = "policies.kyverno.io~1last-applied-patches"
+	oldAnnotation         = "policies.kyverno.io~1patches"
+	ManagedByLabel        = "webhook.kyverno.io/managed-by"
+	KyvernoComponentLabel = "app.kubernetes.io/component"
 )
 
 type RulePatch struct {
