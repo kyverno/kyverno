@@ -881,16 +881,16 @@ func TestMatchesResourceDescription(t *testing.T) {
 			},
 			Resource:          []byte(`{ "apiVersion": "v1", "kind": "Pod", "metadata": { "name": "myapp-pod2", "labels": { "app": "myapp2" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx" } ] } }`),
 			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "pod" ] } }, "validate": { "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
-			areErrorsExpected: false,
+			areErrorsExpected: true,
 		},
 		{
-			Description: "Test should pass for GVK case sensitive",
+			Description: "Test should fail for GVK case sensitive",
 			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "name": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
-			areErrorsExpected: false,
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } } ] } }`),
+			areErrorsExpected: true,
 		},
 	}
 
@@ -1786,16 +1786,16 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 			},
 			Resource:          []byte(`{ "apiVersion": "v1", "kind": "Pod", "metadata": { "generateName": "myapp-pod2", "labels": { "app": "myapp2" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx" } ] } }`),
 			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "pod" ] } }, "validate": { "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
-			areErrorsExpected: false,
+			areErrorsExpected: true,
 		},
 		{
-			Description: "Test should pass for GVK case sensitive",
+			Description: "Test should fail for GVK case sensitive",
 			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "generateName": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
-			areErrorsExpected: false,
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } } ] } }`),
+			areErrorsExpected: true,
 		},
 	}
 
