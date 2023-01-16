@@ -750,9 +750,7 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 			return newGenResources, err
 		}
 
-		for _, genResource := range tempNewGenResources {
-			newGenResources = append(newGenResources, genResource)
-		}
+		newGenResources = append(newGenResources, tempNewGenResources...)
 	}
 	return newGenResources, nil
 }
