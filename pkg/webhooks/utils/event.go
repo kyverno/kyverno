@@ -10,7 +10,6 @@ import (
 // GenerateEvents generates event info for the engine responses
 func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool) []event.Info {
 	var events []event.Info
-
 	//   - Some/All policies fail or error
 	//     - report failure events on policy
 	//     - report failure events on resource
@@ -18,19 +17,16 @@ func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool) []
 	//     - report success event on resource
 	//   - Some/All policies skipped
 	//     - report skipped event on resource
-
 	for _, er := range engineResponses {
 		if er.IsEmpty() {
 			continue
 		}
-
 		if !er.IsSuccessful() {
 			for i, ruleResp := range er.PolicyResponse.Rules {
 				if ruleResp.Status == response.RuleStatusFail || ruleResp.Status == response.RuleStatusError {
 					e := event.NewPolicyFailEvent(event.AdmissionController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], blocked)
 					events = append(events, e)
 				}
-
 				if !blocked {
 					e := event.NewResourceViolationEvent(event.AdmissionController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
 					events = append(events, e)
@@ -40,8 +36,7 @@ func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool) []
 			for i, ruleResp := range er.PolicyResponse.Rules {
 				isException := strings.Contains(ruleResp.Message, "rule skipped due to policy exception")
 				if ruleResp.Status == response.RuleStatusSkip && !blocked && isException {
-					e := event.NewPolicyExceptionEvent(er, &er.PolicyResponse.Rules[i])
-					events = append(events, e)
+					events = append(events, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i])...)
 				}
 			}
 		} else if !er.IsSkipped() {
@@ -49,6 +44,5 @@ func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool) []
 			events = append(events, e)
 		}
 	}
-
 	return events
 }
