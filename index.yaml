@@ -13,6 +13,41 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.9.0-rc.1
+    created: "2023-01-16T10:43:13.193864956Z"
+    description: Kubernetes Native Policy Management
+    digest: b4dcbf63ae1c18e6dc54933ecd39f0081bb0f024ed4a4d00c99dbe80cc71a036
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-2.7.0-rc.1.tgz
+    version: 2.7.0-rc.1
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: changed
+          description: Syntax change for webhooksCleanup switch to match with the rest of the file
+        - kind: fixed
+          description: Handle multiple extraArgs in init container
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.9.0-beta.2
     created: "2023-01-10T15:00:23.167602269Z"
     description: Kubernetes Native Policy Management
@@ -5947,4 +5982,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2023-01-16T10:42:55.809629585Z"
+generated: "2023-01-16T10:43:13.182766434Z"
