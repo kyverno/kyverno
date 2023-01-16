@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.18
+go 1.19
 
 require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
@@ -18,7 +18,6 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-billy/v5 v5.4.0
 	github.com/go-git/go-git/v5 v5.5.2
-	github.com/go-ldap/ldap/v3 v3.4.4
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.3
 	github.com/google/gnostic v0.6.9
@@ -31,10 +30,11 @@ require (
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/mattbaird/jsonpatch v0.0.0-20200820163806-098863c1fc24
-	github.com/notaryproject/notation-core-go v0.2.0-beta.1
-	github.com/notaryproject/notation-go v0.12.0-beta.1
+	github.com/notaryproject/notation-core-go v1.0.0-rc.1
+	github.com/notaryproject/notation-go v1.0.0-rc.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.24.2
+	github.com/opencontainers/image-spec v1.1.0-rc2
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
@@ -75,7 +75,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20221207184640-f3cff1453715
 	k8s.io/pod-security-admission v0.26.0
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
-	oras.land/oras-go/v2 v2.0.0-rc.3
+	oras.land/oras-go/v2 v2.0.0-rc.5
 	sigs.k8s.io/controller-runtime v0.14.1
 	sigs.k8s.io/kustomize/api v0.12.1
 	sigs.k8s.io/kustomize/kyaml v0.13.9
@@ -166,6 +166,7 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-git/gcfg v1.5.0 // indirect
+	github.com/go-ldap/ldap/v3 v3.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.21.4 // indirect
 	github.com/go-openapi/errors v0.20.3 // indirect
@@ -259,11 +260,8 @@ require (
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852 // indirect
 	github.com/open-policy-agent/gatekeeper v0.0.0-20210824170141-dd97b8a7e966 // indirect
 	github.com/open-policy-agent/opa v0.47.4 // indirect
-	github.com/opencontainers/distribution-spec/specs-go v0.0.0-20220620172159-4ab4752c3b86 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0-rc2 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
-	github.com/oras-project/artifacts-spec v1.0.0-rc.2 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
@@ -305,7 +303,7 @@ require (
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/transparency-dev/merkle v0.0.1 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
-	github.com/veraison/go-cose v1.0.0-rc.1.0.20220824135457-9d2fab636b83 // indirect
+	github.com/veraison/go-cose v1.0.0-rc.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xanzy/go-gitlab v0.77.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
@@ -351,5 +349,4 @@ replace (
 	github.com/docker/cli => github.com/docker/cli v20.10.9+incompatible
 	github.com/evanphx/json-patch/v5 => github.com/kyverno/json-patch/v5 v5.5.1-0.20210915204938-7578f4ee9c77
 	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6
-	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
 )
