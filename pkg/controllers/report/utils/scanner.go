@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -20,6 +21,7 @@ type scanner struct {
 	client                 dclient.Interface
 	rclient                registryclient.Client
 	informerCacheResolvers resolvers.ConfigmapResolver
+	polexLister            kyvernov2alpha1listers.PolicyExceptionLister
 	excludeGroupRole       []string
 }
 
@@ -37,6 +39,7 @@ func NewScanner(
 	client dclient.Interface,
 	rclient registryclient.Client,
 	informerCacheResolvers resolvers.ConfigmapResolver,
+	polexLister kyvernov2alpha1listers.PolicyExceptionLister,
 	excludeGroupRole ...string,
 ) Scanner {
 	return &scanner{
@@ -44,6 +47,7 @@ func NewScanner(
 		client:                 client,
 		rclient:                rclient,
 		informerCacheResolvers: informerCacheResolvers,
+		polexLister:            polexLister,
 		excludeGroupRole:       excludeGroupRole,
 	}
 }
@@ -95,7 +99,8 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
-		WithInformerCacheResolver(s.informerCacheResolvers)
+		WithInformerCacheResolver(s.informerCacheResolvers).
+		WithExceptions(s.polexLister)
 	return engine.Validate(ctx, s.rclient, policyCtx), nil
 }
 
@@ -119,7 +124,8 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
-		WithInformerCacheResolver(s.informerCacheResolvers)
+		WithInformerCacheResolver(s.informerCacheResolvers).
+		WithExceptions(s.polexLister)
 	response, _ := engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)

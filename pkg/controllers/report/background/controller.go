@@ -11,7 +11,9 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov2alpha1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2alpha1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
@@ -55,6 +57,7 @@ type controller struct {
 	bgscanrLister  cache.GenericLister
 	cbgscanrLister cache.GenericLister
 	nsLister       corev1listers.NamespaceLister
+	polexLister    kyvernov2alpha1listers.PolicyExceptionLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -77,6 +80,7 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
+	polexInformer kyvernov2alpha1informers.PolicyExceptionInformer,
 	metadataCache resource.MetadataCache,
 	informerCacheResolvers resolvers.ConfigmapResolver,
 	forceDelay time.Duration,
@@ -95,6 +99,7 @@ func NewController(
 		bgscanrLister:          bgscanr.Lister(),
 		cbgscanrLister:         cbgscanr.Lister(),
 		nsLister:               nsInformer.Lister(),
+		polexLister:            polexInformer.Lister(),
 		queue:                  queue,
 		metadataCache:          metadataCache,
 		informerCacheResolvers: informerCacheResolvers,
@@ -305,7 +310,7 @@ func (c *controller) reconcileReport(
 	// calculate necessary results
 	for _, policy := range backgroundPolicies {
 		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers)
+			scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers, c.polexLister)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
 					return result.Error
