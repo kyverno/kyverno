@@ -4,8 +4,6 @@ import (
 	"strings"
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -14,7 +12,6 @@ import (
 // present in the subresourceGVKToAPIResource map. Set allowEphemeralContainers to true to allow ephemeral containers to be matched even when the
 // policy does not explicitly match on ephemeral containers and only matches on pods.
 func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string, allowEphemeralContainers bool) bool {
-	title := cases.Title(language.Und, cases.NoLower)
 	result := false
 	for _, k := range kinds {
 		if k != "*" {
@@ -23,7 +20,7 @@ func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds
 			if ok {
 				result = apiResource.Group == gvk.Group && (apiResource.Version == gvk.Version || strings.Contains(gv, "*")) && apiResource.Kind == gvk.Kind
 			} else { // if the kind is not found in the subresourceGVKToAPIResource, then it is not a subresource
-				result = title.String(kind) == gvk.Kind &&
+				result = kind == gvk.Kind &&
 					(subresourceInAdmnReview == "" ||
 						(allowEphemeralContainers && subresourceInAdmnReview == "ephemeralcontainers"))
 				if gv != "" {
