@@ -3,7 +3,6 @@ package notaryv2
 import (
 	"bytes"
 	"context"
-	"crypto/x509"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/images"
@@ -27,9 +26,7 @@ func NewVerifier() images.ImageVerifier {
 }
 
 type notaryV2Verifier struct {
-	trustCerts            []*x509.Certificate
-	trustedX509Identities map[string]string
-	log                   logr.Logger
+	log logr.Logger
 }
 
 func (v *notaryV2Verifier) VerifySignature(ctx context.Context, opts images.Options) (*images.Response, error) {
@@ -122,6 +119,11 @@ func (v *notaryV2Verifier) verifyOutcomes(outcomes []*notation.VerificationOutco
 			errs = append(errs, outcome.Error)
 			continue
 		}
+
+		content := outcome.EnvelopeContent.Payload.Content
+		contentType := outcome.EnvelopeContent.Payload.ContentType
+
+		v.log.Info("content", "type", contentType, "data", content)
 	}
 
 	return multierr.Combine(errs...)

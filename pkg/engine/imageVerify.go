@@ -588,7 +588,8 @@ func (iv *imageVerifier) buildVerifier(
 	attestor kyvernov1.Attestor,
 	imageVerify kyvernov1.ImageVerification,
 	image string,
-	attestation *kyvernov1.Attestation) (images.ImageVerifier, *images.Options, string) {
+	attestation *kyvernov1.Attestation,
+) (images.ImageVerifier, *images.Options, string) {
 	switch imageVerify.Type {
 	case kyvernov1.NotaryV2:
 		return iv.buildNotaryV2Verifier(attestor, imageVerify, image)
@@ -601,7 +602,8 @@ func (iv *imageVerifier) buildCosignVerifier(
 	attestor kyvernov1.Attestor,
 	imageVerify kyvernov1.ImageVerification,
 	image string,
-	attestation *kyvernov1.Attestation) (images.ImageVerifier, *images.Options, string) {
+	attestation *kyvernov1.Attestation,
+) (images.ImageVerifier, *images.Options, string) {
 	path := ""
 	opts := &images.Options{
 		ImageRef:       image,
@@ -665,7 +667,8 @@ func (iv *imageVerifier) buildCosignVerifier(
 func (iv *imageVerifier) buildNotaryV2Verifier(
 	attestor kyvernov1.Attestor,
 	imageVerify kyvernov1.ImageVerification,
-	image string) (images.ImageVerifier, *images.Options, string) {
+	image string,
+) (images.ImageVerifier, *images.Options, string) {
 	path := ""
 	opts := &images.Options{
 		ImageRef:       image,

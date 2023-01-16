@@ -30,7 +30,7 @@ var (
 		// TODO add option to allow explicit enable/disable of ACR helper
 		// Otherwise, default timeout of 30s applies for registries that allow
 		// anonymous image pull or have credentials provided via secrets
-		//authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
+		// authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
 
 		github.Keychain,
 	)
