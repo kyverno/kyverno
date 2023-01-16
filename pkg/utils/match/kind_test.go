@@ -37,6 +37,12 @@ func Test_CheckKind(t *testing.T) {
 	match = CheckKind(subresourceGVKToAPIResource, []string{"v1/Pod"}, schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"}, "ephemeralcontainers", false)
 	assert.Equal(t, match, false)
 
+	match = CheckKind(subresourceGVKToAPIResource, []string{"postgresdb"}, schema.GroupVersionKind{Kind: "postgresdb", Group: "acid.zalan.do", Version: "v1"}, "", false)
+	assert.Equal(t, match, true)
+
+	match = CheckKind(subresourceGVKToAPIResource, []string{"Postgresdb"}, schema.GroupVersionKind{Kind: "postgresdb", Group: "acid.zalan.do", Version: "v1"}, "", false)
+	assert.Equal(t, match, false)
+
 	subresourceGVKToAPIResource["networking.k8s.io/v1/NetworkPolicy/status"] = &metav1.APIResource{
 		Name:         "networkpolicies/status",
 		SingularName: "",
