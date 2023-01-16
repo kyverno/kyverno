@@ -477,7 +477,8 @@ func forEach(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, res
 			Error:         err,
 		})
 	} else if len(fe.CloneList.Kinds) != 0 {
-		rdatas = manageCloneList(logger, genNamespace, policy.GetName(), ur, rule.Generation, fe, client)
+		err := fmt.Errorf("cloneList is not supported inside foreach of generate")
+		return newGenResources, err
 	} else {
 		dresp, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, fe.RawData, fe.Synchronize, ur, client)
 		rdatas = append(rdatas, GenerateResponse{
@@ -731,11 +732,13 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 				return newGenResources, err
 			}
 
+			log := f.log.WithValues("element", element)
+
 			g := &forEachGenerator{
 				rule:          f.rule,
 				policyContext: f.policyContext,
 				resource:      f.resource,
-				log:           f.log,
+				log:           log,
 				foreach:       nestedForEach,
 				nesting:       f.nesting + 1,
 			}
@@ -747,6 +750,7 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 		}
 
 		if err != nil {
+			f.log.Error(err, "could not apply generate with", "element", element)
 			return newGenResources, err
 		}
 
@@ -784,7 +788,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 			Error:         err,
 		})
 	} else if len(rule.Generation.CloneList.Kinds) != 0 {
-		rdatas = manageCloneList(logger, genNamespace, policy.GetName(), ur, rule.Generation, noForEachGenerationResource, client)
+		rdatas = manageCloneList(logger, genNamespace, policy.GetName(), ur, rule.Generation, client)
 	} else {
 		dresp, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, rule.Generation.RawData, rule.Generation.Synchronize, ur, client)
 		rdatas = append(rdatas, GenerateResponse{
@@ -1031,18 +1035,11 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 	return obj.UnstructuredContent(), Create, nil
 }
 
-func manageCloneList(log logr.Logger, namespace, policy string, ur kyvernov1beta1.UpdateRequest, clone kyvernov1.Generation, fe kyvernov1.ForEachGeneration, client dclient.Interface) []GenerateResponse {
+func manageCloneList(log logr.Logger, namespace, policy string, ur kyvernov1beta1.UpdateRequest, clone kyvernov1.Generation, client dclient.Interface) []GenerateResponse {
 	var response []GenerateResponse
-	var rNamespace string
-	var kinds []string
 
-	if len(clone.ForEachGeneration) > 0 {
-		rNamespace = fe.CloneList.Namespace
-		kinds = fe.CloneList.Kinds
-	} else {
-		rNamespace = clone.CloneList.Namespace
-		kinds = clone.CloneList.Kinds
-	}
+	rNamespace := clone.CloneList.Namespace
+	kinds := clone.CloneList.Kinds
 
 	if rNamespace == "" {
 		log.V(4).Info("resource namespace %s , optional in case of cluster scope resource", rNamespace)
