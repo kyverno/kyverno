@@ -31510,6 +31510,13 @@ rules:
       - list
       - update
       - watch
+  - apiGroups:
+    - ""
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -31713,6 +31720,7 @@ rules:
   - patch
   - update
   - watch
+  - deletecollection
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
