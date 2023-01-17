@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-value
+spec:
+  validationFailureAction: Enforce
+  rules:
+    - name: check-value
+      match:
+        any:
+        - resources:
+            kinds:
+            - ConfigMap
+      validate:
+        message: "All data values must be in the specified range."
+        pattern:
+          data:
+            first_value: "+2-+4"
+            second_value: "-2-5"
+            third_value: "100Mi!-1024Mi"
+            fourth_value: "2.5-3.5"
+            fifth_value: "-10--8"
+              
