@@ -1,10 +1,6 @@
 name: Publish images
 
 on:
-  pull_request:
-    branches:
-      - main
-      - release*
   push:
     branches:
       - 'main'
@@ -44,6 +40,7 @@ jobs:
       - name: Publish kyverno
         uses: ./.github/actions/publish-image
         with:
+          makefile-target: ko-publish-kyverno-dev
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
@@ -56,54 +53,39 @@ jobs:
       - name: Publish kyvernopre
         uses: ./.github/actions/publish-image
         with:
-          sign-image: true
+          makefile-target: ko-publish-kyvernopre-dev
+          registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: kyvernopre
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/initContainer
       - name: Publish cleanup-controller
         uses: ./.github/actions/publish-image
         with:
-          sign-image: true
+          makefile-target: ko-publish-cleanup-controller-dev
+          registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: cleanup-controller
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/cleanup-controller
       - name: Publish cli
         uses: ./.github/actions/publish-image
         with:
-          sign-image: true
+          makefile-target: ko-publish-cli-dev
+          registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
-
-  # push-init-kyverno:
-  #   uses: ./.github/workflows/reuse-v2.yaml
-  #   with:
-  #     makefile-target: ko-publish-kyvernopre-dev
-  #     sign-image: false
-  #   secrets:
-  #     registry_username: ${{ github.actor }}
-  #     registry_password: ${{ secrets.CR_PAT }}
-
-  # push-kyverno:
-  #   uses: ./.github/workflows/reuse-v2.yaml
-  #   with:
-  #     publish_command: ko-publish-kyverno-dev
-  #     sign-image: false
-  #   secrets:
-  #     registry_username: ${{ github.actor }}
-  #     registry_password: ${{ secrets.CR_PAT }}
-
-  # push-cleanup-controller:
-  #   uses: ./.github/workflows/reuse-v2.yaml
-  #   with:
-  #     publish_command: ko-publish-cleanup-controller-dev
-  #     sign-image: false
-  #   secrets:
-  #     registry_username: ${{ github.actor }}
-  #     registry_password: ${{ secrets.CR_PAT }}
-
-  # push-kyverno-cli:
-  #   uses: ./.github/workflows/reuse-v2.yaml
-  #   with:
-  #     publish_command: ko-publish-cli-dev
-  #     sign-image: false
-  #   secrets:
-  #     registry_username: ${{ github.actor }}
-  #     registry_password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: cli
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/cli/kubectl-kyverno
