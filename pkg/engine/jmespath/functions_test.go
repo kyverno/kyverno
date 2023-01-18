@@ -1460,6 +1460,23 @@ jwxUjWyvEey4qJex/EGEm5RQcMv9iy7tba1wK7sykNGn5uDELGPGIIEAa5rIHm1F
 UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 -----END CERTIFICATE-----
 `,
+		`-----BEGIN CERTIFICATE REQUEST-----
+MIICvDCCAaQCAQAwdzELMAkGA1UEBhMCVVMxDTALBgNVBAgMBFV0YWgxDzANBgNV
+BAcMBkxpbmRvbjEWMBQGA1UECgwNRGlnaUNlcnQgSW5jLjERMA8GA1UECwwIRGln
+aUNlcnQxHTAbBgNVBAMMFGV4YW1wbGUuZGlnaWNlcnQuY29tMIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8+To7d+2kPWeBv/orU3LVbJwDrSQbeKamCmo
+wp5bqDxIwV20zqRb7APUOKYoVEFFOEQs6T6gImnIolhbiH6m4zgZ/CPvWBOkZc+c
+1Po2EmvBz+AD5sBdT5kzGQA6NbWyZGldxRthNLOs1efOhdnWFuhI162qmcflgpiI
+WDuwq4C9f+YkeJhNn9dF5+owm8cOQmDrV8NNdiTqin8q3qYAHHJRW28glJUCZkTZ
+wIaSR6crBQ8TbYNE0dc+Caa3DOIkz1EOsHWzTx+n0zKfqcbgXi4DJx+C1bjptYPR
+BPZL8DAeWuA8ebudVT44yEp82G96/Ggcf7F33xMxe0yc+Xa6owIDAQABoAAwDQYJ
+KoZIhvcNAQEFBQADggEBAB0kcrFccSmFDmxox0Ne01UIqSsDqHgL+XmHTXJwre6D
+hJSZwbvEtOK0G3+dr4Fs11WuUNt5qcLsx5a8uk4G6AKHMzuhLsJ7XZjgmQXGECpY
+Q4mC3yT3ZoCGpIXbw+iP3lmEEXgaQL0Tx5LFl/okKbKYwIqNiyKWOMj7ZR/wxWg/
+ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
+29XI1PpVUNCPQGn9p/eX6Qo7vpDaPybRtA2R7XLKjQaF9oXWeCUqy1hvJac9QFO2
+97Ob1alpHPoZ7mWiEuJwjBPii6a9M9G30nUo39lBi1w=
+-----END CERTIFICATE REQUEST-----`,
 	}
 	resList := []string{
 		`{"Raw":"MIIC7TCCAdWgAwIBAgIBADANBgkqhkiG9w0BAQsFADAYMRYwFAYDVQQDDA0qLmt5dmVybm8uc3ZjMB4XDTIyMDExMTEzMjY0M1oXDTIzMDExMTE0MjY0M1owGDEWMBQGA1UEAwwNKi5reXZlcm5vLnN2YzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMsAz85+yino+MmdKsVtHwNi3oAVjumzXHiLfUJK7xi5KU8B7goPHF/VCe/V7Y2c4afyfgY2ePw4LxSDkCYNgYwqjSwGIbcsqv5ZRazBdDxR09ri6PknNyBVGLi5RlPXIrGQ3psNuf55qwxJxLO31qCZuvktKY5YvuIR4JPmBhuSFXOnn0ZiQw8uxMcQ0QA2lz+PxWCVNk9q+31H5DH1oYZDLfU3mijIOA+AJGZbBb+ZwBmpVL0+2TXLxE74WowdKEV+WTsKojNTd0VwcuRKRKR/6ynXAAis21y1X7Ui9FJE6mDIylUD40WXOKGJ1lYY41kRnYhVhvXYN9JtNYdY3HsCAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFOnlASVD9fu3TAjptlW/gAXA4ql+MA0GCSqGSIb3DQEBCwUAA4IBAQCIpyRiChxp97crKfQ24Jt7z8P+AGpLf3sX4eL87ESa7QRoVJtXLmaut1pUEoYLQruKmh/0YFtZG9WxVgY6iuKbWnu7bOeMB/Ir+V/yrX3R+XvZOsuXiJnEbJiBW6lJzLldoW4f/71H+j1WD4tHpqmdMxq/sLqXfPIuc0/m0yFCn+ADBWGGB8Nn66vxtv+cT6p+RIVotXPQWbMilWp6pd5wSuB68FqrDwtYLNJtPwFs9MPVkuaJdYZ0eWd/rMcKD94Hgf89gvA0+qzMVFf+3BemXskjQRYy6CKsqoyC6jX4nhYjumAP/7psbzITsnpHtfCEEU+2JZwgM406aiMcsgLb","RawTBSCertificate":"MIIB1aADAgECAgEAMA0GCSqGSIb3DQEBCwUAMBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmMwHhcNMjIwMTExMTMyNjQzWhcNMjMwMTExMTQyNjQzWjAYMRYwFAYDVQQDDA0qLmt5dmVybm8uc3ZjMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAywDPzn7KKej4yZ0qxW0fA2LegBWO6bNceIt9QkrvGLkpTwHuCg8cX9UJ79XtjZzhp/J+BjZ4/DgvFIOQJg2BjCqNLAYhtyyq/llFrMF0PFHT2uLo+Sc3IFUYuLlGU9cisZDemw25/nmrDEnEs7fWoJm6+S0pjli+4hHgk+YGG5IVc6efRmJDDy7ExxDRADaXP4/FYJU2T2r7fUfkMfWhhkMt9TeaKMg4D4AkZlsFv5nAGalUvT7ZNcvETvhajB0oRX5ZOwqiM1N3RXBy5EpEpH/rKdcACKzbXLVftSL0UkTqYMjKVQPjRZc4oYnWVhjjWRGdiFWG9dg30m01h1jcewIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU6eUBJUP1+7dMCOm2Vb+ABcDiqX4=","RawSubjectPublicKeyInfo":"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAywDPzn7KKej4yZ0qxW0fA2LegBWO6bNceIt9QkrvGLkpTwHuCg8cX9UJ79XtjZzhp/J+BjZ4/DgvFIOQJg2BjCqNLAYhtyyq/llFrMF0PFHT2uLo+Sc3IFUYuLlGU9cisZDemw25/nmrDEnEs7fWoJm6+S0pjli+4hHgk+YGG5IVc6efRmJDDy7ExxDRADaXP4/FYJU2T2r7fUfkMfWhhkMt9TeaKMg4D4AkZlsFv5nAGalUvT7ZNcvETvhajB0oRX5ZOwqiM1N3RXBy5EpEpH/rKdcACKzbXLVftSL0UkTqYMjKVQPjRZc4oYnWVhjjWRGdiFWG9dg30m01h1jcewIDAQAB","RawSubject":"MBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmM=","RawIssuer":"MBgxFjAUBgNVBAMMDSoua3l2ZXJuby5zdmM=","Signature":"iKckYgocafe3Kyn0NuCbe8/D/gBqS397F+Hi/OxEmu0EaFSbVy5mrrdaVBKGC0K7ipof9GBbWRvVsVYGOorim1p7u2znjAfyK/lf8q190fl72TrLl4iZxGyYgVupScy5XaFuH/+9R/o9Vg+LR6apnTMav7C6l3zyLnNP5tMhQp/gAwVhhgfDZ+ur8bb/nE+qfkSFaLVz0FmzIpVqeqXecErgevBaqw8LWCzSbT8BbPTD1ZLmiXWGdHlnf6zHCg/eB4H/PYLwNPqszFRX/twXpl7JI0EWMugirKqMguo1+J4WI7pgD/+6bG8yE7J6R7XwhBFPtiWcIDONOmojHLIC2w==","SignatureAlgorithm":4,"PublicKeyAlgorithm":1,"PublicKey":{"N":"25626776194299809103943925293022478779550111351090439168995035251396620593900589237452364135475983088162735720467798166985191488213022186077349821145857402701723499012699772423162550319145896535355752944351742979794245171828792388153331005254201525593934122190716637483002316913539755904599370968007653484768793099970920881706651907943367212661888776583428009130496820305182341702970575924538413569026902195901329094514102681440057150490032724791460671006772434362132998853498175356133386237155854830546292463707783883111067332118558636600306550854546869660051077649500890548685566726464348535891964886136890236394619","E":65537},"Version":3,"SerialNumber":0,"Issuer":{"Country":null,"Organization":null,"OrganizationalUnit":null,"Locality":null,"Province":null,"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"*.kyverno.svc","Names":[{"Type":[2,5,4,3],"Value":"*.kyverno.svc"}],"ExtraNames":null},"Subject":{"Country":null,"Organization":null,"OrganizationalUnit":null,"Locality":null,"Province":null,"StreetAddress":null,"PostalCode":null,"SerialNumber":"","CommonName":"*.kyverno.svc","Names":[{"Type":[2,5,4,3],"Value":"*.kyverno.svc"}],"ExtraNames":null},"NotBefore":"2022-01-11T13:26:43Z","NotAfter":"2023-01-11T14:26:43Z","KeyUsage":37,"Extensions":[{"Id":[2,5,29,15],"Critical":true,"Value":"AwICpA=="},{"Id":[2,5,29,19],"Critical":true,"Value":"MAMBAf8="},{"Id":[2,5,29,14],"Critical":false,"Value":"BBTp5QElQ/X7t0wI6bZVv4AFwOKpfg=="}],"ExtraExtensions":null,"UnhandledCriticalExtensions":null,"ExtKeyUsage":null,"UnknownExtKeyUsage":null,"BasicConstraintsValid":true,"IsCA":true,"MaxPathLen":-1,"MaxPathLenZero":false,"SubjectKeyId":"6eUBJUP1+7dMCOm2Vb+ABcDiqX4=","AuthorityKeyId":null,"OCSPServer":null,"IssuingCertificateURL":null,"DNSNames":null,"EmailAddresses":null,"IPAddresses":null,"URIs":null,"PermittedDNSDomainsCritical":false,"PermittedDNSDomains":null,"ExcludedDNSDomains":null,"PermittedIPRanges":null,"ExcludedIPRanges":null,"PermittedEmailAddresses":null,"ExcludedEmailAddresses":null,"PermittedURIDomains":null,"ExcludedURIDomains":null,"CRLDistributionPoints":null,"PolicyIdentifiers":null}`,
@@ -1497,6 +1514,10 @@ UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 		{
 			jmesPath:       "x509_decode('" + certs[5] + "')",
 			expectedResult: resExpected[1],
+		},
+		{
+			jmesPath:       "x509_decode('" + certs[6] + "')",
+			expectedResult: map[string]interface{}{},
 		},
 		{
 			jmesPath:       "x509_decode('xyz')",

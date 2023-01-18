@@ -1087,48 +1087,85 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 
 func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	res := make(map[string]interface{})
+	var cert *x509.Certificate = nil
+	var cr *x509.CertificateRequest = nil
 	input, err := validateArg(x509_decode, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 	p, _ := pem.Decode([]byte(input.String()))
 	if p == nil {
-		return res, errors.New("invalid certificate")
+		return res, errors.New("invalid certificate or certificate signing request")
 	}
 
-	cert, err := x509.ParseCertificate(p.Bytes)
+	cert, err = x509.ParseCertificate(p.Bytes)
 	if err != nil {
-		return res, err
+		cr, err = x509.ParseCertificateRequest(p.Bytes)
+		if err != nil {
+			return res, err
+		}
 	}
 
 	buf := new(bytes.Buffer)
-	if fmt.Sprint(cert.PublicKeyAlgorithm) == "RSA" {
-		spki := cryptobyte.String(cert.RawSubjectPublicKeyInfo)
-		if !spki.ReadASN1(&spki, cryptobyte_asn1.SEQUENCE) {
-			return res, errors.New("writing asn.1 element to 'spki' failed")
-		}
-		var pkAISeq cryptobyte.String
-		if !spki.ReadASN1(&pkAISeq, cryptobyte_asn1.SEQUENCE) {
-			return res, errors.New("writing asn.1 element to 'pkAISeq' failed")
-		}
-		var spk asn1.BitString
-		if !spki.ReadASN1BitString(&spk) {
-			return res, errors.New("writing asn.1 bit string to 'spk' failed")
-		}
-		kk, err := x509.ParsePKCS1PublicKey(spk.Bytes)
-		if err != nil {
-			return res, err
-		}
+	if cert != nil {
+		if fmt.Sprint(cert.PublicKeyAlgorithm) == "RSA" {
+			spki := cryptobyte.String(cert.RawSubjectPublicKeyInfo)
+			if !spki.ReadASN1(&spki, cryptobyte_asn1.SEQUENCE) {
+				return res, errors.New("writing asn.1 element to 'spki' failed")
+			}
+			var pkAISeq cryptobyte.String
+			if !spki.ReadASN1(&pkAISeq, cryptobyte_asn1.SEQUENCE) {
+				return res, errors.New("writing asn.1 element to 'pkAISeq' failed")
+			}
+			var spk asn1.BitString
+			if !spki.ReadASN1BitString(&spk) {
+				return res, errors.New("writing asn.1 bit string to 'spk' failed")
+			}
+			kk, err := x509.ParsePKCS1PublicKey(spk.Bytes)
+			if err != nil {
+				return res, err
+			}
 
-		cert.PublicKey = PublicKey{
-			N: kk.N.String(),
-			E: kk.E,
-		}
+			cert.PublicKey = PublicKey{
+				N: kk.N.String(),
+				E: kk.E,
+			}
 
-		enc := json.NewEncoder(buf)
-		err = enc.Encode(cert)
-		if err != nil {
-			return res, err
+			enc := json.NewEncoder(buf)
+			err = enc.Encode(cert)
+			if err != nil {
+				return res, err
+			}
+		}
+	} else if cr != nil {
+		if fmt.Sprint(cr.PublicKeyAlgorithm) == "RSA" {
+			spki := cryptobyte.String(cr.RawSubjectPublicKeyInfo)
+			if !spki.ReadASN1(&spki, cryptobyte_asn1.SEQUENCE) {
+				return res, errors.New("writing asn.1 element to 'spki' failed")
+			}
+			var pkAISeq cryptobyte.String
+			if !spki.ReadASN1(&pkAISeq, cryptobyte_asn1.SEQUENCE) {
+				return res, errors.New("writing asn.1 element to 'pkAISeq' failed")
+			}
+			var spk asn1.BitString
+			if !spki.ReadASN1BitString(&spk) {
+				return res, errors.New("writing asn.1 bit string to 'spk' failed")
+			}
+			kk, err := x509.ParsePKCS1PublicKey(spk.Bytes)
+			if err != nil {
+				return res, err
+			}
+
+			cr.PublicKey = PublicKey{
+				N: kk.N.String(),
+				E: kk.E,
+			}
+
+			enc := json.NewEncoder(buf)
+			err = enc.Encode(cr)
+			if err != nil {
+				return res, err
+			}
 		}
 	}
 
