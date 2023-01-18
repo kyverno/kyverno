@@ -199,6 +199,7 @@ func main() {
 		reportsChunkSize          int
 		backgroundScanWorkers     int
 		backgroundScanInterval    time.Duration
+		maxQueuedEvents           int
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
@@ -210,6 +211,7 @@ func main() {
 	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
+	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -244,13 +246,12 @@ func main() {
 	kyamlopenapi.Schema()
 	// informer factories
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	// kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	// cacheInformer, err := resolvers.GetCacheInformerFactory(kubeClient, resyncPeriod)
-	// if err != nil {
-	// 	logger.Error(err, "failed to create cache informer factory")
-	// 	os.Exit(1)
-	// }
+	cacheInformer, err := resolvers.GetCacheInformerFactory(kubeClient, resyncPeriod)
+	if err != nil {
+		logger.Error(err, "failed to create cache informer factory")
+		os.Exit(1)
+	}
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	// setup registry client
 	rclient, err := setupRegistryClient(ctx, logger, secretLister, imagePullSecrets, allowInsecureRegistry)
@@ -260,6 +261,21 @@ func main() {
 	}
 	// setup cosign
 	setupCosign(logger, imageSignatureRepository)
+	informerBasedResolver, err := resolvers.NewInformerBasedResolver(cacheInformer.Core().V1().ConfigMaps().Lister())
+	if err != nil {
+		logger.Error(err, "failed to create informer based resolver")
+		os.Exit(1)
+	}
+	clientBasedResolver, err := resolvers.NewClientBasedResolver(kubeClient)
+	if err != nil {
+		logger.Error(err, "failed to create client based resolver")
+		os.Exit(1)
+	}
+	configMapResolver, err := resolvers.NewResolverChain(informerBasedResolver, clientBasedResolver)
+	if err != nil {
+		logger.Error(err, "failed to create config map resolver")
+		os.Exit(1)
+	}
 	configuration, err := config.NewConfiguration(kubeClient)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
@@ -269,9 +285,7 @@ func main() {
 		dClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		// TODO
-		1000,
-		// maxQueuedEvents,
+		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
 	// setup leader election
@@ -303,9 +317,7 @@ func main() {
 				rclient,
 				configuration,
 				eventGenerator,
-				// TODO
-				nil,
-				// configMapResolver,
+				configMapResolver,
 				backgroundScanInterval,
 			)
 			if err != nil {
