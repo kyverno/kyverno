@@ -1,4 +1,5 @@
-name: image
+name: Publish images
+
 on:
   push:
     branches:
@@ -15,38 +16,78 @@ permissions:
   id-token: write 
 
 jobs:
-  push-init-kyverno:
-    uses: ./.github/workflows/reuse-v2.yaml
-    with:
-      makefile-target: ko-publish-kyvernopre-dev
-      sign-image: false
-    secrets:
-      registry_username: ${{ github.actor }}
-      registry_password: ${{ secrets.CR_PAT }}
+  publish-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      - name: Publish kyverno
+        uses: ./.github/actions/publish-image
+        with:
+          sign-image: true
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+      - name: Publish kyvernopre
+        uses: ./.github/actions/publish-image
+        with:
+          sign-image: true
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+      - name: Publish cleanup-controller
+        uses: ./.github/actions/publish-image
+        with:
+          sign-image: true
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+      - name: Publish cli
+        uses: ./.github/actions/publish-image
+        with:
+          sign-image: true
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
 
-  push-kyverno:
-    uses: ./.github/workflows/reuse-v2.yaml
-    with:
-      publish_command: ko-publish-kyverno-dev
-      sign-image: false
-    secrets:
-      registry_username: ${{ github.actor }}
-      registry_password: ${{ secrets.CR_PAT }}
+  # push-init-kyverno:
+  #   uses: ./.github/workflows/reuse-v2.yaml
+  #   with:
+  #     makefile-target: ko-publish-kyvernopre-dev
+  #     sign-image: false
+  #   secrets:
+  #     registry_username: ${{ github.actor }}
+  #     registry_password: ${{ secrets.CR_PAT }}
 
-  push-cleanup-controller:
-    uses: ./.github/workflows/reuse-v2.yaml
-    with:
-      publish_command: ko-publish-cleanup-controller-dev
-      sign-image: false
-    secrets:
-      registry_username: ${{ github.actor }}
-      registry_password: ${{ secrets.CR_PAT }}
+  # push-kyverno:
+  #   uses: ./.github/workflows/reuse-v2.yaml
+  #   with:
+  #     publish_command: ko-publish-kyverno-dev
+  #     sign-image: false
+  #   secrets:
+  #     registry_username: ${{ github.actor }}
+  #     registry_password: ${{ secrets.CR_PAT }}
 
-  push-kyverno-cli:
-    uses: ./.github/workflows/reuse-v2.yaml
-    with:
-      publish_command: ko-publish-cli-dev
-      sign-image: false
-    secrets:
-      registry_username: ${{ github.actor }}
-      registry_password: ${{ secrets.CR_PAT }}
+  # push-cleanup-controller:
+  #   uses: ./.github/workflows/reuse-v2.yaml
+  #   with:
+  #     publish_command: ko-publish-cleanup-controller-dev
+  #     sign-image: false
+  #   secrets:
+  #     registry_username: ${{ github.actor }}
+  #     registry_password: ${{ secrets.CR_PAT }}
+
+  # push-kyverno-cli:
+  #   uses: ./.github/workflows/reuse-v2.yaml
+  #   with:
+  #     publish_command: ko-publish-cli-dev
+  #     sign-image: false
+  #   secrets:
+  #     registry_username: ${{ github.actor }}
+  #     registry_password: ${{ secrets.CR_PAT }}
