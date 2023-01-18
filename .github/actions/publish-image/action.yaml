@@ -21,10 +21,13 @@ inputs:
   sign-image:
     required: true
     description: TODO
-  cosign-repository:
+  sbom-name:
     required: true
     description: TODO
-  sbom-name:
+  sbom-repository:
+    required: true
+    description: TODO
+  signature-repository:
     required: true
     description: TODO
   main-path:
@@ -62,53 +65,32 @@ runs:
       with:
         version: v1
         args: app -licenses -json -output ${{ inputs.sbom-name }}-bom.cdx.json -main ${{ inputs.main-path }}
-    - # if: ${{inputs.tag == 'release'}}
-      uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+    - uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
       with:
         name: ${{ inputs.sbom-name }}-bom-cdx
         path: ${{ inputs.sbom-name }}-bom.cdx.json
-
-#       # ???
-#       # - name: Extract branch name
-#       #   if: ${{inputs.tag == 'image'}}
-#       #   shell: bash
-#       #   run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-#       #   id: extract_branc
-#       # - name: Check branch
-#       #   if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch != 'main'}}
-#       #   id: check-branch
-#       #   run: |
-#       #     if [[ ${{ steps.extract_branch.outputs.branch }} =~ ^release-[0-9]+\.[0-9]$ ]]; then
-#       #         echo "match=true" >> $GITHUB_OUTPUT
-#       #     fi
-
-
-#       - name: Install Cosign
-#         uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
-#         with:
-#           cosign-release: 'v1.13.0'
-#       - name: ko publish image
-#         id: ko-publish
-#         env:
-#           COSIGN_REPOSITORY: ghcr.io/${{ github.repository_owner }}/sbom
-#           REGISTRY: ghcr.io
-#           REPO: ${{ github.repository_owner }}
-#           REGISTRY_PASSWORD: ${{ secrets.registry_password }}
-#         run: |
-#           set -e
-#           echo "digest=$(make ${{ inputs.makefile-target }})" >> $GITHUB_OUTPUT
-#       - name: Sign image
-#         if: ${{ inputs.sign-image == 'true' }}
-#         env:
-#           COSIGN_EXPERIMENTAL: 'true'
-#           COSIGN_REPOSITORY: ghcr.io/${{ github.repository_owner }}/signatures
-#         run: |
-#           set -e
-#           cosign sign \
-#             -a "repo=${{ github.repository }}" \
-#             -a "workflow=${{ github.workflow }}" \
-#             -a "ref=${{ github.sha }}" \
-#             ${{ steps.ko-publish.outputs.digest }}
+    - shell: bash
+      if: ${{ inputs.sign-image == 'true' }}
+      env:
+        COSIGN_EXPERIMENTAL: 'true'
+        COSIGN_REPOSITORY: ${{ inputs.signature-repository }}
+      run: |
+        set -e
+        echo "${{ github.repository }}"
+        echo "${{ github.workflow }}"
+        echo "${{ github.sha }}"
+    # - shell: bash
+    #   if: ${{ inputs.sign-image == 'true' }}
+    #   env:
+    #     COSIGN_EXPERIMENTAL: 'true'
+    #     COSIGN_REPOSITORY: ghcr.io/${{ github.repository_owner }}/signatures
+    #   run: |
+    #     set -e
+    #     cosign sign \
+    #       -a "repo=${{ github.repository }}" \
+    #       -a "workflow=${{ github.workflow }}" \
+    #       -a "ref=${{ github.sha }}" \
+    #       ${{ steps.ko-publish.outputs.digest }}
 #       # - name : Attach SBOM
 #       #   if: ${{inputs.tag == 'release'}}
 #       #   env:

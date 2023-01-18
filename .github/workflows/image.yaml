@@ -30,13 +30,17 @@ jobs:
         with:
           build-cache-key: publish-images
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5
+        uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5 # v0.8.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
+        with:
+          cosign-release: 'v1.13.0'
       - name: Publish kyverno
         uses: ./.github/actions/publish-image
         with:
@@ -45,8 +49,9 @@ jobs:
           registry-password: ${{ secrets.CR_PAT }}
           repository: ${{ github.repository_owner }}
           sign-image: true
-          cosign-repository: ''
           sbom-name: kyverno
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/kyverno
       - name: Publish kyvernopre
         uses: ./.github/actions/publish-image
