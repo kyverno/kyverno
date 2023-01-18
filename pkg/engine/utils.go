@@ -18,6 +18,7 @@ import (
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -124,7 +125,8 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 		}
 	}
 
-	if conditionBlock.NamespaceSelector != nil && resource.GetKind() != "Namespace" && resource.GetKind() != "" {
+	if conditionBlock.NamespaceSelector != nil && resource.GetKind() != "Namespace" && resource.GetKind() != "" ||
+		(slices.Contains(conditionBlock.Kinds, "*") && wildcard.Match("*", resource.GetKind())) {
 		hasPassed, err := matchutils.CheckSelector(conditionBlock.NamespaceSelector, namespaceLabels)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
