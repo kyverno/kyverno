@@ -38,9 +38,14 @@ jobs:
       - name: Publish kyverno
         uses: ./.github/actions/publish-image
         with:
-          sign-image: true
+          registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          cosign-repository: ''
+          sbom-name: kyverno
+          main-path: ./cmd/kyverno
       - name: Publish kyvernopre
         uses: ./.github/actions/publish-image
         with:
