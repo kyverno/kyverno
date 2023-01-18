@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -126,8 +126,8 @@ func filterInvalidPatches(patches []jsonpatch.JsonPatchOperation) []jsonpatch.Js
 }
 
 func ignorePatch(path string) bool {
-	if strings.Contains(path, "/status") {
-		return true
+	if wildcard.Match("/spec/triggers/*/metadata/*", path) {
+		return false
 	}
 
 	if wildcard.Match("*/metadata", path) {

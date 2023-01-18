@@ -1,14 +1,20 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	authorizationv1 "k8s.io/api/authorization/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 )
+
+// Discovery provides interface to mange Kind and GVR mapping
+type Discovery interface {
+	GetGVRFromKind(kind string) (schema.GroupVersionResource, error)
+}
 
 // CanIOptions provides utility to check if user has authorization for the given operation
 type CanIOptions interface {
@@ -18,23 +24,27 @@ type CanIOptions interface {
 	// - group version resource is determined from the kind using the discovery client REST mapper
 	// - If disallowed, the reason and evaluationError is available in the logs
 	// - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-	RunAccessCheck() (bool, error)
+	RunAccessCheck(context.Context) (bool, error)
 }
 
 type canIOptions struct {
-	namespace string
-	verb      string
-	kind      string
-	client    dclient.Interface
+	namespace   string
+	verb        string
+	kind        string
+	subresource string
+	discovery   Discovery
+	ssarClient  authorizationv1client.SelfSubjectAccessReviewInterface
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(client dclient.Interface, kind, namespace, verb string) CanIOptions {
+func NewCanI(discovery Discovery, ssarClient authorizationv1client.SelfSubjectAccessReviewInterface, kind, namespace, verb, subresource string) CanIOptions {
 	return &canIOptions{
-		namespace: namespace,
-		kind:      kind,
-		verb:      verb,
-		client:    client,
+		namespace:   namespace,
+		verb:        verb,
+		kind:        kind,
+		subresource: subresource,
+		discovery:   discovery,
+		ssarClient:  ssarClient,
 	}
 }
 
@@ -44,10 +54,10 @@ func NewCanI(client dclient.Interface, kind, namespace, verb string) CanIOptions
 // - group version resource is determined from the kind using the discovery client REST mapper
 // - If disallowed, the reason and evaluationError is available in the logs
 // - each can generates a SelfSubjectAccessReview resource and response is evaluated for permissions
-func (o *canIOptions) RunAccessCheck() (bool, error) {
+func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
-	gvr, err := o.client.Discovery().GetGVRFromKind(o.kind)
+	gvr, err := o.discovery.GetGVRFromKind(o.kind)
 	if err != nil {
 		return false, fmt.Errorf("failed to get GVR for kind %s", o.kind)
 	}
@@ -60,10 +70,11 @@ func (o *canIOptions) RunAccessCheck() (bool, error) {
 	sar := &authorizationv1.SelfSubjectAccessReview{
 		Spec: authorizationv1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &authorizationv1.ResourceAttributes{
-				Namespace: o.namespace,
-				Verb:      o.verb,
-				Group:     gvr.Group,
-				Resource:  gvr.Resource,
+				Namespace:   o.namespace,
+				Verb:        o.verb,
+				Group:       gvr.Group,
+				Resource:    gvr.Resource,
+				Subresource: o.subresource,
 			},
 		},
 	}
@@ -75,42 +86,18 @@ func (o *canIOptions) RunAccessCheck() (bool, error) {
 	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
 	// Create the Resource
-	resp, err := o.client.CreateResource("", "SelfSubjectAccessReview", "", sar, false)
+	resp, err := o.ssarClient.Create(ctx, sar, metav1.CreateOptions{})
 	if err != nil {
 		logger.Error(err, "failed to create resource")
 		return false, err
 	}
 
-	// status.allowed
-	allowed, ok, err := unstructured.NestedBool(resp.Object, "status", "allowed")
-	if !ok {
-		if err != nil {
-			logger.Error(err, "failed to get the field", "field", "status.allowed")
-		}
-		logger.Info("field not found", "field", "status.allowed")
-	}
-
-	if !allowed {
-		// status.reason
-		reason, ok, err := unstructured.NestedString(resp.Object, "status", "reason")
-		if !ok {
-			if err != nil {
-				logger.Error(err, "failed to get the field", "field", "status.reason")
-			}
-			logger.Info("field not found", "field", "status.reason")
-		}
-		// status.evaluationError
-		evaluationError, ok, err := unstructured.NestedString(resp.Object, "status", "evaluationError")
-		if !ok {
-			if err != nil {
-				logger.Error(err, "failed to get the field", "field", "status.evaluationError")
-			}
-			logger.Info("field not found", "field", "status.evaluationError")
-		}
-
+	if !resp.Status.Allowed {
+		reason := resp.Status.Reason
+		evaluationError := resp.Status.EvaluationError
 		// Reporting ? (just logs)
 		logger.Info("disallowed operation", "reason", reason, "evaluationError", evaluationError)
 	}
 
-	return allowed, nil
+	return resp.Status.Allowed, nil
 }

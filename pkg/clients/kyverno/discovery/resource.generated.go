@@ -1,16 +1,11 @@
 package resource
 
 import (
-	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
 	github_com_google_gnostic_openapiv2 "github.com/google/gnostic/openapiv2"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/tracing"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.uber.org/multierr"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_io_apimachinery_pkg_version "k8s.io/apimachinery/pkg/version"
@@ -127,6 +122,13 @@ func (c *withLogging) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, er
 	}
 	return ret0, ret1
 }
+func (c *withLogging) WithLegacy() k8s_io_client_go_discovery.DiscoveryInterface {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "WithLegacy")
+	ret0 := c.inner.WithLegacy()
+	logger.Info("WithLegacy done", "duration", time.Since(start))
+	return ret0
+}
 
 type withMetrics struct {
 	inner    k8s_io_client_go_discovery.DiscoveryInterface
@@ -169,6 +171,10 @@ func (c *withMetrics) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, er
 	defer c.recorder.Record("server_version")
 	return c.inner.ServerVersion()
 }
+func (c *withMetrics) WithLegacy() k8s_io_client_go_discovery.DiscoveryInterface {
+	defer c.recorder.Record("with_legacy")
+	return c.inner.WithLegacy()
+}
 
 type withTracing struct {
 	inner  k8s_io_client_go_discovery.DiscoveryInterface
@@ -177,147 +183,32 @@ type withTracing struct {
 }
 
 func (c *withTracing) OpenAPISchema() (*github_com_google_gnostic_openapiv2.Document, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "OpenAPISchema"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "OpenAPISchema"),
-	)
-	defer span.End()
-	ret0, ret1 := c.inner.OpenAPISchema()
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
-	return ret0, ret1
+	return c.inner.OpenAPISchema()
 }
 func (c *withTracing) OpenAPIV3() k8s_io_client_go_openapi.Client {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "OpenAPIV3"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "OpenAPIV3"),
-	)
-	defer span.End()
-	ret0 := c.inner.OpenAPIV3()
-	return ret0
+	return c.inner.OpenAPIV3()
 }
 func (c *withTracing) RESTClient() k8s_io_client_go_rest.Interface {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "RESTClient"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "RESTClient"),
-	)
-	defer span.End()
-	ret0 := c.inner.RESTClient()
-	return ret0
+	return c.inner.RESTClient()
 }
 func (c *withTracing) ServerGroups() (*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroupList, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ServerGroups"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "ServerGroups"),
-	)
-	defer span.End()
-	ret0, ret1 := c.inner.ServerGroups()
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
-	return ret0, ret1
+	return c.inner.ServerGroups()
 }
 func (c *withTracing) ServerGroupsAndResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIGroup, []*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ServerGroupsAndResources"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "ServerGroupsAndResources"),
-	)
-	defer span.End()
-	ret0, ret1, ret2 := c.inner.ServerGroupsAndResources()
-	if ret2 != nil {
-		span.RecordError(ret2)
-		span.SetStatus(codes.Error, ret2.Error())
-	}
-	return ret0, ret1, ret2
+	return c.inner.ServerGroupsAndResources()
 }
 func (c *withTracing) ServerPreferredNamespacedResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ServerPreferredNamespacedResources"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "ServerPreferredNamespacedResources"),
-	)
-	defer span.End()
-	ret0, ret1 := c.inner.ServerPreferredNamespacedResources()
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
-	return ret0, ret1
+	return c.inner.ServerPreferredNamespacedResources()
 }
 func (c *withTracing) ServerPreferredResources() ([]*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ServerPreferredResources"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "ServerPreferredResources"),
-	)
-	defer span.End()
-	ret0, ret1 := c.inner.ServerPreferredResources()
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
-	return ret0, ret1
+	return c.inner.ServerPreferredResources()
 }
 func (c *withTracing) ServerResourcesForGroupVersion(arg0 string) (*k8s_io_apimachinery_pkg_apis_meta_v1.APIResourceList, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ServerResourcesForGroupVersion"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "ServerResourcesForGroupVersion"),
-	)
-	defer span.End()
-	ret0, ret1 := c.inner.ServerResourcesForGroupVersion(arg0)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
-	return ret0, ret1
+	return c.inner.ServerResourcesForGroupVersion(arg0)
 }
 func (c *withTracing) ServerVersion() (*k8s_io_apimachinery_pkg_version.Info, error) {
-	_, span := tracing.StartSpan(
-		context.TODO(),
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "ServerVersion"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "ServerVersion"),
-	)
-	defer span.End()
-	ret0, ret1 := c.inner.ServerVersion()
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
-	}
-	return ret0, ret1
+	return c.inner.ServerVersion()
+}
+func (c *withTracing) WithLegacy() k8s_io_client_go_discovery.DiscoveryInterface {
+	return c.inner.WithLegacy()
 }

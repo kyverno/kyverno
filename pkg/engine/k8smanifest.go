@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/x509"
 	_ "embed"
@@ -50,14 +51,14 @@ func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {
-		return ruleResponse(*rule, response.Validation, reason, response.RuleStatusFail, nil)
+		return ruleResponse(*rule, response.Validation, reason, response.RuleStatusFail)
 	}
-	return ruleResponse(*rule, response.Validation, reason, response.RuleStatusPass, nil)
+	return ruleResponse(*rule, response.Validation, reason, response.RuleStatusPass)
 }
 
 func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
 	// load AdmissionRequest
-	request, err := policyContext.JSONContext.Query("request")
+	request, err := policyContext.jsonContext.Query("request")
 	if err != nil {
 		return false, "", errors.Wrapf(err, "failed to get a request from policyContext")
 	}
@@ -105,7 +106,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 	}
 	if !vo.DisableDryRun {
 		// check if kyverno can 'create' dryrun resource
-		ok, err := checkDryRunPermission(policyContext.Client, adreq.Kind.Kind, vo.DryRunNamespace)
+		ok, err := checkDryRunPermission(policyContext.client, adreq.Kind.Kind, vo.DryRunNamespace)
 		if err != nil {
 			logger.V(1).Info("failed to check permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind, "error", err.Error())
 			vo.DisableDryRun = true
@@ -398,8 +399,8 @@ func checkManifestAnnotations(mnfstAnnotations map[string]string, annotations ma
 }
 
 func checkDryRunPermission(dclient dclient.Interface, kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(dclient, kind, namespace, "create")
-	ok, err := canI.RunAccessCheck()
+	canI := auth.NewCanI(dclient.Discovery(), dclient.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "create", "")
+	ok, err := canI.RunAccessCheck(context.TODO())
 	if err != nil {
 		return false, err
 	}

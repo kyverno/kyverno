@@ -5,7 +5,6 @@ import (
 	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/logging"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // ApplyPatches patches given resource with given patches and returns patched document
@@ -44,16 +43,6 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	}
 
 	return patchedResource, err
-}
-
-// ConvertToUnstructured converts the resource to unstructured format
-func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
-	resource := &unstructured.Unstructured{}
-	err := resource.UnmarshalJSON(data)
-	if err != nil {
-		return nil, err
-	}
-	return resource, nil
 }
 
 // GetAnchorsFromMap gets the conditional anchor map

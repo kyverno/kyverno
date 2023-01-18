@@ -10,7 +10,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -60,7 +60,7 @@ func buildPolicyReports(pvInfos []common.Info) (res []*unstructured.Unstructured
 			}
 		}
 
-		reportUnstructured, err := engineutils.ConvertToUnstructured(raw)
+		reportUnstructured, err := kubeutils.BytesToUnstructured(raw)
 		if err != nil {
 			log.Log.V(3).Info("failed to convert policy report", "scope", scope, "error", err)
 			continue

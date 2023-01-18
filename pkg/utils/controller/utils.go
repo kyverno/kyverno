@@ -167,7 +167,7 @@ func UpdateStatus[T interface {
 }
 
 func Cleanup[T any, R Object[T]](ctx context.Context, actual []R, expected []R, deleter Deleter) error {
-	keep := sets.NewString()
+	keep := sets.New[string]()
 	for _, obj := range expected {
 		keep.Insert(obj.GetName())
 	}

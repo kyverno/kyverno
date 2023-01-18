@@ -31,18 +31,17 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
 	for gvr := range wh.rules {
-		resources := sets.NewString(gvr.Resource)
-		if resources.Has("pods") {
+		resources := sets.New(gvr.Resource)
+		ephemeralContainersGVR := schema.GroupVersionResource{Resource: "pods/ephemeralcontainers", Group: "", Version: "v1"}
+		_, rulesContainEphemeralContainers := wh.rules[ephemeralContainersGVR]
+		if resources.Has("pods") && !rulesContainEphemeralContainers {
 			resources.Insert("pods/ephemeralcontainers")
-		}
-		if resources.Has("services") {
-			resources.Insert("services/status")
 		}
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvr.Group},
 				APIVersions: []string{gvr.Version},
-				Resources:   resources.List(),
+				Resources:   sets.List(resources),
 			},
 			Operations: ops,
 		})
@@ -91,7 +90,7 @@ func hasWildcard(policies ...kyvernov1.PolicyInterface) bool {
 	for _, policy := range policies {
 		spec := policy.GetSpec()
 		for _, rule := range spec.Rules {
-			if kinds := rule.MatchResources.GetKinds(); utils.ContainsString(kinds, "*") {
+			if kinds := rule.MatchResources.GetKinds(); slices.Contains(kinds, "*") {
 				return true
 			}
 		}
@@ -103,7 +102,7 @@ func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
-			managedByLabel: kyvernov1.ValueKyvernoApp,
+			utils.ManagedByLabel: kyvernov1.ValueKyvernoApp,
 		},
 		OwnerReferences: owner,
 	}

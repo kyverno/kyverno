@@ -53,8 +53,18 @@ type ResourceDescription struct {
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
 }
 
+func (r ResourceDescription) IsEmpty() bool {
+	return len(r.Kinds) == 0 &&
+		r.Name == "" &&
+		len(r.Names) == 0 &&
+		len(r.Namespaces) == 0 &&
+		len(r.Annotations) == 0 &&
+		r.Selector == nil &&
+		r.NamespaceSelector == nil
+}
+
 // Validate implements programmatic validation
-func (r *ResourceDescription) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
+func (r *ResourceDescription) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if r.Name != "" && len(r.Names) > 0 {
 		errs = append(errs, field.Invalid(path, r, "Both name and names can not be specified together"))
 	}

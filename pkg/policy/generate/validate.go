@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -84,7 +85,7 @@ func (g *Generate) Validate() (string, error) {
 	}
 
 	// Kyverno generate-controller create/update/deletes the resources specified in generate rule of policy
-	// kyverno uses SA 'kyverno-service-account' and has default ClusterRoles and ClusterRoleBindings
+	// kyverno uses SA 'kyverno' and has default ClusterRoles and ClusterRoleBindings
 	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 	// - operations required: create/update/delete/get
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
@@ -114,7 +115,7 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 	// Skip if there is variable defined
 	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
 		// GET
-		ok, err := g.authCheck.CanIGet(kind, namespace)
+		ok, err := g.authCheck.CanIGet(context.TODO(), kind, namespace)
 		if err != nil {
 			return "", err
 		}
@@ -133,7 +134,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 	authCheck := g.authCheck
 	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
 		// CREATE
-		ok, err := authCheck.CanICreate(kind, namespace)
+		ok, err := authCheck.CanICreate(context.TODO(), kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
@@ -142,7 +143,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 			return fmt.Errorf("kyverno does not have permissions to 'create' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
 		// UPDATE
-		ok, err = authCheck.CanIUpdate(kind, namespace)
+		ok, err = authCheck.CanIUpdate(context.TODO(), kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
@@ -151,7 +152,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 			return fmt.Errorf("kyverno does not have permissions to 'update' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
 		// GET
-		ok, err = authCheck.CanIGet(kind, namespace)
+		ok, err = authCheck.CanIGet(context.TODO(), kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
@@ -161,7 +162,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 		}
 
 		// DELETE
-		ok, err = authCheck.CanIDelete(kind, namespace)
+		ok, err = authCheck.CanIDelete(context.TODO(), kind, namespace)
 		if err != nil {
 			// machinery error
 			return err

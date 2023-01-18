@@ -365,7 +365,7 @@ func Test_subVars_withRegexReplaceAll(t *testing.T) {
 func Test_ReplacingPathWhenDeleting(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.annotations.target}}"`)
 
-	var resourceRaw = []byte(`
+	resourceRaw := []byte(`
 	{
 		"request": {
 			"operation": "DELETE",
@@ -408,7 +408,7 @@ func Test_ReplacingPathWhenDeleting(t *testing.T) {
 func Test_ReplacingNestedVariableWhenDeleting(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.annotations.{{request.object.metadata.annotations.targetnew}}}}"`)
 
-	var resourceRaw = []byte(`
+	resourceRaw := []byte(`
 	{
 		"request":{
 		   "operation":"DELETE",
@@ -468,8 +468,8 @@ func Test_SubstituteSuccess(t *testing.T) {
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
-		Path:     "/"})
-
+		Path:     "/",
+	})
 	if err != nil {
 		t.Errorf("substitution failed: %v", err.Error())
 		return
@@ -492,7 +492,8 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
-		Path:     "/"})
+		Path:     "/",
+	})
 
 	if err == nil {
 		t.Errorf("expected error but received: %v", results)
@@ -505,7 +506,8 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	results, err = action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
-		Path:     "/"})
+		Path:     "/",
+	})
 
 	if err == nil {
 		t.Errorf("expected error but received: %v", results)
@@ -524,8 +526,8 @@ func Test_SubstituteRecursive(t *testing.T) {
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
-		Path:     "/"})
-
+		Path:     "/",
+	})
 	if err != nil {
 		t.Errorf("substitution failed: %v", err.Error())
 		return
@@ -1146,7 +1148,7 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 	patternRaw := []byte(`"\\{{request.object.metadata.annotations.{{request.object.metadata.annotations.targetnew}}}}"`)
 
-	var resourceRaw = []byte(`
+	resourceRaw := []byte(`
 	{
 		"request":{
 		   "operation":"DELETE",
@@ -1176,4 +1178,39 @@ func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 	assert.NilError(t, err)
 
 	assert.Equal(t, fmt.Sprintf("%v", pattern), "{{request.object.metadata.annotations.target}}")
+}
+
+func Test_RegexVariables(t *testing.T) {
+	vars := RegexVariables.FindAllString("tag: {{ value }}", -1)
+	assert.Equal(t, len(vars), 1)
+	assert.Equal(t, vars[0], " {{ value }}")
+
+	res := RegexVariables.ReplaceAllString("tag: {{ value }}", "${1}test")
+	assert.Equal(t, res, "tag: test")
+}
+
+func Test_IsVariable(t *testing.T) {
+	assert.Equal(t, IsVariable("{{ foo }}"), true)
+	assert.Equal(t, IsVariable("{{ foo {{foo2}} }}"), true)
+	assert.Equal(t, IsVariable("\\{{ foo }}"), false)
+}
+
+func Test_ReplaceAllVars(t *testing.T) {
+	result := ReplaceAllVars("{{ foo }}", func(s string) string { return "test" })
+	assert.Equal(t, result, "test")
+
+	result = ReplaceAllVars("\"{{ foo }}\"", func(s string) string { return "test" })
+	assert.Equal(t, result, "\"test\"")
+
+	result = ReplaceAllVars("/s/{{elementIndex}}/r", func(s string) string { return "test" })
+	assert.Equal(t, result, "/s/test/r")
+
+	result = ReplaceAllVars("{{ foo }} {{foo}} {{foo}}", func(s string) string { return "test" })
+	assert.Equal(t, result, "test test test")
+
+	result = ReplaceAllVars("{{ foo }} \\{{foo}} {{foo}}", func(s string) string { return "test" })
+	assert.Equal(t, result, "test \\{{foo}} test")
+
+	result = ReplaceAllVars("{{ foo {{foo}} }}", func(s string) string { return "test" })
+	assert.Equal(t, result, "{{ foo test }}")
 }

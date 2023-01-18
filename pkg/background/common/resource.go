@@ -1,13 +1,14 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	logr "github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/common"
+	retryutils "github.com/kyverno/kyverno/pkg/utils/retry"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -20,7 +21,7 @@ func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSp
 		if resourceSpec.Kind == "Namespace" {
 			resourceSpec.Namespace = ""
 		}
-		resource, err := client.GetResource(resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
+		resource, err := client.GetResource(context.TODO(), resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
 		if err != nil {
 			if urSpec.Type == kyvernov1beta1.Mutate && errors.IsNotFound(err) && urSpec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
 				log.V(4).Info("trigger resource does not exist for mutateExisting rule", "operation", urSpec.Context.AdmissionRequestInfo.Operation)
@@ -40,12 +41,12 @@ func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSp
 
 	var resource *unstructured.Unstructured
 	var err error
-	retry := func() error {
+	retry := func(_ context.Context) error {
 		resource, err = get()
 		return err
 	}
 
-	f := common.RetryFunc(time.Second, 5*time.Second, retry, "failed to get resource", log.WithName("getResource"))
+	f := retryutils.RetryFunc(context.TODO(), time.Second, 5*time.Second, log.WithName("getResource"), "failed to get resource", retry)
 	if err := f(); err != nil {
 		return nil, err
 	}

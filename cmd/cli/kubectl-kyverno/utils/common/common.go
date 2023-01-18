@@ -21,13 +21,16 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	ut "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/registryclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -57,11 +60,17 @@ type Values struct {
 	Policies           []Policy            `json:"policies"`
 	GlobalValues       map[string]string   `json:"globalValues"`
 	NamespaceSelectors []NamespaceSelector `json:"namespaceSelector"`
+	Subresources       []Subresource       `json:"subresources"`
 }
 
 type Resource struct {
 	Name   string                 `json:"name"`
 	Values map[string]interface{} `json:"values"`
+}
+
+type Subresource struct {
+	APIResource    metav1.APIResource `json:"subresource"`
+	ParentResource metav1.APIResource `json:"parentResource"`
 }
 
 type NamespaceSelector struct {
@@ -84,6 +93,7 @@ type ApplyPolicyConfig struct {
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
 	AuditWarn                 bool
+	Subresources              []Subresource
 }
 
 // HasVariables - check for variables in the policy
@@ -214,11 +224,12 @@ func RemoveDuplicateAndObjectVariables(matches [][]string) string {
 	return variableStr
 }
 
-func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]string, map[string]map[string]Resource, map[string]map[string]string, error) {
+func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit bool, policyResourcePath string) (map[string]string, map[string]string, map[string]map[string]Resource, map[string]map[string]string, []Subresource, error) {
 	valuesMapResource := make(map[string]map[string]Resource)
 	valuesMapRule := make(map[string]map[string]Rule)
 	namespaceSelectorMap := make(map[string]map[string]string)
 	variables := make(map[string]string)
+	subresources := make([]Subresource, 0)
 	globalValMap := make(map[string]string)
 	reqObjVars := ""
 
@@ -258,17 +269,17 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		}
 
 		if err != nil {
-			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("unable to read yaml", err)
+			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, sanitizederror.NewWithError("unable to read yaml", err)
 		}
 
 		valuesBytes, err := yaml.ToJSON(yamlFile)
 		if err != nil {
-			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to convert json", err)
+			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, sanitizederror.NewWithError("failed to convert json", err)
 		}
 
 		values := &Values{}
 		if err := json.Unmarshal(valuesBytes, values); err != nil {
-			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
+			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 
 		if values.GlobalValues == nil {
@@ -320,15 +331,16 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		for _, n := range values.NamespaceSelectors {
 			namespaceSelectorMap[n.Name] = n.Labels
 		}
+
+		subresources = values.Subresources
 	}
 
 	if reqObjVars != "" {
-		fmt.Printf(("\nNOTICE: request.object.* variables are automatically parsed from the supplied resource. Ignoring value of variables `%v`.\n"), reqObjVars)
+		fmt.Printf("\nNOTICE: request.object.* variables are automatically parsed from the supplied resource. Ignoring value of variables `%v`.\n", reqObjVars)
 	}
 
 	if globalValMap != nil {
-		_, exist := globalValMap["request.operation"]
-		if !exist {
+		if _, ok := globalValMap["request.operation"]; !ok {
 			globalValMap["request.operation"] = "CREATE"
 			log.Log.V(3).Info("Defaulting request.operation to CREATE")
 		}
@@ -341,7 +353,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			storeRules = append(storeRules, store.Rule{
 				Name:          rule.Name,
 				Values:        rule.Values,
-				ForeachValues: rule.ForeachValues,
+				ForEachValues: rule.ForeachValues,
 			})
 		}
 		storePolicies = append(storePolicies, store.Policy{
@@ -354,7 +366,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		Policies: storePolicies,
 	})
 
-	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, nil
+	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, nil
 }
 
 // ApplyPolicyOnResource - function to apply policy on resource
@@ -417,7 +429,7 @@ OuterLoop:
 		log.Log.Error(err, "failed to marshal resource")
 	}
 
-	updatedResource, err := ut.ConvertToUnstructured(resourceRaw)
+	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
 	if err != nil {
 		log.Log.Error(err, "unable to convert raw resource to unstructured")
 	}
@@ -440,7 +452,8 @@ OuterLoop:
 		}
 	}
 
-	if err := ctx.AddImageInfos(c.Resource); err != nil {
+	cfg := config.NewDefaultConfiguration()
+	if err := ctx.AddImageInfos(c.Resource, cfg); err != nil {
 		if err != nil {
 			log.Log.Error(err, "failed to add image variables to context")
 		}
@@ -450,16 +463,32 @@ OuterLoop:
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
-	policyContext := &engine.PolicyContext{
-		Policy:          c.Policy,
-		NewResource:     *updatedResource,
-		JSONContext:     ctx,
-		NamespaceLabels: namespaceLabels,
-		AdmissionInfo:   c.UserInfo,
-		Client:          c.Client,
+	subresources := make([]struct {
+		APIResource    metav1.APIResource
+		ParentResource metav1.APIResource
+	}, 0)
+
+	// If --cluster flag is not set, then we need to add subresources to the context
+	if c.Client == nil {
+		for _, subresource := range c.Subresources {
+			subresources = append(subresources, struct {
+				APIResource    metav1.APIResource
+				ParentResource metav1.APIResource
+			}{
+				APIResource: subresource.APIResource, ParentResource: subresource.ParentResource,
+			})
+		}
 	}
 
-	mutateResponse := engine.Mutate(policyContext)
+	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(c.Policy).
+		WithNewResource(*updatedResource).
+		WithNamespaceLabels(namespaceLabels).
+		WithAdmissionInfo(c.UserInfo).
+		WithClient(c.Client).
+		WithSubresourcesInPolicy(subresources)
+
+	mutateResponse := engine.Mutate(context.Background(), registryclient.NewOrDie(), policyContext)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -478,12 +507,12 @@ OuterLoop:
 		}
 	}
 
-	policyContext.NewResource = mutateResponse.PatchedResource
+	policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
 
 	var info Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.Validate(policyContext)
+		validateResponse = engine.Validate(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
@@ -491,7 +520,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := engine.VerifyAndPatchImages(policyContext)
+	verifyImageResponse, _ := engine.VerifyAndPatchImages(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
@@ -505,17 +534,7 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		policyContext := &engine.PolicyContext{
-			NewResource:      *c.Resource,
-			Policy:           c.Policy,
-			ExcludeGroupRole: []string{},
-			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
-				return false
-			},
-			JSONContext:     ctx,
-			NamespaceLabels: namespaceLabels,
-		}
-		generateResponse := engine.ApplyBackgroundChecks(policyContext)
+		generateResponse := engine.ApplyBackgroundChecks(registryclient.NewOrDie(), policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
@@ -953,17 +972,62 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 	return thisPolicyResourceValues, nil
 }
 
-func GetKindsFromPolicy(policy kyvernov1.PolicyInterface) map[string]struct{} {
+func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []Subresource, dClient dclient.Interface) map[string]struct{} {
 	kindOnwhichPolicyIsApplied := make(map[string]struct{})
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-			kindOnwhichPolicyIsApplied[kind] = struct{}{}
+			k, err := getKind(kind, subresources, dClient)
+			if err != nil {
+				fmt.Printf("Error: %s", err.Error())
+				continue
+			}
+			kindOnwhichPolicyIsApplied[k] = struct{}{}
 		}
 		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-			kindOnwhichPolicyIsApplied[kind] = struct{}{}
+			k, err := getKind(kind, subresources, dClient)
+			if err != nil {
+				fmt.Printf("Error: %s", err.Error())
+				continue
+			}
+			kindOnwhichPolicyIsApplied[k] = struct{}{}
 		}
 	}
 	return kindOnwhichPolicyIsApplied
+}
+
+func getKind(kind string, subresources []Subresource, dClient dclient.Interface) (string, error) {
+	gv, k := kubeutils.GetKindFromGVK(kind)
+	parentKind, subresource := kubeutils.SplitSubresource(k)
+	var err error
+	if subresource != "" {
+		if dClient != nil {
+			var apiResource *metav1.APIResource
+			apiResource, _, _, err = dClient.Discovery().FindResource(gv, k)
+			if err == nil {
+				k = apiResource.Kind
+			}
+		} else {
+			k, err = getSubresourceKind(gv, parentKind, subresource, subresources)
+		}
+	}
+	return k, err
+}
+
+func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []Subresource) (string, error) {
+	for _, subresource := range subresources {
+		parentResourceGroupVersion := metav1.GroupVersion{
+			Group:   subresource.ParentResource.Group,
+			Version: subresource.ParentResource.Version,
+		}.String()
+		if groupVersion == "" || kubeutils.GroupVersionMatches(groupVersion, parentResourceGroupVersion) {
+			if parentKind == subresource.ParentResource.Kind {
+				if strings.ToLower(subresourceName) == strings.Split(subresource.APIResource.Name, "/")[1] {
+					return subresource.APIResource.Kind, nil
+				}
+			}
+		}
+	}
+	return "", sanitizederror.NewWithError(fmt.Sprintf("subresource %s not found for parent resource %s", subresourceName, parentKind), nil)
 }
 
 // GetResourceFromPath - get patchedResource and generatedResource from given path
@@ -1011,7 +1075,8 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 
 // handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
 func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
-	objects := []runtime.Object{&policyContext.NewResource}
+	resource := policyContext.NewResource()
+	objects := []runtime.Object{&resource}
 	resources := []*unstructured.Unstructured{}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		if path, ok := ruleToCloneSourceResource[rule.Name]; ok {
@@ -1130,4 +1195,32 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		}
 	}
 	return *userInfo, *subjectInfo, nil
+}
+
+func IsGitSourcePath(policyPaths []string) bool {
+	return strings.Contains(policyPaths[0], "https://")
+}
+
+func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) (string, string) {
+	var gitPathToYamls string
+	if gitBranch == "" {
+		gitPathToYamls = "/"
+		if string(policyPaths[0][len(policyPaths[0])-1]) == "/" {
+			gitBranch = strings.ReplaceAll(policyPaths[0], repoURL+"/", "")
+		} else {
+			gitBranch = strings.ReplaceAll(policyPaths[0], repoURL, "")
+		}
+		if gitBranch == "" {
+			gitBranch = "main"
+		} else if string(gitBranch[0]) == "/" {
+			gitBranch = gitBranch[1:]
+		}
+		return gitBranch, gitPathToYamls
+	}
+	if string(policyPaths[0][len(policyPaths[0])-1]) == "/" {
+		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL+"/", "/")
+	} else {
+		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL, "/")
+	}
+	return gitBranch, gitPathToYamls
 }

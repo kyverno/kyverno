@@ -57,7 +57,7 @@ func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 	switch valuesAvailable := value.(type) {
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcard.Match(key, fmt.Sprint(val)) {
+			if wildcard.Match(fmt.Sprint(val), key) || wildcard.Match(key, fmt.Sprint(val)) {
 				return false, true
 			}
 		}
@@ -190,16 +190,14 @@ func isAllIn(key []string, value []string) bool {
 
 // isAllNotIn checks if all the values in S1 are not in S2
 func isAllNotIn(key []string, value []string) bool {
-	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
 			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
-				found++
-				break
+				return false
 			}
 		}
 	}
-	return found != len(key)
+	return true
 }
 
 func (allin AllInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {

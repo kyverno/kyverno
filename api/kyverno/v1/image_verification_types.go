@@ -127,9 +127,12 @@ type Attestor struct {
 type StaticKeyAttestor struct {
 	// Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 	// specified or can be a variable reference to a key specified in a ConfigMap (see
-	// https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each
-	// key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
-	// attestors and the count is applied across the keys.
+	// https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+	// elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
+	// The named Secret must specify a key `cosign.pub` containing the public key used for
+	// verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+	// When multiple keys are specified each key is processed as a separate staticKey entry
+	// (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
 	// Specify signature algorithm for public keys. Supported values are sha256 and sha512
@@ -211,11 +214,16 @@ type CTLog struct {
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
 	// PredicateType defines the type of Predicate contained within the Statement.
-	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
+	// +kubebuilder:validation:Required
+	PredicateType string `json:"predicateType" yaml:"predicateType"`
+
+	// Attestors specify the required attestors (i.e. authorities)
+	// +kubebuilder:validation:Optional
+	Attestors []AttestorSet `json:"attestors" yaml:"attestors"`
 
 	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
-	// +optional
+	// +kubebuilder:validation:Optional
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
@@ -227,11 +235,10 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))
 	}
 
-	hasAttestors := len(copy.Attestors) > 0
-	hasAttestations := len(copy.Attestations) > 0
-
-	if hasAttestations && !hasAttestors {
-		errs = append(errs, field.Invalid(path, iv, "An attestor is required"))
+	asPath := path.Child("attestations")
+	for i, attestation := range copy.Attestations {
+		attestationErrors := attestation.Validate(asPath.Index(i))
+		errs = append(errs, attestationErrors...)
 	}
 
 	attestorsPath := path.Child("attestors")
@@ -240,6 +247,19 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, attestorErrors...)
 	}
 
+	return errs
+}
+
+func (a *Attestation) Validate(path *field.Path) (errs field.ErrorList) {
+	if len(a.Attestors) == 0 {
+		return
+	}
+
+	attestorsPath := path.Child("attestors")
+	for i, as := range a.Attestors {
+		attestorErrors := as.Validate(attestorsPath.Index(i))
+		errs = append(errs, attestorErrors...)
+	}
 	return errs
 }
 
@@ -382,7 +402,13 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		}
 
 		attestorSet.Entries = append(attestorSet.Entries, attestor)
-		copy.Attestors = append(copy.Attestors, attestorSet)
+		if len(iv.Attestations) > 0 {
+			for i := range iv.Attestations {
+				copy.Attestations[i].Attestors = append(copy.Attestations[i].Attestors, attestorSet)
+			}
+		} else {
+			copy.Attestors = append(copy.Attestors, attestorSet)
+		}
 	}
 
 	copy.Attestations = iv.Attestations

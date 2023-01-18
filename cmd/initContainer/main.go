@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"os"
 	"sync"
 	"time"
@@ -19,7 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -34,51 +33,29 @@ const (
 	convertGenerateRequest  string = "ConvertGenerateRequest"
 )
 
-func parseFlags(config internal.Configuration) {
-	internal.InitFlags(config)
-	flag.Parse()
-}
-
 func main() {
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithKubeconfig(),
 	)
 	// parse flags
-	parseFlags(appConfig)
+	internal.ParseFlags(appConfig)
 	// setup logger
-	logger := internal.SetupLogger()
-	// setup maxprocs
-	undo := internal.SetupMaxProcs(logger)
-	defer undo()
 	// show version
-	internal.ShowVersion(logger)
-	// os signal handler
-	signalCtx, signalCancel := internal.SetupSignals(logger)
-	defer signalCancel()
-
+	// start profiling
+	// setup signals
+	// setup maxprocs
+	ctx, logger, _, sdown := internal.Setup()
+	defer sdown()
+	// create clients
 	kubeClient := internal.CreateKubernetesClient(logger)
 	dynamicClient := internal.CreateDynamicClient(logger)
 	kyvernoClient := internal.CreateKyvernoClient(logger)
-
-	// DYNAMIC CLIENT
-	// - client for all registered resources
-	client, err := dclient.NewClient(
-		signalCtx,
-		dynamicClient,
-		kubeClient,
-		15*time.Minute,
-	)
-	if err != nil {
-		logger.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
-
+	client := internal.CreateDClient(logger, ctx, dynamicClient, kubeClient, 15*time.Minute)
 	// Exit for unsupported version of kubernetes cluster
-	if !utils.HigherThanKubernetesVersion(kubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
+	if !kubeutils.HigherThanKubernetesVersion(kubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
 		os.Exit(1)
 	}
-
 	requests := []request{
 		{policyReportKind},
 		{clusterPolicyReportKind},
@@ -86,8 +63,8 @@ func main() {
 	}
 
 	go func() {
-		defer signalCancel()
-		<-signalCtx.Done()
+		defer sdown()
+		<-ctx.Done()
 	}()
 
 	done := make(chan struct{})
@@ -96,7 +73,7 @@ func main() {
 
 	run := func(context.Context) {
 		name := tls.GenerateRootCASecretName()
-		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
+		_, err := kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			logging.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
@@ -113,19 +90,19 @@ func main() {
 			}
 		}
 
-		if err = acquireLeader(signalCtx, kubeClient); err != nil {
+		if err = acquireLeader(ctx, kubeClient); err != nil {
 			logging.V(2).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)
 		}
 
 		// use pipeline to pass request to cleanup resources
-		in := gen(done, signalCtx.Done(), requests...)
+		in := gen(done, ctx.Done(), requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(client, kyvernoClient, done, signalCtx.Done(), in)
-		p2 := process(client, kyvernoClient, done, signalCtx.Done(), in)
+		p1 := process(client, kyvernoClient, done, ctx.Done(), in)
+		p2 := process(client, kyvernoClient, done, ctx.Done(), in)
 		// merge results from processing routines
-		for err := range merge(done, signalCtx.Done(), p1, p2) {
+		for err := range merge(done, ctx.Done(), p1, p2) {
 			if err != nil {
 				failure = true
 				logging.Error(err, "failed to cleanup resource")
@@ -155,7 +132,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	le.Run(signalCtx)
+	le.Run(ctx)
 }
 
 func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {

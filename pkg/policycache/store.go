@@ -5,14 +5,14 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/policy"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/util/sets"
+	kcache "k8s.io/client-go/tools/cache"
 )
 
 type store interface {
 	// set inserts a policy in the cache
-	set(string, kyvernov1.PolicyInterface)
+	set(string, kyvernov1.PolicyInterface, map[string]string)
 	// unset removes a policy from the cache
 	unset(string)
 	// get finds policies that match a given type, gvk and namespace
@@ -30,10 +30,10 @@ func newPolicyCache() store {
 	}
 }
 
-func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface) {
+func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface, subresourceGVKToKind map[string]string) {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
-	pc.store.set(key, policy)
+	pc.store.set(key, policy, subresourceGVKToKind)
 	logger.V(4).Info("policy is added to cache", "key", key)
 }
 
@@ -57,13 +57,13 @@ type policyMap struct {
 	// Since both the policy name use same type (i.e. string), Both policies can be differentiated based on
 	// "namespace". namespace policy get stored with policy namespace with policy name"
 	// kindDataMap {"kind": {{"policytype" : {"policyName","nsname/policyName}}},"kind2": {{"policytype" : {"nsname/policyName" }}}}
-	kindType map[string]map[PolicyType]sets.String
+	kindType map[string]map[PolicyType]sets.Set[string]
 }
 
 func newPolicyMap() *policyMap {
 	return &policyMap{
 		policies: map[string]kyvernov1.PolicyInterface{},
-		kindType: map[string]map[PolicyType]sets.String{},
+		kindType: map[string]map[PolicyType]sets.Set[string]{},
 	}
 }
 
@@ -85,7 +85,7 @@ func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
 	return false
 }
 
-func set(set sets.String, item string, value bool) sets.String {
+func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 	if value {
 		return set.Insert(item)
 	} else {
@@ -93,7 +93,7 @@ func set(set sets.String, item string, value bool) sets.String {
 	}
 }
 
-func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
+func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, subresourceGVKToKind map[string]string) {
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	m.policies[key] = policy
 	type state struct {
@@ -102,26 +102,29 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
 	kindStates := map[string]state{}
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, gvk := range rule.MatchResources.GetKinds() {
-			kind := computeKind(gvk)
+			kind, ok := subresourceGVKToKind[gvk]
+			if !ok {
+				kind = computeKind(gvk)
+			}
 			entry := kindStates[kind]
-			entry.hasMutate = (entry.hasMutate || rule.HasMutate())
-			entry.hasValidate = (entry.hasValidate || rule.HasValidate())
-			entry.hasGenerate = (entry.hasGenerate || rule.HasGenerate())
-			entry.hasVerifyImages = (entry.hasVerifyImages || rule.HasVerifyImages())
-			entry.hasImagesValidationChecks = (entry.hasImagesValidationChecks || rule.HasImagesValidationChecks())
+			entry.hasMutate = entry.hasMutate || rule.HasMutate()
+			entry.hasValidate = entry.hasValidate || rule.HasValidate()
+			entry.hasGenerate = entry.hasGenerate || rule.HasGenerate()
+			entry.hasVerifyImages = entry.hasVerifyImages || rule.HasVerifyImages()
+			entry.hasImagesValidationChecks = entry.hasImagesValidationChecks || rule.HasImagesValidationChecks()
 			kindStates[kind] = entry
 		}
 	}
 	for kind, state := range kindStates {
 		if m.kindType[kind] == nil {
-			m.kindType[kind] = map[PolicyType]sets.String{
-				Mutate:               sets.NewString(),
-				ValidateEnforce:      sets.NewString(),
-				ValidateAudit:        sets.NewString(),
-				Generate:             sets.NewString(),
-				VerifyImagesMutate:   sets.NewString(),
-				VerifyImagesValidate: sets.NewString(),
-				VerifyYAML:           sets.NewString(),
+			m.kindType[kind] = map[PolicyType]sets.Set[string]{
+				Mutate:               sets.New[string](),
+				ValidateEnforce:      sets.New[string](),
+				ValidateAudit:        sets.New[string](),
+				Generate:             sets.New[string](),
+				VerifyImagesMutate:   sets.New[string](),
+				VerifyImagesValidate: sets.New[string](),
+				VerifyYAML:           sets.New[string](),
 			}
 		}
 		m.kindType[kind][Mutate] = set(m.kindType[kind][Mutate], key, state.hasMutate)
@@ -147,7 +150,11 @@ func (m *policyMap) get(key PolicyType, gvk, namespace string) []kyvernov1.Polic
 	kind := computeKind(gvk)
 	var result []kyvernov1.PolicyInterface
 	for policyName := range m.kindType[kind][key] {
-		ns, _, isNamespacedPolicy := policy.ParseNamespacedPolicy(policyName)
+		ns, _, err := kcache.SplitMetaNamespaceKey(policyName)
+		if err != nil {
+			logger.Error(err, "failed to parse policy name", "policyName", policyName)
+		}
+		isNamespacedPolicy := ns != ""
 		policy := m.policies[policyName]
 		if policy == nil {
 			logger.Info("nil policy in the cache, this should not happen")

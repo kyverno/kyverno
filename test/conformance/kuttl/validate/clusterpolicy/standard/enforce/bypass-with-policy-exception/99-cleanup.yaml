@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete deploy nginx-test -n test-validate --force --wait=true --ignore-not-found=true
+  - command: kubectl delete polex allow-scaling-nginx-test -n test-validate --force --wait=true --ignore-not-found=true
+  - command: kubectl delete cpol nginx-test-scaling-policy -n test-validate --force --wait=true --ignore-not-found=true
+  - command: kubectl delete ns test-validate --force --ignore-not-found=true

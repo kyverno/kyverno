@@ -1,0 +1,15 @@
+initContainer:
+  extraArgs:
+    - --loggingFormat=json
+
+extraArgs:
+  - --loggingFormat=json
+
+cleanupController:
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - ''
+          resources:
+            - pods

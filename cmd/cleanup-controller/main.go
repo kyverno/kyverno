@@ -2,147 +2,222 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
-	"net/http"
 	"os"
+	"sync"
 	"time"
 
-	"github.com/go-logr/logr"
+	admissionhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission"
+	cleanuphandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/cleanup"
 	"github.com/kyverno/kyverno/cmd/internal"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
+	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
+	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
+	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/webhooks"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-)
-
-var (
-	otel                 string
-	otelCollector        string
-	metricsPort          string
-	transportCreds       string
-	disableMetricsExport bool
 )
 
 const (
-	resyncPeriod = 15 * time.Minute
+	resyncPeriod          = 15 * time.Minute
+	webhookWorkers        = 2
+	webhookControllerName = "webhook-controller"
 )
 
-func parseFlags(config internal.Configuration) {
-	internal.InitFlags(config)
-	flag.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
-	flag.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local", "Set this flag to the OpenTelemetry Collector Service Address. Kyverno will try to connect to this on the metrics port.")
-	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
-	flag.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
-	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
-	flag.Parse()
+// TODO:
+// - helm review labels / selectors
+// - implement probes
+// - supports certs in cronjob
+
+type probes struct{}
+
+func (probes) IsReady() bool {
+	return true
 }
 
-func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
-	logger = logger.WithName("metrics")
-	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
-	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
-	if err != nil {
-		return nil, nil, err
-	}
-	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
-		disableMetricsExport,
-		otel,
-		metricsAddr,
-		otelCollector,
-		metricsConfigData,
-		transportCreds,
-		kubeClient,
-		logging.WithName("metrics"),
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	var cancel context.CancelFunc
-	if otel == "grpc" {
-		cancel = func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			defer cancel()
-			metrics.ShutDownController(ctx, metricsPusher)
-		}
-	}
-	if otel == "prometheus" {
-		go func() {
-			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
-				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
-			}
-		}()
-	}
-	return metricsConfig, cancel, nil
+func (probes) IsLive() bool {
+	return true
 }
 
 func main() {
+	var (
+		leaderElectionRetryPeriod time.Duration
+		dumpPayload               bool
+		serverIP                  string
+	)
+	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
+	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
+	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
+	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
+		internal.WithMetrics(),
 		internal.WithTracing(),
 		internal.WithKubeconfig(),
+		internal.WithFlagSets(flagset),
 	)
 	// parse flags
-	parseFlags(appConfig)
+	internal.ParseFlags(appConfig)
 	// setup logger
-	logger := internal.SetupLogger()
-	// setup maxprocs
-	undo := internal.SetupMaxProcs(logger)
-	defer undo()
 	// show version
-	internal.ShowVersion(logger)
 	// start profiling
-	internal.SetupProfiling(logger)
-	// create raw client
-	rawClient := internal.CreateKubernetesClient(logger)
 	// setup signals
-	signalCtx, signalCancel := internal.SetupSignals(logger)
-	defer signalCancel()
+	// setup maxprocs
 	// setup metrics
-	metricsConfig, metricsShutdown, err := setupMetrics(logger, rawClient)
-	if err != nil {
-		logger.Error(err, "failed to setup metrics")
-		os.Exit(1)
-	}
-	if metricsShutdown != nil {
-		defer metricsShutdown()
-	}
+	ctx, logger, metricsConfig, sdown := internal.Setup()
+	defer sdown()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
-	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
-	dClient, err := dclient.NewClient(signalCtx, dynamicClient, kubeClient, 15*time.Minute)
-	if err != nil {
-		logger.Error(err, "failed to create dynamic client")
-		os.Exit(1)
-	}
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	policyHandlers := NewHandlers(
-		dClient,
+	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
+	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KubeClient), kyvernoclient.WithTracing())
+	// setup leader election
+	le, err := leaderelection.New(
+		logger.WithName("leader-election"),
+		"kyverno-cleanup-controller",
+		config.KyvernoNamespace(),
+		leaderElectionClient,
+		config.KyvernoPodName(),
+		leaderElectionRetryPeriod,
+		func(ctx context.Context) {
+			logger := logger.WithName("leader")
+			// informer factories
+			kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+			// listers
+			secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
+			// controllers
+			renewer := tls.NewCertRenewer(
+				kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+				secretLister,
+				tls.CertRenewalInterval,
+				tls.CAValidityDuration,
+				tls.TLSValidityDuration,
+				"",
+			)
+			certController := internal.NewController(
+				certmanager.ControllerName,
+				certmanager.NewController(
+					kubeKyvernoInformer.Core().V1().Secrets(),
+					renewer,
+				),
+				certmanager.Workers,
+			)
+			webhookController := internal.NewController(
+				webhookControllerName,
+				genericwebhookcontroller.NewController(
+					webhookControllerName,
+					kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+					kubeKyvernoInformer.Core().V1().Secrets(),
+					config.CleanupValidatingWebhookConfigurationName,
+					config.CleanupValidatingWebhookServicePath,
+					serverIP,
+					[]admissionregistrationv1.RuleWithOperations{{
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"kyverno.io"},
+							APIVersions: []string{"v2alpha1"},
+							Resources: []string{
+								"cleanuppolicies/*",
+								"clustercleanuppolicies/*",
+							},
+						},
+						Operations: []admissionregistrationv1.OperationType{
+							admissionregistrationv1.Create,
+							admissionregistrationv1.Update,
+						},
+					}},
+					genericwebhookcontroller.Fail,
+					genericwebhookcontroller.None,
+				),
+				webhookWorkers,
+			)
+			cleanupController := internal.NewController(
+				cleanup.ControllerName,
+				cleanup.NewController(
+					kubeClient,
+					kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies(),
+					kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies(),
+					kubeInformer.Batch().V1().CronJobs(),
+					"https://"+config.KyvernoServiceName()+"."+config.KyvernoNamespace()+".svc",
+				),
+				cleanup.Workers,
+			)
+			// start informers and wait for cache sync
+			if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+				os.Exit(1)
+			}
+			// start leader controllers
+			var wg sync.WaitGroup
+			certController.Run(ctx, logger, &wg)
+			webhookController.Run(ctx, logger, &wg)
+			cleanupController.Run(ctx, logger, &wg)
+			// wait all controllers shut down
+			wg.Wait()
+		},
+		nil,
 	)
-	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
-	// start informers and wait for cache sync
-	// we need to call start again because we potentially registered new informers
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kubeKyvernoInformer) {
+	if err != nil {
+		logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
+	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
+	dClient := internal.CreateDClient(logger, ctx, dynamicClient, kubeClient, 15*time.Minute)
+	// informer factories
+	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	// listers
+	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
+	cpolLister := kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies().Lister()
+	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
+	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+	// start informers and wait for cache sync
+	if !internal.StartInformersAndWaitForCacheSync(ctx, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
+		os.Exit(1)
+	}
+	// create handlers
+	admissionHandlers := admissionhandlers.New(dClient)
+	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister, nsLister)
+	// create server
 	server := NewServer(
-		policyHandlers,
 		func() ([]byte, []byte, error) {
-			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get("cleanup-controller-tls")
+			secret, err := secretLister.Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
 				return nil, nil, err
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
+		admissionHandlers.Validate,
+		cleanupHandlers.Cleanup,
+		metricsConfig,
+		webhooks.DebugModeOptions{
+			DumpPayload: dumpPayload,
+		},
+		probes{},
+		config.NewDefaultConfiguration(),
 	)
-	// start webhooks server
-	server.Run(signalCtx.Done())
-	// wait for termination signal
-	<-signalCtx.Done()
+	// start server
+	server.Run(ctx.Done())
+	// wait for termination signal and run leader election loop
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			le.Run(ctx)
+		}
+	}
 }

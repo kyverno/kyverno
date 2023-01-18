@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"context"
 	"errors"
 
 	"github.com/go-logr/logr"
@@ -11,6 +12,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type updateRequestResponse struct {
@@ -18,9 +20,9 @@ type updateRequestResponse struct {
 	err error
 }
 
-func errorResponse(logger logr.Logger, err error, message string) *admissionv1.AdmissionResponse {
+func errorResponse(logger logr.Logger, uid types.UID, err error, message string) *admissionv1.AdmissionResponse {
 	logger.Error(err, message)
-	return admissionutils.Response(errors.New(message + ": " + err.Error()))
+	return admissionutils.Response(uid, errors.New(message+": "+err.Error()))
 }
 
 func patchRequest(patches []byte, request *admissionv1.AdmissionRequest, logger logr.Logger) *admissionv1.AdmissionRequest {
@@ -43,8 +45,14 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	return resource
 }
 
-func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov1beta1.RequestType, grGenerator updaterequest.Generator, userRequestInfo kyvernov1beta1.RequestInfo,
-	action admissionv1.Operation, engineResponses ...*response.EngineResponse,
+func applyUpdateRequest(
+	ctx context.Context,
+	request *admissionv1.AdmissionRequest,
+	ruleType kyvernov1beta1.RequestType,
+	grGenerator updaterequest.Generator,
+	userRequestInfo kyvernov1beta1.RequestInfo,
+	action admissionv1.Operation,
+	engineResponses ...*response.EngineResponse,
 ) (failedUpdateRequest []updateRequestResponse) {
 	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
 		AdmissionRequest: request,
@@ -53,7 +61,7 @@ func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov
 
 	for _, er := range engineResponses {
 		ur := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
-		if err := grGenerator.Apply(ur, action); err != nil {
+		if err := grGenerator.Apply(ctx, ur, action); err != nil {
 			failedUpdateRequest = append(failedUpdateRequest, updateRequestResponse{ur: ur, err: err})
 		}
 	}

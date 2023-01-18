@@ -7,7 +7,7 @@ import (
 
 var (
 	Mock           bool
-	RegistryAccess bool
+	registryClient registryclient.Client
 	AllowApiCalls  bool
 	ContextVar     Context
 	ForeachElement int
@@ -22,7 +22,7 @@ func GetMock() bool {
 	return Mock
 }
 
-func SetForeachElement(foreachElement int) {
+func SetForEachElement(foreachElement int) {
 	ForeachElement = foreachElement
 }
 
@@ -32,13 +32,16 @@ func GetForeachElement() int {
 
 func SetRegistryAccess(access bool) {
 	if access {
-		registryclient.DefaultClient.UseLocalKeychain()
+		registryClient = registryclient.NewOrDie(registryclient.WithLocalKeychain())
 	}
-	RegistryAccess = access
 }
 
 func GetRegistryAccess() bool {
-	return RegistryAccess
+	return registryClient != nil
+}
+
+func GetRegistryClient() registryclient.Client {
+	return registryClient
 }
 
 func SetContext(context Context) {
@@ -83,7 +86,7 @@ type Policy struct {
 type Rule struct {
 	Name          string                   `json:"name"`
 	Values        map[string]interface{}   `json:"values"`
-	ForeachValues map[string][]interface{} `json:"foreachValues"`
+	ForEachValues map[string][]interface{} `json:"foreachValues"`
 }
 
 func SetSubjects(subjects Subject) {

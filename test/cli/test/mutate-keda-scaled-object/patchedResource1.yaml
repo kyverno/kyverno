@@ -1,0 +1,13 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: service-1
+  namespace: default
+spec:
+  triggers:
+    - type: "prometheus"
+      metadata:
+        metricName: my-metric-name
+        query: sum(waiting_jobs_total{job='some-job'})
+        serverAddress: http://prometheus.local/
+        threshold: "100"

@@ -8,8 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	k8s_io_api_authentication_v1beta1 "k8s.io/api/authentication/v1beta1"
 	k8s_io_apimachinery_pkg_apis_meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +50,7 @@ type withMetrics struct {
 }
 
 func (c *withMetrics) Create(arg0 context.Context, arg1 *k8s_io_api_authentication_v1beta1.TokenReview, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_authentication_v1beta1.TokenReview, error) {
-	defer c.recorder.Record("create")
+	defer c.recorder.RecordWithContext(arg0, "create")
 	return c.inner.Create(arg0, arg1, arg2)
 }
 
@@ -62,20 +61,23 @@ type withTracing struct {
 }
 
 func (c *withTracing) Create(arg0 context.Context, arg1 *k8s_io_api_authentication_v1beta1.TokenReview, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.CreateOptions) (*k8s_io_api_authentication_v1beta1.TokenReview, error) {
-	ctx, span := tracing.StartSpan(
-		arg0,
-		"",
-		fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),
-		attribute.String("client", c.client),
-		attribute.String("kind", c.kind),
-		attribute.String("operation", "Create"),
-	)
-	defer span.End()
-	arg0 = ctx
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "Create"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("Create"),
+			),
+		)
+		defer span.End()
+	}
 	ret0, ret1 := c.inner.Create(arg0, arg1, arg2)
-	if ret1 != nil {
-		span.RecordError(ret1)
-		span.SetStatus(codes.Error, ret1.Error())
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
 	}
 	return ret0, ret1
 }

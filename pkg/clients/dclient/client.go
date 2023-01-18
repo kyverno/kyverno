@@ -20,6 +20,8 @@ import (
 )
 
 type Interface interface {
+	// GetKubeClient provides typed kube client
+	GetKubeClient() kubernetes.Interface
 	// GetEventsInterface provides typed interface for events
 	GetEventsInterface() corev1.EventInterface
 	// GetDynamicInterface fetches underlying dynamic interface
@@ -29,22 +31,22 @@ type Interface interface {
 	// SetDiscovery sets the discovery client implementation
 	SetDiscovery(discoveryClient IDiscovery)
 	// RawAbsPath performs a raw call to the kubernetes API
-	RawAbsPath(path string) ([]byte, error)
+	RawAbsPath(ctx context.Context, path string) ([]byte, error)
 	// GetResource returns the resource in unstructured/json format
-	GetResource(apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error)
+	GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error)
 	// PatchResource patches the resource
-	PatchResource(apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error)
+	PatchResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error)
 	// ListResource returns the list of resources in unstructured/json format
 	// Access items using []Items
-	ListResource(apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error)
+	ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error)
 	// DeleteResource deletes the specified resource
-	DeleteResource(apiVersion string, kind string, namespace string, name string, dryRun bool) error
+	DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool) error
 	// CreateResource creates object for the specified resource/namespace
-	CreateResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
+	CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
 	// UpdateResource updates object for the specified resource/namespace
-	UpdateResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
+	UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error)
 	// UpdateStatusResource updates the resource "status" subresource
-	UpdateStatusResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
+	UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
 }
 
 // Client enables interaction with k8 resource
@@ -69,7 +71,7 @@ func NewClient(
 		rest: disco.RESTClient(),
 	}
 	// Set discovery client
-	discoveryClient := &serverPreferredResources{
+	discoveryClient := &serverResources{
 		cachedClient: memory.NewMemCacheClient(disco),
 	}
 	// client will invalidate registered resources cache every x seconds,
@@ -85,6 +87,11 @@ func NewClient(
 // NewDynamicSharedInformerFactory returns a new instance of DynamicSharedInformerFactory
 func (c *client) NewDynamicSharedInformerFactory(defaultResync time.Duration) dynamicinformer.DynamicSharedInformerFactory {
 	return dynamicinformer.NewDynamicSharedInformerFactory(c.dyn, defaultResync)
+}
+
+// GetKubeClient provides typed kube client
+func (c *client) GetKubeClient() kubernetes.Interface {
+	return c.kube
 }
 
 // GetEventsInterface provides typed interface for events
@@ -120,21 +127,21 @@ func (c *client) getGroupVersionMapper(apiVersion string, kind string) schema.Gr
 }
 
 // GetResource returns the resource in unstructured/json format
-func (c *client) GetResource(apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(apiVersion, kind, namespace).Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
+func (c *client) GetResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	return c.getResourceInterface(apiVersion, kind, namespace).Get(ctx, name, metav1.GetOptions{}, subresources...)
 }
 
 // RawAbsPath performs a raw call to the kubernetes API
-func (c *client) RawAbsPath(path string) ([]byte, error) {
+func (c *client) RawAbsPath(ctx context.Context, path string) ([]byte, error) {
 	if c.rest == nil {
 		return nil, errors.New("rest client not supported")
 	}
-	return c.rest.Get().RequestURI(path).DoRaw(context.TODO())
+	return c.rest.Get().RequestURI(path).DoRaw(ctx)
 }
 
 // PatchResource patches the resource
-func (c *client) PatchResource(apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
-	return c.getResourceInterface(apiVersion, kind, namespace).Patch(context.TODO(), name, types.JSONPatchType, patch, metav1.PatchOptions{})
+func (c *client) PatchResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
+	return c.getResourceInterface(apiVersion, kind, namespace).Patch(ctx, name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
 // GetDynamicInterface fetches underlying dynamic interface
@@ -144,58 +151,58 @@ func (c *client) GetDynamicInterface() dynamic.Interface {
 
 // ListResource returns the list of resources in unstructured/json format
 // Access items using []Items
-func (c *client) ListResource(apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+func (c *client) ListResource(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
 	options := metav1.ListOptions{}
 	if lselector != nil {
 		options = metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(lselector)}
 	}
-	return c.getResourceInterface(apiVersion, kind, namespace).List(context.TODO(), options)
+	return c.getResourceInterface(apiVersion, kind, namespace).List(ctx, options)
 }
 
 // DeleteResource deletes the specified resource
-func (c *client) DeleteResource(apiVersion string, kind string, namespace string, name string, dryRun bool) error {
+func (c *client) DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool) error {
 	options := metav1.DeleteOptions{}
 	if dryRun {
 		options = metav1.DeleteOptions{DryRun: []string{metav1.DryRunAll}}
 	}
-	return c.getResourceInterface(apiVersion, kind, namespace).Delete(context.TODO(), name, options)
+	return c.getResourceInterface(apiVersion, kind, namespace).Delete(ctx, name, options)
 }
 
 // CreateResource creates object for the specified resource/namespace
-func (c *client) CreateResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+func (c *client) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	options := metav1.CreateOptions{}
 	if dryRun {
 		options = metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
 	}
 	// convert typed to unstructured obj
-	if unstructuredObj, err := kubeutils.ConvertToUnstructured(obj); err == nil && unstructuredObj != nil {
-		return c.getResourceInterface(apiVersion, kind, namespace).Create(context.TODO(), unstructuredObj, options)
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
+		return c.getResourceInterface(apiVersion, kind, namespace).Create(ctx, unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to create resource ")
 }
 
 // UpdateResource updates object for the specified resource/namespace
-func (c *client) UpdateResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+func (c *client) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
 	options := metav1.UpdateOptions{}
 	if dryRun {
 		options = metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 	}
 	// convert typed to unstructured obj
-	if unstructuredObj, err := kubeutils.ConvertToUnstructured(obj); err == nil && unstructuredObj != nil {
-		return c.getResourceInterface(apiVersion, kind, namespace).Update(context.TODO(), unstructuredObj, options)
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
+		return c.getResourceInterface(apiVersion, kind, namespace).Update(ctx, unstructuredObj, options, subresources...)
 	}
 	return nil, fmt.Errorf("unable to update resource ")
 }
 
 // UpdateStatusResource updates the resource "status" subresource
-func (c *client) UpdateStatusResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+func (c *client) UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
 	options := metav1.UpdateOptions{}
 	if dryRun {
 		options = metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 	}
 	// convert typed to unstructured obj
-	if unstructuredObj, err := kubeutils.ConvertToUnstructured(obj); err == nil && unstructuredObj != nil {
-		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(context.TODO(), unstructuredObj, options)
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
+		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(ctx, unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to update resource ")
 }

@@ -24,20 +24,8 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: added
-      description: Add possibility to manually set kyvernoVersion and avoid autodetection
-    - kind: added
-      description: Support for artifacthub.io/changes annotation
+      description: Add ability to configure autogen behavior
     - kind: fixed
-      description: Fix Kyverno version check when image tag contains registry port number
-    - kind: fixed
-      description: Ensure preconditions are present with default values
-    - kind: added
-      description: Support for failurePolicy setting in kyverno-policies helm chart
-    - kind: added
-      description: Add possibility to set validationFailureAction by Policy
-    - kind: added
-      description: Added ability to get additional policies from restricted
-    - kind: fixed
-      description: Applied fix in preconditions for background mode
-    - kind: added
-      description: Added case insensitivity guarantees to disallow-capabilities-strict
+      description: Support for customLabels, they were ignored up to now
+    - kind: removed
+      description: "Walk back change in PSS policy to send to to_upper"

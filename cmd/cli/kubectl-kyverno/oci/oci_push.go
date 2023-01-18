@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -12,8 +11,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
+	"github.com/kyverno/kyverno/pkg/openapi"
+	policyvalidation "github.com/kyverno/kyverno/pkg/policy"
+	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	"go.uber.org/multierr"
 )
 
 var policyRef string
@@ -33,79 +36,52 @@ kyverno oci push -p policies. -i <imgref>`,
 				return errors.New("image reference is required")
 			}
 
-			var p []string
-			f, err := os.Stat(policyRef)
-			if os.IsNotExist(err) {
-				return fmt.Errorf("policy file or directory  %s does not exist", policyRef)
+			policies, errs := common.GetPolicies([]string{policyRef})
+			if len(errs) != 0 {
+				return fmt.Errorf("unable to read policy file or directory %s: %w", policyRef, multierr.Combine(errs...))
 			}
 
-			if f.IsDir() {
-				err = filepath.Walk(policyRef, func(path string, info os.FileInfo, err error) error {
-					if !info.IsDir() {
-						p = append(p, path)
-					}
-
-					if m := info.Mode(); !(m.IsRegular() || m.IsDir()) {
-						return nil
-					}
-
-					return nil
-				})
-			} else {
-				p = append(p, policyRef)
-			}
-
+			openApiManager, err := openapi.NewManager()
 			if err != nil {
-				return fmt.Errorf("unable to read policy file or directory %s: %w", policyRef, err)
+				return fmt.Errorf("creating openapi manager: %v", err)
 			}
-
-			fmt.Println("Policies will be pushing: ", p)
+			for _, policy := range policies {
+				if _, err := policyvalidation.Validate(policy, nil, true, openApiManager); err != nil {
+					return fmt.Errorf("validating policy %s: %v", policy.GetName(), err)
+				}
+			}
 
 			img := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
 			img = mutate.ConfigMediaType(img, policyConfigMediaType)
-			for _, policy := range p {
-				policyBytes, err := os.ReadFile(filepath.Clean(policy))
+			ref, err := name.ParseReference(imageRef)
+			if err != nil {
+				return fmt.Errorf("parsing image reference: %v", err)
+			}
+
+			for _, policy := range policies {
+				if policy.IsNamespaced() {
+					fmt.Fprintf(os.Stderr, "Adding policy [%s]\n", policy.GetName())
+				} else {
+					fmt.Fprintf(os.Stderr, "Adding cluster policy [%s]\n", policy.GetName())
+				}
+				policyBytes, err := policyutils.ToYaml(policy)
 				if err != nil {
-					return fmt.Errorf("failed to read policy file %s: %v", policy, err)
+					return fmt.Errorf("converting policy to yaml: %v", err)
 				}
-
-				var policyMap map[string]interface{}
-				if err = yaml.Unmarshal(policyBytes, &policyMap); err != nil {
-					return fmt.Errorf("failed to unmarshal policy file %s: %v", policy, err)
-				}
-
-				annotations := map[string]string{}
-				for k, v := range policyMap["metadata"].(map[string]interface{})["annotations"].(map[string]interface{}) {
-					annotations[k] = v.(string)
-				}
-
-				ref, err := name.ParseReference(imageRef)
-				if err != nil {
-					return fmt.Errorf("parsing image reference: %v", err)
-				}
-
-				do := []remote.Option{
-					remote.WithContext(cmd.Context()),
-					remote.WithAuthFromKeychain(keychain),
-				}
-
 				policyLayer := static.NewLayer(policyBytes, policyLayerMediaType)
 				img, err = mutate.Append(img, mutate.Addendum{
 					Layer:       policyLayer,
-					Annotations: annotations,
+					Annotations: annotations(policy),
 				})
-
 				if err != nil {
 					return fmt.Errorf("mutating image: %v", err)
 				}
-
-				fmt.Fprintf(os.Stderr, "Uploading Kyverno policy file [%s] to [%s] with mediaType [%s].\n", policy, ref.Name(), policyLayerMediaType)
-				if err = Write(ref, img, do...); err != nil {
-					return fmt.Errorf("writing image: %v", err)
-				}
-
-				fmt.Fprintf(os.Stderr, "Kyverno policy file [%s] successfully uploaded to [%s]\n", policy, ref.Name())
 			}
+			fmt.Fprintf(os.Stderr, "Uploading [%s]...\n", ref.Name())
+			if err = remote.Write(ref, img, remote.WithContext(cmd.Context()), remote.WithAuthFromKeychain(keychain)); err != nil {
+				return fmt.Errorf("writing image: %v", err)
+			}
+			fmt.Fprintf(os.Stderr, "Done.")
 			return nil
 		},
 	}

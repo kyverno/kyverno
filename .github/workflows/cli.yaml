@@ -1,49 +1,33 @@
 name: cli
+
 on:
   push:
     branches:
       - 'main'
       - 'release*'
-    paths-ignore:
-      - 'README.md'
-      - 'docs/**'
-      - '.github/config.yml'
   pull_request:
     branches:
       - 'main'
       - 'release*'
-    paths-ignore:
-      - 'README.md'
-      - '.github/config.yml'
 
-permissions: read-all
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   cli-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
-
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go 
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
         with:
-          go-version: ~1.18.6
-
-      - name: Cache Go modules
-        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Test Policy
+          build-cache-key: cli-test
+      - name: Setup TEST_GIT_BRANCH
         run: |
           if [[ ${{ github.event_name }} == "push" ]]
           then
@@ -52,7 +36,11 @@ jobs:
           then
             export TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}
           fi
-          make -j4 test-cli
+      - name: Test CLI
+        run: |
+          make test-cli
+      - name: Test CLI (failures)
+        run: |
           CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno
           $CLI_PATH test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
           $CLI_PATH test ./test/cli/test-fail/missing-rule && exit 1 || exit 0

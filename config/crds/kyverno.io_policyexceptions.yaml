@@ -1,0 +1,483 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.1
+  creationTimestamp: null
+  name: policyexceptions.kyverno.io
+spec:
+  group: kyverno.io
+  names:
+    categories:
+    - kyverno
+    kind: PolicyException
+    listKind: PolicyExceptionList
+    plural: policyexceptions
+    shortNames:
+    - polex
+    singular: policyexception
+  scope: Namespaced
+  versions:
+  - name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: PolicyException declares resources to be excluded from specified
+          policies.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec declares policy exception behaviors.
+            properties:
+              exceptions:
+                description: Exceptions is a list policy/rules to be excluded
+                items:
+                  description: Exception stores infos about a policy and rules
+                  properties:
+                    policyName:
+                      description: PolicyName identifies the policy to which the exception
+                        is applied. The policy name uses the format <namespace>/<name>
+                        unless it references a ClusterPolicy.
+                      type: string
+                    ruleNames:
+                      description: RuleNames identifies the rules to which the exception
+                        is applied.
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - policyName
+                  - ruleNames
+                  type: object
+                type: array
+              match:
+                description: Match defines match clause used to check if a resource
+                  applies to the exception
+                properties:
+                  all:
+                    description: All allows specifying resources which will be ANDed
+                    items:
+                      description: ResourceFilter allow users to "AND" or "OR" between
+                        resources
+                      properties:
+                        clusterRoles:
+                          description: ClusterRoles is the list of cluster-wide role
+                            names for the user.
+                          items:
+                            type: string
+                          type: array
+                        resources:
+                          description: ResourceDescription contains information about
+                            the resource being created or modified.
+                          properties:
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              description: Annotations is a  map of annotations (key-value
+                                pairs of type string). Annotation keys and values
+                                support the wildcard characters "*" (matches zero
+                                or many characters) and "?" (matches at least one
+                                character).
+                              type: object
+                            kinds:
+                              description: Kinds is a list of resource kinds.
+                              items:
+                                type: string
+                              type: array
+                            name:
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
+                              type: string
+                            names:
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
+                            namespaceSelector:
+                              description: 'NamespaceSelector is a label selector
+                                for the resource namespace. Label keys and values
+                                in `matchLabels` support the wildcard characters `*`
+                                (matches zero or many characters) and `?` (matches
+                                one character).Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaces:
+                              description: Namespaces is a list of namespaces names.
+                                Each name supports wildcard characters "*" (matches
+                                zero or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
+                            selector:
+                              description: 'Selector is a label selector. Label keys
+                                and values in `matchLabels` support the wildcard characters
+                                `*` (matches zero or many characters) and `?` (matches
+                                one character). Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          type: object
+                        roles:
+                          description: Roles is the list of namespaced role names
+                            for the user.
+                          items:
+                            type: string
+                          type: array
+                        subjects:
+                          description: Subjects is the list of subject names like
+                            users, user groups, and service accounts.
+                          items:
+                            description: Subject contains a reference to the object
+                              or user identities a role binding applies to.  This
+                              can either hold a direct API object reference, or a
+                              value for non-objects such as user and group names.
+                            properties:
+                              apiGroup:
+                                description: APIGroup holds the API group of the referenced
+                                  subject. Defaults to "" for ServiceAccount subjects.
+                                  Defaults to "rbac.authorization.k8s.io" for User
+                                  and Group subjects.
+                                type: string
+                              kind:
+                                description: Kind of object being referenced. Values
+                                  defined by this API group are "User", "Group", and
+                                  "ServiceAccount". If the Authorizer does not recognized
+                                  the kind value, the Authorizer should report an
+                                  error.
+                                type: string
+                              name:
+                                description: Name of the object being referenced.
+                                type: string
+                              namespace:
+                                description: Namespace of the referenced object.  If
+                                  the object kind is non-namespace, such as "User"
+                                  or "Group", and this value is not empty the Authorizer
+                                  should report an error.
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          type: array
+                      type: object
+                    type: array
+                  any:
+                    description: Any allows specifying resources which will be ORed
+                    items:
+                      description: ResourceFilter allow users to "AND" or "OR" between
+                        resources
+                      properties:
+                        clusterRoles:
+                          description: ClusterRoles is the list of cluster-wide role
+                            names for the user.
+                          items:
+                            type: string
+                          type: array
+                        resources:
+                          description: ResourceDescription contains information about
+                            the resource being created or modified.
+                          properties:
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              description: Annotations is a  map of annotations (key-value
+                                pairs of type string). Annotation keys and values
+                                support the wildcard characters "*" (matches zero
+                                or many characters) and "?" (matches at least one
+                                character).
+                              type: object
+                            kinds:
+                              description: Kinds is a list of resource kinds.
+                              items:
+                                type: string
+                              type: array
+                            name:
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
+                              type: string
+                            names:
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
+                            namespaceSelector:
+                              description: 'NamespaceSelector is a label selector
+                                for the resource namespace. Label keys and values
+                                in `matchLabels` support the wildcard characters `*`
+                                (matches zero or many characters) and `?` (matches
+                                one character).Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaces:
+                              description: Namespaces is a list of namespaces names.
+                                Each name supports wildcard characters "*" (matches
+                                zero or many characters) and "?" (at least one character).
+                              items:
+                                type: string
+                              type: array
+                            selector:
+                              description: 'Selector is a label selector. Label keys
+                                and values in `matchLabels` support the wildcard characters
+                                `*` (matches zero or many characters) and `?` (matches
+                                one character). Wildcards allows writing label selectors
+                                like ["storage.k8s.io/*": "*"]. Note that using ["*"
+                                : "*"] matches any key and value but does not match
+                                an empty label set.'
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          type: object
+                        roles:
+                          description: Roles is the list of namespaced role names
+                            for the user.
+                          items:
+                            type: string
+                          type: array
+                        subjects:
+                          description: Subjects is the list of subject names like
+                            users, user groups, and service accounts.
+                          items:
+                            description: Subject contains a reference to the object
+                              or user identities a role binding applies to.  This
+                              can either hold a direct API object reference, or a
+                              value for non-objects such as user and group names.
+                            properties:
+                              apiGroup:
+                                description: APIGroup holds the API group of the referenced
+                                  subject. Defaults to "" for ServiceAccount subjects.
+                                  Defaults to "rbac.authorization.k8s.io" for User
+                                  and Group subjects.
+                                type: string
+                              kind:
+                                description: Kind of object being referenced. Values
+                                  defined by this API group are "User", "Group", and
+                                  "ServiceAccount". If the Authorizer does not recognized
+                                  the kind value, the Authorizer should report an
+                                  error.
+                                type: string
+                              name:
+                                description: Name of the object being referenced.
+                                type: string
+                              namespace:
+                                description: Namespace of the referenced object.  If
+                                  the object kind is non-namespace, such as "User"
+                                  or "Group", and this value is not empty the Authorizer
+                                  should report an error.
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          type: array
+                      type: object
+                    type: array
+                type: object
+            required:
+            - exceptions
+            - match
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true

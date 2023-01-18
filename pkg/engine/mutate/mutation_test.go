@@ -4,17 +4,14 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/engine/context"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-
 	types "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-
 	"github.com/kyverno/kyverno/pkg/logging"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 )
 
 // jsonPatch is used to build test patches
@@ -68,8 +65,8 @@ func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*respon
 }
 
 func TestProcessPatches_EmptyPatches(t *testing.T) {
-	var emptyRule = &types.Rule{Name: "emptyRule"}
-	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(endpointsDocument))
+	emptyRule := &types.Rule{Name: "emptyRule"}
+	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
 	if err != nil {
 		t.Error(err)
 	}
@@ -124,7 +121,7 @@ func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
 	patch := makeAddIsMutatedLabelPatch()
 	patch.Path = "/metadata/additional/is-mutated"
 	rule := makeRuleWithPatch(t, patch)
-	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(endpointsDocument))
+	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
 	if err != nil {
 		t.Error(err)
 	}
@@ -136,7 +133,7 @@ func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
 func TestProcessPatches_RemovePathDoesntExist(t *testing.T) {
 	patch := jsonPatch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	rule := makeRuleWithPatch(t, patch)
-	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(endpointsDocument))
+	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
 	if err != nil {
 		t.Error(err)
 	}
@@ -149,7 +146,7 @@ func TestProcessPatches_AddAndRemovePathsDontExist_EmptyResult(t *testing.T) {
 	patch1 := jsonPatch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	patch2 := jsonPatch{Path: "/spec/labels/label3", Operation: "add", Value: "label3Value"}
 	rule := makeRuleWithPatches(t, []jsonPatch{patch1, patch2})
-	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(endpointsDocument))
+	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
 	if err != nil {
 		t.Error(err)
 	}
@@ -163,7 +160,7 @@ func TestProcessPatches_AddAndRemovePathsDontExist_ContinueOnError_NotEmptyResul
 	patch2 := jsonPatch{Path: "/spec/labels/label2", Operation: "remove", Value: "label2Value"}
 	patch3 := jsonPatch{Path: "/metadata/labels/label3", Operation: "add", Value: "label3Value"}
 	rule := makeRuleWithPatches(t, []jsonPatch{patch1, patch2, patch3})
-	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(endpointsDocument))
+	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
 	if err != nil {
 		t.Error(err)
 	}
@@ -177,7 +174,7 @@ func TestProcessPatches_AddAndRemovePathsDontExist_ContinueOnError_NotEmptyResul
 func TestProcessPatches_RemovePathDoesntExist_EmptyResult(t *testing.T) {
 	patch := jsonPatch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	rule := makeRuleWithPatch(t, patch)
-	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(endpointsDocument))
+	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
 	if err != nil {
 		t.Error(err)
 	}
@@ -190,7 +187,7 @@ func TestProcessPatches_RemovePathDoesntExist_NotEmptyResult(t *testing.T) {
 	patch1 := jsonPatch{Path: "/metadata/labels/is-mutated", Operation: "remove"}
 	patch2 := jsonPatch{Path: "/metadata/labels/label2", Operation: "add", Value: "label2Value"}
 	rule := makeRuleWithPatches(t, []jsonPatch{patch1, patch2})
-	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(endpointsDocument))
+	resourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(endpointsDocument))
 	if err != nil {
 		t.Error(err)
 	}

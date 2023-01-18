@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"sync"
 
+	valid "github.com/asaskevich/govalidator"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
@@ -14,27 +15,64 @@ import (
 )
 
 // These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
+
+// webhook configuration names
 const (
-	// MutatingWebhookConfigurationName default resource mutating webhook configuration name
-	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
-	// MutatingWebhookName default resource mutating webhook name
-	MutatingWebhookName = "mutate.kyverno.svc"
-	// ValidatingWebhookConfigurationName ...
-	ValidatingWebhookConfigurationName = "kyverno-resource-validating-webhook-cfg"
-	// ValidatingWebhookName ...
-	ValidatingWebhookName = "validate.kyverno.svc"
-	// VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
-	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
-	// VerifyMutatingWebhookName default verify mutating webhook name
-	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
 	// PolicyValidatingWebhookConfigurationName default policy validating webhook configuration name
 	PolicyValidatingWebhookConfigurationName = "kyverno-policy-validating-webhook-cfg"
-	// PolicyValidatingWebhookName default policy validating webhook name
-	PolicyValidatingWebhookName = "validate-policy.kyverno.svc"
+	// ValidatingWebhookConfigurationName ...
+	ValidatingWebhookConfigurationName = "kyverno-resource-validating-webhook-cfg"
+	// ExceptionValidatingWebhookConfigurationName ...
+	ExceptionValidatingWebhookConfigurationName = "kyverno-exception-validating-webhook-cfg"
+	// CleanupValidatingWebhookConfigurationName ...
+	CleanupValidatingWebhookConfigurationName = "kyverno-cleanup-validating-webhook-cfg"
 	// PolicyMutatingWebhookConfigurationName default policy mutating webhook configuration name
 	PolicyMutatingWebhookConfigurationName = "kyverno-policy-mutating-webhook-cfg"
+	// MutatingWebhookConfigurationName default resource mutating webhook configuration name
+	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
+	// VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
+	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
+)
+
+// webhook names
+const (
+	// PolicyValidatingWebhookName default policy validating webhook name
+	PolicyValidatingWebhookName = "validate-policy.kyverno.svc"
+	// ValidatingWebhookName ...
+	ValidatingWebhookName = "validate.kyverno.svc"
 	// PolicyMutatingWebhookName default policy mutating webhook name
 	PolicyMutatingWebhookName = "mutate-policy.kyverno.svc"
+	// MutatingWebhookName default resource mutating webhook name
+	MutatingWebhookName = "mutate.kyverno.svc"
+	// VerifyMutatingWebhookName default verify mutating webhook name
+	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
+)
+
+// paths
+const (
+	// PolicyValidatingWebhookServicePath is the path for policy validation webhook(used to validate policy resource)
+	PolicyValidatingWebhookServicePath = "/policyvalidate"
+	// ValidatingWebhookServicePath is the path for validation webhook
+	ValidatingWebhookServicePath = "/validate"
+	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
+	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
+	// CleanupValidatingWebhookServicePath is the path for cleanup policy validation webhook(used to validate cleanup policy resource)
+	CleanupValidatingWebhookServicePath = "/validate"
+	// PolicyMutatingWebhookServicePath is the path for policy mutation webhook(used to default)
+	PolicyMutatingWebhookServicePath = "/policymutate"
+	// MutatingWebhookServicePath is the path for mutation webhook
+	MutatingWebhookServicePath = "/mutate"
+	// VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
+	VerifyMutatingWebhookServicePath = "/verifymutate"
+	// LivenessServicePath is the path for check liveness health
+	LivenessServicePath = "/health/liveness"
+	// ReadinessServicePath is the path for check readness health
+	ReadinessServicePath = "/health/readiness"
+	// MetricsPath is the path for exposing metrics
+	MetricsPath = "/metrics"
+)
+
+const (
 	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields
 	// Issue: https://github.com/kubernetes/kubernetes/pull/63972
 	// When the issue is closed, we should use TypeMeta struct instead of this constants
@@ -42,20 +80,6 @@ const (
 	ClusterRoleAPIVersion = "rbac.authorization.k8s.io/v1"
 	// ClusterRoleKind define the default clusterrole resource kind
 	ClusterRoleKind = "ClusterRole"
-	// MutatingWebhookServicePath is the path for mutation webhook
-	MutatingWebhookServicePath = "/mutate"
-	// ValidatingWebhookServicePath is the path for validation webhook
-	ValidatingWebhookServicePath = "/validate"
-	// PolicyValidatingWebhookServicePath is the path for policy validation webhook(used to validate policy resource)
-	PolicyValidatingWebhookServicePath = "/policyvalidate"
-	// PolicyMutatingWebhookServicePath is the path for policy mutation webhook(used to default)
-	PolicyMutatingWebhookServicePath = "/policymutate"
-	// VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
-	VerifyMutatingWebhookServicePath = "/verifymutate"
-	// LivenessServicePath is the path for check liveness health
-	LivenessServicePath = "/health/liveness"
-	// ReadinessServicePath is the path for check readness health
-	ReadinessServicePath = "/health/readiness"
 )
 
 var (
@@ -107,6 +131,10 @@ func KyvernoConfigMapName() string {
 
 // Configuration to be used by consumer to check filters
 type Configuration interface {
+	// GetDefaultRegistry return default image registry
+	GetDefaultRegistry() string
+	// GetEnableDefaultRegistryMutation return if should mutate image registry
+	GetEnableDefaultRegistryMutation() bool
 	// ToFilter checks if the given resource is set to be filtered in the configuration
 	ToFilter(kind, namespace, name string) bool
 	// GetExcludeGroupRole return exclude roles
@@ -125,18 +153,22 @@ type Configuration interface {
 
 // configuration stores the configuration
 type configuration struct {
-	mux                   sync.RWMutex
-	filters               []filter
-	excludeGroupRole      []string
-	excludeUsername       []string
-	webhooks              []WebhookConfig
-	generateSuccessEvents bool
+	defaultRegistry               string
+	enableDefaultRegistryMutation bool
+	excludeGroupRole              []string
+	excludeUsername               []string
+	filters                       []filter
+	generateSuccessEvents         bool
+	mux                           sync.RWMutex
+	webhooks                      []WebhookConfig
 }
 
-// NewConfiguration ...
+// NewDefaultConfiguration ...
 func NewDefaultConfiguration() *configuration {
 	return &configuration{
-		excludeGroupRole: defaultExcludeGroupRole,
+		defaultRegistry:               "docker.io",
+		enableDefaultRegistryMutation: true,
+		excludeGroupRole:              defaultExcludeGroupRole,
 	}
 }
 
@@ -174,6 +206,18 @@ func (cd *configuration) GetExcludeGroupRole() []string {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.excludeGroupRole
+}
+
+func (cd *configuration) GetDefaultRegistry() string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.defaultRegistry
+}
+
+func (cd *configuration) GetEnableDefaultRegistryMutation() bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.enableDefaultRegistryMutation
 }
 
 func (cd *configuration) GetExcludeUsername() []string {
@@ -227,6 +271,28 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.webhooks = nil
 	// load filters
 	cd.filters = parseKinds(cm.Data["resourceFilters"])
+	newDefaultRegistry, ok := cm.Data["defaultRegistry"]
+	if !ok {
+		logger.V(6).Info("configuration: No defaultRegistry defined in ConfigMap")
+	} else {
+		if valid.IsDNSName(newDefaultRegistry) {
+			logger.V(4).Info("Updated defaultRegistry config parameter.", "oldDefaultRegistry", cd.defaultRegistry, "newDefaultRegistry", newDefaultRegistry)
+			cd.defaultRegistry = newDefaultRegistry
+		} else {
+			logger.V(4).Info("defaultRegistry didn't change because the provided config value isn't a valid DNS hostname")
+		}
+	}
+	enableDefaultRegistryMutation, ok := cm.Data["enableDefaultRegistryMutation"]
+	if !ok {
+		logger.V(6).Info("configuration: No enableDefaultRegistryMutation defined in ConfigMap")
+	} else {
+		newEnableDefaultRegistryMutation, err := strconv.ParseBool(enableDefaultRegistryMutation)
+		if err != nil {
+			logger.V(4).Info("configuration: Invalid value for enableDefaultRegistryMutation defined in ConfigMap. enableDefaultRegistryMutation didn't change")
+		}
+		logger.V(4).Info("Updated enableDefaultRegistryMutation config parameter", "oldEnableDefaultRegistryMutation", cd.enableDefaultRegistryMutation, "newEnableDefaultRegistryMutation", newEnableDefaultRegistryMutation)
+		cd.enableDefaultRegistryMutation = newEnableDefaultRegistryMutation
+	}
 	// load excludeGroupRole
 	cd.excludeGroupRole = append(cd.excludeGroupRole, parseRbac(cm.Data["excludeGroupRole"])...)
 	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
@@ -258,6 +324,8 @@ func (cd *configuration) unload() {
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
 	cd.filters = []filter{}
+	cd.defaultRegistry = "docker.io"
+	cd.enableDefaultRegistryMutation = true
 	cd.excludeGroupRole = []string{}
 	cd.excludeUsername = []string{}
 	cd.generateSuccessEvents = false

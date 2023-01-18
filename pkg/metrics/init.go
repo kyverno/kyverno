@@ -1,61 +1,62 @@
 package metrics
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
-	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/global"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"k8s.io/client-go/kubernetes"
 )
 
 func InitMetrics(
+	ctx context.Context,
 	disableMetricsExport bool,
 	otel string,
 	metricsAddr string,
 	otelCollector string,
-	metricsConfigData *config.MetricsConfigData,
+	metricsConfiguration config.MetricsConfiguration,
 	transportCreds string,
 	kubeClient kubernetes.Interface,
-	log logr.Logger,
-) (*MetricsConfig, *http.ServeMux, *controller.Controller, error) {
+	logger logr.Logger,
+) (MetricsConfigManager, *http.ServeMux, *sdkmetric.MeterProvider, error) {
 	var err error
 	var metricsServerMux *http.ServeMux
-	var pusher *controller.Controller
-
-	metricsConfig := new(MetricsConfig)
-	metricsConfig.Log = log
-	metricsConfig.Config = metricsConfigData
-
-	metricsConfig, err = initializeMetrics(metricsConfig)
-	if err != nil {
-		log.Error(err, "Failed initializing metrics")
-		return nil, nil, nil, err
-	}
-
 	if !disableMetricsExport {
+		var meterProvider metric.MeterProvider
 		if otel == "grpc" {
-			// Otlpgrpc metrics will be served on port 4317: default port for otlpgrpcmetrics
-			log.V(2).Info("Enabling Metrics for Kyverno", "address", metricsAddr)
-
 			endpoint := otelCollector + metricsAddr
-			pusher, err = NewOTLPGRPCConfig(
+			meterProvider, err = NewOTLPGRPCConfig(
+				ctx,
 				endpoint,
 				transportCreds,
 				kubeClient,
-				log,
+				logger,
 			)
 			if err != nil {
 				return nil, nil, nil, err
 			}
 		} else if otel == "prometheus" {
-			// Prometheus Server will serve metrics on metrics-port
-			metricsServerMux, err = NewPrometheusConfig(log)
-
+			meterProvider, metricsServerMux, err = NewPrometheusConfig(ctx, logger)
 			if err != nil {
-				return nil, nil, pusher, err
+				return nil, nil, nil, err
 			}
 		}
+		if meterProvider != nil {
+			global.SetMeterProvider(meterProvider)
+		}
 	}
-	return metricsConfig, metricsServerMux, pusher, nil
+	metricsConfig := MetricsConfig{
+		Log:    logger,
+		config: metricsConfiguration,
+	}
+	err = metricsConfig.initializeMetrics(global.MeterProvider())
+	if err != nil {
+		logger.Error(err, "Failed initializing metrics")
+		return nil, nil, nil, err
+	}
+	return &metricsConfig, metricsServerMux, nil, nil
 }

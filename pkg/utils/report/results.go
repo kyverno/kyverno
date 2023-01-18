@@ -1,6 +1,8 @@
 package report
 
 import (
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -96,6 +98,22 @@ func EngineResponseToReportResults(response *response.EngineResponse) []policyre
 			},
 			Category: annotations[kyvernov1.AnnotationPolicyCategory],
 			Severity: severityFromString(annotations[kyvernov1.AnnotationPolicySeverity]),
+		}
+		if ruleResult.PodSecurityChecks != nil {
+			var controls []string
+			for _, check := range ruleResult.PodSecurityChecks.Checks {
+				if !check.CheckResult.Allowed {
+					controls = append(controls, check.ID)
+				}
+			}
+			if len(controls) > 0 {
+				sort.Strings(controls)
+				result.Properties = map[string]string{
+					"standard": string(ruleResult.PodSecurityChecks.Level),
+					"version":  ruleResult.PodSecurityChecks.Version,
+					"controls": strings.Join(controls, ","),
+				}
+			}
 		}
 		if result.Result == "fail" && !result.Scored {
 			result.Result = "warn"

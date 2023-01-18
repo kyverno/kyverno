@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -883,16 +881,16 @@ func TestMatchesResourceDescription(t *testing.T) {
 			},
 			Resource:          []byte(`{ "apiVersion": "v1", "kind": "Pod", "metadata": { "name": "myapp-pod2", "labels": { "app": "myapp2" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx" } ] } }`),
 			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "pod" ] } }, "validate": { "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
-			areErrorsExpected: false,
+			areErrorsExpected: true,
 		},
 		{
-			Description: "Test should pass for GVK case sensitive",
+			Description: "Test should fail for GVK case sensitive",
 			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "name": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
-			areErrorsExpected: false,
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } } ] } }`),
+			areErrorsExpected: true,
 		},
 	}
 
@@ -902,10 +900,10 @@ func TestMatchesResourceDescription(t *testing.T) {
 		if err != nil {
 			t.Errorf("Testcase %d invalid policy raw", i+1)
 		}
-		resource, _ := utils.ConvertToUnstructured(tc.Resource)
+		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.ComputeRules(&policy) {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "")
+			err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, tc.AdmissionInfo, []string{}, nil, "", "")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1788,16 +1786,16 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 			},
 			Resource:          []byte(`{ "apiVersion": "v1", "kind": "Pod", "metadata": { "generateName": "myapp-pod2", "labels": { "app": "myapp2" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx" } ] } }`),
 			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "disallow-latest-tag", "annotations": { "policies.kyverno.io/category": "Workload Isolation", "policies.kyverno.io/description": "The ':latest' tag is mutable and can lead to unexpected errors if the image changes. A best practice is to use an immutable tag that maps to a specific version of an application pod." } }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "require-image-tag", "match": { "resources": { "kinds": [ "pod" ] } }, "validate": { "message": "An image tag is required", "pattern": { "spec": { "containers": [ { "image": "*:*" } ] } } } } ] } }`),
-			areErrorsExpected: false,
+			areErrorsExpected: true,
 		},
 		{
-			Description: "Test should pass for GVK case sensitive",
+			Description: "Test should fail for GVK case sensitive",
 			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "generateName": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
-			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } }, { "name": "check-cpu-memory-limits", "match": { "resources": { "kinds": [ "apps/v1/Deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "validate": { "message": "Resource limits are required for CPU and memory", "pattern": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "memory": "?*", "cpu": "?*" } } } ] } } } } } } ] } }`),
-			areErrorsExpected: false,
+			Policy:            []byte(`{ "apiVersion": "kyverno.io/v1", "kind": "ClusterPolicy", "metadata": { "name": "policy-qos" }, "spec": { "validationFailureAction": "enforce", "rules": [ { "name": "add-memory-limit", "match": { "resources": { "kinds": [ "apps/v1/deployment" ], "selector": { "matchLabels": { "test": "qos" } } } }, "mutate": { "overlay": { "spec": { "template": { "spec": { "containers": [ { "(name)": "*", "resources": { "limits": { "+(memory)": "300Mi", "+(cpu)": "100" } } } ] } } } } } } ] } }`),
+			areErrorsExpected: true,
 		},
 	}
 
@@ -1807,10 +1805,10 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 		if err != nil {
 			t.Errorf("Testcase %d invalid policy raw", i+1)
 		}
-		resource, _ := utils.ConvertToUnstructured(tc.Resource)
+		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.ComputeRules(&policy) {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "")
+			err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, tc.AdmissionInfo, []string{}, nil, "", "")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1864,10 +1862,9 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 		   }
 		}
 	 }`)
-	resource, err := utils.ConvertToUnstructured(rawResource)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment", "Pods"},
@@ -1878,10 +1875,9 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
-
 }
 
 // Match resource name
@@ -1924,10 +1920,9 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 		   }
 		}
 	 }`)
-	resource, err := utils.ConvertToUnstructured(rawResource)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -1939,7 +1934,7 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1983,10 +1978,9 @@ func TestResourceDescriptionMatch_GenerateName(t *testing.T) {
 		   }
 		}
 	 }`)
-	resource, err := utils.ConvertToUnstructured(rawResource)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -1998,7 +1992,7 @@ func TestResourceDescriptionMatch_GenerateName(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2043,10 +2037,9 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 		   }
 		}
 	 }`)
-	resource, err := utils.ConvertToUnstructured(rawResource)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2058,7 +2051,7 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2102,10 +2095,9 @@ func TestResourceDescriptionMatch_GenerateName_Regex(t *testing.T) {
 		   }
 		}
 	 }`)
-	resource, err := utils.ConvertToUnstructured(rawResource)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2117,7 +2109,7 @@ func TestResourceDescriptionMatch_GenerateName_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2162,10 +2154,9 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 		   }
 		}
 	 }`)
-	resource, err := utils.ConvertToUnstructured(rawResource)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2185,7 +2176,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2230,10 +2221,9 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 		   }
 		}
 	 }`)
-	resource, err := utils.ConvertToUnstructured(rawResource)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2254,7 +2244,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2300,10 +2290,9 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		   }
 		}
 	 }`)
-	resource, err := utils.ConvertToUnstructured(rawResource)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
 	if err != nil {
 		t.Errorf("unable to convert raw resource to unstructured: %v", err)
-
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
@@ -2331,83 +2320,13 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		},
 	}
 
-	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription},
-		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude}}
+	rule := v1.Rule{
+		MatchResources:   v1.MatchResources{ResourceDescription: resourceDescription},
+		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
+	}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err == nil {
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
-	}
-}
-
-func TestWildCardLabels(t *testing.T) {
-
-	testSelector(t, &metav1.LabelSelector{}, map[string]string{}, true)
-
-	testSelector(t, &metav1.LabelSelector{}, map[string]string{"foo": "bar"}, true)
-
-	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/*": "bar"}},
-		map[string]string{"foo": "bar"}, false)
-
-	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"scale.test.io/*": "bar"}},
-		map[string]string{"foo": "bar"}, false)
-
-	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/*": "bar"}},
-		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, true)
-
-	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/*": "*"}},
-		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, true)
-
-	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/*": "a*"}},
-		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, false)
-
-	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/scale": "f??"}},
-		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, true)
-
-	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"*": "*"}},
-		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, true)
-
-	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"test.io/functional": "foo"}},
-		map[string]string{"test.io/scale": "foo", "test.io/functional": "bar"}, false)
-
-	testSelector(t, &metav1.LabelSelector{MatchLabels: map[string]string{"*": "*"}},
-		map[string]string{}, false)
-}
-
-func testSelector(t *testing.T, s *metav1.LabelSelector, l map[string]string, match bool) {
-	res, err := checkSelector(s, l)
-	if err != nil {
-		t.Errorf("selector %v failed to select labels %v: %v", s.MatchLabels, l, err)
-		return
-	}
-
-	if res != match {
-		t.Errorf("select %v -> labels %v: expected %v received %v", s.MatchLabels, l, match, res)
-	}
-}
-
-func TestWildCardAnnotation(t *testing.T) {
-
-	// test single annotation values
-	testAnnotationMatch(t, map[string]string{}, map[string]string{}, true)
-	testAnnotationMatch(t, map[string]string{"test/*": "*"}, map[string]string{}, false)
-	testAnnotationMatch(t, map[string]string{"test/*": "*"}, map[string]string{"tes1/test": "*"}, false)
-	testAnnotationMatch(t, map[string]string{"test/*": "*"}, map[string]string{"test/test": "*"}, true)
-	testAnnotationMatch(t, map[string]string{"test/*": "*"}, map[string]string{"test/bar": "foo"}, true)
-	testAnnotationMatch(t, map[string]string{"test/b*": "*"}, map[string]string{"test/bar": "foo"}, true)
-
-	// test multiple annotation values
-	testAnnotationMatch(t, map[string]string{"test/b*": "*", "test2/*": "*"},
-		map[string]string{"test/bar": "foo"}, false)
-	testAnnotationMatch(t, map[string]string{"test/b*": "*", "test2/*": "*"},
-		map[string]string{"test/bar": "foo", "test2/123": "bar"}, true)
-	testAnnotationMatch(t, map[string]string{"test/b*": "*", "test2/*": "*"},
-		map[string]string{"test/bar": "foo", "test2/123": "bar", "test3/123": "bar2"}, true)
-}
-
-func testAnnotationMatch(t *testing.T, policy map[string]string, resource map[string]string, match bool) {
-	res := checkAnnotations(policy, resource)
-	if res != match {
-		t.Errorf("annotations %v -> labels %v: expected %v received %v", policy, resource, match, res)
 	}
 }
 
@@ -2473,28 +2392,8 @@ func TestManagedPodResource(t *testing.T) {
 		err := json.Unmarshal(tc.policy, &policy)
 		assert.Assert(t, err == nil, "Test %d/%s invalid policy raw: %v", i+1, tc.name, err)
 
-		resource, _ := utils.ConvertToUnstructured(tc.resource)
+		resource, _ := kubeutils.BytesToUnstructured(tc.resource)
 		res := ManagedPodResource(&policy, *resource)
 		assert.Equal(t, res, tc.expectedResult, "test %d/%s failed, expect %v, got %v", i+1, tc.name, tc.expectedResult, res)
 	}
-}
-
-func Test_checkKind(t *testing.T) {
-	match := checkKind([]string{"*"}, "Deployment", schema.GroupVersionKind{Kind: "Deployment", Group: "", Version: "v1"})
-	assert.Equal(t, match, true)
-
-	match = checkKind([]string{"Pod"}, "Pod", schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"})
-	assert.Equal(t, match, true)
-
-	match = checkKind([]string{"v1/Pod"}, "Pod", schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"})
-	assert.Equal(t, match, true)
-
-	match = checkKind([]string{"tekton.dev/v1beta1/TaskRun"}, "TaskRun", schema.GroupVersionKind{Kind: "TaskRun", Group: "tekton.dev", Version: "v1beta1"})
-	assert.Equal(t, match, true)
-
-	match = checkKind([]string{"tekton.dev/v1beta1/TaskRun/status"}, "TaskRun", schema.GroupVersionKind{Kind: "TaskRun", Group: "tekton.dev", Version: "v1beta1"})
-	assert.Equal(t, match, true)
-
-	match = checkKind([]string{"v1/pod.status"}, "Pod", schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"})
-	assert.Equal(t, match, true)
 }

@@ -8,14 +8,15 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
-	"github.com/kyverno/kyverno/cmd/cleanup-controller/logger"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
-
-// ValidatingWebhookServicePath is the path for validation webhook
-const ValidatingWebhookServicePath = "/validate"
 
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
@@ -24,30 +25,68 @@ type Server interface {
 	Stop(context.Context)
 }
 
-type CleanupPolicyHandlers interface {
-	// Validate performs the validation check on policy resources
-	Validate(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
-}
-
 type server struct {
 	server *http.Server
 }
 
-type TlsProvider func() ([]byte, []byte, error)
+type (
+	TlsProvider       = func() ([]byte, []byte, error)
+	ValidationHandler = func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	CleanupHandler    = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
+)
+
+type Probes interface {
+	IsReady() bool
+	IsLive() bool
+}
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
-	policyHandlers CleanupPolicyHandlers,
 	tlsProvider TlsProvider,
+	validationHandler ValidationHandler,
+	cleanupHandler CleanupHandler,
+	metricsConfig metrics.MetricsConfigManager,
+	debugModeOpts webhooks.DebugModeOptions,
+	probes Probes,
+	cfg config.Configuration,
 ) Server {
+	policyLogger := logging.WithName("cleanup-policy")
+	cleanupLogger := logging.WithName("cleanup")
+	cleanupHandlerFunc := func(w http.ResponseWriter, r *http.Request) {
+		policy := r.URL.Query().Get("policy")
+		logger := cleanupLogger.WithValues("policy", policy)
+		err := cleanupHandler(r.Context(), logger, policy, time.Now(), cfg)
+		if err == nil {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			if apierrors.IsNotFound(err) {
+				w.WriteHeader(http.StatusNotFound)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+		}
+	}
 	mux := httprouter.New()
 	mux.HandlerFunc(
 		"POST",
-		ValidatingWebhookServicePath,
-		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
-			WithAdmission(logger.Logger.WithName("validate")).
+		config.CleanupValidatingWebhookServicePath,
+		handlers.FromAdmissionFunc("VALIDATE", validationHandler).
+			WithDump(debugModeOpts.DumpPayload).
+			WithSubResourceFilter().
+			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
+			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)
+	mux.HandlerFunc(
+		"GET",
+		cleanup.CleanupServicePath,
+		handlers.HttpHandler(cleanupHandlerFunc).
+			WithMetrics(policyLogger).
+			WithTrace("CLEANUP").
+			ToHandlerFunc(),
+	)
+	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(probes.IsLive))
+	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(probes.IsReady))
 	return &server{
 		server: &http.Server{
 			Addr: ":9443",
@@ -70,7 +109,7 @@ func NewServer(
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 30 * time.Second,
 			IdleTimeout:       5 * time.Minute,
-			// ErrorLog:          logging.StdLogger(logger.WithName("server"), ""),
+			ErrorLog:          logging.StdLogger(logging.WithName("server"), ""),
 		},
 	}
 }

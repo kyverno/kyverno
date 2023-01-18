@@ -23,6 +23,12 @@ type UserInfo struct {
 	Subjects []rbacv1.Subject `json:"subjects,omitempty" yaml:"subjects,omitempty"`
 }
 
+func (r UserInfo) IsEmpty() bool {
+	return len(r.Roles) == 0 &&
+		len(r.ClusterRoles) == 0 &&
+		len(r.Subjects) == 0
+}
+
 // ValidateSubjects implements programmatic validation of Subjects
 func (u *UserInfo) ValidateSubjects(path *field.Path) (errs field.ErrorList) {
 	for index, subject := range u.Subjects {
@@ -46,6 +52,22 @@ func (u *UserInfo) ValidateRoles(path *field.Path) (errs field.ErrorList) {
 		role := strings.Split(r, ":")
 		if len(role) != 2 {
 			errs = append(errs, field.Invalid(path.Index(i), r, "Role is expected to be in namespace:name format"))
+		}
+	}
+	return errs
+}
+
+// ValidateNoUserInfo verifies that no user info is used
+func (u *UserInfo) ValidateNoUserInfo(path *field.Path) (errs field.ErrorList) {
+	if u != nil {
+		if len(u.Roles) != 0 {
+			errs = append(errs, field.Forbidden(path.Child("roles"), "Usage of user info is forbidden"))
+		}
+		if len(u.ClusterRoles) != 0 {
+			errs = append(errs, field.Forbidden(path.Child("clusterRoles"), "Usage of user info is forbidden"))
+		}
+		if len(u.Subjects) != 0 {
+			errs = append(errs, field.Forbidden(path.Child("subjects"), "Usage of user info is forbidden"))
 		}
 	}
 	return errs

@@ -95,8 +95,9 @@ func initRecorder(client dclient.Interface, eventSource Source, log logr.Logger)
 func (gen *Generator) Add(infos ...Info) {
 	logger := gen.log
 
-	if gen.queue.Len() > gen.maxQueuedEvents {
-		logger.V(5).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
+	logger.V(3).Info("generating events", "count", len(infos))
+	if gen.maxQueuedEvents == 0 || gen.queue.Len() > gen.maxQueuedEvents {
+		logger.V(2).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
 		return
 	}
 
@@ -104,7 +105,7 @@ func (gen *Generator) Add(infos ...Info) {
 		if info.Name == "" {
 			// dont create event for resources with generateName
 			// as the name is not generated yet
-			logger.V(4).Info("not creating an event as the resource has not been assigned a name yet", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
+			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
 		gen.queue.Add(info)
@@ -189,7 +190,7 @@ func (gen *Generator) syncHandler(key Info) error {
 			return err
 		}
 	default:
-		robj, err = gen.client.GetResource("", key.Kind, key.Namespace, key.Name)
+		robj, err = gen.client.GetResource(context.TODO(), "", key.Kind, key.Namespace, key.Name)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)

@@ -16,3 +16,4 @@ cmd/reports-controller/reports-controller
 /config/.helm
 /config/.release
 .dist
+.manifest

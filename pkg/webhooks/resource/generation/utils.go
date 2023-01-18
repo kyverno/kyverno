@@ -1,6 +1,7 @@
 package generation
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -8,7 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
@@ -16,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client dclient.Interface, rule kyvernov1.Rule, logger logr.Logger) (kyvernov1.Rule, error) {
+func getGeneratedByResource(ctx context.Context, newRes *unstructured.Unstructured, resLabels map[string]string, client dclient.Interface, rule kyvernov1.Rule, logger logr.Logger) (kyvernov1.Rule, error) {
 	var apiVersion, kind, name, namespace string
 	sourceRequest := &admissionv1.AdmissionRequest{}
 	kind = resLabels["kyverno.io/generated-by-kind"]
@@ -24,7 +25,7 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 	if kind != "Namespace" {
 		namespace = resLabels["kyverno.io/generated-by-namespace"]
 	}
-	obj, err := client.GetResource(apiVersion, kind, namespace, name)
+	obj, err := client.GetResource(ctx, apiVersion, kind, namespace, name)
 	if err != nil {
 		logger.Error(err, "source resource not found.")
 		return rule, err
@@ -36,12 +37,12 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 	}
 	sourceRequest.Object.Raw = rawObj
 	sourceRequest.Operation = "CREATE"
-	ctx := enginectx.NewContext()
-	if err := ctx.AddRequest(sourceRequest); err != nil {
+	enginectx := enginecontext.NewContext()
+	if err := enginectx.AddRequest(sourceRequest); err != nil {
 		logger.Error(err, "failed to load incoming request in context")
 		return rule, err
 	}
-	if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
+	if rule, err = variables.SubstituteAllInRule(logger, enginectx, rule); err != nil {
 		logger.Error(err, "variable substitution failed for rule %s", rule.Name)
 		return rule, err
 	}
@@ -114,8 +115,14 @@ type updateRequestResponse struct {
 	err error
 }
 
-func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov1beta1.RequestType, grGenerator updaterequest.Generator, userRequestInfo kyvernov1beta1.RequestInfo,
-	action admissionv1.Operation, engineResponses ...*response.EngineResponse,
+func applyUpdateRequest(
+	ctx context.Context,
+	request *admissionv1.AdmissionRequest,
+	ruleType kyvernov1beta1.RequestType,
+	grGenerator updaterequest.Generator,
+	userRequestInfo kyvernov1beta1.RequestInfo,
+	action admissionv1.Operation,
+	engineResponses ...*response.EngineResponse,
 ) (failedUpdateRequest []updateRequestResponse) {
 	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
 		AdmissionRequest: request,
@@ -124,7 +131,7 @@ func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov
 
 	for _, er := range engineResponses {
 		ur := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
-		if err := grGenerator.Apply(ur, action); err != nil {
+		if err := grGenerator.Apply(ctx, ur, action); err != nil {
 			failedUpdateRequest = append(failedUpdateRequest, updateRequestResponse{ur: ur, err: err})
 		}
 	}

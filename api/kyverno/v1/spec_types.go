@@ -29,7 +29,7 @@ func (a ValidationFailureAction) Audit() bool {
 }
 
 type ValidationFailureActionOverride struct {
-	// +kubebuilder:validation:Enum=audit;enforce
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
 	Action     ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
 	Namespaces []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 }
@@ -57,10 +57,10 @@ type Spec struct {
 	// ValidationFailureAction defines if a validation policy rule violation should block
 	// the admission review request (enforce), or allow (audit) the admission review request
 	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce. The default value is "audit".
+	// Allowed values are audit or enforce. The default value is "Audit".
 	// +optional
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
-	// +kubebuilder:default=audit
+	// +kubebuilder:default=Audit
 	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
@@ -233,7 +233,7 @@ func (s *Spec) ValidateSchema() bool {
 
 // ValidateRuleNames checks if the rule names are unique across a policy
 func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
-	names := sets.NewString()
+	names := sets.New[string]()
 	for i, rule := range s.Rules {
 		rulePath := path.Index(i)
 		if names.Has(rule.Name) {
@@ -245,7 +245,7 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 }
 
 // ValidateRules implements programmatic validation of Rules
-func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.String) (errs field.ErrorList) {
+func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
 	for i, rule := range s.Rules {
 		errs = append(errs, rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)...)
@@ -254,7 +254,7 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace 
 }
 
 // Validate implements programmatic validation
-func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.String) (errs field.ErrorList) {
+func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
 		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))
