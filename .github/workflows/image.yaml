@@ -16,41 +16,37 @@ permissions:
 
 jobs:
   push-init-kyverno:
-    uses: ./.github/workflows/reuse.yaml
+    uses: ./.github/workflows/reuse-v2.yaml
     with:
-      publish_command: ko-publish-kyvernopre
-      image_name: kyvernopre
-      tag: image
+      makefile-target: ko-publish-kyvernopre-dev
+      sign-image: false
     secrets:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}
 
   push-kyverno:
-    uses: ./.github/workflows/reuse.yaml
+    uses: ./.github/workflows/reuse-v2.yaml
     with:
-      publish_command: ko-publish-kyverno
-      image_name: kyverno
-      tag: image
+      publish_command: ko-publish-kyverno-dev
+      sign-image: false
     secrets:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}
 
   push-cleanup-controller:
-    uses: ./.github/workflows/reuse.yaml
+    uses: ./.github/workflows/reuse-v2.yaml
     with:
-      publish_command: ko-publish-cleanup-controller
-      image_name: cleanup-controller
-      tag: image
+      publish_command: ko-publish-cleanup-controller-dev
+      sign-image: false
     secrets:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}
 
   push-kyverno-cli:
-    uses: ./.github/workflows/reuse.yaml
+    uses: ./.github/workflows/reuse-v2.yaml
     with:
-      publish_command: ko-publish-cli
-      image_name: kyverno-cli
-      tag: image
+      publish_command: ko-publish-cli-dev
+      sign-image: false
     secrets:
       registry_username: ${{ github.actor }}
       registry_password: ${{ secrets.CR_PAT }}

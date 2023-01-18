@@ -6,15 +6,15 @@ on:
       makefile-target:
         required: true
         type: string
-      image-tag:
-        required: true
-        type: string
+      # image-tag:
+      #   required: true
+      #   type: string
       sign-image:
         required: true
         type: string
-      main-path:
-        required: true
-        type: string
+      # main-path:
+      #   required: true
+      #   type: string
 
     secrets:
       registry_username:
