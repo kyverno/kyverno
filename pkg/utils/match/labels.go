@@ -8,6 +8,10 @@ import (
 )
 
 func CheckSelector(expected *metav1.LabelSelector, actual map[string]string) (bool, error) {
+	if expected == nil {
+		return false, nil
+	}
+
 	wildcards.ReplaceInSelector(expected, actual)
 	selector, err := metav1.LabelSelectorAsSelector(expected)
 	if err != nil {
