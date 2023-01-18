@@ -422,7 +422,8 @@ func main() {
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
-	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.") // config
+	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
 		internal.WithTracing(),
