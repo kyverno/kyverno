@@ -9,15 +9,3 @@ spec:
   containers:
   - image: nginx
     name: test
----
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    app: nginx
-  name: nginx-pass
-  namespace: default
-spec:
-  containers:
-  - image: nginx
-    name: test
