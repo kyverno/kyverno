@@ -331,8 +331,8 @@ func main() {
 			}
 			internal.StartInformers(ctx, metadataInformer)
 			if !internal.CheckCacheSync(metadataInformer.WaitForCacheSync(ctx.Done())) {
-				// TODO: shall we just exit ?
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+				os.Exit(1)
 			}
 			if err := warmup(ctx); err != nil {
 				logger.Error(err, "failed to run warmup")
