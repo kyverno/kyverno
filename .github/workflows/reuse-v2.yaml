@@ -1,0 +1,123 @@
+name: Create Publish and Sign Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      makefile-target:
+        required: true
+        type: string
+      image-tag:
+        required: true
+        type: string
+      sign-image:
+        required: true
+        type: string
+      main-path:
+        required: true
+        type: string
+
+    secrets:
+      registry_username:
+        required: true
+      registry_password:
+        required: true
+
+    outputs:
+      digest:
+        description: docker image digest
+        value: ${{ jobs.publish.outputs.digest }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      digest: ${{ steps.digest.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      # TODO: SBOM
+      # - name: Set Version
+      #   if: ${{ inputs.tag == 'release'}}
+      #   run: |
+      #     echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))" >> $GITHUB_ENV
+      # - name: Generate SBOM JSON
+      #   if: ${{inputs.tag == 'release'}}
+      #   uses: CycloneDX/gh-gomod-generate-sbom@d4aee0cf5133055dbd98899978246c10c18c440f # v1.1.0
+      #   with:
+      #     version: v1
+      #     args: app -licenses -json -output ${{inputs.image_name}}-${{ env.KYVERNO_VERSION }}-bom.cdx.json -main ${{inputs.main}}
+      # - name: Upload SBOM JSON
+      #   if: ${{inputs.tag == 'release'}}
+      #   uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+      #   with:
+      #     name: ${{inputs.image_name}}-bom-cdx
+      #     path: ${{inputs.image_name}}-v*-bom.cdx.json
+
+      # ???
+      # - name: Extract branch name
+      #   if: ${{inputs.tag == 'image'}}
+      #   shell: bash
+      #   run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      #   id: extract_branc
+      # - name: Check branch
+      #   if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch != 'main'}}
+      #   id: check-branch
+      #   run: |
+      #     if [[ ${{ steps.extract_branch.outputs.branch }} =~ ^release-[0-9]+\.[0-9]$ ]]; then
+      #         echo "match=true" >> $GITHUB_OUTPUT
+      #     fi
+
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
+        with:
+          cosign-release: 'v1.13.0'
+      - name: ko publish image
+        id: ko-publish
+        env:
+          COSIGN_REPOSITORY: ghcr.io/${{ github.repository_owner }}/sbom
+          REGISTRY: ghcr.io
+          REPO: ${{ github.repository_owner }}
+          REGISTRY_PASSWORD: ${{ secrets.registry_password }}
+        run: |
+          set -e
+          echo "digest=$(make ${{ inputs.makefile-target }})" >> $GITHUB_OUTPUT
+      - name: Sign image
+        if: ${{ inputs.sign-image == 'true' }}
+        env:
+          COSIGN_EXPERIMENTAL: 'true'
+          COSIGN_REPOSITORY: ghcr.io/${{ github.repository_owner }}/signatures
+        run: |
+          set -e
+          cosign sign \
+            -a "repo=${{ github.repository }}" \
+            -a "workflow=${{ github.workflow }}" \
+            -a "ref=${{ github.sha }}" \
+            ${{ steps.ko-publish.outputs.digest }}
+      # - name : Attach SBOM
+      #   if: ${{inputs.tag == 'release'}}
+      #   env:
+      #     COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
+      #   run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }}
+      - name: Get image digest
+        id: digest
+        run: |
+          echo "The image generated is: ${{ steps.ko-publish.outputs.digest }}"
+          DIGEST=$(echo ${{ steps.ko-publish.outputs.digest }} | cut -d '@' -f2)
+          echo "Digest from image is: $DIGEST"
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
