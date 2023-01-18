@@ -5,39 +5,39 @@ description: Publishes a docker image, SBOM, scans vulns, and signs the image.
 inputs:
   makefile-target:
     required: true
-    description: TODO
+    description: makefile target to invoke for publishing image with ko
   registry:
     required: true
-    description: TODO
+    description: registry to publish image to
   registry-username:
     required: true
-    description: TODO
+    description: registry credentials username
   registry-password:
     required: true
-    description: TODO
+    description: registry credentials password
   repository:
     required: true
-    description: TODO
+    description: repository to publish image to
   sign-image:
     required: true
-    description: TODO
+    description: sign image
   sbom-name:
     required: true
-    description: TODO
+    description: name of the cyclonedx sbom
   sbom-repository:
     required: true
-    description: TODO
+    description: sbom repository
   signature-repository:
     required: true
-    description: TODO
+    description: signature repository
   main-path:
     required: true
-    description: TODO
+    description: path to main go entry point
 
 outputs:
   digest:
     value: ${{ steps.digest.outputs.digest }}
-    description: TODO
+    description: published image digest
 
 runs:
   using: composite
