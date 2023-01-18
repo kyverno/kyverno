@@ -169,7 +169,8 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 		}
 	}
 
-	if conditionBlock.NamespaceSelector != nil && resource.GetKind() != "Namespace" && resource.GetKind() != "" {
+	if conditionBlock.NamespaceSelector != nil && resource.GetKind() != "Namespace" &&
+		(resource.GetKind() != "" || slices.Contains(conditionBlock.Kinds, "*") && wildcard.Match("*", resource.GetKind())) {
 		hasPassed, err := checkSelector(conditionBlock.NamespaceSelector, namespaceLabels)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
