@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -28,10 +29,16 @@ func (a ValidationFailureAction) Audit() bool {
 	return !a.Enforce()
 }
 
+func (a ValidationFailureAction) IsValid() bool {
+	// ValidationFailureAction should either be enforce / audit
+	return a.Enforce() || a.Audit()
+}
+
 type ValidationFailureActionOverride struct {
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
-	Action     ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
-	Namespaces []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
+	Action            ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
+	Namespaces        []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
+	NamespaceSelector *metav1.LabelSelector   `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
 }
 
 // Spec contains a list of Rule instances and other policy controls.
