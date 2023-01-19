@@ -768,10 +768,6 @@ reportsController:
       #   resources:
       #     - pods
 
-  # -- Create self-signed certificates at deployment time.
-  # The certificates won't be automatically renewed if this is set to `true`.
-  createSelfSignedCert: false
-
   image:
     # -- Image registry
     registry:
@@ -926,17 +922,6 @@ reportsController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
-
-  service:
-    # -- Service port.
-    port: 443
-    # -- Service type.
-    type: ClusterIP
-    # -- Service node port.
-    # Only used if `service.type` is `NodePort`.
-    nodePort:
-    # -- Service annotations.
-    annotations: {}
 
   metricsService:
     # -- Create service.
