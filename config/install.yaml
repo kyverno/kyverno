@@ -32274,29 +32274,6 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: kyverno-reports-controller
-  namespace: kyverno
-  labels:
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-    app.kubernetes.io/component: reports-controller
-    app.kubernetes.io/name: kyverno-reports-controller
-    app.kubernetes.io/instance: kyverno
-spec:
-  ports:
-  - port: 443
-    targetPort: https
-    protocol: TCP
-    name: https
-  selector:
-    app.kubernetes.io/component: reports-controller
-    app.kubernetes.io/name: kyverno-reports-controller
-    app.kubernetes.io/instance: kyverno
-  type: ClusterIP
----
-apiVersion: v1
-kind: Service
-metadata:
   name: kyverno-reports-controller-metrics
   namespace: kyverno
   labels:
@@ -32728,8 +32705,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          - name: KYVERNO_SVC
-            value: kyverno-reports-controller
           resources: 
             limits:
               memory: 128Mi
