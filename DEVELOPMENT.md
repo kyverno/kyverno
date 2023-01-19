@@ -12,6 +12,7 @@ It contains instructions to build, run, and test Kyverno.
 - [Building local images](#building-local-images)
   - [Building local images with ko](#building-local-images-with-ko)
 - [Pushing images](#pushing-images)
+  - [Images tagging strategy](#images-tagging-strategy)
   - [Pushing images with ko](#pushing-images-with-ko)
 - [Deploying a local build](#deploying-a-local-build)
   - [Create a local cluster](#create-a-local-cluster)
@@ -142,7 +143,12 @@ Pushing images is very similar to [building local images](#building-local-images
 
 When pushing images you can specify the registry you want to publish images to by setting the `REGISTRY` environment variable (default value is `ghcr.io`).
 
-<!-- TODO: explain the way images are tagged. -->
+### Images tagging strategy
+
+When publishing images, we are using the following strategy:
+- All published images are tagged with `latest`. Images tagged with `latest` should not be considered stable and can come from multiple release branches or main.
+- In addition to `latest`, dev images are tagged with the following pattern `<major>.<minor>-dev-N-<git hash>` where `N` is a two-digit number beginning at one for the major-minor combination and incremented by one on each subsequent tagged image.
+- In addition to `latest`, release images are tagged with the following pattern `<major>.<minor>.<patch>-<pre release>`. The pre release part is optional and only applies to pre releases (`-beta.1`, `-rc.2`, ...).
 
 ### Pushing images with ko
 
@@ -384,7 +390,7 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
 1. Create a local cluster
     - You can create a simple cluster with [KinD](https://kind.sigs.k8s.io/) with `make kind-create-cluster`
 1. Deploy Kyverno manifests except the Kyverno `Deployment`
-    - Kyverno is going to run on your local machine so it should not run in cluster at the same time
+    - Kyverno is going to run on your local machine, so it should not run in cluster at the same time
     - You can deploy the manifests by running `make debug-deploy`
 1. To run Kyverno locally against the remote cluster you will need to provide `--kubeconfig` and `--serverIP` arguments:
     - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)

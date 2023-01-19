@@ -21,6 +21,7 @@ type scanner struct {
 	client                 dclient.Interface
 	rclient                registryclient.Client
 	informerCacheResolvers resolvers.ConfigmapResolver
+	polexLister            engine.PolicyExceptionLister
 	excludeGroupRole       []string
 	config                 config.Configuration
 }
@@ -39,6 +40,7 @@ func NewScanner(
 	client dclient.Interface,
 	rclient registryclient.Client,
 	informerCacheResolvers resolvers.ConfigmapResolver,
+	polexLister engine.PolicyExceptionLister,
 	config config.Configuration,
 	excludeGroupRole ...string,
 ) Scanner {
@@ -47,6 +49,7 @@ func NewScanner(
 		client:                 client,
 		rclient:                rclient,
 		informerCacheResolvers: informerCacheResolvers,
+		polexLister:            polexLister,
 		config:                 config,
 		excludeGroupRole:       excludeGroupRole,
 	}
@@ -99,7 +102,8 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
-		WithInformerCacheResolver(s.informerCacheResolvers)
+		WithInformerCacheResolver(s.informerCacheResolvers).
+		WithExceptions(s.polexLister)
 	return engine.Validate(ctx, s.rclient, policyCtx, s.config), nil
 }
 
@@ -123,7 +127,8 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
-		WithInformerCacheResolver(s.informerCacheResolvers)
+		WithInformerCacheResolver(s.informerCacheResolvers).
+		WithExceptions(s.polexLister)
 	response, _ := engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx, s.config)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
