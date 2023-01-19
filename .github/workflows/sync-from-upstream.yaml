@@ -16,10 +16,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          fetch-depth: '1'
       - run: |
           # Fetch tags from upstream repo
           git fetch https://github.com/kyverno/kyverno --tags
           # Remove release candidates local tags
-          git tag -d $(git tag -l | grep -E "\-rc|\-beta")
+          git tag -d $(git tag -l | grep -E "\-rc|\-beta|\-dev|\-chart")
           git push --tags
 
