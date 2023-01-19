@@ -1,0 +1,125 @@
+{{- if .Values.reportsController.enabled -}}
+{{- if not .Values.templating.debug -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "kyverno.reports-controller.name" . }}
+  labels:
+    {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
+  namespace: {{ template "kyverno.namespace" . }}
+spec:
+  {{- with .Values.reportsController.replicas }}
+  replicas: {{ . }}
+  {{- end }}
+  {{- with .Values.reportsController.updateStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "kyverno.reports-controller.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kyverno.reports-controller.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.reportsController.image.pullSecrets }}
+      imagePullSecrets: 
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.reportsController.podSecurityContext }}
+      securityContext:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.reportsController.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.reportsController.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.reportsController.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.reportsController.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.reportsController.hostNetwork }}
+      hostNetwork: {{ . }}
+      {{- end }}
+      {{- with .Values.reportsController.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- if or .Values.reportsController.antiAffinity.enabled .Values.reportsController.podAffinity .Values.reportsController.nodeAffinity }}
+      affinity:
+        {{- if .Values.reportsController.antiAffinity.enabled }}
+        {{- with .Values.reportsController.podAntiAffinity }}
+        podAntiAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- end }}
+        {{- with .Values.reportsController.podAffinity }}
+        podAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- with .Values.reportsController.nodeAffinity }}
+        nodeAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+      {{- end }}
+      serviceAccountName: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+      containers:
+        - name: controller
+          image: {{ include "kyverno.reports-controller.image" (dict "image" .Values.reportsController.image "defaultTag" .Chart.AppVersion) | quote }}
+          ports:
+          - containerPort: 9443
+            name: https
+            protocol: TCP
+          - containerPort: 8000
+            name: metrics
+            protocol: TCP
+          args:
+            - --loggingFormat={{ .Values.reportsController.logging.format }}
+            {{- if .Values.reportsController.tracing.enabled }}
+            - --enableTracing
+            - --tracingAddress={{ .Values.reportsController.tracing.address }}
+            - --tracingPort={{ .Values.reportsController.tracing.port }}
+            {{- with .Values.reportsController.tracing.creds }}
+            - --tracingCreds={{ . }}
+            {{- end }}
+            {{- end }}
+            - --disableMetrics={{ .Values.reportsController.metering.disabled }}
+            {{- if not .Values.reportsController.metering.disabled }}
+            - --otelConfig={{ .Values.reportsController.metering.config }}
+            - --metricsPort={{ .Values.reportsController.metering.port }}
+            {{- with .Values.reportsController.metering.collector }}
+            - --otelCollector={{ . }}
+            {{- end }}
+            {{- with .Values.reportsController.metering.creds }}
+            - --transportCreds={{ . }}
+            {{- end }}
+            {{- end }}
+            {{- range .Values.reportsController.extraArgs }}
+            - {{ . }}
+            {{- end }}
+          env:
+          - name: METRICS_CONFIG
+            value: {{ template "kyverno.metricsConfigMapName" . }}
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{- with .Values.reportsController.resources }}
+          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- if .Values.reportsController.securityContext }}
+          securityContext: {{ include "kyverno.reports-controller.securityContext" . | nindent 12 }}
+          {{- end }}
+{{- end -}}
+{{- end -}}
