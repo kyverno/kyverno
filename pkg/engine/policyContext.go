@@ -4,7 +4,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -20,6 +19,12 @@ import (
 
 // ExcludeFunc is a function used to determine if a resource is excluded
 type ExcludeFunc = func(kind, namespace, name string) bool
+
+type PolicyExceptionLister interface {
+	// List lists all PolicyExceptions in the indexer.
+	// Objects returned here must be treated as read-only.
+	List(selector labels.Selector) (ret []*kyvernov2alpha1.PolicyException, err error)
+}
 
 // PolicyContext contains the contexts for engine to process
 type PolicyContext struct {
@@ -80,7 +85,7 @@ type PolicyContext struct {
 	}
 
 	// peLister list all policy exceptions
-	peLister kyvernov2alpha1listers.PolicyExceptionLister
+	peLister PolicyExceptionLister
 }
 
 // Getters
@@ -218,7 +223,7 @@ func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []struct {
 	return copy
 }
 
-func (c *PolicyContext) WithExceptions(peLister kyvernov2alpha1listers.PolicyExceptionLister) *PolicyContext {
+func (c *PolicyContext) WithExceptions(peLister PolicyExceptionLister) *PolicyContext {
 	copy := c.Copy()
 	copy.peLister = peLister
 	return copy
@@ -245,7 +250,7 @@ func NewPolicyContextFromAdmissionRequest(
 	configuration config.Configuration,
 	client dclient.Interface,
 	informerCacheResolver resolvers.ConfigmapResolver,
-	peLister kyvernov2alpha1listers.PolicyExceptionLister,
+	polexLister PolicyExceptionLister,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
 	if err != nil {
@@ -269,7 +274,7 @@ func NewPolicyContextFromAdmissionRequest(
 		WithInformerCacheResolver(informerCacheResolver).
 		WithRequestResource(*requestResource).
 		WithSubresource(request.SubResource).
-		WithExceptions(peLister)
+		WithExceptions(polexLister)
 	return policyContext, nil
 }
 

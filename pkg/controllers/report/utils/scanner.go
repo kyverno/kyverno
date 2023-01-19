@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
@@ -21,7 +21,7 @@ type scanner struct {
 	client                 dclient.Interface
 	rclient                registryclient.Client
 	informerCacheResolvers resolvers.ConfigmapResolver
-	polexLister            kyvernov2alpha1listers.PolicyExceptionLister
+	polexLister            engine.PolicyExceptionLister
 	excludeGroupRole       []string
 }
 
@@ -39,7 +39,8 @@ func NewScanner(
 	client dclient.Interface,
 	rclient registryclient.Client,
 	informerCacheResolvers resolvers.ConfigmapResolver,
-	polexLister kyvernov2alpha1listers.PolicyExceptionLister,
+	polexLister engine.PolicyExceptionLister,
+	config config.Configuration,
 	excludeGroupRole ...string,
 ) Scanner {
 	return &scanner{

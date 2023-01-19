@@ -136,7 +136,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | initImage.repository | string | `"ghcr.io/kyverno/kyvernopre"` | Image repository |
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
-| initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
+| initContainer.extraArgs | list | `["--loggingFormat=text","--exceptionNamespace={{ include \"kyverno.namespace\" . }}"]` | Extra arguments to give to the kyvernopre binary. |
 | testImage.registry | string | `nil` | Image registry |
 | testImage.repository | string | `"busybox"` | Image repository |
 | testImage.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
