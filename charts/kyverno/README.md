@@ -139,7 +139,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | initContainer.extraArgs | list | `["--loggingFormat=text","--exceptionNamespace={{ include \"kyverno.namespace\" . }}"]` | Extra arguments to give to the kyvernopre binary. |
 | testImage.registry | string | `nil` | Image registry |
 | testImage.repository | string | `"busybox"` | Image repository |
-| testImage.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
+| testImage.tag | float | `1.36` | Image tag Defaults to `latest` if omitted |
 | testImage.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | replicaCount | int | `nil` | Desired number of pods |
 | podLabels | object | `{}` | Additional labels to add to each pod |
