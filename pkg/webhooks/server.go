@@ -29,6 +29,14 @@ type DebugModeOptions struct {
 	DumpPayload bool
 }
 
+// ExceptionOptions holds flags to enable PolicyExceptions and in which namespace
+type ExceptionOptions struct {
+	// EnablePolicyException enables/disables PolicyExceptions
+	EnablePolicyException bool
+	// Namespace is the defined namespace
+	Namespace string
+}
+
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
 	Run(<-chan struct{})
@@ -73,6 +81,7 @@ func NewServer(
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts DebugModeOptions,
+	polexOpts PolicyExceptionOptions,
 	tlsProvider TlsProvider,
 	mwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.MutatingWebhookConfiguration],
 	vwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
@@ -92,7 +101,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithProtection(toggle.ProtectManagedResources.Enabled(), polexOpts.EnablePolicyException, polexOpts.Namespace).
 				WithDump(debugModeOpts.DumpPayload).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
@@ -107,7 +116,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled()).
+				WithProtection(toggle.ProtectManagedResources.Enabled(), polexOpts.EnablePolicyException, polexOpts.Namespace).
 				WithDump(debugModeOpts.DumpPayload).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
 				WithAdmission(resourceLogger.WithName("validate"))

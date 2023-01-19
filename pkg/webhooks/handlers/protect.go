@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -14,14 +15,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
+func (inner AdmissionHandler) WithProtection(enabled bool, enablePolex bool, polexNamespace string) AdmissionHandler {
 	if !enabled {
 		return inner
 	}
-	return inner.withProtection().WithTrace("PROTECT")
+	return inner.withProtection(enablePolex, polexNamespace).WithTrace("PROTECT")
 }
 
-func (inner AdmissionHandler) withProtection() AdmissionHandler {
+func (inner AdmissionHandler) withProtection(enablePolex bool, polexNamespace string) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
 		if err != nil {
@@ -36,7 +37,20 @@ func (inner AdmissionHandler) withProtection() AdmissionHandler {
 					return admissionutils.Response(request.UID, errors.New("A kyverno managed resource can only be modified by kyverno"))
 				}
 			}
+			kind := resource.GetKind()
+			if kind == "PolicyException" {
+				if !enablePolex {
+					return admissionutils.Response(request.UID, errors.New("A PolicyException resource can only be created when it is enabled."))
+				}
+				polexns := strings.ToLower(polexNamespace)
+				if polexns != "" {
+					if strings.ToLower(resource.GetNamespace()) != polexns {
+						return admissionutils.Response(request.UID, errors.New("The PolicyException resource namespace must match the defined namespace."))
+					}
+				}
+			}
 		}
+
 		return inner(ctx, logger, request, startTime)
 	}
 }
