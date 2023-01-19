@@ -34,6 +34,7 @@ import (
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/cosign"
+	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -172,6 +173,8 @@ func createReportControllers(
 	backgroundScanInterval time.Duration,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
+	enablePolicyException bool,
+	exceptionNamespace string,
 ) ([]internal.Controller, func(context.Context) error) {
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
@@ -215,6 +218,15 @@ func createReportControllers(
 			))
 		}
 		if backgroundScan {
+			var exceptionsLister engine.PolicyExceptionLister
+			if enablePolicyException {
+				lister := kyvernoV2Alpha1.PolicyExceptions().Lister()
+				if exceptionNamespace != "" {
+					exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
+				} else {
+					exceptionsLister = lister
+				}
+			}
 			ctrls = append(ctrls, internal.NewController(
 				backgroundscancontroller.ControllerName,
 				backgroundscancontroller.NewController(
@@ -225,7 +237,7 @@ func createReportControllers(
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
-					kyvernoV2Alpha1.PolicyExceptions(),
+					exceptionsLister,
 					resourceReportController,
 					configMapResolver,
 					backgroundScanInterval,
@@ -269,6 +281,8 @@ func createrLeaderControllers(
 	runtime runtimeutils.Runtime,
 	configMapResolver resolvers.ConfigmapResolver,
 	backgroundScanInterval time.Duration,
+	enablePolicyException bool,
+	exceptionNamespace string,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -349,6 +363,8 @@ func createrLeaderControllers(
 		backgroundScanInterval,
 		configuration,
 		eventGenerator,
+		enablePolicyException,
+		exceptionNamespace,
 	)
 	return append(
 			[]internal.Controller{
@@ -383,6 +399,8 @@ func main() {
 		dumpPayload                bool
 		leaderElectionRetryPeriod  time.Duration
 		backgroundScanInterval     time.Duration
+		enablePolicyException      bool
+		exceptionNamespace         string
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -403,6 +421,8 @@ func main() {
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
+	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
+	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -586,6 +606,8 @@ func main() {
 				runtime,
 				configMapResolver,
 				backgroundScanInterval,
+				enablePolicyException,
+				exceptionNamespace,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
@@ -642,6 +664,15 @@ func main() {
 		dClient,
 		openApiManager,
 	)
+	var exceptionsLister engine.PolicyExceptionLister
+	if enablePolicyException {
+		lister := kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
+		if exceptionNamespace != "" {
+			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
+		} else {
+			exceptionsLister = lister
+		}
+	}
 	resourceHandlers := webhooksresource.NewHandlers(
 		dClient,
 		kyvernoClient,
@@ -654,7 +685,7 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
-		kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister(),
+		exceptionsLister,
 		urgen,
 		eventGenerator,
 		openApiManager,
