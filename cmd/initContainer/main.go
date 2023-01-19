@@ -26,7 +26,6 @@ import (
 const (
 	policyReportKind        string = "PolicyReport"
 	clusterPolicyReportKind string = "ClusterPolicyReport"
-	convertGenerateRequest  string = "ConvertGenerateRequest"
 )
 
 func main() {
@@ -55,7 +54,6 @@ func main() {
 	requests := []request{
 		{policyReportKind},
 		{clusterPolicyReportKind},
-		{convertGenerateRequest},
 	}
 
 	go func() {
