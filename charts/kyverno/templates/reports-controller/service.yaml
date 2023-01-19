@@ -1,4 +1,5 @@
 {{- if .Values.reportsController.enabled -}}
+{{- if .Values.reportsController.metricsService.create -}}
 apiVersion: v1
 kind: Service
 metadata:
