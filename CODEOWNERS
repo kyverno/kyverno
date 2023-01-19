@@ -1,11 +1,15 @@
 # Areas of code where @marcelmue always wants to be a reviewer/notified.
-/api                    @eddycharly
+/api                    @eddycharly @realshuting
 /api/kyverno/v1         @eddycharly
 /charts                 @treydock @eddycharly
 /docs                   @chipzoller
 /pkg/autogen            @eddycharly
-/pkg/engine             @marcelmue
+/pkg/background         @realshuting
+/pkg/engine             @marcelmue @realshuting
 /pkg/policy/mutate      @marcelmue
+/pkg/pss                @realshuting
 /pkg/utils              @eddycharly
-/pkg/webhooks           @marcelmue
-/test                   @chipzoller @eddycharly
+/pkg/userinfo           @realshuting
+/pkg/validation         @realshuting
+/pkg/webhooks           @marcelmue @realshuting
+/test                   @chipzoller @eddycharly @realshuting
