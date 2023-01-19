@@ -132,7 +132,7 @@ func createReportControllers(
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
-					kyvernoV2Alpha1.PolicyExceptions(),
+					kyvernoV2Alpha1.PolicyExceptions().Lister(),
 					resourceReportController,
 					configMapResolver,
 					backgroundScanInterval,
