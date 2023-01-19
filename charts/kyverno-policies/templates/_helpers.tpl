@@ -16,7 +16,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/name: {{ template "kyverno-policies.name" . }}
 app.kubernetes.io/part-of: {{ template "kyverno-policies.name" . }}
-app.kubernetes.io/version: "{{ .Chart.Version }}"
+app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
 helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- if .Values.customLabels }}
 {{ toYaml .Values.customLabels }}
