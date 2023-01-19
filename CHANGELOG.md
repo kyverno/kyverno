@@ -1,3 +1,9 @@
+## v1.10.0
+
+### Note
+
+- Removed `GenerateRequest` CRD.
+
 ## v1.9.0-rc.1
 
 ### Note
