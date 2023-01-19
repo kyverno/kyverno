@@ -749,7 +749,7 @@ cleanupController:
 
 reportsController:
 
-  # -- Enable cleanup controller.
+  # -- Enable reports controller.
   enabled: true
 
   rbac:
@@ -826,48 +826,49 @@ reportsController:
       cpu: 100m
       memory: 64Mi
 
-  # -- Startup probe.
-  # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
-  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-  # @default -- See [values.yaml](values.yaml)
-  startupProbe:
-    httpGet:
-      path: /health/liveness
-      port: 9443
-      scheme: HTTPS
-    failureThreshold: 20
-    initialDelaySeconds: 2
-    periodSeconds: 6
+  # TODO
+  # # -- Startup probe.
+  # # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
+  # # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # # @default -- See [values.yaml](values.yaml)
+  # startupProbe:
+  #   httpGet:
+  #     path: /health/liveness
+  #     port: 9443
+  #     scheme: HTTPS
+  #   failureThreshold: 20
+  #   initialDelaySeconds: 2
+  #   periodSeconds: 6
 
-  # -- Liveness probe.
-  # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
-  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-  # @default -- See [values.yaml](values.yaml)
-  livenessProbe:
-    httpGet:
-      path: /health/liveness
-      port: 9443
-      scheme: HTTPS
-    initialDelaySeconds: 15
-    periodSeconds: 30
-    timeoutSeconds: 5
-    failureThreshold: 2
-    successThreshold: 1
+  # # -- Liveness probe.
+  # # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
+  # # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # # @default -- See [values.yaml](values.yaml)
+  # livenessProbe:
+  #   httpGet:
+  #     path: /health/liveness
+  #     port: 9443
+  #     scheme: HTTPS
+  #   initialDelaySeconds: 15
+  #   periodSeconds: 30
+  #   timeoutSeconds: 5
+  #   failureThreshold: 2
+  #   successThreshold: 1
 
-  # -- Readiness Probe.
-  # The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
-  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-  # @default -- See [values.yaml](values.yaml)
-  readinessProbe:
-    httpGet:
-      path: /health/readiness
-      port: 9443
-      scheme: HTTPS
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 6
-    successThreshold: 1
+  # # -- Readiness Probe.
+  # # The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
+  # # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # # @default -- See [values.yaml](values.yaml)
+  # readinessProbe:
+  #   httpGet:
+  #     path: /health/readiness
+  #     port: 9443
+  #     scheme: HTTPS
+  #   initialDelaySeconds: 5
+  #   periodSeconds: 10
+  #   timeoutSeconds: 5
+  #   failureThreshold: 6
+  #   successThreshold: 1
 
   # -- Node labels for pod assignment
   nodeSelector: {}

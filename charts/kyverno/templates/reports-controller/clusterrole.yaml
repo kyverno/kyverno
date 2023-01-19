@@ -71,7 +71,7 @@ rules:
     verbs:
     - create
     - patch
-{{- with .Values.cleanupController.rbac.clusterRole.extraResources }}
+{{- with .Values.reportsController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

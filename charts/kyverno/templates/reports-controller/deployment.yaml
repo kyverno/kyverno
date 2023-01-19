@@ -123,17 +123,5 @@ spec:
           {{- if .Values.reportsController.securityContext }}
           securityContext: {{ include "kyverno.reports-controller.securityContext" . | nindent 12 }}
           {{- end }}
-          {{- with .Values.reportsController.startupProbe }}
-          startupProbe:
-            {{- tpl (toYaml .) $ | nindent 12 }}
-          {{- end }}
-          {{- with .Values.reportsController.livenessProbe }}
-          livenessProbe:
-            {{- tpl (toYaml .) $ | nindent 12 }}
-          {{- end }}
-          {{- with .Values.reportsController.readinessProbe }}
-          readinessProbe:
-            {{- tpl (toYaml .) $ | nindent 12 }}
-          {{- end }}
 {{- end -}}
 {{- end -}}
