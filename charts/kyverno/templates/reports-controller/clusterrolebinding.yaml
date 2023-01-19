@@ -11,8 +11,8 @@ roleRef:
   kind: ClusterRole
   name: {{ template "kyverno.reports-controller.roleName" . }}
 subjects:
-- kind: ServiceAccount
-  name: {{ template "kyverno.reports-controller.serviceAccountName" . }}
-  namespace: {{ template "kyverno.namespace" . }}
+  - kind: ServiceAccount
+    name: {{ template "kyverno.reports-controller.serviceAccountName" . }}
+    namespace: {{ template "kyverno.namespace" . }}
 {{- end -}}
 {{- end -}}

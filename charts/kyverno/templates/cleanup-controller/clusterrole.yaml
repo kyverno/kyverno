@@ -65,12 +65,12 @@ rules:
       - update
       - watch
   - apiGroups:
-    - ""
+      - ''
     resources:
-    - events
+      - events
     verbs:
-    - create
-    - patch
+      - create
+      - patch
 {{- with .Values.cleanupController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

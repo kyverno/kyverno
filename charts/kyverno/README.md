@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: v2.5.3](https://img.shields.io/badge/Version-v2.5.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
+![Version: v3.0.0](https://img.shields.io/badge/Version-v3.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
 
 ## About
 
@@ -325,6 +325,56 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.metering.port | int | `8000` | Prometheus endpoint port |
 | reportsController.metering.collector | string | `""` | Otel collector endpoint |
 | reportsController.metering.creds | string | `""` | Otel collector credentials |
+| admissionController.enabled | bool | `true` | Enable admission controller. |
+| admissionController.rbac.create | bool | `true` | Create RBAC resources |
+| admissionController.rbac.serviceAccount.name | string | `nil` | Service account name |
+| admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
+| admissionController.image.registry | string | `nil` | Image registry |
+| admissionController.image.repository | string | `"ghcr.io/kyverno/reports-controller"` | Image repository |
+| admissionController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| admissionController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| admissionController.image.pullSecrets | list | `[]` | Image pull secrets |
+| admissionController.replicas | int | `nil` | Desired number of pods |
+| admissionController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
+| admissionController.priorityClassName | string | `""` | Optional priority class |
+| admissionController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
+| admissionController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
+| admissionController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| admissionController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
+| admissionController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
+| admissionController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| admissionController.tolerations | list | `[]` | List of node taints to tolerate |
+| admissionController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
+| admissionController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
+| admissionController.podAffinity | object | `{}` | Pod affinity constraints. |
+| admissionController.nodeAffinity | object | `{}` | Node affinity constraints. |
+| admissionController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
+| admissionController.podSecurityContext | object | `{}` | Security context for the pod |
+| admissionController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| admissionController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
+| admissionController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
+| admissionController.metricsService.create | bool | `true` | Create service. |
+| admissionController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
+| admissionController.metricsService.type | string | `"ClusterIP"` | Service type. |
+| admissionController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
+| admissionController.metricsService.annotations | object | `{}` | Service annotations. |
+| admissionController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| admissionController.serviceMonitor.additionalLabels | string | `nil` | Additional labels |
+| admissionController.serviceMonitor.namespace | string | `nil` | Override namespace (default is the same as kyverno) |
+| admissionController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
+| admissionController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
+| admissionController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
+| admissionController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| admissionController.tracing.enabled | bool | `false` | Enable tracing |
+| admissionController.tracing.address | string | `nil` | Traces receiver address |
+| admissionController.tracing.port | string | `nil` | Traces receiver port |
+| admissionController.tracing.creds | string | `""` | Traces receiver credentials |
+| admissionController.logging.format | string | `"text"` | Logging format |
+| admissionController.metering.disabled | bool | `false` | Disable metrics export |
+| admissionController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
+| admissionController.metering.port | int | `8000` | Prometheus endpoint port |
+| admissionController.metering.collector | string | `""` | Otel collector endpoint |
+| admissionController.metering.creds | string | `""` | Otel collector credentials |
 
 ## TLS Configuration
 

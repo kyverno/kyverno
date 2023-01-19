@@ -20,15 +20,15 @@ spec:
       {{- include "kyverno.reports-controller.matchLabels" . | nindent 6 }}
   namespaceSelector:
     matchNames:
-    - {{ template "kyverno.namespace" . }}
+      - {{ template "kyverno.namespace" . }}
   endpoints:
-  - port: metrics-port
-    interval: {{ .Values.reportsController.serviceMonitor.interval }}
-    scrapeTimeout: {{ .Values.reportsController.serviceMonitor.scrapeTimeout }}
-    {{- if .Values.reportsController.serviceMonitor.secure }}
-    scheme: https
-    tlsConfig:
-      {{- toYaml .Values.reportsController.serviceMonitor.tlsConfig | nindent 8 }}
-    {{- end }}
+    - port: metrics-port
+      interval: {{ .Values.reportsController.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.reportsController.serviceMonitor.scrapeTimeout }}
+      {{- if .Values.reportsController.serviceMonitor.secure }}
+      scheme: https
+      tlsConfig:
+        {{- toYaml .Values.reportsController.serviceMonitor.tlsConfig | nindent 8 }}
+      {{- end }}
 {{- end -}}
 {{- end -}}

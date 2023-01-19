@@ -20,15 +20,15 @@ spec:
       {{- include "kyverno.cleanup-controller.matchLabels" . | nindent 6 }}
   namespaceSelector:
     matchNames:
-    - {{ template "kyverno.namespace" . }}
+      - {{ template "kyverno.namespace" . }}
   endpoints:
-  - port: metrics-port
-    interval: {{ .Values.cleanupController.serviceMonitor.interval }}
-    scrapeTimeout: {{ .Values.cleanupController.serviceMonitor.scrapeTimeout }}
-    {{- if .Values.cleanupController.serviceMonitor.secure }}
-    scheme: https
-    tlsConfig:
-      {{- toYaml .Values.cleanupController.serviceMonitor.tlsConfig | nindent 8 }}
-    {{- end }}
+    - port: metrics-port
+      interval: {{ .Values.cleanupController.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.cleanupController.serviceMonitor.scrapeTimeout }}
+      {{- if .Values.cleanupController.serviceMonitor.secure }}
+      scheme: https
+      tlsConfig:
+        {{- toYaml .Values.cleanupController.serviceMonitor.tlsConfig | nindent 8 }}
+      {{- end }}
 {{- end -}}
 {{- end -}}
