@@ -4,6 +4,7 @@ initContainer:
 
 extraArgs:
   - --loggingFormat=json
+  - --enablePolicyException
 
 cleanupController:
   rbac:
