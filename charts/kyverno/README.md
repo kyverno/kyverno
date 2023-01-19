@@ -275,6 +275,64 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.metering.port | int | `8000` | Prometheus endpoint port |
 | cleanupController.metering.collector | string | `""` | Otel collector endpoint |
 | cleanupController.metering.creds | string | `""` | Otel collector credentials |
+| reportsController.enabled | bool | `true` | Enable cleanup controller. |
+| reportsController.rbac.create | bool | `true` | Create RBAC resources |
+| reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
+| reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
+| reportsController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
+| reportsController.image.registry | string | `nil` | Image registry |
+| reportsController.image.repository | string | `"ghcr.io/kyverno/reports-controller"` | Image repository |
+| reportsController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| reportsController.image.pullSecrets | list | `[]` | Image pull secrets |
+| reportsController.replicas | int | `nil` | Desired number of pods |
+| reportsController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
+| reportsController.priorityClassName | string | `""` | Optional priority class |
+| reportsController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
+| reportsController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
+| reportsController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
+| reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
+| reportsController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| reportsController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| reportsController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
+| reportsController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| reportsController.tolerations | list | `[]` | List of node taints to tolerate |
+| reportsController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
+| reportsController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
+| reportsController.podAffinity | object | `{}` | Pod affinity constraints. |
+| reportsController.nodeAffinity | object | `{}` | Node affinity constraints. |
+| reportsController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
+| reportsController.podSecurityContext | object | `{}` | Security context for the pod |
+| reportsController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| reportsController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
+| reportsController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
+| reportsController.service.port | int | `443` | Service port. |
+| reportsController.service.type | string | `"ClusterIP"` | Service type. |
+| reportsController.service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
+| reportsController.service.annotations | object | `{}` | Service annotations. |
+| reportsController.metricsService.create | bool | `true` | Create service. |
+| reportsController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
+| reportsController.metricsService.type | string | `"ClusterIP"` | Service type. |
+| reportsController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
+| reportsController.metricsService.annotations | object | `{}` | Service annotations. |
+| reportsController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| reportsController.serviceMonitor.additionalLabels | string | `nil` | Additional labels |
+| reportsController.serviceMonitor.namespace | string | `nil` | Override namespace (default is the same as kyverno) |
+| reportsController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
+| reportsController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
+| reportsController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
+| reportsController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| reportsController.tracing.enabled | bool | `false` | Enable tracing |
+| reportsController.tracing.address | string | `nil` | Traces receiver address |
+| reportsController.tracing.port | string | `nil` | Traces receiver port |
+| reportsController.tracing.creds | string | `""` | Traces receiver credentials |
+| reportsController.logging.format | string | `"text"` | Logging format |
+| reportsController.metering.disabled | bool | `false` | Disable metrics export |
+| reportsController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
+| reportsController.metering.port | int | `8000` | Prometheus endpoint port |
+| reportsController.metering.collector | string | `""` | Otel collector endpoint |
+| reportsController.metering.creds | string | `""` | Otel collector credentials |
 
 ## TLS Configuration
 
