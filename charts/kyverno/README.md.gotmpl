@@ -21,6 +21,10 @@ Access the complete user documentation and guides at: https://kyverno.io.
 
 ## Installing the Chart
 
+**IMPORTANT IMPORTANT IMPORTANT IMPORTANT**
+
+This chart changed significantly between `v2` and `v3`. If you are upgrading from `v2`, please read `Migrating from v2 to v3` section.
+
 **Add the Kyverno Helm repository:**
 
 ```console
@@ -104,6 +108,15 @@ spec:
       - CreateNamespace=true
       - Replace=true
 ```
+
+## Migrating from v2 to v3
+
+In `v3` chart values changed significantly, please read the instructions below to migrate your values:
+
+- `config.metricsConfig` is now `metricsConfig`
+- `config.existingConfig` has been replaced with `config.create` and `config.name` to __support bring your own config__
+- `config.existingMetricsConfig` has been replaced with `metricsConfig.create` and `metricsConfig.name` to __support bring your own config__
+- `installCRDs` has been replaced with `crds.install`
 
 ## Uninstalling the Chart
 
