@@ -14,6 +14,15 @@ fullnameOverride: ~
 # -- (string) Override the namespace the chart deploys to
 namespaceOverride: ~
 
+crds:
+  # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
+  install: true
+
+  # -- Additional CRDs annotations
+  annotations: {}
+    # argocd.argoproj.io/sync-options: Replace=true
+    # strategy.spinnaker.io/replace: 'true'
+
 config:
 
   # -- Create the configmap.
@@ -467,16 +476,6 @@ serviceMonitor:
 # 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
-
-# -- Whether to have Helm install the Kyverno CRDs.
-# If the CRDs are not installed by Helm, they must be added before policies can be created.
-installCRDs: true
-
-crds:
-  # -- Additional CRDs annotations.
-  annotations: {}
-    # argocd.argoproj.io/sync-options: Replace=true
-    # strategy.spinnaker.io/replace: 'true'
 
 networkPolicy:
   # -- When true, use a NetworkPolicy to allow ingress to the webhook

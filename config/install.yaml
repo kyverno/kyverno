@@ -82,10 +82,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: admissionreports.kyverno.io
 spec:
@@ -428,10 +427,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: backgroundscanreports.kyverno.io
 spec:
@@ -734,10 +732,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: cleanuppolicies.kyverno.io
 spec:
@@ -1783,10 +1780,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: clusteradmissionreports.kyverno.io
 spec:
@@ -2130,10 +2126,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: clusterbackgroundscanreports.kyverno.io
 spec:
@@ -2436,10 +2431,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: clustercleanuppolicies.kyverno.io
 spec:
@@ -3485,10 +3479,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: clusterpolicies.kyverno.io
 spec:
@@ -16596,10 +16589,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: policies.kyverno.io
 spec:
@@ -29710,10 +29702,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: policyexceptions.kyverno.io
 spec:
@@ -30198,10 +30189,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: updaterequests.kyverno.io
 spec:
@@ -30590,10 +30580,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
@@ -30958,10 +30947,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/part-of: kyverno
     app: kyverno
     app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: policyreports.wgpolicyk8s.io
 spec:

@@ -42,21 +42,6 @@ app.kubernetes.io/version: {{ .Chart.Version | replace "+" "_" }}
 {{- end -}}
 {{- end -}}
 
-{{/* CRD labels */}}
-{{- define "kyverno.crdLabels" -}}
-app.kubernetes.io/component: kyverno
-{{- with (include "kyverno.helmLabels" .) }}
-{{ . }}
-{{- end }}
-{{- with (include "kyverno.matchLabels" .) }}
-{{ . }}
-{{- end }}
-app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-{{- with (include "kyverno.versionLabels" .) }}
-{{ . }}
-{{- end }}
-{{- end -}}
-
 {{/* Helm required labels */}}
 {{- define "kyverno.labels" -}}
 app.kubernetes.io/component: kyverno
