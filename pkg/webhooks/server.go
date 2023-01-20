@@ -29,14 +29,6 @@ type DebugModeOptions struct {
 	DumpPayload bool
 }
 
-// ExceptionOptions holds flags to enable PolicyExceptions and in which namespace
-type ExceptionOptions struct {
-	// EnablePolicyException enables/disables PolicyExceptions
-	EnablePolicyException bool
-	// Namespace is the defined namespace
-	Namespace string
-}
-
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
 	Run(<-chan struct{})

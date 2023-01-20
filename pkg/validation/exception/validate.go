@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	"github.com/kyverno/kyverno/pkg/webhooks"
 )
 
 const (
@@ -14,13 +13,14 @@ const (
 )
 
 // Validate checks policy exception is valid
-func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.PolicyException, po webhooks.ExceptionOptions) (error, []string) {
+func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.PolicyException,
+	polexIsEnabled bool, polexNamespace string) ([]string, error) {
 	var warnings []string
-	if !po.EnablePolicyException {
+	if !polexIsEnabled {
 		warnings = append(warnings, disabledPolex)
-	} else if po.Namespace != "" && po.Namespace != polex.Namespace {
+	} else if polexNamespace != "" && polexNamespace != polex.Namespace {
 		warnings = append(warnings, namespacesDontMatch)
 	}
 	errs := polex.Validate()
-	return errs.ToAggregate(), warnings
+	return warnings, errs.ToAggregate()
 }
