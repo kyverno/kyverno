@@ -1,5 +1,7 @@
 ## v1.10.0
 
+## v1.10.0-rc.1
+
 ### Note
 
 - Removed `GenerateRequest` CRD.
