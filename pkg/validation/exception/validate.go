@@ -13,16 +13,16 @@ const (
 )
 
 type ValidationOptions struct {
-	Enabled    bool
+	Enabled   bool
 	Namespace string
 }
 
 // Validate checks policy exception is valid
 func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.PolicyException, opts ValidationOptions) ([]string, error) {
 	var warnings []string
-	if !opts.EnablePolex {
+	if !opts.Enabled {
 		warnings = append(warnings, disabledPolex)
-	} else if opts.PolexNamespace != "" && opts.PolexNamespace != polex.Namespace {
+	} else if opts.Namespace != "" && opts.Namespace != polex.Namespace {
 		warnings = append(warnings, namespacesDontMatch)
 	}
 	errs := polex.Validate()
