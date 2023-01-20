@@ -19,7 +19,11 @@ spec:
     singular: policyexception
   scope: Namespaced
   versions:
-  - name: v2alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
+      name: Ready
+      type: boolean
+    name: v2alpha1
     schema:
       openAPIV3Schema:
         description: PolicyException declares resources to be excluded from specified

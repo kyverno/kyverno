@@ -41,6 +41,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=polex,categories=kyverno
+// +kubebuilder:printcolumn:name="Ready",type=boolean,JSONPath=`.status.conditions[?(@.type == "Ready")].status`
 
 // PolicyException declares resources to be excluded from specified policies.
 type PolicyException struct {
