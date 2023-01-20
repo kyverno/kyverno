@@ -13,7 +13,7 @@ type disco interface {
 
 // CRDsInstalled checks if the Kyverno CRDs are installed or not
 func CRDsInstalled(discovery disco) bool {
-	kyvernoCRDs := []string{"ClusterPolicy", "Policy", "ClusterPolicyReport", "PolicyReport", "AdmissionReport", "BackgroundScanReport", "ClusterAdmissionReport", "ClusterBackgroundScanReport"}
+	kyvernoCRDs := []string{"ClusterPolicy", "Policy", "ClusterPolicyReport", "PolicyReport", "AdmissionReport", "BackgroundScanReport", "ClusterAdmissionReport", "ClusterBackgroundScanReport", "UpdateRequest"}
 	for _, crd := range kyvernoCRDs {
 		if !isCRDInstalled(discovery, crd) {
 			return false
