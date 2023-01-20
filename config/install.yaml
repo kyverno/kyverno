@@ -5162,9 +5162,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -5496,10 +5496,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -8452,10 +8452,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -8802,10 +8802,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -11442,9 +11442,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -11944,10 +11944,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -14860,10 +14860,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -15210,10 +15210,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -18274,9 +18274,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -18608,10 +18608,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -21565,10 +21565,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -21915,10 +21915,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -24556,9 +24556,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -25058,10 +25058,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -27974,10 +27974,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -28324,10 +28324,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
