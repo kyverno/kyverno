@@ -31,7 +31,6 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/cosign"
-	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -521,10 +520,7 @@ func main() {
 		dClient,
 		openApiManager,
 	)
-	var exceptionsLister engine.PolicyExceptionLister
-	if enablePolicyException {
-		exceptionsLister = kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
-	}
+	exceptionsLister := kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
 	resourceHandlers := webhooksresource.NewHandlers(
 		dClient,
 		kyvernoClient,

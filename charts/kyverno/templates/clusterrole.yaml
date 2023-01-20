@@ -50,8 +50,6 @@ rules:
   resources:
     - policies
     - policies/status
-    - policyexceptions
-    - policyexceptions/status
     - clusterpolicies
     - clusterpolicies/status
     - updaterequests
