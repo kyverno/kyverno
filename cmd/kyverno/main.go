@@ -693,8 +693,8 @@ func main() {
 		admissionReports,
 	)
 	exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
-		EnablePolex:    enablePolicyException,
-		PolexNamespace: exceptionNamespace,
+		Enabled:   enablePolicyException,
+		Namespace: exceptionNamespace,
 	})
 	server := webhooks.NewServer(
 		policyHandlers,
