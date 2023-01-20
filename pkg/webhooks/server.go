@@ -145,6 +145,7 @@ func NewServer(
 		"POST",
 		config.ExceptionValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", exceptionHandlers.Validate).
+			WithExceptionValidation(polexOpts.EnablePolicyException, polexOpts.Namespace).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
