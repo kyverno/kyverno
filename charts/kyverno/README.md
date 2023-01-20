@@ -150,6 +150,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | metricsConfig.namespaces.include | list | `[]` | List of namespaces to capture metrics for. |
 | metricsConfig.namespaces.exclude | list | `[]` | list of namespaces to NOT capture metrics for. |
 | metricsConfig.metricsRefreshInterval | string | `nil` | Rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics |
+| imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
+| existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
 | rbac.create | bool | `true` | Create ClusterRoles, ClusterRoleBindings, and ServiceAccount |
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
@@ -191,8 +193,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the binary. |
 | extraInitContainers | list | `[]` | Array of extra init containers |
 | extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
-| imagePullSecrets | object | `{}` | Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
-| existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
 | resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | initResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
