@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/robfig/cron"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -149,6 +150,10 @@ type ClusterCleanupPolicyList struct {
 // CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
 // and schedule when the matching resources needs deleted.
 type CleanupPolicySpec struct {
+	// Context defines variables and data sources that can be used during rule execution.
+	// +optional
+	Context []v1.ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+
 	// MatchResources defines when cleanuppolicy should be applied. The match
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
