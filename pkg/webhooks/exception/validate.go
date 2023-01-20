@@ -12,7 +12,7 @@ import (
 )
 
 type handlers struct {
-	polexOpts validation.ValidationOptions
+	validationOptions validation.ValidationOptions
 }
 
 func NewHandlers(validationOptions validation.ValidationOptions) webhooks.ExceptionHandlers {
