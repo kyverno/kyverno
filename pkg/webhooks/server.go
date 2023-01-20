@@ -81,7 +81,6 @@ func NewServer(
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts DebugModeOptions,
-	polexOpts ExceptionOptions,
 	tlsProvider TlsProvider,
 	mwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.MutatingWebhookConfiguration],
 	vwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration],

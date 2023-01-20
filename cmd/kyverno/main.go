@@ -704,10 +704,6 @@ func main() {
 		webhooks.DebugModeOptions{
 			DumpPayload: dumpPayload,
 		},
-		webhooks.ExceptionOptions{
-			EnablePolicyException: enablePolicyException,
-			Namespace:             exceptionNamespace,
-		},
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
