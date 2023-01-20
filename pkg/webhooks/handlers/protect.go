@@ -13,14 +13,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (inner AdmissionHandler) WithProtection(enabled bool, enablePolex bool, polexNamespace string) AdmissionHandler {
+func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 	if !enabled {
 		return inner
 	}
-	return inner.withProtection(enablePolex, polexNamespace).WithTrace("PROTECT")
+	return inner.withProtection().WithTrace("PROTECT")
 }
 
-func (inner AdmissionHandler) withProtection(enablePolex bool, polexNamespace string) AdmissionHandler {
+func (inner AdmissionHandler) withProtection() AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
 		if err != nil {

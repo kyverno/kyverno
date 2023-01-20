@@ -101,7 +101,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled(), polexOpts.EnablePolicyException, polexOpts.Namespace).
+				WithProtection(toggle.ProtectManagedResources.Enabled()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
@@ -116,7 +116,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.ProtectManagedResources.Enabled(), polexOpts.EnablePolicyException, polexOpts.Namespace).
+				WithProtection(toggle.ProtectManagedResources.Enabled()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
 				WithAdmission(resourceLogger.WithName("validate"))
@@ -145,7 +145,6 @@ func NewServer(
 		"POST",
 		config.ExceptionValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", exceptionHandlers.Validate).
-			WithExceptionValidation(polexOpts.EnablePolicyException, polexOpts.Namespace).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
