@@ -1,8 +1,11 @@
 ## v1.10.0
 
+## v1.10.0-rc.1
+
 ### Note
 
 - Removed `GenerateRequest` CRD.
+- Refactored `kyverno` chart, migration instructions are available in chart `README.md`.
 
 ## v1.9.0-rc.1
 

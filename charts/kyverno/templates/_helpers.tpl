@@ -99,16 +99,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 {{- end -}}
 
-{{/* Get the config map name. */}}
-{{- define "kyverno.configMapName" -}}
-{{- printf "%s" (default (include "kyverno.fullname" .) .Values.config.existingConfig) -}}
-{{- end -}}
-
-{{/* Get the metrics config map name. */}}
-{{- define "kyverno.metricsConfigMapName" -}}
-{{- printf "%s" (default (printf "%s-metrics" (include "kyverno.fullname" .)) .Values.config.existingMetricsConfig) -}}
-{{- end -}}
-
 {{/* Create the name of the service to use */}}
 {{- define "kyverno.serviceName" -}}
 {{- printf "%s-svc" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" -}}
@@ -162,31 +152,4 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
   {{- else -}}
 {{ required "An image repository is required" .image.repository }}:{{ default .defaultTag .image.tag }}
   {{- end -}}
-{{- end }}
-
-{{- define "kyverno.resourceFilters" -}}
-{{- $resourceFilters := .Values.config.resourceFilters }}
-{{- if .Values.excludeKyvernoNamespace }}
-  {{- $resourceFilters = prepend .Values.config.resourceFilters (printf "[*,%s,*]" (include "kyverno.namespace" .)) }}
-{{- end }}
-{{- range $exclude := .Values.resourceFiltersExcludeNamespaces }}
-  {{- range $filter := $resourceFilters }}
-    {{- if (contains (printf ",%s," $exclude) $filter) }}
-      {{- $resourceFilters = without $resourceFilters $filter }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-{{- tpl (join "" $resourceFilters) . }}
-{{- end }}
-
-{{- define "kyverno.webhooks" -}}
-{{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" (list (include "kyverno.namespace" .)) }}
-{{- $newWebhook := list }}
-{{- range $webhook := .Values.config.webhooks }}
-  {{- $namespaceSelector := default dict $webhook.namespaceSelector }}
-  {{- $matchExpressions := default list $namespaceSelector.matchExpressions }}
-  {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
-  {{- $newWebhook = append $newWebhook (merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector)) }}
-{{- end }}
-{{- $newWebhook | toJson }}
 {{- end }}
