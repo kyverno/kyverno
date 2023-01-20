@@ -3,6 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ template "kyverno.fullname" . }}-hook-pre-delete
+  namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.labels" . | nindent 4 }}
   annotations:
