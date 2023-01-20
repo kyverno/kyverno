@@ -124,7 +124,7 @@ func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyEx
 		return nil, errors.Wrap(err, "failed to compute policy key")
 	}
 	for _, polex := range polexs {
-		if polex.Contains(policyName, rule) {
+		if polex.Status.IsReady() && polex.Contains(policyName, rule) {
 			result = append(result, polex)
 		}
 	}
