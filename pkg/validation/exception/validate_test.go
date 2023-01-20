@@ -64,7 +64,6 @@ func Test_Validate(t *testing.T) {
 			want: 0,
 		},
 	}
-
 	for _, c := range tc {
 		t.Run(c.name, func(t *testing.T) {
 			polex, err := admissionutils.UnmarshalPolicyException(c.args.resource)
@@ -72,7 +71,6 @@ func Test_Validate(t *testing.T) {
 			warnings, err := Validate(context.Background(), logging.GlobalLogger(), polex, c.args.opts)
 			assert.NilError(t, err)
 			assert.Assert(t, len(warnings) == c.want)
-
 		})
 	}
 }
