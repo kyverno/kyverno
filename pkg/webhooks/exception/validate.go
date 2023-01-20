@@ -15,8 +15,10 @@ type handlers struct {
 	polexOpts validation.ValidationOptions
 }
 
-func NewHandlers(po validation.ValidationOptions) webhooks.ExceptionHandlers {
-	return &handlers{polexOpts: po}
+func NewHandlers(validationOptions validation.ValidationOptions) webhooks.ExceptionHandlers {
+	return &handlers{
+		validationOptions: validationOptions,
+	}
 }
 
 // Validate performs the validation check on policy exception resources
