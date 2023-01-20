@@ -440,7 +440,7 @@ codegen-helm-docs: ## Generate helm docs
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
 	@cat $(CRDS_PATH)/* \
-		| $(SED) -e '1i{{- if .Values.installCRDs }}' \
+		| $(SED) -e '1i{{- if .Values.crds.install }}' \
 		| $(SED) -e '$$a{{- end }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- toYaml . | nindent 4 }}' \
