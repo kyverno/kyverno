@@ -1,5 +1,4 @@
 {{- if .Values.admissionController.enabled -}}
-{{- if .Values.admissionController.rbac.create -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -48,6 +47,5 @@ spec:
     selector:
       {{- include "kyverno.admission-controller.matchLabels" . | nindent 6 }}
     type: {{ .Values.admissionController.metricsService.type }}
-{{- end -}}
 {{- end -}}
 {{- end -}}
