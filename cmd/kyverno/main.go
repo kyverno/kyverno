@@ -701,7 +701,7 @@ func main() {
 		webhooks.DebugModeOptions{
 			DumpPayload: dumpPayload,
 		},
-		webhooks.PolicyExceptionOptions{
+		webhooks.ExceptionOptions{
 			EnablePolicyException: enablePolicyException,
 			Namespace:             exceptionNamespace,
 		},
