@@ -18,10 +18,8 @@ func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.Po
 	var warnings []string
 	if !po.EnablePolicyException {
 		warnings = append(warnings, disabledPolex)
-	} else if po.Namespace != "" {
-		if po.Namespace != polex.Namespace {
-			warnings = append(warnings, namespacesDontMatch)
-		}
+	} else if po.Namespace != "" && po.Namespace != polex.Namespace {
+		warnings = append(warnings, namespacesDontMatch)
 	}
 	errs := polex.Validate()
 	return errs.ToAggregate(), warnings
