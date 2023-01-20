@@ -658,9 +658,18 @@ test-cli-test-case-selector-flag: $(CLI_BIN)
 test-cli-registry: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/registry --registry
 
-##################################
-# Testing & Code-Coverage
-##################################
+#############
+# HELM TEST #
+#############
+
+.PHONY: helm-test
+helm-test: $(HELM) ## Run helm test
+	@echo Running helm test... >&2
+	@$(HELM) test --namespace kyverno kyverno
+
+###########################
+# Testing & Code-Coverage #
+###########################
 
 helm-test-values:
 	sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
@@ -767,12 +776,14 @@ kind-load-all: kind-load-kyvernopre kind-load-kyverno kind-load-cleanup-controll
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
-		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
-		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
+		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
+		--set reportsController.image.repository=$(LOCAL_REPORTS_IMAGE) \
+		--set reportsController.image.tag=$(IMAGE_TAG_DEV) \
 		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
 
 .PHONY: kind-deploy-kyverno-policies

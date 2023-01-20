@@ -16,8 +16,6 @@ func ExcludeKyvernoResources(kind string) bool {
 		return true
 	case "UpdateRequest":
 		return true
-	case "GenerateRequest":
-		return true
 	default:
 		return false
 	}
