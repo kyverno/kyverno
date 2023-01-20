@@ -27,9 +27,9 @@ const (
 type ApplyRulesType string
 
 const (
-	// AllMatchingRules applies all rules in a policy that match.
+	// ApplyAll applies all rules in a policy that match.
 	ApplyAll ApplyRulesType = "All"
-	// FirstMatchingRule applies only the first matching rule in the policy.
+	// ApplyOne applies only the first matching rule in the policy.
 	ApplyOne ApplyRulesType = "One"
 )
 
@@ -290,7 +290,7 @@ func (m *Mutation) SetPatchStrategicMerge(in apiextensions.JSON) {
 	m.RawPatchStrategicMerge = ToJSON(in)
 }
 
-// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+// ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachMutation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
@@ -461,7 +461,7 @@ func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
 	d.RawAnyAllConditions = ToJSON(in)
 }
 
-// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+// ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachValidation struct {
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
