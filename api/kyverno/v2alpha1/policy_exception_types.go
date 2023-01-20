@@ -142,8 +142,7 @@ func (status *PolicyExceptionStatus) SetReady(ready bool) {
 }
 
 func (status *PolicyExceptionStatus) IsReady() bool {
-	condition := meta.FindStatusCondition(status.Conditions, PolicyConditionReady)
-	return condition != nil && condition.Status == metav1.ConditionTrue
+	return meta.IsStatusConditionTrue(status.Conditions, PolicyConditionReady)
 }
 
 // +kubebuilder:object:root=true
