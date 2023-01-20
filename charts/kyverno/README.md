@@ -116,6 +116,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `config.metricsConfig` is now `metricsConfig`
 - `config.existingConfig` has been replaced with `config.create` and `config.name` to __support bring your own config__
 - `config.existingMetricsConfig` has been replaced with `metricsConfig.create` and `metricsConfig.name` to __support bring your own config__
+- `namespace` has been renamed `namespaceOverride`
 - `installCRDs` has been replaced with `crds.install`
 
 ## Uninstalling the Chart
@@ -134,7 +135,7 @@ The command removes all the Kubernetes components associated with the chart and 
 |-----|------|---------|-------------|
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
-| namespace | string | `nil` | Namespace the chart deploys to |
+| namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
 | config.create | bool | `true` | Create the configmap. |
