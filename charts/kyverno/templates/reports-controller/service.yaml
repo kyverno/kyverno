@@ -13,15 +13,15 @@ metadata:
   {{- end }}
 spec:
   ports:
-  - port: {{ .Values.reportsController.metricsService.port }}
-    targetPort: 8000
-    protocol: TCP
-    name: metrics-port
-    {{- if and (eq .Values.reportsController.metricsService.type "NodePort") (not (empty .Values.reportsController.metricsService.nodePort)) }}
-    nodePort: {{ .Values.reportsController.metricsService.nodePort }}
-    {{- end }}
-  selector:
-    {{- include "kyverno.reports-controller.matchLabels" . | nindent 4 }}
-  type: {{ .Values.reportsController.metricsService.type }}
+    - port: {{ .Values.reportsController.metricsService.port }}
+      targetPort: 8000
+      protocol: TCP
+      name: metrics-port
+      {{- if and (eq .Values.reportsController.metricsService.type "NodePort") (not (empty .Values.reportsController.metricsService.nodePort)) }}
+      nodePort: {{ .Values.reportsController.metricsService.nodePort }}
+      {{- end }}
+    selector:
+      {{- include "kyverno.reports-controller.matchLabels" . | nindent 6 }}
+    type: {{ .Values.reportsController.metricsService.type }}
 {{- end -}}
 {{- end -}}

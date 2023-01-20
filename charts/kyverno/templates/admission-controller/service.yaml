@@ -1,0 +1,53 @@
+{{- if .Values.admissionController.enabled -}}
+{{- if .Values.admissionController.rbac.create -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kyverno.admission-controller.name" . }}
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+  {{- with .Values.admissionController.service.annotations }}
+  annotations:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+    - port: {{ .Values.admissionController.service.port }}
+      targetPort: https
+      protocol: TCP
+      name: https
+      {{- if and (eq .Values.admissionController.service.type "NodePort") (not (empty .Values.admissionController.service.nodePort)) }}
+      nodePort: {{ .Values.admissionController.service.nodePort }}
+      {{- end }}
+    selector:
+      {{- include "kyverno.admission-controller.matchLabels" . | nindent 6 }}
+    type: {{ .Values.admissionController.service.type }}
+{{- if .Values.admissionController.metricsService.create }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kyverno.admission-controller.name" . }}-metrics
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
+  {{- with .Values.admissionController.metricsService.annotations }}
+  annotations:
+    {{- tpl (toYaml .) $ | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+    - port: {{ .Values.admissionController.metricsService.port }}
+      targetPort: 8000
+      protocol: TCP
+      name: metrics-port
+      {{- if and (eq .Values.admissionController.metricsService.type "NodePort") (not (empty .Values.admissionController.metricsService.nodePort)) }}
+      nodePort: {{ .Values.admissionController.metricsService.nodePort }}
+      {{- end }}
+    selector:
+      {{- include "kyverno.admission-controller.matchLabels" . | nindent 6 }}
+    type: {{ .Values.admissionController.metricsService.type }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
