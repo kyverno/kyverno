@@ -9,5 +9,6 @@ The `emergency` configmap is expected to create fine while other configmaps crea
 1.  - Create a cluster policy
     - Assert the policy becomes ready
 1.  - Create a policy exception for the cluster policy created above, configured to apply to configmap named `emergency`
+    - Assert the policy exception becomes ready
 1.  - Try to create a confimap named `emergency`, expecting the creation to succeed
     - Try to create a confimap named `foo`, expecting the creation to fail

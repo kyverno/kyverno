@@ -2,3 +2,5 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 apply:
 - exception.yaml
+assert:
+- exception-assert.yaml

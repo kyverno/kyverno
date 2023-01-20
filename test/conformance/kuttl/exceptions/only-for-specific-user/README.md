@@ -8,6 +8,7 @@ The exception should not apply as it is for a specific user and the configmap cr
 1.  - Create a cluster policy
     - Assert the policy becomes ready
 1.  - Create a policy exception for the cluster policy created above but for a specific user
+    - Assert the policy exception becomes ready
 1.  - Try to create a confimap, expecting the creation to fail
 
 ## Reference Issue(s)
