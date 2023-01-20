@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -23,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
+	exceptioncontroller "github.com/kyverno/kyverno/pkg/controllers/exception"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
@@ -41,6 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks"
@@ -170,6 +173,8 @@ func createrLeaderControllers(
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 	configMapResolver resolvers.ConfigmapResolver,
+	enablePolicyException bool,
+	exceptionNamespace string,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -192,6 +197,14 @@ func createrLeaderControllers(
 	certManager := certmanager.NewController(
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		certRenewer,
+	)
+	polexCtrl := exceptioncontroller.NewController(
+		func(namespace string) controllerutils.StatusClient[*kyvernov2alpha1.PolicyException] {
+			return kyvernoClient.KyvernoV2alpha1().PolicyExceptions(namespace)
+		},
+		kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions(),
+		enablePolicyException,
+		exceptionNamespace,
 	)
 	webhookController := webhookcontroller.NewController(
 		dynamicClient.Discovery(),
@@ -240,6 +253,7 @@ func createrLeaderControllers(
 			internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
 			internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
 			internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1),
+			internal.NewController(exceptioncontroller.ControllerName, polexCtrl, exceptioncontroller.Workers),
 		},
 		nil,
 		nil
@@ -452,6 +466,8 @@ func main() {
 				certRenewer,
 				runtime,
 				configMapResolver,
+				enablePolicyException,
+				exceptionNamespace,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
@@ -507,12 +523,7 @@ func main() {
 	)
 	var exceptionsLister engine.PolicyExceptionLister
 	if enablePolicyException {
-		lister := kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
-		if exceptionNamespace != "" {
-			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
-		} else {
-			exceptionsLister = lister
-		}
+		exceptionsLister = kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
 	}
 	resourceHandlers := webhooksresource.NewHandlers(
 		dClient,

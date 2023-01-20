@@ -38,8 +38,20 @@ rules:
 - apiGroups:
     - kyverno.io
   resources:
+    - policyexceptions/status
+  verbs:
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - kyverno.io
+  resources:
     - policies
     - policies/status
+    - policyexceptions
+    - policyexceptions/status
     - clusterpolicies
     - clusterpolicies/status
     - updaterequests
