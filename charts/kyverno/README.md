@@ -116,6 +116,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `config.metricsConfig` is now `metricsConfig`
 - `config.existingConfig` has been replaced with `config.create` and `config.name` to __support bring your own config__
 - `config.existingMetricsConfig` has been replaced with `metricsConfig.create` and `metricsConfig.name` to __support bring your own config__
+- `namespace` has been renamed `namespaceOverride`
 
 ## Uninstalling the Chart
 
@@ -133,7 +134,7 @@ The command removes all the Kubernetes components associated with the chart and 
 |-----|------|---------|-------------|
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
-| namespace | string | `nil` | Namespace the chart deploys to |
+| namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | config.create | bool | `true` | Create the configmap. |
 | config.name | string | `nil` | The configmap name (required if `create` is `false`). |
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
