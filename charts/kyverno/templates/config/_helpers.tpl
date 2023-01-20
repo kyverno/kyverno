@@ -39,7 +39,7 @@ app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
   {{- end }}
 {{- end }}
 {{- tpl (join "" $resourceFilters) . }}
-{{- end }}
+{{- end -}}
 
 {{- define "kyverno.config.webhooks" -}}
 {{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" (list (include "kyverno.namespace" .)) }}
@@ -51,4 +51,8 @@ app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
   {{- $newWebhook = append $newWebhook (merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector)) }}
 {{- end }}
 {{- $newWebhook | toJson }}
-{{- end }}
+{{- end -}}
+
+{{- define "kyverno.config.imagePullSecret" -}}
+{{- printf "{\"auths\":{\"%s\":{\"auth\":\"%s\"}}}" .registry (printf "%s:%s" .username .password | b64enc) | b64enc }}
+{{- end -}}

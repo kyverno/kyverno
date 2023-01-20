@@ -129,6 +129,22 @@ metricsConfig:
   metricsRefreshInterval: ~
   # metricsRefreshInterval: 24h
 
+# -- Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
+imagePullSecrets: {}
+  # regcred:
+  #   registry: foo.example.com
+  #   username: foobar
+  #   password: secret
+  # regcred2:
+  #   registry: bar.example.com
+  #   username: barbaz
+  #   password: secret2
+
+# -- Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
+existingImagePullSecrets: []
+  # - test-registry
+  # - other-test-registry
+
 # -- Additional labels
 customLabels: {}
 
@@ -309,29 +325,6 @@ extraContainers: []
 # - name: myapp-container
 #   image: busybox
 #   command: ['sh', '-c', 'echo Hello && sleep 3600']
-
-# -- Image pull secrets for image verify and imageData policies.
-# This will define the `--imagePullSecrets` Kyverno argument.
-imagePullSecrets: {}
-  # Define two image pull secrets
-  # imagePullSecrets:
-  #   regcred:
-  #     registry: foo.example.com
-  #     username: foobar
-  #     password: secret
-  #   regcred2:
-  #     registry: bar.example.com
-  #     username: barbaz
-  #     password: secret2
-
-
-# -- Existing Image pull secrets for image verify and imageData policies.
-# This will define the `--imagePullSecrets` Kyverno argument.
-existingImagePullSecrets: []
-  # Define an existing image pull secret
-  # existingImagePullSecrets:
-  # - test-registry
-  # - other-test-registry
 
 resources:
   # -- Pod resource limits
