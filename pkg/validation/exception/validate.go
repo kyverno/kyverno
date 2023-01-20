@@ -14,7 +14,7 @@ const (
 )
 
 // Validate checks policy exception is valid
-func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.PolicyException, po *webhooks.ExceptionOptions) (error, []string) {
+func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.PolicyException, po webhooks.ExceptionOptions) (error, []string) {
 	var warnings []string
 	if !po.EnablePolicyException {
 		warnings = append(warnings, disabledPolex)

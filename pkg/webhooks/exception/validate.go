@@ -12,10 +12,10 @@ import (
 )
 
 type handlers struct {
-	polexOptions *webhooks.ExceptionOptions
+	polexOptions webhooks.ExceptionOptions
 }
 
-func NewHandlers(po *webhooks.ExceptionOptions) webhooks.ExceptionHandlers {
+func NewHandlers(po webhooks.ExceptionOptions) webhooks.ExceptionHandlers {
 	return &handlers{polexOptions: po}
 }
 
