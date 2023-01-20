@@ -49,32 +49,30 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
   name: kyverno
   namespace: kyverno
+  labels:
+    app.kubernetes.io/part-of: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/version: latest
 data:
-  defaultRegistry: "docker.io"
   enableDefaultRegistryMutation: "true"
-  # resource types to be skipped by kyverno policy engine
+  defaultRegistry: "docker.io"
+  generateSuccessEvents: "false"
   resourceFilters: "[*,kyverno,*][Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][Binding,*,*][ReplicaSet,*,*][AdmissionReport,*,*][ClusterAdmissionReport,*,*][BackgroundScanReport,*,*][ClusterBackgroundScanReport,*,*][ClusterRole,*,kyverno:*][ClusterRoleBinding,*,kyverno:*][ServiceAccount,kyverno,kyverno][ConfigMap,kyverno,kyverno][ConfigMap,kyverno,kyverno-metrics][Deployment,kyverno,kyverno][Job,kyverno,kyverno-hook-pre-delete][NetworkPolicy,kyverno,kyverno][PodDisruptionBudget,kyverno,kyverno][Role,kyverno,kyverno:*][RoleBinding,kyverno,kyverno:*][Secret,kyverno,kyverno-svc.kyverno.svc.*][Service,kyverno,kyverno-svc][Service,kyverno,kyverno-svc-metrics][ServiceMonitor,kyverno,kyverno-svc-service-monitor][Pod,kyverno,kyverno-test]"
   webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kyverno"]}]}}]'
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
   name: kyverno-metrics
   namespace: kyverno
+  labels:
+    app.kubernetes.io/part-of: kyverno
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/version: latest
 data:
   namespaces: "{\"exclude\":[],\"include\":[]}"
 ---
