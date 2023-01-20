@@ -658,9 +658,18 @@ test-cli-test-case-selector-flag: $(CLI_BIN)
 test-cli-registry: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/registry --registry
 
-##################################
-# Testing & Code-Coverage
-##################################
+#############
+# HELM TEST #
+#############
+
+.PHONY: helm-test
+helm-test: $(HELM) ## Run helm test
+	@echo Running helm test... >&2
+	@$(HELM) test --namespace kyverno kyverno
+
+###########################
+# Testing & Code-Coverage #
+###########################
 
 helm-test-values:
 	sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
