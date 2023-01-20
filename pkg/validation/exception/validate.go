@@ -13,8 +13,8 @@ const (
 )
 
 type ValidationOptions struct {
-	EnablePolex    bool
-	PolexNamespace string
+	Enabled    bool
+	Namespace string
 }
 
 // Validate checks policy exception is valid
