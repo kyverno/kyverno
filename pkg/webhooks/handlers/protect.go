@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -32,7 +33,7 @@ func (inner AdmissionHandler) withProtection() AdmissionHandler {
 			if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
 				if request.UserInfo.Username != fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName()) {
 					logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
-					return admissionutils.ResponseSuccess(request.UID, "A kyverno managed resource can only be modified by kyverno")
+					return admissionutils.Response(request.UID, errors.New("a kyverno managed resource can only be modified by kyverno"))
 				}
 			}
 		}

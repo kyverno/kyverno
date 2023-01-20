@@ -691,7 +691,10 @@ func main() {
 		openApiManager,
 		admissionReports,
 	)
-	exceptionHandlers := webhooksexception.NewHandlers()
+	exceptionHandlers := webhooksexception.NewHandlers(&webhooks.ExceptionOptions{
+		EnablePolicyException: enablePolicyException,
+		Namespace:             exceptionNamespace,
+	})
 	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,
