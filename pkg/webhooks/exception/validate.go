@@ -11,20 +11,12 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-// ExceptionOptions holds flags to enable PolicyExceptions and in which namespace
-type ExceptionOptions struct {
-	// EnablePolicyException enables/disables PolicyExceptions
-	EnablePolicyException bool
-	// Namespace is the defined namespace
-	Namespace string
-}
-
 type handlers struct {
-	polexOptions ExceptionOptions
+	polexOpts validation.ValidationOptions
 }
 
-func NewHandlers(po ExceptionOptions) webhooks.ExceptionHandlers {
-	return &handlers{polexOptions: po}
+func NewHandlers(po validation.ValidationOptions) webhooks.ExceptionHandlers {
+	return &handlers{polexOpts: po}
 }
 
 // Validate performs the validation check on policy exception resources
@@ -34,7 +26,7 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 		logger.Error(err, "failed to unmarshal policy exceptions from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	warnings, err := validation.Validate(ctx, logger, polex, h.polexOptions.EnablePolicyException, h.polexOptions.Namespace)
+	warnings, err := validation.Validate(ctx, logger, polex, h.polexOpts)
 	if err != nil {
 		logger.Error(err, "policy exception validation errors")
 	}

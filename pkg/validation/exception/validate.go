@@ -12,13 +12,17 @@ const (
 	disabledPolex       = "PolicyException resources would not be processed until it is enabled."
 )
 
+type ValidationOptions struct {
+	EnablePolex    bool
+	PolexNamespace string
+}
+
 // Validate checks policy exception is valid
-func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.PolicyException,
-	polexIsEnabled bool, polexNamespace string) ([]string, error) {
+func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.PolicyException, opts ValidationOptions) ([]string, error) {
 	var warnings []string
-	if !polexIsEnabled {
+	if !opts.EnablePolex {
 		warnings = append(warnings, disabledPolex)
-	} else if polexNamespace != "" && polexNamespace != polex.Namespace {
+	} else if opts.PolexNamespace != "" && opts.PolexNamespace != polex.Namespace {
 		warnings = append(warnings, namespacesDontMatch)
 	}
 	errs := polex.Validate()
