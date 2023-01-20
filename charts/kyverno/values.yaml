@@ -3,16 +3,16 @@
 templating:
   enabled: false
   debug: false
-  version:
+  version: ~
 
-# -- Override the name of the chart
-nameOverride:
+# -- (string) Override the name of the chart
+nameOverride: ~
 
-# -- Override the expanded name of the chart
-fullnameOverride:
+# -- (string) Override the expanded name of the chart
+fullnameOverride: ~
 
-# -- Namespace the chart deploys to
-namespace:
+# -- (string) Override the namespace the chart deploys to
+namespaceOverride: ~
 
 config:
 
