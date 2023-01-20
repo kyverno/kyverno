@@ -37,7 +37,6 @@ func (inner AdmissionHandler) withProtection() AdmissionHandler {
 				}
 			}
 		}
-
 		return inner(ctx, logger, request, startTime)
 	}
 }
