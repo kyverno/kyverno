@@ -40,6 +40,7 @@ type PolicyExceptionsGetter interface {
 type PolicyExceptionInterface interface {
 	Create(ctx context.Context, policyException *v2alpha1.PolicyException, opts v1.CreateOptions) (*v2alpha1.PolicyException, error)
 	Update(ctx context.Context, policyException *v2alpha1.PolicyException, opts v1.UpdateOptions) (*v2alpha1.PolicyException, error)
+	UpdateStatus(ctx context.Context, policyException *v2alpha1.PolicyException, opts v1.UpdateOptions) (*v2alpha1.PolicyException, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2alpha1.PolicyException, error)
@@ -128,6 +129,22 @@ func (c *policyExceptions) Update(ctx context.Context, policyException *v2alpha1
 		Namespace(c.ns).
 		Resource("policyexceptions").
 		Name(policyException.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(policyException).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *policyExceptions) UpdateStatus(ctx context.Context, policyException *v2alpha1.PolicyException, opts v1.UpdateOptions) (result *v2alpha1.PolicyException, err error) {
+	result = &v2alpha1.PolicyException{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("policyexceptions").
+		Name(policyException.Name).
+		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(policyException).
 		Do(ctx).

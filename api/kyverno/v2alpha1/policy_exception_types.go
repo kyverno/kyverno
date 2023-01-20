@@ -18,14 +18,27 @@ package v2alpha1
 import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"golang.org/x/exp/slices"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+const (
+	// PolicyConditionReady means that the policy is ready
+	PolicyConditionReady = "Ready"
+)
+
+const (
+	// PolicyReasonSucceeded is the reason set when the policy is ready
+	PolicyReasonSucceeded = "Succeeded"
+	// PolicyReasonSucceeded is the reason set when the policy is not ready
+	PolicyReasonFailed = "Failed"
+)
+
 // +genclient
-// +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=polex,categories=kyverno
 
@@ -36,6 +49,10 @@ type PolicyException struct {
 
 	// Spec declares policy exception behaviors.
 	Spec PolicyExceptionSpec `json:"spec"`
+
+	// Status contains policy runtime information.
+	// +optional
+	Status PolicyExceptionStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // Validate implements programmatic validation
@@ -100,6 +117,32 @@ func (p *Exception) Validate(path *field.Path) (errs field.ErrorList) {
 // Contains returns true if it contains an exception for the given policy/rule pair
 func (p *Exception) Contains(policy string, rule string) bool {
 	return p.PolicyName == policy && slices.Contains(p.RuleNames, rule)
+}
+
+// PolicyExceptionStatus stores policy exception status
+type PolicyExceptionStatus struct {
+	// Conditions is a list of conditions that apply to the policy exception
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+func (status *PolicyExceptionStatus) SetReady(ready bool) {
+	condition := metav1.Condition{
+		Type: PolicyConditionReady,
+	}
+	if ready {
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = PolicyReasonSucceeded
+	} else {
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = PolicyReasonFailed
+	}
+	meta.SetStatusCondition(&status.Conditions, condition)
+}
+
+func (status *PolicyExceptionStatus) IsReady() bool {
+	condition := meta.FindStatusCondition(status.Conditions, PolicyConditionReady)
+	return condition != nil && condition.Status == metav1.ConditionTrue
 }
 
 // +kubebuilder:object:root=true
