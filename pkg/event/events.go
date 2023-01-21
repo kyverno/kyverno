@@ -50,6 +50,9 @@ func getPolicyKind(policy kyvernov1.PolicyInterface) string {
 }
 
 func NewPolicyAppliedEvent(source Source, engineResponse *response.EngineResponse) Info {
+	if engineResponse.Policy.GetSpec().IsEmitAppliedEvents() {
+		return Info{}
+	}
 	resource := engineResponse.PolicyResponse.Resource
 	var bldr strings.Builder
 	defer bldr.Reset()

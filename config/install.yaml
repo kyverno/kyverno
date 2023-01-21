@@ -3569,6 +3569,11 @@ spec:
                   that are only available in the admission review request (e.g. user
                   name).
                 type: boolean
+              emitAppliedEvents:
+                description: EmitAppliedEvents control whethe policy applied events
+                  are produced or not If set to "false" policy applied events will
+                  not be produced Default value is "true"
+                type: boolean
               failurePolicy:
                 description: FailurePolicy defines how unexpected policy errors and
                   webhook response timeout errors are handled. Rules within the same
@@ -10246,6 +10251,11 @@ spec:
                   that are only available in the admission review request (e.g. user
                   name).
                 type: boolean
+              emitAppliedEvents:
+                description: EmitAppliedEvents control whethe policy applied events
+                  are produced or not If set to "false" policy applied events will
+                  not be produced Default value is "true"
+                type: boolean
               failurePolicy:
                 description: FailurePolicy defines how unexpected policy errors and
                   webhook response timeout errors are handled. Rules within the same
@@ -16679,6 +16689,11 @@ spec:
                   The value must be set to "false" if the policy rule uses variables
                   that are only available in the admission review request (e.g. user
                   name).
+                type: boolean
+              emitAppliedEvents:
+                description: EmitAppliedEvents control whethe policy applied events
+                  are produced or not If set to "false" policy applied events will
+                  not be produced Default value is "true"
                 type: boolean
               failurePolicy:
                 description: FailurePolicy defines how unexpected policy errors and
@@ -23358,6 +23373,11 @@ spec:
                   The value must be set to "false" if the policy rule uses variables
                   that are only available in the admission review request (e.g. user
                   name).
+                type: boolean
+              emitAppliedEvents:
+                description: EmitAppliedEvents control whethe policy applied events
+                  are produced or not If set to "false" policy applied events will
+                  not be produced Default value is "true"
                 type: boolean
               failurePolicy:
                 description: FailurePolicy defines how unexpected policy errors and
