@@ -73,7 +73,7 @@ type Spec struct {
 	// If set to "false" policy applied events will not be produced
 	// Default value is "true"
 	// +optional
-	EmitAppliedEvents bool `json:"emitAppliedEvents,omitempty" yaml:"emitAppliedEvents,omitempty"`
+	EmitAppliedEvents *bool `json:"emitAppliedEvents,omitempty" yaml:"emitAppliedEvents,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -187,7 +187,10 @@ func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
 
 // IsEmitAppliedEvents return EmitAppliedEvents set value
 func (s *Spec) IsEmitAppliedEvents() bool {
-	return s.EmitAppliedEvents
+	if s.EmitAppliedEvents != nil {
+		return *s.EmitAppliedEvents
+	}
+	return true
 }
 
 // GetFailurePolicy returns the failure policy to be applied
