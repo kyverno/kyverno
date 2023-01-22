@@ -119,6 +119,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `namespace` has been renamed `namespaceOverride`
 - `installCRDs` has been replaced with `crds.install`
 - `testSecurityContext` has been replaced with `test.securityContext`
+- `testResources` has been replaced with `test.resources`
 
 ## Uninstalling the Chart
 
@@ -157,6 +158,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | metricsConfig.metricsRefreshInterval | string | `nil` | Rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
+| test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
+| test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
 | customLabels | object | `{}` | Additional labels |
 | rbac.create | bool | `true` | Create ClusterRoles, ClusterRoleBindings, and ServiceAccount |
@@ -202,8 +205,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | initResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | initResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
-| testResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
-| testResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |

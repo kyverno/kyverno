@@ -14,7 +14,7 @@ spec:
     - name: test
       image: {{ include "kyverno.image" (dict "image" .Values.testImage "defaultTag" "latest") | quote }}
       imagePullPolicy: {{ default .Values.image.pullPolicy .Values.testImage.pullPolicy }}
-      {{- with .Values.testResources }}
+      {{- with .Values.test.resources }}
       resources: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       securityContext: {{ include "kyverno.test.securityContext" . | nindent 8 }}

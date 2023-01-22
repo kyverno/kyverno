@@ -148,6 +148,16 @@ existingImagePullSecrets: []
 
 test:
 
+  resources:
+    # -- Pod resource limits
+    limits:
+      cpu: 100m
+      memory: 256Mi
+    # -- Pod resource requests
+    requests:
+      cpu: 10m
+      memory: 64Mi
+
   # -- Security context for the test containers
   securityContext:
     runAsUser: 65534
@@ -339,16 +349,6 @@ resources:
     memory: 128Mi
 
 initResources:
-  # -- Pod resource limits
-  limits:
-    cpu: 100m
-    memory: 256Mi
-  # -- Pod resource requests
-  requests:
-    cpu: 10m
-    memory: 64Mi
-
-testResources:
   # -- Pod resource limits
   limits:
     cpu: 100m
