@@ -1,7 +1,8 @@
+{{- if .Values.metricsService.create -}}
 apiVersion: v1
 kind: Pod
 metadata:
-  generateName: {{ template "kyverno.fullname" . }}-test-
+  name: {{ template "kyverno.fullname" . }}-admission-controller-metrics
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.test.labels" . | nindent 4 }}
@@ -23,3 +24,4 @@ spec:
         - /bin/sh
         - -c
         - sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.serviceName" . }}-metrics:{{ .Values.metricsService.port }}/metrics
+{{- end -}}

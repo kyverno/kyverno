@@ -15,6 +15,7 @@ fullnameOverride: ~
 namespaceOverride: ~
 
 crds:
+
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
   install: true
 
@@ -91,7 +92,7 @@ config:
   # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
   # will be forwarded to the webhook configurations.
   # The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default)
-  webhooks:
+  webhooks: []
     # Exclude namespaces
     # - namespaceSelector:
     #     matchExpressions:
@@ -127,7 +128,7 @@ metricsConfig:
 
   # -- (string) Rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics
   metricsRefreshInterval: ~
-  # metricsRefreshInterval: 24h
+    # metricsRefreshInterval: 24h
 
 # -- Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
 imagePullSecrets: {}
