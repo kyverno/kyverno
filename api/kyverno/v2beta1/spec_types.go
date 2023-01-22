@@ -185,8 +185,8 @@ func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
 	return s.GenerateExistingOnPolicyUpdate
 }
 
-// IsEmitAppliedEvents return EmitAppliedEvents set value
-func (s *Spec) IsEmitAppliedEvents() bool {
+// ShouldEmitAppliedEvents return EmitAppliedEvents set value
+func (s *Spec) ShouldEmitAppliedEvents() bool {
 	if s.EmitAppliedEvents != nil {
 		return *s.EmitAppliedEvents
 	}
