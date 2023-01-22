@@ -3,7 +3,7 @@ kind: Pod
 metadata:
   name: "{{ template "kyverno.fullname" . }}-test"
   labels:
-    {{- include "kyverno.test-labels" . | nindent 4 }}
+    {{- include "kyverno.test.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
 spec:

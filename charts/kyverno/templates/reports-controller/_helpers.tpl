@@ -6,15 +6,9 @@
 
 {{- define "kyverno.reports-controller.labels" -}}
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-{{- with (include "kyverno.helmLabels" .) }}
-{{ . }}
-{{- end }}
-{{- with (include "kyverno.versionLabels" .) }}
-{{ . }}
-{{- end }}
-{{- with (include "kyverno.reports-controller.matchLabels" .) }}
-{{ . }}
-{{- end }}
+{{- with (include "kyverno.helmLabels" .)                     -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.versionLabels" .)                  -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.reports-controller.matchLabels" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- end -}}
 
 {{- define "kyverno.reports-controller.matchLabels" -}}

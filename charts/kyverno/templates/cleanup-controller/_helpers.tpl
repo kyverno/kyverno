@@ -6,15 +6,9 @@
 
 {{- define "kyverno.cleanup-controller.labels" -}}
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-{{- with (include "kyverno.helmLabels" .) }}
-{{ . }}
-{{- end }}
-{{- with (include "kyverno.versionLabels" .) }}
-{{ . }}
-{{- end }}
-{{- with (include "kyverno.cleanup-controller.matchLabels" .) }}
-{{ . }}
-{{- end }}
+{{- with (include "kyverno.helmLabels" .)                     -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.versionLabels" .)                  -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.cleanup-controller.matchLabels" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.matchLabels" -}}

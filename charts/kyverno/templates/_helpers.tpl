@@ -25,7 +25,6 @@
 {{ default .Release.Namespace .Values.namespaceOverride }}
 {{- end -}}
 
-{{/* Helm labels */}}
 {{- define "kyverno.helmLabels" -}}
 {{- if not .Values.templating.enabled -}}
 helm.sh/chart: {{ template "kyverno.chart" . }}
@@ -33,7 +32,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 {{- end -}}
 
-{{/* Version labels */}}
 {{- define "kyverno.versionLabels" -}}
 {{- if .Values.templating.enabled -}}
 app.kubernetes.io/version: {{ required "templating.version is required when templating.enabled is true" .Values.templating.version | replace "+" "_" }}
@@ -42,46 +40,18 @@ app.kubernetes.io/version: {{ .Chart.Version | replace "+" "_" }}
 {{- end -}}
 {{- end -}}
 
-{{/* Helm required labels */}}
-{{- define "kyverno.labels" -}}
-app.kubernetes.io/component: kyverno
-{{- with (include "kyverno.helmLabels" .) }}
-{{ . }}
-{{- end }}
-{{- with (include "kyverno.matchLabels" .) }}
-{{ . }}
-{{- end }}
-app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-{{- with (include "kyverno.versionLabels" .) }}
-{{ . }}
-{{- end }}
-{{- if .Values.customLabels }}
-{{ toYaml .Values.customLabels }}
-{{- end }}
-{{- end -}}
-
-{{/* Helm required labels */}}
-{{- define "kyverno.test-labels" -}}
-{{- with (include "kyverno.helmLabels" .) }}
-{{ . }}
-{{- end }}
-app: kyverno
-app.kubernetes.io/component: kyverno
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/name: {{ template "kyverno.name" . }}-test
-app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
-{{- end -}}
-
-{{/* matchLabels */}}
 {{- define "kyverno.matchLabels" -}}
-{{- if .Values.templating.enabled -}}
-app: kyverno
-{{- end }}
 app.kubernetes.io/name: {{ template "kyverno.name" . }}
-{{- if not .Values.templating.enabled }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
+{{- end -}}
+
+{{- define "kyverno.labels" -}}
+app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
+app.kubernetes.io/component: kyverno
+{{- with (include "kyverno.helmLabels" .)     -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.matchLabels" .)    -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.versionLabels" .)  -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with .Values.customLabels -}}{{- toYaml . | trim | nindent 0 -}}{{- end -}}
 {{- end -}}
 
 {{/* Create the name of the service to use */}}
