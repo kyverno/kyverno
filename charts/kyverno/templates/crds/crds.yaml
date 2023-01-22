@@ -1,4 +1,4 @@
-{{- if .Values.installCRDs }}
+{{- if .Values.crds.install }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -9,7 +9,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: admissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -354,7 +354,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: backgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -659,7 +659,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -1707,7 +1707,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: clusteradmissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2053,7 +2053,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: clusterbackgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2358,7 +2358,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3406,7 +3406,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -5077,9 +5077,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -5411,10 +5411,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -8367,10 +8367,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -8717,10 +8717,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -11357,9 +11357,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -11859,10 +11859,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -14775,10 +14775,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -15125,10 +15125,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -16516,7 +16516,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -18188,9 +18188,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -18522,10 +18522,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -21479,10 +21479,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -21829,10 +21829,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -24470,9 +24470,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -24972,10 +24972,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -27888,10 +27888,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -28238,10 +28238,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -29629,7 +29629,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -30116,7 +30116,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -30507,7 +30507,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -30874,7 +30874,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io

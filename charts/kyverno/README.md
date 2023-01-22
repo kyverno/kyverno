@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: v2.5.3](https://img.shields.io/badge/Version-v2.5.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
+![Version: v3.0.0](https://img.shields.io/badge/Version-v3.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: latest](https://img.shields.io/badge/AppVersion-latest-informational?style=flat-square)
 
 ## About
 
@@ -20,6 +20,10 @@ This chart bootstraps a Kyverno deployment on a [Kubernetes](http://kubernetes.i
 Access the complete user documentation and guides at: https://kyverno.io.
 
 ## Installing the Chart
+
+**IMPORTANT IMPORTANT IMPORTANT IMPORTANT**
+
+This chart changed significantly between `v2` and `v3`. If you are upgrading from `v2`, please read `Migrating from v2 to v3` section.
 
 **Add the Kyverno Helm repository:**
 
@@ -105,6 +109,16 @@ spec:
       - Replace=true
 ```
 
+## Migrating from v2 to v3
+
+In `v3` chart values changed significantly, please read the instructions below to migrate your values:
+
+- `config.metricsConfig` is now `metricsConfig`
+- `config.existingConfig` has been replaced with `config.create` and `config.name` to __support bring your own config__
+- `config.existingMetricsConfig` has been replaced with `metricsConfig.create` and `metricsConfig.name` to __support bring your own config__
+- `namespace` has been renamed `namespaceOverride`
+- `installCRDs` has been replaced with `crds.install`
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:
@@ -121,7 +135,27 @@ The command removes all the Kubernetes components associated with the chart and 
 |-----|------|---------|-------------|
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
-| namespace | string | `nil` | Namespace the chart deploys to |
+| namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
+| crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
+| crds.annotations | object | `{}` | Additional CRDs annotations |
+| config.create | bool | `true` | Create the configmap. |
+| config.name | string | `nil` | The configmap name (required if `create` is `false`). |
+| config.annotations | object | `{}` | Additional annotations to add to the configmap. |
+| config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
+| config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
+| config.excludeGroupRole | list | `[]` | Exclude group role |
+| config.excludeUsername | list | `[]` | Exclude username |
+| config.generateSuccessEvents | bool | `false` | Generate success events. |
+| config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
+| config.webhooks | string | `nil` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
+| metricsConfig.create | bool | `true` | Create the configmap. |
+| metricsConfig.name | string | `nil` | The configmap name (required if `create` is `false`). |
+| metricsConfig.annotations | object | `{}` | Additional annotations to add to the configmap. |
+| metricsConfig.namespaces.include | list | `[]` | List of namespaces to capture metrics for. |
+| metricsConfig.namespaces.exclude | list | `[]` | list of namespaces to NOT capture metrics for. |
+| metricsConfig.metricsRefreshInterval | string | `nil` | Rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics |
+| imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
+| existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | customLabels | object | `{}` | Additional labels |
 | rbac.create | bool | `true` | Create ClusterRoles, ClusterRoleBindings, and ServiceAccount |
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
@@ -139,7 +173,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | initContainer.extraArgs | list | `["--loggingFormat=text","--exceptionNamespace={{ include \"kyverno.namespace\" . }}"]` | Extra arguments to give to the kyvernopre binary. |
 | testImage.registry | string | `nil` | Image registry |
 | testImage.repository | string | `"busybox"` | Image repository |
-| testImage.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
+| testImage.tag | float | `1.35` | Image tag Defaults to `latest` if omitted |
 | testImage.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | replicaCount | int | `nil` | Desired number of pods |
 | podLabels | object | `{}` | Additional labels to add to each pod |
@@ -163,8 +197,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the binary. |
 | extraInitContainers | list | `[]` | Array of extra init containers |
 | extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
-| imagePullSecrets | object | `{}` | Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
-| existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
 | resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | initResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
@@ -177,17 +209,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
 | excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
-| config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
-| config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
-| config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
-| config.existingConfig | string | `""` | Name of an existing config map (ignores default/provided resourceFilters) |
-| config.annotations | object | `{}` | Additional annotations to add to the configmap |
-| config.excludeGroupRole | string | `nil` | Exclude group role |
-| config.excludeUsername | string | `nil` | Exclude username |
-| config.webhooks | string | `nil` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
-| config.generateSuccessEvents | bool | `false` | Generate success events. |
-| config.metricsConfig | object | `{"annotations":{},"namespaces":{"exclude":[],"include":[]}}` | Metrics config. |
-| config.metricsConfig.annotations | object | `{}` | Additional annotations to add to the metricsconfigmap |
 | updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | service.port | int | `443` | Service port. |
 | service.type | string | `"ClusterIP"` | Service type. |
@@ -207,8 +228,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
 | serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
 | createSelfSignedCert | bool | `false` | Kyverno requires a certificate key pair and corresponding certificate authority to properly register its webhooks. This can be done in one of 3 ways: 1) Use kube-controller-manager to generate a CA-signed certificate (preferred) 2) Provide your own CA and cert.    In this case, you will need to create a certificate with a specific name and data structure.    As long as you follow the naming scheme, it will be automatically picked up.    kyverno-svc.(namespace).svc.kyverno-tls-ca (with data entries named tls.key and tls.crt)    kyverno-svc.kyverno.svc.kyverno-tls-pair (with data entries named tls.key and tls.crt) 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false |
-| installCRDs | bool | `true` | Whether to have Helm install the Kyverno CRDs. If the CRDs are not installed by Helm, they must be added before policies can be created. |
-| crds.annotations | object | `{}` | Additional CRDs annotations. |
 | networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |

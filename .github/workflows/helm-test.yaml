@@ -33,3 +33,12 @@ jobs:
           then
             ct lint --target-branch=main --check-version-increment=false
           fi
+      - name: Setup test env
+        uses: ./.github/actions/setup-test-env
+        with:
+          build-cache-key: helm-tests
+      - name: Helm test
+        run: make helm-test
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs
