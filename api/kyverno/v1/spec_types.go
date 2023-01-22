@@ -223,11 +223,6 @@ func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
 	return s.GenerateExistingOnPolicyUpdate
 }
 
-// IsEmitAppliedEvents return EmitAppliedEvents set value
-func (s *Spec) IsEmitAppliedEvents() bool {
-	return s.EmitAppliedEvents
-}
-
 // GetFailurePolicy returns the failure policy to be applied
 func (s *Spec) GetFailurePolicy() FailurePolicyType {
 	if toggle.ForceFailurePolicyIgnore.Enabled() {

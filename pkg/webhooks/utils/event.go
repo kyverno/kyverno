@@ -39,7 +39,7 @@ func GenerateEvents(engineResponses []*engineapi.EngineResponse, blocked bool) [
 					events = append(events, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i])...)
 				}
 			}
-		} else if !er.IsSkipped() {
+		} else if !er.IsSkipped() && er.Policy.GetSpec().ShouldEmitAppliedEvents() {
 			e := event.NewPolicyAppliedEvent(event.AdmissionController, er)
 			events = append(events, e)
 		}
