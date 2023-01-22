@@ -60,19 +60,6 @@ app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
 {{- end }}
 {{- end -}}
 
-{{/* Helm required labels */}}
-{{- define "kyverno.test-labels" -}}
-{{- with (include "kyverno.helmLabels" .) }}
-{{ . }}
-{{- end }}
-app: kyverno
-app.kubernetes.io/component: kyverno
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/name: {{ template "kyverno.name" . }}-test
-app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
-{{- end -}}
-
 {{/* matchLabels */}}
 {{- define "kyverno.matchLabels" -}}
 {{- if .Values.templating.enabled -}}
