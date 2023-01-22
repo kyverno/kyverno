@@ -86,7 +86,7 @@ config:
     - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}]'
     - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}-metrics]'
     - '[ServiceMonitor,{{ if .Values.serviceMonitor.namespace }}{{ .Values.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.serviceName" . }}-service-monitor]'
-    - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-test]'
+    - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-*]'
 
   # -- Defines the `namespaceSelector` in the webhook configurations.
   # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
@@ -145,6 +145,22 @@ imagePullSecrets: {}
 existingImagePullSecrets: []
   # - test-registry
   # - other-test-registry
+
+test:
+
+  # -- Security context for the test containers
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    runAsNonRoot: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
 
 # -- Additional labels
 customLabels: {}
@@ -227,20 +243,6 @@ podSecurityContext: {}
 
 # -- Security context for the containers
 securityContext:
-  runAsNonRoot: true
-  privileged: false
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop:
-      - ALL
-  seccompProfile:
-    type: RuntimeDefault
-
-# -- Security context for the test containers
-testSecurityContext:
-  runAsUser: 65534
-  runAsGroup: 65534
   runAsNonRoot: true
   privileged: false
   allowPrivilegeEscalation: false
