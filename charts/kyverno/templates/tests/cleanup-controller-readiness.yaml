@@ -1,8 +1,8 @@
-{{- if .Values.metricsService.create -}}
+{{- if .Values.cleanupController.enabled -}}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: {{ template "kyverno.fullname" . }}-admission-controller-metrics
+  name: {{ template "kyverno.fullname" . }}-cleanup-controller-readiness
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.test.labels" . | nindent 4 }}
@@ -23,5 +23,5 @@ spec:
       command:
         - /bin/sh
         - -c
-        - sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.serviceName" . }}-metrics:{{ .Values.metricsService.port }}/metrics
+        - sleep 20 ; wget -O- -S --no-check-certificate https://{{ template "kyverno.cleanup-controller.name" . }}:{{ .Values.cleanupController.service.port }}/health/readiness
 {{- end -}}
