@@ -118,8 +118,9 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `config.existingMetricsConfig` has been replaced with `metricsConfig.create` and `metricsConfig.name` to __support bring your own config__
 - `namespace` has been renamed `namespaceOverride`
 - `installCRDs` has been replaced with `crds.install`
-- `testSecurityContext` has been replaced with `test.securityContext`
+- `testImage` has been replaced with `test.image`
 - `testResources` has been replaced with `test.resources`
+- `testSecurityContext` has been replaced with `test.securityContext`
 
 ## Uninstalling the Chart
 
@@ -158,6 +159,10 @@ The command removes all the Kubernetes components associated with the chart and 
 | metricsConfig.metricsRefreshInterval | string | `nil` | Rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
+| test.image.registry | string | `nil` | Image registry |
+| test.image.repository | string | `"busybox"` | Image repository |
+| test.image.tag | float | `1.35` | Image tag Defaults to `latest` if omitted |
+| test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
@@ -176,10 +181,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
 | initContainer.extraArgs | list | `["--loggingFormat=text","--exceptionNamespace={{ include \"kyverno.namespace\" . }}"]` | Extra arguments to give to the kyvernopre binary. |
-| testImage.registry | string | `nil` | Image registry |
-| testImage.repository | string | `"busybox"` | Image repository |
-| testImage.tag | float | `1.35` | Image tag Defaults to `latest` if omitted |
-| testImage.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | replicaCount | int | `nil` | Desired number of pods |
 | podLabels | object | `{}` | Additional labels to add to each pod |
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |

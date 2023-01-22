@@ -12,8 +12,8 @@ spec:
   restartPolicy: Never
   containers:
     - name: test
-      image: {{ include "kyverno.image" (dict "image" .Values.testImage "defaultTag" "latest") | quote }}
-      imagePullPolicy: {{ default .Values.image.pullPolicy .Values.testImage.pullPolicy }}
+      image: {{ include "kyverno.image" (dict "image" .Values.test.image "defaultTag" "latest") | quote }}
+      imagePullPolicy: {{ default .Values.image.pullPolicy .Values.test.image.pullPolicy }}
       {{- with .Values.test.resources }}
       resources: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

@@ -14,6 +14,7 @@ fullnameOverride: ~
 # -- (string) Override the namespace the chart deploys to
 namespaceOverride: ~
 
+# CRDs configuration
 crds:
 
   # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
@@ -24,6 +25,7 @@ crds:
     # argocd.argoproj.io/sync-options: Replace=true
     # strategy.spinnaker.io/replace: 'true'
 
+# Configuration
 config:
 
   # -- Create the configmap.
@@ -107,6 +109,7 @@ config:
     #     - key: webhooks.kyverno.io/exclude
     #       operator: DoesNotExist
 
+# Metrics configuration
 metricsConfig:
 
   # -- Create the configmap.
@@ -146,7 +149,20 @@ existingImagePullSecrets: []
   # - test-registry
   # - other-test-registry
 
+# Tests configuration
 test:
+
+  image:
+    # -- Image registry
+    registry:
+    # -- Image repository
+    repository: busybox
+    # -- Image tag
+    # Defaults to `latest` if omitted
+    tag: 1.35
+    # -- Image pull policy
+    # Defaults to image.pullPolicy if omitted
+    pullPolicy:
 
   resources:
     # -- Pod resource limits
@@ -224,18 +240,6 @@ initContainer:
   extraArgs:
     - --loggingFormat=text
     - --exceptionNamespace={{ include "kyverno.namespace" . }}
-
-testImage:
-  # -- Image registry
-  registry:
-  # -- Image repository
-  repository: busybox
-  # -- Image tag
-  # Defaults to `latest` if omitted
-  tag: 1.35
-  # -- Image pull policy
-  # Defaults to image.pullPolicy if omitted
-  pullPolicy:
 
 # -- (int) Desired number of pods
 replicaCount: ~
@@ -505,6 +509,7 @@ grafana:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
+# Cleanup controller configuration
 cleanupController:
 
   # -- Enable cleanup controller.
@@ -752,7 +757,7 @@ cleanupController:
     # -- Otel collector credentials
     creds: ''
 
-
+# Reports controller configuration
 reportsController:
 
   # -- Enable reports controller.
