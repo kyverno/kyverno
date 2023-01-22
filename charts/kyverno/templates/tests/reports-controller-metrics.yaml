@@ -8,7 +8,7 @@ metadata:
   labels:
     {{- include "kyverno.test.labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": test
+    {{- include "kyverno.test.annotations" . | nindent 4 }}
 spec:
   restartPolicy: Never
   containers:

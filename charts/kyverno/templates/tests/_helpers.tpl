@@ -8,6 +8,10 @@ app.kubernetes.io/component: test
 {{- with (include "kyverno.versionLabels" .)    -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- end -}}
 
+{{- define "kyverno.test.annotations" -}}
+helm.sh/hook: test
+{{- end -}}
+
 {{- define "kyverno.test.matchLabels" -}}
 app.kubernetes.io/component: test
 app.kubernetes.io/name: {{ template "kyverno.name" . }}
