@@ -21,6 +21,14 @@
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{- define "kyverno.chartVersion" -}}
+{{- if .Values.templating.enabled -}}
+{{ required "templating.version is required when templating.enabled is true" .Values.templating.version | replace "+" "_" }}
+{{- else -}}
+{{ .Chart.Version | replace "+" "_" }}
+{{- end -}}
+{{- end -}}
+
 {{- define "kyverno.namespace" -}}
 {{ default .Release.Namespace .Values.namespaceOverride }}
 {{- end -}}
@@ -33,11 +41,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 
 {{- define "kyverno.versionLabels" -}}
-{{- if .Values.templating.enabled -}}
-app.kubernetes.io/version: {{ required "templating.version is required when templating.enabled is true" .Values.templating.version | replace "+" "_" }}
-{{- else -}}
-app.kubernetes.io/version: {{ .Chart.Version | replace "+" "_" }}
-{{- end -}}
+app.kubernetes.io/version: {{ template "kyverno.chartVersion" . }}
 {{- end -}}
 
 {{- define "kyverno.labels" -}}
