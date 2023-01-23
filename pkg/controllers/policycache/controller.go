@@ -14,6 +14,7 @@ import (
 	pcache "github.com/kyverno/kyverno/pkg/policycache"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -55,6 +56,16 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		client:     client,
 	}
+	admissionReview := &admissionv1.AdmissionReview{}
+	logger := logger.WithValues(
+		"kind", admissionReview.Request.Kind.Kind,
+		"gvk", admissionReview.Request.Kind,
+		"namespace", admissionReview.Request.Namespace,
+		"name", admissionReview.Request.Name,
+		"operation", admissionReview.Request.Operation,
+		"uid", admissionReview.Request.UID,
+		"user", admissionReview.Request.UserInfo,
+	)
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
 	return &c
