@@ -1,4 +1,4 @@
-{{- if .Values.installCRDs }}
+{{- if .Values.crds.install }}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -9,7 +9,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: admissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -354,7 +354,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: backgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -659,7 +659,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -1826,7 +1826,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: clusteradmissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2172,7 +2172,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: clusterbackgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2477,7 +2477,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3644,7 +3644,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -16754,7 +16754,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -29867,7 +29867,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -30354,7 +30354,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -30745,7 +30745,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -31112,7 +31112,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crdLabels" . | nindent 4 }}
+    {{- include "kyverno.crd.labels" . | nindent 4 }}
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
