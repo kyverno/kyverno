@@ -477,7 +477,7 @@ func forEach(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, res
 			Error:         err,
 		})
 	} else if len(fe.CloneList.Kinds) != 0 {
-		err := fmt.Errorf("cloneList is not supported inside foreach of generate")
+		err = fmt.Errorf("cloneList is not supported inside foreach of generate")
 		return newGenResources, err
 	} else {
 		dresp, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, fe.RawData, fe.Synchronize, ur, client)
@@ -587,7 +587,7 @@ func forEach(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, res
 						newResource.SetNamespace("default")
 					}
 
-					if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
+					if _, err = ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
 						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 						if err != nil {
 							logger.Error(err, "failed to update resource")
@@ -638,7 +638,7 @@ func substituteAllInForEach(fe kyvernov1.ForEachGeneration, ctx enginecontext.Ev
 	}
 
 	var updatedForEach kyvernov1.ForEachGeneration
-	if err := json.Unmarshal(bytes, &updatedForEach); err != nil {
+	if err = json.Unmarshal(bytes, &updatedForEach); err != nil {
 		return nil, err
 	}
 
@@ -675,7 +675,7 @@ func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.Res
 
 		elements, err := engine.EvaluateList(fe.List, f.policyContext.JSONContext())
 		if err != nil {
-			err := fmt.Errorf("%v failed to evaluate list %s", err, fe.List)
+			err = fmt.Errorf("%v failed to evaluate list %s", err, fe.List)
 			return newGenResources, err
 		}
 
@@ -707,7 +707,7 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 		falseVar := false
 		policyContext := f.policyContext.Copy()
 		if err := engine.AddElementToContext(policyContext, element, i, f.nesting, &falseVar); err != nil {
-			err := fmt.Errorf("%v failed to add element to context", err)
+			err = fmt.Errorf("%v failed to add element to context", err)
 			return newGenResources, err
 		}
 
@@ -895,7 +895,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 						newResource.SetNamespace("default")
 					}
 
-					if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
+					if _, err = ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
 						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 						if err != nil {
 							logger.Error(err, "failed to update resource")
