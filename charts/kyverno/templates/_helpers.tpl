@@ -33,7 +33,6 @@
 {{ default .Release.Namespace .Values.namespaceOverride }}
 {{- end -}}
 
-{{/* Helm labels */}}
 {{- define "kyverno.helmLabels" -}}
 {{- if not .Values.templating.enabled -}}
 helm.sh/chart: {{ template "kyverno.chart" . }}
@@ -41,51 +40,24 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 {{- end -}}
 
-{{/* Version labels */}}
 {{- define "kyverno.versionLabels" -}}
 app.kubernetes.io/version: {{ template "kyverno.chartVersion" . }}
 {{- end -}}
 
-{{/* Helm required labels */}}
 {{- define "kyverno.labels" -}}
-app.kubernetes.io/component: kyverno
-{{- with (include "kyverno.helmLabels" .) }}
-{{ . }}
-{{- end }}
-{{- with (include "kyverno.matchLabels" .) }}
-{{ . }}
-{{- end }}
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-{{- with (include "kyverno.versionLabels" .) }}
-{{ . }}
-{{- end }}
+{{- with (include "kyverno.helmLabels" .)     -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.matchLabels" .)    -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.versionLabels" .)  -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- if .Values.customLabels }}
 {{ toYaml .Values.customLabels }}
 {{- end }}
 {{- end -}}
 
-{{/* Helm required labels */}}
-{{- define "kyverno.test-labels" -}}
-{{- with (include "kyverno.helmLabels" .) }}
-{{ . }}
-{{- end }}
-app: kyverno
-app.kubernetes.io/component: kyverno
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/name: {{ template "kyverno.name" . }}-test
-app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-app.kubernetes.io/version: "{{ .Chart.Version | replace "+" "_" }}"
-{{- end -}}
-
-{{/* matchLabels */}}
 {{- define "kyverno.matchLabels" -}}
-{{- if .Values.templating.enabled -}}
-app: kyverno
-{{- end }}
+app.kubernetes.io/component: admission-controller
 app.kubernetes.io/name: {{ template "kyverno.name" . }}
-{{- if not .Values.templating.enabled }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
 {{- end -}}
 
 {{/* Create the name of the service to use */}}
@@ -120,14 +92,6 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{ toYaml (omit .Values.securityContext "seccompProfile") }}
 {{- else }}
 {{ toYaml .Values.securityContext }}
-{{- end }}
-{{- end }}
-
-{{- define "kyverno.testSecurityContext" -}}
-{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version }}
-{{ toYaml (omit .Values.testSecurityContext "seccompProfile") }}
-{{- else }}
-{{ toYaml .Values.testSecurityContext }}
 {{- end }}
 {{- end }}
 
