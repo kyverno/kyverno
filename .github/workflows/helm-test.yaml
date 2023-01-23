@@ -21,6 +21,8 @@ jobs:
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
+        with:
+          build-cache-key: helm-tests
       - name: Setup python
         uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435 # v4.5.0
         with:
@@ -33,3 +35,10 @@ jobs:
           then
             ct lint --target-branch=main --check-version-increment=false
           fi
+      - name: Setup test env
+        uses: ./.github/actions/setup-test-env
+      - name: Helm test
+        run: make helm-test
+      - name: Debug failure
+        if: failure()
+        uses: ./.github/actions/kyverno-logs

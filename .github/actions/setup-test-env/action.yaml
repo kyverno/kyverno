@@ -5,7 +5,7 @@ description: Create kind cluster, deploy kyverno, and wait pods are ready.
 inputs:
   version:
     description: kubernetes version
-    required: true
+    default: v1.26.0
 
 runs:
   using: composite
