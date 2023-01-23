@@ -1,5 +1,4 @@
-{{- if .Values.reportsController.enabled -}}
-{{- if .Values.reportsController.metricsService.create -}}
+{{- if and .Values.reportsController.enabled .Values.reportsController.metricsService.create -}}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -25,5 +24,4 @@ spec:
         - /bin/sh
         - -c
         - sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.reports-controller.name" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.reportsController.metricsService.port }}/metrics
-{{- end -}}
 {{- end -}}
