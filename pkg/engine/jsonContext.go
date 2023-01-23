@@ -114,7 +114,7 @@ func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyC
 			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Value, err)
 		}
 		if path != "" {
-			variable, err := applyJMESPath(path, variable)
+			variable, err := ApplyJMESPath(path, variable)
 			if err == nil {
 				output = variable
 			} else if defaultValue == nil {
@@ -176,7 +176,7 @@ func fetchImageData(ctx context.Context, rclient registryclient.Client, logger l
 		return nil, err
 	}
 	if path != "" {
-		imageData, err = applyJMESPath(path.(string), imageData)
+		imageData, err = ApplyJMESPath(path.(string), imageData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply JMESPath (%s) results to context entry %s, error: %v", entry.ImageRegistry.JMESPath, entry.Name, err)
 		}
@@ -252,7 +252,7 @@ func loadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.Contex
 	return nil
 }
 
-func applyJMESPath(jmesPath string, data interface{}) (interface{}, error) {
+func ApplyJMESPath(jmesPath string, data interface{}) (interface{}, error) {
 	jp, err := jmespath.New(jmesPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
