@@ -30941,7 +30941,7 @@ spec:
       serviceAccountName: kyverno-cleanup-controller
       containers:
         - name: controller
-          image: "ghcr.io/kyverno/cleanup-controller:latest"
+          image: "ghcr.io/kyverno/cleanup-controller:v1.9.0-rc.2"
           ports:
           - containerPort: 9443
             name: https
@@ -31059,7 +31059,7 @@ spec:
       dnsPolicy: ClusterFirst
       initContainers:
         - name: kyverno-pre
-          image: "ghcr.io/kyverno/kyvernopre:latest"
+          image: "ghcr.io/kyverno/kyvernopre:v1.9.0-rc.2"
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
@@ -31097,7 +31097,7 @@ spec:
             value: kyverno
       containers:
         - name: kyverno
-          image: "ghcr.io/kyverno/kyverno:latest"
+          image: "ghcr.io/kyverno/kyverno:v1.9.0-rc.2"
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
