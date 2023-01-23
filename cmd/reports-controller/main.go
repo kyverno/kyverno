@@ -245,6 +245,7 @@ func main() {
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// informer factories
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
 	cacheInformer, err := resolvers.GetCacheInformerFactory(kubeClient, resyncPeriod)
@@ -288,6 +289,11 @@ func main() {
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
+	// start informers and wait for cache sync
+	if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
+		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		os.Exit(1)
+	}
 	// start event generator
 	go eventGenerator.Run(ctx, 3)
 	// setup leader election
