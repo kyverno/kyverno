@@ -7,9 +7,6 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/kyverno",
-            "env": {
-                "DOCKER_CONFIG": "",
-            },
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
                 "--serverIP=<SERVER-IP>:9443",

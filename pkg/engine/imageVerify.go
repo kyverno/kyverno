@@ -439,9 +439,6 @@ func (iv *imageVerifier) verifyAttestations(
 
 			for _, a := range attestor.Entries {
 				entryPath := fmt.Sprintf("%s.entries[%d]", attestorPath, i)
-
-				imageVerify.GetType()
-
 				verifier, opts, subPath := iv.buildVerifier(a, imageVerify, image, &imageVerify.Attestations[i])
 				resp, err := verifier.FetchAttestations(ctx, *opts)
 				if err != nil {
