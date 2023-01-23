@@ -4,5 +4,5 @@ kind: Namespace
 metadata:
   name: {{ template "kyverno.namespace" . }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.labels.common" . | nindent 4 }}
 {{- end -}}

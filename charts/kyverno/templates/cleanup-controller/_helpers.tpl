@@ -5,14 +5,12 @@
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.labels" -}}
-{{- with (include "kyverno.utils.commonLabels" .)             -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.labels.common" .)                  -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- with (include "kyverno.cleanup-controller.matchLabels" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.matchLabels" -}}
 app.kubernetes.io/component: cleanup-controller
-app.kubernetes.io/name: {{ template "kyverno.cleanup-controller.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.image" -}}

@@ -17,7 +17,7 @@
 {{- end -}}
 
 {{- define "kyverno.config.labels" -}}
-{{- with (include "kyverno.utils.commonLabels" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.labels.common" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- with (include "kyverno.matchLabels" .)        -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- end -}}
 

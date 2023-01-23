@@ -5,7 +5,7 @@
 {{- end -}}
 
 {{- define "kyverno.reports-controller.labels" -}}
-{{- with (include "kyverno.utils.commonLabels" .)             -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.labels.common" .)             -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- with (include "kyverno.reports-controller.matchLabels" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- end -}}
 

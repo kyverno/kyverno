@@ -1,8 +1,8 @@
 {{/* vim: set filetype=mustache: */}}
 
 {{- define "kyverno.test.labels" -}}
-{{- with (include "kyverno.utils.commonLabels" .)             -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.test.matchLabels" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.labels.common" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- with (include "kyverno.test.matchLabels" .)   -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- end -}}
 
 {{- define "kyverno.test.matchLabels" -}}
