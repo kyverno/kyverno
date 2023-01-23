@@ -44,18 +44,20 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/version: {{ template "kyverno.chartVersion" . }}
 {{- end -}}
 
-{{- define "kyverno.matchLabels" -}}
-app.kubernetes.io/name: {{ template "kyverno.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end -}}
-
 {{- define "kyverno.labels" -}}
 app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-app.kubernetes.io/component: kyverno
 {{- with (include "kyverno.helmLabels" .)     -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- with (include "kyverno.matchLabels" .)    -}}{{- . | trim | nindent 0 -}}{{- end -}}
 {{- with (include "kyverno.versionLabels" .)  -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with .Values.customLabels -}}{{- toYaml . | trim | nindent 0 -}}{{- end -}}
+{{- if .Values.customLabels }}
+{{ toYaml .Values.customLabels }}
+{{- end }}
+{{- end -}}
+
+{{- define "kyverno.matchLabels" -}}
+app.kubernetes.io/component: admission-controller
+app.kubernetes.io/name: {{ template "kyverno.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/* Create the name of the service to use */}}
@@ -90,14 +92,6 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{ toYaml (omit .Values.securityContext "seccompProfile") }}
 {{- else }}
 {{ toYaml .Values.securityContext }}
-{{- end }}
-{{- end }}
-
-{{- define "kyverno.testSecurityContext" -}}
-{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version }}
-{{ toYaml (omit .Values.testSecurityContext "seccompProfile") }}
-{{- else }}
-{{ toYaml .Values.testSecurityContext }}
 {{- end }}
 {{- end }}
 
