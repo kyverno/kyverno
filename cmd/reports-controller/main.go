@@ -288,6 +288,8 @@ func main() {
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
+	// start event generator
+	go eventGenerator.Run(ctx, 3)
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
