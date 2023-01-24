@@ -5,14 +5,17 @@
 {{- end -}}
 
 {{- define "kyverno.reports-controller.labels" -}}
-{{- with (include "kyverno.labels.common" .)             -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.reports-controller.matchLabels" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.labels.common" .)
+  (include "kyverno.reports-controller.matchLabels" .)
+) -}}
 {{- end -}}
 
 {{- define "kyverno.reports-controller.matchLabels" -}}
-app.kubernetes.io/component: reports-controller
-app.kubernetes.io/name: {{ template "kyverno.reports-controller.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.matchLabels.common" .)
+  (include "kyverno.labels.component" "reports-controller")
+) -}}
 {{- end -}}
 
 {{- define "kyverno.reports-controller.image" -}}

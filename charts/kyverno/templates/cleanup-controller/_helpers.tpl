@@ -5,12 +5,17 @@
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.labels" -}}
-{{- with (include "kyverno.labels.common" .)                  -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.cleanup-controller.matchLabels" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.labels.common" .)
+  (include "kyverno.cleanup-controller.matchLabels" .)
+) -}}
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.matchLabels" -}}
-app.kubernetes.io/component: cleanup-controller
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.matchLabels.common" .)
+  (include "kyverno.labels.component" "cleanup-controller")
+) -}}
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.image" -}}
@@ -35,10 +40,10 @@ app.kubernetes.io/component: cleanup-controller
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.securityContext" -}}
-{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version }}
-{{ toYaml (omit .Values.cleanupController.securityContext "seccompProfile") }}
-{{- else }}
-{{ toYaml .Values.cleanupController.securityContext }}
+{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version -}}
+  {{- toYaml (omit .Values.cleanupController.securityContext "seccompProfile") -}}
+{{- else -}}
+  {{- toYaml .Values.cleanupController.securityContext -}}
 {{- end }}
 {{- end }}
 
@@ -54,4 +59,3 @@ minAvailable: {{ default 1 .Values.cleanupController.podDisruptionBudget.minAvai
 maxUnavailable: {{ .Values.cleanupController.podDisruptionBudget.maxUnavailable }}
 {{- end }}
 {{- end }}
-
