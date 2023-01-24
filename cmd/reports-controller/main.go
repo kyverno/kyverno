@@ -288,6 +288,13 @@ func main() {
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
+	// start informers and wait for cache sync
+	if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
+		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		os.Exit(1)
+	}
+	// start event generator
+	go eventGenerator.Run(ctx, 3)
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
