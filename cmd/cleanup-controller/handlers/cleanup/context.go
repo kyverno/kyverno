@@ -1,14 +1,18 @@
 package cleanup
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/pkg/errors"
 )
 
 func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx enginecontext.Interface) (err error) {
@@ -68,4 +72,17 @@ func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx engineco
 	} else {
 		return fmt.Errorf("unable to add context entry for variable %s: %w", entry.Name, err)
 	}
+}
+
+func loadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, dclient dclient.Interface) error {
+	executor, err := apicall.New(ctx, entry, enginectx, dclient, logger)
+	if err != nil {
+		return errors.Wrapf(err, "failed to initialize APICall")
+	}
+
+	if _, err := executor.Execute(); err != nil {
+		return errors.Wrapf(err, "failed to execute APICall")
+	}
+
+	return nil
 }

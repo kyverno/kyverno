@@ -78,7 +78,11 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 
 	if spec.Context != nil {
 		for _, entry := range spec.Context {
-			if entry.Variable != nil {
+			if entry.APICall != nil {
+				if err := loadAPIData(ctx, logger, entry, enginectx, h.client); err != nil {
+					return err
+				}
+			} else if entry.Variable != nil {
 				if err := loadVariable(logger, entry, enginectx); err != nil {
 					return err
 				}
