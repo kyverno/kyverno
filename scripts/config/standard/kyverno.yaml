@@ -1,11 +1,3 @@
-initContainer:
-  extraArgs:
-    - --loggingFormat=json
-
-extraArgs:
-  - --loggingFormat=json
-  - --enablePolicyException
-
 cleanupController:
   rbac:
     clusterRole:
