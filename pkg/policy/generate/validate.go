@@ -193,21 +193,7 @@ func (g *Generate) validateForeach() (string, error) {
 			return "", fmt.Errorf("only one of data or clone can be specified")
 		}
 
-		if fe.Clone != (kyvernov1.CloneFrom{}) && len(fe.CloneList.Kinds) != 0 {
-			return "", fmt.Errorf("only one of clone or cloneList can be specified")
-		}
-
-		kind, name, namespace := fe.Kind, fe.Name, fe.Namespace
-
-		if len(fe.CloneList.Kinds) == 0 {
-			if name == "" {
-				return "name", fmt.Errorf("name cannot be empty")
-			}
-			if kind == "" {
-				return "kind", fmt.Errorf("kind cannot be empty")
-			}
-		}
-		// Can I generate resource
+		kind, namespace := fe.Kind, fe.Namespace
 
 		if !reflect.DeepEqual(fe.Clone, kyvernov1.CloneFrom{}) {
 			if path, err := g.validateClone(fe.Clone, fe.CloneList, kind); err != nil {
