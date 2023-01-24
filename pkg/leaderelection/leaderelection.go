@@ -73,7 +73,7 @@ func New(log logr.Logger, name, namespace string, kubeClient kubernetes.Interfac
 	}
 	e.leaderElectionCfg = leaderelection.LeaderElectionConfig{
 		Lock:            e.lock,
-		ReleaseOnCancel: true,
+		ReleaseOnCancel: false,
 		LeaseDuration:   6 * retryPeriod,
 		RenewDeadline:   5 * retryPeriod,
 		RetryPeriod:     retryPeriod,
