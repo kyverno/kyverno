@@ -1,17 +1,17 @@
 {{/* vim: set filetype=mustache: */}}
 
 {{- define "kyverno.test.labels" -}}
-app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-app.kubernetes.io/component: test
-{{- with (include "kyverno.helmLabels" .)       -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.test.matchLabels" .) -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.versionLabels" .)    -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.labels.common" .)
+  (include "kyverno.test.matchLabels" .)
+) -}}
 {{- end -}}
 
 {{- define "kyverno.test.matchLabels" -}}
-app.kubernetes.io/component: test
-app.kubernetes.io/name: {{ template "kyverno.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.matchLabels.common" .)
+  (include "kyverno.labels.component" "test")
+) -}}
 {{- end -}}
 
 {{- define "kyverno.test.annotations" -}}

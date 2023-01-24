@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: {{ template "kyverno.serviceName" . }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
   {{- with .Values.service.annotations }}
   annotations: {{ tpl (toYaml .) $ | nindent 4 }}
@@ -18,7 +18,7 @@ spec:
     nodePort: {{ .Values.service.nodePort }}
     {{- end }}
   selector:
-    {{- include "kyverno.matchLabels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.service.type }}
 ---
 {{- if .Values.metricsService.create }}
@@ -27,7 +27,7 @@ kind: Service
 metadata:
   name: {{ template "kyverno.serviceName" . }}-metrics
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
   {{- with .Values.metricsService.annotations }}
   annotations: {{ tpl (toYaml .) $ | nindent 4 }}
@@ -42,6 +42,6 @@ spec:
     nodePort: {{ .Values.metricsService.nodePort }}
     {{- end }}
   selector:
-    {{- include "kyverno.matchLabels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.matchLabels" . | nindent 4 }}
   type: {{ .Values.metricsService.type }}
 {{- end -}}

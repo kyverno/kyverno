@@ -33,33 +33,6 @@
 {{ default .Release.Namespace .Values.namespaceOverride }}
 {{- end -}}
 
-{{- define "kyverno.helmLabels" -}}
-{{- if not .Values.templating.enabled -}}
-helm.sh/chart: {{ template "kyverno.chart" . }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- end -}}
-{{- end -}}
-
-{{- define "kyverno.versionLabels" -}}
-app.kubernetes.io/version: {{ template "kyverno.chartVersion" . }}
-{{- end -}}
-
-{{- define "kyverno.labels" -}}
-app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-{{- with (include "kyverno.helmLabels" .)     -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.matchLabels" .)    -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.versionLabels" .)  -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- if .Values.customLabels }}
-{{ toYaml .Values.customLabels }}
-{{- end }}
-{{- end -}}
-
-{{- define "kyverno.matchLabels" -}}
-app.kubernetes.io/component: admission-controller
-app.kubernetes.io/name: {{ template "kyverno.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end -}}
-
 {{/* Create the name of the service to use */}}
 {{- define "kyverno.serviceName" -}}
 {{- printf "%s-svc" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" -}}

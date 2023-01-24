@@ -4,18 +4,18 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
-      {{- include "kyverno.matchLabels" . | nindent 6 }}
+      {{- include "kyverno.admission-controller.matchLabels" . | nindent 6 }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:userinfo
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
 - apiGroups:
     - rbac.authorization.k8s.io
@@ -33,7 +33,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:policies
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
 - apiGroups:
     - kyverno.io
@@ -79,7 +79,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:view
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - '*'
@@ -95,7 +95,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:generate
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
   - apiGroups:
       - networking.k8s.io
@@ -149,7 +149,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:events
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - ''
@@ -167,7 +167,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "kyverno.fullname" . }}:webhook
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - admissionregistration.k8s.io
