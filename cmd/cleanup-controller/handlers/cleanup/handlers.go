@@ -78,7 +78,11 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 
 	if spec.Context != nil {
 		for _, entry := range spec.Context {
-			if entry.APICall != nil {
+			if entry.ImageRegistry != nil {
+				return fmt.Errorf("ImageRegistry is not allowed in CleanUp Policy")
+			} else if entry.ConfigMap != nil {
+				return fmt.Errorf("ConfigMap is not allowed in CleanUp Policy")
+			} else if entry.APICall != nil {
 				if err := loadAPIData(ctx, logger, entry, enginectx, h.client); err != nil {
 					return err
 				}
