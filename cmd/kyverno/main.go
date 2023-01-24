@@ -43,6 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
+	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
@@ -429,11 +430,6 @@ func main() {
 		leaderElectionRetryPeriod,
 		func(ctx context.Context) {
 			logger := logger.WithName("leader")
-			// validate config
-			// if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
-			// 	logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
-			// 	os.Exit(1)
-			// }
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
@@ -537,7 +533,10 @@ func main() {
 		openApiManager,
 		admissionReports,
 	)
-	exceptionHandlers := webhooksexception.NewHandlers()
+	exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
+		Enabled:   enablePolicyException,
+		Namespace: exceptionNamespace,
+	})
 	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,
