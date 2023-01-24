@@ -82,7 +82,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -428,7 +428,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -734,7 +734,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -1783,7 +1783,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -2130,7 +2130,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -2436,7 +2436,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -3485,7 +3485,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -18094,7 +18094,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -32706,7 +32706,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -33194,7 +33194,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -33586,7 +33586,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
@@ -33954,7 +33954,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   labels:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/component: admission-controller
