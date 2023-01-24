@@ -118,6 +118,9 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `config.existingMetricsConfig` has been replaced with `metricsConfig.create` and `metricsConfig.name` to __support bring your own config__
 - `namespace` has been renamed `namespaceOverride`
 - `installCRDs` has been replaced with `crds.install`
+- `testImage` has been replaced with `test.image`
+- `testResources` has been replaced with `test.resources`
+- `testSecurityContext` has been replaced with `test.securityContext`
 
 ## Uninstalling the Chart
 
@@ -147,7 +150,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.excludeUsername | list | `[]` | Exclude username |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
-| config.webhooks | string | `nil` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
+| config.webhooks | list | `[]` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
 | metricsConfig.create | bool | `true` | Create the configmap. |
 | metricsConfig.name | string | `nil` | The configmap name (required if `create` is `false`). |
 | metricsConfig.annotations | object | `{}` | Additional annotations to add to the configmap. |
@@ -156,6 +159,13 @@ The command removes all the Kubernetes components associated with the chart and 
 | metricsConfig.metricsRefreshInterval | string | `nil` | Rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
+| test.image.registry | string | `nil` | Image registry |
+| test.image.repository | string | `"busybox"` | Image repository |
+| test.image.tag | float | `1.35` | Image tag Defaults to `latest` if omitted |
+| test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
+| test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
+| test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
 | customLabels | object | `{}` | Additional labels |
 | rbac.create | bool | `true` | Create ClusterRoles, ClusterRoleBindings, and ServiceAccount |
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
@@ -171,16 +181,11 @@ The command removes all the Kubernetes components associated with the chart and 
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
 | initContainer.extraArgs | list | `["--loggingFormat=text","--exceptionNamespace={{ include \"kyverno.namespace\" . }}"]` | Extra arguments to give to the kyvernopre binary. |
-| testImage.registry | string | `nil` | Image registry |
-| testImage.repository | string | `"busybox"` | Image repository |
-| testImage.tag | float | `1.35` | Image tag Defaults to `latest` if omitted |
-| testImage.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | replicaCount | int | `nil` | Desired number of pods |
 | podLabels | object | `{}` | Additional labels to add to each pod |
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | podSecurityContext | object | `{}` | Security context for the pod |
 | securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| testSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
 | priorityClassName | string | `""` | Optional priority class to be used for kyverno pods |
 | antiAffinity.enable | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -201,8 +206,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | initResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | initResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
-| testResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
-| testResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
