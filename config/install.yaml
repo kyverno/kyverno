@@ -31063,7 +31063,6 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
-            - --exceptionNamespace=kyverno
           resources: 
             limits:
               cpu: 100m
@@ -31101,6 +31100,7 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
+            - --exceptionNamespace=kyverno
           resources: 
             limits:
               memory: 384Mi
