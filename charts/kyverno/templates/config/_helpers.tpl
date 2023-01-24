@@ -17,13 +17,17 @@
 {{- end -}}
 
 {{- define "kyverno.config.labels" -}}
-app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-{{- with (include "kyverno.helmLabels" .)     -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.matchLabels" .)    -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.versionLabels" .)  -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- if .Values.customLabels }}
-{{ toYaml .Values.customLabels }}
-{{- end }}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.labels.common" .)
+  (include "kyverno.config.matchLabels" .)
+) -}}
+{{- end -}}
+
+{{- define "kyverno.config.matchLabels" -}}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.matchLabels.common" .)
+  (include "kyverno.labels.component" "config")
+) -}}
 {{- end -}}
 
 {{- define "kyverno.config.resourceFilters" -}}

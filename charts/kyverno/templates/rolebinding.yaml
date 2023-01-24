@@ -5,7 +5,7 @@ metadata:
   name: {{ template "kyverno.fullname" . }}:leaderelection
   namespace: {{ template "kyverno.namespace" . }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
