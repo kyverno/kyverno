@@ -13,3 +13,8 @@ builds:
   main: ./cmd/cli
   ldflags:
   - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
+
+- id: cleanup-controller
+  main: ./cmd/cleanup-controller
+  ldflags:
+  - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
