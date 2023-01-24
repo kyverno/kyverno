@@ -20,7 +20,6 @@ import (
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
-	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
@@ -28,12 +27,9 @@ import (
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
-	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
-	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
-	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
-	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/cosign"
+	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -47,6 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
+	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
@@ -57,7 +54,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
@@ -157,107 +153,14 @@ func createNonLeaderControllers(
 		}
 }
 
-func createReportControllers(
-	backgroundScan bool,
-	admissionReports bool,
-	reportsChunkSize int,
-	backgroundScanWorkers int,
-	client dclient.Interface,
-	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
-	metadataFactory metadatainformers.SharedInformerFactory,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	configMapResolver resolvers.ConfigmapResolver,
-	backgroundScanInterval time.Duration,
-	configuration config.Configuration,
-	eventGenerator event.Interface,
-) ([]internal.Controller, func(context.Context) error) {
-	var ctrls []internal.Controller
-	var warmups []func(context.Context) error
-	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV2Alpha1 := kyvernoInformer.Kyverno().V2alpha1()
-	if backgroundScan || admissionReports {
-		resourceReportController := resourcereportcontroller.NewController(
-			client,
-			kyvernoV1.Policies(),
-			kyvernoV1.ClusterPolicies(),
-		)
-		warmups = append(warmups, func(ctx context.Context) error {
-			return resourceReportController.Warmup(ctx)
-		})
-		ctrls = append(ctrls, internal.NewController(
-			resourcereportcontroller.ControllerName,
-			resourceReportController,
-			resourcereportcontroller.Workers,
-		))
-		ctrls = append(ctrls, internal.NewController(
-			aggregatereportcontroller.ControllerName,
-			aggregatereportcontroller.NewController(
-				kyvernoClient,
-				metadataFactory,
-				kyvernoV1.Policies(),
-				kyvernoV1.ClusterPolicies(),
-				resourceReportController,
-				reportsChunkSize,
-			),
-			aggregatereportcontroller.Workers,
-		))
-		if admissionReports {
-			ctrls = append(ctrls, internal.NewController(
-				admissionreportcontroller.ControllerName,
-				admissionreportcontroller.NewController(
-					kyvernoClient,
-					metadataFactory,
-					resourceReportController,
-				),
-				admissionreportcontroller.Workers,
-			))
-		}
-		if backgroundScan {
-			ctrls = append(ctrls, internal.NewController(
-				backgroundscancontroller.ControllerName,
-				backgroundscancontroller.NewController(
-					client,
-					kyvernoClient,
-					rclient,
-					metadataFactory,
-					kyvernoV1.Policies(),
-					kyvernoV1.ClusterPolicies(),
-					kubeInformer.Core().V1().Namespaces(),
-					kyvernoV2Alpha1.PolicyExceptions(),
-					resourceReportController,
-					configMapResolver,
-					backgroundScanInterval,
-					configuration,
-					eventGenerator,
-				),
-				backgroundScanWorkers,
-			))
-		}
-	}
-	return ctrls, func(ctx context.Context) error {
-		for _, warmup := range warmups {
-			if err := warmup(ctx); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-}
-
 func createrLeaderControllers(
-	backgroundScan bool,
 	admissionReports bool,
-	reportsChunkSize int,
-	backgroundScanWorkers int,
 	serverIP string,
 	webhookTimeout int,
 	autoUpdateWebhooks bool,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	metadataInformer metadatainformers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
@@ -268,7 +171,6 @@ func createrLeaderControllers(
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 	configMapResolver resolvers.ConfigmapResolver,
-	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -334,32 +236,13 @@ func createrLeaderControllers(
 		genericwebhookcontroller.Fail,
 		genericwebhookcontroller.None,
 	)
-	reportControllers, warmup := createReportControllers(
-		backgroundScan,
-		admissionReports,
-		reportsChunkSize,
-		backgroundScanWorkers,
-		dynamicClient,
-		kyvernoClient,
-		rclient,
-		metadataInformer,
-		kubeInformer,
-		kyvernoInformer,
-		configMapResolver,
-		backgroundScanInterval,
-		configuration,
-		eventGenerator,
-	)
-	return append(
-			[]internal.Controller{
-				internal.NewController("policy-controller", policyCtrl, 2),
-				internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
-				internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
-				internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1),
-			},
-			reportControllers...,
-		),
-		warmup,
+	return []internal.Controller{
+			internal.NewController("policy-controller", policyCtrl, 2),
+			internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
+			internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
+			internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1),
+		},
+		nil,
 		nil
 }
 
@@ -376,13 +259,11 @@ func main() {
 		imageSignatureRepository   string
 		allowInsecureRegistry      bool
 		webhookRegistrationTimeout time.Duration
-		backgroundScan             bool
 		admissionReports           bool
-		reportsChunkSize           int
-		backgroundScanWorkers      int
 		dumpPayload                bool
 		leaderElectionRetryPeriod  time.Duration
-		backgroundScanInterval     time.Duration
+		enablePolicyException      bool
+		exceptionNamespace         string
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -396,13 +277,11 @@ func main() {
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
-	flagset.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
-	flagset.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
-	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
-	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
+	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
+	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -427,7 +306,6 @@ func main() {
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KyvernoClient), kyvernoclient.WithTracing())
-	metadataClient := internal.CreateMetadataClient(logger, metadataclient.WithMetrics(metricsConfig, metrics.KyvernoClient), metadataclient.WithTracing())
 	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
 	dClient, err := dclient.NewClient(signalCtx, dynamicClient, kubeClient, 15*time.Minute)
 	if err != nil {
@@ -552,29 +430,19 @@ func main() {
 		leaderElectionRetryPeriod,
 		func(ctx context.Context) {
 			logger := logger.WithName("leader")
-			// validate config
-			// if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
-			// 	logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
-			// 	os.Exit(1)
-			// }
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-			metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
-				backgroundScan,
 				admissionReports,
-				reportsChunkSize,
-				backgroundScanWorkers,
 				serverIP,
 				webhookTimeout,
 				autoUpdateWebhooks,
 				kubeInformer,
 				kubeKyvernoInformer,
 				kyvernoInformer,
-				metadataInformer,
 				kubeClient,
 				kyvernoClient,
 				dClient,
@@ -585,7 +453,6 @@ func main() {
 				certRenewer,
 				runtime,
 				configMapResolver,
-				backgroundScanInterval,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
@@ -596,14 +463,11 @@ func main() {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 				os.Exit(1)
 			}
-			internal.StartInformers(signalCtx, metadataInformer)
-			if !internal.CheckCacheSync(metadataInformer.WaitForCacheSync(signalCtx.Done())) {
-				// TODO: shall we just exit ?
-				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
-			}
-			if err := warmup(ctx); err != nil {
-				logger.Error(err, "failed to run warmup")
-				os.Exit(1)
+			if warmup != nil {
+				if err := warmup(ctx); err != nil {
+					logger.Error(err, "failed to run warmup")
+					os.Exit(1)
+				}
 			}
 			// start leader controllers
 			var wg sync.WaitGroup
@@ -642,6 +506,15 @@ func main() {
 		dClient,
 		openApiManager,
 	)
+	var exceptionsLister engine.PolicyExceptionLister
+	if enablePolicyException {
+		lister := kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
+		if exceptionNamespace != "" {
+			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
+		} else {
+			exceptionsLister = lister
+		}
+	}
 	resourceHandlers := webhooksresource.NewHandlers(
 		dClient,
 		kyvernoClient,
@@ -654,13 +527,16 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
-		kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister(),
+		exceptionsLister,
 		urgen,
 		eventGenerator,
 		openApiManager,
 		admissionReports,
 	)
-	exceptionHandlers := webhooksexception.NewHandlers()
+	exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
+		Enabled:   enablePolicyException,
+		Namespace: exceptionNamespace,
+	})
 	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,

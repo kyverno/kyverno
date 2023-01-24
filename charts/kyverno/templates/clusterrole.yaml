@@ -42,8 +42,6 @@ rules:
     - policies/status
     - clusterpolicies
     - clusterpolicies/status
-    - generaterequests
-    - generaterequests/status
     - updaterequests
     - updaterequests/status
     - admissionreports

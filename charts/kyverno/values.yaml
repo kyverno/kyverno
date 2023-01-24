@@ -3,16 +3,190 @@
 templating:
   enabled: false
   debug: false
-  version:
+  version: ~
 
-# -- Override the name of the chart
-nameOverride:
+# -- (string) Override the name of the chart
+nameOverride: ~
 
-# -- Override the expanded name of the chart
-fullnameOverride:
+# -- (string) Override the expanded name of the chart
+fullnameOverride: ~
 
-# -- Namespace the chart deploys to
-namespace:
+# -- (string) Override the namespace the chart deploys to
+namespaceOverride: ~
+
+# CRDs configuration
+crds:
+
+  # -- Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created
+  install: true
+
+  # -- Additional CRDs annotations
+  annotations: {}
+    # argocd.argoproj.io/sync-options: Replace=true
+    # strategy.spinnaker.io/replace: 'true'
+
+# Configuration
+config:
+
+  # -- Create the configmap.
+  create: true
+
+  # -- (string) The configmap name (required if `create` is `false`).
+  name: ~
+
+  # -- Additional annotations to add to the configmap.
+  annotations: {}
+
+  # -- Enable registry mutation for container images. Enabled by default.
+  enableDefaultRegistryMutation: true
+
+  # -- The registry hostname used for the image mutation.
+  defaultRegistry: docker.io
+
+  # -- Exclude group role
+  excludeGroupRole: []
+
+  # -- Exclude username
+  excludeUsername: []
+
+  # -- Generate success events.
+  generateSuccessEvents: false
+
+  # -- Resource types to be skipped by the Kyverno policy engine.
+  # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
+  # These are joined together without spaces, run through `tpl`, and the result is set in the config map.
+  # @default -- See [values.yaml](values.yaml)
+  resourceFilters:
+    - '[Event,*,*]'
+    - '[*,kube-system,*]'
+    - '[*,kube-public,*]'
+    - '[*,kube-node-lease,*]'
+    - '[Node,*,*]'
+    - '[APIService,*,*]'
+    - '[TokenReview,*,*]'
+    - '[SubjectAccessReview,*,*]'
+    - '[SelfSubjectAccessReview,*,*]'
+    - '[Binding,*,*]'
+    - '[ReplicaSet,*,*]'
+    - '[AdmissionReport,*,*]'
+    - '[ClusterAdmissionReport,*,*]'
+    - '[BackgroundScanReport,*,*]'
+    - '[ClusterBackgroundScanReport,*,*]'
+    # exclude resources from the chart
+    - '[ClusterRole,*,{{ template "kyverno.fullname" . }}:*]'
+    - '[ClusterRoleBinding,*,{{ template "kyverno.fullname" . }}:*]'
+    - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceAccountName" . }}]'
+    - '[ConfigMap,{{ include "kyverno.namespace" . }},{{ template "kyverno.config.configMapName" . }}]'
+    - '[ConfigMap,{{ include "kyverno.namespace" . }},{{ template "kyverno.config.metricsConfigMapName" . }}]'
+    - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}]'
+    - '[Job,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-hook-pre-delete]'
+    - '[NetworkPolicy,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}]'
+    - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}]'
+    - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}:*]'
+    - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}:*]'
+    - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}-metrics]'
+    - '[ServiceMonitor,{{ if .Values.serviceMonitor.namespace }}{{ .Values.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.serviceName" . }}-service-monitor]'
+    - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-*]'
+
+  # -- Defines the `namespaceSelector` in the webhook configurations.
+  # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
+  # will be forwarded to the webhook configurations.
+  # The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default)
+  webhooks: []
+    # Exclude namespaces
+    # - namespaceSelector:
+    #     matchExpressions:
+    #     - key: kubernetes.io/metadata.name
+    #       operator: NotIn
+    #       values:
+    #         - kube-system
+    #         - kyverno
+    # Exclude objects
+    # - objectSelector:
+    #     matchExpressions:
+    #     - key: webhooks.kyverno.io/exclude
+    #       operator: DoesNotExist
+
+# Metrics configuration
+metricsConfig:
+
+  # -- Create the configmap.
+  create: true
+
+  # -- (string) The configmap name (required if `create` is `false`).
+  name: ~
+
+  # -- Additional annotations to add to the configmap.
+  annotations: {}
+
+  namespaces:
+
+    # -- List of namespaces to capture metrics for.
+    include: []
+
+    # -- list of namespaces to NOT capture metrics for.
+    exclude: []
+
+  # -- (string) Rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics
+  metricsRefreshInterval: ~
+    # metricsRefreshInterval: 24h
+
+# -- Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
+imagePullSecrets: {}
+  # regcred:
+  #   registry: foo.example.com
+  #   username: foobar
+  #   password: secret
+  # regcred2:
+  #   registry: bar.example.com
+  #   username: barbaz
+  #   password: secret2
+
+# -- Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
+existingImagePullSecrets: []
+  # - test-registry
+  # - other-test-registry
+
+# Tests configuration
+test:
+
+  image:
+    # -- Image registry
+    registry:
+    # -- Image repository
+    repository: busybox
+    # -- Image tag
+    # Defaults to `latest` if omitted
+    tag: 1.35
+    # -- Image pull policy
+    # Defaults to image.pullPolicy if omitted
+    pullPolicy:
+
+  resources:
+    # -- Pod resource limits
+    limits:
+      cpu: 100m
+      memory: 256Mi
+    # -- Pod resource requests
+    requests:
+      cpu: 10m
+      memory: 64Mi
+
+  # -- Security context for the test containers
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    runAsNonRoot: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
 
 # -- Additional labels
 customLabels: {}
@@ -65,19 +239,7 @@ initContainer:
   # -- Extra arguments to give to the kyvernopre binary.
   extraArgs:
     - --loggingFormat=text
-
-
-testImage:
-  # -- Image registry
-  registry:
-  # -- Image repository
-  repository: busybox
-  # -- Image tag
-  # Defaults to `latest` if omitted
-  tag:
-  # -- Image pull policy
-  # Defaults to image.pullPolicy if omitted
-  pullPolicy:
+    - --exceptionNamespace={{ include "kyverno.namespace" . }}
 
 # -- (int) Desired number of pods
 replicaCount: ~
@@ -95,20 +257,6 @@ podSecurityContext: {}
 
 # -- Security context for the containers
 securityContext:
-  runAsNonRoot: true
-  privileged: false
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop:
-      - ALL
-  seccompProfile:
-    type: RuntimeDefault
-
-# -- Security context for the test containers
-testSecurityContext:
-  runAsUser: 65534
-  runAsGroup: 65534
   runAsNonRoot: true
   privileged: false
   allowPrivilegeEscalation: false
@@ -195,29 +343,6 @@ extraContainers: []
 #   image: busybox
 #   command: ['sh', '-c', 'echo Hello && sleep 3600']
 
-# -- Image pull secrets for image verify and imageData policies.
-# This will define the `--imagePullSecrets` Kyverno argument.
-imagePullSecrets: {}
-  # Define two image pull secrets
-  # imagePullSecrets:
-  #   regcred:
-  #     registry: foo.example.com
-  #     username: foobar
-  #     password: secret
-  #   regcred2:
-  #     registry: bar.example.com
-  #     username: barbaz
-  #     password: secret2
-
-
-# -- Existing Image pull secrets for image verify and imageData policies.
-# This will define the `--imagePullSecrets` Kyverno argument.
-existingImagePullSecrets: []
-  # Define an existing image pull secret
-  # existingImagePullSecrets:
-  # - test-registry
-  # - other-test-registry
-
 resources:
   # -- Pod resource limits
   limits:
@@ -228,16 +353,6 @@ resources:
     memory: 128Mi
 
 initResources:
-  # -- Pod resource limits
-  limits:
-    cpu: 100m
-    memory: 256Mi
-  # -- Pod resource requests
-  requests:
-    cpu: 10m
-    memory: 64Mi
-
-testResources:
   # -- Pod resource limits
   limits:
     cpu: 100m
@@ -303,100 +418,6 @@ excludeKyvernoNamespace: true
 # Namespaces to exclude from the default resourceFilters
 resourceFiltersExcludeNamespaces: []
 
-config:
-  # -- The registry hostname used for the image mutation.
-  defaultRegistry: docker.io
-
-  # -- Enable registry mutation for container images. Enabled by default.
-  enableDefaultRegistryMutation: true
-
-  # -- Resource types to be skipped by the Kyverno policy engine.
-  # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
-  # These are joined together without spaces, run through `tpl`, and the result is set in the config map.
-  # @default -- See [values.yaml](values.yaml)
-  resourceFilters:
-  - '[Event,*,*]'
-  - '[*,kube-system,*]'
-  - '[*,kube-public,*]'
-  - '[*,kube-node-lease,*]'
-  - '[Node,*,*]'
-  - '[APIService,*,*]'
-  - '[TokenReview,*,*]'
-  - '[SubjectAccessReview,*,*]'
-  - '[SelfSubjectAccessReview,*,*]'
-  - '[Binding,*,*]'
-  - '[ReplicaSet,*,*]'
-  - '[AdmissionReport,*,*]'
-  - '[ClusterAdmissionReport,*,*]'
-  - '[BackgroundScanReport,*,*]'
-  - '[ClusterBackgroundScanReport,*,*]'
-  # exclude resources from the chart
-  - '[ClusterRole,*,{{ template "kyverno.fullname" . }}:*]'
-  - '[ClusterRoleBinding,*,{{ template "kyverno.fullname" . }}:*]'
-  - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceAccountName" . }}]'
-  - '[ConfigMap,{{ include "kyverno.namespace" . }},{{ template "kyverno.configMapName" . }}]'
-  - '[ConfigMap,{{ include "kyverno.namespace" . }},{{ template "kyverno.metricsConfigMapName" . }}]'
-  - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}]'
-  - '[Job,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-hook-pre-delete]'
-  - '[NetworkPolicy,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}]'
-  - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}]'
-  - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}:*]'
-  - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}:*]'
-  - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
-  - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}]'
-  - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}-metrics]'
-  - '[ServiceMonitor,{{ if .Values.serviceMonitor.namespace }}{{ .Values.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.serviceName" . }}-service-monitor]'
-  - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-test]'
-
-  # -- Name of an existing config map (ignores default/provided resourceFilters)
-  existingConfig: ''
-  # -- Additional annotations to add to the configmap
-  annotations: {}
-    # example.com/annotation: foo
-  # -- Exclude group role
-  excludeGroupRole:
-  # - ''
-  # -- Exclude username
-  excludeUsername:
-  # - ''
-  # -- Defines the `namespaceSelector` in the webhook configurations.
-  # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
-  # will be forwarded to the webhook configurations.
-  # The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default)
-  webhooks:
-    # Exclude namespaces
-    # - namespaceSelector:
-    #     matchExpressions:
-    #     - key: kubernetes.io/metadata.name
-    #       operator: NotIn
-    #       values:
-    #         - kube-system
-    #         - kyverno
-    # Exclude objects
-    # - objectSelector:
-    #     matchExpressions:
-    #     - key: webhooks.kyverno.io/exclude
-    #       operator: DoesNotExist
-
-  # -- Generate success events.
-  generateSuccessEvents: false
-  # -- Metrics config.
-  metricsConfig:
-    # -- Additional annotations to add to the metricsconfigmap
-    annotations: {}
-      # example.com/annotation: foo
-    namespaces: {
-      "include": [],
-      "exclude": []
-    }
-    # 'namespaces.include': list of namespaces to capture metrics for. Default: metrics being captured for all namespaces except excludeNamespaces.
-    # 'namespaces.exclude': list of namespaces to NOT capture metrics for. Default: []
-
-    # metricsRefreshInterval: 24h
-    # rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics
-
-  # Or provide an existing metrics config-map by uncommenting the below line
-  # existingMetricsConfig: sample-metrics-configmap. Refer to the ./templates/metricsconfigmap.yaml for the structure of metrics configmap.
 # -- Deployment update strategy.
 # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 # @default -- See [values.yaml](values.yaml)
@@ -463,16 +484,6 @@ serviceMonitor:
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
 createSelfSignedCert: false
 
-# -- Whether to have Helm install the Kyverno CRDs.
-# If the CRDs are not installed by Helm, they must be added before policies can be created.
-installCRDs: true
-
-crds:
-  # -- Additional CRDs annotations.
-  annotations: {}
-    # argocd.argoproj.io/sync-options: Replace=true
-    # strategy.spinnaker.io/replace: 'true'
-
 networkPolicy:
   # -- When true, use a NetworkPolicy to allow ingress to the webhook
   # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
@@ -498,6 +509,7 @@ grafana:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
+# Cleanup controller configuration
 cleanupController:
 
   # -- Enable cleanup controller.
@@ -687,6 +699,240 @@ cleanupController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+
+  metricsService:
+    # -- Create service.
+    create: true
+    # -- Service port.
+    # Metrics server will be exposed at this port.
+    port: 8000
+    # -- Service type.
+    type: ClusterIP
+    # -- Service node port.
+    # Only used if `metricsService.type` is `NodePort`.
+    nodePort:
+    # -- Service annotations.
+    annotations: {}
+
+  serviceMonitor:
+    # -- Create a `ServiceMonitor` to collect Prometheus metrics.
+    enabled: false
+    # -- Additional labels
+    additionalLabels:
+      # key: value
+    # -- Override namespace (default is the same as kyverno)
+    namespace:
+    # --  Interval to scrape metrics
+    interval: 30s
+    # -- Timeout if metrics can't be retrieved in given time interval
+    scrapeTimeout: 25s
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- TLS Configuration for endpoint
+    tlsConfig: {}
+
+  tracing:
+    # -- Enable tracing
+    enabled: false
+    # -- Traces receiver address
+    address:
+    # -- Traces receiver port
+    port:
+    # -- Traces receiver credentials
+    creds: ''
+
+  logging:
+    # -- Logging format
+    format: text
+
+  metering:
+    # -- Disable metrics export
+    disabled: false
+    # -- Otel configuration, can be `prometheus` or `grpc`
+    config: prometheus
+    # -- Prometheus endpoint port
+    port: 8000
+    # -- Otel collector endpoint
+    collector: ''
+    # -- Otel collector credentials
+    creds: ''
+
+# Reports controller configuration
+reportsController:
+
+  # -- Enable reports controller.
+  enabled: true
+
+  rbac:
+    # -- Create RBAC resources
+    create: true
+
+    serviceAccount:
+      # -- Service account name
+      name:
+
+    clusterRole:
+      # -- Extra resource permissions to add in the cluster role
+      extraResources: []
+      # - apiGroups:
+      #     - ''
+      #   resources:
+      #     - pods
+
+  image:
+    # -- Image registry
+    registry:
+    # If you want to manage the registry you should remove it from the repository
+    # registry: ghcr.io
+    # repository: kyverno/kyverno
+    # -- Image repository
+    repository: ghcr.io/kyverno/reports-controller  # kyverno: replaced in e2e tests
+    # -- Image tag
+    # Defaults to appVersion in Chart.yaml if omitted
+    tag:  # replaced in e2e tests
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+    # -- Image pull secrets
+    pullSecrets: []
+    # - secretName
+
+  # -- (int) Desired number of pods
+  replicas: ~
+
+  # -- Deployment update strategy.
+  # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+  # @default -- See [values.yaml](values.yaml)
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 40%
+    type: RollingUpdate
+
+  # -- Optional priority class
+  priorityClassName: ''
+
+  # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
+  # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
+  # Update the `dnsPolicy` accordingly as well to suit the host network mode.
+  hostNetwork: false
+
+  # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
+  # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
+  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
+  dnsPolicy: ClusterFirst
+
+  # -- Extra arguments passed to the container on the command line
+  extraArgs: []
+
+  resources:
+    # -- Pod resource limits
+    limits:
+      memory: 128Mi
+    # -- Pod resource requests
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+  # TODO
+  # # -- Startup probe.
+  # # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
+  # # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # # @default -- See [values.yaml](values.yaml)
+  # startupProbe:
+  #   httpGet:
+  #     path: /health/liveness
+  #     port: 9443
+  #     scheme: HTTPS
+  #   failureThreshold: 20
+  #   initialDelaySeconds: 2
+  #   periodSeconds: 6
+
+  # # -- Liveness probe.
+  # # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
+  # # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # # @default -- See [values.yaml](values.yaml)
+  # livenessProbe:
+  #   httpGet:
+  #     path: /health/liveness
+  #     port: 9443
+  #     scheme: HTTPS
+  #   initialDelaySeconds: 15
+  #   periodSeconds: 30
+  #   timeoutSeconds: 5
+  #   failureThreshold: 2
+  #   successThreshold: 1
+
+  # # -- Readiness Probe.
+  # # The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
+  # # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # # @default -- See [values.yaml](values.yaml)
+  # readinessProbe:
+  #   httpGet:
+  #     path: /health/readiness
+  #     port: 9443
+  #     scheme: HTTPS
+  #   initialDelaySeconds: 5
+  #   periodSeconds: 10
+  #   timeoutSeconds: 5
+  #   failureThreshold: 6
+  #   successThreshold: 1
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  antiAffinity:
+    # -- Pod antiAffinities toggle.
+    # Enabled by default but can be disabled if you want to schedule pods to the same node.
+    enabled: true
+
+  # -- Pod anti affinity constraints.
+  # @default -- See [values.yaml](values.yaml)
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - reports-controller
+          topologyKey: kubernetes.io/hostname
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
+  # -- Topology spread constraints.
+  topologySpreadConstraints: []
+
+  # -- Security context for the pod
+  podSecurityContext: {}
+
+  # -- Security context for the containers
+  securityContext:
+    runAsNonRoot: true
+    privileged: false
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+    seccompProfile:
+      type: RuntimeDefault
+
+  podDisruptionBudget:
+    # -- Configures the minimum available pods for disruptions.
+    # Cannot be used if `maxUnavailable` is set.
+    minAvailable: 1
+    # -- Configures the maximum unavailable pods for disruptions.
+    # Cannot be used if `minAvailable` is set.
+    maxUnavailable:
 
   metricsService:
     # -- Create service.

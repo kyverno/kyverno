@@ -440,15 +440,15 @@ codegen-helm-docs: ## Generate helm docs
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
 	@cat $(CRDS_PATH)/* \
-		| $(SED) -e '1i{{- if .Values.installCRDs }}' \
+		| $(SED) -e '1i{{- if .Values.crds.install }}' \
 		| $(SED) -e '$$a{{- end }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- toYaml . | nindent 4 }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/a \ \ \ \ {{- include "kyverno.crdLabels" . | nindent 4 }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/a \ \ \ \ {{- include "kyverno.crd.labels" . | nindent 4 }}' \
  		| $(SED) -e '/^  creationTimestamp: null/a \ \ labels:' \
  		| $(SED) -e '/^  creationTimestamp: null/d' \
- 		> ./charts/kyverno/templates/crds.yaml
+ 		> ./charts/kyverno/templates/crds/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
@@ -658,9 +658,18 @@ test-cli-test-case-selector-flag: $(CLI_BIN)
 test-cli-registry: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/registry --registry
 
-##################################
-# Testing & Code-Coverage
-##################################
+#############
+# HELM TEST #
+#############
+
+.PHONY: helm-test
+helm-test: $(HELM) ## Run helm test
+	@echo Running helm test... >&2
+	@$(HELM) test --namespace kyverno kyverno
+
+###########################
+# Testing & Code-Coverage #
+###########################
 
 helm-test-values:
 	sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
@@ -767,12 +776,14 @@ kind-load-all: kind-load-kyvernopre kind-load-kyverno kind-load-cleanup-controll
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
-		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
-		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
+		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
+		--set reportsController.image.repository=$(LOCAL_REPORTS_IMAGE) \
+		--set reportsController.image.tag=$(IMAGE_TAG_DEV) \
 		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
 
 .PHONY: kind-deploy-kyverno-policies
