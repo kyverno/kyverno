@@ -5,7 +5,6 @@ import (
 )
 
 const (
-	TracerName = "kyverno"
 	// engine attributes
 	PolicyGroupKey     = attribute.Key("kyverno.policy.group")
 	PolicyVersionKey   = attribute.Key("kyverno.policy.version")
