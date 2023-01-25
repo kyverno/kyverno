@@ -2,6 +2,7 @@ package policycache
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -14,7 +15,6 @@ import (
 	pcache "github.com/kyverno/kyverno/pkg/policycache"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -56,16 +56,17 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		client:     client,
 	}
-	admissionReview := &admissionv1.AdmissionReview{}
-	logger := logger.WithValues(
-		"kind", admissionReview.Request.Kind.Kind,
-		"gvk", admissionReview.Request.Kind,
-		"namespace", admissionReview.Request.Namespace,
-		"name", admissionReview.Request.Name,
-		"operation", admissionReview.Request.Operation,
-		"uid", admissionReview.Request.UID,
-		"user", admissionReview.Request.UserInfo,
-	)
+	_, _ = cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addPolicyCache,
+		UpdateFunc: c.updatePolicyCache,
+		DeleteFunc: c.deletePolicyCache,
+	})
+
+	_, _ = polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addPolicyCache,
+		UpdateFunc: c.updatePolicyCache,
+		DeleteFunc: c.deletePolicyCache,
+	})
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
 	return &c
@@ -141,4 +142,54 @@ func getSubresourceGVKToKindMap(policy kyvernov1.PolicyInterface, client dclient
 		}
 	}
 	return subresourceGVKToKind
+}
+
+func (pc *controller) enqueuePolicyCache(policy kyvernov1.PolicyInterface) {
+	key, err := cache.MetaNamespaceKeyFunc(policy)
+	if err != nil {
+		logger.Error(err, "failed to enqueue policy")
+		return
+	}
+	pc.queue.Add(key)
+}
+
+func (c *controller) addPolicyCache(obj interface{}) {
+	p := obj.(*kyvernov1.ClusterPolicy)
+
+	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
+
+	logger.V(4).Info("queuing policy for background processing", "name", p.Name)
+	c.enqueuePolicyCache(p)
+}
+
+func (c *controller) updatePolicyCache(old, cur interface{}) {
+	oldP := old.(*kyvernov1.ClusterPolicy)
+	curP := cur.(*kyvernov1.ClusterPolicy)
+
+	if reflect.DeepEqual(oldP.Spec, curP.Spec) {
+		return
+	}
+
+	logger.V(2).Info("updating policy", "name", oldP.Name)
+
+	c.enqueuePolicyCache(curP)
+}
+
+func (c *controller) deletePolicyCache(obj interface{}) {
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
+	if !ok {
+		logger.Info("Failed to get deleted object", "obj", obj)
+		return
+	}
+
+	logger.Info("policy deleted", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
+
+	rules := autogen.ComputeRules(p)
+	for _, r := range rules {
+		clone, sync := r.GetCloneSyncForGenerate()
+		if clone && sync {
+			return
+		}
+	}
+	c.enqueuePolicyCache(p)
 }
