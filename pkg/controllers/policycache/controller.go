@@ -147,7 +147,7 @@ func getSubresourceGVKToKindMap(policy kyvernov1.PolicyInterface, client dclient
 func (pc *controller) enqueuePolicyCache(policy kyvernov1.PolicyInterface) {
 	key, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
-		logger.Error(err, "failed to enqueue policy")
+		logger.Error(err, "failed to enqueue policy cache")
 		return
 	}
 	pc.queue.Add(key)
@@ -156,9 +156,9 @@ func (pc *controller) enqueuePolicyCache(policy kyvernov1.PolicyInterface) {
 func (c *controller) addPolicyCache(obj interface{}) {
 	p := obj.(*kyvernov1.ClusterPolicy)
 
-	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
+	logger.Info("policy cache created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
-	logger.V(4).Info("queuing policy for background processing", "name", p.Name)
+	logger.V(4).Info("queuing policy cache for background processing", "name", p.Name)
 	c.enqueuePolicyCache(p)
 }
 
@@ -170,7 +170,7 @@ func (c *controller) updatePolicyCache(old, cur interface{}) {
 		return
 	}
 
-	logger.V(2).Info("updating policy", "name", oldP.Name)
+	logger.V(2).Info("updating policy cache", "name", oldP.Name)
 
 	c.enqueuePolicyCache(curP)
 }
@@ -182,7 +182,7 @@ func (c *controller) deletePolicyCache(obj interface{}) {
 		return
 	}
 
-	logger.Info("policy deleted", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
+	logger.Info("policy cache deleted", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
 	rules := autogen.ComputeRules(p)
 	for _, r := range rules {
