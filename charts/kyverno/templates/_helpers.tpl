@@ -75,3 +75,8 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{ required "An image repository is required" .image.repository }}:{{ default .defaultTag .image.tag }}
   {{- end -}}
 {{- end }}
+
+{{- define "kyverno.grafanaConfigmapName" -}}
+{{ template "kyverno.configMapName" . }}-grafana
+{{- end }}
+

@@ -239,6 +239,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 | tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
 | grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
+| grafana.configmapName | string | `nil` | Configmap name default is the kyverno configmap name with "-grafana" appended |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
