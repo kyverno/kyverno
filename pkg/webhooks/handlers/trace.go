@@ -13,6 +13,8 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
+const limit = 256
+
 func (inner HttpHandler) WithTrace(name string) HttpHandler {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		tracing.Span(
@@ -48,9 +50,14 @@ func (inner AdmissionHandler) WithTrace(name string) AdmissionHandler {
 						tracing.ResponseWarningsKey.StringSlice(response.Warnings),
 					)
 					if response.Result != nil {
+						message := response.Result.Message
+						if len(message) > limit {
+							message = message[:limit-3]
+							message += "..."
+						}
 						span.SetAttributes(
 							tracing.ResponseResultStatusKey.String(response.Result.Status),
-							tracing.ResponseResultMessageKey.String(response.Result.Message),
+							tracing.ResponseResultMessageKey.String(message),
 							tracing.ResponseResultReasonKey.String(string(response.Result.Reason)),
 							tracing.ResponseResultCodeKey.Int(int(response.Result.Code)),
 						)
