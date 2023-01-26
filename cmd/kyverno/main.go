@@ -171,6 +171,7 @@ func createrLeaderControllers(
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 	configMapResolver resolvers.ConfigmapResolver,
+	servicePort int32,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -210,6 +211,7 @@ func createrLeaderControllers(
 		kubeInformer.Rbac().V1().ClusterRoles(),
 		serverIP,
 		int32(webhookTimeout),
+		servicePort,
 		autoUpdateWebhooks,
 		admissionReports,
 		runtime,
@@ -222,6 +224,7 @@ func createrLeaderControllers(
 		config.ExceptionValidatingWebhookConfigurationName,
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
+		servicePort,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"kyverno.io"},
@@ -264,6 +267,7 @@ func main() {
 		leaderElectionRetryPeriod  time.Duration
 		enablePolicyException      bool
 		exceptionNamespace         string
+		servicePort                int
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -282,6 +286,7 @@ func main() {
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
 	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+	flagset.IntVar(&servicePort, "servicePort", 443, "Kyverno service port.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -453,6 +458,7 @@ func main() {
 				certRenewer,
 				runtime,
 				configMapResolver,
+				int32(servicePort),
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

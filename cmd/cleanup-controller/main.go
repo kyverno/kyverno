@@ -54,11 +54,13 @@ func main() {
 		leaderElectionRetryPeriod time.Duration
 		dumpPayload               bool
 		serverIP                  string
+		servicePort               int
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
+	flagset.IntVar(&servicePort, "servicePort", 443, "Kyverno service port.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -124,6 +126,7 @@ func main() {
 					config.CleanupValidatingWebhookConfigurationName,
 					config.CleanupValidatingWebhookServicePath,
 					serverIP,
+					int32(servicePort),
 					[]admissionregistrationv1.RuleWithOperations{{
 						Rule: admissionregistrationv1.Rule{
 							APIGroups:   []string{"kyverno.io"},
