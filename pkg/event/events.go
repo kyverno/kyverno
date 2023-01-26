@@ -10,15 +10,13 @@ import (
 )
 
 func NewPolicyFailEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse, blocked bool) Info {
-	msg := buildPolicyEventMessage(ruleResp, engineResponse.GetResourceSpec(), blocked)
-
 	return Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
 		Name:      engineResponse.PolicyResponse.Policy.Name,
 		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
-		Reason:    reason.String(),
+		Reason:    reason,
 		Source:    source,
-		Message:   msg,
+		Message:   buildPolicyEventMessage(ruleResp, engineResponse.GetResourceSpec(), blocked),
 	}
 }
 
@@ -64,7 +62,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse *response.EngineRespons
 		Kind:      getPolicyKind(engineResponse.Policy),
 		Name:      engineResponse.PolicyResponse.Policy.Name,
 		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
-		Reason:    PolicyApplied.String(),
+		Reason:    PolicyApplied,
 		Source:    source,
 		Message:   bldr.String(),
 	}
@@ -82,7 +80,7 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse *res
 		Kind:      resource.Kind,
 		Name:      resource.Name,
 		Namespace: resource.Namespace,
-		Reason:    reason.String(),
+		Reason:    reason,
 		Source:    source,
 		Message:   bldr.String(),
 	}
@@ -99,7 +97,7 @@ func NewBackgroundFailedEvent(err error, policy, rule string, source Source, r *
 		Namespace: r.GetNamespace(),
 		Name:      r.GetName(),
 		Source:    source,
-		Reason:    PolicyError.String(),
+		Reason:    PolicyError,
 		Message:   fmt.Sprintf("policy %s/%s error: %v", policy, rule, err),
 	})
 
@@ -118,7 +116,7 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 		Namespace: r.GetNamespace(),
 		Name:      r.GetName(),
 		Source:    source,
-		Reason:    PolicyApplied.String(),
+		Reason:    PolicyApplied,
 		Message:   msg,
 	})
 
@@ -138,14 +136,14 @@ func NewPolicyExceptionEvents(engineResponse *response.EngineResponse, ruleResp 
 		Kind:      getPolicyKind(engineResponse.Policy),
 		Name:      engineResponse.PolicyResponse.Policy.Name,
 		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
-		Reason:    PolicySkipped.String(),
+		Reason:    PolicySkipped,
 		Message:   policyMessage,
 	}
 	exceptionEvent := Info{
 		Kind:      "PolicyException",
 		Name:      exceptionName,
 		Namespace: exceptionNamespace,
-		Reason:    PolicySkipped.String(),
+		Reason:    PolicySkipped,
 		Message:   exceptionMessage,
 	}
 	return []Info{policyEvent, exceptionEvent}

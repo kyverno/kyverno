@@ -2,7 +2,6 @@ package cleanup
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -44,7 +43,7 @@ func New(
 		cpolLister: cpolLister,
 		polLister:  polLister,
 		nsLister:   nsLister,
-		recorder:   newRecorder(client),
+		recorder:   event.NewRecorder(event.CleanupController, client.GetEventsInterface()),
 	}
 }
 
@@ -189,13 +188,26 @@ func (h *handlers) createEvent(policy kyvernov2alpha1.CleanupPolicyInterface, re
 	} else if policy.GetNamespace() != "" {
 		cleanuppol = policy.(*kyvernov2alpha1.CleanupPolicy)
 	}
-
-	switch err == nil {
-	case true:
-		msg := fmt.Sprintf("successfully cleaned up the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName())
-		h.recorder.Event(cleanuppol, corev1.EventTypeNormal, event.PolicyApplied.String(), msg)
-	case false:
-		msg := fmt.Sprintf("failed to clean up the target resource %v/%v/%v: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error())
-		h.recorder.Event(cleanuppol, corev1.EventTypeWarning, event.PolicyError.String(), msg)
+	if err == nil {
+		h.recorder.Eventf(
+			cleanuppol,
+			corev1.EventTypeNormal,
+			string(event.PolicyApplied),
+			"successfully cleaned up the target resource %v/%v/%v",
+			resource.GetKind(),
+			resource.GetNamespace(),
+			resource.GetName(),
+		)
+	} else {
+		h.recorder.Eventf(
+			cleanuppol,
+			corev1.EventTypeWarning,
+			string(event.PolicyError),
+			"failed to clean up the target resource %v/%v/%v: %v",
+			resource.GetKind(),
+			resource.GetNamespace(),
+			resource.GetName(),
+			err.Error(),
+		)
 	}
 }
