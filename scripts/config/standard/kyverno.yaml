@@ -5,6 +5,7 @@ initContainer:
 extraArgs:
   - --loggingFormat=json
   - --enablePolicyException
+  - --exceptionNamespace=kyverno
 
 cleanupController:
   rbac:
