@@ -40,7 +40,7 @@ func main() {
 	// start profiling
 	// setup signals
 	// setup maxprocs
-	ctx, logger, _, sdown := internal.Setup()
+	ctx, logger, _, sdown := internal.Setup("kyverno-init-controller")
 	defer sdown()
 	// create clients
 	kubeClient := internal.CreateKubernetesClient(logger)
