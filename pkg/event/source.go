@@ -13,5 +13,5 @@ const (
 	// MutateExistingController : event generated for mutateExisting policies
 	MutateExistingController Source = "kyverno-mutate"
 	// CleanupController : event generated for cleanup policies
-	CleanupController Source = "cleanup-controller"
+	CleanupController Source = "kyverno-cleanup"
 )
