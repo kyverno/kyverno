@@ -43,6 +43,24 @@ func (m *MatchResources) ValidateNoUserInfo(path *field.Path) (errs field.ErrorL
 	return errs
 }
 
+// ValidateResourceWithNoUserInfo implements programmatic validation and verifies that no user info is used
+func (m *MatchResources) ValidateResourceWithNoUserInfo(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if len(m.Any) > 0 && len(m.All) > 0 {
+		errs = append(errs, field.Invalid(path, m, "Can't specify any and all together"))
+	}
+	anyPath := path.Child("any")
+	for i, filter := range m.Any {
+		errs = append(errs, filter.UserInfo.ValidateNoUserInfo(anyPath.Index(i))...)
+		errs = append(errs, filter.ResourceDescription.Validate(anyPath.Index(i), namespaced, clusterResources)...)
+	}
+	allPath := path.Child("all")
+	for i, filter := range m.All {
+		errs = append(errs, filter.UserInfo.ValidateNoUserInfo(allPath.Index(i))...)
+		errs = append(errs, filter.ResourceDescription.Validate(allPath.Index(i), namespaced, clusterResources)...)
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if len(m.Any) > 0 && len(m.All) > 0 {
