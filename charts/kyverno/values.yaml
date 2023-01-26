@@ -501,9 +501,8 @@ webhooksCleanup:
 tufRootMountPath: /.sigstore
 
 grafana:
-  # @default -- See [values.yaml](values.yaml)
   # -- Enable grafana dashboard creation.
-  enabled: true
+  enabled: false
   # -- Configmap name default is the kyverno configmap name with "-grafana" appended.
   configMapName: ~
   # -- Namespace to create the grafana dashboard configmap.
