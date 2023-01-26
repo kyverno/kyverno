@@ -755,8 +755,8 @@ kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
 	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --create-namespace --wait \
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
-		--values ./scripts/config/standard/kyverno-reporter.yaml
-	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
+		--values ./scripts/config/standard/policy-reporter.yaml
+	@kubectl port-forward -n policy-reporter services/policy-reporter-ui 8082:8080
 
 ###########
 # DEV LAB #
