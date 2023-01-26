@@ -38,7 +38,7 @@ func generateExceptionEvents(log logr.Logger, ers ...*response.EngineResponse) (
 		for i, ruleResp := range er.PolicyResponse.Rules {
 			isException := strings.Contains(ruleResp.Message, "rule skipped due to policy exception")
 			if ruleResp.Status == response.RuleStatusSkip && isException {
-				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i])...)
+				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(event.PolicyController, er, &er.PolicyResponse.Rules[i])...)
 			}
 		}
 	}
