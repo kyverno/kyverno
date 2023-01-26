@@ -210,6 +210,8 @@ func (v *validationHandler) handleAudit(
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
 			}
+			events := webhookutils.GenerateEvents(responses, false)
+			v.eventGen.Add(events...)
 			responses = append(responses, engineResponses...)
 			report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
 			// if it's not a creation, the resource already exists, we can set the owner
