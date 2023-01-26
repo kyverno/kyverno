@@ -46,7 +46,7 @@ These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
 $ helm repo add kyverno https://kyverno.github.io/kyverno/
 
 ## Install the Kyverno Policies Helm chart
-$ helm install kyverno-policies --namespace kyverno kyverno/charts/kyverno-policies
+$ helm install kyverno-policies --namespace kyverno kyverno/kyverno-policies
 ```
 
 ## Uninstalling the Chart

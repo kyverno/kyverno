@@ -60,7 +60,3 @@
 {{- define "kyverno.config.imagePullSecret" -}}
 {{- printf "{\"auths\":{\"%s\":{\"auth\":\"%s\"}}}" .registry (printf "%s:%s" .username .password | b64enc) | b64enc }}
 {{- end -}}
-
-{{- define "kyverno.grafana.configMapName" -}}
-{{ template "kyverno.config.configMapName" . }}-grafana
-{{- end -}}
