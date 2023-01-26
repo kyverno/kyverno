@@ -303,7 +303,7 @@ func main() {
 	// setup signals
 	// setup maxprocs
 	// setup metrics
-	signalCtx, logger, metricsConfig, sdown := internal.Setup()
+	signalCtx, logger, metricsConfig, sdown := internal.Setup("kyverno-admission-controller")
 	defer sdown()
 	// show version
 	showWarnings(logger)

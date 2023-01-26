@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}
+  name: {{ template "kyverno.admission-controller.roleName" . }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 aggregationRule:
@@ -13,7 +13,7 @@ aggregationRule:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:userinfo
+  name: {{ template "kyverno.admission-controller.roleName" . }}:userinfo
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
@@ -31,7 +31,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:policies
+  name: {{ template "kyverno.admission-controller.roleName" . }}:policies
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
@@ -77,7 +77,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:view
+  name: {{ template "kyverno.admission-controller.roleName" . }}:view
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
@@ -93,7 +93,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:generate
+  name: {{ template "kyverno.admission-controller.roleName" . }}:generate
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
@@ -147,7 +147,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:events
+  name: {{ template "kyverno.admission-controller.roleName" . }}:events
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
@@ -165,7 +165,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:webhook
+  name: {{ template "kyverno.admission-controller.roleName" . }}:webhook
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:

@@ -77,7 +77,7 @@ func main() {
 	// setup signals
 	// setup maxprocs
 	// setup metrics
-	ctx, logger, metricsConfig, sdown := internal.Setup()
+	ctx, logger, metricsConfig, sdown := internal.Setup("kyverno-cleanup-controller")
 	defer sdown()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
