@@ -122,6 +122,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `testResources` has been replaced with `test.resources`
 - `testSecurityContext` has been replaced with `test.securityContext`
 
+- Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:

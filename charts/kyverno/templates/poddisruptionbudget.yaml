@@ -8,11 +8,11 @@ kind: PodDisruptionBudget
 metadata:
   name: {{ template "kyverno.fullname" . }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
 spec:
   {{- include "kyverno.podDisruptionBudget.spec" . | indent 2 }}
   selector:
     matchLabels:
-      {{- include "kyverno.matchLabels" . | nindent 6 }}
+      {{- include "kyverno.admission-controller.matchLabels" . | nindent 6 }}
 {{- end }}

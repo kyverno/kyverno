@@ -21,7 +21,7 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/go-logr/zapr v1.2.3
 	github.com/google/gnostic v0.6.9
-	github.com/google/go-containerregistry v0.12.1
+	github.com/google/go-containerregistry v0.13.0
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230111192945-8e08d51670d8
 	github.com/in-toto/in-toto-golang v0.5.0
 	github.com/jmespath/go-jmespath v0.4.0
@@ -57,7 +57,7 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.5.0
 	golang.org/x/exp v0.0.0-20230118134722-a68e582fa157
-	google.golang.org/grpc v1.52.0
+	google.golang.org/grpc v1.52.3
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
