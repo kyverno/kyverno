@@ -30,7 +30,6 @@
 {{ .Release.Name }}:cleanup-controller
 {{- end -}}
 
-{{/* Create the name of the service account to use */}}
 {{- define "kyverno.cleanup-controller.serviceAccountName" -}}
 {{- if .Values.cleanupController.rbac.create -}}
     {{ default (include "kyverno.cleanup-controller.name" .) .Values.cleanupController.rbac.serviceAccount.name }}

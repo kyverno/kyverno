@@ -1,12 +1,11 @@
-{{- if .Values.cleanupController.enabled -}}
-{{- if .Values.cleanupController.rbac.create -}}
+{{- if .Values.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ template "kyverno.cleanup-controller.roleName" . }}
-  labels:
-    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+  name: {{ template "kyverno.admission-controller.roleName" . }}
   namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 rules:
   - apiGroups:
       - ''
@@ -36,5 +35,23 @@ rules:
       - get
       - patch
       - update
-{{- end -}}
-{{- end -}}
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - delete
+      - get
+      - patch
+      - update
+  # Allow update of Kyverno deployment annotations
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+      - watch
+{{- end }}

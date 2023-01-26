@@ -38,15 +38,6 @@
 {{- printf "%s-svc" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{/* Create the name of the service account to use */}}
-{{- define "kyverno.serviceAccountName" -}}
-{{- if .Values.rbac.serviceAccount.create -}}
-    {{ default (include "kyverno.fullname" .) .Values.rbac.serviceAccount.name }}
-{{- else -}}
-    {{ default "default" .Values.rbac.serviceAccount.name }}
-{{- end -}}
-{{- end -}}
-
 {{/* Create the default PodDisruptionBudget to use */}}
 {{- define "kyverno.podDisruptionBudget.spec" -}}
 {{- if and .Values.podDisruptionBudget.minAvailable .Values.podDisruptionBudget.maxUnavailable }}

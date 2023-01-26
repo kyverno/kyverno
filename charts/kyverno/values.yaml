@@ -75,7 +75,7 @@ config:
     # exclude resources from the chart
     - '[ClusterRole,*,{{ template "kyverno.fullname" . }}:*]'
     - '[ClusterRoleBinding,*,{{ template "kyverno.fullname" . }}:*]'
-    - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceAccountName" . }}]'
+    - '[ServiceAccount,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceAccountName" . }}]'
     - '[ConfigMap,{{ include "kyverno.namespace" . }},{{ template "kyverno.config.configMapName" . }}]'
     - '[ConfigMap,{{ include "kyverno.namespace" . }},{{ template "kyverno.config.metricsConfigMapName" . }}]'
     - '[Deployment,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}]'

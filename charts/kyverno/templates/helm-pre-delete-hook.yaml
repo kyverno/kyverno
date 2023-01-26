@@ -12,7 +12,7 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccount: {{ template "kyverno.serviceAccountName" . }}
+      serviceAccount: {{ template "kyverno.admission-controller.serviceAccountName" . }}
       containers:
         - name: kubectl
           image: {{ .Values.webhooksCleanup.image }}
