@@ -5,7 +5,7 @@ type Info struct {
 	Kind      string
 	Name      string
 	Namespace string
-	Reason    string
+	Reason    Reason
 	Message   string
 	Source    Source
 }

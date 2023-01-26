@@ -192,7 +192,7 @@ func (h *handlers) createEvent(policy kyvernov2alpha1.CleanupPolicyInterface, re
 		h.recorder.Eventf(
 			cleanuppol,
 			corev1.EventTypeNormal,
-			event.PolicyApplied.String(),
+			string(event.PolicyApplied),
 			"successfully cleaned up the target resource %v/%v/%v",
 			resource.GetKind(),
 			resource.GetNamespace(),
@@ -202,7 +202,7 @@ func (h *handlers) createEvent(policy kyvernov2alpha1.CleanupPolicyInterface, re
 		h.recorder.Eventf(
 			cleanuppol,
 			corev1.EventTypeWarning,
-			event.PolicyError.String(),
+			string(event.PolicyError),
 			"failed to clean up the target resource %v/%v/%v: %v",
 			resource.GetKind(),
 			resource.GetNamespace(),

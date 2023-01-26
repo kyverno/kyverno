@@ -194,20 +194,20 @@ func (gen *generator) syncHandler(key Info) error {
 	// if skip/pass, reason will be: NORMAL
 	// else reason will be: WARNING
 	eventType := corev1.EventTypeWarning
-	if key.Reason == PolicyApplied.String() || key.Reason == PolicySkipped.String() {
+	if key.Reason == PolicyApplied || key.Reason == PolicySkipped {
 		eventType = corev1.EventTypeNormal
 	}
 
 	// based on the source of event generation, use different event recorders
 	switch key.Source {
 	case AdmissionController:
-		gen.admissionCtrRecorder.Event(robj, eventType, key.Reason, key.Message)
+		gen.admissionCtrRecorder.Event(robj, eventType, string(key.Reason), key.Message)
 	case PolicyController:
-		gen.policyCtrRecorder.Event(robj, eventType, key.Reason, key.Message)
+		gen.policyCtrRecorder.Event(robj, eventType, string(key.Reason), key.Message)
 	case GeneratePolicyController:
-		gen.genPolicyRecorder.Event(robj, eventType, key.Reason, key.Message)
+		gen.genPolicyRecorder.Event(robj, eventType, string(key.Reason), key.Message)
 	case MutateExistingController:
-		gen.mutateExistingRecorder.Event(robj, eventType, key.Reason, key.Message)
+		gen.mutateExistingRecorder.Event(robj, eventType, string(key.Reason), key.Message)
 	default:
 		logger.Info("info.source not defined for the request")
 	}
