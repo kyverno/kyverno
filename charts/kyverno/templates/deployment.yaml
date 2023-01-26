@@ -60,7 +60,7 @@ spec:
       {{- with .Values.topologySpreadConstraints }}
       topologySpreadConstraints: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ template "kyverno.serviceAccountName" . }}
+      serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName | quote }}
       {{- end }}
@@ -146,7 +146,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
-            value: {{ template "kyverno.serviceAccountName" . }}
+            value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
           - name: KYVERNO_SVC
             value: {{ template "kyverno.serviceName" . }}
           - name: TUF_ROOT
