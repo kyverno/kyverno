@@ -8,6 +8,7 @@ import (
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,8 +23,8 @@ const (
 	workQueueRetryLimit = 3
 )
 
-// Generator generate events
-type Generator struct {
+// generator generate events
+type generator struct {
 	client dclient.Interface
 	// list/get cluster policy
 	cpLister kyvernov1listers.ClusterPolicyLister
@@ -45,14 +46,27 @@ type Generator struct {
 	log logr.Logger
 }
 
+// Controller interface to generate event
+type Controller interface {
+	controllers.Controller
+	Interface
+}
+
 // Interface to generate event
 type Interface interface {
 	Add(infoList ...Info)
 }
 
 // NewEventGenerator to generate a new event controller
-func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, maxQueuedEvents int, log logr.Logger) *Generator {
-	gen := Generator{
+func NewEventGenerator(
+	// source Source,
+	client dclient.Interface,
+	cpInformer kyvernov1informers.ClusterPolicyInformer,
+	pInformer kyvernov1informers.PolicyInformer,
+	maxQueuedEvents int,
+	log logr.Logger,
+) Controller {
+	gen := generator{
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
 		pLister:                pInformer.Lister(),
@@ -68,7 +82,7 @@ func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.C
 }
 
 // Add queues an event for generation
-func (gen *Generator) Add(infos ...Info) {
+func (gen *generator) Add(infos ...Info) {
 	logger := gen.log
 
 	logger.V(3).Info("generating events", "count", len(infos))
@@ -89,7 +103,7 @@ func (gen *Generator) Add(infos ...Info) {
 }
 
 // Run begins generator
-func (gen *Generator) Run(ctx context.Context, workers int) {
+func (gen *generator) Run(ctx context.Context, workers int) {
 	logger := gen.log
 	defer utilruntime.HandleCrash()
 
@@ -102,12 +116,12 @@ func (gen *Generator) Run(ctx context.Context, workers int) {
 	<-ctx.Done()
 }
 
-func (gen *Generator) runWorker(ctx context.Context) {
+func (gen *generator) runWorker(ctx context.Context) {
 	for gen.processNextWorkItem() {
 	}
 }
 
-func (gen *Generator) handleErr(err error, key interface{}) {
+func (gen *generator) handleErr(err error, key interface{}) {
 	logger := gen.log
 	if err == nil {
 		gen.queue.Forget(key)
@@ -128,7 +142,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	}
 }
 
-func (gen *Generator) processNextWorkItem() bool {
+func (gen *generator) processNextWorkItem() bool {
 	obj, shutdown := gen.queue.Get()
 	if shutdown {
 		return false
@@ -148,7 +162,7 @@ func (gen *Generator) processNextWorkItem() bool {
 	return true
 }
 
-func (gen *Generator) syncHandler(key Info) error {
+func (gen *generator) syncHandler(key Info) error {
 	logger := gen.log
 	var robj runtime.Object
 	var err error
