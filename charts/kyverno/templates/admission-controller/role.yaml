@@ -1,4 +1,4 @@
-{{- if .Values.rbac.create }}
+{{- if .Values.rbac.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -50,8 +50,15 @@ rules:
       - apps
     resources:
       - deployments
+      {{- if .Values.webhooksCleanup.enabled }}
+      - deployments/scale
+      {{- end }}
     verbs:
       - get
       - list
       - watch
-{{- end }}
+      {{- if .Values.webhooksCleanup.enabled }}
+      - patch
+      - update
+      {{- end }}
+{{- end -}}
