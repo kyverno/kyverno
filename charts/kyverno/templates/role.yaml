@@ -22,10 +22,13 @@ rules:
     - apps
   resources:
     - deployments
+    {{- if .Values.webhooksCleanup.enabled }}
+    - deployments/scale
+    {{- end }}
   verbs:
     - get
     - list
     - patch
     - update
     - watch
-{{- end }}
+{{- end -}}
