@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -14,9 +13,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+)
+
+const (
+	eventWorkQueueName  = "kyverno-events"
+	workQueueRetryLimit = 3
 )
 
 // Generator generate events
@@ -53,42 +56,15 @@ func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.C
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
 		pLister:                pInformer.Lister(),
-		queue:                  workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
-		policyCtrRecorder:      initRecorder(client, PolicyController, log),
-		admissionCtrRecorder:   initRecorder(client, AdmissionController, log),
-		genPolicyRecorder:      initRecorder(client, GeneratePolicyController, log),
-		mutateExistingRecorder: initRecorder(client, MutateExistingController, log),
+		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
+		policyCtrRecorder:      NewRecorder(PolicyController, client.GetEventsInterface()),
+		admissionCtrRecorder:   NewRecorder(AdmissionController, client.GetEventsInterface()),
+		genPolicyRecorder:      NewRecorder(GeneratePolicyController, client.GetEventsInterface()),
+		mutateExistingRecorder: NewRecorder(MutateExistingController, client.GetEventsInterface()),
 		maxQueuedEvents:        maxQueuedEvents,
 		log:                    log,
 	}
 	return &gen
-}
-
-func rateLimiter() workqueue.RateLimiter {
-	return workqueue.DefaultItemBasedRateLimiter()
-}
-
-func initRecorder(client dclient.Interface, eventSource Source, log logr.Logger) record.EventRecorder {
-	// Initialize Event Broadcaster
-	err := scheme.AddToScheme(scheme.Scheme)
-	if err != nil {
-		log.Error(err, "failed to add to scheme")
-		return nil
-	}
-	eventBroadcaster := record.NewBroadcaster()
-	eventInterface := client.GetEventsInterface()
-	eventBroadcaster.StartRecordingToSink(
-		&typedcorev1.EventSinkImpl{
-			Interface: eventInterface,
-		},
-	)
-	recorder := eventBroadcaster.NewRecorder(
-		scheme.Scheme,
-		corev1.EventSource{
-			Component: eventSource.String(),
-		},
-	)
-	return recorder
 }
 
 // Add queues an event for generation
