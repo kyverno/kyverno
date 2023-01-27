@@ -505,7 +505,7 @@ grafana:
   enabled: false
 
   # -- Configmap name template.
-  configMapNameTemplate: '{{ include "kyverno.fullname" . }}-grafana'
+  configMapName: '{{ include "kyverno.fullname" . }}-grafana'
 
   # -- (string) Namespace to create the grafana dashboard configmap.
   # If not set, it will be created in the same namespace where the chart is deployed.
