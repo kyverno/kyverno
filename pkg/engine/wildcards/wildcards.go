@@ -3,7 +3,7 @@ package wildcards
 import (
 	"strings"
 
-	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -89,7 +89,7 @@ func ExpandInMetadata(patternMap, resourceMap map[string]interface{}) map[string
 
 func getPatternValue(tag string, pattern map[string]interface{}) (string, interface{}) {
 	for k, v := range pattern {
-		k2, _ := commonAnchor.RemoveAnchor(k)
+		k2, _ := anchor.RemoveAnchor(k)
 		if k2 == tag {
 			return k, v
 		}
@@ -140,13 +140,13 @@ func replaceWildcardsInMapKeys(patternData, resourceData map[string]string) map[
 	results := map[string]interface{}{}
 	for k, v := range patternData {
 		if wildcard.ContainsWildcard(k) {
-			anchorFreeKey, anchorPrefix := commonAnchor.RemoveAnchor(k)
-			matchK, _ := expandWildcards(anchorFreeKey, v, resourceData, false, false)
-			if anchorPrefix != "" {
-				matchK = commonAnchor.AddAnchor(matchK, anchorPrefix)
+			if a := anchor.Parse(k); a != nil {
+				matchK, _ := expandWildcards(a.Key(), v, resourceData, false, false)
+				results[anchor.String(a.Type(), matchK)] = v
+			} else {
+				matchK, _ := expandWildcards(k, v, resourceData, false, false)
+				results[matchK] = v
 			}
-
-			results[matchK] = v
 		} else {
 			results[k] = v
 		}

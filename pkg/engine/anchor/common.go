@@ -9,15 +9,15 @@ import (
 type AnchorType string
 
 const (
-	ConditionAnchor       AnchorType = ""
-	GlobalAnchor          AnchorType = "<"
-	NegationAnchor        AnchorType = "X"
-	AddIfNotPresentAnchor AnchorType = "+"
-	EqualityAnchor        AnchorType = "="
-	ExistenceAnchor       AnchorType = "^"
+	Condition       AnchorType = ""
+	Global          AnchorType = "<"
+	Negation        AnchorType = "X"
+	AddIfNotPresent AnchorType = "+"
+	Equality        AnchorType = "="
+	Existence       AnchorType = "^"
 )
 
-var regex = regexp.MustCompile(`^(?P<modifier>[+<=X^])?\((?P<key>\w+)\)$`)
+var regex = regexp.MustCompile(`^(?P<modifier>[+<=X^])?\((?P<key>.+)\)$`)
 
 // Anchor interface
 type Anchor interface {
@@ -44,7 +44,7 @@ type Anchor interface {
 }
 
 type anchor struct {
-	modifier string
+	modifier AnchorType
 	key      string
 }
 
@@ -55,14 +55,31 @@ func Parse(str string) Anchor {
 	if len(values) == 0 {
 		return nil
 	}
-	return &anchor{
-		modifier: values[1],
-		key:      values[2],
+	return New(AnchorType(values[1]), values[2])
+}
+
+// New creates an anchor
+func New(modifier AnchorType, key string) Anchor {
+	if key == "" {
+		return nil
+	}
+	return anchor{
+		modifier: modifier,
+		key:      key,
 	}
 }
 
+// String returns the anchor string.
+// Will return an empty string if key is empty.
+func String(modifier AnchorType, key string) string {
+	if key == "" {
+		return ""
+	}
+	return string(modifier) + "(" + key + ")"
+}
+
 func (ah anchor) Type() AnchorType {
-	return AnchorType(ah.key)
+	return ah.modifier
 }
 
 func (ah anchor) Key() string {
@@ -70,15 +87,15 @@ func (ah anchor) Key() string {
 }
 
 func (ah anchor) String() string {
-	return ah.modifier + "(" + ah.key + ")"
+	return String(ah.modifier, ah.key)
 }
 
 func (ah anchor) IsCondition() bool {
-	return ah.modifier == string(ConditionAnchor)
+	return ah.modifier == Condition
 }
 
 func (ah anchor) IsGlobal() bool {
-	return ah.modifier == string(GlobalAnchor)
+	return ah.modifier == Global
 }
 
 func (ah anchor) ContainsCondition() bool {
@@ -86,19 +103,19 @@ func (ah anchor) ContainsCondition() bool {
 }
 
 func (ah anchor) IsNegation() bool {
-	return ah.modifier == string(NegationAnchor)
+	return ah.modifier == Negation
 }
 
 func (ah anchor) IsAddIfNotPresent() bool {
-	return ah.modifier == string(AddIfNotPresentAnchor)
+	return ah.modifier == AddIfNotPresent
 }
 
 func (ah anchor) IsEquality() bool {
-	return ah.modifier == string(EqualityAnchor)
+	return ah.modifier == Equality
 }
 
 func (ah anchor) IsExistence() bool {
-	return ah.modifier == string(ExistenceAnchor)
+	return ah.modifier == Existence
 }
 
 // RemoveAnchor remove anchor from the given key. It returns
@@ -106,9 +123,9 @@ func (ah anchor) IsExistence() bool {
 func RemoveAnchor(key string) (string, string) {
 	ah := Parse(key)
 	if ah == nil {
-		return "", ""
+		return key, ""
 	}
-	return ah.Key(), ""
+	return ah.Key(), string(ah.Type()) + "("
 }
 
 // RemoveAnchorsFromPath removes all anchor from path string
@@ -127,10 +144,4 @@ func RemoveAnchorsFromPath(str string) string {
 		newPath = "/" + newPath
 	}
 	return newPath
-}
-
-// AddAnchor adds an anchor with the supplied prefix.
-// The suffix is assumed to be ")".
-func AddAnchor(key, anchorPrefix string) string {
-	return anchorPrefix + key + ")"
 }
