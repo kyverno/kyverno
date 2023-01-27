@@ -2,6 +2,7 @@ package anchor
 
 import (
 	"path"
+	"regexp"
 	"strings"
 )
 
@@ -10,24 +11,22 @@ type IsAnchor func(str string) bool
 
 // IsConditionAnchor checks for condition anchor
 func IsConditionAnchor(str string) bool {
-	if len(str) < 2 {
+	str = strings.TrimSpace(str)
+	match, err := regexp.MatchString(`^\((.*)\)$`, str)
+	if err != nil {
 		return false
 	}
-
-	return (str[0] == '(' && str[len(str)-1] == ')')
+	return match
 }
 
 // IsGlobalAnchor checks for global condition anchor
 func IsGlobalAnchor(str string) bool {
-	left := "<("
-	right := ")"
-	if len(str) < len(left)+len(right) {
+	str = strings.TrimSpace(str)
+	match, err := regexp.MatchString(`^<\((.*)\)$`, str)
+	if err != nil {
 		return false
 	}
-
-	leftMatch := strings.TrimSpace(str[:len(left)]) == left
-	rightMatch := strings.TrimSpace(str[len(str)-len(right):]) == right
-	return leftMatch && rightMatch
+	return match
 }
 
 // ContainsCondition returns true, if str is either condition anchor or
@@ -38,54 +37,42 @@ func ContainsCondition(str string) bool {
 
 // IsNegationAnchor checks for negation anchor
 func IsNegationAnchor(str string) bool {
-	left := "X("
-	right := ")"
-	if len(str) < len(left)+len(right) {
+	str = strings.TrimSpace(str)
+	match, err := regexp.MatchString(`^X\((.*)\)$`, str)
+	if err != nil {
 		return false
 	}
-	// TODO: trim spaces ?
-	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
+	return match
 }
 
 // IsAddIfNotPresentAnchor checks for addition anchor
-func IsAddIfNotPresentAnchor(key string) bool {
-	const left = "+("
-	const right = ")"
-
-	if len(key) < len(left)+len(right) {
+func IsAddIfNotPresentAnchor(str string) bool {
+	str = strings.TrimSpace(str)
+	match, err := regexp.MatchString(`^\+\((.*)\)$`, str)
+	if err != nil {
 		return false
 	}
-
-	return left == key[:len(left)] && right == key[len(key)-len(right):]
+	return match
 }
 
 // IsEqualityAnchor checks for equality anchor
 func IsEqualityAnchor(str string) bool {
-	left := "=("
-	right := ")"
-	if len(str) < len(left)+len(right) {
+	str = strings.TrimSpace(str)
+	match, err := regexp.MatchString(`^=\((.*)\)$`, str)
+	if err != nil {
 		return false
 	}
-	// TODO: trim spaces ?
-	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
+	return match
 }
 
 // IsExistenceAnchor checks for existence anchor
 func IsExistenceAnchor(str string) bool {
-	left := "^("
-	right := ")"
-
-	if len(str) < len(left)+len(right) {
+	str = strings.TrimSpace(str)
+	match, err := regexp.MatchString(`^\^\((.*)\)$`, str)
+	if err != nil {
 		return false
 	}
-
-	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
-}
-
-// IsNonAnchor checks that key does not have any anchor
-func IsNonAnchor(str string) bool {
-	key, _ := RemoveAnchor(str)
-	return str == key
+	return match
 }
 
 // RemoveAnchor remove anchor from the given key. It returns
