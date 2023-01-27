@@ -130,7 +130,8 @@ func (ac *AnchorKey) CheckAnchorInResource(pattern interface{}, resource interfa
 	switch typed := pattern.(type) {
 	case map[string]interface{}:
 		for key := range typed {
-			if IsConditionAnchor(key) || IsExistenceAnchor(key) || IsNegationAnchor(key) {
+			anchor := ParseAnchor(key)
+			if anchor.IsConditionAnchor() || anchor.IsExistenceAnchor() || anchor.IsNegationAnchor() {
 				val, ok := ac.anchorMap[key]
 				if !ok {
 					ac.anchorMap[key] = false

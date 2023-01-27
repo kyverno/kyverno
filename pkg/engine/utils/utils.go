@@ -50,7 +50,8 @@ func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{}
 	result := make(map[string]interface{})
 
 	for key, value := range anchorsMap {
-		if commonAnchor.IsConditionAnchor(key) {
+		ah := commonAnchor.ParseAnchor(key)
+		if ah.IsConditionAnchor() {
 			result[key] = value
 		}
 	}

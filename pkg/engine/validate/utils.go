@@ -44,7 +44,8 @@ func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List 
 
 	for _, k := range keys {
 		v := resources[k]
-		if commonAnchors.IsGlobalAnchor(k) {
+		ah := commonAnchors.ParseAnchor(k)
+		if ah.IsGlobalAnchor() {
 			sortedResourceKeys.PushFront(k)
 			continue
 		}
@@ -61,7 +62,8 @@ func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List 
 func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for key, value := range anchorsMap {
-		if commonAnchors.IsConditionAnchor(key) || commonAnchors.IsExistenceAnchor(key) || commonAnchors.IsEqualityAnchor(key) || commonAnchors.IsNegationAnchor(key) || commonAnchors.IsGlobalAnchor(key) {
+		ah := commonAnchors.ParseAnchor(key)
+		if ah.IsConditionAnchor() || ah.IsExistenceAnchor() || ah.IsEqualityAnchor() || ah.IsNegationAnchor() || ah.IsGlobalAnchor() {
 			result[key] = value
 		}
 	}
