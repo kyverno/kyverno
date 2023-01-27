@@ -61,7 +61,7 @@ func (nh NegationHandler) Handle(handler resourceElementHandler, resourceMap map
 	// if anchor is present in the resource then fail
 	if _, ok := resourceMap[anchorKey]; ok {
 		// no need to process elements in value as key cannot be present in resource
-		ac.AnchorError = NewNegationAnchorError(fmt.Sprintf("%s is not allowed", currentPath))
+		ac.AnchorError = newNegationAnchorError(fmt.Sprintf("%s is not allowed", currentPath))
 		return currentPath, ac.AnchorError.Error()
 	}
 	// key is not defined in the resource
@@ -157,13 +157,13 @@ func (ch ConditionAnchorHandler) Handle(handler resourceElementHandler, resource
 		// validate the values of the pattern
 		returnPath, err := handler(logging.GlobalLogger(), value, ch.pattern, originPattern, currentPath, ac)
 		if err != nil {
-			ac.AnchorError = NewConditionalAnchorError(err.Error())
+			ac.AnchorError = newConditionalAnchorError(err.Error())
 			return returnPath, ac.AnchorError.Error()
 		}
 		return "", nil
 	} else {
 		msg := "conditional anchor key doesn't exist in the resource"
-		return currentPath, NewConditionalAnchorError(msg).Error()
+		return currentPath, newConditionalAnchorError(msg).Error()
 	}
 }
 
@@ -192,7 +192,7 @@ func (gh GlobalAnchorHandler) Handle(handler resourceElementHandler, resourceMap
 		// validate the values of the pattern
 		returnPath, err := handler(logging.GlobalLogger(), value, gh.pattern, originPattern, currentPath, ac)
 		if err != nil {
-			ac.AnchorError = NewGlobalAnchorError(err.Error())
+			ac.AnchorError = newGlobalAnchorError(err.Error())
 			return returnPath, ac.AnchorError.Error()
 		}
 		return "", nil
@@ -278,6 +278,5 @@ func GetAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]i
 		}
 		resources[key] = value
 	}
-
 	return anchors, resources
 }
