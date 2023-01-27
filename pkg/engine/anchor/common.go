@@ -20,26 +20,37 @@ const (
 
 var regex = regexp.MustCompile(`^(?P<modifier>[+<=X^])?\((?P<key>\w+)\)$`)
 
-type AnchorHandler struct {
+type Anchor interface {
+	IsConditionAnchor() bool
+	IsGlobalAnchor() bool
+	ContainsCondition() bool
+	IsNegationAnchor() bool
+	IsAddIfNotPresentAnchor() bool
+	IsEqualityAnchor() bool
+	IsExistenceAnchor() bool
+	IsAnchor() bool
+	Type() AnchorType
+}
+type anchor struct {
 	modifier string
 	key      string
 }
 
-func ParseAnchor(str string) *AnchorHandler {
+func ParseAnchor(str string) *anchor {
 	str = strings.TrimSpace(str)
 	values := regex.FindStringSubmatch(str)
 	if len(values) == 0 {
 		return nil
 	}
 
-	return &AnchorHandler{
+	return &anchor{
 		modifier: values[1],
 		key:      values[2],
 	}
 }
 
 // IsConditionAnchor checks for condition anchor
-func (ah *AnchorHandler) IsConditionAnchor() bool {
+func (ah *anchor) IsConditionAnchor() bool {
 	if ah != nil && ah.modifier == string(ConditionAnchor) {
 		return true
 	}
@@ -47,7 +58,7 @@ func (ah *AnchorHandler) IsConditionAnchor() bool {
 }
 
 // IsGlobalAnchor checks for global condition anchor
-func (ah *AnchorHandler) IsGlobalAnchor() bool {
+func (ah *anchor) IsGlobalAnchor() bool {
 	if ah != nil && ah.modifier == string(GlobalAnchor) {
 		return true
 	}
@@ -56,12 +67,12 @@ func (ah *AnchorHandler) IsGlobalAnchor() bool {
 
 // ContainsCondition returns true, if str is either condition anchor or
 // global condition anchor
-func (ah *AnchorHandler) ContainsCondition() bool {
+func (ah *anchor) ContainsCondition() bool {
 	return ah.IsConditionAnchor() || ah.IsGlobalAnchor()
 }
 
 // IsNegationAnchor checks for negation anchor
-func (ah *AnchorHandler) IsNegationAnchor() bool {
+func (ah *anchor) IsNegationAnchor() bool {
 	if ah != nil && ah.modifier == string(NegationAnchor) {
 		return true
 	}
@@ -69,7 +80,7 @@ func (ah *AnchorHandler) IsNegationAnchor() bool {
 }
 
 // IsAddIfNotPresentAnchor checks for addition anchor
-func (ah *AnchorHandler) IsAddIfNotPresentAnchor() bool {
+func (ah *anchor) IsAddIfNotPresentAnchor() bool {
 	if ah != nil && ah.modifier == string(AddIfNotPresentAnchor) {
 		return true
 	}
@@ -77,7 +88,7 @@ func (ah *AnchorHandler) IsAddIfNotPresentAnchor() bool {
 }
 
 // IsEqualityAnchor checks for equality anchor
-func (ah *AnchorHandler) IsEqualityAnchor() bool {
+func (ah *anchor) IsEqualityAnchor() bool {
 	if ah != nil && ah.modifier == string(EqualityAnchor) {
 		return true
 	}
@@ -85,18 +96,18 @@ func (ah *AnchorHandler) IsEqualityAnchor() bool {
 }
 
 // IsExistenceAnchor checks for existence anchor
-func (ah *AnchorHandler) IsExistenceAnchor() bool {
+func (ah *anchor) IsExistenceAnchor() bool {
 	if ah != nil && ah.modifier == string(ExistenceAnchor) {
 		return true
 	}
 	return false
 }
 
-func (ah *AnchorHandler) IsAnchor(key AnchorType) bool {
+func (ah *anchor) IsAnchor(key AnchorType) bool {
 	return ah != nil && ah.key == string(key)
 }
 
-func (ah *AnchorHandler) Type() (AnchorType, error) {
+func (ah *anchor) Type() (AnchorType, error) {
 	if ah == nil {
 		return ConditionAnchor, errors.New("invalid string")
 	}
