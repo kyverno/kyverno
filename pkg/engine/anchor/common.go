@@ -1,7 +1,6 @@
 package anchor
 
 import (
-	"errors"
 	"path"
 	"regexp"
 	"strings"
@@ -29,7 +28,7 @@ type Anchor interface {
 	IsEqualityAnchor() bool
 	IsExistenceAnchor() bool
 	IsAnchor() bool
-	Type() (AnchorType, error)
+	Type() AnchorType
 	Key() string
 }
 
@@ -44,7 +43,6 @@ func ParseAnchor(str string) Anchor {
 	if len(values) == 0 {
 		return nil
 	}
-
 	return &anchor{
 		modifier: values[1],
 		key:      values[2],
@@ -52,75 +50,51 @@ func ParseAnchor(str string) Anchor {
 }
 
 // IsConditionAnchor checks for condition anchor
-func (ah *anchor) IsConditionAnchor() bool {
-	if ah != nil && ah.modifier == string(ConditionAnchor) {
-		return true
-	}
-	return false
+func (ah anchor) IsConditionAnchor() bool {
+	return ah.modifier == string(ConditionAnchor)
 }
 
 // IsGlobalAnchor checks for global condition anchor
-func (ah *anchor) IsGlobalAnchor() bool {
-	if ah != nil && ah.modifier == string(GlobalAnchor) {
-		return true
-	}
-	return false
+func (ah anchor) IsGlobalAnchor() bool {
+	return ah.modifier == string(GlobalAnchor)
 }
 
 // ContainsCondition returns true, if str is either condition anchor or
 // global condition anchor
-func (ah *anchor) ContainsCondition() bool {
+func (ah anchor) ContainsCondition() bool {
 	return ah.IsConditionAnchor() || ah.IsGlobalAnchor()
 }
 
 // IsNegationAnchor checks for negation anchor
-func (ah *anchor) IsNegationAnchor() bool {
-	if ah != nil && ah.modifier == string(NegationAnchor) {
-		return true
-	}
-	return false
+func (ah anchor) IsNegationAnchor() bool {
+	return ah.modifier == string(NegationAnchor)
 }
 
 // IsAddIfNotPresentAnchor checks for addition anchor
-func (ah *anchor) IsAddIfNotPresentAnchor() bool {
-	if ah != nil && ah.modifier == string(AddIfNotPresentAnchor) {
-		return true
-	}
-	return false
+func (ah anchor) IsAddIfNotPresentAnchor() bool {
+	return ah.modifier == string(AddIfNotPresentAnchor)
 }
 
 // IsEqualityAnchor checks for equality anchor
-func (ah *anchor) IsEqualityAnchor() bool {
-	if ah != nil && ah.modifier == string(EqualityAnchor) {
-		return true
-	}
-	return false
+func (ah anchor) IsEqualityAnchor() bool {
+	return ah.modifier == string(EqualityAnchor)
 }
 
 // IsExistenceAnchor checks for existence anchor
-func (ah *anchor) IsExistenceAnchor() bool {
-	if ah != nil && ah.modifier == string(ExistenceAnchor) {
-		return true
-	}
-	return false
+func (ah anchor) IsExistenceAnchor() bool {
+	return ah.modifier == string(ExistenceAnchor)
 }
 
 // IsAnchor checks for existence anchor
-func (ah *anchor) IsAnchor() bool {
-	return ah != nil && ah.key != ""
+func (ah anchor) IsAnchor() bool {
+	return ah.key != ""
 }
 
-func (ah *anchor) Type() (AnchorType, error) {
-	if ah == nil {
-		return ConditionAnchor, errors.New("invalid string")
-	}
-	return AnchorType(ah.key), nil
+func (ah anchor) Type() AnchorType {
+	return AnchorType(ah.key)
 }
 
-func (ah *anchor) Key() string {
-	if ah == nil {
-		return ""
-	}
+func (ah anchor) Key() string {
 	return ah.key
 }
 
