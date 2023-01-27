@@ -153,16 +153,16 @@ existingImagePullSecrets: []
 test:
 
   image:
-    # -- Image registry
-    registry:
+    # -- (string) Image registry
+    registry: ~
     # -- Image repository
     repository: busybox
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 1.35
-    # -- Image pull policy
+    tag: '1.35'
+    # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
-    pullPolicy:
+    pullPolicy: ~
 
   resources:
     # -- Pod resource limits
@@ -204,8 +204,8 @@ rbac:
       # example.com/annotation: value
 
 image:
-  # -- Image registry
-  registry:
+  # -- (string) Image registry
+  registry: ~
   # If you want to manage the registry you should remove it from the repository
   # registry: ghcr.io
   # repository: kyverno/kyverno
@@ -221,8 +221,8 @@ image:
   # - secretName
 
 initImage:
-  # -- Image registry
-  registry:
+  # -- (string) Image registry
+  registry: ~
   # If you want to manage the registry you should remove it from the repository
   # registry: ghcr.io
   # repository: kyverno/kyvernopre
@@ -536,8 +536,8 @@ cleanupController:
   createSelfSignedCert: false
 
   image:
-    # -- Image registry
-    registry:
+    # -- (string) Image registry
+    registry: ~
     # If you want to manage the registry you should remove it from the repository
     # registry: ghcr.io
     # repository: kyverno/kyverno
@@ -780,8 +780,8 @@ reportsController:
       #     - pods
 
   image:
-    # -- Image registry
-    registry:
+    # -- (string) Image registry
+    registry: ~
     # If you want to manage the registry you should remove it from the repository
     # registry: ghcr.io
     # repository: kyverno/kyverno

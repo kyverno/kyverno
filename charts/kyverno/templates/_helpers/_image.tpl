@@ -1,9 +1,13 @@
 {{/* vim: set filetype=mustache: */}}
 
 {{- define "kyverno.image" -}}
+{{- $tag := default .defaultTag .image.tag -}}
+{{- if not (typeIs "string" $tag) -}}
+    {{ fail "Image tags must be strings." }}
+{{- end -}}
 {{- if .image.registry -}}
-  {{- printf "%s/%s:%s" .image.registry (required "An image repository is required" .image.repository) (default .defaultTag .image.tag) -}}
+  {{- print .image.registry "/" (required "An image repository is required" .image.repository) ":" $tag -}}
 {{- else -}}
-  {{- printf "%s:%s" (required "An image repository is required" .image.repository) (default .defaultTag .image.tag) -}}
+  {{- print (required "An image repository is required" .image.repository) ":" $tag -}}
 {{- end -}}
 {{- end -}}
