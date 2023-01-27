@@ -308,7 +308,7 @@ func isMappingNode(node *yaml.RNode) bool {
 }
 
 func hasAnchor(a anchor.Anchor) bool {
-	return a != nil && (a.ContainsCondition() || a.IsAddIfNotPresent())
+	return a != nil && (anchor.ContainsCondition(a) || a.IsAddIfNotPresent())
 }
 
 func hasAnchors(pattern *yaml.RNode, isAnchor func(anchor.Anchor) bool) bool {
@@ -332,8 +332,7 @@ func hasAnchors(pattern *yaml.RNode, isAnchor func(anchor.Anchor) bool) bool {
 			}
 		}
 	} else if ynode.Kind == yaml.ScalarNode {
-		a := anchor.Parse(ynode.Value)
-		return a != nil && a.ContainsCondition()
+		return anchor.ContainsCondition(anchor.Parse(ynode.Value))
 	} else if ynode.Kind == yaml.SequenceNode {
 		elements, _ := pattern.Elements()
 		for _, e := range elements {
@@ -403,8 +402,7 @@ func deleteConditionElements(pattern *yaml.RNode) error {
 	}
 
 	for _, field := range fields {
-		a := anchor.Parse(field)
-		deleteScalar := a.ContainsCondition()
+		deleteScalar := anchor.ContainsCondition(anchor.Parse(field))
 		canDelete, err := deleteAnchors(pattern.Field(field).Value, deleteScalar, false)
 		if err != nil {
 			return err
@@ -440,7 +438,7 @@ func deleteAnchors(node *yaml.RNode, deleteScalar, traverseMappingNodes bool) (b
 }
 
 func deleteAnchorsInMap(node *yaml.RNode, traverseMappingNodes bool) (bool, error) {
-	conditions, err := filterKeys(node, anchor.Anchor.ContainsCondition)
+	conditions, err := filterKeys(node, anchor.ContainsCondition)
 	if err != nil {
 		return false, err
 	}
@@ -500,7 +498,7 @@ func deleteAnchorsInMap(node *yaml.RNode, traverseMappingNodes bool) (bool, erro
 // If key is "" all anchor fields are stripped. Otherwise, only the matching
 // field is stripped.
 func stripAnchorsFromNode(node *yaml.RNode, key string) error {
-	anchors, err := filterKeys(node, anchor.Anchor.ContainsCondition)
+	anchors, err := filterKeys(node, anchor.ContainsCondition)
 	if err != nil {
 		return err
 	}
