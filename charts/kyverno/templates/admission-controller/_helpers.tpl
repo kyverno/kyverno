@@ -35,5 +35,8 @@
 {{- end -}}
 
 {{- define "kyverno.admission-controller.securityContext" -}}
-{{- template "kyverno.securityContext" (dict "version" .Capabilities.KubeVersion.Version "securityContext" .Values.securityContext) -}}
+{{- template "kyverno.securityContext" (dict
+  "version"         .Capabilities.KubeVersion.Version
+  "securityContext" .Values.securityContext
+) -}}
 {{- end -}}
