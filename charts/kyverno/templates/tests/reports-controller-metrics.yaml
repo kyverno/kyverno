@@ -20,7 +20,7 @@ spec:
       {{- end }}
       {{- with .Values.test.securityContext }}
       securityContext:
-        {{- include "kyverno.securityContext" . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       command:
         - /bin/sh

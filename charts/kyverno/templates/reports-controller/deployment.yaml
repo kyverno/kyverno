@@ -120,7 +120,7 @@ spec:
           {{- end }}
           {{- with .Values.reportsController.securityContext }}
           securityContext:
-            {{- include "kyverno.securityContext" . | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
 {{- end -}}
 {{- end -}}
