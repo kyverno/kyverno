@@ -29,3 +29,7 @@
     {{ default "default" .Values.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
+
+{{- define "kyverno.admission-controller.serviceName" -}}
+{{- printf "%s-svc" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}

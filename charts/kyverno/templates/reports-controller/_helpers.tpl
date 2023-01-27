@@ -46,17 +46,3 @@
 {{ toYaml .Values.reportsController.securityContext }}
 {{- end }}
 {{- end }}
-
-{{/* Create the default PodDisruptionBudget to use */}}
-{{- define "kyverno.reports-controller.podDisruptionBudget.spec" -}}
-{{- if and .Values.reportsController.podDisruptionBudget.minAvailable .Values.reportsController.podDisruptionBudget.maxUnavailable }}
-{{- fail "Cannot set both .Values.reportsController.podDisruptionBudget.minAvailable and .Values.reportsController.podDisruptionBudget.maxUnavailable" -}}
-{{- end }}
-{{- if not .Values.reportsController.podDisruptionBudget.maxUnavailable }}
-minAvailable: {{ default 1 .Values.reportsController.podDisruptionBudget.minAvailable }}
-{{- end }}
-{{- if .Values.reportsController.podDisruptionBudget.maxUnavailable }}
-maxUnavailable: {{ .Values.reportsController.podDisruptionBudget.maxUnavailable }}
-{{- end }}
-{{- end }}
-

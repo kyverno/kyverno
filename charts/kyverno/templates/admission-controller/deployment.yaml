@@ -3,9 +3,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "kyverno.fullname" . }}
+  namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
-  namespace: {{ template "kyverno.namespace" . }}
 spec:
   {{- with .Values.replicaCount }}
   replicas: {{ . }}
@@ -148,7 +148,7 @@ spec:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
           - name: KYVERNO_SVC
-            value: {{ template "kyverno.serviceName" . }}
+            value: {{ template "kyverno.admission-controller.serviceName" . }}
           - name: TUF_ROOT
             value: {{ .Values.tufRootMountPath }}
           {{- with .Values.envVars }}
