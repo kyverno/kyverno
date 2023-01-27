@@ -29,14 +29,16 @@ type Anchor interface {
 	IsEqualityAnchor() bool
 	IsExistenceAnchor() bool
 	IsAnchor() bool
-	Type() AnchorType
+	Type() (AnchorType, error)
+	Key() string
 }
+
 type anchor struct {
 	modifier string
 	key      string
 }
 
-func ParseAnchor(str string) *anchor {
+func ParseAnchor(str string) Anchor {
 	str = strings.TrimSpace(str)
 	values := regex.FindStringSubmatch(str)
 	if len(values) == 0 {
@@ -103,8 +105,9 @@ func (ah *anchor) IsExistenceAnchor() bool {
 	return false
 }
 
-func (ah *anchor) IsAnchor(key AnchorType) bool {
-	return ah != nil && ah.key == string(key)
+// IsAnchor checks for existence anchor
+func (ah *anchor) IsAnchor() bool {
+	return ah != nil && ah.key != ""
 }
 
 func (ah *anchor) Type() (AnchorType, error) {
@@ -114,6 +117,13 @@ func (ah *anchor) Type() (AnchorType, error) {
 	return AnchorType(ah.key), nil
 }
 
+func (ah *anchor) Key() string {
+	if ah == nil {
+		return ""
+	}
+	return ah.key
+}
+
 // RemoveAnchor remove anchor from the given key. It returns
 // the anchor-free tag value and the prefix of the anchor.
 func RemoveAnchor(key string) (string, string) {
@@ -121,7 +131,7 @@ func RemoveAnchor(key string) (string, string) {
 	if ah == nil {
 		return "", ""
 	}
-	return ah.key, ""
+	return ah.Key(), ""
 }
 
 // RemoveAnchorsFromPath removes all anchor from path string

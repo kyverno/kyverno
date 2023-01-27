@@ -8,7 +8,7 @@ import (
 )
 
 // ValidatePattern validates the pattern
-func ValidatePattern(patternElement interface{}, path string, isSupported func(anchor.AnchorHandler) bool) (string, error) {
+func ValidatePattern(patternElement interface{}, path string, isSupported func(anchor.Anchor) bool) (string, error) {
 	switch typedPatternElement := patternElement.(type) {
 	case map[string]interface{}:
 		return validateMap(typedPatternElement, path, isSupported)
@@ -22,7 +22,7 @@ func ValidatePattern(patternElement interface{}, path string, isSupported func(a
 	}
 }
 
-func validateMap(patternMap map[string]interface{}, path string, isSupported func(anchor.AnchorHandler) bool) (string, error) {
+func validateMap(patternMap map[string]interface{}, path string, isSupported func(anchor.Anchor) bool) (string, error) {
 	// check if anchors are defined
 	for key, value := range patternMap {
 		// if key is anchor
@@ -31,7 +31,7 @@ func validateMap(patternMap map[string]interface{}, path string, isSupported fun
 		if a != nil {
 			// some type of anchor
 			// check if valid anchor
-			if !checkAnchors(*a, isSupported) {
+			if !checkAnchors(a, isSupported) {
 				return path + "/" + key, fmt.Errorf("unsupported anchor %s", key)
 			}
 			// addition check for existence anchor
@@ -55,7 +55,7 @@ func validateMap(patternMap map[string]interface{}, path string, isSupported fun
 	return "", nil
 }
 
-func validateArray(patternArray []interface{}, path string, isSupported func(anchor.AnchorHandler) bool) (string, error) {
+func validateArray(patternArray []interface{}, path string, isSupported func(anchor.Anchor) bool) (string, error) {
 	for i, patternElement := range patternArray {
 		currentPath := path + strconv.Itoa(i) + "/"
 		// lets validate the values now :)
@@ -66,7 +66,7 @@ func validateArray(patternArray []interface{}, path string, isSupported func(anc
 	return "", nil
 }
 
-func checkAnchors(a anchor.AnchorHandler, isSupported func(anchor.AnchorHandler) bool) bool {
+func checkAnchors(a anchor.Anchor, isSupported func(anchor.Anchor) bool) bool {
 	if isSupported == nil {
 		return false
 	}

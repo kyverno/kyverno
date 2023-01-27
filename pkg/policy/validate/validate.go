@@ -30,7 +30,7 @@ func (v *Validate) Validate() (string, error) {
 	}
 
 	if target := v.rule.GetPattern(); target != nil {
-		if path, err := common.ValidatePattern(target, "/", func(a anchor.AnchorHandler) bool {
+		if path, err := common.ValidatePattern(target, "/", func(a anchor.Anchor) bool {
 			return a.IsConditionAnchor() ||
 				a.IsExistenceAnchor() ||
 				a.IsEqualityAnchor() ||
@@ -47,7 +47,7 @@ func (v *Validate) Validate() (string, error) {
 			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
 		}
 		for i, pattern := range anyPattern {
-			if path, err := common.ValidatePattern(pattern, "/", func(a anchor.AnchorHandler) bool {
+			if path, err := common.ValidatePattern(pattern, "/", func(a anchor.Anchor) bool {
 				return a.IsConditionAnchor() ||
 					a.IsExistenceAnchor() ||
 					a.IsEqualityAnchor() ||
