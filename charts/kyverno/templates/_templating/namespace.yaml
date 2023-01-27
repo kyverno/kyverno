@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ template "kyverno.namespace" . }}
+  name: {{ include "kyverno.namespace" . }}
   labels:
-    {{- include "kyverno.labels" . | nindent 4 }}
+    {{- include "kyverno.templating.labels" . | nindent 4 }}
 {{- end -}}
