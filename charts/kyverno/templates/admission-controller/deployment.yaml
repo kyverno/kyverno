@@ -88,7 +88,7 @@ spec:
           {{- end }}
           {{- with .Values.securityContext }}
           securityContext:
-            {{- include "kyverno.admission-controller.securityContext" $ | nindent 12 }}
+            {{- include "kyverno.securityContext" . | nindent 12 }}
           {{- end }}
           env:
           - name: METRICS_CONFIG
@@ -127,7 +127,7 @@ spec:
           {{- end }}
           {{- with .Values.securityContext }}
           securityContext:
-            {{- include "kyverno.admission-controller.securityContext" $ | nindent 12 }}
+            {{- include "kyverno.securityContext" . | nindent 12 }}
           {{- end }}
           ports:
           - containerPort: 9443

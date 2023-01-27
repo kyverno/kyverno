@@ -18,13 +18,6 @@
 helm.sh/hook: test
 {{- end -}}
 
-{{- define "kyverno.test.securityContext" -}}
-{{- template "kyverno.securityContext" (dict 
-  "version"         .Capabilities.KubeVersion.Version
-  "securityContext" .Values.test.securityContext
-) -}}
-{{- end -}}
-
 {{- define "kyverno.test.image" -}}
 {{- template "kyverno.image" (dict "image" .Values.test.image "defaultTag" "latest") -}}
 {{- end -}}

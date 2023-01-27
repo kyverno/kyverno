@@ -37,10 +37,3 @@
     {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.reportsController.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
-
-{{- define "kyverno.reports-controller.securityContext" -}}
-{{- template "kyverno.securityContext" (dict 
-  "version"         .Capabilities.KubeVersion.Version
-  "securityContext" .Values.reportsController.securityContext
-) -}}
-{{- end -}}

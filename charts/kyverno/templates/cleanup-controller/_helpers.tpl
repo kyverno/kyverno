@@ -37,10 +37,3 @@
     {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.cleanupController.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
-
-{{- define "kyverno.cleanup-controller.securityContext" -}}
-{{- template "kyverno.securityContext" (dict 
-  "version"         .Capabilities.KubeVersion.Version
-  "securityContext" .Values.cleanupController.securityContext
-) -}}
-{{- end -}}
