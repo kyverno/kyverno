@@ -1,17 +1,15 @@
+{{- if .Values.rbac.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:admin:reports
+  name: {{ template "kyverno.rbac.roleName" . }}:updaterequests
   labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    {{- include "kyverno.rbac.labels" . | nindent 4 }}
 rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - admissionreports
-      - clusteradmissionreports
-      - backgroundscanreports
-      - clusterbackgroundscanreports
+      - updaterequests
     verbs:
       - create
       - delete
@@ -20,3 +18,4 @@ rules:
       - patch
       - update
       - watch
+{{- end -}}
