@@ -30,7 +30,6 @@
 {{ .Release.Name }}:cleanup-controller
 {{- end -}}
 
-{{/* Create the name of the service account to use */}}
 {{- define "kyverno.cleanup-controller.serviceAccountName" -}}
 {{- if .Values.cleanupController.rbac.create -}}
     {{ default (include "kyverno.cleanup-controller.name" .) .Values.cleanupController.rbac.serviceAccount.name }}
@@ -44,18 +43,5 @@
   {{- toYaml (omit .Values.cleanupController.securityContext "seccompProfile") -}}
 {{- else -}}
   {{- toYaml .Values.cleanupController.securityContext -}}
-{{- end }}
-{{- end }}
-
-{{/* Create the default PodDisruptionBudget to use */}}
-{{- define "kyverno.cleanup-controller.podDisruptionBudget.spec" -}}
-{{- if and .Values.cleanupController.podDisruptionBudget.minAvailable .Values.cleanupController.podDisruptionBudget.maxUnavailable }}
-{{- fail "Cannot set both .Values.cleanupController.podDisruptionBudget.minAvailable and .Values.cleanupController.podDisruptionBudget.maxUnavailable" -}}
-{{- end }}
-{{- if not .Values.cleanupController.podDisruptionBudget.maxUnavailable }}
-minAvailable: {{ default 1 .Values.cleanupController.podDisruptionBudget.minAvailable }}
-{{- end }}
-{{- if .Values.cleanupController.podDisruptionBudget.maxUnavailable }}
-maxUnavailable: {{ .Values.cleanupController.podDisruptionBudget.maxUnavailable }}
 {{- end }}
 {{- end }}
