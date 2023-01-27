@@ -84,10 +84,10 @@ config:
     - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}]'
     - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}:*]'
     - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}:*]'
-    - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
-    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}]'
-    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}-metrics]'
-    - '[ServiceMonitor,{{ if .Values.serviceMonitor.namespace }}{{ .Values.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.serviceName" . }}-service-monitor]'
+    - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}-metrics]'
+    - '[ServiceMonitor,{{ if .Values.serviceMonitor.namespace }}{{ .Values.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.admission-controller.serviceName" . }}-service-monitor]'
     - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-*]'
 
   # -- Defines the `namespaceSelector` in the webhook configurations.
