@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
@@ -27,26 +26,17 @@ func validateMap(patternMap map[string]interface{}, path string, isSupported fun
 	// check if anchors are defined
 	for key, value := range patternMap {
 		// if key is anchor
-		// check regex () -> this is anchor
-		// ()
-		// single char ()
-		re, err := regexp.Compile(`^.?\(.+\)$`)
-		if err != nil {
-			return path + "/" + key, fmt.Errorf("unable to parse the field %s: %v", key, err)
-		}
-
-		matched := re.MatchString(key)
+		a := anchor.ParseAnchor(key)
 		// check the type of anchor
-		if matched {
+		if a != nil {
 			// some type of anchor
 			// check if valid anchor
-			if !checkAnchors(key, isSupported) {
+			if !checkAnchors(*a, isSupported) {
 				return path + "/" + key, fmt.Errorf("unsupported anchor %s", key)
 			}
-
 			// addition check for existence anchor
 			// value must be of type list
-			if anchor.IsExistenceAnchor(key) {
+			if a.IsExistenceAnchor() {
 				typedValue, ok := value.([]interface{})
 				if !ok {
 					return path + "/" + key, fmt.Errorf("existence anchor should have value of type list")
@@ -76,10 +66,9 @@ func validateArray(patternArray []interface{}, path string, isSupported func(anc
 	return "", nil
 }
 
-func checkAnchors(key string, isSupported func(anchor.AnchorHandler) bool) bool {
+func checkAnchors(a anchor.AnchorHandler, isSupported func(anchor.AnchorHandler) bool) bool {
 	if isSupported == nil {
 		return false
 	}
-	a := anchor.ParseAnchor(key)
-	return a != nil && isSupported(*a)
+	return isSupported(a)
 }
