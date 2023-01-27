@@ -22,8 +22,8 @@ func LoadContext(ctx context.Context, logger logr.Logger, rclient registryclient
 	}
 
 	policyName := enginectx.policy.GetName()
-	if store.GetMock() {
-		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
+	if store.IsMock() {
+		rule := store.GetPolicyRule(policyName, ruleName)
 		if rule != nil && len(rule.Values) > 0 {
 			variables := rule.Values
 			for key, value := range variables {
@@ -46,7 +46,7 @@ func LoadContext(ctx context.Context, logger logr.Logger, rclient registryclient
 				if err := loadVariable(logger, entry, enginectx); err != nil {
 					return err
 				}
-			} else if entry.APICall != nil && store.IsAllowApiCall() {
+			} else if entry.APICall != nil && store.IsApiCallAllowed() {
 				if err := loadAPIData(ctx, logger, entry, enginectx); err != nil {
 					return err
 				}

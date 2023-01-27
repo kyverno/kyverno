@@ -778,7 +778,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			os.Exit(1)
 		}
-		store.SetSubjects(subjectInfo)
+		store.SetSubject(subjectInfo.Subject)
 	}
 
 	policyFullPath := getFullPath(values.Policies, policyResourcePath, isGit)
