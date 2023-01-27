@@ -74,8 +74,8 @@ func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 		return err // do not wrap condition errors
 	}
 
-	isNotAnchor := func(key string) bool {
-		return !hasAnchor(key)
+	isNotAnchor := func(a *anchor.AnchorHandler) bool {
+		return !hasAnchor(a)
 	}
 
 	nonAnchors, err := filterKeys(pattern, isNotAnchor)
@@ -133,7 +133,7 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 	for _, patternElement := range patternElements {
 		// If pattern has conditions, look for matching elements and process them
 		hasAnyAnchor := hasAnchors(patternElement, hasAnchor)
-		hasGlobalConditions := hasAnchors(patternElement, anchor.IsGlobalAnchor)
+		hasGlobalConditions := hasAnchors(patternElement, (*anchor.AnchorHandler).IsGlobalAnchor)
 		if hasAnyAnchor {
 			anyGlobalConditionPassed := false
 			var lastGlobalAnchorError error = nil
@@ -238,12 +238,12 @@ func isGlobalConditionError(err error) bool {
 // If caller handles map, it must stop processing and skip entire rule.
 func validateConditions(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	var err error
-	err = validateConditionsInternal(logger, pattern, resource, anchor.IsGlobalAnchor)
+	err = validateConditionsInternal(logger, pattern, resource, (*anchor.AnchorHandler).IsGlobalAnchor)
 	if err != nil {
 		return NewGlobalConditionError(err)
 	}
 
-	err = validateConditionsInternal(logger, pattern, resource, anchor.IsConditionAnchor)
+	err = validateConditionsInternal(logger, pattern, resource, (*anchor.AnchorHandler).IsConditionAnchor)
 	if err != nil {
 		return NewConditionError(err)
 	}
@@ -255,7 +255,7 @@ func validateConditions(logger logr.Logger, pattern, resource *yaml.RNode) error
 // Remove anchor from pattern, if field already exists.
 // Remove anchor wrapping from key, if field does not exist in the resource.
 func handleAddIfNotPresentAnchor(pattern, resource *yaml.RNode) (int, error) {
-	anchors, err := filterKeys(pattern, anchor.IsAddIfNotPresentAnchor)
+	anchors, err := filterKeys(pattern, (*anchor.AnchorHandler).IsAddIfNotPresentAnchor)
 	if err != nil {
 		return 0, err
 	}
@@ -278,7 +278,7 @@ func handleAddIfNotPresentAnchor(pattern, resource *yaml.RNode) (int, error) {
 	return len(anchors), nil
 }
 
-func filterKeys(pattern *yaml.RNode, condition func(string) bool) ([]string, error) {
+func filterKeys(pattern *yaml.RNode, condition func(*anchor.AnchorHandler) bool) ([]string, error) {
 	if !isMappingNode(pattern) {
 		return nil, nil
 	}
@@ -290,7 +290,8 @@ func filterKeys(pattern *yaml.RNode, condition func(string) bool) ([]string, err
 	}
 
 	for _, key := range fields {
-		if condition(key) {
+		a := anchor.ParseAnchor(key)
+		if condition(a) {
 			keys = append(keys, key)
 			continue
 		}
@@ -306,11 +307,11 @@ func isMappingNode(node *yaml.RNode) bool {
 	return true
 }
 
-func hasAnchor(key string) bool {
-	return anchor.ContainsCondition(key) || anchor.IsAddIfNotPresentAnchor(key)
+func hasAnchor(a *anchor.AnchorHandler) bool {
+	return a != nil && (a.ContainsCondition() || a.IsAddIfNotPresentAnchor())
 }
 
-func hasAnchors(pattern *yaml.RNode, isAnchor func(key string) bool) bool {
+func hasAnchors(pattern *yaml.RNode, isAnchor func(*anchor.AnchorHandler) bool) bool {
 	ynode := pattern.YNode() //nolint:ifshort
 	if ynode.Kind == yaml.MappingNode {
 		fields, err := pattern.Fields()
@@ -319,10 +320,10 @@ func hasAnchors(pattern *yaml.RNode, isAnchor func(key string) bool) bool {
 		}
 
 		for _, key := range fields {
-			if isAnchor(key) {
+			a := anchor.ParseAnchor(key)
+			if isAnchor(a) {
 				return true
 			}
-
 			patternNode := pattern.Field(key)
 			if !patternNode.IsNilOrEmpty() {
 				if hasAnchors(patternNode.Value, isAnchor) {
@@ -331,8 +332,8 @@ func hasAnchors(pattern *yaml.RNode, isAnchor func(key string) bool) bool {
 			}
 		}
 	} else if ynode.Kind == yaml.ScalarNode {
-		v := ynode.Value
-		return anchor.ContainsCondition(v)
+		a := anchor.ParseAnchor(ynode.Value)
+		return a != nil && a.ContainsCondition()
 	} else if ynode.Kind == yaml.SequenceNode {
 		elements, _ := pattern.Elements()
 		for _, e := range elements {
@@ -402,7 +403,8 @@ func deleteConditionElements(pattern *yaml.RNode) error {
 	}
 
 	for _, field := range fields {
-		deleteScalar := anchor.ContainsCondition(field)
+		a := anchor.ParseAnchor(field)
+		deleteScalar := a.ContainsCondition()
 		canDelete, err := deleteAnchors(pattern.Field(field).Value, deleteScalar, false)
 		if err != nil {
 			return err
@@ -438,7 +440,7 @@ func deleteAnchors(node *yaml.RNode, deleteScalar, traverseMappingNodes bool) (b
 }
 
 func deleteAnchorsInMap(node *yaml.RNode, traverseMappingNodes bool) (bool, error) {
-	conditions, err := filterKeys(node, anchor.ContainsCondition)
+	conditions, err := filterKeys(node, (*anchor.AnchorHandler).ContainsCondition)
 	if err != nil {
 		return false, err
 	}
@@ -498,7 +500,7 @@ func deleteAnchorsInMap(node *yaml.RNode, traverseMappingNodes bool) (bool, erro
 // If key is "" all anchor fields are stripped. Otherwise, only the matching
 // field is stripped.
 func stripAnchorsFromNode(node *yaml.RNode, key string) error {
-	anchors, err := filterKeys(node, anchor.ContainsCondition)
+	anchors, err := filterKeys(node, (*anchor.AnchorHandler).ContainsCondition)
 	if err != nil {
 		return err
 	}
@@ -562,7 +564,7 @@ func deleteListElement(list *yaml.RNode, i int) {
 	list.YNode().Content = append(content[:i], content[i+1:]...)
 }
 
-func validateConditionsInternal(logger logr.Logger, pattern, resource *yaml.RNode, filter func(string) bool) error {
+func validateConditionsInternal(logger logr.Logger, pattern, resource *yaml.RNode, filter func(*anchor.AnchorHandler) bool) error {
 	conditions, err := filterKeys(pattern, filter)
 	if err != nil {
 		return err
