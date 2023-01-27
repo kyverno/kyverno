@@ -30,7 +30,6 @@
 {{ .Release.Name }}:reports-controller
 {{- end -}}
 
-{{/* Create the name of the service account to use */}}
 {{- define "kyverno.reports-controller.serviceAccountName" -}}
 {{- if .Values.reportsController.rbac.create -}}
     {{ default (include "kyverno.reports-controller.name" .) .Values.reportsController.rbac.serviceAccount.name }}
@@ -40,9 +39,8 @@
 {{- end -}}
 
 {{- define "kyverno.reports-controller.securityContext" -}}
-{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version }}
-{{ toYaml (omit .Values.reportsController.securityContext "seccompProfile") }}
-{{- else }}
-{{ toYaml .Values.reportsController.securityContext }}
-{{- end }}
-{{- end }}
+{{- template "kyverno.securityContext" (dict 
+  "version"         .Capabilities.KubeVersion.Version
+  "securityContext" .Values.reportsController.securityContext
+) -}}
+{{- end -}}

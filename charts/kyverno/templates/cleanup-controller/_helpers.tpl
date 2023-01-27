@@ -39,9 +39,8 @@
 {{- end -}}
 
 {{- define "kyverno.cleanup-controller.securityContext" -}}
-{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version -}}
-  {{- toYaml (omit .Values.cleanupController.securityContext "seccompProfile") -}}
-{{- else -}}
-  {{- toYaml .Values.cleanupController.securityContext -}}
-{{- end }}
-{{- end }}
+{{- template "kyverno.securityContext" (dict 
+  "version"         .Capabilities.KubeVersion.Version
+  "securityContext" .Values.cleanupController.securityContext
+) -}}
+{{- end -}}

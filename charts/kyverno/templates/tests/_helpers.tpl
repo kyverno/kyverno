@@ -19,13 +19,10 @@ helm.sh/hook: test
 {{- end -}}
 
 {{- define "kyverno.test.securityContext" -}}
-{{- if .Values.test.securityContext -}}
-  {{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version -}}
-    {{ toYaml (omit .Values.test.securityContext "seccompProfile") }}
-  {{- else -}}
-    {{ toYaml .Values.test.securityContext }}
-  {{- end -}}
-{{- end -}}
+{{- template "kyverno.securityContext" (dict 
+  "version"         .Capabilities.KubeVersion.Version
+  "securityContext" .Values.test.securityContext
+) -}}
 {{- end -}}
 
 {{- define "kyverno.test.image" -}}

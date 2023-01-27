@@ -29,10 +29,12 @@ spec:
       {{- end }}
     spec:
       {{- with .Values.image.pullSecrets }}
-      imagePullSecrets: {{ tpl (toYaml .) $ | nindent 8 }}
+      imagePullSecrets:
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.podSecurityContext }}
-      securityContext: {{ tpl (toYaml .) $ | nindent 8 }}
+      securityContext:
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- if or .Values.antiAffinity.enable .Values.podAffinity .Values.nodeAffinity }}
       affinity:
@@ -84,8 +86,9 @@ spec:
           {{- with .Values.initResources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if .Values.securityContext }}
-          securityContext: {{ include "kyverno.securityContext" . | nindent 12 }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- include "kyverno.admission-controller.securityContext" $ | nindent 12 }}
           {{- end }}
           env:
           - name: METRICS_CONFIG
@@ -122,8 +125,9 @@ spec:
           {{- with .Values.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if .Values.securityContext }}
-          securityContext: {{ include "kyverno.securityContext" . | nindent 12 }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- include "kyverno.admission-controller.securityContext" $ | nindent 12 }}
           {{- end }}
           ports:
           - containerPort: 9443
