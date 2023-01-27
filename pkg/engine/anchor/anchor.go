@@ -17,16 +17,21 @@ type resourceElementHandler = func(log logr.Logger, resourceElement, patternElem
 
 // CreateElementHandler factory to process elements
 func CreateElementHandler(element string, pattern interface{}, path string) ValidationHandler {
-	switch {
-	case IsConditionAnchor(element):
+	match, anchor := ParseAnchor(element)
+	if !match {
+		return NewDefaultHandler(element, pattern, path)
+	}
+
+	switch anchor.modifier {
+	case "":
 		return NewConditionAnchorHandler(element, pattern, path)
-	case IsGlobalAnchor(element):
+	case "<":
 		return NewGlobalAnchorHandler(element, pattern, path)
-	case IsExistenceAnchor(element):
+	case "^":
 		return NewExistenceHandler(element, pattern, path)
-	case IsEqualityAnchor(element):
+	case "=":
 		return NewEqualityHandler(element, pattern, path)
-	case IsNegationAnchor(element):
+	case "X":
 		return NewNegationHandler(element, pattern, path)
 	default:
 		return NewDefaultHandler(element, pattern, path)

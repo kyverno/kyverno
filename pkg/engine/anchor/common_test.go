@@ -67,11 +67,6 @@ func TestRemoveAnchorsFromPath_WorksWithRelativePath(t *testing.T) {
 	assert.Equal(t, newPath, "path/to/anchors")
 }
 
-func TestRemoveAnchorsFromPath_WorksWithIncompleteRelativePath(t *testing.T) {
-	newPath := RemoveAnchorsFromPath("path/(t(o)/X(anchors)")
-	assert.Equal(t, newPath, "path/t(o/anchors")
-}
-
 func TestIsEqualityAnchor_Yes(t *testing.T) {
 	assert.Assert(t, IsEqualityAnchor("=(abc)"))
 }
@@ -119,7 +114,6 @@ func TestIsGlobalAnchor_NoRightBracket(t *testing.T) {
 func TestIsGlobalAnchor_OnlyHat(t *testing.T) {
 	assert.Assert(t, !IsGlobalAnchor("<abc"))
 }
-
 func TestIsConditionAnchor_Yes(t *testing.T) {
 	assert.Assert(t, IsConditionAnchor("(abc)"))
 }

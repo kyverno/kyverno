@@ -9,24 +9,44 @@ import (
 // IsAnchor is a function handler
 type IsAnchor func(str string) bool
 
+type AnchorHandler struct {
+	element  string
+	modifier string
+	key      string
+}
+
+func ParseAnchor(str string) (bool, *AnchorHandler) {
+	str = strings.TrimSpace(str)
+	regex := regexp.MustCompile(`^(?P<modifier>[+<=X^])?\((?P<key>\w+)\)$`)
+	values := regex.FindStringSubmatch(str)
+
+	if len(values) == 0 {
+		return false, nil
+	}
+
+	return true, &AnchorHandler{
+		element:  values[0],
+		modifier: values[1],
+		key:      values[2],
+	}
+}
+
 // IsConditionAnchor checks for condition anchor
 func IsConditionAnchor(str string) bool {
-	str = strings.TrimSpace(str)
-	match, err := regexp.MatchString(`^\((.*)\)$`, str)
-	if err != nil {
-		return false
+	match, anchor := ParseAnchor(str)
+	if match && anchor.modifier == "" {
+		return true
 	}
-	return match
+	return false
 }
 
 // IsGlobalAnchor checks for global condition anchor
 func IsGlobalAnchor(str string) bool {
-	str = strings.TrimSpace(str)
-	match, err := regexp.MatchString(`^<\((.*)\)$`, str)
-	if err != nil {
-		return false
+	match, anchor := ParseAnchor(str)
+	if match && anchor.modifier == "<" {
+		return true
 	}
-	return match
+	return false
 }
 
 // ContainsCondition returns true, if str is either condition anchor or
@@ -37,42 +57,38 @@ func ContainsCondition(str string) bool {
 
 // IsNegationAnchor checks for negation anchor
 func IsNegationAnchor(str string) bool {
-	str = strings.TrimSpace(str)
-	match, err := regexp.MatchString(`^X\((.*)\)$`, str)
-	if err != nil {
-		return false
+	match, anchor := ParseAnchor(str)
+	if match && anchor.modifier == "X" {
+		return true
 	}
-	return match
+	return false
 }
 
 // IsAddIfNotPresentAnchor checks for addition anchor
 func IsAddIfNotPresentAnchor(str string) bool {
-	str = strings.TrimSpace(str)
-	match, err := regexp.MatchString(`^\+\((.*)\)$`, str)
-	if err != nil {
-		return false
+	match, anchor := ParseAnchor(str)
+	if match && anchor.modifier == "+" {
+		return true
 	}
-	return match
+	return false
 }
 
 // IsEqualityAnchor checks for equality anchor
 func IsEqualityAnchor(str string) bool {
-	str = strings.TrimSpace(str)
-	match, err := regexp.MatchString(`^=\((.*)\)$`, str)
-	if err != nil {
-		return false
+	match, anchor := ParseAnchor(str)
+	if match && anchor.modifier == "=" {
+		return true
 	}
-	return match
+	return false
 }
 
 // IsExistenceAnchor checks for existence anchor
 func IsExistenceAnchor(str string) bool {
-	str = strings.TrimSpace(str)
-	match, err := regexp.MatchString(`^\^\((.*)\)$`, str)
-	if err != nil {
-		return false
+	match, anchor := ParseAnchor(str)
+	if match && anchor.modifier == "^" {
+		return true
 	}
-	return match
+	return false
 }
 
 // RemoveAnchor remove anchor from the given key. It returns
