@@ -1,20 +1,11 @@
 package event
 
 // Reason types of Event Reasons
-type Reason int
+type Reason string
 
 const (
-	PolicyViolation Reason = iota
-	PolicyApplied
-	PolicyError
-	PolicySkipped
+	PolicyViolation Reason = "PolicyViolation"
+	PolicyApplied   Reason = "PolicyApplied"
+	PolicyError     Reason = "PolicyError"
+	PolicySkipped   Reason = "PolicySkipped"
 )
-
-func (r Reason) String() string {
-	return [...]string{
-		"PolicyViolation",
-		"PolicyApplied",
-		"PolicyError",
-		"PolicySkipped",
-	}[r]
-}
