@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-// IsAnchor is a function handler
-type IsAnchor func(str string) bool
 type AnchorType string
 
 const (

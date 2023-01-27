@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 )
 
@@ -30,7 +30,13 @@ func (v *Validate) Validate() (string, error) {
 	}
 
 	if target := v.rule.GetPattern(); target != nil {
-		if path, err := common.ValidatePattern(target, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
+		if path, err := common.ValidatePattern(target, "/", func(a anchor.AnchorHandler) bool {
+			return a.IsConditionAnchor() ||
+				a.IsExistenceAnchor() ||
+				a.IsEqualityAnchor() ||
+				a.IsNegationAnchor() ||
+				a.IsGlobalAnchor()
+		}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
 	}
@@ -41,7 +47,13 @@ func (v *Validate) Validate() (string, error) {
 			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
 		}
 		for i, pattern := range anyPattern {
-			if path, err := common.ValidatePattern(pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
+			if path, err := common.ValidatePattern(pattern, "/", func(a anchor.AnchorHandler) bool {
+				return a.IsConditionAnchor() ||
+					a.IsExistenceAnchor() ||
+					a.IsEqualityAnchor() ||
+					a.IsNegationAnchor() ||
+					a.IsGlobalAnchor()
+			}); err != nil {
 				return fmt.Sprintf("anyPattern[%d].%s", i, path), err
 			}
 		}
