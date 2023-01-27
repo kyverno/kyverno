@@ -8,64 +8,64 @@ import (
 
 func TestWrappedWithParentheses_StringIsWrappedWithParentheses(t *testing.T) {
 	str := "(something)"
-	anchor := ParseAnchor(str)
-	assert.Assert(t, anchor.IsConditionAnchor())
+	anchor := Parse(str)
+	assert.Assert(t, anchor.IsCondition())
 }
 
 func TestWrappedWithParentheses_StringHasOnlyParentheses(t *testing.T) {
 	str := "()"
-	anchor := ParseAnchor(str)
-	assert.Assert(t, anchor.IsConditionAnchor())
+	anchor := Parse(str)
+	assert.Assert(t, anchor.IsCondition())
 }
 
 func TestWrappedWithParentheses_StringHasNoParentheses(t *testing.T) {
 	str := "something"
-	anchor := ParseAnchor(str)
-	assert.Assert(t, !anchor.IsConditionAnchor())
+	anchor := Parse(str)
+	assert.Assert(t, !anchor.IsCondition())
 }
 
 func TestWrappedWithParentheses_StringHasLeftParentheses(t *testing.T) {
 	str := "(something"
-	anchor := ParseAnchor(str)
-	assert.Assert(t, !anchor.IsConditionAnchor())
+	anchor := Parse(str)
+	assert.Assert(t, !anchor.IsCondition())
 }
 
 func TestWrappedWithParentheses_StringHasRightParentheses(t *testing.T) {
 	str := "something)"
-	anchor := ParseAnchor(str)
-	assert.Assert(t, !anchor.IsConditionAnchor())
+	anchor := Parse(str)
+	assert.Assert(t, !anchor.IsCondition())
 }
 
 func TestWrappedWithParentheses_StringParenthesesInside(t *testing.T) {
 	str := "so)m(et(hin)g"
-	anchor := ParseAnchor(str)
-	assert.Assert(t, !anchor.IsConditionAnchor())
+	anchor := Parse(str)
+	assert.Assert(t, !anchor.IsCondition())
 }
 
 func TestWrappedWithParentheses_Empty(t *testing.T) {
 	str := ""
-	anchor := ParseAnchor(str)
-	assert.Assert(t, !anchor.IsConditionAnchor())
+	anchor := Parse(str)
+	assert.Assert(t, !anchor.IsCondition())
 }
 
-func TestIsExistenceAnchor_Yes(t *testing.T) {
-	anchor := ParseAnchor("^(abc)")
-	assert.Assert(t, anchor.IsExistenceAnchor())
+func TestIsExistence_Yes(t *testing.T) {
+	anchor := Parse("^(abc)")
+	assert.Assert(t, anchor.IsExistence())
 }
 
-func TestIsExistenceAnchor_NoRightBracket(t *testing.T) {
-	anchor := ParseAnchor("^(abc")
-	assert.Assert(t, !anchor.IsExistenceAnchor())
+func TestIsExistence_NoRightBracket(t *testing.T) {
+	anchor := Parse("^(abc")
+	assert.Assert(t, !anchor.IsExistence())
 }
 
-func TestIsExistenceAnchor_OnlyHat(t *testing.T) {
-	anchor := ParseAnchor("^abc")
-	assert.Assert(t, !anchor.IsExistenceAnchor())
+func TestIsExistence_OnlyHat(t *testing.T) {
+	anchor := Parse("^abc")
+	assert.Assert(t, !anchor.IsExistence())
 }
 
-func TestIsExistenceAnchor_ConditionAnchor(t *testing.T) {
-	anchor := ParseAnchor("(abc)")
-	assert.Assert(t, !anchor.IsExistenceAnchor())
+func TestIsExistence_Condition(t *testing.T) {
+	anchor := Parse("(abc)")
+	assert.Assert(t, !anchor.IsExistence())
 }
 
 func TestRemoveAnchorsFromPath_WorksWithAbsolutePath(t *testing.T) {
@@ -79,75 +79,75 @@ func TestRemoveAnchorsFromPath_WorksWithRelativePath(t *testing.T) {
 }
 
 func TestIsEqualityAnchor_Yes(t *testing.T) {
-	anchor := ParseAnchor("=(abc)")
-	assert.Assert(t, anchor.IsEqualityAnchor())
+	anchor := Parse("=(abc)")
+	assert.Assert(t, anchor.IsEquality())
 }
 
-func TestIsEqualityAnchor_NoRightBracket(t *testing.T) {
-	anchor := ParseAnchor("=(abc")
-	assert.Assert(t, !anchor.IsEqualityAnchor())
+func TestIsEquality_NoRightBracket(t *testing.T) {
+	anchor := Parse("=(abc")
+	assert.Assert(t, !anchor.IsEquality())
 }
 
-func TestIsEqualityAnchor_OnlyHat(t *testing.T) {
-	anchor := ParseAnchor("=abc")
-	assert.Assert(t, !anchor.IsEqualityAnchor())
+func TestIsEquality_OnlyHat(t *testing.T) {
+	anchor := Parse("=abc")
+	assert.Assert(t, !anchor.IsEquality())
 }
 
-func TestIsAdditionAnchor_Yes(t *testing.T) {
-	anchor := ParseAnchor("+(abc)")
-	assert.Assert(t, anchor.IsAddIfNotPresentAnchor())
+func TestIsAddition_Yes(t *testing.T) {
+	anchor := Parse("+(abc)")
+	assert.Assert(t, anchor.IsAddIfNotPresent())
 }
 
-func TestIsAdditionAnchor_NoRightBracket(t *testing.T) {
-	anchor := ParseAnchor("+(abc")
-	assert.Assert(t, !anchor.IsAddIfNotPresentAnchor())
+func TestIsAddition_NoRightBracket(t *testing.T) {
+	anchor := Parse("+(abc")
+	assert.Assert(t, !anchor.IsAddIfNotPresent())
 }
 
-func TestIsAdditionAnchor_OnlyHat(t *testing.T) {
-	anchor := ParseAnchor("+abc")
-	assert.Assert(t, !anchor.IsAddIfNotPresentAnchor())
+func TestIsAddition_OnlyHat(t *testing.T) {
+	anchor := Parse("+abc")
+	assert.Assert(t, !anchor.IsAddIfNotPresent())
 }
 
-func TestIsNegationAnchor_Yes(t *testing.T) {
-	anchor := ParseAnchor("X(abc)")
-	assert.Assert(t, anchor.IsNegationAnchor())
+func TestIsNegation_Yes(t *testing.T) {
+	anchor := Parse("X(abc)")
+	assert.Assert(t, anchor.IsNegation())
 }
 
-func TestIsNegationAnchor_NoRightBracket(t *testing.T) {
-	anchor := ParseAnchor("X(abc")
-	assert.Assert(t, !anchor.IsNegationAnchor())
+func TestIsNegation_NoRightBracket(t *testing.T) {
+	anchor := Parse("X(abc")
+	assert.Assert(t, !anchor.IsNegation())
 }
 
-func TestIsNegationAnchor_OnlyHat(t *testing.T) {
-	anchor := ParseAnchor("Xabc")
-	assert.Assert(t, !anchor.IsNegationAnchor())
+func TestIsNegation_OnlyHat(t *testing.T) {
+	anchor := Parse("Xabc")
+	assert.Assert(t, !anchor.IsNegation())
 }
 
-func TestIsGlobalAnchor_Yes(t *testing.T) {
-	anchor := ParseAnchor("<(abc)")
-	assert.Assert(t, anchor.IsGlobalAnchor())
+func TestIsGlobal_Yes(t *testing.T) {
+	anchor := Parse("<(abc)")
+	assert.Assert(t, anchor.IsGlobal())
 }
 
-func TestIsGlobalAnchor_NoRightBracket(t *testing.T) {
-	anchor := ParseAnchor("<(abc")
-	assert.Assert(t, !anchor.IsGlobalAnchor())
+func TestIsGlobal_NoRightBracket(t *testing.T) {
+	anchor := Parse("<(abc")
+	assert.Assert(t, !anchor.IsGlobal())
 }
 
-func TestIsGlobalAnchor_OnlyHat(t *testing.T) {
-	anchor := ParseAnchor("<abc")
-	assert.Assert(t, !anchor.IsGlobalAnchor())
+func TestIsGlobal_OnlyHat(t *testing.T) {
+	anchor := Parse("<abc")
+	assert.Assert(t, !anchor.IsGlobal())
 }
 func TestIsConditionAnchor_Yes(t *testing.T) {
-	anchor := ParseAnchor("(abc)")
-	assert.Assert(t, anchor.IsConditionAnchor())
+	anchor := Parse("(abc)")
+	assert.Assert(t, anchor.IsCondition())
 }
 
 func TestIsConditionAnchor_NoRightBracket(t *testing.T) {
-	anchor := ParseAnchor("(abc")
-	assert.Assert(t, !anchor.IsConditionAnchor())
+	anchor := Parse("(abc")
+	assert.Assert(t, !anchor.IsCondition())
 }
 
 func TestIsConditionAnchor_Onlytext(t *testing.T) {
-	anchor := ParseAnchor("abc")
-	assert.Assert(t, !anchor.IsConditionAnchor())
+	anchor := Parse("abc")
+	assert.Assert(t, !anchor.IsCondition())
 }

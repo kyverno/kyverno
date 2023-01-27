@@ -26,7 +26,7 @@ func validateMap(patternMap map[string]interface{}, path string, isSupported fun
 	// check if anchors are defined
 	for key, value := range patternMap {
 		// if key is anchor
-		a := anchor.ParseAnchor(key)
+		a := anchor.Parse(key)
 		// check the type of anchor
 		if a != nil {
 			// some type of anchor
@@ -36,7 +36,7 @@ func validateMap(patternMap map[string]interface{}, path string, isSupported fun
 			}
 			// addition check for existence anchor
 			// value must be of type list
-			if a.IsExistenceAnchor() {
+			if a.IsExistence() {
 				typedValue, ok := value.([]interface{})
 				if !ok {
 					return path + "/" + key, fmt.Errorf("existence anchor should have value of type list")

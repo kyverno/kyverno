@@ -19,17 +19,28 @@ const (
 
 var regex = regexp.MustCompile(`^(?P<modifier>[+<=X^])?\((?P<key>\w+)\)$`)
 
+// Anchor interface
 type Anchor interface {
-	IsConditionAnchor() bool
-	IsGlobalAnchor() bool
-	ContainsCondition() bool
-	IsNegationAnchor() bool
-	IsAddIfNotPresentAnchor() bool
-	IsEqualityAnchor() bool
-	IsExistenceAnchor() bool
-	IsAnchor() bool
+	// Type returns the anchor type
 	Type() AnchorType
+	// Key returns the anchor key
 	Key() string
+	// String returns the anchor string
+	String() string
+	// IsCondition checks for condition anchor
+	IsCondition() bool
+	// IsGlobalAnchor checks for global condition anchor
+	IsGlobal() bool
+	// ContainsCondition returns true, if str is either condition anchor or global condition anchor
+	ContainsCondition() bool
+	// IsNegationAnchor checks for negation anchor
+	IsNegation() bool
+	// IsAddIfNotPresentAnchor checks for addition anchor
+	IsAddIfNotPresent() bool
+	// IsEqualityAnchor checks for equality anchor
+	IsEquality() bool
+	// IsExistenceAnchor checks for existence anchor
+	IsExistence() bool
 }
 
 type anchor struct {
@@ -37,7 +48,8 @@ type anchor struct {
 	key      string
 }
 
-func ParseAnchor(str string) Anchor {
+// Parse parses a string, returns nil if not an anchor
+func Parse(str string) Anchor {
 	str = strings.TrimSpace(str)
 	values := regex.FindStringSubmatch(str)
 	if len(values) == 0 {
@@ -49,47 +61,6 @@ func ParseAnchor(str string) Anchor {
 	}
 }
 
-// IsConditionAnchor checks for condition anchor
-func (ah anchor) IsConditionAnchor() bool {
-	return ah.modifier == string(ConditionAnchor)
-}
-
-// IsGlobalAnchor checks for global condition anchor
-func (ah anchor) IsGlobalAnchor() bool {
-	return ah.modifier == string(GlobalAnchor)
-}
-
-// ContainsCondition returns true, if str is either condition anchor or
-// global condition anchor
-func (ah anchor) ContainsCondition() bool {
-	return ah.IsConditionAnchor() || ah.IsGlobalAnchor()
-}
-
-// IsNegationAnchor checks for negation anchor
-func (ah anchor) IsNegationAnchor() bool {
-	return ah.modifier == string(NegationAnchor)
-}
-
-// IsAddIfNotPresentAnchor checks for addition anchor
-func (ah anchor) IsAddIfNotPresentAnchor() bool {
-	return ah.modifier == string(AddIfNotPresentAnchor)
-}
-
-// IsEqualityAnchor checks for equality anchor
-func (ah anchor) IsEqualityAnchor() bool {
-	return ah.modifier == string(EqualityAnchor)
-}
-
-// IsExistenceAnchor checks for existence anchor
-func (ah anchor) IsExistenceAnchor() bool {
-	return ah.modifier == string(ExistenceAnchor)
-}
-
-// IsAnchor checks for existence anchor
-func (ah anchor) IsAnchor() bool {
-	return ah.key != ""
-}
-
 func (ah anchor) Type() AnchorType {
 	return AnchorType(ah.key)
 }
@@ -98,10 +69,42 @@ func (ah anchor) Key() string {
 	return ah.key
 }
 
+func (ah anchor) String() string {
+	return ah.modifier + "(" + ah.key + ")"
+}
+
+func (ah anchor) IsCondition() bool {
+	return ah.modifier == string(ConditionAnchor)
+}
+
+func (ah anchor) IsGlobal() bool {
+	return ah.modifier == string(GlobalAnchor)
+}
+
+func (ah anchor) ContainsCondition() bool {
+	return ah.IsCondition() || ah.IsGlobal()
+}
+
+func (ah anchor) IsNegation() bool {
+	return ah.modifier == string(NegationAnchor)
+}
+
+func (ah anchor) IsAddIfNotPresent() bool {
+	return ah.modifier == string(AddIfNotPresentAnchor)
+}
+
+func (ah anchor) IsEquality() bool {
+	return ah.modifier == string(EqualityAnchor)
+}
+
+func (ah anchor) IsExistence() bool {
+	return ah.modifier == string(ExistenceAnchor)
+}
+
 // RemoveAnchor remove anchor from the given key. It returns
 // the anchor-free tag value and the prefix of the anchor.
 func RemoveAnchor(key string) (string, string) {
-	ah := ParseAnchor(key)
+	ah := Parse(key)
 	if ah == nil {
 		return "", ""
 	}

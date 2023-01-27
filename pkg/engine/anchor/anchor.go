@@ -17,21 +17,21 @@ type resourceElementHandler = func(log logr.Logger, resourceElement, patternElem
 
 // CreateElementHandler factory to process elements
 func CreateElementHandler(element string, pattern interface{}, path string) ValidationHandler {
-	anchor := ParseAnchor(element)
+	anchor := Parse(element)
 	if anchor == nil {
 		return NewDefaultHandler(element, pattern, path)
 	}
 
 	switch {
-	case anchor.IsConditionAnchor():
+	case anchor.IsCondition():
 		return NewConditionAnchorHandler(element, pattern, path)
-	case anchor.IsGlobalAnchor():
+	case anchor.IsGlobal():
 		return NewGlobalAnchorHandler(element, pattern, path)
-	case anchor.IsExistenceAnchor():
+	case anchor.IsExistence():
 		return NewExistenceHandler(element, pattern, path)
-	case anchor.IsEqualityAnchor():
+	case anchor.IsEquality():
 		return NewEqualityHandler(element, pattern, path)
-	case anchor.IsNegationAnchor():
+	case anchor.IsNegation():
 		return NewNegationHandler(element, pattern, path)
 	default:
 		return NewDefaultHandler(element, pattern, path)
@@ -271,8 +271,8 @@ func GetAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]i
 	anchors := map[string]interface{}{}
 	resources := map[string]interface{}{}
 	for key, value := range patternMap {
-		anchor := ParseAnchor(key)
-		if anchor.IsConditionAnchor() || anchor.IsExistenceAnchor() || anchor.IsEqualityAnchor() || anchor.IsNegationAnchor() {
+		anchor := Parse(key)
+		if anchor.IsCondition() || anchor.IsExistence() || anchor.IsEquality() || anchor.IsNegation() {
 			anchors[key] = value
 			continue
 		}
