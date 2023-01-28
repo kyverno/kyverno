@@ -508,15 +508,6 @@ codegen-slow: codegen-client-all ## Generate client code
 .PHONY: codegen-all
 codegen-all: codegen-quick codegen-slow ## Generate all generated code
 
-# .PHONY: codegen-openapi
-# codegen-openapi: $(PACKAGE_SHIM) $(OPENAPI_GEN) ## Generate open api code
-# 	@echo Generate open api definitions... >&2
-# 	@GOPATH=$(GOPATH_SHIM) $(OPENAPI_GEN) --go-header-file ./scripts/boilerplate.go.txt \
-# 		--input-dirs $(INPUT_DIRS) \
-# 		--input-dirs  k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
-# 		--output-package $(OUT_PACKAGE)/openapi \
-# 		-O zz_generated.openapi
-
 ##################
 # VERIFY CODEGEN #
 ##################
@@ -604,20 +595,6 @@ code-cov-report: test-clean ## Generate code coverage report
 	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
 
-#####################
-# CONFORMANCE TESTS #
-#####################
-
-.PHONY: test-conformance
-test-conformance: ## Run conformance tests
-	@echo Running conformance tests... >&2
-	@go run ./test/conformance
-
-.PHONY: kind-test-conformance
-kind-test-conformance: kind-deploy-kyverno ## Run conformance tests on a local cluster
-	@echo Running conformance tests... >&2
-	@go run ./test/conformance --create-cluster=false
-
 ###############
 # KUTTL TESTS #
 ###############
@@ -669,19 +646,13 @@ helm-test: $(HELM) ## Run helm test
 	@echo Running helm test... >&2
 	@$(HELM) test --namespace kyverno kyverno
 
-###########################
-# Testing & Code-Coverage #
-###########################
+#################
+# RELEASE NOTES #
+#################
 
-helm-test-values:
-	sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
-	sed -i -e "s|fullnameOverride:.*|fullnameOverride: kyverno|g" charts/kyverno/values.yaml
-	sed -i -e "s|namespace:.*|namespace: kyverno|g" charts/kyverno/values.yaml
-	sed -i -e "s|tag:  # replaced in e2e tests.*|tag: $(IMAGE_TAG_DEV)|" charts/kyverno/values.yaml
-	sed -i -e "s|repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests|repository: $(LOCAL_KYVERNOPRE_IMAGE)|" charts/kyverno/values.yaml
-	sed -i -e "s|repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests|repository: $(LOCAL_KYVERNO_IMAGE)|" charts/kyverno/values.yaml
-
-release-notes:
+.PHONY: release-notes
+release-notes: ## Generate release notes
+	@echo Generating release notes... >&2
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
@@ -693,18 +664,6 @@ release-notes:
 debug-deploy: codegen-manifest-debug ## Install debug manifests
 	@kubectl create -f ./.manifest/debug.yaml || kubectl replace -f ./.manifest/debug.yaml
 
-##########
-# GITHUB #
-##########
-
-.PHONY: gh-install-pin-github-action
-gh-install-pin-github-action:
-	@npm install -g pin-github-action
-
-.PHONY: gh-pin-actions
-gh-pin-actions: gh-install-pin-github-action
-	@pin-github-action ./.github/workflows/release.yaml
-
 #############
 # PERF TEST #
 #############
@@ -713,7 +672,7 @@ PERF_TEST_NODE_COUNT		?= 3
 PERF_TEST_MEMORY_REQUEST	?= "1Gi"
 
 .PHONY: test-perf
-test-perf: $(PACKAGE_SHIM)
+test-perf: $(PACKAGE_SHIM) ## Run perf tests
 	GO111MODULE=off GOPATH=$(GOPATH_SHIM) go get k8s.io/perf-tests || true
 	cd $(GOPATH_SHIM)/src/k8s.io/perf-tests && \
 	GOPATH=$(GOPATH_SHIM) ./run-e2e.sh cluster-loader2 \
@@ -865,7 +824,7 @@ dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all
-dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo ## Deploy all dev lab components
 
 ########
 # HELP #
