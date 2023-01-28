@@ -120,8 +120,9 @@ spec:
           {{- with .Values.cleanupController.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if .Values.cleanupController.securityContext }}
-          securityContext: {{ include "kyverno.cleanup-controller.securityContext" . | nindent 12 }}
+          {{- with .Values.cleanupController.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with .Values.cleanupController.startupProbe }}
           startupProbe:

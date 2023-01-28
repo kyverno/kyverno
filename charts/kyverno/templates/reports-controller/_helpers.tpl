@@ -5,22 +5,17 @@
 {{- end -}}
 
 {{- define "kyverno.reports-controller.labels" -}}
-app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-{{- with (include "kyverno.helmLabels" .) }}
-{{ . }}
-{{- end }}
-{{- with (include "kyverno.versionLabels" .) }}
-{{ . }}
-{{- end }}
-{{- with (include "kyverno.reports-controller.matchLabels" .) }}
-{{ . }}
-{{- end }}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.labels.common" .)
+  (include "kyverno.reports-controller.matchLabels" .)
+) -}}
 {{- end -}}
 
 {{- define "kyverno.reports-controller.matchLabels" -}}
-app.kubernetes.io/component: reports-controller
-app.kubernetes.io/name: {{ template "kyverno.reports-controller.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.matchLabels.common" .)
+  (include "kyverno.labels.component" "reports-controller")
+) -}}
 {{- end -}}
 
 {{- define "kyverno.reports-controller.image" -}}
@@ -35,7 +30,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{ .Release.Name }}:reports-controller
 {{- end -}}
 
-{{/* Create the name of the service account to use */}}
 {{- define "kyverno.reports-controller.serviceAccountName" -}}
 {{- if .Values.reportsController.rbac.create -}}
     {{ default (include "kyverno.reports-controller.name" .) .Values.reportsController.rbac.serviceAccount.name }}
@@ -43,25 +37,3 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.reportsController.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
-
-{{- define "kyverno.reports-controller.securityContext" -}}
-{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version }}
-{{ toYaml (omit .Values.reportsController.securityContext "seccompProfile") }}
-{{- else }}
-{{ toYaml .Values.reportsController.securityContext }}
-{{- end }}
-{{- end }}
-
-{{/* Create the default PodDisruptionBudget to use */}}
-{{- define "kyverno.reports-controller.podDisruptionBudget.spec" -}}
-{{- if and .Values.reportsController.podDisruptionBudget.minAvailable .Values.reportsController.podDisruptionBudget.maxUnavailable }}
-{{- fail "Cannot set both .Values.reportsController.podDisruptionBudget.minAvailable and .Values.reportsController.podDisruptionBudget.maxUnavailable" -}}
-{{- end }}
-{{- if not .Values.reportsController.podDisruptionBudget.maxUnavailable }}
-minAvailable: {{ default 1 .Values.reportsController.podDisruptionBudget.minAvailable }}
-{{- end }}
-{{- if .Values.reportsController.podDisruptionBudget.maxUnavailable }}
-maxUnavailable: {{ .Values.reportsController.podDisruptionBudget.maxUnavailable }}
-{{- end }}
-{{- end }}
-
