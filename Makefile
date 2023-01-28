@@ -459,9 +459,10 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
-		--set cleanupController.image.tag=latest \
 		--set image.tag=latest \
 		--set initImage.tag=latest \
+		--set cleanupController.image.tag=latest \
+		--set reportsController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
 		> ./config/install.yaml
 
@@ -473,9 +474,10 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 		--set templating.enabled=true \
 		--set templating.version=latest \
 		--set templating.debug=true \
-		--set cleanupController.image.tag=latest \
 		--set image.tag=latest \
 		--set initImage.tag=latest \
+		--set cleanupController.image.tag=latest \
+		--set reportsController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
 		> ./.manifest/debug.yaml
 
@@ -487,12 +489,12 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=$(GIT_VERSION) \
-		--set cleanupController.image.tag=$(GIT_VERSION) \
 		--set image.tag=$(GIT_VERSION) \
 		--set initImage.tag=$(GIT_VERSION) \
+		--set cleanupController.image.tag=$(GIT_VERSION) \
+		--set reportsController.image.tag=$(GIT_VERSION) \
  		| $(SED) -e '/^#.*/d' \
 		> ./.manifest/release.yaml
-
 
 .PHONY: codegen-manifest-all
 codegen-manifest-all: codegen-manifest-install codegen-manifest-debug codegen-manifest-release ## Create all manifests
