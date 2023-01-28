@@ -95,7 +95,7 @@ func getPatternValue(tag string, pattern map[string]interface{}) (string, interf
 }
 
 // expandWildcardsInTag
-func expandWildcardsInTag(tag string, patternMetadata, resourceMetadata interface{}) (string, map[string]string) {
+func expandWildcardsInTag(tag string, patternMetadata, resourceMetadata interface{}) (string, map[string]interface{}) {
 	patternKey, patternData := getValueAsStringMap(tag, patternMetadata)
 	if patternData == nil {
 		return "", nil
@@ -132,8 +132,8 @@ func getValueAsStringMap(key string, data interface{}) (string, map[string]strin
 
 // replaceWildcardsInMapKeys will expand only the "key" and not replace wildcard characters in the key or values
 // It also preserves anchors in keys
-func replaceWildcardsInMapKeys(patternData, resourceData map[string]string) map[string]string {
-	results := map[string]string{}
+func replaceWildcardsInMapKeys(patternData, resourceData map[string]string) map[string]interface{} {
+	results := map[string]interface{}{}
 	for k, v := range patternData {
 		if wildcard.ContainsWildcard(k) {
 			if a := anchor.Parse(k); a != nil {
