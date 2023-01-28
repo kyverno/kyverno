@@ -124,6 +124,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
+- Image tags are now validated and must be strings, if you use image tags in the `1.35` form please add quotes around the tag value.
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:
@@ -163,7 +165,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | test.image.registry | string | `nil` | Image registry |
 | test.image.repository | string | `"busybox"` | Image repository |
-| test.image.tag | float | `1.35` | Image tag Defaults to `latest` if omitted |
+| test.image.tag | string | `"1.35"` | Image tag Defaults to `latest` if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
