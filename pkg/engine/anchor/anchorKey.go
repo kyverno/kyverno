@@ -48,7 +48,7 @@ func (ac *AnchorKey) CheckAnchorInResource(pattern interface{}, resource interfa
 
 // Checks if anchor key has value in resource
 func doesAnchorsKeyHasValue(key string, resource interface{}) bool {
-	akey, _ := RemoveAnchor(key)
+	akey, _ := removeAnchor(key)
 	switch typed := resource.(type) {
 	case map[string]interface{}:
 		if _, ok := typed[akey]; ok {

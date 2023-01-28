@@ -1,7 +1,6 @@
 package anchor
 
 import (
-	"path"
 	"regexp"
 	"strings"
 )
@@ -111,29 +110,11 @@ func IsExistence(a Anchor) bool {
 	return a != nil && a.Type() == Existence
 }
 
-// RemoveAnchor remove anchor from the given key. It returns
+// removeAnchor remove anchor from the given key. It returns
 // the anchor-free tag value and the prefix of the anchor.
-func RemoveAnchor(key string) (string, string) {
+func removeAnchor(key string) (string, string) {
 	if a := Parse(key); a != nil {
 		return a.Key(), string(a.Type()) + "("
 	}
 	return key, ""
-}
-
-// RemoveAnchorsFromPath removes all anchor from path string
-func RemoveAnchorsFromPath(str string) string {
-	components := strings.Split(str, "/")
-	if components[0] == "" {
-		components = components[1:]
-	}
-
-	for i, component := range components {
-		components[i], _ = RemoveAnchor(component)
-	}
-
-	newPath := path.Join(components...)
-	if path.IsAbs(str) {
-		newPath = "/" + newPath
-	}
-	return newPath
 }

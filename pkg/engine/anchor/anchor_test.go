@@ -68,16 +68,6 @@ func TestIsExistence_Condition(t *testing.T) {
 	assert.Assert(t, !IsExistence(anchor))
 }
 
-func TestRemoveAnchorsFromPath_WorksWithAbsolutePath(t *testing.T) {
-	newPath := RemoveAnchorsFromPath("/path/(to)/X(anchors)")
-	assert.Equal(t, newPath, "/path/to/anchors")
-}
-
-func TestRemoveAnchorsFromPath_WorksWithRelativePath(t *testing.T) {
-	newPath := RemoveAnchorsFromPath("path/(to)/X(anchors)")
-	assert.Equal(t, newPath, "path/to/anchors")
-}
-
 func TestIsEqualityAnchor_Yes(t *testing.T) {
 	anchor := Parse("=(abc)")
 	assert.Assert(t, IsEquality(anchor))
