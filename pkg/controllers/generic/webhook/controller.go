@@ -52,6 +52,7 @@ type controller struct {
 	webhookName    string
 	path           string
 	server         string
+	servicePort    int32
 	rules          []admissionregistrationv1.RuleWithOperations
 	failurePolicy  *admissionregistrationv1.FailurePolicyType
 	sideEffects    *admissionregistrationv1.SideEffectClass
@@ -65,6 +66,7 @@ func NewController(
 	webhookName string,
 	path string,
 	server string,
+	servicePort int32,
 	rules []admissionregistrationv1.RuleWithOperations,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	sideEffects *admissionregistrationv1.SideEffectClass,
@@ -80,6 +82,7 @@ func NewController(
 		webhookName:    webhookName,
 		path:           path,
 		server:         server,
+		servicePort:    servicePort,
 		rules:          rules,
 		failurePolicy:  failurePolicy,
 		sideEffects:    sideEffects,
@@ -178,6 +181,7 @@ func (c *controller) clientConfig(caBundle []byte) admissionregistrationv1.Webho
 			Namespace: config.KyvernoNamespace(),
 			Name:      config.KyvernoServiceName(),
 			Path:      &c.path,
+			Port:      &c.servicePort,
 		}
 	} else {
 		url := fmt.Sprintf("https://%s%s", c.server, c.path)
