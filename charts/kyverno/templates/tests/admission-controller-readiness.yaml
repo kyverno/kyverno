@@ -17,8 +17,10 @@ spec:
       resources:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
+      {{- with .Values.test.securityContext }}
       securityContext:
-        {{- include "kyverno.test.securityContext" . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       command:
         - /bin/sh
         - -c
