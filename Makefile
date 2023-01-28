@@ -133,7 +133,7 @@ clean-tools: ## Remove installed tools
 # BUILD (LOCAL) #
 #################
 
-CMD_DIR        := ./cmd
+CMD_DIR        := cmd
 KYVERNO_DIR    := $(CMD_DIR)/kyverno
 KYVERNOPRE_DIR := $(CMD_DIR)/initContainer
 CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
@@ -189,23 +189,23 @@ unused-package-check:
 
 $(KYVERNOPRE_BIN): fmt vet
 	@echo Build kyvernopre binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) $(KYVERNOPRE_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
 
 $(KYVERNO_BIN): fmt vet
 	@echo Build kyverno binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNO_BIN) -ldflags=$(LD_FLAGS) $(KYVERNO_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
 
 $(CLI_BIN): fmt vet
 	@echo Build cli binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLI_BIN) -ldflags=$(LD_FLAGS) $(CLI_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
 
 $(CLEANUP_BIN): fmt vet
 	@echo Build cleanup controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLEANUP_BIN) -ldflags=$(LD_FLAGS) $(CLEANUP_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
 
 $(REPORTS_BIN): fmt vet
 	@echo Build reports controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(REPORTS_BIN) -ldflags=$(LD_FLAGS) $(REPORTS_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
 .PHONY: build-kyvernopre
 build-kyvernopre: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
@@ -232,36 +232,37 @@ LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_REGISTRY         := ko.local
 KO_TAGS             := latest,$(IMAGE_TAG)
 KO_TAGS_DEV         := latest,$(IMAGE_TAG_DEV)
-KO_CLI_REPO         := $(PACKAGE)/cmd/cli/kubectl-kyverno
+KO_CLI_REPO         := $(PACKAGE)/$(CLI_DIR)
+# TODO: fix by changing path
 KO_KYVERNOPRE_REPO  := $(PACKAGE)/cmd/initcontainer
-KO_KYVERNO_REPO     := $(PACKAGE)/cmd/kyverno
-KO_CLEANUP_REPO     := $(PACKAGE)/cmd/cleanup-controller
-KO_REPORTS_REPO     := $(PACKAGE)/cmd/reports-controller
+KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
+KO_CLEANUP_REPO     := $(PACKAGE)/$(CLEANUP_DIR)
+KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
 
 .PHONY: ko-build-kyvernopre
 ko-build-kyvernopre: $(KO) ## Build kyvernopre local image (with ko)
 	@echo Build kyvernopre local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
 	@echo Build kyverno local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build cli local image (with ko)
 	@echo Build cli local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cleanup-controller
 ko-build-cleanup-controller: $(KO) ## Build cleanup controller local image (with ko)
 	@echo Build cleanup controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build $(CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-reports-controller
 ko-build-reports-controller: $(KO) ## Build reports controller local image (with ko)
 	@echo Build reports controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build $(REPORTS_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(REPORTS_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ## Build all local images (with ko)
