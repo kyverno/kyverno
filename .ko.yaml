@@ -1,6 +1,6 @@
 builds:
-- id: initContainer
-  main: ./cmd/initContainer
+- id: init-container
+  main: ./cmd/init-container
   ldflags:
   - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 

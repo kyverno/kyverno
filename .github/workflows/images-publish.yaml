@@ -62,7 +62,7 @@ jobs:
           sbom-name: kyvernopre
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
-          main-path: ./cmd/initContainer
+          main-path: ./cmd/init-container
       - name: Publish cleanup-controller
         uses: ./.github/actions/publish-image
         with:
