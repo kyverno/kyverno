@@ -286,7 +286,7 @@ func main() {
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
 	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
-	flagset.IntVar(&servicePort, "servicePort", 443, "Kyverno service port.")
+	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
