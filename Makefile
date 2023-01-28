@@ -774,6 +774,25 @@ kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
 
 ###########
+# ROLLOUT #
+###########
+
+.PHONY: rollout-cleanup-controller
+rollout-cleanup-controller: ## Rollout cleanup-controller deployment
+	@kubectl rollout restart deployment -n kyverno -l app.kubernetes.io/component=cleanup-controller
+
+.PHONY: rollout-reports-controller
+rollout-reports-controller: ## Rollout reports-controller deployment
+	@kubectl rollout restart deployment -n kyverno -l app.kubernetes.io/component=reports-controller
+
+.PHONY: rollout-admission-controller
+rollout-admission-controller: ## Rollout admission-controller deployment
+	@kubectl rollout restart deployment -n kyverno -l app.kubernetes.io/component=admission-controller
+
+.PHONY: rollout-all
+rollout-all: rollout-cleanup-controller rollout-reports-controller rollout-admission-controller ## Rollout all deployment
+
+###########
 # DEV LAB #
 ###########
 
