@@ -503,9 +503,14 @@ tufRootMountPath: /.sigstore
 grafana:
   # -- Enable grafana dashboard creation.
   enabled: false
-  # -- Namespace to create the grafana dashboard configmap.
+
+  # -- Configmap name template.
+  configMapName: '{{ include "kyverno.fullname" . }}-grafana'
+
+  # -- (string) Namespace to create the grafana dashboard configmap.
   # If not set, it will be created in the same namespace where the chart is deployed.
-  namespace:
+  namespace: ~
+
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
