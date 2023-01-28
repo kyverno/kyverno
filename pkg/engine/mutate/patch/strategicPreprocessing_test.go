@@ -1004,8 +1004,8 @@ func Test_FilterKeys_ConditionsArePresent(t *testing.T) {
 
 	assert.NilError(t, err)
 	assert.Equal(t, len(conditions), 2)
-	assert.Equal(t, conditions[0], "(key2)")
-	assert.Equal(t, conditions[1], "(key3)")
+	assert.Equal(t, conditions[0].String(), "(key2)")
+	assert.Equal(t, conditions[1].String(), "(key3)")
 }
 
 func Test_FilterKeys_EmptyList(t *testing.T) {

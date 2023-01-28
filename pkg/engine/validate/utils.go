@@ -44,8 +44,7 @@ func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List 
 
 	for _, k := range keys {
 		v := resources[k]
-		ah := commonAnchors.Parse(k)
-		if ah.IsGlobal() {
+		if a := commonAnchors.Parse(k); a != nil && a.IsGlobal() {
 			sortedResourceKeys.PushFront(k)
 			continue
 		}

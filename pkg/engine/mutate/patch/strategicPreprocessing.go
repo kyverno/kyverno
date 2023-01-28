@@ -448,7 +448,7 @@ func deleteAnchorsInMap(node *yaml.RNode, traverseMappingNodes bool) (bool, erro
 	// remove all conditional anchors with no child nodes first
 	anchorsExist := false
 	for _, a := range anchors {
-		field := node.Field(a.Key())
+		field := node.Field(a.String())
 		shouldDelete, err := deleteAnchors(field.Value, true, traverseMappingNodes)
 		if err != nil {
 			return false, err
