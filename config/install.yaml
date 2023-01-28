@@ -32162,8 +32162,7 @@ spec:
             requests:
               cpu: 10m
               memory: 64Mi
-          securityContext: 
-            
+          securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -32198,8 +32197,7 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-          securityContext: 
-            
+          securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -32358,7 +32356,7 @@ spec:
             requests:
               cpu: 100m
               memory: 64Mi
-          securityContext: 
+          securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -32472,8 +32470,7 @@ spec:
             requests:
               cpu: 100m
               memory: 64Mi
-          securityContext: 
-            
+          securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:

@@ -118,8 +118,9 @@ spec:
           {{- with .Values.reportsController.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if .Values.reportsController.securityContext }}
-          securityContext: {{ include "kyverno.reports-controller.securityContext" . | nindent 12 }}
+          {{- with .Values.reportsController.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
 {{- end -}}
 {{- end -}}
