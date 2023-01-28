@@ -12,9 +12,9 @@ func GetAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]i
 	for key, value := range patternMap {
 		if a := Parse(key); IsCondition(a) || IsExistence(a) || IsEquality(a) || IsNegation(a) {
 			anchors[key] = value
-			continue
+		} else {
+			resources[key] = value
 		}
-		resources[key] = value
 	}
 	return anchors, resources
 }
