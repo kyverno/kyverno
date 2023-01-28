@@ -31,11 +31,11 @@ func (v *Validate) Validate() (string, error) {
 
 	if target := v.rule.GetPattern(); target != nil {
 		if path, err := common.ValidatePattern(target, "/", func(a anchor.Anchor) bool {
-			return a.IsCondition() ||
-				a.IsExistence() ||
-				a.IsEquality() ||
-				a.IsNegation() ||
-				a.IsGlobal()
+			return anchor.IsCondition(a) ||
+				anchor.IsExistence(a) ||
+				anchor.IsEquality(a) ||
+				anchor.IsNegation(a) ||
+				anchor.IsGlobal(a)
 		}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
@@ -48,11 +48,11 @@ func (v *Validate) Validate() (string, error) {
 		}
 		for i, pattern := range anyPattern {
 			if path, err := common.ValidatePattern(pattern, "/", func(a anchor.Anchor) bool {
-				return a.IsCondition() ||
-					a.IsExistence() ||
-					a.IsEquality() ||
-					a.IsNegation() ||
-					a.IsGlobal()
+				return anchor.IsCondition(a) ||
+					anchor.IsExistence(a) ||
+					anchor.IsEquality(a) ||
+					anchor.IsNegation(a) ||
+					anchor.IsGlobal(a)
 			}); err != nil {
 				return fmt.Sprintf("anyPattern[%d].%s", i, path), err
 			}

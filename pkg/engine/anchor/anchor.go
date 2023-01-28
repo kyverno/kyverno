@@ -27,18 +27,6 @@ type Anchor interface {
 	Key() string
 	// String returns the anchor string
 	String() string
-	// IsCondition checks for condition anchor
-	IsCondition() bool
-	// IsGlobalAnchor checks for global condition anchor
-	IsGlobal() bool
-	// IsNegationAnchor checks for negation anchor
-	IsNegation() bool
-	// IsAddIfNotPresentAnchor checks for addition anchor
-	IsAddIfNotPresent() bool
-	// IsEqualityAnchor checks for equality anchor
-	IsEquality() bool
-	// IsExistenceAnchor checks for existence anchor
-	IsExistence() bool
 }
 
 type anchor struct {
@@ -76,55 +64,60 @@ func String(modifier AnchorType, key string) string {
 	return string(modifier) + "(" + key + ")"
 }
 
+func (a anchor) Type() AnchorType {
+	return a.modifier
+}
+
+func (a anchor) Key() string {
+	return a.key
+}
+
+func (a anchor) String() string {
+	return String(a.modifier, a.key)
+}
+
 // ContainsCondition returns true, if anchor is either condition anchor or global condition anchor
-func ContainsCondition(ah Anchor) bool {
-	return ah != nil && (ah.IsCondition() || ah.IsGlobal())
+func ContainsCondition(a Anchor) bool {
+	return a != nil && (IsCondition(a) || IsGlobal(a))
 }
 
-func (ah anchor) Type() AnchorType {
-	return ah.modifier
+// IsCondition checks for condition anchor
+func IsCondition(a Anchor) bool {
+	return a != nil && a.Type() == Condition
 }
 
-func (ah anchor) Key() string {
-	return ah.key
+// IsGlobal checks for global condition anchor
+func IsGlobal(a Anchor) bool {
+	return a != nil && a.Type() == Global
 }
 
-func (ah anchor) String() string {
-	return String(ah.modifier, ah.key)
+// IsNegation checks for negation anchor
+func IsNegation(a Anchor) bool {
+	return a != nil && a.Type() == Negation
 }
 
-func (ah anchor) IsCondition() bool {
-	return ah.modifier == Condition
+// IsAddIfNotPresent checks for addition anchor
+func IsAddIfNotPresent(a Anchor) bool {
+	return a != nil && a.Type() == AddIfNotPresent
 }
 
-func (ah anchor) IsGlobal() bool {
-	return ah.modifier == Global
+// IsEquality checks for equality anchor
+func IsEquality(a Anchor) bool {
+	return a != nil && a.Type() == Equality
 }
 
-func (ah anchor) IsNegation() bool {
-	return ah.modifier == Negation
-}
-
-func (ah anchor) IsAddIfNotPresent() bool {
-	return ah.modifier == AddIfNotPresent
-}
-
-func (ah anchor) IsEquality() bool {
-	return ah.modifier == Equality
-}
-
-func (ah anchor) IsExistence() bool {
-	return ah.modifier == Existence
+// IsExistence checks for existence anchor
+func IsExistence(a Anchor) bool {
+	return a != nil && a.Type() == Existence
 }
 
 // RemoveAnchor remove anchor from the given key. It returns
 // the anchor-free tag value and the prefix of the anchor.
 func RemoveAnchor(key string) (string, string) {
-	ah := Parse(key)
-	if ah == nil {
-		return key, ""
+	if a := Parse(key); a != nil {
+		return a.Key(), string(a.Type()) + "("
 	}
-	return ah.Key(), string(ah.Type()) + "("
+	return key, ""
 }
 
 // RemoveAnchorsFromPath removes all anchor from path string

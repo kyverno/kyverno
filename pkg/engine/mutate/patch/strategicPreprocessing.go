@@ -129,7 +129,7 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 	for _, patternElement := range patternElements {
 		// If pattern has conditions, look for matching elements and process them
 		hasAnyAnchor := hasAnchors(patternElement, hasAnchor)
-		hasGlobalConditions := hasAnchors(patternElement, anchor.Anchor.IsGlobal)
+		hasGlobalConditions := hasAnchors(patternElement, anchor.IsGlobal)
 		if hasAnyAnchor {
 			anyGlobalConditionPassed := false
 			var lastGlobalAnchorError error = nil
@@ -234,12 +234,12 @@ func isGlobalConditionError(err error) bool {
 // If caller handles map, it must stop processing and skip entire rule.
 func validateConditions(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	var err error
-	err = validateConditionsInternal(logger, pattern, resource, anchor.Anchor.IsGlobal)
+	err = validateConditionsInternal(logger, pattern, resource, anchor.IsGlobal)
 	if err != nil {
 		return NewGlobalConditionError(err)
 	}
 
-	err = validateConditionsInternal(logger, pattern, resource, anchor.Anchor.IsCondition)
+	err = validateConditionsInternal(logger, pattern, resource, anchor.IsCondition)
 	if err != nil {
 		return NewConditionError(err)
 	}
@@ -251,7 +251,7 @@ func validateConditions(logger logr.Logger, pattern, resource *yaml.RNode) error
 // Remove anchor from pattern, if field already exists.
 // Remove anchor wrapping from key, if field does not exist in the resource.
 func handleAddIfNotPresentAnchor(pattern, resource *yaml.RNode) (int, error) {
-	anchors, err := filterKeys(pattern, anchor.Anchor.IsAddIfNotPresent)
+	anchors, err := filterKeys(pattern, anchor.IsAddIfNotPresent)
 	if err != nil {
 		return 0, err
 	}
@@ -313,7 +313,7 @@ func isMappingNode(node *yaml.RNode) bool {
 }
 
 func hasAnchor(a anchor.Anchor) bool {
-	return a != nil && (anchor.ContainsCondition(a) || a.IsAddIfNotPresent())
+	return anchor.ContainsCondition(a) || anchor.IsAddIfNotPresent(a)
 }
 
 func hasAnchors(pattern *yaml.RNode, isAnchor func(anchor.Anchor) bool) bool {

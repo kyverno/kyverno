@@ -5,7 +5,7 @@ func GetAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]i
 	anchors := map[string]interface{}{}
 	resources := map[string]interface{}{}
 	for key, value := range patternMap {
-		if anchor := Parse(key); anchor != nil && (anchor.IsCondition() || anchor.IsExistence() || anchor.IsEquality() || anchor.IsNegation()) {
+		if a := Parse(key); IsCondition(a) || IsExistence(a) || IsEquality(a) || IsNegation(a) {
 			anchors[key] = value
 			continue
 		}

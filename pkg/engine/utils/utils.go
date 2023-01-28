@@ -49,7 +49,7 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for key, value := range anchorsMap {
-		if a := anchor.Parse(key); a != nil && a.IsCondition() {
+		if anchor.IsCondition(anchor.Parse(key)) {
 			result[key] = value
 		}
 	}

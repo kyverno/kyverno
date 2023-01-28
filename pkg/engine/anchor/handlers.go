@@ -22,15 +22,15 @@ func CreateElementHandler(element string, pattern interface{}, path string) Vali
 		return newDefaultHandler(element, pattern, path)
 	}
 	switch {
-	case anchor.IsCondition():
+	case IsCondition(anchor):
 		return newConditionAnchorHandler(element, pattern, path)
-	case anchor.IsGlobal():
+	case IsGlobal(anchor):
 		return newGlobalAnchorHandler(element, pattern, path)
-	case anchor.IsExistence():
+	case IsExistence(anchor):
 		return newExistenceHandler(element, pattern, path)
-	case anchor.IsEquality():
+	case IsEquality(anchor):
 		return newEqualityHandler(element, pattern, path)
-	case anchor.IsNegation():
+	case IsNegation(anchor):
 		return newNegationHandler(element, pattern, path)
 	default:
 		return newDefaultHandler(element, pattern, path)

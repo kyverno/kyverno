@@ -36,7 +36,7 @@ func validateMap(patternMap map[string]interface{}, path string, isSupported fun
 			}
 			// addition check for existence anchor
 			// value must be of type list
-			if a.IsExistence() {
+			if anchor.IsExistence(a) {
 				typedValue, ok := value.([]interface{})
 				if !ok {
 					return path + "/" + key, fmt.Errorf("existence anchor should have value of type list")
