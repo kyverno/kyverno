@@ -27,7 +27,6 @@ func replaceWildcardsInMapKeyValues(patternMap map[string]string, resourceMap ma
 			result[k] = v
 		}
 	}
-
 	return result
 }
 
@@ -41,12 +40,10 @@ func expandWildcards(k, v string, resourceMap map[string]string, matchValue, rep
 			}
 		}
 	}
-
 	if replace {
 		k = replaceWildCardChars(k)
 		v = replaceWildCardChars(v)
 	}
-
 	return k, v
 }
 
@@ -78,28 +75,27 @@ func ExpandInMetadata(patternMap, resourceMap map[string]interface{}) map[string
 	if labels != nil {
 		metadata[labelsKey] = labels
 	}
-
 	annotationsKey, annotations := expandWildcardsInTag("annotations", patternMetadata, resourceMetadata)
 	if annotations != nil {
 		metadata[annotationsKey] = annotations
 	}
-
 	return patternMap
 }
 
 func getPatternValue(tag string, pattern map[string]interface{}) (string, interface{}) {
 	for k, v := range pattern {
-		k2, _ := anchor.RemoveAnchor(k)
-		if k2 == tag {
+		if k == tag {
+			return k, v
+		}
+		if a := anchor.Parse(k); a != nil && a.Key() == tag {
 			return k, v
 		}
 	}
-
 	return "", nil
 }
 
 // expandWildcardsInTag
-func expandWildcardsInTag(tag string, patternMetadata, resourceMetadata interface{}) (string, map[string]interface{}) {
+func expandWildcardsInTag(tag string, patternMetadata, resourceMetadata interface{}) (string, map[string]string) {
 	patternKey, patternData := getValueAsStringMap(tag, patternMetadata)
 	if patternData == nil {
 		return "", nil
@@ -136,8 +132,8 @@ func getValueAsStringMap(key string, data interface{}) (string, map[string]strin
 
 // replaceWildcardsInMapKeys will expand only the "key" and not replace wildcard characters in the key or values
 // It also preserves anchors in keys
-func replaceWildcardsInMapKeys(patternData, resourceData map[string]string) map[string]interface{} {
-	results := map[string]interface{}{}
+func replaceWildcardsInMapKeys(patternData, resourceData map[string]string) map[string]string {
+	results := map[string]string{}
 	for k, v := range patternData {
 		if wildcard.ContainsWildcard(k) {
 			if a := anchor.Parse(k); a != nil {
@@ -151,6 +147,5 @@ func replaceWildcardsInMapKeys(patternData, resourceData map[string]string) map[
 			results[k] = v
 		}
 	}
-
 	return results
 }
