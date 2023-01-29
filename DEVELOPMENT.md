@@ -64,7 +64,7 @@ The Kyverno repository contains code for three different binaries:
 
 To build `kyvernopre` binary on your local system, run:
 ```console
-make build-kyvernopre
+make build-kyverno-init
 ```
 
 The binary should be created at `./cmd/kyverno-init/kyvernopre`.
@@ -112,7 +112,7 @@ When building local images with ko you can't specify the registry used to create
 
 To build `kyvernopre` image on your local system, run:
 ```console
-make ko-build-kyvernopre
+make ko-build-kyverno-init
 ```
 
 The resulting image should be available locally, named `ko.local/github.com/kyverno/kyverno/cmd/initcontainer`.
@@ -163,12 +163,12 @@ To allow authentication you will need to set `REGISTRY_USERNAME` and `REGISTRY_P
 To push `kyvernopre` image on a remote registry, run:
 ```console
 # push stable image
-make ko-publish-kyvernopre
+make ko-publish-kyverno-init
 ```
 or
 ```console
 # push dev image
-make ko-publish-kyvernopre-dev
+make ko-publish-kyverno-init-dev
 ```
 
 The resulting image should be available remotely, named `ghcr.io/kyverno/kyvernopre` (by default, if `REGISTRY` environment variable was not set).
@@ -230,7 +230,7 @@ You can also override the KinD cluster name by setting the `KIND_NAME` environme
 To build local images and load them on a local KinD cluster, run:
 ```console
 # build kyvernopre image and load it in KinD cluster
-make kind-load-kyvernopre
+make kind-load-kyverno-init
 ```
 or
 ```console
