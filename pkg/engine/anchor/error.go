@@ -2,6 +2,7 @@ package anchor
 
 import (
 	"fmt"
+	"strings"
 )
 
 // anchorError is the const specification of anchor errors
@@ -60,10 +61,13 @@ func newGlobalAnchorError(msg string) validateAnchorError {
 }
 
 // isError checks if error matches the given error type
-func isError(err error, code anchorError) bool {
+func isError(err error, code anchorError, msg string) bool {
 	if err != nil {
 		if t, ok := err.(validateAnchorError); ok {
 			return t.err == code
+		} else {
+			// TODO: we shouldn't need this, error is not properly propagated
+			return strings.Contains(err.Error(), msg)
 		}
 	}
 	return false
@@ -71,15 +75,15 @@ func isError(err error, code anchorError) bool {
 
 // IsNegationAnchorError checks if error is a negation anchor error
 func IsNegationAnchorError(err error) bool {
-	return isError(err, negationAnchorErr)
+	return isError(err, negationAnchorErr, negationAnchorErrMsg)
 }
 
 // IsConditionalAnchorError checks if error is a conditional anchor error
 func IsConditionalAnchorError(err error) bool {
-	return isError(err, conditionalAnchorErr)
+	return isError(err, conditionalAnchorErr, conditionalAnchorErrMsg)
 }
 
 // IsGlobalAnchorError checks if error is a global global anchor error
 func IsGlobalAnchorError(err error) bool {
-	return isError(err, globalAnchorErr)
+	return isError(err, globalAnchorErr, globalAnchorErrMsg)
 }

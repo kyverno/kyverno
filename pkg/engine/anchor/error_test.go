@@ -163,7 +163,7 @@ func TestIsNegationAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("negation anchor matched in resource: test"),
 		},
-		want: false,
+		want: true,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
@@ -206,7 +206,7 @@ func TestIsConditionalAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("conditional anchor mismatch: test"),
 		},
-		want: false,
+		want: true,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
@@ -249,7 +249,7 @@ func TestIsGlobalAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("global anchor mismatch: test"),
 		},
-		want: false,
+		want: true,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
