@@ -75,46 +75,49 @@ func (a anchor) String() string {
 	return String(a.modifier, a.key)
 }
 
-// ContainsCondition returns true, if anchor is either condition anchor or global condition anchor
+// IsOneOf returns checks if anchor is one of the given types
+func IsOneOf(a Anchor, types ...AnchorType) bool {
+	if a != nil {
+		for _, t := range types {
+			if t == a.Type() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ContainsCondition returns true if anchor is either condition anchor or global condition anchor
 func ContainsCondition(a Anchor) bool {
-	return a != nil && (IsCondition(a) || IsGlobal(a))
+	return IsOneOf(a, Condition, Global)
 }
 
 // IsCondition checks for condition anchor
 func IsCondition(a Anchor) bool {
-	return a != nil && a.Type() == Condition
+	return IsOneOf(a, Condition)
 }
 
 // IsGlobal checks for global condition anchor
 func IsGlobal(a Anchor) bool {
-	return a != nil && a.Type() == Global
+	return IsOneOf(a, Global)
 }
 
 // IsNegation checks for negation anchor
 func IsNegation(a Anchor) bool {
-	return a != nil && a.Type() == Negation
+	return IsOneOf(a, Negation)
 }
 
 // IsAddIfNotPresent checks for addition anchor
 func IsAddIfNotPresent(a Anchor) bool {
-	return a != nil && a.Type() == AddIfNotPresent
+	return IsOneOf(a, AddIfNotPresent)
 }
 
 // IsEquality checks for equality anchor
 func IsEquality(a Anchor) bool {
-	return a != nil && a.Type() == Equality
+	return IsOneOf(a, Equality)
 }
 
 // IsExistence checks for existence anchor
 func IsExistence(a Anchor) bool {
-	return a != nil && a.Type() == Existence
-}
-
-// removeAnchor remove anchor from the given key. It returns
-// the anchor-free tag value and the prefix of the anchor.
-func removeAnchor(key string) (string, string) {
-	if a := Parse(key); a != nil {
-		return a.Key(), string(a.Type()) + "("
-	}
-	return key, ""
+	return IsOneOf(a, Existence)
 }

@@ -8,44 +8,53 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 )
 
-type resourceElementHandler = func(logr.Logger, interface{}, interface{}, interface{}, string, *AnchorMap) (string, error)
+type resourceElementHandler = func(
+	log logr.Logger,
+	resourceElement interface{},
+	patternElement interface{},
+	originPattern interface{},
+	path string,
+	ac *AnchorMap,
+) (string, error)
 
 // ValidationHandler for element processes
 type ValidationHandler interface {
-	Handle(resourceElementHandler, map[string]interface{}, interface{}, *AnchorMap) (string, error)
+	Handle(
+		handler resourceElementHandler,
+		resourceMap map[string]interface{},
+		originPattern interface{},
+		ac *AnchorMap,
+	) (string, error)
 }
 
 // CreateElementHandler factory to process elements
 func CreateElementHandler(element string, pattern interface{}, path string) ValidationHandler {
-	anchor := Parse(element)
-	if anchor == nil {
-		return newDefaultHandler(element, pattern, path)
+	if anchor := Parse(element); anchor == nil {
+		switch {
+		case IsCondition(anchor):
+			return newConditionAnchorHandler(anchor, pattern, path)
+		case IsGlobal(anchor):
+			return newGlobalAnchorHandler(anchor, pattern, path)
+		case IsExistence(anchor):
+			return newExistenceHandler(anchor, pattern, path)
+		case IsEquality(anchor):
+			return newEqualityHandler(anchor, pattern, path)
+		case IsNegation(anchor):
+			return newNegationHandler(anchor, pattern, path)
+		}
 	}
-	switch {
-	case IsCondition(anchor):
-		return newConditionAnchorHandler(element, pattern, path)
-	case IsGlobal(anchor):
-		return newGlobalAnchorHandler(element, pattern, path)
-	case IsExistence(anchor):
-		return newExistenceHandler(element, pattern, path)
-	case IsEquality(anchor):
-		return newEqualityHandler(element, pattern, path)
-	case IsNegation(anchor):
-		return newNegationHandler(element, pattern, path)
-	default:
-		return newDefaultHandler(element, pattern, path)
-	}
+	return newDefaultHandler(element, pattern, path)
 }
 
 // negationHandler provides handler for check if the tag in anchor is not defined
 type negationHandler struct {
-	anchor  string
+	anchor  Anchor
 	pattern interface{}
 	path    string
 }
 
 // newNegationHandler returns instance of negation handler
-func newNegationHandler(anchor string, pattern interface{}, path string) ValidationHandler {
+func newNegationHandler(anchor Anchor, pattern interface{}, path string) ValidationHandler {
 	return negationHandler{
 		anchor:  anchor,
 		pattern: pattern,
@@ -55,7 +64,7 @@ func newNegationHandler(anchor string, pattern interface{}, path string) Validat
 
 // Handle process negation handler
 func (nh negationHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *AnchorMap) (string, error) {
-	anchorKey, _ := removeAnchor(nh.anchor)
+	anchorKey := nh.anchor.Key()
 	currentPath := nh.path + anchorKey + "/"
 	// if anchor is present in the resource then fail
 	if _, ok := resourceMap[anchorKey]; ok {
@@ -69,13 +78,13 @@ func (nh negationHandler) Handle(handler resourceElementHandler, resourceMap map
 
 // equalityHandler provides handler for non anchor element
 type equalityHandler struct {
-	anchor  string
+	anchor  Anchor
 	pattern interface{}
 	path    string
 }
 
 // newEqualityHandler returens instance of equality handler
-func newEqualityHandler(anchor string, pattern interface{}, path string) ValidationHandler {
+func newEqualityHandler(anchor Anchor, pattern interface{}, path string) ValidationHandler {
 	return equalityHandler{
 		anchor:  anchor,
 		pattern: pattern,
@@ -85,7 +94,7 @@ func newEqualityHandler(anchor string, pattern interface{}, path string) Validat
 
 // Handle processed condition anchor
 func (eh equalityHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *AnchorMap) (string, error) {
-	anchorKey, _ := removeAnchor(eh.anchor)
+	anchorKey := eh.anchor.Key()
 	currentPath := eh.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
@@ -133,13 +142,13 @@ func (dh defaultHandler) Handle(handler resourceElementHandler, resourceMap map[
 
 // conditionAnchorHandler provides handler for condition anchor
 type conditionAnchorHandler struct {
-	anchor  string
+	anchor  Anchor
 	pattern interface{}
 	path    string
 }
 
 // newConditionAnchorHandler returns an instance of condition acnhor handler
-func newConditionAnchorHandler(anchor string, pattern interface{}, path string) ValidationHandler {
+func newConditionAnchorHandler(anchor Anchor, pattern interface{}, path string) ValidationHandler {
 	return conditionAnchorHandler{
 		anchor:  anchor,
 		pattern: pattern,
@@ -149,7 +158,7 @@ func newConditionAnchorHandler(anchor string, pattern interface{}, path string) 
 
 // Handle processed condition anchor
 func (ch conditionAnchorHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *AnchorMap) (string, error) {
-	anchorKey, _ := removeAnchor(ch.anchor)
+	anchorKey := ch.anchor.Key()
 	currentPath := ch.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
@@ -168,13 +177,13 @@ func (ch conditionAnchorHandler) Handle(handler resourceElementHandler, resource
 
 // globalAnchorHandler provides handler for global condition anchor
 type globalAnchorHandler struct {
-	anchor  string
+	anchor  Anchor
 	pattern interface{}
 	path    string
 }
 
 // newGlobalAnchorHandler returns an instance of condition acnhor handler
-func newGlobalAnchorHandler(anchor string, pattern interface{}, path string) ValidationHandler {
+func newGlobalAnchorHandler(anchor Anchor, pattern interface{}, path string) ValidationHandler {
 	return globalAnchorHandler{
 		anchor:  anchor,
 		pattern: pattern,
@@ -184,7 +193,7 @@ func newGlobalAnchorHandler(anchor string, pattern interface{}, path string) Val
 
 // Handle processed global condition anchor
 func (gh globalAnchorHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *AnchorMap) (string, error) {
-	anchorKey, _ := removeAnchor(gh.anchor)
+	anchorKey := gh.anchor.Key()
 	currentPath := gh.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
@@ -201,13 +210,13 @@ func (gh globalAnchorHandler) Handle(handler resourceElementHandler, resourceMap
 
 // existenceHandler provides handlers to process exitence anchor handler
 type existenceHandler struct {
-	anchor  string
+	anchor  Anchor
 	pattern interface{}
 	path    string
 }
 
 // newExistenceHandler returns existence handler
-func newExistenceHandler(anchor string, pattern interface{}, path string) ValidationHandler {
+func newExistenceHandler(anchor Anchor, pattern interface{}, path string) ValidationHandler {
 	return existenceHandler{
 		anchor:  anchor,
 		pattern: pattern,
@@ -218,7 +227,7 @@ func newExistenceHandler(anchor string, pattern interface{}, path string) Valida
 // Handle processes the existence anchor handler
 func (eh existenceHandler) Handle(handler resourceElementHandler, resourceMap map[string]interface{}, originPattern interface{}, ac *AnchorMap) (string, error) {
 	// skip is used by existence anchor to not process further if condition is not satisfied
-	anchorKey, _ := removeAnchor(eh.anchor)
+	anchorKey := eh.anchor.Key()
 	currentPath := eh.path + anchorKey + "/"
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {

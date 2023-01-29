@@ -67,3 +67,60 @@ func TestGetAnchorsResourcesFromMap(t *testing.T) {
 		})
 	}
 }
+
+func Test_resourceHasValueForKey(t *testing.T) {
+	type args struct {
+		resource interface{}
+		key      string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{{
+		args: args{
+			resource: map[string]interface{}{
+				"spec": 123,
+			},
+			key: "spec",
+		},
+		want: true,
+	}, {
+		args: args{
+			resource: map[string]interface{}{
+				"spec": 123,
+			},
+			key: "metadata",
+		},
+		want: false,
+	}, {
+		args: args{
+			resource: []interface{}{1, 2, 3},
+			key:      "spec",
+		},
+		want: false,
+	}, {
+		args: args{
+			resource: []interface{}{
+				map[string]interface{}{
+					"spec": 123,
+				},
+			},
+			key: "spec",
+		},
+		want: true,
+	}, {
+		args: args{
+			resource: 123,
+			key:      "spec",
+		},
+		want: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := resourceHasValueForKey(tt.args.resource, tt.args.key); got != tt.want {
+				t.Errorf("resourceHasValueForKey() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
