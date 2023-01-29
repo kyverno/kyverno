@@ -47,7 +47,7 @@ jobs:
       - name: Publish kyvernopre
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-kyvernopre
+          makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
