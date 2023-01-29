@@ -84,10 +84,10 @@ config:
     - '[PodDisruptionBudget,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}]'
     - '[Role,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}:*]'
     - '[RoleBinding,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}:*]'
-    - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
-    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}]'
-    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.serviceName" . }}-metrics]'
-    - '[ServiceMonitor,{{ if .Values.serviceMonitor.namespace }}{{ .Values.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.serviceName" . }}-service-monitor]'
+    - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}]'
+    - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}-metrics]'
+    - '[ServiceMonitor,{{ if .Values.serviceMonitor.namespace }}{{ .Values.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.admission-controller.serviceName" . }}-service-monitor]'
     - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-*]'
 
   # -- Defines the `namespaceSelector` in the webhook configurations.
@@ -153,16 +153,16 @@ existingImagePullSecrets: []
 test:
 
   image:
-    # -- Image registry
-    registry:
+    # -- (string) Image registry
+    registry: ~
     # -- Image repository
     repository: busybox
     # -- Image tag
     # Defaults to `latest` if omitted
-    tag: 1.35
-    # -- Image pull policy
+    tag: '1.35'
+    # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
-    pullPolicy:
+    pullPolicy: ~
 
   resources:
     # -- Pod resource limits
@@ -204,8 +204,8 @@ rbac:
       # example.com/annotation: value
 
 image:
-  # -- Image registry
-  registry:
+  # -- (string) Image registry
+  registry: ~
   # If you want to manage the registry you should remove it from the repository
   # registry: ghcr.io
   # repository: kyverno/kyverno
@@ -221,8 +221,8 @@ image:
   # - secretName
 
 initImage:
-  # -- Image registry
-  registry:
+  # -- (string) Image registry
+  registry: ~
   # If you want to manage the registry you should remove it from the repository
   # registry: ghcr.io
   # repository: kyverno/kyvernopre
@@ -503,9 +503,14 @@ tufRootMountPath: /.sigstore
 grafana:
   # -- Enable grafana dashboard creation.
   enabled: false
-  # -- Namespace to create the grafana dashboard configmap.
+
+  # -- Configmap name template.
+  configMapName: '{{ include "kyverno.fullname" . }}-grafana'
+
+  # -- (string) Namespace to create the grafana dashboard configmap.
   # If not set, it will be created in the same namespace where the chart is deployed.
-  namespace:
+  namespace: ~
+
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
@@ -536,8 +541,8 @@ cleanupController:
   createSelfSignedCert: false
 
   image:
-    # -- Image registry
-    registry:
+    # -- (string) Image registry
+    registry: ~
     # If you want to manage the registry you should remove it from the repository
     # registry: ghcr.io
     # repository: kyverno/kyverno
@@ -780,8 +785,8 @@ reportsController:
       #     - pods
 
   image:
-    # -- Image registry
-    registry:
+    # -- (string) Image registry
+    registry: ~
     # If you want to manage the registry you should remove it from the repository
     # registry: ghcr.io
     # repository: kyverno/kyverno

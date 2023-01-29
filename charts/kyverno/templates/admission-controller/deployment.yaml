@@ -3,9 +3,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "kyverno.fullname" . }}
+  namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
-  namespace: {{ template "kyverno.namespace" . }}
 spec:
   {{- with .Values.replicaCount }}
   replicas: {{ . }}
@@ -29,10 +29,12 @@ spec:
       {{- end }}
     spec:
       {{- with .Values.image.pullSecrets }}
-      imagePullSecrets: {{ tpl (toYaml .) $ | nindent 8 }}
+      imagePullSecrets:
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- with .Values.podSecurityContext }}
-      securityContext: {{ tpl (toYaml .) $ | nindent 8 }}
+      securityContext:
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       {{- if or .Values.antiAffinity.enable .Values.podAffinity .Values.nodeAffinity }}
       affinity:
@@ -84,8 +86,9 @@ spec:
           {{- with .Values.initResources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if .Values.securityContext }}
-          securityContext: {{ include "kyverno.securityContext" . | nindent 12 }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           env:
           - name: METRICS_CONFIG
@@ -112,6 +115,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if or .Values.extraArgs .Values.imagePullSecrets }}
           args:
+            - --servicePort={{ .Values.service.port }}
             {{- if .Values.extraArgs -}}
               {{ tpl (toYaml .Values.extraArgs) . | nindent 12 }}
             {{- end }}
@@ -122,8 +126,9 @@ spec:
           {{- with .Values.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if .Values.securityContext }}
-          securityContext: {{ include "kyverno.securityContext" . | nindent 12 }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
           - containerPort: 9443
@@ -148,7 +153,7 @@ spec:
           - name: KYVERNO_SERVICEACCOUNT_NAME
             value: {{ template "kyverno.admission-controller.serviceAccountName" . }}
           - name: KYVERNO_SVC
-            value: {{ template "kyverno.serviceName" . }}
+            value: {{ template "kyverno.admission-controller.serviceName" . }}
           - name: TUF_ROOT
             value: {{ .Values.tufRootMountPath }}
           {{- with .Values.envVars }}
