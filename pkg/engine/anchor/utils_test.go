@@ -38,26 +38,23 @@ func TestGetAnchorsResourcesFromMap(t *testing.T) {
 		patternMap    map[string]interface{}
 		wantAnchors   map[string]interface{}
 		wantResources map[string]interface{}
-	}{
-		{
-			patternMap: map[string]interface{}{
-				"spec": "test",
-			},
-			wantAnchors: map[string]interface{}{},
-			wantResources: map[string]interface{}{
-				"spec": "test",
-			},
+	}{{
+		patternMap: map[string]interface{}{
+			"spec": "test",
 		},
-		{
-			patternMap: map[string]interface{}{
-				"(spec)": "test",
-			},
-			wantAnchors: map[string]interface{}{
-				"(spec)": "test",
-			},
-			wantResources: map[string]interface{}{},
+		wantAnchors: map[string]interface{}{},
+		wantResources: map[string]interface{}{
+			"spec": "test",
 		},
-	}
+	}, {
+		patternMap: map[string]interface{}{
+			"(spec)": "test",
+		},
+		wantAnchors: map[string]interface{}{
+			"(spec)": "test",
+		},
+		wantResources: map[string]interface{}{},
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			anchors, resources := GetAnchorsResourcesFromMap(tt.patternMap)

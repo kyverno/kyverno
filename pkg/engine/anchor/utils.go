@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// GetAnchorsResourcesFromMap returns map of anchors
+// GetAnchorsResourcesFromMap returns maps of anchors and resources
 func GetAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]interface{}, map[string]interface{}) {
 	anchors := map[string]interface{}{}
 	resources := map[string]interface{}{}
@@ -21,14 +21,18 @@ func GetAnchorsResourcesFromMap(patternMap map[string]interface{}) (map[string]i
 
 // RemoveAnchorsFromPath removes all anchor from path string
 func RemoveAnchorsFromPath(str string) string {
-	components := strings.Split(str, "/")
-	if components[0] == "" {
-		components = components[1:]
+	parts := strings.Split(str, "/")
+	if parts[0] == "" {
+		parts = parts[1:]
 	}
-	for i, component := range components {
-		components[i], _ = removeAnchor(component)
+	for i, part := range parts {
+		if a := Parse(part); a != nil {
+			parts[i] = a.Key()
+		} else {
+			parts[i] = part
+		}
 	}
-	newPath := path.Join(components...)
+	newPath := path.Join(parts...)
 	if path.IsAbs(str) {
 		newPath = "/" + newPath
 	}

@@ -6,7 +6,7 @@ type AnchorKey struct {
 	// if anchor key of the pattern exists in the resource then (key)=true else (key)=false
 	anchorMap map[string]bool
 	// AnchorError - used in validate to break execution of the recursion when if condition fails
-	AnchorError ValidateAnchorError
+	AnchorError validateAnchorError
 }
 
 // NewAnchorMap -initialize anchorMap

@@ -27,31 +27,31 @@ const (
 	globalAnchorErrMsg = "global anchor mismatch"
 )
 
-// ValidateAnchorError represents the error type of validation anchors
-type ValidateAnchorError struct {
+// validateAnchorError represents the error type of validation anchors
+type validateAnchorError struct {
 	err     anchorError
 	message string
 }
 
 // newNegationAnchorError returns a new instance of NegationAnchorError
-func newNegationAnchorError(msg string) ValidateAnchorError {
-	return ValidateAnchorError{
+func newNegationAnchorError(msg string) validateAnchorError {
+	return validateAnchorError{
 		err:     negationAnchorErr,
 		message: fmt.Sprintf("%s: %s", negationAnchorErrMsg, msg),
 	}
 }
 
 // newConditionalAnchorError returns a new instance of ConditionalAnchorError
-func newConditionalAnchorError(msg string) ValidateAnchorError {
-	return ValidateAnchorError{
+func newConditionalAnchorError(msg string) validateAnchorError {
+	return validateAnchorError{
 		err:     conditionalAnchorErr,
 		message: fmt.Sprintf("%s: %s", conditionalAnchorErrMsg, msg),
 	}
 }
 
 // newGlobalAnchorError returns a new instance of GlobalAnchorError
-func newGlobalAnchorError(msg string) ValidateAnchorError {
-	return ValidateAnchorError{
+func newGlobalAnchorError(msg string) validateAnchorError {
+	return validateAnchorError{
 		err:     globalAnchorErr,
 		message: fmt.Sprintf("%s: %s", globalAnchorErrMsg, msg),
 	}
@@ -93,6 +93,6 @@ func IsGlobalAnchorError(msg string) bool {
 // }
 
 // Error returns an error instance of the anchor error
-func (e ValidateAnchorError) Error() error {
+func (e validateAnchorError) Error() error {
 	return errors.New(e.message)
 }
