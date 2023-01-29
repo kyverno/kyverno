@@ -57,12 +57,12 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 
 func skip(err error) bool {
 	// if conditional or global anchors report errors, the rule does not apply to the resource
-	return anchor.IsConditionalAnchorError(err.Error()) || anchor.IsGlobalAnchorError(err.Error())
+	return anchor.IsConditionalAnchorError(err) || anchor.IsGlobalAnchorError(err)
 }
 
 func fail(err error) bool {
 	// if negation anchors report errors, the rule will fail
-	return anchor.IsNegationAnchorError(err.Error())
+	return anchor.IsNegationAnchorError(err)
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)

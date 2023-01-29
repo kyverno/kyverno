@@ -1,9 +1,7 @@
 package anchor
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 )
 
 // anchorError is the const specification of anchor errors
@@ -33,6 +31,11 @@ type validateAnchorError struct {
 	message string
 }
 
+// Error implements error interface
+func (e validateAnchorError) Error() string {
+	return e.message
+}
+
 // newNegationAnchorError returns a new instance of NegationAnchorError
 func newNegationAnchorError(msg string) validateAnchorError {
 	return validateAnchorError{
@@ -57,42 +60,32 @@ func newGlobalAnchorError(msg string) validateAnchorError {
 	}
 }
 
-// IsNegationAnchorError checks if error message has negation anchor error string
-func IsNegationAnchorError(msg string) bool {
-	return strings.Contains(msg, negationAnchorErrMsg)
+// IsNegationAnchorError checks if error is a negation anchor error
+func IsNegationAnchorError(err error) bool {
+	if err != nil {
+		if t, ok := err.(validateAnchorError); ok {
+			return t.err == negationAnchorErr
+		}
+	}
+	return false
 }
 
-// IsConditionalAnchorError checks if error message has conditional anchor error string
-func IsConditionalAnchorError(msg string) bool {
-	return strings.Contains(msg, conditionalAnchorErrMsg)
+// IsConditionalAnchorError checks if error is a conditional anchor error
+func IsConditionalAnchorError(err error) bool {
+	if err != nil {
+		if t, ok := err.(validateAnchorError); ok {
+			return t.err == conditionalAnchorErr
+		}
+	}
+	return false
 }
 
-// IsGlobalAnchorError checks if error message has global anchor error string
-func IsGlobalAnchorError(msg string) bool {
-	return strings.Contains(msg, globalAnchorErrMsg)
-}
-
-// // IsNegationAnchorError checks if the error is a negation anchor error
-// func (e ValidateAnchorError) IsNegationAnchorError() bool {
-// 	return e.Err == NegationAnchorErr
-// }
-
-// // IsConditionAnchorError checks if the error is a conditional anchor error
-// func (e ValidateAnchorError) IsConditionAnchorError() bool {
-// 	return e.Err == ConditionalAnchorErr
-// }
-
-// // IsGlobalAnchorError checks if the error is a global anchor error
-// func (e ValidateAnchorError) IsGlobalAnchorError() bool {
-// 	return e.Err == GlobalAnchorErr
-// }
-
-// // IsNil checks if the error isn't populated
-// func (e ValidateAnchorError) IsNil() bool {
-// 	return e == ValidateAnchorError{}
-// }
-
-// Error returns an error instance of the anchor error
-func (e validateAnchorError) Error() error {
-	return errors.New(e.message)
+// IsGlobalAnchorError checks if error is a global global anchor error
+func IsGlobalAnchorError(err error) bool {
+	if err != nil {
+		if t, ok := err.(validateAnchorError); ok {
+			return t.err == globalAnchorErr
+		}
+	}
+	return false
 }
