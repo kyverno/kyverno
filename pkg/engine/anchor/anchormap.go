@@ -11,7 +11,7 @@ type AnchorMap struct {
 
 // NewAnchorMap -initialize anchorMap
 func NewAnchorMap() *AnchorMap {
-	return &AnchorMap{anchorMap: make(map[string]bool)}
+	return &AnchorMap{anchorMap: map[string]bool{}}
 }
 
 // KeysAreMissing - if any of the anchor key doesn't exists in the resource then it will return true
@@ -27,18 +27,15 @@ func (ac *AnchorMap) KeysAreMissing() bool {
 }
 
 // CheckAnchorInResource checks if condition anchor key has values
-func (ac *AnchorMap) CheckAnchorInResource(pattern interface{}, resource interface{}) {
-	switch typed := pattern.(type) {
-	case map[string]interface{}:
-		for key := range typed {
-			if a := Parse(key); IsCondition(a) || IsExistence(a) || IsNegation(a) {
-				val, ok := ac.anchorMap[key]
-				if !ok {
-					ac.anchorMap[key] = false
-				} else if !val {
-					if resourceHasValueForKey(resource, a.Key()) {
-						ac.anchorMap[key] = true
-					}
+func (ac *AnchorMap) CheckAnchorInResource(pattern map[string]interface{}, resource interface{}) {
+	for key := range pattern {
+		if a := Parse(key); IsCondition(a) || IsExistence(a) || IsNegation(a) {
+			val, ok := ac.anchorMap[key]
+			if !ok {
+				ac.anchorMap[key] = false
+			} else if !val {
+				if resourceHasValueForKey(resource, a.Key()) {
+					ac.anchorMap[key] = true
 				}
 			}
 		}
