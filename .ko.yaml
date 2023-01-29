@@ -1,11 +1,11 @@
 builds:
-- id: init-container
-  main: ./cmd/init-container
+- id: kyverno
+  main: ./cmd/kyverno
   ldflags:
   - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 
-- id: kyverno
-  main: ./cmd/kyverno
+- id: kyverno-init
+  main: ./cmd/kyverno-init
   ldflags:
   - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 

@@ -67,7 +67,7 @@ To build `kyvernopre` binary on your local system, run:
 make build-kyvernopre
 ```
 
-The binary should be created at `./cmd/init-container/kyvernopre`.
+The binary should be created at `./cmd/kyverno-init/kyvernopre`.
 
 ### Building kyverno locally
 

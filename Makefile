@@ -135,7 +135,7 @@ clean-tools: ## Remove installed tools
 
 CMD_DIR        := ./cmd
 KYVERNO_DIR    := $(CMD_DIR)/kyverno
-KYVERNOPRE_DIR := $(CMD_DIR)/init-container
+KYVERNOPRE_DIR := $(CMD_DIR)/kyverno-init
 CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
 CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
 REPORTS_DIR    := $(CMD_DIR)/reports-controller
@@ -266,7 +266,7 @@ ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ko-build-cleanup
 ################
 
 REGISTRY_USERNAME   ?= dummy
-KO_KYVERNOPRE_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/init-container
+KO_KYVERNOPRE_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/kyverno-init
 KO_KYVERNO_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/kyverno
 KO_CLEANUP_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/cleanup-controller
 KO_REPORTS_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/reports-controller
