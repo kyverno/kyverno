@@ -32190,6 +32190,7 @@ spec:
           image: "ghcr.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
+            - --servicePort=443
             - --loggingFormat=text
           resources: 
             limits:
@@ -32333,6 +32334,7 @@ spec:
             name: metrics
             protocol: TCP
           args:
+            - --servicePort=443
             - --loggingFormat=text
             - --disableMetrics=false
             - --otelConfig=prometheus
