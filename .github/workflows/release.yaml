@@ -47,7 +47,7 @@ jobs:
       - name: Publish kyvernopre
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-kyvernopre
+          makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
@@ -56,7 +56,7 @@ jobs:
           sbom-name: kyvernopre
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
-          main-path: ./cmd/initContainer
+          main-path: ./cmd/kyverno-init
       - name: Publish cleanup-controller
         uses: ./.github/actions/publish-image
         with:
