@@ -29,7 +29,7 @@ type ValidationHandler interface {
 
 // CreateElementHandler factory to process elements
 func CreateElementHandler(element string, pattern interface{}, path string) ValidationHandler {
-	if anchor := Parse(element); anchor == nil {
+	if anchor := Parse(element); anchor != nil {
 		switch {
 		case IsCondition(anchor):
 			return newConditionAnchorHandler(anchor, pattern, path)
