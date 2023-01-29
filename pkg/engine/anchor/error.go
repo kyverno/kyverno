@@ -36,56 +36,50 @@ func (e validateAnchorError) Error() string {
 	return e.message
 }
 
+// newNegationAnchorError returns a new instance of validateAnchorError
+func newValidateAnchorError(err anchorError, prefix, msg string) validateAnchorError {
+	return validateAnchorError{
+		err:     err,
+		message: fmt.Sprintf("%s: %s", prefix, msg),
+	}
+}
+
 // newNegationAnchorError returns a new instance of NegationAnchorError
 func newNegationAnchorError(msg string) validateAnchorError {
-	return validateAnchorError{
-		err:     negationAnchorErr,
-		message: fmt.Sprintf("%s: %s", negationAnchorErrMsg, msg),
-	}
+	return newValidateAnchorError(negationAnchorErr, negationAnchorErrMsg, msg)
 }
 
 // newConditionalAnchorError returns a new instance of ConditionalAnchorError
 func newConditionalAnchorError(msg string) validateAnchorError {
-	return validateAnchorError{
-		err:     conditionalAnchorErr,
-		message: fmt.Sprintf("%s: %s", conditionalAnchorErrMsg, msg),
-	}
+	return newValidateAnchorError(conditionalAnchorErr, conditionalAnchorErrMsg, msg)
 }
 
 // newGlobalAnchorError returns a new instance of GlobalAnchorError
 func newGlobalAnchorError(msg string) validateAnchorError {
-	return validateAnchorError{
-		err:     globalAnchorErr,
-		message: fmt.Sprintf("%s: %s", globalAnchorErrMsg, msg),
+	return newValidateAnchorError(globalAnchorErr, globalAnchorErrMsg, msg)
+}
+
+// isError checks if error matches the given error type
+func isError(err error, code anchorError) bool {
+	if err != nil {
+		if t, ok := err.(validateAnchorError); ok {
+			return t.err == code
+		}
 	}
+	return false
 }
 
 // IsNegationAnchorError checks if error is a negation anchor error
 func IsNegationAnchorError(err error) bool {
-	if err != nil {
-		if t, ok := err.(validateAnchorError); ok {
-			return t.err == negationAnchorErr
-		}
-	}
-	return false
+	return isError(err, negationAnchorErr)
 }
 
 // IsConditionalAnchorError checks if error is a conditional anchor error
 func IsConditionalAnchorError(err error) bool {
-	if err != nil {
-		if t, ok := err.(validateAnchorError); ok {
-			return t.err == conditionalAnchorErr
-		}
-	}
-	return false
+	return isError(err, conditionalAnchorErr)
 }
 
 // IsGlobalAnchorError checks if error is a global global anchor error
 func IsGlobalAnchorError(err error) bool {
-	if err != nil {
-		if t, ok := err.(validateAnchorError); ok {
-			return t.err == globalAnchorErr
-		}
-	}
-	return false
+	return isError(err, globalAnchorErr)
 }
