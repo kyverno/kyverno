@@ -38,3 +38,23 @@ func RemoveAnchorsFromPath(str string) string {
 	}
 	return newPath
 }
+
+// resourceHasValueForKey checks if a resource has value for a given key
+func resourceHasValueForKey(resource interface{}, key string) bool {
+	switch typed := resource.(type) {
+	case map[string]interface{}:
+		if _, ok := typed[key]; ok {
+			return true
+		}
+		return false
+	case []interface{}:
+		for _, value := range typed {
+			if resourceHasValueForKey(value, key) {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
