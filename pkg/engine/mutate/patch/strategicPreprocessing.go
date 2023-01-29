@@ -73,8 +73,10 @@ func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	if err := validateConditions(logger, pattern, resource); err != nil {
 		return err // do not wrap condition errors
 	}
-
-	nonAnchors, err := nonAnchorKeys(pattern)
+	isNotAnchor := func(a anchor.Anchor) bool {
+		return !hasAnchor(a)
+	}
+	nonAnchors, err := nonAnchorKeys(pattern, isNotAnchor)
 	if err != nil {
 		return err
 	}
@@ -291,7 +293,7 @@ func filterKeys(pattern *yaml.RNode, condition func(anchor.Anchor) bool) ([]anch
 	return anchors, nil
 }
 
-func nonAnchorKeys(pattern *yaml.RNode) ([]string, error) {
+func nonAnchorKeys(pattern *yaml.RNode, condition func(anchor.Anchor) bool) ([]string, error) {
 	if !isMappingNode(pattern) {
 		return nil, nil
 	}
@@ -301,7 +303,7 @@ func nonAnchorKeys(pattern *yaml.RNode) ([]string, error) {
 	}
 	var keys []string
 	for _, field := range fields {
-		if a := anchor.Parse(field); a == nil {
+		if a := anchor.Parse(field); a == nil || condition(a) {
 			keys = append(keys, field)
 		}
 	}

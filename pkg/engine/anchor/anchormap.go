@@ -33,10 +33,11 @@ func (ac *AnchorMap) CheckAnchorInResource(pattern map[string]interface{}, resou
 			val, ok := ac.anchorMap[key]
 			if !ok {
 				ac.anchorMap[key] = false
-			} else if !val {
-				if resourceHasValueForKey(resource, a.Key()) {
-					ac.anchorMap[key] = true
-				}
+			} else if ok && val {
+				continue
+			}
+			if resourceHasValueForKey(resource, a.Key()) {
+				ac.anchorMap[key] = true
 			}
 		}
 	}
