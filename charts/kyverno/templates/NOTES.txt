@@ -3,7 +3,22 @@ Kyverno version: {{ default .Chart.AppVersion (default .Values.image.tag .Values
 
 Thank you for installing {{ .Chart.Name }}! Your release is named {{ .Release.Name }}.
 
-{{- if not .Values.replicaCount }}
+The following components have been installed in your cluster:
+{{- if .Values.crds.install }}
+- CRDs
+{{- end }}
+- Admission controller
+{{- if .Values.reportsController.enabled }}
+- Reports controller
+{{- end }}
+{{- if .Values.cleanupController.enabled }}
+- Cleanup controller
+{{- end }}
+{{- if .Values.grafana.enabled }}
+- Grafana dashboard
+{{- end }}
+
+{{ if not .Values.replicaCount }}
 ⚠️  WARNING: Setting replicas count below 3 means Kyverno is not running in high availability mode.
 {{- else if lt (int .Values.replicaCount) 3 }}
 ⚠️  WARNING: Setting replicas count below 3 means Kyverno is not running in high availability mode.
