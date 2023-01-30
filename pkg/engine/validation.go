@@ -94,7 +94,7 @@ func buildResponse(ctx *PolicyContext, resp *engineapi.EngineResponse, startTime
 	}
 
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
+	resp.PolicyResponse.Timestamp = startTime.Unix()
 }
 
 func validateResource(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, cfg config.Configuration) *engineapi.EngineResponse {
@@ -174,9 +174,9 @@ func processValidationRule(ctx context.Context, log logr.Logger, rclient registr
 }
 
 func addRuleResponse(log logr.Logger, resp *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, startTime time.Time) {
-	ruleResp.RuleStats.ProcessingTime = time.Since(startTime)
-	ruleResp.RuleStats.RuleExecutionTimestamp = startTime.Unix()
-	log.V(4).Info("finished processing rule", "processingTime", ruleResp.RuleStats.ProcessingTime.String())
+	ruleResp.ExecutionStats.ProcessingTime = time.Since(startTime)
+	ruleResp.ExecutionStats.Timestamp = startTime.Unix()
+	log.V(4).Info("finished processing rule", "processingTime", ruleResp.ExecutionStats.ProcessingTime.String())
 
 	if ruleResp.Status == engineapi.RuleStatusPass || ruleResp.Status == engineapi.RuleStatusFail {
 		incrementAppliedCount(resp)
