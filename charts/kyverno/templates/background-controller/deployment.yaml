@@ -23,15 +23,15 @@ spec:
       labels:
         {{- include "kyverno.background-controller.labels" . | nindent 8 }}
     spec:
-      {{- with .Values.background.image.pullSecrets }}
+      {{- with .Values.backgroundController.image.pullSecrets }}
       imagePullSecrets: 
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.background.podSecurityContext }}
+      {{- with .Values.backgroundController.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.background.nodeSelector }}
+      {{- with .Values.backgroundController.nodeSelector }}
       nodeSelector:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}

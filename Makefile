@@ -493,6 +493,7 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 		--set initImage.tag=latest \
 		--set cleanupController.image.tag=latest \
 		--set reportsController.image.tag=latest \
+		--set backgroundController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
 		> ./config/install.yaml
 
