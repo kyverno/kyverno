@@ -986,7 +986,7 @@ func Test_FilterKeys_NoConditions(t *testing.T) {
 	}`)
 
 	pattern := yaml.MustParse(string(patternRaw))
-	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
+	conditions, err := filterKeys(pattern, anchor.IsCondition)
 
 	assert.NilError(t, err)
 	assert.Equal(t, len(conditions), 0)
@@ -1000,18 +1000,18 @@ func Test_FilterKeys_ConditionsArePresent(t *testing.T) {
 	}`)
 
 	pattern := yaml.MustParse(string(patternRaw))
-	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
+	conditions, err := filterKeys(pattern, anchor.IsCondition)
 
 	assert.NilError(t, err)
 	assert.Equal(t, len(conditions), 2)
-	assert.Equal(t, conditions[0], "(key2)")
-	assert.Equal(t, conditions[1], "(key3)")
+	assert.Equal(t, conditions[0].String(), "(key2)")
+	assert.Equal(t, conditions[1].String(), "(key3)")
 }
 
 func Test_FilterKeys_EmptyList(t *testing.T) {
 	patternRaw := []byte(`{}`)
 	pattern := yaml.MustParse(string(patternRaw))
-	conditions, err := filterKeys(pattern, anchor.IsConditionAnchor)
+	conditions, err := filterKeys(pattern, anchor.IsCondition)
 
 	assert.NilError(t, err)
 	assert.Equal(t, len(conditions), 0)
