@@ -5,9 +5,9 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/api"
@@ -78,8 +78,8 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, resource unstructured.Unstructured, ctx context.Interface, logger logr.Logger) (unstructured.Unstructured, error) {
 	patcher := mutate.NewPatcher(name, mergePatch, jsonPatch, resource, ctx, logger)
 	resp, mutatedResource := patcher.Patch()
-	if resp.Status != response.RuleStatusPass {
-		return mutatedResource, fmt.Errorf("mutate status %q: %s", resp.Status.String(), resp.Message)
+	if resp.Status != engineapi.RuleStatusPass {
+		return mutatedResource, fmt.Errorf("mutate status %q: %s", resp.Status, resp.Message)
 	}
 
 	return mutatedResource, nil
