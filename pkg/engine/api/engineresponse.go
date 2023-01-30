@@ -74,12 +74,12 @@ func (er EngineResponse) GetPatches() [][]byte {
 
 // GetFailedRules returns failed rules
 func (er EngineResponse) GetFailedRules() []string {
-	return er.getRules(func(status RuleStatus) bool { return status == RuleStatusFail || status == RuleStatusError })
+	return er.getRules(func(rule RuleResponse) bool { return rule.HasStatus(RuleStatusFail, RuleStatusError) })
 }
 
 // GetSuccessRules returns success rules
 func (er EngineResponse) GetSuccessRules() []string {
-	return er.getRules(func(status RuleStatus) bool { return status == RuleStatusPass })
+	return er.getRules(func(rule RuleResponse) bool { return rule.HasStatus(RuleStatusPass) })
 }
 
 // GetResourceSpec returns resourceSpec of er
@@ -93,10 +93,10 @@ func (er EngineResponse) GetResourceSpec() ResourceSpec {
 	}
 }
 
-func (er EngineResponse) getRules(predicate func(RuleStatus) bool) []string {
+func (er EngineResponse) getRules(predicate func(RuleResponse) bool) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
-		if predicate(r.Status) {
+		if predicate(r) {
 			rules = append(rules, r.Name)
 		}
 	}
