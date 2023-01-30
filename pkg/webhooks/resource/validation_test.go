@@ -9,7 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -1072,7 +1072,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			}
 
 			failurePolicy := kyvernov1.Fail
-			blocked := webhookutils.BlockRequest([]*response.EngineResponse{er}, failurePolicy, log.WithName("WebhookServer"))
+			blocked := webhookutils.BlockRequest([]*engineapi.EngineResponse{er}, failurePolicy, log.WithName("WebhookServer"))
 			assert.Assert(t, tc.blocked == blocked)
 		})
 	}
@@ -1129,7 +1129,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
 	log := log.WithName("Test_RuleSelector")
-	blocked := webhookutils.BlockRequest([]*response.EngineResponse{resp}, kyvernov1.Fail, log)
+	blocked := webhookutils.BlockRequest([]*engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == true)
 
 	applyOne := kyvernov1.ApplyOne
@@ -1139,6 +1139,6 @@ func Test_RuleSelector(t *testing.T) {
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
-	blocked = webhookutils.BlockRequest([]*response.EngineResponse{resp}, kyvernov1.Fail, log)
+	blocked = webhookutils.BlockRequest([]*engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == false)
 }
