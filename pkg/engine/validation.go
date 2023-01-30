@@ -12,7 +12,6 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -323,17 +322,14 @@ func (v *validator) validateElements(ctx context.Context, rclient registryclient
 	defer v.policyContext.jsonContext.Restore()
 	applyCount := 0
 
-	for i, e := range elements {
-		if e == nil {
+	for index, element := range elements {
+		if element == nil {
 			continue
 		}
 
-		// TODO - this needs to be refactored. The engine should not have a dependency to the CLI code
-		store.SetForEachElement(i)
-
 		v.policyContext.JSONContext().Reset()
 		policyContext := v.policyContext.Copy()
-		if err := addElementToContext(policyContext, e, i, v.nesting, elementScope); err != nil {
+		if err := addElementToContext(policyContext, element, index, v.nesting, elementScope); err != nil {
 			v.log.Error(err, "failed to add element to context")
 			return ruleError(v.rule, engineapi.Validation, "failed to process foreach", err), applyCount
 		}
@@ -353,7 +349,7 @@ func (v *validator) validateElements(ctx context.Context, rclient registryclient
 			continue
 		} else if r.Status != engineapi.RuleStatusPass {
 			if r.Status == engineapi.RuleStatusError {
-				if i < len(elements)-1 {
+				if index < len(elements)-1 {
 					continue
 				}
 				msg := fmt.Sprintf("validation failure: %v", r.Message)
@@ -369,13 +365,13 @@ func (v *validator) validateElements(ctx context.Context, rclient registryclient
 	return ruleResponse(*v.rule, engineapi.Validation, "", engineapi.RuleStatusPass), applyCount
 }
 
-func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex, nesting int, elementScope *bool) error {
-	data, err := variables.DocumentToUntyped(e)
+func addElementToContext(ctx *PolicyContext, element interface{}, index, nesting int, elementScope *bool) error {
+	data, err := variables.DocumentToUntyped(element)
 	if err != nil {
 		return err
 	}
-	if err := ctx.JSONContext().AddElement(data, elementIndex, nesting); err != nil {
-		return errors.Wrapf(err, "failed to add element (%v) to JSON context", e)
+	if err := ctx.JSONContext().AddElement(data, index, nesting); err != nil {
+		return errors.Wrapf(err, "failed to add element (%v) to JSON context", element)
 	}
 	dataMap, ok := data.(map[string]interface{})
 	// We set scoped to true by default if the data is a map
