@@ -2198,23 +2198,19 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 	  }
 	`)
 
-	configMapVariableContext := store.Context{
-		Policies: []store.Policy{
-			{
-				Name: "restrict-pod-count",
-				Rules: []store.Rule{
-					{
-						Name: "restrict-pod-count",
-						Values: map[string]interface{}{
-							"podcounts": "12",
-						},
+	store.SetPolicies(
+		store.Policy{
+			Name: "restrict-pod-count",
+			Rules: []store.Rule{
+				{
+					Name: "restrict-pod-count",
+					Values: map[string]interface{}{
+						"podcounts": "12",
 					},
 				},
 			},
 		},
-	}
-
-	store.SetContext(configMapVariableContext)
+	)
 	store.SetMock(true)
 
 	var policy kyverno.ClusterPolicy
@@ -2712,24 +2708,20 @@ func Test_foreach_context_preconditions(t *testing.T) {
 		}
 	  }`)
 
-	configMapVariableContext := store.Context{
-		Policies: []store.Policy{
-			{
-				Name: "test",
-				Rules: []store.Rule{
-					{
-						Name: "test",
-						Values: map[string]interface{}{
-							"img.data.podvalid":   "nginx/nginx:v1",
-							"img.data.podinvalid": "nginx/nginx:v2",
-						},
+	store.SetPolicies(
+		store.Policy{
+			Name: "test",
+			Rules: []store.Rule{
+				{
+					Name: "test",
+					Values: map[string]interface{}{
+						"img.data.podvalid":   "nginx/nginx:v1",
+						"img.data.podinvalid": "nginx/nginx:v2",
 					},
 				},
 			},
 		},
-	}
-
-	store.SetContext(configMapVariableContext)
+	)
 	store.SetMock(true)
 
 	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusPass)
@@ -2806,24 +2798,20 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 		}
 	  }`)
 
-	configMapVariableContext := store.Context{
-		Policies: []store.Policy{
-			{
-				Name: "test",
-				Rules: []store.Rule{
-					{
-						Name: "test",
-						Values: map[string]interface{}{
-							"img.data.podvalid":   "nginx/nginx:v1",
-							"img.data.podinvalid": "nginx/nginx:v1",
-						},
+	store.SetPolicies(
+		store.Policy{
+			Name: "test",
+			Rules: []store.Rule{
+				{
+					Name: "test",
+					Values: map[string]interface{}{
+						"img.data.podvalid":   "nginx/nginx:v1",
+						"img.data.podinvalid": "nginx/nginx:v1",
 					},
 				},
 			},
 		},
-	}
-
-	store.SetContext(configMapVariableContext)
+	)
 	store.SetMock(true)
 
 	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusFail)
