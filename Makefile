@@ -27,11 +27,13 @@ KYVERNO_IMAGE        := kyverno
 CLI_IMAGE            := kyverno-cli
 CLEANUP_IMAGE        := cleanup-controller
 REPORTS_IMAGE        := reports-controller
+BACKGROUND_IMAGE     := background-controller
 REPO_KYVERNOPRE      := $(REGISTRY)/$(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO         := $(REGISTRY)/$(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI             := $(REGISTRY)/$(REPO)/$(CLI_IMAGE)
 REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(CLEANUP_IMAGE)
 REPO_REPORTS         := $(REGISTRY)/$(REPO)/$(REPORTS_IMAGE)
+REPO_BACKGROUND      := $(REGISTRY)/$(REPO)/$(REPORTS_IMAGE )
 USE_CONFIG           ?= standard
 
 #########
@@ -139,11 +141,13 @@ KYVERNOPRE_DIR := $(CMD_DIR)/kyverno-init
 CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
 CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
 REPORTS_DIR    := $(CMD_DIR)/reports-controller
+BACKGROUND_DIR := $(CMD_DIR)/background-controller
 KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
 KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
 CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
 CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
 REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
+BACKGROUND_BIN := $(BACKGROUND_DIR)/background-controller
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 LD_FLAGS        = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
@@ -207,6 +211,10 @@ $(REPORTS_BIN): fmt vet
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(REPORTS_BIN) -ldflags=$(LD_FLAGS) $(REPORTS_DIR)
 
+$(REPORTS_BIN): fmt vet
+	@echo Build background controller binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) $(BACKGROUND_DIR)
+
 .PHONY: build-kyverno-init
 build-kyverno-init: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
 
@@ -222,7 +230,10 @@ build-cleanup-controller: $(CLEANUP_BIN) ## Build cleanup controller binary
 .PHONY: build-reports-controller
 build-reports-controller: $(REPORTS_BIN) ## Build reports controller binary
 
-build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller build-reports-controller ## Build all binaries
+.PHONY: build-background-controller
+build-background-controller: $(BACKGROUND_BIN) ## Build background controller binary
+
+build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller build-reports-controller build-background-controller ## Build all binaries
 
 ##############
 # BUILD (KO) #
@@ -258,8 +269,13 @@ ko-build-reports-controller: $(KO) ## Build reports controller local image (with
 	@echo Build reports controller local image with ko... >&2
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(REPORTS_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
+.PHONY: ko-build-background-controller
+ko-build-background-controller: $(KO) ## Build background controller local image (with ko)
+	@echo Build background controller local image with ko... >&2
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(BACKGROUND_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ## Build all local images (with ko)
+ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
@@ -270,6 +286,7 @@ KO_KYVERNOPRE_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/kyverno-init
 KO_KYVERNO_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/kyverno
 KO_CLEANUP_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/cleanup-controller
 KO_REPORTS_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/reports-controller
+KO_BACKGROUND_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/background-controller
 
 .PHONY: ko-login
 ko-login: $(KO)
@@ -295,6 +312,10 @@ ko-publish-cleanup-controller: ko-login ## Build and publish cleanup controller 
 ko-publish-reports-controller: ko-login ## Build and publish reports controller image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(REPORTS_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
+.PHONY: ko-publish-backgound-controller
+ko-publish-backgound-controller: ko-login ## Build and publish background controller image (with ko)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+
 .PHONY: ko-publish-kyverno-init-dev
 ko-publish-kyverno-init-dev: ko-login ## Build and publish kyvernopre dev image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
@@ -315,11 +336,16 @@ ko-publish-cleanup-controller-dev: ko-login ## Build and publish cleanup control
 ko-publish-reports-controller-dev: ko-login ## Build and publish reports controller dev image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(REPORTS_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
+.PHONY: ko-publish-background-controller-dev
+ko-publish-background-controller-dev: ko-login ## Build and publish background controller dev image (with ko)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(BACKGROUND_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+
+
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ## Build and publish all images (with ko)
+ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-backgound-controller ## Build and publish all images (with ko)
 
 .PHONY: ko-publish-all-dev
-ko-publish-all-dev: ko-publish-kyverno-init-dev ko-publish-kyverno-dev ko-publish-cli-dev ko-publish-cleanup-controller-dev ko-publish-reports-controller-dev ## Build and publish all dev images (with ko)
+ko-publish-all-dev: ko-publish-kyverno-init-dev ko-publish-kyverno-dev ko-publish-cli-dev ko-publish-cleanup-controller-dev ko-publish-reports-controller-dev ko-publish-background-controller-dev ## Build and publish all dev images (with ko)
 
 #################
 # BUILD (IMAGE) #
@@ -329,6 +355,7 @@ LOCAL_KYVERNOPRE_IMAGE := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper
 LOCAL_KYVERNO_IMAGE    := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_KYVERNO_IMAGE)
 LOCAL_CLEANUP_IMAGE    := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_CLEANUP_IMAGE)
 LOCAL_REPORTS_IMAGE    := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_REPORTS_IMAGE)
+LOCAL_BACKGROUND_IMAGE := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_BACKGROUND_IMAGE)
 
 .PHONY: image-build-kyverno-init
 image-build-kyverno-init: $(BUILD_WITH)-build-kyverno-init
@@ -344,6 +371,9 @@ image-build-cleanup-controller: $(BUILD_WITH)-build-cleanup-controller
 
 .PHONY: image-build-reports-controller
 image-build-reports-controller: $(BUILD_WITH)-build-reports-controller
+
+.PHONY: image-build-background-controller
+image-build-background-controller: $(BUILD_WITH)-build-background-controller
 
 .PHONY: image-build-all
 image-build-all: $(BUILD_WITH)-build-all
@@ -730,8 +760,13 @@ kind-load-reports-controller: $(KIND) image-build-reports-controller ## Build re
 	@echo Load reports controller image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REPORTS_IMAGE):$(IMAGE_TAG_DEV)
 
+.PHONY: kind-load-background-controller
+kind-load-background-controller: $(KIND) image-build-background-controller ## Build background controller image and load it in kind cluster
+	@echo Load background controller image... >&2
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_BACKGROUND_IMAGE):$(IMAGE_TAG_DEV)
+
 .PHONY: kind-load-all
-kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller ## Build images and load them in kind cluster
+kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller ## Build images and load them in kind cluster
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
