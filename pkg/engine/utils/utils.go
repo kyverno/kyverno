@@ -1,9 +1,14 @@
 package utils
 
 import (
+	"fmt"
+
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/logging"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
 
 // ApplyPatches patches given resource with given patches and returns patched document
@@ -42,4 +47,23 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	}
 
 	return patchedResource, err
+}
+
+func TransformConditions(original apiextensions.JSON) (interface{}, error) {
+	// conditions are currently in the form of []interface{}
+	oldConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(original)
+	if err != nil {
+		return nil, err
+	}
+	switch typedValue := oldConditions.(type) {
+	case kyvernov1.AnyAllConditions:
+		return *typedValue.DeepCopy(), nil
+	case []kyvernov1.Condition: // backwards compatibility
+		var copies []kyvernov1.Condition
+		for _, condition := range typedValue {
+			copies = append(copies, *condition.DeepCopy())
+		}
+		return copies, nil
+	}
+	return nil, fmt.Errorf("invalid preconditions")
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -427,7 +427,7 @@ func (v *validator) validateDeny() *engineapi.RuleResponse {
 		return ruleError(v.rule, engineapi.Validation, "failed to substitute variables in rule", err)
 	}
 
-	denyConditions, err := common.TransformConditions(anyAllCond)
+	denyConditions, err := utils.TransformConditions(anyAllCond)
 	if err != nil {
 		return ruleError(v.rule, engineapi.Validation, "invalid deny conditions", err)
 	}
