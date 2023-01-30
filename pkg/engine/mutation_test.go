@@ -10,8 +10,8 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
@@ -657,7 +657,7 @@ func Test_foreach(t *testing.T) {
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -764,7 +764,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -890,7 +890,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -995,7 +995,7 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	er := testApplyPolicyToResource(t, policyRaw, resourceRaw)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -1013,7 +1013,7 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	}
 }
 
-func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *response.EngineResponse {
+func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *engineapi.EngineResponse {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
@@ -1148,7 +1148,7 @@ func Test_mutate_nested_foreach(t *testing.T) {
 
 	er := testApplyPolicyToResource(t, policyRaw, resourceRaw)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 2)
 
 	tlsArr, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "tls")
@@ -1593,7 +1593,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 		for _, rr := range er.PolicyResponse.Rules {
 			for i, p := range rr.Patches {
 				assert.Equal(t, test.patches[i], string(p), "test %s failed:\nGot %s\nExpected: %s", test.name, rr.Patches[i], test.patches[i])
-				assert.Equal(t, rr.Status, response.RuleStatusPass, rr.Status)
+				assert.Equal(t, rr.Status, engineapi.RuleStatusPass, rr.Status)
 			}
 		}
 	}
