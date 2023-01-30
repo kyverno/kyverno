@@ -126,6 +126,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 
 - Image tags are now validated and must be strings, if you use image tags in the `1.35` form please add quotes around the tag value.
 
+- Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:
