@@ -1025,7 +1025,7 @@ backgroundController:
     # registry: ghcr.io
     # repository: kyverno/background-controller
     # -- Image repository
-    repository: ghcr.io/kyverno/background-controller 
+    repository: ghcr.io/kyverno/background-controller
     # -- Image tag
     # Defaults to appVersion in Chart.yaml if omitted
     tag:  # replaced in e2e tests
