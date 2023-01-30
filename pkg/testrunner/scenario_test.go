@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gopkg.in/yaml.v3"
 	"gotest.tools/assert"
 )
@@ -39,7 +39,7 @@ func Test_parse_yaml(t *testing.T) {
 
 	assert.Equal(t, s.Expected.Validation.PolicyResponse.Policy.Name, "disallow-bind-mounts")
 	assert.Equal(t, 1, len(s.Expected.Validation.PolicyResponse.Rules), "invalid rule count")
-	assert.Equal(t, response.RuleStatusFail, s.Expected.Validation.PolicyResponse.Rules[0].Status, "invalid status")
+	assert.Equal(t, engineapi.RuleStatusFail, s.Expected.Validation.PolicyResponse.Rules[0].Status, "invalid status")
 }
 
 func Test_parse_file(t *testing.T) {
@@ -49,7 +49,7 @@ func Test_parse_file(t *testing.T) {
 	assert.Equal(t, 1, len(s.TestCases))
 	assert.Equal(t, s.TestCases[0].Expected.Validation.PolicyResponse.Policy.Name, "disallow-bind-mounts")
 	assert.Equal(t, 1, len(s.TestCases[0].Expected.Validation.PolicyResponse.Rules), "invalid rule count")
-	assert.Equal(t, response.RuleStatusFail, s.TestCases[0].Expected.Validation.PolicyResponse.Rules[0].Status, "invalid status")
+	assert.Equal(t, engineapi.RuleStatusFail, s.TestCases[0].Expected.Validation.PolicyResponse.Rules[0].Status, "invalid status")
 }
 
 func Test_parse_file2(t *testing.T) {
@@ -66,5 +66,5 @@ func Test_parse_file2(t *testing.T) {
 
 	assert.Equal(t, s.Expected.Validation.PolicyResponse.Policy.Name, "disallow-bind-mounts")
 	assert.Equal(t, 1, len(s.Expected.Validation.PolicyResponse.Rules), "invalid rule count")
-	assert.Equal(t, response.RuleStatusFail, s.Expected.Validation.PolicyResponse.Rules[0].Status, "invalid status")
+	assert.Equal(t, engineapi.RuleStatusFail, s.Expected.Validation.PolicyResponse.Rules[0].Status, "invalid status")
 }

@@ -118,6 +118,13 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `config.existingMetricsConfig` has been replaced with `metricsConfig.create` and `metricsConfig.name` to __support bring your own config__
 - `namespace` has been renamed `namespaceOverride`
 - `installCRDs` has been replaced with `crds.install`
+- `testImage` has been replaced with `test.image`
+- `testResources` has been replaced with `test.resources`
+- `testSecurityContext` has been replaced with `test.securityContext`
+
+- Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
+
+- Image tags are now validated and must be strings, if you use image tags in the `1.35` form please add quotes around the tag value. 
 
 ## Uninstalling the Chart
 
