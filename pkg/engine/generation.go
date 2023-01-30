@@ -34,7 +34,9 @@ func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyCon
 				Namespace: pNamespace,
 			},
 			PolicyStats: engineapi.PolicyStats{
-				PolicyExecutionTimestamp: startTime.Unix(),
+				ExecutionStats: engineapi.ExecutionStats{
+					Timestamp: startTime.Unix(),
+				},
 			},
 			Resource: engineapi.ResourceSpec{
 				Kind:       kind,
