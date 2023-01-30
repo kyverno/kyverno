@@ -6,6 +6,7 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -16,9 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
-
-// ExcludeFunc is a function used to determine if a resource is excluded
-type ExcludeFunc = func(kind, namespace, name string) bool
 
 type PolicyExceptionLister interface {
 	// List lists all PolicyExceptions in the indexer.
@@ -59,7 +57,7 @@ type PolicyContext struct {
 	// Config handler
 	excludeGroupRole []string
 
-	excludeResourceFunc ExcludeFunc
+	excludeResourceFunc engineapi.ExcludeFunc
 
 	// jsonContext is the variable context
 	jsonContext enginectx.Interface
@@ -108,6 +106,22 @@ func (c *PolicyContext) AdmissionInfo() kyvernov1beta1.RequestInfo {
 
 func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
+}
+
+func (c *PolicyContext) NamespaceLabels() map[string]string {
+	return c.namespaceLabels
+}
+
+func (c *PolicyContext) SubResource() string {
+	return c.subresource
+}
+
+func (c *PolicyContext) ExcludeResourceFunc() engineapi.ExcludeFunc {
+	return c.excludeResourceFunc
+}
+
+func (c *PolicyContext) ExcludeGroupRole() []string {
+	return c.excludeGroupRole
 }
 
 func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error) {
@@ -189,7 +203,7 @@ func (c *PolicyContext) WithExcludeGroupRole(excludeGroupRole ...string) *Policy
 	return copy
 }
 
-func (c *PolicyContext) WithExcludeResourceFunc(excludeResourceFunc ExcludeFunc) *PolicyContext {
+func (c *PolicyContext) WithExcludeResourceFunc(excludeResourceFunc engineapi.ExcludeFunc) *PolicyContext {
 	copy := c.Copy()
 	copy.excludeResourceFunc = excludeResourceFunc
 	return copy
