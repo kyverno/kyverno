@@ -7,7 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 )
@@ -146,7 +146,7 @@ func filterRule(
 	}
 
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := common.TransformConditions(ruleCopy.GetAnyAllConditions())
+	copyConditions, err := utils.TransformConditions(ruleCopy.GetAnyAllConditions())
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
 		return nil

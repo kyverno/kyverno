@@ -992,3 +992,62 @@ func TestEngineResponse_GetPatches(t *testing.T) {
 		})
 	}
 }
+
+func TestEngineResponse_GetResourceSpec(t *testing.T) {
+	namespacedResource := unstructured.Unstructured{}
+	namespacedResource.SetKind("Something")
+	namespacedResource.SetAPIVersion("test/v1")
+	namespacedResource.SetNamespace("foo")
+	namespacedResource.SetName("bar")
+	namespacedResource.SetUID("12345")
+	clusteredResource := unstructured.Unstructured{}
+	clusteredResource.SetKind("Something")
+	clusteredResource.SetAPIVersion("test/v1")
+	clusteredResource.SetName("bar")
+	clusteredResource.SetUID("12345")
+	type fields struct {
+		PatchedResource unstructured.Unstructured
+		Policy          kyvernov1.PolicyInterface
+		PolicyResponse  PolicyResponse
+		NamespaceLabels map[string]string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   ResourceSpec
+	}{{
+		fields: fields{
+			PatchedResource: namespacedResource,
+		},
+		want: ResourceSpec{
+			Kind:       "Something",
+			APIVersion: "test/v1",
+			Namespace:  "foo",
+			Name:       "bar",
+			UID:        "12345",
+		},
+	}, {
+		fields: fields{
+			PatchedResource: clusteredResource,
+		},
+		want: ResourceSpec{
+			Kind:       "Something",
+			APIVersion: "test/v1",
+			Name:       "bar",
+			UID:        "12345",
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			er := EngineResponse{
+				PatchedResource: tt.fields.PatchedResource,
+				Policy:          tt.fields.Policy,
+				PolicyResponse:  tt.fields.PolicyResponse,
+				NamespaceLabels: tt.fields.NamespaceLabels,
+			}
+			if got := er.GetResourceSpec(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("EngineResponse.GetResourceSpec() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
