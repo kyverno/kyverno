@@ -11,7 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
@@ -101,7 +101,7 @@ func (v *validationHandler) HandleValidation(
 		return true, "", nil
 	}
 
-	var engineResponses []*response.EngineResponse
+	var engineResponses []*engineapi.EngineResponse
 	failurePolicy := kyvernov1.Ignore
 	for _, policy := range policies {
 		tracing.ChildSpan(
@@ -159,13 +159,13 @@ func (v *validationHandler) buildAuditResponses(
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-) ([]*response.EngineResponse, error) {
+) ([]*engineapi.EngineResponse, error) {
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
 		return nil, err
 	}
-	var responses []*response.EngineResponse
+	var responses []*engineapi.EngineResponse
 	for _, policy := range policies {
 		tracing.ChildSpan(
 			ctx,
@@ -185,7 +185,7 @@ func (v *validationHandler) handleAudit(
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-	engineResponses ...*response.EngineResponse,
+	engineResponses ...*engineapi.EngineResponse,
 ) {
 	if !v.admissionReports {
 		return
@@ -210,6 +210,8 @@ func (v *validationHandler) handleAudit(
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
 			}
+			events := webhookutils.GenerateEvents(responses, false)
+			v.eventGen.Add(events...)
 			responses = append(responses, engineResponses...)
 			report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
 			// if it's not a creation, the resource already exists, we can set the owner

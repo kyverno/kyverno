@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
@@ -32,9 +33,7 @@ type Server interface {
 	// Run TLS server in separate thread and returns control immediately
 	Run(<-chan struct{})
 	// Stop TLS server and returns control after the server is shut down
-	Stop(context.Context)
-	// Cleanup returns the chanel used to wait for the server to clean up resources
-	Cleanup() <-chan struct{}
+	Stop()
 }
 
 type ExceptionHandlers interface {
@@ -59,10 +58,9 @@ type ResourceHandlers interface {
 type server struct {
 	server      *http.Server
 	runtime     runtimeutils.Runtime
-	mwcClient   controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration]
-	vwcClient   controllerutils.DeleteClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
+	mwcClient   controllerutils.DeleteCollectionClient[*admissionregistrationv1.MutatingWebhookConfiguration]
+	vwcClient   controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease]
-	cleanUp     chan struct{}
 }
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -76,8 +74,8 @@ func NewServer(
 	metricsConfig metrics.MetricsConfigManager,
 	debugModeOpts DebugModeOptions,
 	tlsProvider TlsProvider,
-	mwcClient controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration],
-	vwcClient controllerutils.DeleteClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
+	mwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.MutatingWebhookConfiguration],
+	vwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease],
 	runtime runtimeutils.Runtime,
 ) Server {
@@ -181,7 +179,6 @@ func NewServer(
 		vwcClient:   vwcClient,
 		leaseClient: leaseClient,
 		runtime:     runtime,
-		cleanUp:     make(chan struct{}),
 	}
 }
 
@@ -193,9 +190,15 @@ func (s *server) Run(stopCh <-chan struct{}) {
 		}
 	}()
 	logger.Info("starting service")
+
+	<-stopCh
+	s.Stop()
 }
 
-func (s *server) Stop(ctx context.Context) {
+func (s *server) Stop() {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	s.cleanup(ctx)
 	err := s.server.Shutdown(ctx)
 	if err != nil {
@@ -207,10 +210,6 @@ func (s *server) Stop(ctx context.Context) {
 	}
 }
 
-func (s *server) Cleanup() <-chan struct{} {
-	return s.cleanUp
-}
-
 func (s *server) cleanup(ctx context.Context) {
 	if s.runtime.IsGoingDown() {
 		deleteLease := func(name string) {
@@ -218,25 +217,25 @@ func (s *server) cleanup(ctx context.Context) {
 				logger.Error(err, "failed to clean up lease", "name", name)
 			}
 		}
-		deleteVwc := func(name string) {
-			if err := s.vwcClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "failed to clean up validating webhook configuration", "name", name)
+		deleteVwc := func() {
+			if err := s.vwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+				LabelSelector: utils.ManagedByLabel,
+			}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up validating webhook configuration", "label", utils.ManagedByLabel)
 			}
 		}
-		deleteMwc := func(name string) {
-			if err := s.mwcClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "failed to clean up mutating webhook configuration", "name", name)
+		deleteMwc := func() {
+			if err := s.mwcClient.DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+				LabelSelector: utils.ManagedByLabel,
+			}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up mutating webhook configuration", "label", utils.ManagedByLabel)
 			}
 		}
 		deleteLease("kyvernopre-lock")
 		deleteLease("kyverno-health")
-		deleteVwc(config.ValidatingWebhookConfigurationName)
-		deleteVwc(config.PolicyValidatingWebhookConfigurationName)
-		deleteMwc(config.MutatingWebhookConfigurationName)
-		deleteMwc(config.PolicyMutatingWebhookConfigurationName)
-		deleteMwc(config.VerifyMutatingWebhookConfigurationName)
+		deleteVwc()
+		deleteMwc()
 	}
-	close(s.cleanUp)
 }
 
 func registerWebhookHandlers(

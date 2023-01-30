@@ -81,6 +81,7 @@ spec:
             name: metrics
             protocol: TCP
           args:
+            - --servicePort={{ .Values.cleanupController.service.port }}
             - --loggingFormat={{ .Values.cleanupController.logging.format }}
             {{- if .Values.cleanupController.tracing.enabled }}
             - --enableTracing
@@ -106,7 +107,7 @@ spec:
             {{- end }}
           env:
           - name: METRICS_CONFIG
-            value: {{ template "kyverno.metricsConfigMapName" . }}
+            value: {{ template "kyverno.config.metricsConfigMapName" . }}
           - name: KYVERNO_POD_NAME
             valueFrom:
               fieldRef:
@@ -120,8 +121,9 @@ spec:
           {{- with .Values.cleanupController.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if .Values.cleanupController.securityContext }}
-          securityContext: {{ include "kyverno.cleanup-controller.securityContext" . | nindent 12 }}
+          {{- with .Values.cleanupController.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with .Values.cleanupController.startupProbe }}
           startupProbe:

@@ -26,10 +26,12 @@ KYVERNOPRE_IMAGE     := kyvernopre
 KYVERNO_IMAGE        := kyverno
 CLI_IMAGE            := kyverno-cli
 CLEANUP_IMAGE        := cleanup-controller
+REPORTS_IMAGE        := reports-controller
 REPO_KYVERNOPRE      := $(REGISTRY)/$(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO         := $(REGISTRY)/$(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI             := $(REGISTRY)/$(REPO)/$(CLI_IMAGE)
 REPO_CLEANUP         := $(REGISTRY)/$(REPO)/$(CLEANUP_IMAGE)
+REPO_REPORTS         := $(REGISTRY)/$(REPO)/$(REPORTS_IMAGE)
 USE_CONFIG           ?= standard
 
 #########
@@ -59,7 +61,7 @@ HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
 KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
-KUTTL_VERSION                      := v0.0.0-20230108220859-ef8d83c89156
+KUTTL_VERSION                      := v0.0.0-20230126200340-834a4dac1ec7
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
@@ -133,13 +135,15 @@ clean-tools: ## Remove installed tools
 
 CMD_DIR        := ./cmd
 KYVERNO_DIR    := $(CMD_DIR)/kyverno
-KYVERNOPRE_DIR := $(CMD_DIR)/initContainer
+KYVERNOPRE_DIR := $(CMD_DIR)/kyverno-init
 CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
 CLEANUP_DIR    := $(CMD_DIR)/cleanup-controller
+REPORTS_DIR    := $(CMD_DIR)/reports-controller
 KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
 KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
 CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
 CLEANUP_BIN    := $(CLEANUP_DIR)/cleanup-controller
+REPORTS_BIN    := $(REPORTS_DIR)/reports-controller
 PACKAGE        ?= github.com/kyverno/kyverno
 CGO_ENABLED    ?= 0
 LD_FLAGS        = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
@@ -199,8 +203,12 @@ $(CLEANUP_BIN): fmt vet
 	@echo Build cleanup controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLEANUP_BIN) -ldflags=$(LD_FLAGS) $(CLEANUP_DIR)
 
-.PHONY: build-kyvernopre
-build-kyvernopre: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
+$(REPORTS_BIN): fmt vet
+	@echo Build reports controller binary... >&2
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(REPORTS_BIN) -ldflags=$(LD_FLAGS) $(REPORTS_DIR)
+
+.PHONY: build-kyverno-init
+build-kyverno-init: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
 
 .PHONY: build-kyverno
 build-kyverno: $(KYVERNO_BIN) ## Build kyverno binary
@@ -211,7 +219,10 @@ build-cli: $(CLI_BIN) ## Build cli binary
 .PHONY: build-cleanup-controller
 build-cleanup-controller: $(CLEANUP_BIN) ## Build cleanup controller binary
 
-build-all: build-kyvernopre build-kyverno build-cli build-cleanup-controller ## Build all binaries
+.PHONY: build-reports-controller
+build-reports-controller: $(REPORTS_BIN) ## Build reports controller binary
+
+build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller build-reports-controller ## Build all binaries
 
 ##############
 # BUILD (KO) #
@@ -222,8 +233,8 @@ LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_TAGS             := latest,$(IMAGE_TAG)
 KO_TAGS_DEV         := latest,$(IMAGE_TAG_DEV)
 
-.PHONY: ko-build-kyvernopre
-ko-build-kyvernopre: $(KO) ## Build kyvernopre local image (with ko)
+.PHONY: ko-build-kyverno-init
+ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
 	@echo Build kyvernopre local image with ko... >&2
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
@@ -242,24 +253,30 @@ ko-build-cleanup-controller: $(KO) ## Build cleanup controller local image (with
 	@echo Build cleanup controller local image with ko... >&2
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
+.PHONY: ko-build-reports-controller
+ko-build-reports-controller: $(KO) ## Build reports controller local image (with ko)
+	@echo Build reports controller local image with ko... >&2
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(REPORTS_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+
 .PHONY: ko-build-all
-ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ko-build-cleanup-controller ## Build all local images (with ko)
+ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ## Build all local images (with ko)
 
 ################
 # PUBLISH (KO) #
 ################
 
 REGISTRY_USERNAME   ?= dummy
-KO_KYVERNOPRE_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/initcontainer
+KO_KYVERNOPRE_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/kyverno-init
 KO_KYVERNO_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/kyverno
 KO_CLEANUP_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/cleanup-controller
+KO_REPORTS_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/reports-controller
 
 .PHONY: ko-login
 ko-login: $(KO)
 	@$(KO) login $(REGISTRY) --username $(REGISTRY_USERNAME) --password $(REGISTRY_PASSWORD)
 
-.PHONY: ko-publish-kyvernopre
-ko-publish-kyvernopre: ko-login ## Build and publish kyvernopre image (with ko)
+.PHONY: ko-publish-kyverno-init
+ko-publish-kyverno-init: ko-login ## Build and publish kyvernopre image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno
@@ -274,8 +291,12 @@ ko-publish-cli: ko-login ## Build and publish cli image (with ko)
 ko-publish-cleanup-controller: ko-login ## Build and publish cleanup controller image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) $(KO) build $(CLEANUP_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
-.PHONY: ko-publish-kyvernopre-dev
-ko-publish-kyvernopre-dev: ko-login ## Build and publish kyvernopre dev image (with ko)
+.PHONY: ko-publish-reports-controller
+ko-publish-reports-controller: ko-login ## Build and publish reports controller image (with ko)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(REPORTS_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+
+.PHONY: ko-publish-kyverno-init-dev
+ko-publish-kyverno-init-dev: ko-login ## Build and publish kyvernopre dev image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno-dev
@@ -290,11 +311,15 @@ ko-publish-cli-dev: ko-login ## Build and publish cli dev image (with ko)
 ko-publish-cleanup-controller-dev: ko-login ## Build and publish cleanup controller dev image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) $(KO) build $(CLEANUP_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
+.PHONY: ko-publish-reports-controller-dev
+ko-publish-reports-controller-dev: ko-login ## Build and publish reports controller dev image (with ko)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(REPORTS_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-kyvernopre ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ## Build and publish all images (with ko)
+ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ## Build and publish all images (with ko)
 
 .PHONY: ko-publish-all-dev
-ko-publish-all-dev: ko-publish-kyvernopre-dev ko-publish-kyverno-dev ko-publish-cli-dev ko-publish-cleanup-controller-dev ## Build and publish all dev images (with ko)
+ko-publish-all-dev: ko-publish-kyverno-init-dev ko-publish-kyverno-dev ko-publish-cli-dev ko-publish-cleanup-controller-dev ko-publish-reports-controller-dev ## Build and publish all dev images (with ko)
 
 #################
 # BUILD (IMAGE) #
@@ -303,9 +328,10 @@ ko-publish-all-dev: ko-publish-kyvernopre-dev ko-publish-kyverno-dev ko-publish-
 LOCAL_KYVERNOPRE_IMAGE := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_KYVERNOPRE_IMAGE)
 LOCAL_KYVERNO_IMAGE    := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_KYVERNO_IMAGE)
 LOCAL_CLEANUP_IMAGE    := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_CLEANUP_IMAGE)
+LOCAL_REPORTS_IMAGE    := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_REPORTS_IMAGE)
 
-.PHONY: image-build-kyvernopre
-image-build-kyvernopre: $(BUILD_WITH)-build-kyvernopre
+.PHONY: image-build-kyverno-init
+image-build-kyverno-init: $(BUILD_WITH)-build-kyverno-init
 
 .PHONY: image-build-kyverno
 image-build-kyverno: $(BUILD_WITH)-build-kyverno
@@ -315,6 +341,9 @@ image-build-cli: $(BUILD_WITH)-build-cli
 
 .PHONY: image-build-cleanup-controller
 image-build-cleanup-controller: $(BUILD_WITH)-build-cleanup-controller
+
+.PHONY: image-build-reports-controller
+image-build-reports-controller: $(BUILD_WITH)-build-reports-controller
 
 .PHONY: image-build-all
 image-build-all: $(BUILD_WITH)-build-all
@@ -411,15 +440,15 @@ codegen-helm-docs: ## Generate helm docs
 codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 	@echo Generate helm crds... >&2
 	@cat $(CRDS_PATH)/* \
-		| $(SED) -e '1i{{- if .Values.installCRDs }}' \
+		| $(SED) -e '1i{{- if .Values.crds.install }}' \
 		| $(SED) -e '$$a{{- end }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- with .Values.crds.annotations }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- toYaml . | nindent 4 }}' \
  		| $(SED) -e '/^  creationTimestamp: null/i \ \ \ \ {{- end }}' \
- 		| $(SED) -e '/^  creationTimestamp: null/a \ \ \ \ {{- include "kyverno.crdLabels" . | nindent 4 }}' \
+ 		| $(SED) -e '/^  creationTimestamp: null/a \ \ \ \ {{- include "kyverno.crds.labels" . | nindent 4 }}' \
  		| $(SED) -e '/^  creationTimestamp: null/a \ \ labels:' \
  		| $(SED) -e '/^  creationTimestamp: null/d' \
- 		> ./charts/kyverno/templates/crds.yaml
+ 		> ./charts/kyverno/templates/crds/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
@@ -430,9 +459,10 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
-		--set cleanupController.image.tag=latest \
 		--set image.tag=latest \
 		--set initImage.tag=latest \
+		--set cleanupController.image.tag=latest \
+		--set reportsController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
 		> ./config/install.yaml
 
@@ -444,9 +474,10 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 		--set templating.enabled=true \
 		--set templating.version=latest \
 		--set templating.debug=true \
-		--set cleanupController.image.tag=latest \
 		--set image.tag=latest \
 		--set initImage.tag=latest \
+		--set cleanupController.image.tag=latest \
+		--set reportsController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
 		> ./.manifest/debug.yaml
 
@@ -458,12 +489,12 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=$(GIT_VERSION) \
-		--set cleanupController.image.tag=$(GIT_VERSION) \
 		--set image.tag=$(GIT_VERSION) \
 		--set initImage.tag=$(GIT_VERSION) \
+		--set cleanupController.image.tag=$(GIT_VERSION) \
+		--set reportsController.image.tag=$(GIT_VERSION) \
  		| $(SED) -e '/^#.*/d' \
 		> ./.manifest/release.yaml
-
 
 .PHONY: codegen-manifest-all
 codegen-manifest-all: codegen-manifest-install codegen-manifest-debug codegen-manifest-release ## Create all manifests
@@ -476,15 +507,6 @@ codegen-slow: codegen-client-all ## Generate client code
 
 .PHONY: codegen-all
 codegen-all: codegen-quick codegen-slow ## Generate all generated code
-
-# .PHONY: codegen-openapi
-# codegen-openapi: $(PACKAGE_SHIM) $(OPENAPI_GEN) ## Generate open api code
-# 	@echo Generate open api definitions... >&2
-# 	@GOPATH=$(GOPATH_SHIM) $(OPENAPI_GEN) --go-header-file ./scripts/boilerplate.go.txt \
-# 		--input-dirs $(INPUT_DIRS) \
-# 		--input-dirs  k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
-# 		--output-package $(OUT_PACKAGE)/openapi \
-# 		-O zz_generated.openapi
 
 ##################
 # VERIFY CODEGEN #
@@ -573,20 +595,6 @@ code-cov-report: test-clean ## Generate code coverage report
 	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
 
-#####################
-# CONFORMANCE TESTS #
-#####################
-
-.PHONY: test-conformance
-test-conformance: ## Run conformance tests
-	@echo Running conformance tests... >&2
-	@go run ./test/conformance
-
-.PHONY: kind-test-conformance
-kind-test-conformance: kind-deploy-kyverno ## Run conformance tests on a local cluster
-	@echo Running conformance tests... >&2
-	@go run ./test/conformance --create-cluster=false
-
 ###############
 # KUTTL TESTS #
 ###############
@@ -629,19 +637,22 @@ test-cli-test-case-selector-flag: $(CLI_BIN)
 test-cli-registry: $(CLI_BIN)
 	@$(CLI_BIN) test ./test/cli/registry --registry
 
-##################################
-# Testing & Code-Coverage
-##################################
+#############
+# HELM TEST #
+#############
 
-helm-test-values:
-	sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
-	sed -i -e "s|fullnameOverride:.*|fullnameOverride: kyverno|g" charts/kyverno/values.yaml
-	sed -i -e "s|namespace:.*|namespace: kyverno|g" charts/kyverno/values.yaml
-	sed -i -e "s|tag:  # replaced in e2e tests.*|tag: $(IMAGE_TAG_DEV)|" charts/kyverno/values.yaml
-	sed -i -e "s|repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests|repository: $(LOCAL_KYVERNOPRE_IMAGE)|" charts/kyverno/values.yaml
-	sed -i -e "s|repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests|repository: $(LOCAL_KYVERNO_IMAGE)|" charts/kyverno/values.yaml
+.PHONY: helm-test
+helm-test: $(HELM) ## Run helm test
+	@echo Running helm test... >&2
+	@$(HELM) test --namespace kyverno kyverno
 
-release-notes:
+#################
+# RELEASE NOTES #
+#################
+
+.PHONY: release-notes
+release-notes: ## Generate release notes
+	@echo Generating release notes... >&2
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
@@ -653,18 +664,6 @@ release-notes:
 debug-deploy: codegen-manifest-debug ## Install debug manifests
 	@kubectl create -f ./.manifest/debug.yaml || kubectl replace -f ./.manifest/debug.yaml
 
-##########
-# GITHUB #
-##########
-
-.PHONY: gh-install-pin-github-action
-gh-install-pin-github-action:
-	@npm install -g pin-github-action
-
-.PHONY: gh-pin-actions
-gh-pin-actions: gh-install-pin-github-action
-	@pin-github-action ./.github/workflows/release.yaml
-
 #############
 # PERF TEST #
 #############
@@ -673,7 +672,7 @@ PERF_TEST_NODE_COUNT		?= 3
 PERF_TEST_MEMORY_REQUEST	?= "1Gi"
 
 .PHONY: test-perf
-test-perf: $(PACKAGE_SHIM)
+test-perf: $(PACKAGE_SHIM) ## Run perf tests
 	GO111MODULE=off GOPATH=$(GOPATH_SHIM) go get k8s.io/perf-tests || true
 	cd $(GOPATH_SHIM)/src/k8s.io/perf-tests && \
 	GOPATH=$(GOPATH_SHIM) ./run-e2e.sh cluster-loader2 \
@@ -711,8 +710,8 @@ kind-delete-cluster: $(KIND) ## Delete kind cluster
 	@echo Delete kind cluster... >&2
 	@$(KIND) delete cluster --name $(KIND_NAME)
 
-.PHONY: kind-load-kyvernopre
-kind-load-kyvernopre: $(KIND) image-build-kyvernopre ## Build kyvernopre image and load it in kind cluster
+.PHONY: kind-load-kyverno-init
+kind-load-kyverno-init: $(KIND) image-build-kyverno-init ## Build kyvernopre image and load it in kind cluster
 	@echo Load kyvernopre image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV)
 
@@ -726,19 +725,26 @@ kind-load-cleanup-controller: $(KIND) image-build-cleanup-controller ## Build cl
 	@echo Load cleanup controller image... >&2
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_CLEANUP_IMAGE):$(IMAGE_TAG_DEV)
 
+.PHONY: kind-load-reports-controller
+kind-load-reports-controller: $(KIND) image-build-reports-controller ## Build reports controller image and load it in kind cluster
+	@echo Load reports controller image... >&2
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REPORTS_IMAGE):$(IMAGE_TAG_DEV)
+
 .PHONY: kind-load-all
-kind-load-all: kind-load-kyvernopre kind-load-kyverno kind-load-cleanup-controller ## Build images and load them in kind cluster
+kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller ## Build images and load them in kind cluster
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
-		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
-		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set cleanupController.image.repository=$(LOCAL_CLEANUP_IMAGE) \
+		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
+		--set reportsController.image.repository=$(LOCAL_REPORTS_IMAGE) \
+		--set reportsController.image.tag=$(IMAGE_TAG_DEV) \
 		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
 
 .PHONY: kind-deploy-kyverno-policies
@@ -757,6 +763,25 @@ kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 		--repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--values ./scripts/config/standard/kyverno-reporter.yaml
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
+
+###########
+# ROLLOUT #
+###########
+
+.PHONY: rollout-cleanup-controller
+rollout-cleanup-controller: ## Rollout cleanup-controller deployment
+	@kubectl rollout restart deployment -n kyverno -l app.kubernetes.io/component=cleanup-controller
+
+.PHONY: rollout-reports-controller
+rollout-reports-controller: ## Rollout reports-controller deployment
+	@kubectl rollout restart deployment -n kyverno -l app.kubernetes.io/component=reports-controller
+
+.PHONY: rollout-admission-controller
+rollout-admission-controller: ## Rollout admission-controller deployment
+	@kubectl rollout restart deployment -n kyverno -l app.kubernetes.io/component=admission-controller
+
+.PHONY: rollout-all
+rollout-all: rollout-cleanup-controller rollout-reports-controller rollout-admission-controller ## Rollout all deployment
 
 ###########
 # DEV LAB #
@@ -799,7 +824,7 @@ dev-lab-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 		--values ./scripts/config/dev/metrics-server.yaml
 
 .PHONY: dev-lab-all
-dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo
+dev-lab-all: dev-lab-ingress-ngingx dev-lab-metrics-server dev-lab-prometheus dev-lab-loki dev-lab-tempo ## Deploy all dev lab components
 
 ########
 # HELP #

@@ -2,34 +2,41 @@
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: kyverno
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  name: kyverno
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kyverno-admission-controller
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kyverno-cleanup-controller
+  namespace: kyverno
   labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-    app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
-    app.kubernetes.io/instance: kyverno
-  namespace: kyverno
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kyverno
+  name: kyverno-reports-controller
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: reports-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   namespace: kyverno
@@ -37,32 +44,30 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
   name: kyverno
   namespace: kyverno
+  labels:
+    app.kubernetes.io/component: config
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
 data:
-  defaultRegistry: "docker.io"
   enableDefaultRegistryMutation: "true"
-  # resource types to be skipped by kyverno policy engine
-  resourceFilters: "[*,kyverno,*][Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][Binding,*,*][ReplicaSet,*,*][AdmissionReport,*,*][ClusterAdmissionReport,*,*][BackgroundScanReport,*,*][ClusterBackgroundScanReport,*,*][ClusterRole,*,kyverno:*][ClusterRoleBinding,*,kyverno:*][ServiceAccount,kyverno,kyverno][ConfigMap,kyverno,kyverno][ConfigMap,kyverno,kyverno-metrics][Deployment,kyverno,kyverno][Job,kyverno,kyverno-hook-pre-delete][NetworkPolicy,kyverno,kyverno][PodDisruptionBudget,kyverno,kyverno][Role,kyverno,kyverno:*][RoleBinding,kyverno,kyverno:*][Secret,kyverno,kyverno-svc.kyverno.svc.*][Service,kyverno,kyverno-svc][Service,kyverno,kyverno-svc-metrics][ServiceMonitor,kyverno,kyverno-svc-service-monitor][Pod,kyverno,kyverno-test]"
+  defaultRegistry: "docker.io"
+  generateSuccessEvents: "false"
+  resourceFilters: "[*,kyverno,*][Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][SelfSubjectAccessReview,*,*][Binding,*,*][ReplicaSet,*,*][AdmissionReport,*,*][ClusterAdmissionReport,*,*][BackgroundScanReport,*,*][ClusterBackgroundScanReport,*,*][ClusterRole,*,kyverno:*][ClusterRoleBinding,*,kyverno:*][ServiceAccount,kyverno,kyverno-admission-controller][ConfigMap,kyverno,kyverno][ConfigMap,kyverno,kyverno-metrics][Deployment,kyverno,kyverno][Job,kyverno,kyverno-hook-pre-delete][NetworkPolicy,kyverno,kyverno][PodDisruptionBudget,kyverno,kyverno][Role,kyverno,kyverno:*][RoleBinding,kyverno,kyverno:*][Secret,kyverno,kyverno-svc.kyverno.svc.*][Service,kyverno,kyverno-svc][Service,kyverno,kyverno-svc-metrics][ServiceMonitor,kyverno,kyverno-svc-service-monitor][Pod,kyverno,kyverno-*]"
   webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kyverno"]}]}}]'
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
   name: kyverno-metrics
   namespace: kyverno
+  labels:
+    app.kubernetes.io/component: config
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
 data:
   namespaces: "{\"exclude\":[],\"include\":[]}"
 ---
@@ -72,9 +77,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: admissionreports.kyverno.io
@@ -418,9 +422,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: backgroundscanreports.kyverno.io
@@ -724,9 +727,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: cleanuppolicies.kyverno.io
@@ -1773,9 +1775,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: clusteradmissionreports.kyverno.io
@@ -2120,9 +2121,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: clusterbackgroundscanreports.kyverno.io
@@ -2426,9 +2426,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: clustercleanuppolicies.kyverno.io
@@ -3475,9 +3474,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: clusterpolicies.kyverno.io
@@ -3505,9 +3503,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -5150,9 +5148,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -5484,10 +5482,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -6738,6 +6736,54 @@ spec:
                       - Audit
                       - Enforce
                       type: string
+                    namespaceSelector:
+                      description: A label selector is a label query over a set of
+                        resources. The result of matchLabels and matchExpressions
+                        are ANDed. An empty label selector matches all objects. A
+                        null label selector matches no objects.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     namespaces:
                       items:
                         type: string
@@ -8392,10 +8438,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -8742,10 +8788,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -10134,9 +10180,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -11382,9 +11428,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -11884,10 +11930,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -13098,6 +13144,54 @@ spec:
                       - Audit
                       - Enforce
                       type: string
+                    namespaceSelector:
+                      description: A label selector is a label query over a set of
+                        resources. The result of matchLabels and matchExpressions
+                        are ANDed. An empty label selector matches all objects. A
+                        null label selector matches no objects.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     namespaces:
                       items:
                         type: string
@@ -14752,10 +14846,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -15102,10 +15196,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -16490,198 +16584,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  name: generaterequests.kyverno.io
-spec:
-  group: kyverno.io
-  names:
-    kind: GenerateRequest
-    listKind: GenerateRequestList
-    plural: generaterequests
-    shortNames:
-    - gr
-    singular: generaterequest
-  scope: Namespaced
-  versions:
-  - additionalPrinterColumns:
-    - jsonPath: .spec.policy
-      name: Policy
-      type: string
-    - jsonPath: .spec.resource.kind
-      name: ResourceKind
-      type: string
-    - jsonPath: .spec.resource.name
-      name: ResourceName
-      type: string
-    - jsonPath: .spec.resource.namespace
-      name: ResourceNamespace
-      type: string
-    - jsonPath: .status.state
-      name: status
-      type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1
-    schema:
-      openAPIV3Schema:
-        description: GenerateRequest is a request to process generate rule.
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: Spec is the information to identify the generate request.
-            properties:
-              context:
-                description: Context ...
-                properties:
-                  admissionRequestInfo:
-                    description: AdmissionRequestInfoObject stores the admission request
-                      and operation details
-                    properties:
-                      admissionRequest:
-                        type: string
-                      operation:
-                        description: Operation is the type of resource operation being
-                          checked for admission control
-                        type: string
-                    type: object
-                  userInfo:
-                    description: RequestInfo contains permission info carried in an
-                      admission request.
-                    properties:
-                      clusterRoles:
-                        description: ClusterRoles is a list of possible clusterRoles
-                          send the request.
-                        items:
-                          type: string
-                        nullable: true
-                        type: array
-                      roles:
-                        description: Roles is a list of possible role send the request.
-                        items:
-                          type: string
-                        nullable: true
-                        type: array
-                      userInfo:
-                        description: UserInfo is the userInfo carried in the admission
-                          request.
-                        properties:
-                          extra:
-                            additionalProperties:
-                              description: ExtraValue masks the value so protobuf
-                                can generate
-                              items:
-                                type: string
-                              type: array
-                            description: Any additional information provided by the
-                              authenticator.
-                            type: object
-                          groups:
-                            description: The names of groups this user is a part of.
-                            items:
-                              type: string
-                            type: array
-                          uid:
-                            description: A unique value that identifies this user
-                              across time. If this user is deleted and another user
-                              by the same name is added, they will have different
-                              UIDs.
-                            type: string
-                          username:
-                            description: The name that uniquely identifies this user
-                              among all active users.
-                            type: string
-                        type: object
-                    type: object
-                type: object
-              policy:
-                description: Specifies the name of the policy.
-                type: string
-              resource:
-                description: ResourceSpec is the information to identify the generate
-                  request.
-                properties:
-                  apiVersion:
-                    description: APIVersion specifies resource apiVersion.
-                    type: string
-                  kind:
-                    description: Kind specifies resource kind.
-                    type: string
-                  name:
-                    description: Name specifies the resource name.
-                    type: string
-                  namespace:
-                    description: Namespace specifies resource namespace.
-                    type: string
-                type: object
-            required:
-            - context
-            - policy
-            - resource
-            type: object
-          status:
-            description: Status contains statistics related to generate request.
-            properties:
-              generatedResources:
-                description: This will track the resources that are generated by the
-                  generate Policy. Will be used during clean up resources.
-                items:
-                  properties:
-                    apiVersion:
-                      description: APIVersion specifies resource apiVersion.
-                      type: string
-                    kind:
-                      description: Kind specifies resource kind.
-                      type: string
-                    name:
-                      description: Name specifies the resource name.
-                      type: string
-                    namespace:
-                      description: Namespace specifies resource namespace.
-                      type: string
-                  type: object
-                type: array
-              message:
-                description: Specifies request status message.
-                type: string
-              state:
-                description: State represents state of the generate request.
-                type: string
-            required:
-            - state
-            type: object
-        required:
-        - spec
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: policies.kyverno.io
@@ -16709,9 +16613,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -18355,9 +18259,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -18689,10 +18593,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -19943,6 +19847,54 @@ spec:
                       - Audit
                       - Enforce
                       type: string
+                    namespaceSelector:
+                      description: A label selector is a label query over a set of
+                        resources. The result of matchLabels and matchExpressions
+                        are ANDed. An empty label selector matches all objects. A
+                        null label selector matches no objects.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     namespaces:
                       items:
                         type: string
@@ -21598,10 +21550,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -21948,10 +21900,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -23340,9 +23292,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -24589,9 +24541,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -25091,10 +25043,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -26305,6 +26257,54 @@ spec:
                       - Audit
                       - Enforce
                       type: string
+                    namespaceSelector:
+                      description: A label selector is a label query over a set of
+                        resources. The result of matchLabels and matchExpressions
+                        are ANDed. An empty label selector matches all objects. A
+                        null label selector matches no objects.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     namespaces:
                       items:
                         type: string
@@ -27959,10 +27959,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -28309,10 +28309,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -29697,9 +29697,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: policyexceptions.kyverno.io
@@ -30185,9 +30184,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: updaterequests.kyverno.io
@@ -30577,9 +30575,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: clusterpolicyreports.wgpolicyk8s.io
@@ -30945,9 +30942,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.1
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: crds
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: policyreports.wgpolicyk8s.io
@@ -31309,70 +31305,59 @@ spec:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:admin-policies
+  name: kyverno:admission-controller
   labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      app.kubernetes.io/component: admission-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admission-controller:userinfo
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
 rules:
 - apiGroups:
-  - kyverno.io
+    - rbac.authorization.k8s.io
   resources:
-  - policies
-  - clusterpolicies
+    - roles
+    - clusterroles
+    - rolebindings
+    - clusterrolebindings
   verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
     - watch
+    - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:admin-policyreport
+  name: kyverno:admission-controller:policies
   labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-  - apiGroups:
-      - wgpolicyk8s.io
-    resources:
-      - policyreports
-      - clusterpolicyreports
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:admin-reports
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
 rules:
 - apiGroups:
     - kyverno.io
   resources:
+    - policies
+    - policies/status
+    - clusterpolicies
+    - clusterpolicies/status
+    - updaterequests
+    - updaterequests/status
     - admissionreports
     - clusteradmissionreports
     - backgroundscanreports
@@ -31385,23 +31370,14 @@ rules:
     - patch
     - update
     - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:admin-generaterequest
-  labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
+    - deletecollection
 - apiGroups:
-  - kyverno.io
+    - wgpolicyk8s.io
   resources:
-  - generaterequests
+    - policyreports
+    - policyreports/status
+    - clusterpolicyreports
+    - clusterpolicyreports/status
   verbs:
     - create
     - delete
@@ -31410,59 +31386,143 @@ rules:
     - patch
     - update
     - watch
+    - deletecollection
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:admin-updaterequest
+  name: kyverno:admission-controller:view
   labels:
-    rbac.authorization.k8s.io/aggregate-to-admin: "true"
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
 rules:
 - apiGroups:
-  - kyverno.io
+  - '*'
   resources:
-  - updaterequests
+  - '*'
   verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admission-controller:generate
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+rules:
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+      - ingressclasses
+      - networkpolicies
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ''
+    resources:
+      - namespaces
+      - configmaps
+      - secrets
+      - resourcequotas
+      - limitranges
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - rolebindings
+      - roles
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admission-controller:events
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+rules:
+- apiGroups:
+  - ''
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admission-controller:webhook
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+rules:
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - deletecollection
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kyverno:cleanup-controller
   labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-    app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
-    app.kubernetes.io/instance: kyverno
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
         app.kubernetes.io/component: cleanup-controller
-        app.kubernetes.io/name: kyverno-cleanup-controller
         app.kubernetes.io/instance: kyverno
+        app.kubernetes.io/part-of: kyverno
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kyverno:cleanup-controller:core
   labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-    app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
-    app.kubernetes.io/instance: kyverno
 rules:
   - apiGroups:
       - admissionregistration.k8s.io
@@ -31510,361 +31570,474 @@ rules:
       - list
       - update
       - watch
+  - apiGroups:
+    - ""
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno
+  name: kyverno:admin:policies
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - cleanuppolicies
+      - clustercleanuppolicies
+      - policies
+      - clusterpolicies
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admin:policyreports
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups:
+      - wgpolicyk8s.io
+    resources:
+      - policyreports
+      - clusterpolicyreports
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admin:reports
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - admissionreports
+      - clusteradmissionreports
+      - backgroundscanreports
+      - clusterbackgroundscanreports
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:admin:updaterequests
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - updaterequests
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:reports-controller
+  labels:
+    app.kubernetes.io/component: reports-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
 aggregationRule:
   clusterRoleSelectors:
-  - matchLabels:
-      app: kyverno
-      app.kubernetes.io/name: kyverno
+    - matchLabels:
+        app.kubernetes.io/component: reports-controller
+        app.kubernetes.io/instance: kyverno
+        app.kubernetes.io/part-of: kyverno
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:userinfo
+  name: kyverno:reports-controller:core
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-- apiGroups:
-    - rbac.authorization.k8s.io
-  resources:
-    - roles
-    - clusterroles
-    - rolebindings
-    - clusterrolebindings
-  verbs:
-    - watch
-    - list
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:policies
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-- apiGroups:
-    - kyverno.io
-  resources:
-    - policies
-    - policies/status
-    - clusterpolicies
-    - clusterpolicies/status
-    - generaterequests
-    - generaterequests/status
-    - updaterequests
-    - updaterequests/status
-    - admissionreports
-    - clusteradmissionreports
-    - backgroundscanreports
-    - clusterbackgroundscanreports
-  verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-    - deletecollection
-- apiGroups:
-    - wgpolicyk8s.io
-  resources:
-    - policyreports
-    - policyreports/status
-    - clusterpolicyreports
-    - clusterpolicyreports/status
-  verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-    - deletecollection
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:view
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-- apiGroups:
-  - '*'
-  resources:
-  - '*'
-  verbs:
-  - get
-  - list
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:generate
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: reports-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
 rules:
   - apiGroups:
-      - networking.k8s.io
+      - '*'
     resources:
-      - ingresses
-      - ingressclasses
-      - networkpolicies
+      - '*'
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - admissionreports
+      - clusteradmissionreports
+      - backgroundscanreports
+      - clusterbackgroundscanreports
     verbs:
       - create
-      - update
-      - patch
       - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
+  - apiGroups:
+      - wgpolicyk8s.io
+    resources:
+      - policyreports
+      - policyreports/status
+      - clusterpolicyreports
+      - clusterpolicyreports/status
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+      - deletecollection
   - apiGroups:
       - ''
     resources:
-      - namespaces
-      - configmaps
-      - secrets
-      - resourcequotas
-      - limitranges
+      - events
     verbs:
       - create
-      - update
       - patch
-      - delete
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:admission-controller
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:admission-controller
+subjects:
+  - kind: ServiceAccount
+    name: kyverno-admission-controller
+    namespace: kyverno
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:cleanup-controller
+  labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:cleanup-controller
+subjects:
+- kind: ServiceAccount
+  name: kyverno-cleanup-controller
+  namespace: kyverno
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:reports-controller
+  labels:
+    app.kubernetes.io/component: reports-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno:reports-controller
+subjects:
+- kind: ServiceAccount
+  name: kyverno-reports-controller
+  namespace: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kyverno:admission-controller
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+rules:
   - apiGroups:
-      - rbac.authorization.k8s.io
+      - ''
     resources:
-      - rolebindings
-      - roles
+      - secrets
     verbs:
+      - get
+      - list
+      - watch
       - create
       - update
-      - patch
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
       - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:events
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-- apiGroups:
-  - ''
-  - events.k8s.io
-  resources:
-  - events
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:webhook
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - mutatingwebhookconfigurations
-  - validatingwebhookconfigurations
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:cleanup-controller
-  labels:
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-    app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
-    app.kubernetes.io/instance: kyverno
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno:cleanup-controller
-subjects:
-- kind: ServiceAccount
-  name: kyverno-cleanup-controller
-  namespace: kyverno
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kyverno
-subjects:
-- kind: ServiceAccount
-  name: kyverno
-  namespace: kyverno
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - delete
+      - get
+      - patch
+      - update
+  # Allow update of Kyverno deployment annotations
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: kyverno:cleanup-controller
   labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-    app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
-    app.kubernetes.io/instance: kyverno
   namespace: kyverno
 rules:
-- apiGroups:
-    - ''
-  resources:
-    - secrets
-  verbs:
-    - get
-    - list
-    - watch
-    - create
-    - update
-- apiGroups:
-    - ''
-  resources:
-    - configmaps
-  verbs:
-    - get
-    - list
-    - watch
-- apiGroups:
-    - coordination.k8s.io
-  resources:
-    - leases
-  verbs:
-    - create
-    - delete
-    - get
-    - patch
-    - update
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - delete
+      - get
+      - patch
+      - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: kyverno:leaderelection
-  namespace: kyverno
+  name: kyverno:reports-controller
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-rules:
-- apiGroups:
-    - coordination.k8s.io
-  resources:
-    - leases
-  verbs:
-    - create
-    - delete
-    - get
-    - patch
-    - update
-- apiGroups:
-    - apps
-  resources:
-    - deployments
-  verbs:
-    - get
-    - list
-    - patch
-    - update
-    - watch
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kyverno:cleanup-controller
-  labels:
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-    app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
+    app.kubernetes.io/component: reports-controller
     app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  namespace: kyverno
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - delete
+      - get
+      - patch
+      - update
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:admission-controller
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kyverno:admission-controller
+subjects:
+  - kind: ServiceAccount
+    name: kyverno-admission-controller
+    namespace: kyverno
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kyverno:cleanup-controller
+  labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
   namespace: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: kyverno:cleanup-controller
 subjects:
-- kind: ServiceAccount
-  name: kyverno-cleanup-controller
-  namespace: kyverno
+  - kind: ServiceAccount
+    name: kyverno-cleanup-controller
+    namespace: kyverno
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kyverno:leaderelection
-  namespace: kyverno
+  name: kyverno:reports-controller
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: reports-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
+  namespace: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: kyverno:leaderelection
+  name: kyverno:reports-controller
 subjects:
-- kind: ServiceAccount
-  name: kyverno
+  - kind: ServiceAccount
+    name: kyverno-reports-controller
+    namespace: kyverno
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyverno-svc
   namespace: kyverno
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+spec:
+  ports:
+  - port: 443
+    targetPort: https
+    protocol: TCP
+    name: https
+  selector:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyverno-svc-metrics
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: metrics-port
+  selector:
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+  type: ClusterIP
 ---
 apiVersion: v1
 kind: Service
@@ -31872,11 +32045,10 @@ metadata:
   name: kyverno-cleanup-controller
   namespace: kyverno
   labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-    app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
-    app.kubernetes.io/instance: kyverno
 spec:
   ports:
   - port: 443
@@ -31885,8 +32057,8 @@ spec:
     name: https
   selector:
     app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
     app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
   type: ClusterIP
 ---
 apiVersion: v1
@@ -31895,11 +32067,10 @@ metadata:
   name: kyverno-cleanup-controller-metrics
   namespace: kyverno
   labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-    app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
-    app.kubernetes.io/instance: kyverno
 spec:
   ports:
   - port: 8000
@@ -31908,43 +32079,20 @@ spec:
     name: metrics-port
   selector:
     app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
     app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
   type: ClusterIP
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: kyverno-svc
+  name: kyverno-reports-controller-metrics
+  namespace: kyverno
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: reports-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  namespace: kyverno
-spec:
-  ports:
-  - port: 443
-    targetPort: https
-    protocol: TCP
-    name: https
-  selector:
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-  type: ClusterIP
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kyverno-svc-metrics
-  labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-  namespace: kyverno
 spec:
   ports:
   - port: 8000
@@ -31952,145 +32100,27 @@ spec:
     protocol: TCP
     name: metrics-port
   selector:
-    app: kyverno
-    app.kubernetes.io/name: kyverno
-  type: ClusterIP
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: kyverno-cleanup-controller
-  labels:
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-    app.kubernetes.io/component: cleanup-controller
-    app.kubernetes.io/name: kyverno-cleanup-controller
+    app.kubernetes.io/component: reports-controller
     app.kubernetes.io/instance: kyverno
-  namespace: kyverno
-spec:
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 40%
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app.kubernetes.io/component: cleanup-controller
-      app.kubernetes.io/name: kyverno-cleanup-controller
-      app.kubernetes.io/instance: kyverno
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/part-of: kyverno
-        app.kubernetes.io/version: latest
-        app.kubernetes.io/component: cleanup-controller
-        app.kubernetes.io/name: kyverno-cleanup-controller
-        app.kubernetes.io/instance: kyverno
-    spec:
-      dnsPolicy: ClusterFirst
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: app.kubernetes.io/component
-                  operator: In
-                  values:
-                  - cleanup-controller
-              topologyKey: kubernetes.io/hostname
-            weight: 1
-      serviceAccountName: kyverno-cleanup-controller
-      containers:
-        - name: controller
-          image: "ghcr.io/kyverno/cleanup-controller:latest"
-          ports:
-          - containerPort: 9443
-            name: https
-            protocol: TCP
-          - containerPort: 8000
-            name: metrics
-            protocol: TCP
-          args:
-            - --loggingFormat=text
-            - --disableMetrics=false
-            - --otelConfig=prometheus
-            - --metricsPort=8000
-          env:
-          - name: METRICS_CONFIG
-            value: kyverno-metrics
-          - name: KYVERNO_POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: KYVERNO_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: KYVERNO_SVC
-            value: kyverno-cleanup-controller
-          resources: 
-            limits:
-              memory: 128Mi
-            requests:
-              cpu: 100m
-              memory: 64Mi
-          securityContext: 
-            
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            privileged: false
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
-          startupProbe:
-            failureThreshold: 20
-            httpGet:
-              path: /health/liveness
-              port: 9443
-              scheme: HTTPS
-            initialDelaySeconds: 2
-            periodSeconds: 6
-          livenessProbe:
-            failureThreshold: 2
-            httpGet:
-              path: /health/liveness
-              port: 9443
-              scheme: HTTPS
-            initialDelaySeconds: 15
-            periodSeconds: 30
-            successThreshold: 1
-            timeoutSeconds: 5
-          readinessProbe:
-            failureThreshold: 6
-            httpGet:
-              path: /health/readiness
-              port: 9443
-              scheme: HTTPS
-            initialDelaySeconds: 5
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 5
+    app.kubernetes.io/part-of: kyverno
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kyverno
+  namespace: kyverno
   labels:
-    app.kubernetes.io/component: kyverno
-    app: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/instance: kyverno
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
-  namespace: kyverno
 spec:
   selector:
     matchLabels:
-      app: kyverno
-      app.kubernetes.io/name: kyverno
+      app.kubernetes.io/component: admission-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -32099,9 +32129,8 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/component: kyverno
-        app: kyverno
-        app.kubernetes.io/name: kyverno
+        app.kubernetes.io/component: admission-controller
+        app.kubernetes.io/instance: kyverno
         app.kubernetes.io/part-of: kyverno
         app.kubernetes.io/version: latest
     spec:
@@ -32117,7 +32146,7 @@ spec:
                   - 'kyverno'
               topologyKey: kubernetes.io/hostname
             weight: 1
-      serviceAccountName: kyverno
+      serviceAccountName: kyverno-admission-controller
       dnsPolicy: ClusterFirst
       initContainers:
         - name: kyverno-pre
@@ -32125,6 +32154,7 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --loggingFormat=text
+            - --exceptionNamespace=kyverno
           resources: 
             limits:
               cpu: 100m
@@ -32132,8 +32162,7 @@ spec:
             requests:
               cpu: 10m
               memory: 64Mi
-          securityContext: 
-            
+          securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -32161,6 +32190,7 @@ spec:
           image: "ghcr.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
+            - --servicePort=443
             - --loggingFormat=text
           resources: 
             limits:
@@ -32168,8 +32198,7 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-          securityContext: 
-            
+          securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -32200,7 +32229,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
           - name: KYVERNO_SERVICEACCOUNT_NAME
-            value: kyverno
+            value: kyverno-admission-controller
           - name: KYVERNO_SVC
             value: kyverno-svc
           - name: TUF_ROOT
@@ -32250,3 +32279,206 @@ spec:
               path: api-token
               expirationSeconds: 600
               audience: kyverno-extension
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyverno-cleanup-controller
+  labels:
+    app.kubernetes.io/component: cleanup-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  namespace: kyverno
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 40%
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: cleanup-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: cleanup-controller
+        app.kubernetes.io/instance: kyverno
+        app.kubernetes.io/part-of: kyverno
+        app.kubernetes.io/version: latest
+    spec:
+      dnsPolicy: ClusterFirst
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                  - cleanup-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 1
+      serviceAccountName: kyverno-cleanup-controller
+      containers:
+        - name: controller
+          image: "ghcr.io/kyverno/cleanup-controller:latest"
+          ports:
+          - containerPort: 9443
+            name: https
+            protocol: TCP
+          - containerPort: 8000
+            name: metrics
+            protocol: TCP
+          args:
+            - --servicePort=443
+            - --loggingFormat=text
+            - --disableMetrics=false
+            - --otelConfig=prometheus
+            - --metricsPort=8000
+          env:
+          - name: METRICS_CONFIG
+            value: kyverno-metrics
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KYVERNO_SVC
+            value: kyverno-cleanup-controller
+          resources: 
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            failureThreshold: 20
+            httpGet:
+              path: /health/liveness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 2
+            periodSeconds: 6
+          livenessProbe:
+            failureThreshold: 2
+            httpGet:
+              path: /health/liveness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 6
+            httpGet:
+              path: /health/readiness
+              port: 9443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyverno-reports-controller
+  labels:
+    app.kubernetes.io/component: reports-controller
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  namespace: kyverno
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 40%
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: reports-controller
+      app.kubernetes.io/instance: kyverno
+      app.kubernetes.io/part-of: kyverno
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: reports-controller
+        app.kubernetes.io/instance: kyverno
+        app.kubernetes.io/part-of: kyverno
+        app.kubernetes.io/version: latest
+    spec:
+      dnsPolicy: ClusterFirst
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                  - reports-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 1
+      serviceAccountName: kyverno-reports-controller
+      containers:
+        - name: controller
+          image: "ghcr.io/kyverno/reports-controller:latest"
+          ports:
+          - containerPort: 9443
+            name: https
+            protocol: TCP
+          - containerPort: 8000
+            name: metrics
+            protocol: TCP
+          args:
+            - --loggingFormat=text
+            - --disableMetrics=false
+            - --otelConfig=prometheus
+            - --metricsPort=8000
+          env:
+          - name: METRICS_CONFIG
+            value: kyverno-metrics
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KYVERNO_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          resources: 
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault

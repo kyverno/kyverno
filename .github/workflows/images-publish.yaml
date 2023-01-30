@@ -1,0 +1,91 @@
+name: Publish images
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'release*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write 
+
+jobs:
+  publish-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+        with:
+          build-cache-key: publish-images
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5 # v0.8.0
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # v2.8.1
+        with:
+          cosign-release: 'v1.13.0'
+      - name: Publish kyverno
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-kyverno-dev
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: kyverno
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/kyverno
+      - name: Publish kyvernopre
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-kyverno-init-dev
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: kyvernopre
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/kyverno-init
+      - name: Publish cleanup-controller
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-cleanup-controller-dev
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: cleanup-controller
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/cleanup-controller
+      - name: Publish cli
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-cli-dev
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: cli
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/cli/kubectl-kyverno

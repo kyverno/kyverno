@@ -2,7 +2,6 @@ package utils
 
 import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/logging"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
@@ -43,17 +42,4 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	}
 
 	return patchedResource, err
-}
-
-// GetAnchorsFromMap gets the conditional anchor map
-func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	for key, value := range anchorsMap {
-		if commonAnchor.IsConditionAnchor(key) {
-			result[key] = value
-		}
-	}
-
-	return result
 }

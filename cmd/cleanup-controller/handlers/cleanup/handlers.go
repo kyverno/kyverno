@@ -11,12 +11,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/event"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
 	"go.uber.org/multierr"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 )
 
 type handlers struct {
@@ -24,6 +29,7 @@ type handlers struct {
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister
 	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
+	recorder   record.EventRecorder
 }
 
 func New(
@@ -37,6 +43,7 @@ func New(
 		cpolLister: cpolLister,
 		polLister:  polLister,
 		nsLister:   nsLister,
+		recorder:   event.NewRecorder(event.CleanupController, client.GetEventsInterface()),
 	}
 }
 
@@ -158,16 +165,49 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 							continue
 						}
 					}
-					debug.Info("resource matched, it will be deleted...")
+					logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 					if err := h.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 						debug.Error(err, "failed to delete resource")
 						errs = append(errs, err)
+						h.createEvent(policy, resource, err)
 					} else {
 						debug.Info("deleted")
+						h.createEvent(policy, resource, nil)
 					}
 				}
 			}
 		}
 	}
 	return multierr.Combine(errs...)
+}
+
+func (h *handlers) createEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resource unstructured.Unstructured, err error) {
+	var cleanuppol runtime.Object
+	if policy.GetNamespace() == "" {
+		cleanuppol = policy.(*kyvernov2alpha1.ClusterCleanupPolicy)
+	} else if policy.GetNamespace() != "" {
+		cleanuppol = policy.(*kyvernov2alpha1.CleanupPolicy)
+	}
+	if err == nil {
+		h.recorder.Eventf(
+			cleanuppol,
+			corev1.EventTypeNormal,
+			string(event.PolicyApplied),
+			"successfully cleaned up the target resource %v/%v/%v",
+			resource.GetKind(),
+			resource.GetNamespace(),
+			resource.GetName(),
+		)
+	} else {
+		h.recorder.Eventf(
+			cleanuppol,
+			corev1.EventTypeWarning,
+			string(event.PolicyError),
+			"failed to clean up the target resource %v/%v/%v: %v",
+			resource.GetKind(),
+			resource.GetNamespace(),
+			resource.GetName(),
+			err.Error(),
+		)
+	}
 }

@@ -1,20 +1,15 @@
 # Areas of code where @marcelmue always wants to be a reviewer/notified.
-/pkg/webhooks @marcelmue
-/pkg/policy/mutate @marcelmue
-/pkg/engine @marcelmue @vyankyGH
-/pkg/kyverno @vyankyGH
-/pkg/openapi @vyankyGH
-/pkg/policycache @vyankyGH
-/pkg/policy/validate @vyankyGH
-/test @vyankyGH @chipzoller @eddycharly
-/docs @chipzoller
-/pkg/registryclient
-/api/kyverno/v1 @eddycharly
-/pkg/webhooks @prateekpandey14
-/pkg/engine @prateekpandey14
-/pkg/generate @prateekpandey14
-/pkg/policy/generate @prateekpandey14
-/api @prateekpandey14 @eddycharly
-/charts @treydock @eddycharly
-/pkg/autogen @eddycharly
-/pkg/utils @eddycharly
+/api                    @eddycharly @realshuting
+/api/kyverno/v1         @eddycharly
+/charts                 @treydock @eddycharly
+/docs                   @chipzoller
+/pkg/autogen            @eddycharly
+/pkg/background         @realshuting
+/pkg/engine             @marcelmue @realshuting
+/pkg/policy/mutate      @marcelmue
+/pkg/pss                @realshuting
+/pkg/utils              @eddycharly
+/pkg/userinfo           @realshuting
+/pkg/validation         @realshuting
+/pkg/webhooks           @marcelmue @realshuting
+/test                   @chipzoller @eddycharly @realshuting

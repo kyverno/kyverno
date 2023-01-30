@@ -640,7 +640,10 @@ func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.Mo
 		}
 
 		if contextEntry.ConfigMap != nil {
+			ctx.AddVariable(contextEntry.Name + ".data")
+			ctx.AddVariable(contextEntry.Name + ".metadata")
 			ctx.AddVariable(contextEntry.Name + ".data.*")
+			ctx.AddVariable(contextEntry.Name + ".metadata.*")
 		}
 	}
 }
