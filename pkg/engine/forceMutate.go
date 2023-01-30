@@ -79,7 +79,7 @@ func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, 
 	patcher := mutate.NewPatcher(name, mergePatch, jsonPatch, resource, ctx, logger)
 	resp, mutatedResource := patcher.Patch()
 	if resp.Status != engineapi.RuleStatusPass {
-		return mutatedResource, fmt.Errorf("mutate status %q: %s", resp.Status.String(), resp.Message)
+		return mutatedResource, fmt.Errorf("mutate status %q: %s", resp.Status, resp.Message)
 	}
 
 	return mutatedResource, nil

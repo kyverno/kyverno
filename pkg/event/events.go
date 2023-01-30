@@ -28,7 +28,7 @@ func buildPolicyEventMessage(resp *engineapi.RuleResponse, resource engineapi.Re
 		fmt.Fprintf(&b, "%s %s", resource.Kind, resource.Name)
 	}
 
-	fmt.Fprintf(&b, ": [%s] %s", resp.Name, resp.Status.String())
+	fmt.Fprintf(&b, ": [%s] %s", resp.Name, resp.Status)
 	if blocked {
 		fmt.Fprintf(&b, " (blocked)")
 	}
@@ -73,7 +73,7 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse *eng
 	defer bldr.Reset()
 
 	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", engineResponse.Policy.GetName(),
-		ruleResp.Name, ruleResp.Status.String(), ruleResp.Message)
+		ruleResp.Name, ruleResp.Status, ruleResp.Message)
 	resource := engineResponse.GetResourceSpec()
 
 	return Info{

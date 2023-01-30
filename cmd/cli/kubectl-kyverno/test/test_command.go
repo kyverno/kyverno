@@ -710,7 +710,7 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 func buildMessage(resp *engineapi.EngineResponse) string {
 	var bldr strings.Builder
 	for _, ruleResp := range resp.PolicyResponse.Rules {
-		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name, ruleResp.Status.String())
+		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name, ruleResp.Status)
 		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message)
 	}
 

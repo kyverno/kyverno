@@ -315,7 +315,7 @@ func compareRules(t *testing.T, rule engineapi.RuleResponse, expectedRule engine
 
 	// success
 	if rule.Status != expectedRule.Status {
-		t.Errorf("rule status mismatch: expected %s, received %s", expectedRule.Status.String(), rule.Status.String())
+		t.Errorf("rule status mismatch: expected %s, received %s", expectedRule.Status, rule.Status)
 	}
 }
 
