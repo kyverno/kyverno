@@ -58,7 +58,7 @@ func ProcessEngineResponse(ctx context.Context, m metrics.MetricsConfigManager, 
 		default:
 			ruleResult = metrics.Fail
 		}
-		ruleExecutionLatencyInSeconds := float64(rule.RuleStats.ProcessingTime) / float64(1000*1000*1000)
+		ruleExecutionLatencyInSeconds := float64(rule.ExecutionStats.ProcessingTime) / float64(1000*1000*1000)
 		registerPolicyExecutionDurationMetric(
 			ctx,
 			m,
