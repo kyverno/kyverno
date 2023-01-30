@@ -18,7 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -63,7 +63,7 @@ type controller struct {
 
 	// cache
 	metadataCache          resource.MetadataCache
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 	forceDelay             time.Duration
 
 	// config
@@ -81,7 +81,7 @@ func NewController(
 	nsInformer corev1informers.NamespaceInformer,
 	polexLister engine.PolicyExceptionLister,
 	metadataCache resource.MetadataCache,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 	forceDelay time.Duration,
 	config config.Configuration,
 	eventGen event.Interface,
