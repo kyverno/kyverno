@@ -233,8 +233,7 @@ KO_REGISTRY         := ko.local
 KO_TAGS             := latest,$(IMAGE_TAG)
 KO_TAGS_DEV         := latest,$(IMAGE_TAG_DEV)
 KO_CLI_REPO         := $(PACKAGE)/$(CLI_DIR)
-# TODO: fix by changing path
-KO_KYVERNOPRE_REPO  := $(PACKAGE)/cmd/initcontainer
+KO_KYVERNOPRE_REPO  := $(PACKAGE)/$(KYVERNOPRE_DIR)
 KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
 KO_CLEANUP_REPO     := $(PACKAGE)/$(CLEANUP_DIR)
 KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
