@@ -49,23 +49,33 @@ type Expected struct {
 	Generation Generation `yaml:"generation,omitempty"`
 }
 
+type PolicySpec struct {
+	Name      string
+	Namespace string
+}
+
+type PolicyResponse struct {
+	engineapi.PolicyResponse
+	Policy PolicySpec
+}
+
 type Mutation struct {
 	// path to the patched resource to be compared with
 	PatchedResource string `yaml:"patchedresource,omitempty"`
 	// expected response from the policy engine
-	PolicyResponse engineapi.PolicyResponse `yaml:"policyresponse"`
+	PolicyResponse PolicyResponse `yaml:"policyresponse"`
 }
 
 type Validation struct {
 	// expected response from the policy engine
-	PolicyResponse engineapi.PolicyResponse `yaml:"policyresponse"`
+	PolicyResponse PolicyResponse `yaml:"policyresponse"`
 }
 
 type Generation struct {
 	// generated resources
 	GeneratedResources []kyvernov1.ResourceSpec `yaml:"generatedResources"`
 	// expected response from the policy engine
-	PolicyResponse engineapi.PolicyResponse `yaml:"policyresponse"`
+	PolicyResponse PolicyResponse `yaml:"policyresponse"`
 }
 
 // RootDir returns the kyverno project directory based on the location of the current file.
@@ -150,7 +160,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	er := engine.Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
-	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
+	validateResponse(t, *er, tc.Expected.Mutation.PolicyResponse)
 
 	// pass the patched resource from mutate to validate
 	if len(er.PolicyResponse.Rules) > 0 {
@@ -162,7 +172,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	cfg := config.NewDefaultConfiguration()
 	er = engine.Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
 	t.Log("---Validation---")
-	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
+	validateResponse(t, *er, tc.Expected.Validation.PolicyResponse)
 
 	// Generation
 	if resource.GetKind() == "Namespace" {
@@ -178,7 +188,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 
 			er = engine.ApplyBackgroundChecks(registryclient.NewOrDie(), policyContext)
 			t.Log(("---Generation---"))
-			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
+			validateResponse(t, *er, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namespaces as resource
 			validateGeneratedResources(t, client, *policy, resource.GetName(), tc.Expected.Generation.GeneratedResources)
 		}
@@ -231,9 +241,9 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 	t.Log("success: response resource returned matches expected resource")
 }
 
-func validateResponse(t *testing.T, er engineapi.PolicyResponse, expected engineapi.PolicyResponse) {
+func validateResponse(t *testing.T, er engineapi.EngineResponse, expected PolicyResponse) {
 	t.Helper()
-	if reflect.DeepEqual(expected, engineapi.PolicyResponse{}) {
+	if reflect.DeepEqual(expected.PolicyResponse, engineapi.PolicyResponse{}) {
 		t.Log("no response expected")
 		return
 	}
@@ -243,31 +253,31 @@ func validateResponse(t *testing.T, er engineapi.PolicyResponse, expected engine
 	// compare policy spec
 	comparePolicySpec(t, er.Policy, expected.Policy)
 	// compare resource spec
-	compareResourceSpec(t, er.Resource, expected.Resource)
+	compareResourceSpec(t, er.PolicyResponse.Resource, expected.PolicyResponse.Resource)
 
 	// rules
-	if len(er.Rules) != len(expected.Rules) {
-		t.Errorf("rule count error, er.Rules=%v, expected.Rules=%v", er.Rules, expected.Rules)
+	if len(er.PolicyResponse.Rules) != len(expected.PolicyResponse.Rules) {
+		t.Errorf("rule count error, er.Rules=%v, expected.Rules=%v", er.PolicyResponse.Rules, expected.PolicyResponse.Rules)
 		return
 	}
-	if len(er.Rules) == len(expected.Rules) {
+	if len(er.PolicyResponse.Rules) == len(expected.PolicyResponse.Rules) {
 		// if there are rules being applied then we compare the rule response
 		// as the rules are applied in the order defined, the comparison of rules will be in order
-		for index, r := range expected.Rules {
-			compareRules(t, er.Rules[index], r)
+		for index, r := range expected.PolicyResponse.Rules {
+			compareRules(t, er.PolicyResponse.Rules[index], r)
 		}
 	}
 }
 
-func comparePolicySpec(t *testing.T, policy engineapi.PolicySpec, expectedPolicy engineapi.PolicySpec) {
+func comparePolicySpec(t *testing.T, policy kyvernov1.PolicyInterface, expectedPolicy PolicySpec) {
 	t.Helper()
 	// namespace
-	if policy.Namespace != expectedPolicy.Namespace {
-		t.Errorf("namespace: expected %s, received %s", expectedPolicy.Namespace, policy.Namespace)
+	if policy.GetNamespace() != expectedPolicy.Namespace {
+		t.Errorf("namespace: expected %s, received %s", expectedPolicy.Namespace, policy.GetNamespace())
 	}
 	// name
-	if policy.Name != expectedPolicy.Name {
-		t.Errorf("name: expected %s, received %s", expectedPolicy.Name, policy.Name)
+	if policy.GetName() != expectedPolicy.Name {
+		t.Errorf("name: expected %s, received %s", expectedPolicy.Name, policy.GetName())
 	}
 }
 

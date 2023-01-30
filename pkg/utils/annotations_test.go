@@ -16,7 +16,6 @@ func newPolicyResponse(policy, rule string, patchesStr []string, status engineap
 	}
 
 	return engineapi.PolicyResponse{
-		Policy: engineapi.PolicySpec{Name: policy},
 		Rules: []engineapi.RuleResponse{
 			{
 				Name:    rule,

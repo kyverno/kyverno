@@ -8,7 +8,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"k8s.io/client-go/tools/cache"
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
@@ -22,17 +21,9 @@ func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyCon
 	name := policyContext.newResource.GetName()
 	namespace := policyContext.newResource.GetNamespace()
 	apiVersion := policyContext.newResource.GetAPIVersion()
-	pNamespace, pName, err := cache.SplitMetaNamespaceKey(policyNameKey)
-	if err != nil {
-		logging.Error(err, "failed to spilt name and namespace", policyNameKey)
-	}
 
 	resp := &engineapi.EngineResponse{
 		PolicyResponse: engineapi.PolicyResponse{
-			Policy: engineapi.PolicySpec{
-				Name:      pName,
-				Namespace: pNamespace,
-			},
 			PolicyStats: engineapi.PolicyStats{
 				ExecutionStats: engineapi.ExecutionStats{
 					Timestamp: startTime.Unix(),

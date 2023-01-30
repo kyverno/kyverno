@@ -30,10 +30,6 @@ func filterRules(rclient registryclient.Client, policyContext *PolicyContext, st
 	apiVersion := policyContext.newResource.GetAPIVersion()
 	resp := &engineapi.EngineResponse{
 		PolicyResponse: engineapi.PolicyResponse{
-			Policy: engineapi.PolicySpec{
-				Name:      policyContext.policy.GetName(),
-				Namespace: policyContext.policy.GetNamespace(),
-			},
 			PolicyStats: engineapi.PolicyStats{
 				ExecutionStats: engineapi.ExecutionStats{
 					Timestamp: startTime.Unix(),

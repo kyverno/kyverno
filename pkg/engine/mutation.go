@@ -360,9 +360,6 @@ func startMutateResultResponse(resp *engineapi.EngineResponse, policy kyvernov1.
 	if resp == nil {
 		return
 	}
-
-	resp.PolicyResponse.Policy.Name = policy.GetName()
-	resp.PolicyResponse.Policy.Namespace = policy.GetNamespace()
 	resp.PolicyResponse.Resource.Name = resource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resource.GetKind()
@@ -373,7 +370,6 @@ func endMutateResultResponse(logger logr.Logger, resp *engineapi.EngineResponse,
 	if resp == nil {
 		return
 	}
-
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
 	resp.PolicyResponse.Timestamp = startTime.Unix()
 	logger.V(5).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
