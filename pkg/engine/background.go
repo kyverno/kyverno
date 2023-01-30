@@ -35,7 +35,9 @@ func filterRules(rclient registryclient.Client, policyContext *PolicyContext, st
 				Namespace: policyContext.policy.GetNamespace(),
 			},
 			PolicyStats: engineapi.PolicyStats{
-				PolicyExecutionTimestamp: startTime.Unix(),
+				ExecutionStats: engineapi.ExecutionStats{
+					Timestamp: startTime.Unix(),
+				},
 			},
 			Resource: engineapi.ResourceSpec{
 				Kind:       kind,
@@ -106,9 +108,9 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 					Name:   rule.Name,
 					Type:   ruleType,
 					Status: engineapi.RuleStatusFail,
-					RuleStats: engineapi.RuleStats{
-						ProcessingTime:         time.Since(startTime),
-						RuleExecutionTimestamp: startTime.Unix(),
+					ExecutionStats: engineapi.ExecutionStats{
+						ProcessingTime: time.Since(startTime),
+						Timestamp:      startTime.Unix(),
 					},
 				}
 			}
@@ -147,9 +149,9 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 			Name:   ruleCopy.Name,
 			Type:   ruleType,
 			Status: engineapi.RuleStatusSkip,
-			RuleStats: engineapi.RuleStats{
-				ProcessingTime:         time.Since(startTime),
-				RuleExecutionTimestamp: startTime.Unix(),
+			ExecutionStats: engineapi.ExecutionStats{
+				ProcessingTime: time.Since(startTime),
+				Timestamp:      startTime.Unix(),
 			},
 		}
 	}
@@ -159,9 +161,9 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 		Name:   ruleCopy.Name,
 		Type:   ruleType,
 		Status: engineapi.RuleStatusPass,
-		RuleStats: engineapi.RuleStats{
-			ProcessingTime:         time.Since(startTime),
-			RuleExecutionTimestamp: startTime.Unix(),
+		ExecutionStats: engineapi.ExecutionStats{
+			ProcessingTime: time.Since(startTime),
+			Timestamp:      startTime.Unix(),
 		},
 	}
 }
