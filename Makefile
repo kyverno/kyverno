@@ -780,6 +780,8 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
 		--set reportsController.image.repository=$(LOCAL_REPORTS_IMAGE) \
 		--set reportsController.image.tag=$(IMAGE_TAG_DEV) \
+		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_IMAGE) \
+		--set backgroundController.image.tag=$(IMAGE_TAG_DEV) \
 		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
 
 .PHONY: kind-deploy-kyverno-policies
