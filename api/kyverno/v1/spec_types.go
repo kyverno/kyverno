@@ -14,15 +14,20 @@ type ValidationFailureAction string
 
 // Policy Reporting Modes
 const (
+	// auditOld doesn't block the request on failure
+	// DEPRECATED: use Audit instead
+	auditOld ValidationFailureAction = "audit"
 	// enforceOld blocks the request on failure
-	// DEPRECATED: use enforce instead
+	// DEPRECATED: use Enforce instead
 	enforceOld ValidationFailureAction = "enforce"
-	// enforce blocks the request on failure
-	enforce ValidationFailureAction = "Enforce"
+	// Enforce blocks the request on failure
+	Enforce ValidationFailureAction = "Enforce"
+	// Audit doesn't block the request on failure
+	Audit ValidationFailureAction = "Audit"
 )
 
 func (a ValidationFailureAction) Enforce() bool {
-	return a == enforce || a == enforceOld
+	return a == Enforce || a == enforceOld
 }
 
 func (a ValidationFailureAction) Audit() bool {
@@ -30,8 +35,7 @@ func (a ValidationFailureAction) Audit() bool {
 }
 
 func (a ValidationFailureAction) IsValid() bool {
-	// ValidationFailureAction should either be enforce / audit
-	return a.Enforce() || a.Audit()
+	return a == enforceOld || a == auditOld || a == Enforce || a == Audit
 }
 
 type ValidationFailureActionOverride struct {

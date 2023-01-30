@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -715,6 +716,278 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 			}
 			if got := er.GetSuccessRules(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EngineResponse.GetSuccessRules() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
+	resource := unstructured.Unstructured{}
+	resource.SetNamespace("foo")
+	type fields struct {
+		PatchedResource unstructured.Unstructured
+		Policy          kyvernov1.PolicyInterface
+		PolicyResponse  PolicyResponse
+		NamespaceLabels map[string]string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   kyvernov1.ValidationFailureAction
+	}{{
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Audit,
+			},
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+			},
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
+					Action:     kyvernov1.Audit,
+					Namespaces: []string{"*"},
+				}},
+			},
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
+					Action:     "invalid",
+					Namespaces: []string{"*"},
+				}},
+			},
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			PatchedResource: resource,
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
+					Action:     kyvernov1.Audit,
+					Namespaces: []string{"foo"},
+				}},
+			},
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			PatchedResource: resource,
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
+					Action:     kyvernov1.Audit,
+					Namespaces: []string{"bar"},
+				}},
+			},
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			NamespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
+					Action: kyvernov1.Audit,
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"bar": "foo",
+						},
+					},
+				}},
+			},
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			NamespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
+					Action: kyvernov1.Audit,
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"foo": "bar",
+						},
+					},
+				}},
+			},
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			NamespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
+					Action:     kyvernov1.Audit,
+					Namespaces: []string{"foo"},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"bar": "foo",
+						},
+					},
+				}},
+			},
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			NamespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
+					Action:     kyvernov1.Audit,
+					Namespaces: []string{"bar"},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"foo": "bar",
+						},
+					},
+				}},
+			},
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			NamespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
+					Action:     kyvernov1.Audit,
+					Namespaces: []string{"foo"},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"foo": "bar",
+						},
+					},
+				}},
+			},
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			NamespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			PolicyResponse: PolicyResponse{
+				ValidationFailureAction: kyvernov1.Enforce,
+				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
+					Action:     kyvernov1.Audit,
+					Namespaces: []string{"*"},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"foo": "bar",
+						},
+					},
+				}},
+			},
+		},
+		want: kyvernov1.Audit,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			er := &EngineResponse{
+				PatchedResource: tt.fields.PatchedResource,
+				Policy:          tt.fields.Policy,
+				PolicyResponse:  tt.fields.PolicyResponse,
+				NamespaceLabels: tt.fields.NamespaceLabels,
+			}
+			if got := er.GetValidationFailureAction(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("EngineResponse.GetValidationFailureAction() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEngineResponse_GetPatches(t *testing.T) {
+	type fields struct {
+		PatchedResource unstructured.Unstructured
+		Policy          kyvernov1.PolicyInterface
+		PolicyResponse  PolicyResponse
+		NamespaceLabels map[string]string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   [][]byte
+	}{{}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				Rules: nil,
+			},
+		},
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				Rules: []RuleResponse{},
+			},
+		},
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				Rules: []RuleResponse{{}},
+			},
+		},
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				Rules: []RuleResponse{{}, {
+					Patches: [][]byte{{0, 1, 2}, {3, 4, 5}},
+				}},
+			},
+		},
+		want: [][]byte{{0, 1, 2}, {3, 4, 5}},
+	}, {
+		fields: fields{
+			PolicyResponse: PolicyResponse{
+				Rules: []RuleResponse{{}, {
+					Patches: [][]byte{{0, 1, 2}, {3, 4, 5}},
+				}, {
+					Patches: [][]byte{{7, 8, 9}},
+				}},
+			},
+		},
+		want: [][]byte{{0, 1, 2}, {3, 4, 5}, {7, 8, 9}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			er := EngineResponse{
+				PatchedResource: tt.fields.PatchedResource,
+				Policy:          tt.fields.Policy,
+				PolicyResponse:  tt.fields.PolicyResponse,
+				NamespaceLabels: tt.fields.NamespaceLabels,
+			}
+			if got := er.GetPatches(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("EngineResponse.GetPatches() = %v, want %v", got, tt.want)
 			}
 		})
 	}
