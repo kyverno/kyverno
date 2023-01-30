@@ -11,8 +11,8 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
@@ -23,10 +23,10 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
+func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *PolicyContext) (resp *engineapi.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.policy
-	resp = &response.EngineResponse{
+	resp = &engineapi.EngineResponse{
 		Policy: policy,
 	}
 	matchedResource := policyContext.newResource
@@ -104,7 +104,7 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 				if !policyContext.admissionOperation && rule.IsMutateExisting() {
 					targets, err := loadTargets(ruleCopy.Mutation.Targets, policyContext, logger)
 					if err != nil {
-						rr := ruleResponse(rule, response.Mutation, err.Error(), response.RuleStatusError)
+						rr := ruleResponse(rule, engineapi.Mutation, err.Error(), engineapi.RuleStatusError)
 						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 					} else {
 						patchedResources = append(patchedResources, targets...)
@@ -157,7 +157,7 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 
 					if ruleResponse != nil {
 						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResponse)
-						if ruleResponse.Status == response.RuleStatusError {
+						if ruleResponse.Status == engineapi.RuleStatusError {
 							incrementErrorCount(resp)
 						} else {
 							incrementAppliedCount(resp)
@@ -174,7 +174,7 @@ func Mutate(ctx context.Context, rclient registryclient.Client, policyContext *P
 	for _, r := range resp.PolicyResponse.Rules {
 		for _, n := range skippedRules {
 			if r.Name == n {
-				r.Status = response.RuleStatusSkip
+				r.Status = engineapi.RuleStatusSkip
 				logger.V(4).Info("rule Status set as skip", "rule skippedRules", r.Name)
 			}
 		}
@@ -191,7 +191,7 @@ func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructu
 	}
 
 	if !preconditionsPassed {
-		return mutate.NewResponse(response.RuleStatusSkip, resource, nil, "preconditions not met")
+		return mutate.NewResponse(engineapi.RuleStatusSkip, resource, nil, "preconditions not met")
 	}
 
 	return mutate.Mutate(rule, ctx.JSONContext(), resource, logger)
@@ -223,7 +223,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 		}
 
 		if !preconditionsPassed {
-			return mutate.NewResponse(response.RuleStatusSkip, f.resource.unstructured, nil, "preconditions not met")
+			return mutate.NewResponse(engineapi.RuleStatusSkip, f.resource.unstructured, nil, "preconditions not met")
 		}
 
 		elements, err := evaluateList(foreach.List, f.policyContext.JSONContext())
@@ -233,11 +233,11 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 		}
 
 		mutateResp := f.mutateElements(ctx, foreach, elements)
-		if mutateResp.Status == response.RuleStatusError {
+		if mutateResp.Status == engineapi.RuleStatusError {
 			return mutate.NewErrorResponse("failed to mutate elements", err)
 		}
 
-		if mutateResp.Status != response.RuleStatusSkip {
+		if mutateResp.Status != engineapi.RuleStatusSkip {
 			applyCount++
 			if len(mutateResp.Patches) > 0 {
 				f.resource.unstructured = mutateResp.PatchedResource
@@ -248,10 +248,10 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 
 	msg := fmt.Sprintf("%d elements processed", applyCount)
 	if applyCount == 0 {
-		return mutate.NewResponse(response.RuleStatusSkip, f.resource.unstructured, allPatches, msg)
+		return mutate.NewResponse(engineapi.RuleStatusSkip, f.resource.unstructured, allPatches, msg)
 	}
 
-	return mutate.NewResponse(response.RuleStatusPass, f.resource.unstructured, allPatches, msg)
+	return mutate.NewResponse(engineapi.RuleStatusPass, f.resource.unstructured, allPatches, msg)
 }
 
 func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.ForEachMutation, elements []interface{}) *mutate.Response {
@@ -315,7 +315,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			mutateResp = mutate.ForEach(f.rule.Name, foreach, policyContext.JSONContext(), patchedResource.unstructured, f.log)
 		}
 
-		if mutateResp.Status == response.RuleStatusFail || mutateResp.Status == response.RuleStatusError {
+		if mutateResp.Status == engineapi.RuleStatusFail || mutateResp.Status == engineapi.RuleStatusError {
 			return mutateResp
 		}
 
@@ -325,12 +325,12 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		}
 	}
 
-	return mutate.NewResponse(response.RuleStatusPass, patchedResource.unstructured, allPatches, "")
+	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, allPatches, "")
 }
 
-func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *response.RuleResponse {
-	resp := ruleResponse(*rule, response.Mutation, mutateResp.Message, mutateResp.Status)
-	if resp.Status == response.RuleStatusPass {
+func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
+	resp := ruleResponse(*rule, engineapi.Mutation, mutateResp.Message, mutateResp.Status)
+	if resp.Status == engineapi.RuleStatusPass {
 		resp.Patches = mutateResp.Patches
 		resp.Message = buildSuccessMessage(mutateResp.PatchedResource)
 	}
@@ -356,7 +356,7 @@ func buildSuccessMessage(r unstructured.Unstructured) string {
 	return fmt.Sprintf("mutated %s/%s in namespace %s", r.GetKind(), r.GetName(), r.GetNamespace())
 }
 
-func startMutateResultResponse(resp *response.EngineResponse, policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) {
+func startMutateResultResponse(resp *engineapi.EngineResponse, policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) {
 	if resp == nil {
 		return
 	}
@@ -369,12 +369,12 @@ func startMutateResultResponse(resp *response.EngineResponse, policy kyvernov1.P
 	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
 }
 
-func endMutateResultResponse(logger logr.Logger, resp *response.EngineResponse, startTime time.Time) {
+func endMutateResultResponse(logger logr.Logger, resp *engineapi.EngineResponse, startTime time.Time) {
 	if resp == nil {
 		return
 	}
 
 	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	resp.PolicyResponse.PolicyExecutionTimestamp = startTime.Unix()
+	resp.PolicyResponse.Timestamp = startTime.Unix()
 	logger.V(5).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 }

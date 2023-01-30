@@ -6,27 +6,27 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
 
 // ProcessPatchJSON6902 ...
-func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unstructured.Unstructured, log logr.Logger) (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unstructured.Unstructured, log logr.Logger) (resp engineapi.RuleResponse, patchedResource unstructured.Unstructured) {
 	logger := log.WithValues("rule", ruleName)
 	startTime := time.Now()
 	logger.V(4).Info("started JSON6902 patch", "startTime", startTime)
 	resp.Name = ruleName
-	resp.Type = response.Mutation
+	resp.Type = engineapi.Mutation
 	defer func() {
-		resp.RuleStats.ProcessingTime = time.Since(startTime)
-		resp.RuleStats.RuleExecutionTimestamp = startTime.Unix()
-		logger.V(4).Info("applied JSON6902 patch", "processingTime", resp.RuleStats.ProcessingTime.String())
+		resp.ExecutionStats.ProcessingTime = time.Since(startTime)
+		resp.ExecutionStats.Timestamp = startTime.Unix()
+		logger.V(4).Info("applied JSON6902 patch", "processingTime", resp.ExecutionStats.ProcessingTime.String())
 	}()
 
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
-		resp.Status = response.RuleStatusFail
+		resp.Status = engineapi.RuleStatusFail
 		logger.Error(err, "failed to marshal resource")
 		resp.Message = fmt.Sprintf("failed to marshal resource: %v", err)
 		return resp, resource
@@ -34,7 +34,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 
 	patchedResourceRaw, err := applyPatchesWithOptions(resourceRaw, patchesJSON6902)
 	if err != nil {
-		resp.Status = response.RuleStatusFail
+		resp.Status = engineapi.RuleStatusFail
 		logger.Error(err, "failed to apply JSON Patch")
 		resp.Message = fmt.Sprintf("failed to apply JSON Patch: %v", err)
 		return resp, resource
@@ -42,7 +42,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 
 	patchesBytes, err := generatePatches(resourceRaw, patchedResourceRaw)
 	if err != nil {
-		resp.Status = response.RuleStatusFail
+		resp.Status = engineapi.RuleStatusFail
 		logger.Error(err, "unable generate patch bytes from base and patched document, apply patchesJSON6902 directly")
 		resp.Message = fmt.Sprintf("unable generate patch bytes from base and patched document, apply patchesJSON6902 directly: %v", err)
 		return resp, resource
@@ -55,12 +55,12 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 	err = patchedResource.UnmarshalJSON(patchedResourceRaw)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal resource")
-		resp.Status = response.RuleStatusFail
+		resp.Status = engineapi.RuleStatusFail
 		resp.Message = fmt.Sprintf("failed to unmarshal resource: %v", err)
 		return resp, resource
 	}
 
-	resp.Status = response.RuleStatusPass
+	resp.Status = engineapi.RuleStatusPass
 	resp.Message = string("applied JSON Patch")
 	resp.Patches = patchesBytes
 	return resp, patchedResource

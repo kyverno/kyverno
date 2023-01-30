@@ -16,7 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -85,17 +85,17 @@ func (h *generationHandler) Handle(
 ) {
 	h.log.V(6).Info("update request for generate policy")
 
-	var engineResponses []*response.EngineResponse
+	var engineResponses []*engineapi.EngineResponse
 	if (request.Operation == admissionv1.Create || request.Operation == admissionv1.Update) && len(policies) != 0 {
 		for _, policy := range policies {
-			var rules []response.RuleResponse
+			var rules []engineapi.RuleResponse
 			policyContext := policyContext.WithPolicy(policy)
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 				policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 			}
 			engineResponse := engine.ApplyBackgroundChecks(h.rclient, policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
-				if rule.Status != response.RuleStatusPass {
+				if rule.Status != engineapi.RuleStatusPass {
 					h.deleteGR(ctx, engineResponse)
 					continue
 				}
@@ -243,7 +243,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Conte
 	}
 }
 
-func (h *generationHandler) deleteGR(ctx context.Context, engineResponse *response.EngineResponse) {
+func (h *generationHandler) deleteGR(ctx context.Context, engineResponse *engineapi.EngineResponse) {
 	h.log.V(4).Info("querying all update requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.PolicyResponse.Policy.Name,
