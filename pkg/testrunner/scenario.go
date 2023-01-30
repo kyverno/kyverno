@@ -15,7 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
@@ -53,19 +53,19 @@ type Mutation struct {
 	// path to the patched resource to be compared with
 	PatchedResource string `yaml:"patchedresource,omitempty"`
 	// expected response from the policy engine
-	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
+	PolicyResponse engineapi.PolicyResponse `yaml:"policyresponse"`
 }
 
 type Validation struct {
 	// expected response from the policy engine
-	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
+	PolicyResponse engineapi.PolicyResponse `yaml:"policyresponse"`
 }
 
 type Generation struct {
 	// generated resources
 	GeneratedResources []kyvernov1.ResourceSpec `yaml:"generatedResources"`
 	// expected response from the policy engine
-	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
+	PolicyResponse engineapi.PolicyResponse `yaml:"policyresponse"`
 }
 
 // RootDir returns the kyverno project directory based on the location of the current file.
@@ -231,9 +231,9 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 	t.Log("success: response resource returned matches expected resource")
 }
 
-func validateResponse(t *testing.T, er response.PolicyResponse, expected response.PolicyResponse) {
+func validateResponse(t *testing.T, er engineapi.PolicyResponse, expected engineapi.PolicyResponse) {
 	t.Helper()
-	if reflect.DeepEqual(expected, response.PolicyResponse{}) {
+	if reflect.DeepEqual(expected, engineapi.PolicyResponse{}) {
 		t.Log("no response expected")
 		return
 	}
@@ -259,7 +259,7 @@ func validateResponse(t *testing.T, er response.PolicyResponse, expected respons
 	}
 }
 
-func comparePolicySpec(t *testing.T, policy response.PolicySpec, expectedPolicy response.PolicySpec) {
+func comparePolicySpec(t *testing.T, policy engineapi.PolicySpec, expectedPolicy engineapi.PolicySpec) {
 	t.Helper()
 	// namespace
 	if policy.Namespace != expectedPolicy.Namespace {
@@ -271,7 +271,7 @@ func comparePolicySpec(t *testing.T, policy response.PolicySpec, expectedPolicy 
 	}
 }
 
-func compareResourceSpec(t *testing.T, resource response.ResourceSpec, expectedResource response.ResourceSpec) {
+func compareResourceSpec(t *testing.T, resource engineapi.ResourceSpec, expectedResource engineapi.ResourceSpec) {
 	t.Helper()
 	// kind
 	if resource.Kind != expectedResource.Kind {
@@ -292,7 +292,7 @@ func compareResourceSpec(t *testing.T, resource response.ResourceSpec, expectedR
 	}
 }
 
-func compareRules(t *testing.T, rule response.RuleResponse, expectedRule response.RuleResponse) {
+func compareRules(t *testing.T, rule engineapi.RuleResponse, expectedRule engineapi.RuleResponse) {
 	t.Helper()
 	// name
 	if rule.Name != expectedRule.Name {
