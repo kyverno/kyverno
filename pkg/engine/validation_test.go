@@ -11,35 +11,12 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 )
-
-func TestGetAnchorsFromMap_ThereAreAnchors(t *testing.T) {
-	rawMap := []byte(`{
-		"(name)":"nirmata-*",
-		"notAnchor1":123,
-		"(namespace)":"kube-?olicy",
-		"notAnchor2":"sample-text",
-		"object":{
-			"key1":"value1",
-			"(key2)":"value2"
-		}
-	}`)
-
-	var unmarshalled map[string]interface{}
-	err := json.Unmarshal(rawMap, &unmarshalled)
-	assert.NilError(t, err)
-
-	actualMap := utils.GetAnchorsFromMap(unmarshalled)
-	assert.Equal(t, len(actualMap), 2)
-	assert.Equal(t, actualMap["(name)"].(string), "nirmata-*")
-	assert.Equal(t, actualMap["(namespace)"].(string), "kube-?olicy")
-}
 
 func TestValidate_image_tag_fail(t *testing.T) {
 	// If image tag is latest then imagepull policy needs to be checked
