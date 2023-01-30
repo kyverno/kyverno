@@ -21,44 +21,34 @@ type EngineResponse struct {
 	NamespaceLabels map[string]string
 }
 
-// IsSuccessful checks if any rule has failed or produced an error during execution
-func (er EngineResponse) IsSuccessful() bool {
+// IsOneOf checks if any rule has status in a given list
+func (er EngineResponse) IsOneOf(status ...RuleStatus) bool {
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Status == RuleStatusFail || r.Status == RuleStatusError {
-			return false
+		if r.HasStatus(status...) {
+			return true
 		}
 	}
-	return true
+	return false
+}
+
+// IsSuccessful checks if any rule has failed or produced an error during execution
+func (er EngineResponse) IsSuccessful() bool {
+	return !er.IsOneOf(RuleStatusFail, RuleStatusError)
 }
 
 // IsSkipped checks if any rule has skipped resource or not.
 func (er EngineResponse) IsSkipped() bool {
-	for _, r := range er.PolicyResponse.Rules {
-		if r.Status == RuleStatusSkip {
-			return true
-		}
-	}
-	return false
+	return er.IsOneOf(RuleStatusSkip)
 }
 
 // IsFailed checks if any rule created a policy violation
 func (er EngineResponse) IsFailed() bool {
-	for _, r := range er.PolicyResponse.Rules {
-		if r.Status == RuleStatusFail {
-			return true
-		}
-	}
-	return false
+	return er.IsOneOf(RuleStatusFail)
 }
 
 // IsError checks if any rule resulted in a processing error
 func (er EngineResponse) IsError() bool {
-	for _, r := range er.PolicyResponse.Rules {
-		if r.Status == RuleStatusError {
-			return true
-		}
-	}
-	return false
+	return er.IsOneOf(RuleStatusError)
 }
 
 // IsEmpty checks if any rule results are present

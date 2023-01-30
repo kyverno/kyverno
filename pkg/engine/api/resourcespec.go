@@ -9,7 +9,7 @@ type ResourceSpec struct {
 	UID        string
 }
 
-// GetKey returns the key
-func (rs ResourceSpec) GetKey() string {
+// String implements Stringer interface
+func (rs ResourceSpec) String() string {
 	return rs.Kind + "/" + rs.Namespace + "/" + rs.Name
 }

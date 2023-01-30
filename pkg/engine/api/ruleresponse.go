@@ -45,7 +45,17 @@ type RuleResponse struct {
 	PodSecurityChecks *PodSecurityChecks
 }
 
-// ToString ...
-func (rr RuleResponse) ToString() string {
-	return fmt.Sprintf("rule %s (%s): %v", rr.Name, rr.Type, rr.Message)
+// HasStatus checks if rule status is in a given list
+func (r RuleResponse) HasStatus(status ...RuleStatus) bool {
+	for _, s := range status {
+		if r.Status == s {
+			return true
+		}
+	}
+	return false
+}
+
+// String implements Stringer interface
+func (r RuleResponse) String() string {
+	return fmt.Sprintf("rule %s (%s): %v", r.Name, r.Type, r.Message)
 }
