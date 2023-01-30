@@ -126,6 +126,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 
 - Image tags are now validated and must be strings, if you use image tags in the `1.35` form please add quotes around the tag value.
 
+- Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:
@@ -175,13 +177,13 @@ The command removes all the Kubernetes components associated with the chart and 
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
 | rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
-| image.registry | string | `nil` | Image registry |
-| image.repository | string | `"ghcr.io/kyverno/kyverno"` | Image repository |
+| image.registry | string | `"ghcr.io"` | Image registry |
+| image.repository | string | `"kyverno/kyverno"` | Image repository |
 | image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | image.pullSecrets | list | `[]` | Image pull secrets |
-| initImage.registry | string | `nil` | Image registry |
-| initImage.repository | string | `"ghcr.io/kyverno/kyvernopre"` | Image repository |
+| initImage.registry | string | `"ghcr.io"` | Image registry |
+| initImage.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
 | initContainer.extraArgs | list | `["--loggingFormat=text","--exceptionNamespace={{ include \"kyverno.namespace\" . }}"]` | Extra arguments to give to the kyvernopre binary. |
@@ -249,8 +251,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
-| cleanupController.image.registry | string | `nil` | Image registry |
-| cleanupController.image.repository | string | `"ghcr.io/kyverno/cleanup-controller"` | Image repository |
+| cleanupController.image.registry | string | `"ghcr.io"` | Image registry |
+| cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
 | cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | cleanupController.image.pullSecrets | list | `[]` | Image pull secrets |
@@ -306,8 +308,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.rbac.create | bool | `true` | Create RBAC resources |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
-| reportsController.image.registry | string | `nil` | Image registry |
-| reportsController.image.repository | string | `"ghcr.io/kyverno/reports-controller"` | Image repository |
+| reportsController.image.registry | string | `"ghcr.io"` | Image registry |
+| reportsController.image.repository | string | `"kyverno/reports-controller"` | Image repository |
 | reportsController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | reportsController.image.pullSecrets | list | `[]` | Image pull secrets |
