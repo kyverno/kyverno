@@ -32,6 +32,7 @@ type ImageVerificationHandler interface {
 
 type imageVerificationHandler struct {
 	kyvernoClient    versioned.Interface
+	contextLoader    engineapi.ContextLoader
 	rclient          registryclient.Client
 	log              logr.Logger
 	eventGen         event.Interface
@@ -42,6 +43,7 @@ type imageVerificationHandler struct {
 func NewImageVerificationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
+	contextLoader engineapi.ContextLoader,
 	rclient registryclient.Client,
 	eventGen event.Interface,
 	admissionReports bool,
@@ -49,6 +51,7 @@ func NewImageVerificationHandler(
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
+		contextLoader:    contextLoader,
 		rclient:          rclient,
 		log:              log,
 		eventGen:         eventGen,
@@ -91,7 +94,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy)
-				resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext, h.cfg)
+				resp, ivm := engine.VerifyAndPatchImages(ctx, h.contextLoader, h.rclient, policyContext, h.cfg)
 
 				engineResponses = append(engineResponses, resp)
 				patches = append(patches, resp.GetPatches()...)

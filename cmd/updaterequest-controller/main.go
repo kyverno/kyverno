@@ -76,7 +76,7 @@ func createNonLeaderControllers(
 	updateRequestController := background.NewController(
 		kyvernoClient,
 		dynamicClient,
-		rclient,
+		nil,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -103,7 +103,7 @@ func createrLeaderControllers(
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
 		dynamicClient,
-		rclient,
+		nil,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),

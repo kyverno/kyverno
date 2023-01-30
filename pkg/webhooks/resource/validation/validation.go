@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -38,7 +37,7 @@ type ValidationHandler interface {
 func NewValidationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
+	contextLoader engineapi.ContextLoader,
 	pCache policycache.Cache,
 	pcBuilder webhookutils.PolicyContextBuilder,
 	eventGen event.Interface,
@@ -49,7 +48,7 @@ func NewValidationHandler(
 	return &validationHandler{
 		log:              log,
 		kyvernoClient:    kyvernoClient,
-		rclient:          rclient,
+		contextLoader:    contextLoader,
 		pCache:           pCache,
 		pcBuilder:        pcBuilder,
 		eventGen:         eventGen,
@@ -62,7 +61,7 @@ func NewValidationHandler(
 type validationHandler struct {
 	log              logr.Logger
 	kyvernoClient    versioned.Interface
-	rclient          registryclient.Client
+	contextLoader    engineapi.ContextLoader
 	pCache           policycache.Cache
 	pcBuilder        webhookutils.PolicyContextBuilder
 	eventGen         event.Interface
@@ -114,7 +113,7 @@ func (v *validationHandler) HandleValidation(
 					failurePolicy = kyvernov1.Fail
 				}
 
-				engineResponse := engine.Validate(ctx, v.rclient, policyContext, v.cfg)
+				engineResponse := engine.Validate(ctx, v.contextLoader, policyContext, v.cfg)
 				if engineResponse.IsNil() {
 					// we get an empty response if old and new resources created the same response
 					// allow updates if resource update doesnt change the policy evaluation
@@ -173,7 +172,7 @@ func (v *validationHandler) buildAuditResponses(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
-				responses = append(responses, engine.Validate(ctx, v.rclient, policyContext, v.cfg))
+				responses = append(responses, engine.Validate(ctx, v.contextLoader, policyContext, v.cfg))
 			},
 		)
 	}
