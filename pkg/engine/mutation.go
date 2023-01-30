@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
@@ -264,33 +263,30 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		invertedElement(elements)
 	}
 
-	for i, e := range elements {
-		if e == nil {
+	for index, element := range elements {
+		if element == nil {
 			continue
 		}
 
 		f.policyContext.JSONContext().Reset()
 		policyContext := f.policyContext.Copy()
 
-		// TODO - this needs to be refactored. The engine should not have a dependency to the CLI code
-		store.SetForEachElement(i)
-
 		falseVar := false
-		if err := addElementToContext(policyContext, e, i, f.nesting, &falseVar); err != nil {
-			return mutate.NewErrorResponse(fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i), err)
+		if err := addElementToContext(policyContext, element, index, f.nesting, &falseVar); err != nil {
+			return mutate.NewErrorResponse(fmt.Sprintf("failed to add element to mutate.foreach[%d].context", index), err)
 		}
 
 		if err := LoadContext(ctx, f.log, f.rclient, foreach.Context, policyContext, f.rule.Name); err != nil {
-			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", i), err)
+			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", index), err)
 		}
 
 		preconditionsPassed, err := checkPreconditions(f.log, policyContext, foreach.AnyAllConditions)
 		if err != nil {
-			return mutate.NewErrorResponse(fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", i), err)
+			return mutate.NewErrorResponse(fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", index), err)
 		}
 
 		if !preconditionsPassed {
-			f.log.Info("mutate.foreach.preconditions not met", "elementIndex", i)
+			f.log.Info("mutate.foreach.preconditions not met", "elementIndex", index)
 			continue
 		}
 

@@ -341,7 +341,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			osExit(1)
 		}
-		store.SetSubjects(subjectInfo)
+		store.SetSubject(subjectInfo.Subject)
 	}
 
 	if c.VariablesString != "" {

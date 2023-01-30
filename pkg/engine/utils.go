@@ -161,8 +161,8 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
 func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo, dynamicConfig []string) bool {
-	if store.GetMock() {
-		mockSubject := store.GetSubjects().Subject
+	if store.IsMock() {
+		mockSubject := store.GetSubject()
 		for _, subject := range ruleSubjects {
 			switch subject.Kind {
 			case "ServiceAccount":

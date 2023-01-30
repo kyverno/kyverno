@@ -230,25 +230,21 @@ func Test_variableSubstitutionCLI(t *testing.T) {
   }
 }`)
 
-	configMapVariableContext := store.Context{
-		Policies: []store.Policy{
-			{
-				Name: "cm-variable-example",
-				Rules: []store.Rule{
-					{
-						Name: "example-configmap-lookup",
-						Values: map[string]interface{}{
-							"dictionary.data.env": "dev1",
-						},
+	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels","value":{"my-environment-name":"dev1"}}`)
+
+	store.SetPolicies(
+		store.Policy{
+			Name: "cm-variable-example",
+			Rules: []store.Rule{
+				{
+					Name: "example-configmap-lookup",
+					Values: map[string]interface{}{
+						"dictionary.data.env": "dev1",
 					},
 				},
 			},
 		},
-	}
-
-	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels","value":{"my-environment-name":"dev1"}}`)
-
-	store.SetContext(configMapVariableContext)
+	)
 	store.SetMock(true)
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)

@@ -362,9 +362,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		})
 	}
 
-	store.SetContext(store.Context{
-		Policies: storePolicies,
-	})
+	store.SetPolicies(storePolicies...)
 
 	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, nil
 }
@@ -855,9 +853,7 @@ func SetInStoreContext(mutatedPolicies []kyvernov1.PolicyInterface, variables ma
 		})
 	}
 
-	store.SetContext(store.Context{
-		Policies: storePolicies,
-	})
+	store.SetPolicies(storePolicies...)
 
 	return variables
 }
@@ -965,7 +961,7 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 
 	// skipping the variable check for non matching kind
 	if _, ok := kindOnwhichPolicyIsApplied[resourceKind]; ok {
-		if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
+		if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && store.HasPolicies() {
 			return thisPolicyResourceValues, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policyName, resourceName), nil)
 		}
 	}
