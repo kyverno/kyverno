@@ -68,12 +68,6 @@ type Spec struct {
 	// Defaults to "false" if not specified.
 	// +optional
 	GenerateExistingOnPolicyUpdate bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
-
-	// EmitAppliedEvents control whethe policy applied events are produced or not
-	// If set to "false" policy applied events will not be produced
-	// Default value is "true"
-	// +optional
-	EmitAppliedEvents *bool `json:"emitAppliedEvents,omitempty" yaml:"emitAppliedEvents,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -183,14 +177,6 @@ func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 // IsGenerateExistingOnPolicyUpdate return GenerateExistingOnPolicyUpdate set value
 func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
 	return s.GenerateExistingOnPolicyUpdate
-}
-
-// ShouldEmitAppliedEvents return EmitAppliedEvents set value
-func (s *Spec) ShouldEmitAppliedEvents() bool {
-	if s.EmitAppliedEvents != nil {
-		return *s.EmitAppliedEvents
-	}
-	return true
 }
 
 // GetFailurePolicy returns the failure policy to be applied
