@@ -49,7 +49,7 @@ type controller struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	rclient       registryclient.Client
-	contextLoader engineapi.ContextLoader
+	contextLoader engine.ContextLoaderFactory
 
 	// listers
 	polLister      kyvernov1listers.PolicyLister
@@ -76,6 +76,7 @@ func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	rclient registryclient.Client,
+	contextLoader engine.ContextLoaderFactory,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
@@ -94,6 +95,7 @@ func NewController(
 		client:                 client,
 		kyvernoClient:          kyvernoClient,
 		rclient:                rclient,
+		contextLoader:          contextLoader,
 		polLister:              polInformer.Lister(),
 		cpolLister:             cpolInformer.Lister(),
 		bgscanrLister:          bgscanr.Lister(),

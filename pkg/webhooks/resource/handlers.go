@@ -41,7 +41,7 @@ type handlers struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	rclient       registryclient.Client
-	contextLoader engineapi.ContextLoader
+	contextLoader engine.ContextLoaderFactory
 
 	// config
 	configuration config.Configuration
@@ -67,7 +67,7 @@ type handlers struct {
 }
 
 func NewHandlers(
-	contextLoader engineapi.ContextLoader,
+	contextLoader engine.ContextLoaderFactory,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	rclient registryclient.Client,

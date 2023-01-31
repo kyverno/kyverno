@@ -18,6 +18,19 @@ import (
 	"github.com/pkg/errors"
 )
 
+type ContextLoaderFactory = func(pContext *PolicyContext) engineapi.ContextLoader
+
+func LegacyContextLoaderFactory(rclient registryclient.Client) ContextLoaderFactory {
+	return func(pContext *PolicyContext) engineapi.ContextLoader {
+		return &contextLoader{
+			logger:     logging.WithName("LegacyContextLoad"),
+			client:     pContext.Client(),
+			rclient:    rclient,
+			cmResolver: pContext.informerCacheResolvers,
+		}
+	}
+}
+
 type contextLoader struct {
 	logger     logr.Logger
 	rclient    registryclient.Client
@@ -48,20 +61,8 @@ func (l *contextLoader) Load(ctx context.Context, contextEntries []kyvernov1.Con
 	return nil
 }
 
-func NewLegacyContextLoad(pContext *PolicyContext, rclient registryclient.Client) engineapi.ContextLoader {
-	return &contextLoader{
-		logger:     logging.WithName("LegacyContextLoad"),
-		client:     pContext.Client(),
-		rclient:    rclient,
-		cmResolver: pContext.informerCacheResolvers,
-	}
-}
-
-func SafeLoadContext(ctx context.Context, loader engineapi.ContextLoader, contextEntries []kyvernov1.ContextEntry, pContext *PolicyContext) error {
-	if loader == nil {
-		loader = NewLegacyContextLoad(pContext, nil)
-	}
-	return loader.Load(ctx, contextEntries, pContext.JSONContext())
+func SafeLoadContext(ctx context.Context, factory ContextLoaderFactory, contextEntries []kyvernov1.ContextEntry, pContext *PolicyContext) error {
+	return factory(pContext).Load(ctx, contextEntries, pContext.JSONContext())
 }
 
 // // LoadContext - Fetches and adds external data to the Context.

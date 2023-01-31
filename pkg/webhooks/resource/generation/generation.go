@@ -39,7 +39,7 @@ func NewGenerationHandler(
 	log logr.Logger,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	contextLoader engineapi.ContextLoader,
+	contextLoader engine.ContextLoaderFactory,
 	nsLister corev1listers.NamespaceLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	urGenerator webhookgenerate.Generator,
@@ -65,7 +65,7 @@ type generationHandler struct {
 	log           logr.Logger
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	contextLoader engineapi.ContextLoader
+	contextLoader engine.ContextLoaderFactory
 	nsLister      corev1listers.NamespaceLister
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
 	urGenerator   webhookgenerate.Generator

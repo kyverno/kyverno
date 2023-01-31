@@ -488,7 +488,7 @@ OuterLoop:
 
 	mutateResponse := engine.Mutate(
 		context.Background(),
-		engine.NewLegacyContextLoad(policyContext, registryclient.NewOrDie()),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		policyContext,
 	)
 	if mutateResponse != nil {
@@ -516,7 +516,7 @@ OuterLoop:
 	if policyHasValidate {
 		validateResponse = engine.Validate(
 			context.Background(),
-			engine.NewLegacyContextLoad(policyContext, registryclient.NewOrDie()),
+			engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 			policyContext,
 			cfg,
 		)
@@ -529,7 +529,7 @@ OuterLoop:
 
 	verifyImageResponse, _ := engine.VerifyAndPatchImages(
 		context.Background(),
-		engine.NewLegacyContextLoad(policyContext, registryclient.NewOrDie()),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		registryclient.NewOrDie(),
 		policyContext,
 		cfg,
@@ -548,7 +548,7 @@ OuterLoop:
 
 	if policyHasGenerate {
 		generateResponse := engine.ApplyBackgroundChecks(
-			engine.NewLegacyContextLoad(policyContext, registryclient.NewOrDie()),
+			engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 			policyContext,
 		)
 		if generateResponse != nil && !generateResponse.IsEmpty() {

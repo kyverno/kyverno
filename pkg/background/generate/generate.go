@@ -42,7 +42,7 @@ type GenerateController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	statusControl common.StatusControlInterface
-	contextLoader engineapi.ContextLoader
+	contextLoader engine.ContextLoaderFactory
 
 	// listers
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
@@ -62,7 +62,7 @@ func NewGenerateController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	statusControl common.StatusControlInterface,
-	contextLoader engineapi.ContextLoader,
+	contextLoader engine.ContextLoaderFactory,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,

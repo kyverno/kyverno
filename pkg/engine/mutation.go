@@ -23,7 +23,7 @@ import (
 // Mutate performs mutation. Overlay first and then mutation patches
 func Mutate(
 	ctx context.Context,
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	policyContext *PolicyContext,
 ) (resp *engineapi.EngineResponse) {
 	startTime := time.Now()
@@ -205,7 +205,7 @@ type forEachMutator struct {
 	foreach       []kyvernov1.ForEachMutation
 	resource      resourceInfo
 	nesting       int
-	contextLoader engineapi.ContextLoader
+	contextLoader ContextLoaderFactory
 	log           logr.Logger
 }
 

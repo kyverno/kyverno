@@ -17,7 +17,7 @@ import (
 
 type scanner struct {
 	logger                 logr.Logger
-	contextLoader          engineapi.ContextLoader
+	contextLoader          engine.ContextLoaderFactory
 	client                 dclient.Interface
 	rclient                registryclient.Client
 	informerCacheResolvers engineapi.ConfigmapResolver
@@ -37,7 +37,7 @@ type Scanner interface {
 
 func NewScanner(
 	logger logr.Logger,
-	contextLoader engineapi.ContextLoader,
+	contextLoader engine.ContextLoaderFactory,
 	client dclient.Interface,
 	rclient registryclient.Client,
 	informerCacheResolvers engineapi.ConfigmapResolver,

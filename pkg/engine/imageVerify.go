@@ -68,7 +68,7 @@ func extractMatchingImages(policyContext *PolicyContext, rule *kyvernov1.Rule, c
 
 func VerifyAndPatchImages(
 	ctx context.Context,
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	rclient registryclient.Client,
 	policyContext *PolicyContext,
 	cfg config.Configuration,

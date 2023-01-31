@@ -12,7 +12,7 @@ import (
 
 // GenerateResponse checks for validity of generate rule on the resource
 func GenerateResponse(
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	policyContext *PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) (resp *engineapi.EngineResponse) {
@@ -21,7 +21,7 @@ func GenerateResponse(
 }
 
 func filterGenerateRules(
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	policyContext *PolicyContext,
 	policyNameKey string,
 	startTime time.Time,

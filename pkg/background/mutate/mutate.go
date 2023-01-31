@@ -29,8 +29,7 @@ type MutateExistingController struct {
 	// clients
 	client        dclient.Interface
 	statusControl common.StatusControlInterface
-	// rclient       registryclient.Client
-	contextLoader engineapi.ContextLoader
+	contextLoader engine.ContextLoaderFactory
 
 	// listers
 	policyLister  kyvernov1listers.ClusterPolicyLister
@@ -47,7 +46,7 @@ type MutateExistingController struct {
 func NewMutateExistingController(
 	client dclient.Interface,
 	statusControl common.StatusControlInterface,
-	contextLoader engineapi.ContextLoader,
+	contextLoader engine.ContextLoaderFactory,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	dynamicConfig config.Configuration,

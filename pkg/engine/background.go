@@ -18,7 +18,7 @@ import (
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func ApplyBackgroundChecks(
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	policyContext *PolicyContext,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
@@ -26,7 +26,7 @@ func ApplyBackgroundChecks(
 }
 
 func filterRules(
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	policyContext *PolicyContext,
 	startTime time.Time,
 ) *engineapi.EngineResponse {
@@ -73,7 +73,7 @@ func filterRules(
 }
 
 func filterRule(
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	rule kyvernov1.Rule,
 	policyContext *PolicyContext,
 ) *engineapi.RuleResponse {

@@ -37,7 +37,7 @@ type ValidationHandler interface {
 func NewValidationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
-	contextLoader engineapi.ContextLoader,
+	contextLoader engine.ContextLoaderFactory,
 	pCache policycache.Cache,
 	pcBuilder webhookutils.PolicyContextBuilder,
 	eventGen event.Interface,
@@ -61,7 +61,7 @@ func NewValidationHandler(
 type validationHandler struct {
 	log              logr.Logger
 	kyvernoClient    versioned.Interface
-	contextLoader    engineapi.ContextLoader
+	contextLoader    engine.ContextLoaderFactory
 	pCache           policycache.Cache
 	pcBuilder        webhookutils.PolicyContextBuilder
 	eventGen         event.Interface

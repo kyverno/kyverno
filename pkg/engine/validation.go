@@ -38,7 +38,7 @@ import (
 // Validate applies validation rules from policy on the resource
 func Validate(
 	ctx context.Context,
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	policyContext *PolicyContext,
 	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
@@ -103,7 +103,7 @@ func buildResponse(ctx *PolicyContext, resp *engineapi.EngineResponse, startTime
 
 func validateResource(
 	ctx context.Context,
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	log logr.Logger,
 	enginectx *PolicyContext,
 	cfg config.Configuration,
@@ -180,7 +180,7 @@ func validateResource(
 
 func processValidationRule(
 	ctx context.Context,
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	log logr.Logger,
 	policyContext *PolicyContext,
 	rule *kyvernov1.Rule,
@@ -214,11 +214,11 @@ type validator struct {
 	deny             *kyvernov1.Deny
 	podSecurity      *kyvernov1.PodSecurity
 	forEach          []kyvernov1.ForEachValidation
-	contextLoader    engineapi.ContextLoader
+	contextLoader    ContextLoaderFactory
 	nesting          int
 }
 
-func newValidator(log logr.Logger, contextLoader engineapi.ContextLoader, ctx *PolicyContext, rule *kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, contextLoader ContextLoaderFactory, ctx *PolicyContext, rule *kyvernov1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
 	return &validator{
 		log:              log,
@@ -237,7 +237,7 @@ func newValidator(log logr.Logger, contextLoader engineapi.ContextLoader, ctx *P
 
 func newForEachValidator(
 	foreach kyvernov1.ForEachValidation,
-	contextLoader engineapi.ContextLoader,
+	contextLoader ContextLoaderFactory,
 	nesting int,
 	rule *kyvernov1.Rule,
 	ctx *PolicyContext,

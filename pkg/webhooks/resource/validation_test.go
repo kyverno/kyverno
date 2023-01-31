@@ -1061,7 +1061,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
 			er := engine.Validate(
 				context.TODO(),
-				engine.NewLegacyContextLoad(ctx, registryclient.NewOrDie()),
+				engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 				ctx,
 				cfg,
 			)
@@ -1127,7 +1127,7 @@ func Test_RuleSelector(t *testing.T) {
 	cfg := config.NewDefaultConfiguration()
 	resp := engine.Validate(
 		context.TODO(),
-		engine.NewLegacyContextLoad(ctx, registryclient.NewOrDie()),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		ctx,
 		cfg,
 	)
@@ -1143,7 +1143,7 @@ func Test_RuleSelector(t *testing.T) {
 
 	resp = engine.Validate(
 		context.TODO(),
-		engine.NewLegacyContextLoad(ctx, registryclient.NewOrDie()),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		ctx,
 		cfg,
 	)

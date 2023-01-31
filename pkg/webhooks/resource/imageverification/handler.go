@@ -32,7 +32,7 @@ type ImageVerificationHandler interface {
 
 type imageVerificationHandler struct {
 	kyvernoClient    versioned.Interface
-	contextLoader    engineapi.ContextLoader
+	contextLoader    engine.ContextLoaderFactory
 	rclient          registryclient.Client
 	log              logr.Logger
 	eventGen         event.Interface
@@ -43,7 +43,7 @@ type imageVerificationHandler struct {
 func NewImageVerificationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
-	contextLoader engineapi.ContextLoader,
+	contextLoader engine.ContextLoaderFactory,
 	rclient registryclient.Client,
 	eventGen event.Interface,
 	admissionReports bool,

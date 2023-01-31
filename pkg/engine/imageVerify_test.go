@@ -168,7 +168,7 @@ func doVerifyAndPatchImages(
 ) (*engineapi.EngineResponse, *ImageVerificationMetadata) {
 	return VerifyAndPatchImages(
 		ctx,
-		NewLegacyContextLoad(pContext, rclient),
+		LegacyContextLoaderFactory(rclient),
 		rclient,
 		pContext,
 		cfg,
