@@ -17,6 +17,7 @@ import (
 
 type scanner struct {
 	logger                 logr.Logger
+	engine                 engineapi.Engine
 	contextLoader          engineapi.ContextLoaderFactory
 	client                 dclient.Interface
 	rclient                registryclient.Client
@@ -37,6 +38,7 @@ type Scanner interface {
 
 func NewScanner(
 	logger logr.Logger,
+	engine engineapi.Engine,
 	contextLoader engineapi.ContextLoaderFactory,
 	client dclient.Interface,
 	rclient registryclient.Client,
@@ -47,6 +49,7 @@ func NewScanner(
 ) Scanner {
 	return &scanner{
 		logger:                 logger,
+		engine:                 engine,
 		contextLoader:          contextLoader,
 		client:                 client,
 		rclient:                rclient,
@@ -106,7 +109,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithExcludeGroupRole(s.excludeGroupRole...).
 		WithInformerCacheResolver(s.informerCacheResolvers).
 		WithExceptions(s.polexLister)
-	return engine.Validate(ctx, s.contextLoader, policyCtx, s.config), nil
+	return s.engine.Validate(ctx, s.contextLoader, policyCtx, s.config), nil
 }
 
 func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, error) {
@@ -131,7 +134,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		WithExcludeGroupRole(s.excludeGroupRole...).
 		WithInformerCacheResolver(s.informerCacheResolvers).
 		WithExceptions(s.polexLister)
-	response, _ := engine.VerifyAndPatchImages(ctx, s.contextLoader, s.rclient, policyCtx, s.config)
+	response, _ := s.engine.VerifyAndPatchImages(ctx, s.contextLoader, s.rclient, policyCtx, s.config)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}

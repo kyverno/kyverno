@@ -41,6 +41,7 @@ type handlers struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	rclient       registryclient.Client
+	engine        engineapi.Engine
 	contextLoader engineapi.ContextLoaderFactory
 
 	// config
@@ -67,6 +68,7 @@ type handlers struct {
 }
 
 func NewHandlers(
+	engine engineapi.Engine,
 	contextLoader engineapi.ContextLoaderFactory,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
@@ -86,6 +88,7 @@ func NewHandlers(
 	admissionReports bool,
 ) webhooks.ResourceHandlers {
 	return &handlers{
+		engine:           engine,
 		contextLoader:    contextLoader,
 		client:           client,
 		kyvernoClient:    kyvernoClient,
@@ -140,7 +143,7 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.contextLoader, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration)
+	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.contextLoader, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration)
 
 	ok, msg, warnings := vh.HandleValidation(ctx, request, policies, policyContext, namespaceLabels, startTime)
 	if !ok {
@@ -174,7 +177,7 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext()); err != nil {
 		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
-	mh := mutation.NewMutationHandler(logger, h.contextLoader, h.eventGen, h.openApiManager, h.nsLister, h.metricsConfig)
+	mh := mutation.NewMutationHandler(logger, h.engine, h.contextLoader, h.eventGen, h.openApiManager, h.nsLister, h.metricsConfig)
 	mutatePatches, mutateWarnings, err := mh.HandleMutation(ctx, request, mutatePolicies, policyContext, startTime)
 	if err != nil {
 		logger.Error(err, "mutation failed")
@@ -187,7 +190,7 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.contextLoader, h.rclient, h.eventGen, h.admissionReports, h.configuration)
+	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.contextLoader, h.rclient, h.eventGen, h.admissionReports, h.configuration)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")

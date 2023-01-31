@@ -21,7 +21,7 @@ import (
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
-func Mutate(
+func doMutate(
 	ctx context.Context,
 	contextLoader engineapi.ContextLoaderFactory,
 	policyContext engineapi.PolicyContext,

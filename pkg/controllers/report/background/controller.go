@@ -49,6 +49,7 @@ type controller struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	rclient       registryclient.Client
+	engine        engineapi.Engine
 	contextLoader engineapi.ContextLoaderFactory
 
 	// listers
@@ -76,6 +77,7 @@ func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	rclient registryclient.Client,
+	engine engineapi.Engine,
 	contextLoader engineapi.ContextLoaderFactory,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
@@ -95,6 +97,7 @@ func NewController(
 		client:                 client,
 		kyvernoClient:          kyvernoClient,
 		rclient:                rclient,
+		engine:                 engine,
 		contextLoader:          contextLoader,
 		polLister:              polInformer.Lister(),
 		cpolLister:             cpolInformer.Lister(),
@@ -312,7 +315,7 @@ func (c *controller) reconcileReport(
 	// calculate necessary results
 	for _, policy := range backgroundPolicies {
 		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.contextLoader, c.client, c.rclient, c.informerCacheResolvers, c.polexLister, c.config)
+			scanner := utils.NewScanner(logger, c.engine, c.contextLoader, c.client, c.rclient, c.informerCacheResolvers, c.polexLister, c.config)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
 					return result.Error
