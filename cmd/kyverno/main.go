@@ -133,7 +133,7 @@ func createNonLeaderControllers(
 	updateRequestController := background.NewController(
 		kyvernoClient,
 		dynamicClient,
-		rclient,
+		engine.LegacyContextLoaderFactory(rclient),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -177,7 +177,7 @@ func createrLeaderControllers(
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
 		dynamicClient,
-		rclient,
+		engine.LegacyContextLoaderFactory(rclient),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -523,6 +523,7 @@ func main() {
 		}
 	}
 	resourceHandlers := webhooksresource.NewHandlers(
+		engine.LegacyContextLoaderFactory(rclient),
 		dClient,
 		kyvernoClient,
 		rclient,

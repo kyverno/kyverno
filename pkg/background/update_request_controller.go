@@ -18,9 +18,9 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -49,7 +49,7 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	rclient       registryclient.Client
+	contextLoader engine.ContextLoaderFactory
 
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
@@ -72,7 +72,7 @@ type controller struct {
 func NewController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
-	rclient registryclient.Client,
+	contextLoader engine.ContextLoaderFactory,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
@@ -86,7 +86,7 @@ func NewController(
 	c := controller{
 		client:                 client,
 		kyvernoClient:          kyvernoClient,
-		rclient:                rclient,
+		contextLoader:          contextLoader,
 		cpolLister:             cpolInformer.Lister(),
 		polLister:              polInformer.Lister(),
 		urLister:               urLister,
@@ -420,10 +420,10 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.rclient, c.cpolLister, c.polLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.contextLoader, c.cpolLister, c.polLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	case kyvernov1beta1.Generate:
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.rclient, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.contextLoader, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil

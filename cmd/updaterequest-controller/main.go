@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	"github.com/kyverno/kyverno/pkg/cosign"
+	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -77,7 +78,7 @@ func createNonLeaderControllers(
 	updateRequestController := background.NewController(
 		kyvernoClient,
 		dynamicClient,
-		rclient,
+		engine.LegacyContextLoaderFactory(rclient),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -104,7 +105,7 @@ func createrLeaderControllers(
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
 		dynamicClient,
-		rclient,
+		engine.LegacyContextLoaderFactory(rclient),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
