@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -52,7 +51,7 @@ type GenerateController struct {
 	npolicyLister kyvernov1listers.PolicyLister
 
 	configuration          config.Configuration
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 	eventGen               event.Interface
 
 	log logr.Logger
@@ -69,7 +68,7 @@ func NewGenerateController(
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	nsLister corev1listers.NamespaceLister,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 	eventGen event.Interface,
 	log logr.Logger,
 ) *GenerateController {

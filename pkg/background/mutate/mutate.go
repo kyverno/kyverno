@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"go.uber.org/multierr"
@@ -38,7 +37,7 @@ type MutateExistingController struct {
 	npolicyLister kyvernov1listers.PolicyLister
 
 	configuration          config.Configuration
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 	eventGen               event.Interface
 
 	log logr.Logger
@@ -52,7 +51,7 @@ func NewMutateExistingController(
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 	eventGen event.Interface,
 	log logr.Logger,
 ) *MutateExistingController {

@@ -8,10 +8,9 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine/api"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -23,7 +22,7 @@ type contextLoader struct {
 	logger     logr.Logger
 	rclient    registryclient.Client
 	client     dclient.Interface
-	cmResolver resolvers.ConfigmapResolver
+	cmResolver engineapi.ConfigmapResolver
 }
 
 func (l *contextLoader) Load(ctx context.Context, contextEntries []kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
@@ -49,7 +48,7 @@ func (l *contextLoader) Load(ctx context.Context, contextEntries []kyvernov1.Con
 	return nil
 }
 
-func NewLegacyContextLoad(pContext *PolicyContext, rclient registryclient.Client) api.ContextLoader {
+func NewLegacyContextLoad(pContext *PolicyContext, rclient registryclient.Client) engineapi.ContextLoader {
 	return &contextLoader{
 		logger:     logging.WithName("LegacyContextLoad"),
 		client:     pContext.Client(),
@@ -58,7 +57,7 @@ func NewLegacyContextLoad(pContext *PolicyContext, rclient registryclient.Client
 	}
 }
 
-func SafeLoadContext(ctx context.Context, loader api.ContextLoader, contextEntries []kyvernov1.ContextEntry, pContext *PolicyContext) error {
+func SafeLoadContext(ctx context.Context, loader engineapi.ContextLoader, contextEntries []kyvernov1.ContextEntry, pContext *PolicyContext) error {
 	if loader == nil {
 		loader = NewLegacyContextLoad(pContext, nil)
 	}
@@ -308,7 +307,7 @@ func applyJMESPath(jmesPath string, data interface{}) (interface{}, error) {
 	return jp.Search(data)
 }
 
-func loadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, resolver resolvers.ConfigmapResolver) error {
+func loadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, resolver engineapi.ConfigmapResolver) error {
 	data, err := fetchConfigMap(ctx, logger, entry, enginectx, resolver)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve config map for context entry %s: %v", entry.Name, err)
@@ -320,7 +319,7 @@ func loadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.Cont
 	return nil
 }
 
-func fetchConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, resolver resolvers.ConfigmapResolver) ([]byte, error) {
+func fetchConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, resolver engineapi.ConfigmapResolver) ([]byte, error) {
 	contextData := make(map[string]interface{})
 
 	name, err := variables.SubstituteAll(logger, enginectx, entry.ConfigMap.Name)

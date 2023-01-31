@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
@@ -65,7 +64,7 @@ type controller struct {
 
 	eventGen               event.Interface
 	configuration          config.Configuration
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 }
 
 // NewController returns an instance of the Generate-Request Controller
@@ -80,7 +79,7 @@ func NewController(
 	podInformer corev1informers.PodInformer,
 	eventGen event.Interface,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
