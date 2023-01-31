@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -103,7 +102,7 @@ func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVeri
 
 func isImageVerified(resource unstructured.Unstructured, image string, log logr.Logger) (bool, error) {
 	if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
-		return false, errors.Errorf("nil resource")
+		return false, fmt.Errorf("nil resource")
 	}
 
 	annotations := resource.GetAnnotations()
@@ -115,13 +114,13 @@ func isImageVerified(resource unstructured.Unstructured, image string, log logr.
 	data, ok := annotations[key]
 	if !ok {
 		log.V(2).Info("missing image metadata in annotation", "key", key)
-		return false, errors.Errorf("image is not verified")
+		return false, fmt.Errorf("image is not verified")
 	}
 
 	ivm, err := parseImageMetadata(data)
 	if err != nil {
 		log.Error(err, "failed to parse image verification metadata", "data", data)
-		return false, errors.Wrapf(err, "failed to parse image metadata")
+		return false, fmt.Errorf("failed to parse image metadata: %w", err)
 	}
 
 	return ivm.isVerified(image), nil

@@ -2,10 +2,10 @@ package engine
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 )
 
 const imageVerifyAnnotationKey = "kyverno.io/verify-images"
@@ -64,7 +64,7 @@ func (ivm *ImageVerificationMetadata) Patches(hasAnnotations bool, log logr.Logg
 
 	data, err := json.Marshal(ivm.Data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to marshal metadata value: %v", data)
+		return nil, fmt.Errorf("failed to marshal metadata value: %v: %w", data, err)
 	}
 
 	addKeyPatch := make(map[string]interface{})
