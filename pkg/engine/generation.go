@@ -7,17 +7,25 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/tools/cache"
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
-func GenerateResponse(rclient registryclient.Client, policyContext engineapi.PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *engineapi.EngineResponse) {
+func GenerateResponse(
+	contextLoader ContextLoaderFactory,
+	policyContext engineapi.PolicyContext,
+	gr kyvernov1beta1.UpdateRequest,
+) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
-	return filterGenerateRules(rclient, policyContext, gr.Spec.Policy, policyStartTime)
+	return filterGenerateRules(contextLoader, policyContext, gr.Spec.Policy, policyStartTime)
 }
 
-func filterGenerateRules(rclient registryclient.Client, policyContext engineapi.PolicyContext, policyNameKey string, startTime time.Time) *engineapi.EngineResponse {
+func filterGenerateRules(
+	contextLoader ContextLoaderFactory,
+	policyContext engineapi.PolicyContext,
+	policyNameKey string,
+	startTime time.Time,
+) *engineapi.EngineResponse {
 	newResource := policyContext.NewResource()
 	kind := newResource.GetKind()
 	name := newResource.GetName()
@@ -27,7 +35,6 @@ func filterGenerateRules(rclient registryclient.Client, policyContext engineapi.
 	if err != nil {
 		logging.Error(err, "failed to spilt name and namespace", policyNameKey)
 	}
-
 	resp := &engineapi.EngineResponse{
 		PolicyResponse: engineapi.PolicyResponse{
 			Policy: engineapi.PolicySpec{
@@ -47,14 +54,13 @@ func filterGenerateRules(rclient registryclient.Client, policyContext engineapi.
 			},
 		},
 	}
-
 	if policyContext.ExcludeResourceFunc()(kind, namespace, name) {
 		logging.WithName("Generate").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
 		return resp
 	}
 
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
-		if ruleResp := filterRule(rclient, rule, policyContext); ruleResp != nil {
+		if ruleResp := filterRule(contextLoader, rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}

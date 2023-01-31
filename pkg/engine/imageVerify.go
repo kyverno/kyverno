@@ -68,6 +68,7 @@ func extractMatchingImages(policyContext engineapi.PolicyContext, rule *kyvernov
 
 func VerifyAndPatchImages(
 	ctx context.Context,
+	contextLoader ContextLoaderFactory,
 	rclient registryclient.Client,
 	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
@@ -138,7 +139,7 @@ func VerifyAndPatchImages(
 				}
 
 				policyContext.JSONContext().Restore()
-				if err := LoadContext(ctx, logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+				if err := LoadContext(ctx, contextLoader, rule.Context, policyContext, rule.Name); err != nil {
 					appendResponse(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), engineapi.RuleStatusError)
 					return
 				}

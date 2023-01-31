@@ -10,13 +10,19 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func processImageValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx engineapi.PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) *engineapi.RuleResponse {
+func processImageValidationRule(
+	ctx context.Context,
+	contextLoader ContextLoaderFactory,
+	log logr.Logger,
+	enginectx engineapi.PolicyContext,
+	rule *kyvernov1.Rule,
+	cfg config.Configuration,
+) *engineapi.RuleResponse {
 	if isDeleteRequest(enginectx) {
 		return nil
 	}
@@ -29,7 +35,7 @@ func processImageValidationRule(ctx context.Context, log logr.Logger, rclient re
 	if len(matchingImages) == 0 {
 		return ruleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusSkip)
 	}
-	if err := LoadContext(ctx, log, rclient, rule.Context, enginectx, rule.Name); err != nil {
+	if err := LoadContext(ctx, contextLoader, rule.Context, enginectx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {

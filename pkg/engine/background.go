@@ -10,7 +10,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 // ApplyBackgroundChecks checks for validity of generate and mutateExisting rules on the resource
@@ -18,12 +17,19 @@ import (
 //   - the caller has to check the ruleResponse to determine whether the path exist
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func ApplyBackgroundChecks(rclient registryclient.Client, policyContext engineapi.PolicyContext) (resp *engineapi.EngineResponse) {
+func ApplyBackgroundChecks(
+	contextLoader ContextLoaderFactory,
+	policyContext engineapi.PolicyContext,
+) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
-	return filterRules(rclient, policyContext, policyStartTime)
+	return filterRules(contextLoader, policyContext, policyStartTime)
 }
 
-func filterRules(rclient registryclient.Client, policyContext engineapi.PolicyContext, startTime time.Time) *engineapi.EngineResponse {
+func filterRules(
+	contextLoader ContextLoaderFactory,
+	policyContext engineapi.PolicyContext,
+	startTime time.Time,
+) *engineapi.EngineResponse {
 	newResource := policyContext.NewResource()
 	policy := policyContext.Policy()
 	kind := newResource.GetKind()
@@ -57,7 +63,7 @@ func filterRules(rclient registryclient.Client, policyContext engineapi.PolicyCo
 
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
-		if ruleResp := filterRule(rclient, rule, policyContext); ruleResp != nil {
+		if ruleResp := filterRule(contextLoader, rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
 				break
@@ -68,7 +74,11 @@ func filterRules(rclient registryclient.Client, policyContext engineapi.PolicyCo
 	return resp
 }
 
-func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContext engineapi.PolicyContext) *engineapi.RuleResponse {
+func filterRule(
+	contextLoader ContextLoaderFactory,
+	rule kyvernov1.Rule,
+	policyContext engineapi.PolicyContext,
+) *engineapi.RuleResponse {
 	if !rule.HasGenerate() && !rule.IsMutateExisting() {
 		return nil
 	}
@@ -124,7 +134,7 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	if err := LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+	if err := LoadContext(context.TODO(), contextLoader, rule.Context, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}

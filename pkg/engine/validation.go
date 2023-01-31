@@ -20,7 +20,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/pss"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -39,7 +38,7 @@ import (
 // Validate applies validation rules from policy on the resource
 func Validate(
 	ctx context.Context,
-	rclient registryclient.Client,
+	contextLoader ContextLoaderFactory,
 	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
@@ -53,7 +52,7 @@ func Validate(
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	resp = validateResource(ctx, logger, rclient, policyContext, cfg)
+	resp = validateResource(ctx, contextLoader, logger, policyContext, cfg)
 	resp.NamespaceLabels = policyContext.NamespaceLabels()
 	return
 }
@@ -104,7 +103,13 @@ func buildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 	resp.PolicyResponse.Timestamp = startTime.Unix()
 }
 
-func validateResource(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx engineapi.PolicyContext, cfg config.Configuration) *engineapi.EngineResponse {
+func validateResource(
+	ctx context.Context,
+	contextLoader ContextLoaderFactory,
+	log logr.Logger,
+	enginectx engineapi.PolicyContext,
+	cfg config.Configuration,
+) *engineapi.EngineResponse {
 	resp := &engineapi.EngineResponse{}
 
 	enginectx.JSONContext().Checkpoint()
@@ -157,9 +162,9 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 				enginectx.JSONContext().Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
-					return processValidationRule(ctx, log, rclient, enginectx, rule)
+					return processValidationRule(ctx, contextLoader, log, enginectx, rule)
 				} else if hasValidateImage {
-					return processImageValidationRule(ctx, log, rclient, enginectx, rule, cfg)
+					return processImageValidationRule(ctx, contextLoader, log, enginectx, rule, cfg)
 				} else if hasYAMLSignatureVerify {
 					return processYAMLValidationRule(log, enginectx, rule)
 				}
@@ -177,8 +182,14 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 	return resp
 }
 
-func processValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, policyContext engineapi.PolicyContext, rule *kyvernov1.Rule) *engineapi.RuleResponse {
-	v := newValidator(log, rclient, policyContext, rule)
+func processValidationRule(
+	ctx context.Context,
+	contextLoader ContextLoaderFactory,
+	log logr.Logger,
+	policyContext engineapi.PolicyContext,
+	rule *kyvernov1.Rule,
+) *engineapi.RuleResponse {
+	v := newValidator(log, contextLoader, policyContext, rule)
 	return v.validate(ctx)
 }
 
@@ -207,17 +218,17 @@ type validator struct {
 	deny             *kyvernov1.Deny
 	podSecurity      *kyvernov1.PodSecurity
 	forEach          []kyvernov1.ForEachValidation
-	rclient          registryclient.Client
+	contextLoader    ContextLoaderFactory
 	nesting          int
 }
 
-func newValidator(log logr.Logger, rclient registryclient.Client, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, contextLoader ContextLoaderFactory, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
 	return &validator{
 		log:              log,
 		rule:             ruleCopy,
 		policyContext:    ctx,
-		rclient:          rclient,
+		contextLoader:    contextLoader,
 		contextEntries:   ruleCopy.Context,
 		anyAllConditions: ruleCopy.GetAnyAllConditions(),
 		pattern:          ruleCopy.Validation.GetPattern(),
@@ -228,7 +239,14 @@ func newValidator(log logr.Logger, rclient registryclient.Client, ctx engineapi.
 	}
 }
 
-func newForEachValidator(foreach kyvernov1.ForEachValidation, rclient registryclient.Client, nesting int, rule *kyvernov1.Rule, ctx engineapi.PolicyContext, log logr.Logger) (*validator, error) {
+func newForEachValidator(
+	foreach kyvernov1.ForEachValidation,
+	contextLoader ContextLoaderFactory,
+	nesting int,
+	rule *kyvernov1.Rule,
+	ctx engineapi.PolicyContext,
+	log logr.Logger,
+) (*validator, error) {
 	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := datautils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
@@ -244,7 +262,7 @@ func newForEachValidator(foreach kyvernov1.ForEachValidation, rclient registrycl
 		log:              log,
 		policyContext:    ctx,
 		rule:             ruleCopy,
-		rclient:          rclient,
+		contextLoader:    contextLoader,
 		contextEntries:   foreach.Context,
 		anyAllConditions: anyAllConditions,
 		pattern:          foreach.GetPattern(),
@@ -306,7 +324,8 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}
-		resp, count := v.validateElements(ctx, v.rclient, foreach, elements, foreach.ElementScope)
+
+		resp, count := v.validateElements(ctx, foreach, elements, foreach.ElementScope)
 		if resp.Status != engineapi.RuleStatusPass {
 			return resp
 		}
@@ -321,7 +340,7 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 	return ruleResponse(*v.rule, engineapi.Validation, "rule passed", engineapi.RuleStatusPass)
 }
 
-func (v *validator) validateElements(ctx context.Context, rclient registryclient.Client, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*engineapi.RuleResponse, int) {
+func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*engineapi.RuleResponse, int) {
 	v.policyContext.JSONContext().Checkpoint()
 	defer v.policyContext.JSONContext().Restore()
 	applyCount := 0
@@ -338,7 +357,7 @@ func (v *validator) validateElements(ctx context.Context, rclient registryclient
 			return ruleError(v.rule, engineapi.Validation, "failed to process foreach", err), applyCount
 		}
 
-		foreachValidator, err := newForEachValidator(foreach, rclient, v.nesting+1, v.rule, policyContext, v.log)
+		foreachValidator, err := newForEachValidator(foreach, v.contextLoader, v.nesting+1, v.rule, policyContext, v.log)
 		if err != nil {
 			v.log.Error(err, "failed to create foreach validator")
 			return ruleError(v.rule, engineapi.Validation, "failed to create foreach validator", err), applyCount
@@ -402,7 +421,7 @@ func addElementToContext(ctx engineapi.PolicyContext, element interface{}, index
 }
 
 func (v *validator) loadContext(ctx context.Context) error {
-	if err := LoadContext(ctx, v.log, v.rclient, v.contextEntries, v.policyContext, v.rule.Name); err != nil {
+	if err := LoadContext(ctx, v.contextLoader, v.contextEntries, v.policyContext, v.rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			v.log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
