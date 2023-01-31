@@ -7,9 +7,7 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,13 +42,4 @@ type PolicyContext interface {
 	FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error)
 	ExcludeResourceFunc() ExcludeFunc
 	ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error)
-}
-
-type Engine interface {
-	Validate(
-		ctx context.Context,
-		rclient registryclient.Client,
-		policyContext *PolicyContext,
-		cfg config.Configuration,
-	) *EngineResponse
 }
