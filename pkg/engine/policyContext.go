@@ -6,8 +6,8 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -71,7 +71,7 @@ type PolicyContext struct {
 	admissionOperation bool
 
 	// informerCacheResolvers - used to get resources from informer cache
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers api.ConfigmapResolver
 
 	// subresource is the subresource being requested, if any (for example, "status" or "scale")
 	subresource string
@@ -205,7 +205,7 @@ func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyC
 	return copy
 }
 
-func (c *PolicyContext) WithInformerCacheResolver(informerCacheResolver resolvers.ConfigmapResolver) *PolicyContext {
+func (c *PolicyContext) WithInformerCacheResolver(informerCacheResolver api.ConfigmapResolver) *PolicyContext {
 	copy := c.Copy()
 	copy.informerCacheResolvers = informerCacheResolver
 	return copy
@@ -253,7 +253,7 @@ func NewPolicyContextFromAdmissionRequest(
 	admissionInfo kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 	client dclient.Interface,
-	informerCacheResolver resolvers.ConfigmapResolver,
+	informerCacheResolver api.ConfigmapResolver,
 	polexLister PolicyExceptionLister,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)

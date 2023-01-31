@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -82,7 +81,7 @@ type PolicyController struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
 
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 
 	informersSynced []cache.InformerSynced
 
@@ -107,7 +106,7 @@ func NewPolicyController(
 	configHandler config.Configuration,
 	eventGen event.Interface,
 	namespaces corev1informers.NamespaceInformer,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
 	metricsConfig metrics.MetricsConfigManager,
