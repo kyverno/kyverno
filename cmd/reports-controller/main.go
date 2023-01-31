@@ -24,6 +24,7 @@ import (
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/cosign"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -75,7 +76,7 @@ func createReportControllers(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	configMapResolver resolvers.ConfigmapResolver,
+	configMapResolver engineapi.ConfigmapResolver,
 	backgroundScanInterval time.Duration,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
@@ -166,7 +167,7 @@ func createrLeaderControllers(
 	rclient registryclient.Client,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	configMapResolver resolvers.ConfigmapResolver,
+	configMapResolver engineapi.ConfigmapResolver,
 	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
@@ -228,7 +229,7 @@ func main() {
 	// setup signals
 	// setup maxprocs
 	// setup metrics
-	ctx, logger, metricsConfig, sdown := internal.Setup()
+	ctx, logger, metricsConfig, sdown := internal.Setup("kyverno-reports-controller")
 	defer sdown()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
@@ -271,7 +272,7 @@ func main() {
 		logger.Error(err, "failed to create client based resolver")
 		os.Exit(1)
 	}
-	configMapResolver, err := resolvers.NewResolverChain(informerBasedResolver, clientBasedResolver)
+	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
 	if err != nil {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)

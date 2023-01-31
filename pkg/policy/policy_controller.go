@@ -22,8 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -82,7 +81,7 @@ type PolicyController struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
 
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 
 	informersSynced []cache.InformerSynced
 
@@ -107,7 +106,7 @@ func NewPolicyController(
 	configHandler config.Configuration,
 	eventGen event.Interface,
 	namespaces corev1informers.NamespaceInformer,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
 	metricsConfig metrics.MetricsConfigManager,
@@ -521,7 +520,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 	}
 
 	for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
-		if ruleResponse.Status != response.RuleStatusPass {
+		if ruleResponse.Status != engineapi.RuleStatusPass {
 			pc.log.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
 			continue
 		}

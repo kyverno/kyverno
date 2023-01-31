@@ -18,7 +18,6 @@ metadata:
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
 rules:
-rules:
   - apiGroups:
       - '*'
     resources:

@@ -122,6 +122,12 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `testResources` has been replaced with `test.resources`
 - `testSecurityContext` has been replaced with `test.securityContext`
 
+- Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
+
+- Image tags are now validated and must be strings, if you use image tags in the `1.35` form please add quotes around the tag value.
+
+- Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:
@@ -161,7 +167,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | existingImagePullSecrets | list | `[]` | Existing Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument |
 | test.image.registry | string | `nil` | Image registry |
 | test.image.repository | string | `"busybox"` | Image repository |
-| test.image.tag | float | `1.35` | Image tag Defaults to `latest` if omitted |
+| test.image.tag | string | `"1.35"` | Image tag Defaults to `latest` if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
@@ -171,13 +177,13 @@ The command removes all the Kubernetes components associated with the chart and 
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
 | rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
-| image.registry | string | `nil` | Image registry |
-| image.repository | string | `"ghcr.io/kyverno/kyverno"` | Image repository |
+| image.registry | string | `"ghcr.io"` | Image registry |
+| image.repository | string | `"kyverno/kyverno"` | Image repository |
 | image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | image.pullSecrets | list | `[]` | Image pull secrets |
-| initImage.registry | string | `nil` | Image registry |
-| initImage.repository | string | `"ghcr.io/kyverno/kyvernopre"` | Image repository |
+| initImage.registry | string | `"ghcr.io"` | Image registry |
+| initImage.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
 | initContainer.extraArgs | list | `["--loggingFormat=text","--exceptionNamespace={{ include \"kyverno.namespace\" . }}"]` | Extra arguments to give to the kyvernopre binary. |
@@ -237,6 +243,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 | tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
 | grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
+| grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
@@ -244,8 +251,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
-| cleanupController.image.registry | string | `nil` | Image registry |
-| cleanupController.image.repository | string | `"ghcr.io/kyverno/cleanup-controller"` | Image repository |
+| cleanupController.image.registry | string | `"ghcr.io"` | Image registry |
+| cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
 | cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | cleanupController.image.pullSecrets | list | `[]` | Image pull secrets |
@@ -301,8 +308,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.rbac.create | bool | `true` | Create RBAC resources |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
 | reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
-| reportsController.image.registry | string | `nil` | Image registry |
-| reportsController.image.repository | string | `"ghcr.io/kyverno/reports-controller"` | Image repository |
+| reportsController.image.registry | string | `"ghcr.io"` | Image registry |
+| reportsController.image.repository | string | `"kyverno/reports-controller"` | Image repository |
 | reportsController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | reportsController.image.pullSecrets | list | `[]` | Image pull secrets |

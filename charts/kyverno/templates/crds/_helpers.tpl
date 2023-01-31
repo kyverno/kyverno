@@ -1,8 +1,15 @@
 {{/* vim: set filetype=mustache: */}}
 
-{{- define "kyverno.crd.labels" -}}
-app.kubernetes.io/part-of: {{ template "kyverno.name" . }}
-{{- with (include "kyverno.helmLabels" .)     -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.matchLabels" .)    -}}{{- . | trim | nindent 0 -}}{{- end -}}
-{{- with (include "kyverno.versionLabels" .)  -}}{{- . | trim | nindent 0 -}}{{- end -}}
+{{- define "kyverno.crds.labels" -}}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.labels.common" .)
+  (include "kyverno.crds.matchLabels" .)
+) -}}
+{{- end -}}
+
+{{- define "kyverno.crds.matchLabels" -}}
+{{- template "kyverno.labels.merge" (list
+  (include "kyverno.matchLabels.common" .)
+  (include "kyverno.labels.component" "crds")
+) -}}
 {{- end -}}

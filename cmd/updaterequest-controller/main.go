@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	"github.com/kyverno/kyverno/pkg/cosign"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -71,7 +72,7 @@ func createNonLeaderControllers(
 	rclient registryclient.Client,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 ) []internal.Controller {
 	updateRequestController := background.NewController(
 		kyvernoClient,
@@ -98,7 +99,7 @@ func createrLeaderControllers(
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
-	configMapResolver resolvers.ConfigmapResolver,
+	configMapResolver engineapi.ConfigmapResolver,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -155,7 +156,7 @@ func main() {
 	// setup signals
 	// setup maxprocs
 	// setup metrics
-	signalCtx, logger, metricsConfig, sdown := internal.Setup()
+	signalCtx, logger, metricsConfig, sdown := internal.Setup("kyverno-updaterequest-controller")
 	defer sdown()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
@@ -199,7 +200,7 @@ func main() {
 		logger.Error(err, "failed to create client based resolver")
 		os.Exit(1)
 	}
-	configMapResolver, err := resolvers.NewResolverChain(informerBasedResolver, clientBasedResolver)
+	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
 	if err != nil {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)

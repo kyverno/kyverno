@@ -13,8 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -37,7 +36,7 @@ type MutateExistingController struct {
 	npolicyLister kyvernov1listers.PolicyLister
 
 	configuration          config.Configuration
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 	eventGen               event.Interface
 
 	log logr.Logger
@@ -51,7 +50,7 @@ func NewMutateExistingController(
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 	eventGen event.Interface,
 	log logr.Logger,
 ) *MutateExistingController {
@@ -103,17 +102,17 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			patched := r.PatchedTarget
 			patchedTargetSubresourceName := r.PatchedTargetSubresourceName
 			switch r.Status {
-			case response.RuleStatusFail, response.RuleStatusError, response.RuleStatusWarn:
+			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
 				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status, r.Message)
 				logger.Error(err, "")
 				errs = append(errs, err)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
-			case response.RuleStatusSkip:
+			case engineapi.RuleStatusSkip:
 				logger.Info("mutate existing rule skipped", "rule", r.Name, "message", r.Message)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
-			case response.RuleStatusPass:
+			case engineapi.RuleStatusPass:
 
 				patchedNew, err := addAnnotation(policy, patched, r)
 				if err != nil {
@@ -127,7 +126,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 					continue
 				}
 
-				if r.Status == response.RuleStatusPass {
+				if r.Status == engineapi.RuleStatusPass {
 					patchedNew.SetResourceVersion(patched.GetResourceVersion())
 					var updateErr error
 					if patchedTargetSubresourceName == "status" {
@@ -204,7 +203,7 @@ func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1bet
 	return nil
 }
 
-func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstructured, r response.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {
+func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstructured, r engineapi.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {
 	if patched == nil {
 		return
 	}
