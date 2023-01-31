@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	logr "github.com/go-logr/logr"
+	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	retryutils "github.com/kyverno/kyverno/pkg/utils/retry"
