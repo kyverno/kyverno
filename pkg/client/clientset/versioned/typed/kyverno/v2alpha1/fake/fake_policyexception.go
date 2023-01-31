@@ -102,6 +102,18 @@ func (c *FakePolicyExceptions) Update(ctx context.Context, policyException *v2al
 	return obj.(*v2alpha1.PolicyException), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakePolicyExceptions) UpdateStatus(ctx context.Context, policyException *v2alpha1.PolicyException, opts v1.UpdateOptions) (*v2alpha1.PolicyException, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(policyexceptionsResource, "status", c.ns, policyException), &v2alpha1.PolicyException{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*v2alpha1.PolicyException), err
+}
+
 // Delete takes name of the policyException and deletes it. Returns an error if one occurs.
 func (c *FakePolicyExceptions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.

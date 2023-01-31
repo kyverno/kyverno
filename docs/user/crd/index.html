@@ -5091,6 +5091,20 @@ MatchResources
 </table>
 </td>
 </tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.PolicyExceptionStatus">
+PolicyExceptionStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime information.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -5296,6 +5310,40 @@ MatchResources
 </td>
 <td>
 <p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.PolicyExceptionStatus">PolicyExceptionStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>)
+</p>
+<p>
+<p>PolicyExceptionStatus stores policy exception status</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions is a list of conditions that apply to the policy exception</p>
 </td>
 </tr>
 </tbody>

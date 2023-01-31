@@ -65,8 +65,7 @@ func (status *PolicyStatus) SetReady(ready bool) {
 
 // IsReady indicates if the policy is ready to serve the admission request
 func (status *PolicyStatus) IsReady() bool {
-	condition := meta.FindStatusCondition(status.Conditions, PolicyConditionReady)
-	return condition != nil && condition.Status == metav1.ConditionTrue
+	return meta.IsStatusConditionTrue(status.Conditions, PolicyConditionReady)
 }
 
 // AutogenStatus contains autogen status information.

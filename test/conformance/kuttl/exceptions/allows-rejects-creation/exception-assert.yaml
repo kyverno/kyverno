@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: mynewpolex
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

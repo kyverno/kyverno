@@ -111,6 +111,17 @@ func (c *withLogging) Update(arg0 context.Context, arg1 *github_com_kyverno_kyve
 	}
 	return ret0, ret1
 }
+func (c *withLogging) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v2alpha1.PolicyException, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v2alpha1.PolicyException, error) {
+	start := time.Now()
+	logger := c.logger.WithValues("operation", "UpdateStatus")
+	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
+	if err := multierr.Combine(ret1); err != nil {
+		logger.Error(err, "UpdateStatus failed", "duration", time.Since(start))
+	} else {
+		logger.Info("UpdateStatus done", "duration", time.Since(start))
+	}
+	return ret0, ret1
+}
 func (c *withLogging) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	start := time.Now()
 	logger := c.logger.WithValues("operation", "Watch")
@@ -155,6 +166,10 @@ func (c *withMetrics) Patch(arg0 context.Context, arg1 string, arg2 k8s_io_apima
 func (c *withMetrics) Update(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v2alpha1.PolicyException, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v2alpha1.PolicyException, error) {
 	defer c.recorder.RecordWithContext(arg0, "update")
 	return c.inner.Update(arg0, arg1, arg2)
+}
+func (c *withMetrics) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v2alpha1.PolicyException, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v2alpha1.PolicyException, error) {
+	defer c.recorder.RecordWithContext(arg0, "update_status")
+	return c.inner.UpdateStatus(arg0, arg1, arg2)
 }
 func (c *withMetrics) Watch(arg0 context.Context, arg1 k8s_io_apimachinery_pkg_apis_meta_v1.ListOptions) (k8s_io_apimachinery_pkg_watch.Interface, error) {
 	defer c.recorder.RecordWithContext(arg0, "watch")
@@ -309,6 +324,27 @@ func (c *withTracing) Update(arg0 context.Context, arg1 *github_com_kyverno_kyve
 		defer span.End()
 	}
 	ret0, ret1 := c.inner.Update(arg0, arg1, arg2)
+	if span != nil {
+		tracing.SetSpanStatus(span, ret1)
+	}
+	return ret0, ret1
+}
+func (c *withTracing) UpdateStatus(arg0 context.Context, arg1 *github_com_kyverno_kyverno_api_kyverno_v2alpha1.PolicyException, arg2 k8s_io_apimachinery_pkg_apis_meta_v1.UpdateOptions) (*github_com_kyverno_kyverno_api_kyverno_v2alpha1.PolicyException, error) {
+	var span trace.Span
+	if tracing.IsInSpan(arg0) {
+		arg0, span = tracing.StartChildSpan(
+			arg0,
+			"",
+			fmt.Sprintf("KUBE %s/%s/%s", c.client, c.kind, "UpdateStatus"),
+			trace.WithAttributes(
+				tracing.KubeClientGroupKey.String(c.client),
+				tracing.KubeClientKindKey.String(c.kind),
+				tracing.KubeClientOperationKey.String("UpdateStatus"),
+			),
+		)
+		defer span.End()
+	}
+	ret0, ret1 := c.inner.UpdateStatus(arg0, arg1, arg2)
 	if span != nil {
 		tracing.SetSpanStatus(span, ret1)
 	}
