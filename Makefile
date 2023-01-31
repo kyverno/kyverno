@@ -211,9 +211,9 @@ $(REPORTS_BIN): fmt vet
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
-$(REPORTS_BIN): fmt vet
+$(BACKGROUND_BIN): fmt vet
 	@echo Build background controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) $(BACKGROUND_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
 .PHONY: build-kyverno-init
 build-kyverno-init: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
