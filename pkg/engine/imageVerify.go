@@ -139,7 +139,7 @@ func VerifyAndPatchImages(
 				}
 
 				policyContext.jsonContext.Restore()
-				if err := SafeLoadContext(ctx, contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+				if err := LoadContext(ctx, contextLoader, rule.Context, policyContext, rule.Name); err != nil {
 					appendResponse(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), engineapi.RuleStatusError)
 					return
 				}

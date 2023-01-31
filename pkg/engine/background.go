@@ -132,7 +132,7 @@ func filterRule(
 	policyContext.jsonContext.Checkpoint()
 	defer policyContext.jsonContext.Restore()
 
-	if err := SafeLoadContext(context.TODO(), contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+	if err := LoadContext(context.TODO(), contextLoader, rule.Context, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}

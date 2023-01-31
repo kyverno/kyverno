@@ -422,7 +422,7 @@ func addElementToContext(ctx *PolicyContext, element interface{}, index, nesting
 }
 
 func (v *validator) loadContext(ctx context.Context) error {
-	if err := SafeLoadContext(ctx, v.contextLoader, v.contextEntries, v.policyContext, v.rule.Name); err != nil {
+	if err := LoadContext(ctx, v.contextLoader, v.contextEntries, v.policyContext, v.rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			v.log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {

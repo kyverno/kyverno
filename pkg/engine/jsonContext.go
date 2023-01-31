@@ -22,23 +22,22 @@ import (
 type ContextLoaderFactory = func(pContext *PolicyContext, ruleName string) engineapi.ContextLoader
 
 func LegacyContextLoaderFactory(rclient registryclient.Client) ContextLoaderFactory {
+	if store.IsMock() {
+		return func(pContext *PolicyContext, ruleName string) engineapi.ContextLoader {
+			policy := pContext.Policy()
+			return &mockContextLoader{
+				logger:     logging.WithName("MockContextLoaderFactory"),
+				policyName: policy.GetName(),
+				ruleName:   ruleName,
+				client:     pContext.Client(),
+				rclient:    rclient,
+				cmResolver: pContext.informerCacheResolvers,
+			}
+		}
+	}
 	return func(pContext *PolicyContext, ruleName string) engineapi.ContextLoader {
 		return &contextLoader{
 			logger:     logging.WithName("LegacyContextLoaderFactory"),
-			client:     pContext.Client(),
-			rclient:    rclient,
-			cmResolver: pContext.informerCacheResolvers,
-		}
-	}
-}
-
-func MockContextLoaderFactory(rclient registryclient.Client) ContextLoaderFactory {
-	return func(pContext *PolicyContext, ruleName string) engineapi.ContextLoader {
-		policy := pContext.Policy()
-		return &mockContextLoader{
-			logger:     logging.WithName("MockContextLoaderFactory"),
-			policyName: policy.GetName(),
-			ruleName:   ruleName,
 			client:     pContext.Client(),
 			rclient:    rclient,
 			cmResolver: pContext.informerCacheResolvers,
@@ -123,78 +122,9 @@ func (l *mockContextLoader) Load(ctx context.Context, contextEntries []kyvernov1
 	return nil
 }
 
-func SafeLoadContext(ctx context.Context, factory ContextLoaderFactory, contextEntries []kyvernov1.ContextEntry, pContext *PolicyContext, ruleName string) error {
+func LoadContext(ctx context.Context, factory ContextLoaderFactory, contextEntries []kyvernov1.ContextEntry, pContext *PolicyContext, ruleName string) error {
 	return factory(pContext, ruleName).Load(ctx, contextEntries, pContext.JSONContext())
 }
-
-// // LoadContext - Fetches and adds external data to the Context.
-// func LoadContextZ(ctx context.Context, logger logr.Logger, rclient registryclient.Client, contextEntries []kyvernov1.ContextEntry, enginectx enginecontext.Interface, ruleName string) error {
-// 	if len(contextEntries) == 0 {
-// 		return nil
-// 	}
-
-// 	// policyName := enginectx.policy.GetName()
-// 	// if store.IsMock() {
-// 	// 	rule := store.GetPolicyRule(policyName, ruleName)
-// 	// 	if rule != nil && len(rule.Values) > 0 {
-// 	// 		variables := rule.Values
-// 	// 		for key, value := range variables {
-// 	// 			if err := enginectx.AddVariable(key, value); err != nil {
-// 	// 				return err
-// 	// 			}
-// 	// 		}
-// 	// 	}
-
-// 	// 	hasRegistryAccess := store.GetRegistryAccess()
-
-// 	// 	// Context Variable should be loaded after the values loaded from values file
-// 	// 	for _, entry := range contextEntries {
-// 	// 		if entry.ImageRegistry != nil && hasRegistryAccess {
-// 	// 			rclient := store.GetRegistryClient()
-// 	// 			if err := loadImageData(ctx, rclient, logger, entry, enginectx); err != nil {
-// 	// 				return err
-// 	// 			}
-// 	// 		} else if entry.Variable != nil {
-// 	// 			if err := loadVariable(logger, entry, enginectx); err != nil {
-// 	// 				return err
-// 	// 			}
-// 	// 		} else if entry.APICall != nil && store.IsApiCallAllowed() {
-// 	// 			if err := loadAPIData(ctx, logger, entry, enginectx); err != nil {
-// 	// 				return err
-// 	// 			}
-// 	// 		}
-// 	// 	}
-
-// 	// 	if rule != nil && len(rule.ForEachValues) > 0 {
-// 	// 		for key, value := range rule.ForEachValues {
-// 	// 			if err := enginectx.AddVariable(key, value[store.GetForeachElement()]); err != nil {
-// 	// 				return err
-// 	// 			}
-// 	// 		}
-// 	// 	}
-// 	// } else {
-// 	for _, entry := range contextEntries {
-// 		if entry.ConfigMap != nil {
-// 			if err := loadConfigMap(ctx, logger, entry, enginectx); err != nil {
-// 				return err
-// 			}
-// 		} else if entry.APICall != nil {
-// 			if err := loadAPIData(ctx, logger, entry, enginectx); err != nil {
-// 				return err
-// 			}
-// 		} else if entry.ImageRegistry != nil {
-// 			if err := loadImageData(ctx, rclient, logger, entry, enginectx); err != nil {
-// 				return err
-// 			}
-// 		} else if entry.Variable != nil {
-// 			if err := loadVariable(logger, entry, enginectx); err != nil {
-// 				return err
-// 			}
-// 		}
-// 	}
-// 	// }
-// 	return nil
-// }
 
 func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx enginecontext.Interface) (err error) {
 	path := ""
