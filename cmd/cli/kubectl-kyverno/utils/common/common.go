@@ -1083,7 +1083,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	}
 
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	c := generate.NewGenerateControllerWithOnlyClient(client)
+	c := generate.NewGenerateControllerWithOnlyClient(client, engine.LegacyContextLoaderFactory(nil))
 	return c, nil
 }
 

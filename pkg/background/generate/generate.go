@@ -828,9 +828,10 @@ func (c *GenerateController) ApplyResource(resource *unstructured.Unstructured) 
 }
 
 // NewGenerateControllerWithOnlyClient returns an instance of Controller with only the client.
-func NewGenerateControllerWithOnlyClient(client dclient.Interface) *GenerateController {
+func NewGenerateControllerWithOnlyClient(client dclient.Interface, contextLoader engine.ContextLoaderFactory) *GenerateController {
 	c := GenerateController{
-		client: client,
+		client:        client,
+		contextLoader: contextLoader,
 	}
 	return &c
 }
