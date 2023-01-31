@@ -10,7 +10,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -20,7 +19,7 @@ type scanner struct {
 	logger                 logr.Logger
 	client                 dclient.Interface
 	rclient                registryclient.Client
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 	polexLister            engine.PolicyExceptionLister
 	excludeGroupRole       []string
 	config                 config.Configuration
@@ -39,7 +38,7 @@ func NewScanner(
 	logger logr.Logger,
 	client dclient.Interface,
 	rclient registryclient.Client,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 	polexLister engine.PolicyExceptionLister,
 	config config.Configuration,
 	excludeGroupRole ...string,
