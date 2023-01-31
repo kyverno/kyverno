@@ -2,15 +2,15 @@ package patch
 
 import (
 	"github.com/go-logr/logr"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Patcher patches the resource
 type Patcher interface {
-	Patch() (resp response.RuleResponse, newPatchedResource unstructured.Unstructured)
+	Patch() (resp engineapi.RuleResponse, newPatchedResource unstructured.Unstructured)
 }
 
 // patchStrategicMergeHandler
@@ -32,7 +32,7 @@ func NewPatchStrategicMerge(ruleName string, patch apiextensions.JSON, patchedRe
 	}
 }
 
-func (h patchStrategicMergeHandler) Patch() (response.RuleResponse, unstructured.Unstructured) {
+func (h patchStrategicMergeHandler) Patch() (engineapi.RuleResponse, unstructured.Unstructured) {
 	return ProcessStrategicMergePatch(h.ruleName, h.patch, h.patchedResource, h.logger)
 }
 
@@ -53,13 +53,13 @@ func NewPatchesJSON6902(ruleName string, patches string, patchedResource unstruc
 	}
 }
 
-func (h patchesJSON6902Handler) Patch() (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
+func (h patchesJSON6902Handler) Patch() (resp engineapi.RuleResponse, patchedResource unstructured.Unstructured) {
 	resp.Name = h.ruleName
-	resp.Type = response.Mutation
+	resp.Type = engineapi.Mutation
 
 	patchesJSON6902, err := ConvertPatchesToJSON(h.patches)
 	if err != nil {
-		resp.Status = response.RuleStatusFail
+		resp.Status = engineapi.RuleStatusFail
 		h.logger.Error(err, "error in type conversion")
 		resp.Message = err.Error()
 		return resp, unstructured.Unstructured{}

@@ -204,16 +204,13 @@ rbac:
       # example.com/annotation: value
 
 image:
-  # -- (string) Image registry
-  registry: ~
-  # If you want to manage the registry you should remove it from the repository
-  # registry: ghcr.io
-  # repository: kyverno/kyverno
+  # -- Image registry
+  registry: ghcr.io
   # -- Image repository
-  repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests
-  # -- Image tag
+  repository: kyverno/kyverno
+  # -- (string) Image tag
   # Defaults to appVersion in Chart.yaml if omitted
-  tag:  # replaced in e2e tests
+  tag: ~
   # -- Image pull policy
   pullPolicy: IfNotPresent
   # -- Image pull secrets
@@ -221,19 +218,16 @@ image:
   # - secretName
 
 initImage:
-  # -- (string) Image registry
-  registry: ~
-  # If you want to manage the registry you should remove it from the repository
-  # registry: ghcr.io
-  # repository: kyverno/kyvernopre
+  # -- Image registry
+  registry: ghcr.io
   # -- Image repository
-  repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests
-  # -- Image tag
+  repository: kyverno/kyvernopre
+  # -- (string) Image tag
   # If initImage.tag is missing, defaults to image.tag
-  tag:  # replaced in e2e tests
-  # -- Image pull policy
+  tag: ~
+  # -- (string) Image pull policy
   # If initImage.pullPolicy is missing, defaults to image.pullPolicy
-  pullPolicy:
+  pullPolicy: ~
 
 initContainer:
   # -- Extra arguments to give to the kyvernopre binary.
@@ -503,9 +497,14 @@ tufRootMountPath: /.sigstore
 grafana:
   # -- Enable grafana dashboard creation.
   enabled: false
-  # -- Namespace to create the grafana dashboard configmap.
+
+  # -- Configmap name template.
+  configMapName: '{{ include "kyverno.fullname" . }}-grafana'
+
+  # -- (string) Namespace to create the grafana dashboard configmap.
   # If not set, it will be created in the same namespace where the chart is deployed.
-  namespace:
+  namespace: ~
+
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
@@ -536,16 +535,13 @@ cleanupController:
   createSelfSignedCert: false
 
   image:
-    # -- (string) Image registry
-    registry: ~
-    # If you want to manage the registry you should remove it from the repository
-    # registry: ghcr.io
-    # repository: kyverno/kyverno
+    # -- Image registry
+    registry: ghcr.io
     # -- Image repository
-    repository: ghcr.io/kyverno/cleanup-controller  # kyverno: replaced in e2e tests
-    # -- Image tag
+    repository: kyverno/cleanup-controller
+    # -- (string) Image tag
     # Defaults to appVersion in Chart.yaml if omitted
-    tag:  # replaced in e2e tests
+    tag: ~
     # -- Image pull policy
     pullPolicy: IfNotPresent
     # -- Image pull secrets
@@ -780,16 +776,13 @@ reportsController:
       #     - pods
 
   image:
-    # -- (string) Image registry
-    registry: ~
-    # If you want to manage the registry you should remove it from the repository
-    # registry: ghcr.io
-    # repository: kyverno/kyverno
+    # -- Image registry
+    registry: ghcr.io
     # -- Image repository
-    repository: ghcr.io/kyverno/reports-controller  # kyverno: replaced in e2e tests
-    # -- Image tag
+    repository: kyverno/reports-controller
+    # -- (string) Image tag
     # Defaults to appVersion in Chart.yaml if omitted
-    tag:  # replaced in e2e tests
+    tag: ~
     # -- Image pull policy
     pullPolicy: IfNotPresent
     # -- Image pull secrets

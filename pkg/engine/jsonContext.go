@@ -9,7 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
-	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/pkg/errors"
@@ -22,8 +22,8 @@ func LoadContext(ctx context.Context, logger logr.Logger, rclient registryclient
 	}
 
 	policyName := enginectx.policy.GetName()
-	if store.GetMock() {
-		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
+	if store.IsMock() {
+		rule := store.GetPolicyRule(policyName, ruleName)
 		if rule != nil && len(rule.Values) > 0 {
 			variables := rule.Values
 			for key, value := range variables {
@@ -46,7 +46,7 @@ func LoadContext(ctx context.Context, logger logr.Logger, rclient registryclient
 				if err := loadVariable(logger, entry, enginectx); err != nil {
 					return err
 				}
-			} else if entry.APICall != nil && store.IsAllowApiCall() {
+			} else if entry.APICall != nil && store.IsApiCallAllowed() {
 				if err := loadAPIData(ctx, logger, entry, enginectx); err != nil {
 					return err
 				}
@@ -55,7 +55,7 @@ func LoadContext(ctx context.Context, logger logr.Logger, rclient registryclient
 
 		if rule != nil && len(rule.ForEachValues) > 0 {
 			for key, value := range rule.ForEachValues {
-				if err := enginectx.jsonContext.AddVariable(key, value[store.ForeachElement]); err != nil {
+				if err := enginectx.jsonContext.AddVariable(key, value[store.GetForeachElement()]); err != nil {
 					return err
 				}
 			}

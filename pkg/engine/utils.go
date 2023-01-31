@@ -10,9 +10,9 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
@@ -161,8 +161,8 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
 func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo, dynamicConfig []string) bool {
-	if store.GetMock() {
-		mockSubject := store.GetSubjects().Subject
+	if store.IsMock() {
+		mockSubject := store.GetSubject()
 		for _, subject := range ruleSubjects {
 			switch subject.Kind {
 			case "ServiceAccount":
@@ -331,7 +331,7 @@ func checkPreconditions(logger logr.Logger, ctx *PolicyContext, anyAllConditions
 		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
 	}
 
-	typeConditions, err := common.TransformConditions(preconditions)
+	typeConditions, err := utils.TransformConditions(preconditions)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to parse preconditions")
 	}
@@ -354,13 +354,13 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	return l, nil
 }
 
-func ruleError(rule *kyvernov1.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
+func ruleError(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) *engineapi.RuleResponse {
 	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return ruleResponse(*rule, ruleType, msg, response.RuleStatusError)
+	return ruleResponse(*rule, ruleType, msg, engineapi.RuleStatusError)
 }
 
-func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, status response.RuleStatus) *response.RuleResponse {
-	resp := &response.RuleResponse{
+func ruleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, status engineapi.RuleStatus) *engineapi.RuleResponse {
+	resp := &engineapi.RuleResponse{
 		Name:    rule.Name,
 		Type:    ruleType,
 		Message: msg,
@@ -369,11 +369,11 @@ func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, s
 	return resp
 }
 
-func incrementAppliedCount(resp *response.EngineResponse) {
+func incrementAppliedCount(resp *engineapi.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func incrementErrorCount(resp *response.EngineResponse) {
+func incrementErrorCount(resp *engineapi.EngineResponse) {
 	resp.PolicyResponse.RulesErrorCount++
 }
 

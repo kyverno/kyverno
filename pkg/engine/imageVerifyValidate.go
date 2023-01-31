@@ -9,14 +9,14 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func processImageValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) *response.RuleResponse {
+func processImageValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) *engineapi.RuleResponse {
 	if isDeleteRequest(enginectx) {
 		return nil
 	}
@@ -24,10 +24,10 @@ func processImageValidationRule(ctx context.Context, log logr.Logger, rclient re
 	log = log.WithValues("rule", rule.Name)
 	matchingImages, _, err := extractMatchingImages(enginectx, rule, cfg)
 	if err != nil {
-		return ruleResponse(*rule, response.Validation, err.Error(), response.RuleStatusError)
+		return ruleResponse(*rule, engineapi.Validation, err.Error(), engineapi.RuleStatusError)
 	}
 	if len(matchingImages) == 0 {
-		return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusSkip)
+		return ruleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusSkip)
 	}
 	if err := LoadContext(ctx, log, rclient, rule.Context, enginectx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
@@ -36,12 +36,12 @@ func processImageValidationRule(ctx context.Context, log logr.Logger, rclient re
 			log.Error(err, "failed to load context")
 		}
 
-		return ruleError(rule, response.Validation, "failed to load context", err)
+		return ruleError(rule, engineapi.Validation, "failed to load context", err)
 	}
 
 	preconditionsPassed, err := checkPreconditions(log, enginectx, rule.RawAnyAllConditions)
 	if err != nil {
-		return ruleError(rule, response.Validation, "failed to evaluate preconditions", err)
+		return ruleError(rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}
 
 	if !preconditionsPassed {
@@ -49,7 +49,7 @@ func processImageValidationRule(ctx context.Context, log logr.Logger, rclient re
 			return nil
 		}
 
-		return ruleResponse(*rule, response.Validation, "preconditions not met", response.RuleStatusSkip)
+		return ruleResponse(*rule, engineapi.Validation, "preconditions not met", engineapi.RuleStatusSkip)
 	}
 
 	for _, v := range rule.VerifyImages {
@@ -66,14 +66,14 @@ func processImageValidationRule(ctx context.Context, log logr.Logger, rclient re
 
 				log.V(4).Info("validating image", "image", image)
 				if err := validateImage(enginectx, imageVerify, name, imageInfo, log); err != nil {
-					return ruleResponse(*rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
+					return ruleResponse(*rule, engineapi.ImageVerify, err.Error(), engineapi.RuleStatusFail)
 				}
 			}
 		}
 	}
 
 	log.V(4).Info("validated image", "rule", rule.Name)
-	return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusPass)
+	return ruleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusPass)
 }
 
 func validateImage(ctx *PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {

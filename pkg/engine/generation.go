@@ -5,19 +5,19 @@ import (
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/tools/cache"
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
-func GenerateResponse(rclient registryclient.Client, policyContext *PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *response.EngineResponse) {
+func GenerateResponse(rclient registryclient.Client, policyContext *PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
 	return filterGenerateRules(rclient, policyContext, gr.Spec.Policy, policyStartTime)
 }
 
-func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyContext, policyNameKey string, startTime time.Time) *response.EngineResponse {
+func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyContext, policyNameKey string, startTime time.Time) *engineapi.EngineResponse {
 	kind := policyContext.newResource.GetKind()
 	name := policyContext.newResource.GetName()
 	namespace := policyContext.newResource.GetNamespace()
@@ -27,16 +27,18 @@ func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyCon
 		logging.Error(err, "failed to spilt name and namespace", policyNameKey)
 	}
 
-	resp := &response.EngineResponse{
-		PolicyResponse: response.PolicyResponse{
-			Policy: response.PolicySpec{
+	resp := &engineapi.EngineResponse{
+		PolicyResponse: engineapi.PolicyResponse{
+			Policy: engineapi.PolicySpec{
 				Name:      pName,
 				Namespace: pNamespace,
 			},
-			PolicyStats: response.PolicyStats{
-				PolicyExecutionTimestamp: startTime.Unix(),
+			PolicyStats: engineapi.PolicyStats{
+				ExecutionStats: engineapi.ExecutionStats{
+					Timestamp: startTime.Unix(),
+				},
 			},
-			Resource: response.ResourceSpec{
+			Resource: engineapi.ResourceSpec{
 				Kind:       kind,
 				Name:       name,
 				Namespace:  namespace,

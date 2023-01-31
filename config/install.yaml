@@ -3503,9 +3503,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -10180,9 +10180,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -16613,9 +16613,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -23292,9 +23292,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -32169,8 +32169,7 @@ spec:
             requests:
               cpu: 10m
               memory: 64Mi
-          securityContext: 
-            
+          securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -32198,6 +32197,7 @@ spec:
           image: "ghcr.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
+            - --servicePort=443
             - --loggingFormat=text
           resources: 
             limits:
@@ -32205,8 +32205,7 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-          securityContext: 
-            
+          securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -32342,6 +32341,7 @@ spec:
             name: metrics
             protocol: TCP
           args:
+            - --servicePort=443
             - --loggingFormat=text
             - --disableMetrics=false
             - --otelConfig=prometheus
@@ -32365,7 +32365,7 @@ spec:
             requests:
               cpu: 100m
               memory: 64Mi
-          securityContext: 
+          securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -32479,8 +32479,7 @@ spec:
             requests:
               cpu: 100m
               memory: 64Mi
-          securityContext: 
-            
+          securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
