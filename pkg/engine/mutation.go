@@ -307,6 +307,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 				log:           f.log,
 				foreach:       nestedForEach,
 				nesting:       f.nesting + 1,
+				contextLoader: f.contextLoader,
 			}
 
 			mutateResp = m.mutateForEach(ctx)
