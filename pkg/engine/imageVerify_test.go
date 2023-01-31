@@ -163,7 +163,7 @@ var cfg = config.NewDefaultConfiguration()
 func doVerifyAndPatchImages(
 	ctx context.Context,
 	rclient registryclient.Client,
-	pContext *PolicyContext,
+	pContext engineapi.PolicyContext,
 	cfg config.Configuration,
 ) (*engineapi.EngineResponse, *ImageVerificationMetadata) {
 	return VerifyAndPatchImages(

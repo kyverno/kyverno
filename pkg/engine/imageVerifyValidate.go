@@ -19,7 +19,7 @@ func processImageValidationRule(
 	ctx context.Context,
 	contextLoader ContextLoaderFactory,
 	log logr.Logger,
-	enginectx *PolicyContext,
+	enginectx engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
 	cfg config.Configuration,
 ) *engineapi.RuleResponse {
@@ -51,7 +51,7 @@ func processImageValidationRule(
 	}
 
 	if !preconditionsPassed {
-		if enginectx.policy.GetSpec().ValidationFailureAction.Audit() {
+		if enginectx.Policy().GetSpec().ValidationFailureAction.Audit() {
 			return nil
 		}
 
@@ -60,7 +60,7 @@ func processImageValidationRule(
 
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
-		for _, infoMap := range enginectx.jsonContext.ImageInfo() {
+		for _, infoMap := range enginectx.JSONContext().ImageInfo() {
 			for name, imageInfo := range infoMap {
 				image := imageInfo.String()
 				log = log.WithValues("rule", rule.Name)
@@ -82,24 +82,22 @@ func processImageValidationRule(
 	return ruleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusPass)
 }
 
-func validateImage(ctx *PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {
+func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {
 	image := imageInfo.String()
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
 		log.V(2).Info("missing digest", "image", imageInfo.String())
 		return fmt.Errorf("missing digest for %s", image)
 	}
-
-	if imageVerify.Required && !reflect.DeepEqual(ctx.newResource, unstructured.Unstructured{}) {
-		verified, err := isImageVerified(ctx.newResource, image, log)
+	newResource := ctx.NewResource()
+	if imageVerify.Required && !reflect.DeepEqual(newResource, unstructured.Unstructured{}) {
+		verified, err := isImageVerified(newResource, image, log)
 		if err != nil {
 			return err
 		}
-
 		if !verified {
 			return fmt.Errorf("unverified image %s", image)
 		}
 	}
-
 	return nil
 }
 
