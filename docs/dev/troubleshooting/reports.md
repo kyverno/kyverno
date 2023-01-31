@@ -10,7 +10,7 @@ This will show infos about the resource associated with the report.
 
 It can be useful to determine if a particular resource kind is responsible for creating too many reports.
 
-If `APIVERSION`, `KIND` and `SUBJECT` is empty it means the report is orphan and it is an issue if the report is more than a couple minutes old.
+If `APIVERSION`, `KIND` and `SUBJECT` is empty it means the report is orphan and it is an issue if the report is more than a couple of minutes old.
 
 ```console
 # list cluster admission reports
