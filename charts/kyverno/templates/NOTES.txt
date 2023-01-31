@@ -14,6 +14,9 @@ The following components have been installed in your cluster:
 {{- if .Values.cleanupController.enabled }}
 - Cleanup controller
 {{- end }}
+{{- if .Values.backgroundController.enabled }}
+- Background controller
+{{- end }}
 {{- if .Values.grafana.enabled }}
 - Grafana dashboard
 {{- end }}

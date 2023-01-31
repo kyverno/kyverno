@@ -9,6 +9,7 @@ cmd/kyverno/kyverno
 cmd/kyverno-init/kyvernopre
 cmd/cleanup-controller/cleanup-controller
 cmd/reports-controller/reports-controller
+cmd/background-controller/background-controller
 /release
 .DS_Store
 .tools

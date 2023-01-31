@@ -24,7 +24,7 @@ builds:
   ldflags:
   - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 
-- id: updaterequest-controller
-  main: ./cmd/updaterequest-controller
+- id: background-controller
+  main: ./cmd/background-controller
   ldflags:
   - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
