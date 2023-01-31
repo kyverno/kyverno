@@ -9,14 +9,20 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func processImageValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) *response.RuleResponse {
+func processImageValidationRule(
+	ctx context.Context,
+	contextLoader ContextLoaderFactory,
+	log logr.Logger,
+	enginectx engineapi.PolicyContext,
+	rule *kyvernov1.Rule,
+	cfg config.Configuration,
+) *engineapi.RuleResponse {
 	if isDeleteRequest(enginectx) {
 		return nil
 	}
@@ -24,37 +30,37 @@ func processImageValidationRule(ctx context.Context, log logr.Logger, rclient re
 	log = log.WithValues("rule", rule.Name)
 	matchingImages, _, err := extractMatchingImages(enginectx, rule, cfg)
 	if err != nil {
-		return ruleResponse(*rule, response.Validation, err.Error(), response.RuleStatusError)
+		return ruleResponse(*rule, engineapi.Validation, err.Error(), engineapi.RuleStatusError)
 	}
 	if len(matchingImages) == 0 {
-		return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusSkip)
+		return ruleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusSkip)
 	}
-	if err := LoadContext(ctx, log, rclient, rule.Context, enginectx, rule.Name); err != nil {
+	if err := LoadContext(ctx, contextLoader, rule.Context, enginectx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
 			log.Error(err, "failed to load context")
 		}
 
-		return ruleError(rule, response.Validation, "failed to load context", err)
+		return ruleError(rule, engineapi.Validation, "failed to load context", err)
 	}
 
 	preconditionsPassed, err := checkPreconditions(log, enginectx, rule.RawAnyAllConditions)
 	if err != nil {
-		return ruleError(rule, response.Validation, "failed to evaluate preconditions", err)
+		return ruleError(rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}
 
 	if !preconditionsPassed {
-		if enginectx.policy.GetSpec().ValidationFailureAction.Audit() {
+		if enginectx.Policy().GetSpec().ValidationFailureAction.Audit() {
 			return nil
 		}
 
-		return ruleResponse(*rule, response.Validation, "preconditions not met", response.RuleStatusSkip)
+		return ruleResponse(*rule, engineapi.Validation, "preconditions not met", engineapi.RuleStatusSkip)
 	}
 
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
-		for _, infoMap := range enginectx.jsonContext.ImageInfo() {
+		for _, infoMap := range enginectx.JSONContext().ImageInfo() {
 			for name, imageInfo := range infoMap {
 				image := imageInfo.String()
 				log = log.WithValues("rule", rule.Name)
@@ -66,34 +72,32 @@ func processImageValidationRule(ctx context.Context, log logr.Logger, rclient re
 
 				log.V(4).Info("validating image", "image", image)
 				if err := validateImage(enginectx, imageVerify, name, imageInfo, log); err != nil {
-					return ruleResponse(*rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
+					return ruleResponse(*rule, engineapi.ImageVerify, err.Error(), engineapi.RuleStatusFail)
 				}
 			}
 		}
 	}
 
 	log.V(4).Info("validated image", "rule", rule.Name)
-	return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusPass)
+	return ruleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusPass)
 }
 
-func validateImage(ctx *PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {
+func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {
 	image := imageInfo.String()
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
 		log.V(2).Info("missing digest", "image", imageInfo.String())
 		return fmt.Errorf("missing digest for %s", image)
 	}
-
-	if imageVerify.Required && !reflect.DeepEqual(ctx.newResource, unstructured.Unstructured{}) {
-		verified, err := isImageVerified(ctx.newResource, image, log)
+	newResource := ctx.NewResource()
+	if imageVerify.Required && !reflect.DeepEqual(newResource, unstructured.Unstructured{}) {
+		verified, err := isImageVerified(newResource, image, log)
 		if err != nil {
 			return err
 		}
-
 		if !verified {
 			return fmt.Errorf("unverified image %s", image)
 		}
 	}
-
 	return nil
 }
 
