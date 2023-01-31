@@ -20,7 +20,7 @@ backgroundController:
     clusterRole:
       extraResources:
       - apiGroups:
-        - ''
+        - '*'
         resources:
         - configmaps
         - secrets
