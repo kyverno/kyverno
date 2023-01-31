@@ -35,7 +35,7 @@ type MutationHandler interface {
 
 func NewMutationHandler(
 	log logr.Logger,
-	contextLoader engine.ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	eventGen event.Interface,
 	openApiManager openapi.ValidateInterface,
 	nsLister corev1listers.NamespaceLister,
@@ -53,7 +53,7 @@ func NewMutationHandler(
 
 type mutationHandler struct {
 	log            logr.Logger
-	contextLoader  engine.ContextLoaderFactory
+	contextLoader  engineapi.ContextLoaderFactory
 	eventGen       event.Interface
 	openApiManager openapi.ValidateInterface
 	nsLister       corev1listers.NamespaceLister

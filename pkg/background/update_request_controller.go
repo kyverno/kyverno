@@ -18,7 +18,6 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -49,7 +48,7 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	contextLoader engine.ContextLoaderFactory
+	contextLoader engineapi.ContextLoaderFactory
 
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
@@ -72,7 +71,7 @@ type controller struct {
 func NewController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
-	contextLoader engine.ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,

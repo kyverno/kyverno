@@ -17,7 +17,7 @@ import (
 
 func processImageValidationRule(
 	ctx context.Context,
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	log logr.Logger,
 	enginectx engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
