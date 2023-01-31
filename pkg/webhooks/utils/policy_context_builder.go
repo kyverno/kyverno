@@ -5,7 +5,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -21,7 +21,7 @@ type policyContextBuilder struct {
 	client                 dclient.Interface
 	rbLister               rbacv1listers.RoleBindingLister
 	crbLister              rbacv1listers.ClusterRoleBindingLister
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 	polexLister            engine.PolicyExceptionLister
 }
 
@@ -30,7 +30,7 @@ func NewPolicyContextBuilder(
 	client dclient.Interface,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 	polexLister engine.PolicyExceptionLister,
 ) PolicyContextBuilder {
 	return &policyContextBuilder{
