@@ -472,6 +472,7 @@ func main() {
 		}
 	}
 	resourceHandlers := webhooksresource.NewHandlers(
+		engine.LegacyContextLoaderFactory(rclient),
 		dClient,
 		kyvernoClient,
 		rclient,
