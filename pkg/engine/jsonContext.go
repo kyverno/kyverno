@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
@@ -18,12 +19,26 @@ import (
 	"github.com/pkg/errors"
 )
 
-type ContextLoaderFactory = func(pContext *PolicyContext) engineapi.ContextLoader
+type ContextLoaderFactory = func(pContext *PolicyContext, ruleName string) engineapi.ContextLoader
 
 func LegacyContextLoaderFactory(rclient registryclient.Client) ContextLoaderFactory {
-	return func(pContext *PolicyContext) engineapi.ContextLoader {
+	return func(pContext *PolicyContext, ruleName string) engineapi.ContextLoader {
 		return &contextLoader{
-			logger:     logging.WithName("LegacyContextLoad"),
+			logger:     logging.WithName("LegacyContextLoaderFactory"),
+			client:     pContext.Client(),
+			rclient:    rclient,
+			cmResolver: pContext.informerCacheResolvers,
+		}
+	}
+}
+
+func MockContextLoaderFactory(rclient registryclient.Client) ContextLoaderFactory {
+	return func(pContext *PolicyContext, ruleName string) engineapi.ContextLoader {
+		policy := pContext.Policy()
+		return &mockContextLoader{
+			logger:     logging.WithName("MockContextLoaderFactory"),
+			policyName: policy.GetName(),
+			ruleName:   ruleName,
 			client:     pContext.Client(),
 			rclient:    rclient,
 			cmResolver: pContext.informerCacheResolvers,
@@ -61,8 +76,55 @@ func (l *contextLoader) Load(ctx context.Context, contextEntries []kyvernov1.Con
 	return nil
 }
 
-func SafeLoadContext(ctx context.Context, factory ContextLoaderFactory, contextEntries []kyvernov1.ContextEntry, pContext *PolicyContext) error {
-	return factory(pContext).Load(ctx, contextEntries, pContext.JSONContext())
+type mockContextLoader struct {
+	logger     logr.Logger
+	policyName string
+	ruleName   string
+	rclient    registryclient.Client
+	client     dclient.Interface
+	cmResolver engineapi.ConfigmapResolver
+}
+
+func (l *mockContextLoader) Load(ctx context.Context, contextEntries []kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
+	rule := store.GetPolicyRule(l.policyName, l.ruleName)
+	if rule != nil && len(rule.Values) > 0 {
+		variables := rule.Values
+		for key, value := range variables {
+			if err := enginectx.AddVariable(key, value); err != nil {
+				return err
+			}
+		}
+	}
+	hasRegistryAccess := store.GetRegistryAccess()
+	// Context Variable should be loaded after the values loaded from values file
+	for _, entry := range contextEntries {
+		if entry.ImageRegistry != nil && hasRegistryAccess {
+			rclient := store.GetRegistryClient()
+			if err := loadImageData(ctx, rclient, l.logger, entry, enginectx); err != nil {
+				return err
+			}
+		} else if entry.Variable != nil {
+			if err := loadVariable(l.logger, entry, enginectx); err != nil {
+				return err
+			}
+		} else if entry.APICall != nil && store.IsApiCallAllowed() {
+			if err := loadAPIData(ctx, l.logger, entry, enginectx, l.client); err != nil {
+				return err
+			}
+		}
+	}
+	if rule != nil && len(rule.ForEachValues) > 0 {
+		for key, value := range rule.ForEachValues {
+			if err := enginectx.AddVariable(key, value[store.GetForeachElement()]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func SafeLoadContext(ctx context.Context, factory ContextLoaderFactory, contextEntries []kyvernov1.ContextEntry, pContext *PolicyContext, ruleName string) error {
+	return factory(pContext, ruleName).Load(ctx, contextEntries, pContext.JSONContext())
 }
 
 // // LoadContext - Fetches and adds external data to the Context.

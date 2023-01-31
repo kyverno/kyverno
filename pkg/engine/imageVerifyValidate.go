@@ -35,7 +35,7 @@ func processImageValidationRule(
 	if len(matchingImages) == 0 {
 		return ruleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusSkip)
 	}
-	if err := SafeLoadContext(ctx, contextLoader, rule.Context, enginectx); err != nil {
+	if err := SafeLoadContext(ctx, contextLoader, rule.Context, enginectx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
