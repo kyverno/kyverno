@@ -26,7 +26,7 @@ jobs:
         id: checksecret
         uses: ./.github/actions/is-defined
         with:
-          value: ${{ secrets.SCORECARD_READ_TOKEN }}
+          value: ${{ secrets.SCORECARD_TOKEN }}
       - name: Setup build env
         if: steps.checksecret.outputs.result == 'true'
         uses: ./.github/actions/setup-build-env
@@ -36,7 +36,7 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          repo_token: ${{ secrets.SCORECARD_READ_TOKEN }}
+          repo_token: ${{ secrets.SCORECARD_TOKEN }}
           publish_results: true
       - name: Upload artifact
         if: steps.checksecret.outputs.result == 'true'
