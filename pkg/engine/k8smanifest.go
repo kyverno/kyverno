@@ -19,7 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/pkg/errors"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"go.uber.org/multierr"
@@ -35,7 +35,7 @@ const (
 //go:embed resources/default-config.yaml
 var defaultConfigBytes []byte
 
-func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+func processYAMLValidationRule(log logr.Logger, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *engineapi.RuleResponse {
 	if isDeleteRequest(ctx) {
 		return nil
 	}
@@ -43,22 +43,22 @@ func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvern
 	return ruleResp
 }
 
-func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *response.RuleResponse {
+func handleVerifyManifest(ctx engineapi.PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *engineapi.RuleResponse {
 	verified, reason, err := verifyManifest(ctx, *rule.Validation.Manifests, logger)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
-		return ruleError(rule, response.Validation, "error occurred during manifest verification", err)
+		return ruleError(rule, engineapi.Validation, "error occurred during manifest verification", err)
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {
-		return ruleResponse(*rule, response.Validation, reason, response.RuleStatusFail)
+		return ruleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusFail)
 	}
-	return ruleResponse(*rule, response.Validation, reason, response.RuleStatusPass)
+	return ruleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusPass)
 }
 
-func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
+func verifyManifest(policyContext engineapi.PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
 	// load AdmissionRequest
-	request, err := policyContext.jsonContext.Query("request")
+	request, err := policyContext.JSONContext().Query("request")
 	if err != nil {
 		return false, "", errors.Wrapf(err, "failed to get a request from policyContext")
 	}
@@ -106,7 +106,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 	}
 	if !vo.DisableDryRun {
 		// check if kyverno can 'create' dryrun resource
-		ok, err := checkDryRunPermission(policyContext.client, adreq.Kind.Kind, vo.DryRunNamespace)
+		ok, err := checkDryRunPermission(policyContext.Client(), adreq.Kind.Kind, vo.DryRunNamespace)
 		if err != nil {
 			logger.V(1).Info("failed to check permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind, "error", err.Error())
 			vo.DisableDryRun = true
