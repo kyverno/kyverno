@@ -25,7 +25,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -43,7 +42,7 @@ type GenerateController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	statusControl common.StatusControlInterface
-	rclient       registryclient.Client
+	contextLoader engine.ContextLoaderFactory
 
 	// listers
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
@@ -63,7 +62,7 @@ func NewGenerateController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	statusControl common.StatusControlInterface,
-	rclient registryclient.Client,
+	contextLoader engine.ContextLoaderFactory,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
@@ -75,9 +74,9 @@ func NewGenerateController(
 ) *GenerateController {
 	c := GenerateController{
 		client:                 client,
+		contextLoader:          contextLoader,
 		kyvernoClient:          kyvernoClient,
 		statusControl:          statusControl,
-		rclient:                rclient,
 		policyLister:           policyLister,
 		npolicyLister:          npolicyLister,
 		urLister:               urLister,
@@ -201,7 +200,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := engine.GenerateResponse(c.rclient, policyContext, ur)
+	engineResponse := engine.GenerateResponse(c.contextLoader, policyContext, ur)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
 		return nil, false, errors.New(doesNotApply)
@@ -347,7 +346,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		// add configmap json data to context
-		if err := engine.LoadContext(context.TODO(), log, c.rclient, rule.Context, policyContext, rule.Name); err != nil {
+		if err := engine.LoadContext(context.TODO(), c.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
 			log.Error(err, "cannot add configmaps to context")
 			return nil, processExisting, err
 		}
@@ -829,9 +828,10 @@ func (c *GenerateController) ApplyResource(resource *unstructured.Unstructured) 
 }
 
 // NewGenerateControllerWithOnlyClient returns an instance of Controller with only the client.
-func NewGenerateControllerWithOnlyClient(client dclient.Interface) *GenerateController {
+func NewGenerateControllerWithOnlyClient(client dclient.Interface, contextLoader engine.ContextLoaderFactory) *GenerateController {
 	c := GenerateController{
-		client: client,
+		client:        client,
+		contextLoader: contextLoader,
 	}
 	return &c
 }
