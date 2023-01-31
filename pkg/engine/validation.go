@@ -35,8 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// Validate applies validation rules from policy on the resource
-func Validate(
+func doValidate(
 	ctx context.Context,
 	contextLoader engineapi.ContextLoaderFactory,
 	policyContext engineapi.PolicyContext,
