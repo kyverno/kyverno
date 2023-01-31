@@ -24,3 +24,16 @@ backgroundController:
         resources:
         - configmaps
         - secrets
+        - roles
+        - rolebindings
+        - limitranges
+        - namespaces
+        - nodes
+        - nodes/status
+        verbs:
+        - create
+        - update
+        - patch
+        - delete
+        - get
+        - list
