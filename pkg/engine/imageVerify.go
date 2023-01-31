@@ -47,7 +47,7 @@ func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule *ky
 	return imageInfos, strings.Join(imageRefs, ",")
 }
 
-func extractMatchingImages(policyContext *PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) ([]apiutils.ImageInfo, string, error) {
+func extractMatchingImages(policyContext engineapi.PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) ([]apiutils.ImageInfo, string, error) {
 	var (
 		images map[string]map[string]apiutils.ImageInfo
 		err    error

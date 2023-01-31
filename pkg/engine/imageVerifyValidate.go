@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func processImageValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx *PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) *engineapi.RuleResponse {
+func processImageValidationRule(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx engineapi.PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) *engineapi.RuleResponse {
 	if isDeleteRequest(enginectx) {
 		return nil
 	}

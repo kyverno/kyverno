@@ -12,12 +12,12 @@ import (
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
-func GenerateResponse(rclient registryclient.Client, policyContext *PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *engineapi.EngineResponse) {
+func GenerateResponse(rclient registryclient.Client, policyContext engineapi.PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
 	return filterGenerateRules(rclient, policyContext, gr.Spec.Policy, policyStartTime)
 }
 
-func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyContext, policyNameKey string, startTime time.Time) *engineapi.EngineResponse {
+func filterGenerateRules(rclient registryclient.Client, policyContext engineapi.PolicyContext, policyNameKey string, startTime time.Time) *engineapi.EngineResponse {
 	kind := policyContext.newResource.GetKind()
 	name := policyContext.newResource.GetName()
 	namespace := policyContext.newResource.GetNamespace()

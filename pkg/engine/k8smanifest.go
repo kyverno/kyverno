@@ -35,7 +35,7 @@ const (
 //go:embed resources/default-config.yaml
 var defaultConfigBytes []byte
 
-func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *engineapi.RuleResponse {
+func processYAMLValidationRule(log logr.Logger, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *engineapi.RuleResponse {
 	if isDeleteRequest(ctx) {
 		return nil
 	}
@@ -43,7 +43,7 @@ func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvern
 	return ruleResp
 }
 
-func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *engineapi.RuleResponse {
+func handleVerifyManifest(ctx engineapi.PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *engineapi.RuleResponse {
 	verified, reason, err := verifyManifest(ctx, *rule.Validation.Manifests, logger)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
@@ -56,7 +56,7 @@ func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.
 	return ruleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusPass)
 }
 
-func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
+func verifyManifest(policyContext engineapi.PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
 	// load AdmissionRequest
 	request, err := policyContext.jsonContext.Query("request")
 	if err != nil {

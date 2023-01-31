@@ -18,12 +18,12 @@ import (
 //   - the caller has to check the ruleResponse to determine whether the path exist
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func ApplyBackgroundChecks(rclient registryclient.Client, policyContext *PolicyContext) (resp *engineapi.EngineResponse) {
+func ApplyBackgroundChecks(rclient registryclient.Client, policyContext engineapi.PolicyContext) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
 	return filterRules(rclient, policyContext, policyStartTime)
 }
 
-func filterRules(rclient registryclient.Client, policyContext *PolicyContext, startTime time.Time) *engineapi.EngineResponse {
+func filterRules(rclient registryclient.Client, policyContext engineapi.PolicyContext, startTime time.Time) *engineapi.EngineResponse {
 	kind := policyContext.newResource.GetKind()
 	name := policyContext.newResource.GetName()
 	namespace := policyContext.newResource.GetNamespace()
@@ -66,7 +66,7 @@ func filterRules(rclient registryclient.Client, policyContext *PolicyContext, st
 	return resp
 }
 
-func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContext *PolicyContext) *engineapi.RuleResponse {
+func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContext engineapi.PolicyContext) *engineapi.RuleResponse {
 	if !rule.HasGenerate() && !rule.IsMutateExisting() {
 		return nil
 	}
@@ -119,8 +119,8 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 		return nil
 	}
 
-	policyContext.jsonContext.Checkpoint()
-	defer policyContext.jsonContext.Restore()
+	policyContext.Checkpoint()
+	defer policyContext.Restore()
 
 	if err := LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
