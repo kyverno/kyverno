@@ -77,10 +77,7 @@ type PolicyContext struct {
 	// subresourcesInPolicy represents the APIResources that are subresources along with their parent resource.
 	// This is used to determine if a resource is a subresource. It is only used when the policy context is populated
 	// by kyverno CLI. In all other cases when connected to a cluster, this is empty.
-	subresourcesInPolicy []struct {
-		APIResource    metav1.APIResource
-		ParentResource metav1.APIResource
-	}
+	subresourcesInPolicy []engineapi.SubResource
 
 	// peLister list all policy exceptions
 	peLister PolicyExceptionLister
@@ -231,11 +228,7 @@ func (c *PolicyContext) WithSubresource(subresource string) *PolicyContext {
 	return copy
 }
 
-func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []struct {
-	APIResource    metav1.APIResource
-	ParentResource metav1.APIResource
-},
-) *PolicyContext {
+func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []engineapi.SubResource) *PolicyContext {
 	copy := c.Copy()
 	copy.subresourcesInPolicy = subresourcesInPolicy
 	return copy

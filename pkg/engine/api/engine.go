@@ -10,11 +10,18 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // ExcludeFunc is a function used to determine if a resource is excluded
 type ExcludeFunc = func(kind, namespace, name string) bool
+
+type SubResource struct {
+	APIResource    metav1.APIResource
+	ParentResource metav1.APIResource
+}
 
 type PolicyContext interface {
 	Policy() kyvernov1.PolicyInterface
@@ -30,10 +37,13 @@ type PolicyContext interface {
 	SubResource() string
 	ExcludeResourceFunc() ExcludeFunc
 	ExcludeGroupRole() []string
-
-	Checkpoint()
-	Restore()
-	Reset()
+	Copy() PolicyContext
+	SubresourcesInPolicy() []SubResource
+	ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error)
+	AdmissionOperation() bool
+	RequestResource() metav1.GroupVersionResource
+	Element() unstructured.Unstructured
+	SetElement(element unstructured.Unstructured)
 }
 
 type Engine interface {

@@ -105,8 +105,8 @@ func buildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 func validateResource(ctx context.Context, log logr.Logger, rclient registryclient.Client, enginectx engineapi.PolicyContext, cfg config.Configuration) *engineapi.EngineResponse {
 	resp := &engineapi.EngineResponse{}
 
-	enginectx.Checkpoint()
-	defer enginectx.Restore()
+	enginectx.JSONContext().Checkpoint()
+	defer enginectx.JSONContext().Restore()
 
 	rules := autogen.ComputeRules(enginectx.Policy())
 	matchCount := 0
@@ -125,7 +125,7 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 	for i := range rules {
 		rule := &rules[i]
 		log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
-		enginectx.Reset()
+		enginectx.JSONContext().Reset()
 		startTime := time.Now()
 		ruleResp := tracing.ChildSpan1(
 			ctx,
@@ -151,7 +151,7 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 					return ruleResp
 				}
 				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
-				enginectx.Reset()
+				enginectx.JSONContext().Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
 					return processValidationRule(ctx, log, rclient, enginectx, rule)
 				} else if hasValidateImage {
@@ -318,8 +318,8 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 }
 
 func (v *validator) validateElements(ctx context.Context, rclient registryclient.Client, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*engineapi.RuleResponse, int) {
-	v.policyContext.Checkpoint()
-	defer v.policyContext.Restore()
+	v.policyContext.JSONContext().Checkpoint()
+	defer v.policyContext.JSONContext().Restore()
 	applyCount := 0
 
 	for index, element := range elements {
@@ -389,11 +389,10 @@ func addElementToContext(ctx engineapi.PolicyContext, element interface{}, index
 		}
 		scoped = *elementScope
 	}
-
 	if scoped {
 		u := unstructured.Unstructured{}
 		u.SetUnstructuredContent(dataMap)
-		ctx.element = u
+		ctx.SetElement(u)
 	}
 	return nil
 }
@@ -543,8 +542,9 @@ func (v *validator) validatePodSecurity() *engineapi.RuleResponse {
 }
 
 func (v *validator) validateResourceWithRule() *engineapi.RuleResponse {
-	if !isEmptyUnstructured(&v.policyContext.element) {
-		return v.validatePatterns(v.policyContext.element)
+	element := v.policyContext.Element()
+	if !isEmptyUnstructured(&element) {
+		return v.validatePatterns(element)
 	}
 	if isDeleteRequest(v.policyContext) {
 		v.log.V(3).Info("skipping validation on deleted resource")

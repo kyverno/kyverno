@@ -52,10 +52,10 @@ func extractMatchingImages(policyContext engineapi.PolicyContext, rule *kyvernov
 		images map[string]map[string]apiutils.ImageInfo
 		err    error
 	)
-	images = policyContext.jsonContext.ImageInfo()
+	newResource := policyContext.NewResource()
+	images = policyContext.JSONContext().ImageInfo()
 	if rule.ImageExtractors != nil {
-		images, err = policyContext.jsonContext.GenerateCustomImageInfo(
-			&policyContext.newResource, rule.ImageExtractors, cfg)
+		images, err = policyContext.JSONContext().GenerateCustomImageInfo(&newResource, rule.ImageExtractors, cfg)
 		if err != nil {
 			// if we get an error while generating custom images from image extractors,
 			// don't check for matching images in imageExtractors
@@ -69,13 +69,13 @@ func extractMatchingImages(policyContext engineapi.PolicyContext, rule *kyvernov
 func VerifyAndPatchImages(
 	ctx context.Context,
 	rclient registryclient.Client,
-	policyContext *PolicyContext,
+	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
 ) (*engineapi.EngineResponse, *ImageVerificationMetadata) {
 	resp := &engineapi.EngineResponse{}
 
-	policy := policyContext.policy
-	patchedResource := policyContext.newResource
+	policy := policyContext.Policy()
+	patchedResource := policyContext.NewResource()
 	logger := logging.WithName("EngineVerifyImages").WithValues("policy", policy.GetName(),
 		"kind", patchedResource.GetKind(), "namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
@@ -87,11 +87,11 @@ func VerifyAndPatchImages(
 			"applied", resp.PolicyResponse.RulesAppliedCount, "successful", resp.IsSuccessful())
 	}()
 
-	policyContext.jsonContext.Checkpoint()
-	defer policyContext.jsonContext.Restore()
+	policyContext.JSONContext().Checkpoint()
+	defer policyContext.JSONContext().Restore()
 
 	ivm := &ImageVerificationMetadata{}
-	rules := autogen.ComputeRules(policyContext.policy)
+	rules := autogen.ComputeRules(policyContext.Policy())
 	applyRules := policy.GetSpec().GetApplyRules()
 
 	for i := range rules {
@@ -137,13 +137,13 @@ func VerifyAndPatchImages(
 					return
 				}
 
-				policyContext.jsonContext.Restore()
+				policyContext.JSONContext().Restore()
 				if err := LoadContext(ctx, logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 					appendResponse(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), engineapi.RuleStatusError)
 					return
 				}
 
-				ruleCopy, err := substituteVariables(rule, policyContext.jsonContext, logger)
+				ruleCopy, err := substituteVariables(rule, policyContext.JSONContext(), logger)
 				if err != nil {
 					appendResponse(resp, rule, fmt.Sprintf("failed to substitute variables: %s", err.Error()), engineapi.RuleStatusError)
 					return
@@ -202,7 +202,7 @@ func substituteVariables(rule *kyvernov1.Rule, ctx enginecontext.EvalInterface, 
 type imageVerifier struct {
 	logger        logr.Logger
 	rclient       registryclient.Client
-	policyContext *PolicyContext
+	policyContext engineapi.PolicyContext
 	rule          *kyvernov1.Rule
 	resp          *engineapi.EngineResponse
 	ivm           *ImageVerificationMetadata
@@ -227,13 +227,13 @@ func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.Image
 		}
 
 		pointer := jsonpointer.ParsePath(imageInfo.Pointer).JMESPath()
-		changed, err := iv.policyContext.jsonContext.HasChanged(pointer)
+		changed, err := iv.policyContext.JSONContext().HasChanged(pointer)
 		if err == nil && !changed {
 			iv.logger.V(4).Info("no change in image, skipping check", "image", image)
 			continue
 		}
 
-		verified, err := isImageVerified(iv.policyContext.newResource, image, iv.logger)
+		verified, err := isImageVerified(iv.policyContext.NewResource(), image, iv.logger)
 		if err == nil && verified {
 			iv.logger.Info("image was previously verified, skipping check", "image", image)
 			continue
@@ -291,15 +291,17 @@ func (iv *imageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 	return patch, digest, nil
 }
 
-func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, log logr.Logger) bool {
-	if reflect.DeepEqual(ctx.newResource, unstructured.Unstructured{}) ||
-		reflect.DeepEqual(ctx.oldResource, unstructured.Unstructured{}) {
+func hasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Logger) bool {
+	newResource := ctx.NewResource()
+	oldResource := ctx.OldResource()
+	if reflect.DeepEqual(newResource, unstructured.Unstructured{}) ||
+		reflect.DeepEqual(oldResource, unstructured.Unstructured{}) {
 		return false
 	}
 
 	key := imageVerifyAnnotationKey
-	newValue := ctx.newResource.GetAnnotations()[key]
-	oldValue := ctx.oldResource.GetAnnotations()[key]
+	newValue := newResource.GetAnnotations()[key]
+	oldValue := oldResource.GetAnnotations()[key]
 	result := newValue != oldValue
 	if result {
 		log.V(2).Info("annotation mismatch", "oldValue", oldValue, "newValue", newValue, "key", key)
@@ -332,7 +334,7 @@ func (iv *imageVerifier) verifyImage(
 	iv.logger.V(2).Info("verifying image signatures", "image", image,
 		"attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
-	if err := iv.policyContext.jsonContext.AddImageInfo(imageInfo, cfg); err != nil {
+	if err := iv.policyContext.JSONContext().AddImageInfo(imageInfo, cfg); err != nil {
 		iv.logger.Error(err, "failed to add image to context")
 		msg := fmt.Sprintf("failed to add image to context %s: %s", image, err.Error())
 		return ruleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusError), ""
@@ -697,10 +699,10 @@ func (iv *imageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string
 		return true, nil
 	}
 
-	iv.policyContext.jsonContext.Checkpoint()
-	defer iv.policyContext.jsonContext.Restore()
+	iv.policyContext.JSONContext().Checkpoint()
+	defer iv.policyContext.JSONContext().Restore()
 
-	return evaluateConditions(a.Conditions, iv.policyContext.jsonContext, s, iv.logger)
+	return evaluateConditions(a.Conditions, iv.policyContext.JSONContext(), s, iv.logger)
 }
 
 func evaluateConditions(

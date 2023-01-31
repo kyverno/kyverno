@@ -293,7 +293,7 @@ func fetchConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.Con
 		namespace = "default"
 	}
 
-	obj, err := enginectx.informerCacheResolvers.Get(ctx, namespace.(string), name.(string))
+	obj, err := enginectx.ResolveConfigMap(ctx, namespace.(string), name.(string))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespace, name, err)
 	}

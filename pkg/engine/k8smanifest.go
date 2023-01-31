@@ -58,7 +58,7 @@ func handleVerifyManifest(ctx engineapi.PolicyContext, rule *kyvernov1.Rule, log
 
 func verifyManifest(policyContext engineapi.PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
 	// load AdmissionRequest
-	request, err := policyContext.jsonContext.Query("request")
+	request, err := policyContext.JSONContext().Query("request")
 	if err != nil {
 		return false, "", errors.Wrapf(err, "failed to get a request from policyContext")
 	}
@@ -106,7 +106,7 @@ func verifyManifest(policyContext engineapi.PolicyContext, verifyRule kyvernov1.
 	}
 	if !vo.DisableDryRun {
 		// check if kyverno can 'create' dryrun resource
-		ok, err := checkDryRunPermission(policyContext.client, adreq.Kind.Kind, vo.DryRunNamespace)
+		ok, err := checkDryRunPermission(policyContext.Client(), adreq.Kind.Kind, vo.DryRunNamespace)
 		if err != nil {
 			logger.V(1).Info("failed to check permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind, "error", err.Error())
 			vo.DisableDryRun = true

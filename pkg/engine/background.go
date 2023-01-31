@@ -24,15 +24,17 @@ func ApplyBackgroundChecks(rclient registryclient.Client, policyContext engineap
 }
 
 func filterRules(rclient registryclient.Client, policyContext engineapi.PolicyContext, startTime time.Time) *engineapi.EngineResponse {
-	kind := policyContext.newResource.GetKind()
-	name := policyContext.newResource.GetName()
-	namespace := policyContext.newResource.GetNamespace()
-	apiVersion := policyContext.newResource.GetAPIVersion()
+	newResource := policyContext.NewResource()
+	policy := policyContext.Policy()
+	kind := newResource.GetKind()
+	name := newResource.GetName()
+	namespace := newResource.GetNamespace()
+	apiVersion := newResource.GetAPIVersion()
 	resp := &engineapi.EngineResponse{
 		PolicyResponse: engineapi.PolicyResponse{
 			Policy: engineapi.PolicySpec{
-				Name:      policyContext.policy.GetName(),
-				Namespace: policyContext.policy.GetNamespace(),
+				Name:      policy.GetName(),
+				Namespace: policy.GetNamespace(),
 			},
 			PolicyStats: engineapi.PolicyStats{
 				ExecutionStats: engineapi.ExecutionStats{
@@ -48,13 +50,13 @@ func filterRules(rclient registryclient.Client, policyContext engineapi.PolicyCo
 		},
 	}
 
-	if policyContext.excludeResourceFunc(kind, namespace, name) {
+	if policyContext.ExcludeResourceFunc()(kind, namespace, name) {
 		logging.WithName("ApplyBackgroundChecks").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
 		return resp
 	}
 
-	applyRules := policyContext.policy.GetSpec().GetApplyRules()
-	for _, rule := range autogen.ComputeRules(policyContext.policy) {
+	applyRules := policy.GetSpec().GetApplyRules()
+	for _, rule := range autogen.ComputeRules(policy) {
 		if ruleResp := filterRule(rclient, rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
@@ -89,21 +91,21 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 
 	startTime := time.Now()
 
-	policy := policyContext.policy
-	newResource := policyContext.newResource
-	oldResource := policyContext.oldResource
-	admissionInfo := policyContext.admissionInfo
-	ctx := policyContext.jsonContext
-	excludeGroupRole := policyContext.excludeGroupRole
-	namespaceLabels := policyContext.namespaceLabels
+	policy := policyContext.Policy()
+	newResource := policyContext.NewResource()
+	oldResource := policyContext.OldResource()
+	admissionInfo := policyContext.AdmissionInfo()
+	ctx := policyContext.JSONContext()
+	excludeGroupRole := policyContext.ExcludeGroupRole()
+	namespaceLabels := policyContext.NamespaceLabels()
 
 	logger = logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
-	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err != nil {
+	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err != nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err == nil {
+			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err == nil {
 				return &engineapi.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,
@@ -119,8 +121,8 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 		return nil
 	}
 
-	policyContext.Checkpoint()
-	defer policyContext.Restore()
+	policyContext.JSONContext().Checkpoint()
+	defer policyContext.JSONContext().Restore()
 
 	if err := LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
