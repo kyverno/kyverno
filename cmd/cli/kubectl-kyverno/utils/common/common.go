@@ -461,10 +461,7 @@ OuterLoop:
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
-	subresources := make([]struct {
-		APIResource    metav1.APIResource
-		ParentResource metav1.APIResource
-	}, 0)
+	subresources := make([]engineapi.SubResource, 0)
 
 	// If --cluster flag is not set, then we need to add subresources to the context
 	if c.Client == nil {

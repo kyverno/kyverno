@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"context"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
@@ -12,6 +14,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -83,7 +86,7 @@ type PolicyContext struct {
 	peLister PolicyExceptionLister
 }
 
-// Getters
+// engineapi.PolicyContext interface
 
 func (c *PolicyContext) Policy() kyvernov1.PolicyInterface {
 	return c.policy
@@ -101,10 +104,6 @@ func (c *PolicyContext) AdmissionInfo() kyvernov1beta1.RequestInfo {
 	return c.admissionInfo
 }
 
-func (c *PolicyContext) JSONContext() enginectx.Interface {
-	return c.jsonContext
-}
-
 func (c *PolicyContext) NamespaceLabels() map[string]string {
 	return c.namespaceLabels
 }
@@ -113,12 +112,40 @@ func (c *PolicyContext) SubResource() string {
 	return c.subresource
 }
 
-func (c *PolicyContext) ExcludeResourceFunc() engineapi.ExcludeFunc {
-	return c.excludeResourceFunc
+func (c *PolicyContext) SubresourcesInPolicy() []engineapi.SubResource {
+	return c.subresourcesInPolicy
 }
 
 func (c *PolicyContext) ExcludeGroupRole() []string {
 	return c.excludeGroupRole
+}
+
+func (c *PolicyContext) AdmissionOperation() bool {
+	return c.admissionOperation
+}
+
+func (c *PolicyContext) RequestResource() metav1.GroupVersionResource {
+	return c.requestResource
+}
+
+func (c *PolicyContext) Element() unstructured.Unstructured {
+	return c.element
+}
+
+func (c *PolicyContext) SetElement(element unstructured.Unstructured) {
+	c.element = element
+}
+
+func (c *PolicyContext) JSONContext() enginectx.Interface {
+	return c.jsonContext
+}
+
+func (c *PolicyContext) Client() dclient.Interface {
+	return c.client
+}
+
+func (c PolicyContext) Copy() engineapi.PolicyContext {
+	return c.copy()
 }
 
 func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error) {
@@ -142,44 +169,48 @@ func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyEx
 	return result, nil
 }
 
-func (c *PolicyContext) Client() dclient.Interface {
-	return c.client
+func (c *PolicyContext) ExcludeResourceFunc() engineapi.ExcludeFunc {
+	return c.excludeResourceFunc
+}
+
+func (c *PolicyContext) ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error) {
+	return c.informerCacheResolvers.Get(ctx, namespace, name)
 }
 
 // Mutators
 
 func (c *PolicyContext) WithPolicy(policy kyvernov1.PolicyInterface) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.policy = policy
 	return copy
 }
 
 func (c *PolicyContext) WithNamespaceLabels(namespaceLabels map[string]string) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.namespaceLabels = namespaceLabels
 	return copy
 }
 
 func (c *PolicyContext) WithAdmissionInfo(admissionInfo kyvernov1beta1.RequestInfo) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.admissionInfo = admissionInfo
 	return copy
 }
 
 func (c *PolicyContext) WithRequestResource(requestResource metav1.GroupVersionResource) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.requestResource = requestResource
 	return copy
 }
 
 func (c *PolicyContext) WithNewResource(resource unstructured.Unstructured) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.newResource = resource
 	return copy
 }
 
 func (c *PolicyContext) WithOldResource(resource unstructured.Unstructured) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.oldResource = resource
 	return copy
 }
@@ -189,19 +220,19 @@ func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, old
 }
 
 func (c *PolicyContext) WithClient(client dclient.Interface) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.client = client
 	return copy
 }
 
 func (c *PolicyContext) WithExcludeGroupRole(excludeGroupRole ...string) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.excludeGroupRole = excludeGroupRole
 	return copy
 }
 
 func (c *PolicyContext) WithExcludeResourceFunc(excludeResourceFunc engineapi.ExcludeFunc) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.excludeResourceFunc = excludeResourceFunc
 	return copy
 }
@@ -211,33 +242,37 @@ func (c *PolicyContext) WithConfiguration(configuration config.Configuration) *P
 }
 
 func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.admissionOperation = admissionOperation
 	return copy
 }
 
 func (c *PolicyContext) WithInformerCacheResolver(informerCacheResolver resolvers.ConfigmapResolver) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.informerCacheResolvers = informerCacheResolver
 	return copy
 }
 
 func (c *PolicyContext) WithSubresource(subresource string) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.subresource = subresource
 	return copy
 }
 
 func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []engineapi.SubResource) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.subresourcesInPolicy = subresourcesInPolicy
 	return copy
 }
 
 func (c *PolicyContext) WithExceptions(peLister PolicyExceptionLister) *PolicyContext {
-	copy := c.Copy()
+	copy := c.copy()
 	copy.peLister = peLister
 	return copy
+}
+
+func (c PolicyContext) copy() *PolicyContext {
+	return &c
 }
 
 // Constructors
@@ -287,10 +322,6 @@ func NewPolicyContextFromAdmissionRequest(
 		WithSubresource(request.SubResource).
 		WithExceptions(polexLister)
 	return policyContext, nil
-}
-
-func (c PolicyContext) Copy() *PolicyContext {
-	return &c
 }
 
 func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyvernov1beta1.RequestInfo) (enginectx.Interface, error) {

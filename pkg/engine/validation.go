@@ -60,10 +60,12 @@ func Validate(
 
 func buildLogger(ctx engineapi.PolicyContext) logr.Logger {
 	logger := logging.WithName("EngineValidate").WithValues("policy", ctx.Policy().GetName())
-	if reflect.DeepEqual(ctx.NewResource(), unstructured.Unstructured{}) {
-		logger = logger.WithValues("kind", ctx.OldResourcePtr().GetKind(), "namespace", ctx.OldResourcePtr().GetNamespace(), "name", ctx.OldResourcePtr().GetName())
+	newResource := ctx.NewResource()
+	oldResource := ctx.OldResource()
+	if reflect.DeepEqual(newResource, unstructured.Unstructured{}) {
+		logger = logger.WithValues("kind", oldResource.GetKind(), "namespace", oldResource.GetNamespace(), "name", oldResource.GetName())
 	} else {
-		logger = logger.WithValues("kind", ctx.NewResourcePtr().GetKind(), "namespace", ctx.NewResourcePtr().GetNamespace(), "name", ctx.NewResourcePtr().GetName())
+		logger = logger.WithValues("kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 	}
 
 	return logger
@@ -111,13 +113,15 @@ func validateResource(ctx context.Context, log logr.Logger, rclient registryclie
 	rules := autogen.ComputeRules(enginectx.Policy())
 	matchCount := 0
 	applyRules := enginectx.Policy().GetSpec().GetApplyRules()
+	newResource := enginectx.NewResource()
+	oldResource := enginectx.OldResource()
 
 	if enginectx.Policy().IsNamespaced() {
 		polNs := enginectx.Policy().GetNamespace()
-		if enginectx.NewResource().Object != nil && (enginectx.NewResourcePtr().GetNamespace() != polNs || enginectx.NewResourcePtr().GetNamespace() == "") {
+		if enginectx.NewResource().Object != nil && (newResource.GetNamespace() != polNs || newResource.GetNamespace() == "") {
 			return resp
 		}
-		if enginectx.OldResource().Object != nil && (enginectx.OldResourcePtr().GetNamespace() != polNs || enginectx.OldResourcePtr().GetNamespace() == "") {
+		if enginectx.OldResource().Object != nil && (oldResource.GetNamespace() != polNs || oldResource.GetNamespace() == "") {
 			return resp
 		}
 	}
@@ -456,12 +460,13 @@ func (v *validator) getDenyMessage(deny bool) string {
 }
 
 func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
-	kind := v.policyContext.NewResourcePtr().GetKind()
+	newResource := v.policyContext.NewResource()
+	kind := newResource.GetKind()
 
 	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
 		var deployment appsv1.Deployment
 
-		resourceBytes, err := v.policyContext.NewResourcePtr().MarshalJSON()
+		resourceBytes, err := newResource.MarshalJSON()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -475,7 +480,7 @@ func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta
 	} else if kind == "CronJob" {
 		var cronJob batchv1.CronJob
 
-		resourceBytes, err := v.policyContext.NewResourcePtr().MarshalJSON()
+		resourceBytes, err := newResource.MarshalJSON()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -488,7 +493,7 @@ func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta
 	} else if kind == "Pod" {
 		var pod corev1.Pod
 
-		resourceBytes, err := v.policyContext.NewResourcePtr().MarshalJSON()
+		resourceBytes, err := newResource.MarshalJSON()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -555,8 +560,9 @@ func (v *validator) validateResourceWithRule() *engineapi.RuleResponse {
 }
 
 func isDeleteRequest(ctx engineapi.PolicyContext) bool {
+	newResource := ctx.NewResource()
 	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
-	return isEmptyUnstructured(ctx.NewResourcePtr())
+	return isEmptyUnstructured(&newResource)
 }
 
 func isEmptyUnstructured(u *unstructured.Unstructured) bool {

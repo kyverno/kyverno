@@ -27,23 +27,23 @@ type PolicyContext interface {
 	Policy() kyvernov1.PolicyInterface
 	NewResource() unstructured.Unstructured
 	OldResource() unstructured.Unstructured
-	NewResourcePtr() *unstructured.Unstructured
-	OldResourcePtr() *unstructured.Unstructured
 	AdmissionInfo() kyvernov1beta1.RequestInfo
-	JSONContext() enginecontext.Interface
-	FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error)
-	Client() dclient.Interface
 	NamespaceLabels() map[string]string
 	SubResource() string
-	ExcludeResourceFunc() ExcludeFunc
-	ExcludeGroupRole() []string
-	Copy() PolicyContext
 	SubresourcesInPolicy() []SubResource
-	ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error)
+	ExcludeGroupRole() []string
 	AdmissionOperation() bool
 	RequestResource() metav1.GroupVersionResource
 	Element() unstructured.Unstructured
 	SetElement(element unstructured.Unstructured)
+
+	JSONContext() enginecontext.Interface
+	Client() dclient.Interface
+	Copy() PolicyContext
+
+	FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error)
+	ExcludeResourceFunc() ExcludeFunc
+	ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error)
 }
 
 type Engine interface {
