@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: ns.yaml
+- file: pod.yaml
+- file: configmap.yaml
+assert:
+- ns.yaml
+- pod.yaml
+- configmap.yaml
