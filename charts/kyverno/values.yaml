@@ -233,7 +233,6 @@ initContainer:
   # -- Extra arguments to give to the kyvernopre binary.
   extraArgs:
     - --loggingFormat=text
-    - --exceptionNamespace={{ include "kyverno.namespace" . }}
 
 # -- (int) Desired number of pods
 replicaCount: ~
