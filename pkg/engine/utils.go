@@ -17,7 +17,6 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -189,7 +188,7 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 
 	var reasonsForFailure []error
 	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {
-		return errors.New(" The policy and resource namespace are different. Therefore, policy skip this resource.")
+		return fmt.Errorf(" The policy and resource namespace are different. Therefore, policy skip this resource.")
 	}
 
 	if len(rule.MatchResources.Any) > 0 {
@@ -249,7 +248,7 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 	}
 
 	if len(reasonsForFailure) > 0 {
-		return errors.New(errorMessage)
+		return fmt.Errorf(errorMessage)
 	}
 
 	return nil
@@ -332,12 +331,12 @@ func CheckPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllC
 func checkPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
 	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.JSONContext(), anyAllConditions)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
+		return false, fmt.Errorf("failed to substitute variables in preconditions: %w", err)
 	}
 
 	typeConditions, err := utils.TransformConditions(preconditions)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to parse preconditions")
+		return false, fmt.Errorf("failed to parse preconditions: %w", err)
 	}
 
 	pass := variables.EvaluateConditions(logger, ctx.JSONContext(), typeConditions)
