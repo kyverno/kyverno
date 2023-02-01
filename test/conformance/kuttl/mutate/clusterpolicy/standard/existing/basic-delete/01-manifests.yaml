@@ -55,4 +55,3 @@ spec:
         patchStrategicMerge:
           metadata:
             labels:
-              foo: dictionary-2
