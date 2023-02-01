@@ -51,8 +51,8 @@ spec:
         - apiVersion: v1
           kind: Secret
           name: test-secret-2
-          namespace: "{{ request.object.metadata.namespace }}"
+          namespace: staging-2
         patchStrategicMerge:
           metadata:
             labels:
-              foo: "{{ request.object.metadata.name }}"
+              foo: dictionary-2
