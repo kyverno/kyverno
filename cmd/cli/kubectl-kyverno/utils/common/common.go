@@ -461,10 +461,7 @@ OuterLoop:
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
-	subresources := make([]struct {
-		APIResource    metav1.APIResource
-		ParentResource metav1.APIResource
-	}, 0)
+	subresources := make([]engineapi.SubResource, 0)
 
 	// If --cluster flag is not set, then we need to add subresources to the context
 	if c.Client == nil {
@@ -486,7 +483,11 @@ OuterLoop:
 		WithClient(c.Client).
 		WithSubresourcesInPolicy(subresources)
 
-	mutateResponse := engine.Mutate(context.Background(), registryclient.NewOrDie(), policyContext)
+	mutateResponse := engine.Mutate(
+		context.Background(),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+		policyContext,
+	)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -510,7 +511,12 @@ OuterLoop:
 	var info Info
 	var validateResponse *engineapi.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.Validate(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
+		validateResponse = engine.Validate(
+			context.Background(),
+			engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+			policyContext,
+			cfg,
+		)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
@@ -518,7 +524,13 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := engine.VerifyAndPatchImages(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
+	verifyImageResponse, _ := engine.VerifyAndPatchImages(
+		context.Background(),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+		registryclient.NewOrDie(),
+		policyContext,
+		cfg,
+	)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
@@ -532,7 +544,10 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		generateResponse := engine.ApplyBackgroundChecks(registryclient.NewOrDie(), policyContext)
+		generateResponse := engine.ApplyBackgroundChecks(
+			engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+			policyContext,
+		)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
@@ -1065,7 +1080,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	}
 
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	c := generate.NewGenerateControllerWithOnlyClient(client)
+	c := generate.NewGenerateControllerWithOnlyClient(client, engine.LegacyContextLoaderFactory(nil))
 	return c, nil
 }
 

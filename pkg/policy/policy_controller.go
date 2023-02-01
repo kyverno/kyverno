@@ -25,9 +25,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -58,7 +56,7 @@ const (
 type PolicyController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	rclient       registryclient.Client
+	contextLoader engine.ContextLoaderFactory
 
 	pInformer  kyvernov1informers.ClusterPolicyInformer
 	npInformer kyvernov1informers.PolicyInformer
@@ -99,7 +97,7 @@ type PolicyController struct {
 func NewPolicyController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
-	rclient registryclient.Client,
+	contextLoader engine.ContextLoaderFactory,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
@@ -120,7 +118,7 @@ func NewPolicyController(
 	pc := PolicyController{
 		client:                 client,
 		kyvernoClient:          kyvernoClient,
-		rclient:                rclient,
+		contextLoader:          contextLoader,
 		pInformer:              pInformer,
 		npInformer:             npInformer,
 		eventGen:               eventGen,
@@ -511,10 +509,10 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
 	policyContext, _, err := backgroundcommon.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, pc.informerCacheResolvers, nil, pc.log)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to build policy context for rule %s", rule.Name)
+		return false, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err)
 	}
 
-	engineResponse := engine.ApplyBackgroundChecks(pc.rclient, policyContext)
+	engineResponse := engine.ApplyBackgroundChecks(pc.contextLoader, policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		return true, nil
 	}

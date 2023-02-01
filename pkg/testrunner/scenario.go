@@ -147,7 +147,11 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 
 	policyContext := engine.NewPolicyContext().WithPolicy(policy).WithNewResource(*resource)
 
-	er := engine.Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := engine.Mutate(
+		context.TODO(),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+		policyContext,
+	)
 	t.Log("---Mutation---")
 	validateResource(t, er.PatchedResource, tc.Expected.Mutation.PatchedResource)
 	validateResponse(t, er.PolicyResponse, tc.Expected.Mutation.PolicyResponse)
@@ -160,7 +164,12 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	policyContext = policyContext.WithNewResource(*resource)
 
 	cfg := config.NewDefaultConfiguration()
-	er = engine.Validate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg)
+	er = engine.Validate(
+		context.TODO(),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+		policyContext,
+		cfg,
+	)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
 
@@ -176,7 +185,10 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		} else {
 			policyContext := policyContext.WithClient(client)
 
-			er = engine.ApplyBackgroundChecks(registryclient.NewOrDie(), policyContext)
+			er = engine.ApplyBackgroundChecks(
+				engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+				policyContext,
+			)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namespaces as resource
