@@ -2,12 +2,12 @@ package leaderelection
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -60,7 +60,7 @@ func New(log logr.Logger, name, namespace string, kubeClient kubernetes.Interfac
 		},
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error initializing resource lock: %s/%s", namespace, name)
+		return nil, fmt.Errorf("error initializing resource lock: %s/%s: %w", namespace, name, err)
 	}
 	e := &config{
 		name:       name,

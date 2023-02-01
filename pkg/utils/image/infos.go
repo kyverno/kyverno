@@ -6,7 +6,6 @@ import (
 
 	"github.com/distribution/distribution/reference"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -62,7 +61,7 @@ func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 	fullImageName := addDefaultRegistry(image, cfg)
 	ref, err := reference.Parse(fullImageName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "bad image: %s", fullImageName)
+		return nil, fmt.Errorf("bad image: %s: %w", fullImageName, err)
 	}
 
 	var registry, path, name, tag, digest string

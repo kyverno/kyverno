@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -23,7 +24,6 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -284,7 +284,7 @@ func (iv *imageVerifier) handleMutateDigest(ctx context.Context, digest string, 
 
 	patch, err := makeAddDigestPatch(imageInfo, digest)
 	if err != nil {
-		return nil, "", errors.Wrapf(err, "failed to create image digest patch")
+		return nil, "", fmt.Errorf("failed to create image digest patch: %w", err)
 	}
 
 	iv.logger.V(4).Info("adding digest patch", "image", imageInfo.String(), "patch", string(patch))
@@ -451,7 +451,7 @@ func (iv *imageVerifier) verifyAttestations(
 
 				attestationError = iv.verifyAttestation(cosignResp.Statements, attestation, imageInfo)
 				if attestationError != nil {
-					attestationError = errors.Wrapf(attestationError, entryPath+subPath)
+					attestationError = fmt.Errorf("%s: %w", entryPath+subPath, attestationError)
 					return ruleResponse(*iv.rule, engineapi.ImageVerify, attestationError.Error(), engineapi.RuleStatusFail), ""
 				}
 
@@ -498,7 +498,7 @@ func (iv *imageVerifier) verifyAttestorSet(
 		if a.Attestor != nil {
 			nestedAttestorSet, err := kyvernov1.AttestorSetUnmarshal(a.Attestor)
 			if err != nil {
-				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
+				entryError = fmt.Errorf("failed to unmarshal nested attestor %s: %w", attestorPath, err)
 			} else {
 				attestorPath += ".attestor"
 				cosignResp, entryError = iv.verifyAttestorSet(ctx, *nestedAttestorSet, imageVerify, imageInfo, attestorPath)
@@ -507,7 +507,7 @@ func (iv *imageVerifier) verifyAttestorSet(
 			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, nil)
 			cosignResp, entryError = cosign.VerifySignature(ctx, iv.rclient, *opts)
 			if entryError != nil {
-				entryError = errors.Wrapf(entryError, attestorPath+subPath)
+				entryError = fmt.Errorf("%s: %w", attestorPath+subPath, entryError)
 			}
 		}
 
@@ -667,7 +667,7 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]interface{}, 
 		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
 		val, err := iv.checkAttestations(attestation, s)
 		if err != nil {
-			return errors.Wrap(err, "failed to check attestations")
+			return fmt.Errorf("failed to check attestations: %w", err)
 		}
 
 		if !val {
@@ -718,12 +718,12 @@ func evaluateConditions(
 	}
 
 	if err := enginecontext.AddJSONObject(ctx, predicate); err != nil {
-		return false, errors.Wrapf(err, fmt.Sprintf("failed to add Statement to the context %v", s))
+		return false, fmt.Errorf("failed to add Statement to the context %v: %w", s, err)
 	}
 
 	c, err := variables.SubstituteAllInConditions(log, ctx, conditions)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to substitute variables in attestation conditions")
+		return false, fmt.Errorf("failed to substitute variables in attestation conditions: %w", err)
 	}
 
 	pass := variables.EvaluateAnyAllConditions(log, ctx, c)

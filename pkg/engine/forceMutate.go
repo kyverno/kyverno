@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -60,7 +59,7 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 		if fe.ForEachMutation != nil {
 			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](fe.ForEachMutation)
 			if err != nil {
-				return patchedResource, errors.Wrapf(err, "failed to deserialize foreach")
+				return patchedResource, fmt.Errorf("failed to deserialize foreach: %w", err)
 			}
 
 			return applyForEachMutate(name, nestedForEach, patchedResource, ctx, logger)
