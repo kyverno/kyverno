@@ -330,7 +330,7 @@ func CheckPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllC
 }
 
 func checkPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
-	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.jsonContext, anyAllConditions)
+	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.JSONContext(), anyAllConditions)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
 	}

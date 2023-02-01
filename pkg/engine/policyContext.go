@@ -131,10 +131,6 @@ func (c *PolicyContext) Element() unstructured.Unstructured {
 	return c.element
 }
 
-func (c *PolicyContext) SetElement(element unstructured.Unstructured) {
-	c.element = element
-}
-
 func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
 }

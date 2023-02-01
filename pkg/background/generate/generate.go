@@ -26,7 +26,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
@@ -365,7 +364,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 					policyContext: policyContext,
 					log:           log,
 					client:        c.client,
-					rclient:       c.rclient,
+					contextLoader: c.contextLoader,
 					resource:      resource,
 					ur:            ur,
 					nesting:       0,
@@ -650,7 +649,7 @@ type forEachGenerator struct {
 	foreach       []kyvernov1.ForEachGeneration
 	nesting       int
 	client        dclient.Interface
-	rclient       registryclient.Client
+	contextLoader engine.ContextLoaderFactory
 	log           logr.Logger
 	resource      unstructured.Unstructured
 	ur            kyvernov1beta1.UpdateRequest
@@ -710,7 +709,7 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 			return newGenResources, err
 		}
 
-		if err := engine.LoadContext(ctx, f.log, f.rclient, foreach.Context, policyContext, f.rule.Name); err != nil {
+		if err := engine.LoadContext(ctx, f.contextLoader, foreach.Context, policyContext, f.rule.Name); err != nil {
 			return newGenResources, err
 		}
 
