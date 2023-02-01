@@ -1,13 +1,14 @@
 package utils
 
 import (
+	"fmt"
+
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/userinfo"
-	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
@@ -48,7 +49,7 @@ func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest) (*en
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
 	if roles, clusterRoles, err := userinfo.GetRoleRef(b.rbLister, b.crbLister, request, b.configuration); err != nil {
-		return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
+		return nil, fmt.Errorf("failed to fetch RBAC information for request: %w", err)
 	} else {
 		userRequestInfo.Roles = roles
 		userRequestInfo.ClusterRoles = clusterRoles

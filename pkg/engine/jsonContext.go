@@ -12,11 +12,10 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -283,10 +282,10 @@ func fetchImageDataMap(ctx context.Context, rclient registryclient.Client, ref s
 func loadAPIData(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, client dclient.Interface) error {
 	executor, err := apicall.New(ctx, entry, enginectx, client, logger)
 	if err != nil {
-		return errors.Wrapf(err, "failed to initialize APICall")
+		return fmt.Errorf("failed to initialize APICall: %w", err)
 	}
 	if _, err := executor.Execute(); err != nil {
-		return errors.Wrapf(err, "failed to execute APICall")
+		return fmt.Errorf("failed to execute APICall: %w", err)
 	}
 	return nil
 }

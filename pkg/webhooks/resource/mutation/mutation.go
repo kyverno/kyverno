@@ -18,7 +18,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
-	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -170,7 +169,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 	if policyContext.Policy().ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
 		err := h.openApiManager.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy().GetName())
+			return nil, nil, fmt.Errorf("failed to validate resource mutated by policy %s: %w", policyContext.Policy().GetName(), err)
 		}
 	}
 
@@ -184,7 +183,7 @@ func logMutationResponse(patches [][]byte, engineResponses []*engineapi.EngineRe
 
 	// if any of the policies fails, print out the error
 	if !engineutils.IsResponseSuccessful(engineResponses) {
-		logger.Error(errors.New(webhookutils.GetErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
+		logger.Error(fmt.Errorf(webhookutils.GetErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
 	}
 }
 
