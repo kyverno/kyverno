@@ -16,10 +16,12 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/utils"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -34,6 +36,7 @@ type MutateExistingController struct {
 	// listers
 	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
+	nsLister      corev1listers.NamespaceLister
 
 	configuration          config.Configuration
 	informerCacheResolvers engineapi.ConfigmapResolver
@@ -49,6 +52,7 @@ func NewMutateExistingController(
 	contextLoader engine.ContextLoaderFactory,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
+	nsLister corev1listers.NamespaceLister,
 	dynamicConfig config.Configuration,
 	informerCacheResolvers engineapi.ConfigmapResolver,
 	eventGen event.Interface,
@@ -60,6 +64,7 @@ func NewMutateExistingController(
 		contextLoader:          contextLoader,
 		policyLister:           policyLister,
 		npolicyLister:          npolicyLister,
+		nsLister:               nsLister,
 		configuration:          dynamicConfig,
 		informerCacheResolvers: informerCacheResolvers,
 		eventGen:               eventGen,
@@ -84,13 +89,14 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 
 		trigger, err := common.GetResource(c.client, ur.Spec, c.log)
-		if err != nil {
+		if err != nil || trigger == nil {
 			logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 			errs = append(errs, err)
 			continue
 		}
 
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, c.informerCacheResolvers, nil, logger)
+		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, c.informerCacheResolvers, namespaceLabels, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
