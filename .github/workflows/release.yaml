@@ -47,7 +47,7 @@ jobs:
       - name: Publish kyvernopre
         uses: ./.github/actions/publish-image
         with:
-          makefile-target: ko-publish-kyvernopre
+          makefile-target: ko-publish-kyverno-init
           registry: ghcr.io
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.CR_PAT }}
@@ -56,7 +56,7 @@ jobs:
           sbom-name: kyvernopre
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
-          main-path: ./cmd/initContainer
+          main-path: ./cmd/kyverno-init
       - name: Publish cleanup-controller
         uses: ./.github/actions/publish-image
         with:
@@ -165,7 +165,7 @@ jobs:
           make release-notes > release/release-notes.out
           cat release/release-notes.out
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@8f67e590f2d095516493f017008adc464e63adb1 # v4.1.0
+        uses: goreleaser/goreleaser-action@f82d6c1c344bcacabba2c841718984797f664a6b # v4.2.0
         with:
           version: latest
           args: release --rm-dist --debug --release-notes=release/release-notes.out

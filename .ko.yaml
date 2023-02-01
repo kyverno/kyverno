@@ -1,11 +1,11 @@
 builds:
-- id: initContainer
-  main: ./cmd/initContainer
+- id: kyverno
+  main: ./cmd/kyverno
   ldflags:
   - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 
-- id: kyverno
-  main: ./cmd/kyverno
+- id: kyverno-init
+  main: ./cmd/kyverno-init
   ldflags:
   - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 
@@ -24,7 +24,7 @@ builds:
   ldflags:
   - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 
-- id: updaterequest-controller
-  main: ./cmd/updaterequest-controller
+- id: background-controller
+  main: ./cmd/background-controller
   ldflags:
   - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'

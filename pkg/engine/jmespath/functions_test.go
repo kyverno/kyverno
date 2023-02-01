@@ -1349,6 +1349,12 @@ func Test_Items(t *testing.T) {
 			valName:        `"myValue"`,
 			expectedResult: `[{ "myKey": "key1", "myValue": "value1" }, { "myKey": "key2", "myValue": "value2" }]`,
 		},
+		{
+			object:         `["A", "B", "C"]`,
+			keyName:        `"myKey"`,
+			valName:        `"myValue"`,
+			expectedResult: `[{ "myKey": 0, "myValue": "A" }, { "myKey": 1, "myValue": "B" }, { "myKey": 2, "myValue": "C" }]`,
+		},
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {

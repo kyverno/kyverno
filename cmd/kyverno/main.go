@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/internal"
-	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -30,13 +29,13 @@ import (
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -108,12 +107,9 @@ func createNonLeaderControllers(
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
-	rclient registryclient.Client,
 	configuration config.Configuration,
 	policyCache policycache.Cache,
-	eventGenerator event.Interface,
 	manager openapi.Manager,
-	informerCacheResolvers resolvers.ConfigmapResolver,
 ) ([]internal.Controller, func() error) {
 	policyCacheController := policycachecontroller.NewController(
 		dynamicClient,
@@ -129,24 +125,10 @@ func createNonLeaderControllers(
 		configuration,
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 	)
-	updateRequestController := background.NewController(
-		kyvernoClient,
-		dynamicClient,
-		rclient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		kubeInformer.Core().V1().Namespaces(),
-		kubeKyvernoInformer.Core().V1().Pods(),
-		eventGenerator,
-		configuration,
-		informerCacheResolvers,
-	)
 	return []internal.Controller{
 			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
 			internal.NewController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
 			internal.NewController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
-			internal.NewController("update-request-controller", updateRequestController, genWorkers),
 		},
 		func() error {
 			return policyCacheController.WarmUp()
@@ -164,32 +146,10 @@ func createrLeaderControllers(
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
-	rclient registryclient.Client,
-	configuration config.Configuration,
-	metricsConfig metrics.MetricsConfigManager,
-	eventGenerator event.Interface,
 	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
-	configMapResolver resolvers.ConfigmapResolver,
+	servicePort int32,
 ) ([]internal.Controller, func(context.Context) error, error) {
-	policyCtrl, err := policy.NewPolicyController(
-		kyvernoClient,
-		dynamicClient,
-		rclient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		configuration,
-		eventGenerator,
-		kubeInformer.Core().V1().Namespaces(),
-		configMapResolver,
-		logging.WithName("PolicyController"),
-		time.Hour,
-		metricsConfig,
-	)
-	if err != nil {
-		return nil, nil, err
-	}
 	certManager := certmanager.NewController(
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		certRenewer,
@@ -210,6 +170,7 @@ func createrLeaderControllers(
 		kubeInformer.Rbac().V1().ClusterRoles(),
 		serverIP,
 		int32(webhookTimeout),
+		servicePort,
 		autoUpdateWebhooks,
 		admissionReports,
 		runtime,
@@ -222,6 +183,7 @@ func createrLeaderControllers(
 		config.ExceptionValidatingWebhookConfigurationName,
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
+		servicePort,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"kyverno.io"},
@@ -237,7 +199,6 @@ func createrLeaderControllers(
 		genericwebhookcontroller.None,
 	)
 	return []internal.Controller{
-			internal.NewController("policy-controller", policyCtrl, 2),
 			internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
 			internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
 			internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1),
@@ -264,6 +225,7 @@ func main() {
 		leaderElectionRetryPeriod  time.Duration
 		enablePolicyException      bool
 		exceptionNamespace         string
+		servicePort                int
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -282,6 +244,7 @@ func main() {
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
 	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -348,7 +311,7 @@ func main() {
 		logger.Error(err, "failed to create client based resolver")
 		os.Exit(1)
 	}
-	configMapResolver, err := resolvers.NewResolverChain(informerBasedResolver, clientBasedResolver)
+	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
 	if err != nil {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)
@@ -399,12 +362,9 @@ func main() {
 		kyvernoInformer,
 		kyvernoClient,
 		dClient,
-		rclient,
 		configuration,
 		policyCache,
-		eventGenerator,
 		openApiManager,
-		configMapResolver,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
@@ -446,13 +406,9 @@ func main() {
 				kubeClient,
 				kyvernoClient,
 				dClient,
-				rclient,
-				configuration,
-				metricsConfig,
-				eventGenerator,
 				certRenewer,
 				runtime,
-				configMapResolver,
+				int32(servicePort),
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")
@@ -516,6 +472,7 @@ func main() {
 		}
 	}
 	resourceHandlers := webhooksresource.NewHandlers(
+		engine.LegacyContextLoaderFactory(rclient),
 		dClient,
 		kyvernoClient,
 		rclient,
