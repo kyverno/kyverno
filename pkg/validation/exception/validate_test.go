@@ -2,6 +2,7 @@ package exception
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -98,7 +99,8 @@ func Test_ValidateVariables(t *testing.T) {
 			assert.NilError(t, err)
 			err = validateVariables(polex)
 			if c.error {
-				assert.Error(t, err, errVarsNotAllowed)
+
+				assert.Error(t, err, fmt.Sprintf(errVarsNotAllowed, polex.Name))
 			} else {
 				assert.NilError(t, err)
 			}

@@ -3,18 +3,18 @@ package exception
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
 const (
 	namespacesDontMatch = "PolicyException resource namespace must match the defined namespace."
 	disabledPolex       = "PolicyException resources would not be processed until it is enabled."
-	errVarsNotAllowed   = "variables are currently not allowed in policy exceptions"
+	errVarsNotAllowed   = "policy exception \"%s\" should not have variables in match section"
 )
 
 type ValidationOptions struct {
@@ -44,16 +44,23 @@ func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.Po
 }
 
 func validateVariables(polex *kyvernov2alpha1.PolicyException) error {
-	vars := hasVariables(polex)
-	if len(vars) != 0 {
-		return errors.New(errVarsNotAllowed)
+	if err := objectHasVariables(polex); err != nil {
+		return fmt.Errorf(errVarsNotAllowed, polex.Name)
 	}
 	return nil
+
 }
 
-// hasVariables - check for variables in the policy exception
-func hasVariables(polex *kyvernov2alpha1.PolicyException) [][]string {
-	policyRaw, _ := json.Marshal(polex)
-	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
-	return matches
+func objectHasVariables(object interface{}) error {
+	var err error
+	objectJSON, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
+
+	if len(common.RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+		return fmt.Errorf("invalid variables")
+	}
+
+	return nil
 }
