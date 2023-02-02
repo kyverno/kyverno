@@ -984,13 +984,13 @@ func jpItems(arguments []interface{}) (interface{}, error) {
 	}
 	switch input := arguments[0].(type) {
 	case map[string]interface{}:
-		var keys []string
+		keys := make([]string, 0, len(input))
 		// Sort the keys so that the output is deterministic
 		for key := range input {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		var arrayOfObj []map[string]interface{}
+		arrayOfObj := make([]map[string]interface{}, 0, len(input))
 		for _, key := range keys {
 			arrayOfObj = append(arrayOfObj, map[string]interface{}{
 				keyName: key,
@@ -999,7 +999,7 @@ func jpItems(arguments []interface{}) (interface{}, error) {
 		}
 		return arrayOfObj, nil
 	case []interface{}:
-		var arrayOfObj []map[string]interface{}
+		arrayOfObj := make([]map[string]interface{}, 0, len(input))
 		for index, value := range input {
 			arrayOfObj = append(arrayOfObj, map[string]interface{}{
 				keyName: float64(index),
@@ -1008,7 +1008,7 @@ func jpItems(arguments []interface{}) (interface{}, error) {
 		}
 		return arrayOfObj, nil
 	default:
-		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Object")
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Object or Array")
 	}
 }
 
