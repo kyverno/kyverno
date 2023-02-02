@@ -31,7 +31,6 @@ type MutateExistingController struct {
 	client        dclient.Interface
 	statusControl common.StatusControlInterface
 	engine        engineapi.Engine
-	contextLoader engineapi.ContextLoaderFactory
 
 	// listers
 	policyLister  kyvernov1listers.ClusterPolicyLister
@@ -50,7 +49,6 @@ func NewMutateExistingController(
 	client dclient.Interface,
 	statusControl common.StatusControlInterface,
 	engine engineapi.Engine,
-	contextLoader engineapi.ContextLoaderFactory,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	nsLister corev1listers.NamespaceLister,
@@ -63,7 +61,6 @@ func NewMutateExistingController(
 		client:                 client,
 		statusControl:          statusControl,
 		engine:                 engine,
-		contextLoader:          contextLoader,
 		policyLister:           policyLister,
 		npolicyLister:          npolicyLister,
 		nsLister:               nsLister,
@@ -105,7 +102,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			continue
 		}
 
-		er := c.engine.Mutate(context.TODO(), c.contextLoader, policyContext)
+		er := c.engine.Mutate(context.TODO(), policyContext)
 		for _, r := range er.PolicyResponse.Rules {
 			patched := r.PatchedTarget
 			patchedTargetSubresourceName := r.PatchedTargetSubresourceName

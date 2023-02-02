@@ -80,7 +80,6 @@ func createNonLeaderControllers(
 		kyvernoClient,
 		dynamicClient,
 		eng,
-		engine.LegacyContextLoaderFactory(rclient),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -94,6 +93,7 @@ func createNonLeaderControllers(
 }
 
 func createrLeaderControllers(
+	eng engineapi.Engine,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
@@ -107,7 +107,7 @@ func createrLeaderControllers(
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
 		dynamicClient,
-		engine.LegacyContextLoaderFactory(rclient),
+		eng,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -226,7 +226,10 @@ func main() {
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
-	engine := engine.NewEgine()
+	engine := engine.NewEngine(
+		configuration,
+		engine.LegacyContextLoaderFactory(rclient),
+	)
 	// create non leader controllers
 	nonLeaderControllers := createNonLeaderControllers(
 		engine,
@@ -263,6 +266,7 @@ func main() {
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, err := createrLeaderControllers(
+				engine,
 				kubeInformer,
 				kyvernoInformer,
 				kyvernoClient,

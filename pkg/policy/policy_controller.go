@@ -21,7 +21,6 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -57,7 +56,7 @@ const (
 type PolicyController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	contextLoader engineapi.ContextLoaderFactory
+	engine        engineapi.Engine
 
 	pInformer  kyvernov1informers.ClusterPolicyInformer
 	npInformer kyvernov1informers.PolicyInformer
@@ -98,7 +97,7 @@ type PolicyController struct {
 func NewPolicyController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
-	contextLoader engineapi.ContextLoaderFactory,
+	engine engineapi.Engine,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
@@ -119,7 +118,7 @@ func NewPolicyController(
 	pc := PolicyController{
 		client:                 client,
 		kyvernoClient:          kyvernoClient,
-		contextLoader:          contextLoader,
+		engine:                 engine,
 		pInformer:              pInformer,
 		npInformer:             npInformer,
 		eventGen:               eventGen,
@@ -514,7 +513,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		return false, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err)
 	}
 
-	engineResponse := engine.ApplyBackgroundChecks(pc.contextLoader, policyContext)
+	engineResponse := pc.engine.ApplyBackgroundChecks(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		return true, nil
 	}

@@ -302,7 +302,10 @@ func main() {
 	}
 	// start event generator
 	go eventGenerator.Run(ctx, 3)
-	eng := engine.NewEgine()
+	eng := engine.NewEngine(
+		configuration,
+		engine.LegacyContextLoaderFactory(rclient),
+	)
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
