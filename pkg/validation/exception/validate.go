@@ -38,9 +38,17 @@ func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.Po
 	} else if opts.Namespace != "" && opts.Namespace != polex.Namespace {
 		warnings = append(warnings, namespacesDontMatch)
 	}
+	var errors []error
 	err := validateVariables(polex)
 	errs := polex.Validate()
-	return warnings, utilerrors.NewAggregate(append(errs.ToAggregate().Errors(), err))
+	aggregate := errs.ToAggregate()
+	if aggregate != nil {
+		errors = append(errors, aggregate.Errors()...)
+		errors = append(errors, err)
+		return warnings, utilerrors.NewAggregate(errors)
+	}
+	errors = append(errors, err)
+	return warnings, utilerrors.NewAggregate(errors)
 }
 
 func validateVariables(polex *kyvernov2alpha1.PolicyException) error {
@@ -64,7 +72,7 @@ func hasVariables(polex *kyvernov2alpha1.PolicyException) [][]string {
 func containsUserVariables(polex *kyvernov2alpha1.PolicyException, vars [][]string) error {
 	for _, v := range vars {
 		for _, notAllowed := range forbidden {
-			if notAllowed.Match([]byte(v[2])) {
+			if notAllowed.Match([]byte(v[1])) {
 				return fmt.Errorf("variable %s is not allowed", v[2])
 			}
 		}
