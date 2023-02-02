@@ -34,7 +34,8 @@ type MutationHandler interface {
 
 func NewMutationHandler(
 	log logr.Logger,
-	contextLoader engine.ContextLoaderFactory,
+	engine engineapi.Engine,
+	contextLoader engineapi.ContextLoaderFactory,
 	eventGen event.Interface,
 	openApiManager openapi.ValidateInterface,
 	nsLister corev1listers.NamespaceLister,
@@ -42,6 +43,7 @@ func NewMutationHandler(
 ) MutationHandler {
 	return &mutationHandler{
 		log:            log,
+		engine:         engine,
 		contextLoader:  contextLoader,
 		eventGen:       eventGen,
 		openApiManager: openApiManager,
@@ -52,7 +54,8 @@ func NewMutationHandler(
 
 type mutationHandler struct {
 	log            logr.Logger
-	contextLoader  engine.ContextLoaderFactory
+	engine         engineapi.Engine
+	contextLoader  engineapi.ContextLoaderFactory
 	eventGen       event.Interface
 	openApiManager openapi.ValidateInterface
 	nsLister       corev1listers.NamespaceLister
@@ -156,7 +159,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 		policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
 
-	engineResponse := engine.Mutate(ctx, h.contextLoader, policyContext)
+	engineResponse := h.engine.Mutate(ctx, h.contextLoader, policyContext)
 	policyPatches := engineResponse.GetPatches()
 
 	if !engineResponse.IsSuccessful() {
