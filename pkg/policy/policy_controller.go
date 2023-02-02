@@ -25,6 +25,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
@@ -507,7 +508,8 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 }
 
 func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
-	policyContext, _, err := backgroundcommon.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, pc.informerCacheResolvers, nil, pc.log)
+	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(triggerResource.GetKind(), triggerResource.GetNamespace(), pc.nsLister, pc.log)
+	policyContext, _, err := backgroundcommon.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, pc.informerCacheResolvers, namespaceLabels, pc.log)
 	if err != nil {
 		return false, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err)
 	}
