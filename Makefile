@@ -322,9 +322,9 @@ ko-publish-cleanup-controller: ko-login ## Build and publish cleanup controller 
 ko-publish-reports-controller: ko-login ## Build and publish reports controller image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(REPORTS_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
-.PHONY: ko-publish-backgound-controller
-ko-publish-backgound-controller: ko-login ## Build and publish background controller image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+.PHONY: ko-publish-background-controller
+ko-publish-background-controller: ko-login ## Build and publish background controller image (with ko)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) $(KO) build $(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno-init-dev
 ko-publish-kyverno-init-dev: ko-login ## Build and publish kyvernopre dev image (with ko)
@@ -351,7 +351,7 @@ ko-publish-background-controller-dev: ko-login ## Build and publish background c
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) $(KO) build $(BACKGROUND_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-backgound-controller ## Build and publish all images (with ko)
+ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ## Build and publish all images (with ko)
 
 .PHONY: ko-publish-all-dev
 ko-publish-all-dev: ko-publish-kyverno-init-dev ko-publish-kyverno-dev ko-publish-cli-dev ko-publish-cleanup-controller-dev ko-publish-reports-controller-dev ko-publish-background-controller-dev ## Build and publish all dev images (with ko)
