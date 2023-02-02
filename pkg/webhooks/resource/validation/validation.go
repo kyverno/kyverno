@@ -31,7 +31,7 @@ type ValidationHandler interface {
 	// HandleValidation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleValidation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
+	HandleValidation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time) (bool, string, []string)
 }
 
 func NewValidationHandler(
@@ -72,15 +72,8 @@ func (v *validationHandler) HandleValidation(
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
-	namespaceLabels map[string]string,
 	admissionRequestTimestamp time.Time,
 ) (bool, string, []string) {
-	if len(policies) == 0 {
-		// invoke handleAudit as we may have some policies in audit mode to consider
-		go v.handleAudit(ctx, policyContext.NewResource(), request, namespaceLabels)
-		return true, "", nil
-	}
-
 	resourceName := admissionutils.GetResourceName(request)
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
@@ -105,7 +98,7 @@ func (v *validationHandler) HandleValidation(
 			"pkg/webhooks/resource/validate",
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
-				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
+				policyContext := policyContext.WithPolicy(policy)
 				if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
 					failurePolicy = kyvernov1.Fail
 				}
@@ -144,7 +137,7 @@ func (v *validationHandler) HandleValidation(
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil
 	}
 
-	go v.handleAudit(ctx, policyContext.NewResource(), request, namespaceLabels, engineResponses...)
+	go v.handleAudit(ctx, policyContext.NewResource(), request, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings
@@ -154,7 +147,6 @@ func (v *validationHandler) buildAuditResponses(
 	ctx context.Context,
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
-	namespaceLabels map[string]string,
 ) ([]*response.EngineResponse, error) {
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
@@ -168,7 +160,7 @@ func (v *validationHandler) buildAuditResponses(
 			"pkg/webhooks/resource/validate",
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
-				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
+				policyContext := policyContext.WithPolicy(policy)
 				responses = append(responses, engine.Validate(ctx, v.rclient, policyContext))
 			},
 		)
@@ -180,7 +172,6 @@ func (v *validationHandler) handleAudit(
 	ctx context.Context,
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
-	namespaceLabels map[string]string,
 	engineResponses ...*response.EngineResponse,
 ) {
 	if !v.admissionReports {
@@ -202,7 +193,7 @@ func (v *validationHandler) handleAudit(
 		"",
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
-			responses, err := v.buildAuditResponses(ctx, resource, request, namespaceLabels)
+			responses, err := v.buildAuditResponses(ctx, resource, request)
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
 			}
