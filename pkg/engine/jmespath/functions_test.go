@@ -1630,3 +1630,105 @@ func Test_jpfEqualFold(t *testing.T) {
 		})
 	}
 }
+
+func Test_jpfReplace(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{
+		{
+			args: args{
+				arguments: []interface{}{
+					"Lorem ipsum dolor sit amet",
+					"ipsum",
+					"muspi",
+					-1.0,
+				},
+			},
+			want: "Lorem muspi dolor sit amet",
+		},
+		{
+			args: args{
+				arguments: []interface{}{
+					"Lorem ipsum ipsum ipsum dolor sit amet",
+					"ipsum",
+					"muspi",
+					-1.0,
+				},
+			},
+			want: "Lorem muspi muspi muspi dolor sit amet",
+		},
+		{
+			args: args{
+				arguments: []interface{}{
+					"Lorem ipsum ipsum ipsum dolor sit amet",
+					"ipsum",
+					"muspi",
+					1.0,
+				},
+			},
+			want: "Lorem muspi ipsum ipsum dolor sit amet",
+		},
+		{
+			args: args{
+				arguments: []interface{}{
+					1.0,
+					"ipsum",
+					"muspi",
+					1.0,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			args: args{
+				arguments: []interface{}{
+					"Lorem ipsum ipsum ipsum dolor sit amet",
+					1.0,
+					"muspi",
+					1.0,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			args: args{
+				arguments: []interface{}{
+					"Lorem ipsum ipsum ipsum dolor sit amet",
+					"ipsum",
+					false,
+					1.0,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			args: args{
+				arguments: []interface{}{
+					"Lorem ipsum ipsum ipsum dolor sit amet",
+					"ipsum",
+					"muspi",
+					true,
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfReplace(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfReplace() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfReplace() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

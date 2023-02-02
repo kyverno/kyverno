@@ -624,28 +624,17 @@ func jpfEqualFold(arguments []interface{}) (interface{}, error) {
 }
 
 func jpfReplace(arguments []interface{}) (interface{}, error) {
-	var err error
-	str, err := validateArg(replace, arguments, 0, reflect.String)
-	if err != nil {
+	if str, err := validateArg(replace, arguments, 0, reflect.String); err != nil {
 		return nil, err
-	}
-
-	old, err := validateArg(replace, arguments, 1, reflect.String)
-	if err != nil {
+	} else if old, err := validateArg(replace, arguments, 1, reflect.String); err != nil {
 		return nil, err
-	}
-
-	new, err := validateArg(replace, arguments, 2, reflect.String)
-	if err != nil {
+	} else if new, err := validateArg(replace, arguments, 2, reflect.String); err != nil {
 		return nil, err
-	}
-
-	n, err := validateArg(replace, arguments, 3, reflect.Float64)
-	if err != nil {
+	} else if n, err := validateArg(replace, arguments, 3, reflect.Float64); err != nil {
 		return nil, err
+	} else {
+		return strings.Replace(str.String(), old.String(), new.String(), int(n.Float())), nil
 	}
-
-	return strings.Replace(str.String(), old.String(), new.String(), int(n.Float())), nil
 }
 
 func jpfReplaceAll(arguments []interface{}) (interface{}, error) {
