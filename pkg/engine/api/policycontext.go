@@ -38,5 +38,4 @@ type PolicyContext interface {
 
 	FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error)
 	ExcludeResourceFunc() ExcludeFunc
-	// ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error)
 }

@@ -170,10 +170,6 @@ func (c *PolicyContext) ExcludeResourceFunc() engineapi.ExcludeFunc {
 	return c.excludeResourceFunc
 }
 
-// func (c *PolicyContext) ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error) {
-// 	return c.informerCacheResolvers.Get(ctx, namespace, name)
-// }
-
 // Mutators
 
 func (c *PolicyContext) WithPolicy(policy kyvernov1.PolicyInterface) *PolicyContext {
