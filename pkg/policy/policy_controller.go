@@ -57,7 +57,7 @@ const (
 type PolicyController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	contextLoader engine.ContextLoaderFactory
+	contextLoader engineapi.ContextLoaderFactory
 
 	pInformer  kyvernov1informers.ClusterPolicyInformer
 	npInformer kyvernov1informers.PolicyInformer
@@ -98,7 +98,7 @@ type PolicyController struct {
 func NewPolicyController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
-	contextLoader engine.ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,

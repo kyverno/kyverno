@@ -12,7 +12,6 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -31,7 +30,8 @@ type MutateExistingController struct {
 	// clients
 	client        dclient.Interface
 	statusControl common.StatusControlInterface
-	contextLoader engine.ContextLoaderFactory
+	engine        engineapi.Engine
+	contextLoader engineapi.ContextLoaderFactory
 
 	// listers
 	policyLister  kyvernov1listers.ClusterPolicyLister
@@ -49,7 +49,8 @@ type MutateExistingController struct {
 func NewMutateExistingController(
 	client dclient.Interface,
 	statusControl common.StatusControlInterface,
-	contextLoader engine.ContextLoaderFactory,
+	engine engineapi.Engine,
+	contextLoader engineapi.ContextLoaderFactory,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	nsLister corev1listers.NamespaceLister,
@@ -61,6 +62,7 @@ func NewMutateExistingController(
 	c := MutateExistingController{
 		client:                 client,
 		statusControl:          statusControl,
+		engine:                 engine,
 		contextLoader:          contextLoader,
 		policyLister:           policyLister,
 		npolicyLister:          npolicyLister,
@@ -103,7 +105,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			continue
 		}
 
-		er := engine.Mutate(context.TODO(), c.contextLoader, policyContext)
+		er := c.engine.Mutate(context.TODO(), c.contextLoader, policyContext)
 		for _, r := range er.PolicyResponse.Rules {
 			patched := r.PatchedTarget
 			patchedTargetSubresourceName := r.PatchedTargetSubresourceName

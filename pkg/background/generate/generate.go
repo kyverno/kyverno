@@ -42,7 +42,7 @@ type GenerateController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	statusControl common.StatusControlInterface
-	contextLoader engine.ContextLoaderFactory
+	contextLoader engineapi.ContextLoaderFactory
 
 	// listers
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
@@ -62,7 +62,7 @@ func NewGenerateController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	statusControl common.StatusControlInterface,
-	contextLoader engine.ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
@@ -828,7 +828,7 @@ func (c *GenerateController) ApplyResource(resource *unstructured.Unstructured) 
 }
 
 // NewGenerateControllerWithOnlyClient returns an instance of Controller with only the client.
-func NewGenerateControllerWithOnlyClient(client dclient.Interface, contextLoader engine.ContextLoaderFactory) *GenerateController {
+func NewGenerateControllerWithOnlyClient(client dclient.Interface, contextLoader engineapi.ContextLoaderFactory) *GenerateController {
 	c := GenerateController{
 		client:        client,
 		contextLoader: contextLoader,
