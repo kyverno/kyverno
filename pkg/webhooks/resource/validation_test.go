@@ -1050,6 +1050,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	}
 
 	cfg := config.NewDefaultConfiguration()
+	eng := engine.NewEgine()
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			var policy kyvernov1.ClusterPolicy
@@ -1059,7 +1060,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			assert.NilError(t, err)
 
 			ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
-			er := engine.Validate(
+			er := eng.Validate(
 				context.TODO(),
 				engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 				ctx,
@@ -1125,7 +1126,8 @@ func Test_RuleSelector(t *testing.T) {
 	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
 	cfg := config.NewDefaultConfiguration()
-	resp := engine.Validate(
+	eng := engine.NewEgine()
+	resp := eng.Validate(
 		context.TODO(),
 		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		ctx,
@@ -1140,8 +1142,7 @@ func Test_RuleSelector(t *testing.T) {
 
 	applyOne := kyvernov1.ApplyOne
 	policy.Spec.ApplyRules = &applyOne
-
-	resp = engine.Validate(
+	resp = eng.Validate(
 		context.TODO(),
 		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		ctx,

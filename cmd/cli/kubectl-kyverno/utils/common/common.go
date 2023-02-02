@@ -474,7 +474,7 @@ OuterLoop:
 			})
 		}
 	}
-
+	eng := engine.NewEgine()
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).
@@ -483,7 +483,7 @@ OuterLoop:
 		WithClient(c.Client).
 		WithSubresourcesInPolicy(subresources)
 
-	mutateResponse := engine.Mutate(
+	mutateResponse := eng.Mutate(
 		context.Background(),
 		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		policyContext,
@@ -511,7 +511,7 @@ OuterLoop:
 	var info Info
 	var validateResponse *engineapi.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.Validate(
+		validateResponse = eng.Validate(
 			context.Background(),
 			engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 			policyContext,
@@ -524,7 +524,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := engine.VerifyAndPatchImages(
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(
 		context.Background(),
 		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		registryclient.NewOrDie(),
