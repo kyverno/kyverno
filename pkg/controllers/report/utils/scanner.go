@@ -16,14 +16,13 @@ import (
 )
 
 type scanner struct {
-	logger                 logr.Logger
-	engine                 engineapi.Engine
-	client                 dclient.Interface
-	rclient                registryclient.Client
-	informerCacheResolvers engineapi.ConfigmapResolver
-	polexLister            engine.PolicyExceptionLister
-	excludeGroupRole       []string
-	config                 config.Configuration
+	logger           logr.Logger
+	engine           engineapi.Engine
+	client           dclient.Interface
+	rclient          registryclient.Client
+	polexLister      engine.PolicyExceptionLister
+	excludeGroupRole []string
+	config           config.Configuration
 }
 
 type ScanResult struct {
