@@ -245,8 +245,6 @@ build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller b
 
 LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_REGISTRY         := ko.local
-KO_TAGS             := $(IMAGE_TAG_LATEST),$(IMAGE_TAG)
-KO_TAGS_DEV         := $(IMAGE_TAG_LATEST),$(IMAGE_TAG_DEV)
 KO_CLI_REPO         := $(PACKAGE)/$(CLI_DIR)
 KO_KYVERNOPRE_REPO  := $(PACKAGE)/$(KYVERNOPRE_DIR)
 KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
@@ -256,33 +254,32 @@ KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
 	@echo Build kyvernopre local image with ko... >&2
-	@echo $(GIT_BRANCH) >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
 	@echo Build kyverno local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(KYVERNO_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build cli local image (with ko)
 	@echo Build cli local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(CLI_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cleanup-controller
 ko-build-cleanup-controller: $(KO) ## Build cleanup controller local image (with ko)
 	@echo Build cleanup controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(CLEANUP_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-reports-controller
 ko-build-reports-controller: $(KO) ## Build reports controller local image (with ko)
 	@echo Build reports controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(REPORTS_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(REPORTS_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-background-controller
 ko-build-background-controller: $(KO) ## Build background controller local image (with ko)
 	@echo Build background controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ## Build all local images (with ko)
@@ -298,6 +295,8 @@ KO_CLEANUP_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/cleanup-controlle
 KO_REPORTS_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/reports-controller
 KO_BACKGROUND_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/background-controller
 PLATFORMS           := linux/amd64,linux/arm64,linux/s390x
+KO_TAGS             := $(IMAGE_TAG_LATEST),$(IMAGE_TAG)
+KO_TAGS_DEV         := $(IMAGE_TAG_LATEST),$(IMAGE_TAG_DEV)
 
 .PHONY: ko-login
 ko-login: $(KO)
