@@ -6,13 +6,17 @@
 
 GIT_VERSION          := $(shell git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))
 GIT_VERSION_DEV      := $(shell git describe --match "[0-9].[0-9]-dev*")
-GIT_BRANCH           := $(shell git branch | grep \* | cut -d ' ' -f2)
+GIT_BRANCH           := $(shell git branch --show-current | cut -d ' ' -f2)
 GIT_HASH             := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 VERSION              ?= $(shell git describe --match "v[0-9]*")
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-IMAGE_TAG_LATEST_DEV  = $(shell git describe --match "[0-9].[0-9]-dev*" | cut -d '-' -f-2)
+ifeq ($(GIT_BRANCH),main)
+IMAGE_TAG_LATEST     := latest
+else
+IMAGE_TAG_LATEST     := $(subst release-,,$(GIT_BRANCH))-latest
+endif
 IMAGE_TAG_DEV         = $(GIT_VERSION_DEV)
 IMAGE_TAG            ?= $(GIT_VERSION)
 K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
@@ -241,8 +245,8 @@ build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller b
 
 LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_REGISTRY         := ko.local
-KO_TAGS             := latest,$(IMAGE_TAG)
-KO_TAGS_DEV         := latest,$(IMAGE_TAG_DEV)
+KO_TAGS             := $(IMAGE_TAG_LATEST),$(IMAGE_TAG)
+KO_TAGS_DEV         := $(IMAGE_TAG_LATEST),$(IMAGE_TAG_DEV)
 KO_CLI_REPO         := $(PACKAGE)/$(CLI_DIR)
 KO_KYVERNOPRE_REPO  := $(PACKAGE)/$(KYVERNOPRE_DIR)
 KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
@@ -345,7 +349,6 @@ ko-publish-reports-controller-dev: ko-login ## Build and publish reports control
 .PHONY: ko-publish-background-controller-dev
 ko-publish-background-controller-dev: ko-login ## Build and publish background controller dev image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(BACKGROUND_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
-
 
 .PHONY: ko-publish-all
 ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-backgound-controller ## Build and publish all images (with ko)
