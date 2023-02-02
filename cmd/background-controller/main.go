@@ -64,6 +64,7 @@ func setupCosign(logger logr.Logger, imageSignatureRepository string) {
 }
 
 func createNonLeaderControllers(
+	eng engineapi.Engine,
 	genWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
@@ -78,6 +79,7 @@ func createNonLeaderControllers(
 	updateRequestController := background.NewController(
 		kyvernoClient,
 		dynamicClient,
+		eng,
 		engine.LegacyContextLoaderFactory(rclient),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
@@ -227,8 +229,10 @@ func main() {
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
+	engine := engine.NewEgine()
 	// create non leader controllers
 	nonLeaderControllers := createNonLeaderControllers(
+		engine,
 		genWorkers,
 		kubeInformer,
 		kubeKyvernoInformer,

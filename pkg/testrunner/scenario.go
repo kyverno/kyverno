@@ -146,8 +146,8 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	}
 
 	policyContext := engine.NewPolicyContext().WithPolicy(policy).WithNewResource(*resource)
-
-	er := engine.Mutate(
+	eng := engine.NewEgine()
+	er := eng.Mutate(
 		context.TODO(),
 		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		policyContext,
@@ -164,7 +164,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	policyContext = policyContext.WithNewResource(*resource)
 
 	cfg := config.NewDefaultConfiguration()
-	er = engine.Validate(
+	er = eng.Validate(
 		context.TODO(),
 		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		policyContext,
