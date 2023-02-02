@@ -3,8 +3,7 @@ package exception
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"regexp"
+	"errors"
 
 	"github.com/go-logr/logr"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
@@ -15,15 +14,8 @@ import (
 const (
 	namespacesDontMatch = "PolicyException resource namespace must match the defined namespace."
 	disabledPolex       = "PolicyException resources would not be processed until it is enabled."
+	errVarsNotAllowed   = "variables are currently not allowed in policy exceptions"
 )
-
-var forbidden = []*regexp.Regexp{
-	regexp.MustCompile(`[^\.](serviceAccountName)\b`),
-	regexp.MustCompile(`[^\.](serviceAccountNamespace)\b`),
-	regexp.MustCompile(`[^\.](request.userInfo)\b`),
-	regexp.MustCompile(`[^\.](request.roles)\b`),
-	regexp.MustCompile(`[^\.](request.clusterRoles)\b`),
-}
 
 type ValidationOptions struct {
 	Enabled   bool
@@ -53,29 +45,15 @@ func Validate(ctx context.Context, logger logr.Logger, polex *kyvernov2alpha1.Po
 
 func validateVariables(polex *kyvernov2alpha1.PolicyException) error {
 	vars := hasVariables(polex)
-	if polex.Spec.BackgroundProcessingEnabled() {
-		if err := containsUserVariables(polex, vars); err != nil {
-			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
-		}
+	if len(vars) != 0 {
+		return errors.New(errVarsNotAllowed)
 	}
 	return nil
 }
 
-// hasVariables - check for variables in the policy
+// hasVariables - check for variables in the policy exception
 func hasVariables(polex *kyvernov2alpha1.PolicyException) [][]string {
 	policyRaw, _ := json.Marshal(polex)
 	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
-}
-
-// ContainsUserVariables returns error if variable that does not start from request.object
-func containsUserVariables(polex *kyvernov2alpha1.PolicyException, vars [][]string) error {
-	for _, v := range vars {
-		for _, notAllowed := range forbidden {
-			if notAllowed.Match([]byte(v[1])) {
-				return fmt.Errorf("variable %s is not allowed", v[2])
-			}
-		}
-	}
-	return nil
 }

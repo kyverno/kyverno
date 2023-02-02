@@ -74,3 +74,34 @@ func Test_Validate(t *testing.T) {
 		})
 	}
 }
+
+func Test_ValidateVariables(t *testing.T) {
+	tc := []struct {
+		name     string
+		resource []byte
+		error    bool
+	}{
+		{
+			name:     "Variable used.",
+			resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"PolicyException","metadata":{"name":"enforce-label-polex"},"spec":{"background":true,"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"],"namespaces":["{{request.object.name}}"],"names":["{{request.userInfo.username}}"]}}]}}}`),
+			error:    true,
+		},
+		{
+			name:     "Variable not used.",
+			resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"PolicyException","metadata":{"name":"enforce-label-polex"},"spec":{"background":true,"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
+			error:    false,
+		},
+	}
+	for _, c := range tc {
+		t.Run(c.name, func(t *testing.T) {
+			polex, err := admissionutils.UnmarshalPolicyException(c.resource)
+			assert.NilError(t, err)
+			err = validateVariables(polex)
+			if c.error {
+				assert.Error(t, err, errVarsNotAllowed)
+			} else {
+				assert.NilError(t, err)
+			}
+		})
+	}
+}
