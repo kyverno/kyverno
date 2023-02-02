@@ -101,6 +101,7 @@ func sanityChecks(dynamicClient dclient.Interface) error {
 }
 
 func createNonLeaderControllers(
+	eng engineapi.Engine,
 	genWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
@@ -354,8 +355,10 @@ func main() {
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		certRenewer,
 	)
+	eng := engine.NewEgine()
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
+		eng,
 		genWorkers,
 		kubeInformer,
 		kubeKyvernoInformer,
@@ -472,6 +475,7 @@ func main() {
 		}
 	}
 	resourceHandlers := webhooksresource.NewHandlers(
+		eng,
 		engine.LegacyContextLoaderFactory(rclient),
 		dClient,
 		kyvernoClient,

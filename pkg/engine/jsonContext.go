@@ -19,9 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-type ContextLoaderFactory = func(pContext engineapi.PolicyContext, ruleName string) engineapi.ContextLoader
-
-func LegacyContextLoaderFactory(rclient registryclient.Client) ContextLoaderFactory {
+func LegacyContextLoaderFactory(rclient registryclient.Client) engineapi.ContextLoaderFactory {
 	if store.IsMock() {
 		return func(pContext engineapi.PolicyContext, ruleName string) engineapi.ContextLoader {
 			policy := pContext.Policy()
@@ -122,7 +120,7 @@ func (l *mockContextLoader) Load(ctx context.Context, contextEntries []kyvernov1
 	return nil
 }
 
-func LoadContext(ctx context.Context, factory ContextLoaderFactory, contextEntries []kyvernov1.ContextEntry, pContext engineapi.PolicyContext, ruleName string) error {
+func LoadContext(ctx context.Context, factory engineapi.ContextLoaderFactory, contextEntries []kyvernov1.ContextEntry, pContext engineapi.PolicyContext, ruleName string) error {
 	return factory(pContext, ruleName).Load(ctx, contextEntries, pContext.JSONContext())
 }
 
