@@ -50,9 +50,8 @@ type GenerateController struct {
 	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
 
-	configuration          config.Configuration
-	informerCacheResolvers engineapi.ConfigmapResolver
-	eventGen               event.Interface
+	configuration config.Configuration
+	eventGen      event.Interface
 
 	log logr.Logger
 }
@@ -68,23 +67,21 @@ func NewGenerateController(
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	nsLister corev1listers.NamespaceLister,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	eventGen event.Interface,
 	log logr.Logger,
 ) *GenerateController {
 	c := GenerateController{
-		client:                 client,
-		kyvernoClient:          kyvernoClient,
-		statusControl:          statusControl,
-		engine:                 engine,
-		policyLister:           policyLister,
-		npolicyLister:          npolicyLister,
-		urLister:               urLister,
-		nsLister:               nsLister,
-		configuration:          dynamicConfig,
-		informerCacheResolvers: informerCacheResolvers,
-		eventGen:               eventGen,
-		log:                    log,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		statusControl: statusControl,
+		engine:        engine,
+		policyLister:  policyLister,
+		npolicyLister: npolicyLister,
+		urLister:      urLister,
+		nsLister:      nsLister,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
 	}
 	return &c
 }
@@ -194,7 +191,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		return nil, false, err
 	}
 
-	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, &policy, &resource, c.configuration, c.informerCacheResolvers, namespaceLabels, logger)
+	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, &policy, &resource, c.configuration, namespaceLabels, logger)
 	if err != nil {
 		return nil, precreatedResource, err
 	}

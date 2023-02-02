@@ -357,7 +357,7 @@ func main() {
 	)
 	eng := engine.NewEngine(
 		configuration,
-		engine.LegacyContextLoaderFactory(rclient),
+		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -485,7 +485,6 @@ func main() {
 		configuration,
 		metricsConfig,
 		policyCache,
-		configMapResolver,
 		kubeInformer.Core().V1().Namespaces().Lister(),
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),

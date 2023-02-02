@@ -1051,7 +1051,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 
 	eng := engine.NewEngine(
 		config.NewDefaultConfiguration(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
 	)
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
@@ -1127,7 +1127,7 @@ func Test_RuleSelector(t *testing.T) {
 
 	eng := engine.NewEngine(
 		config.NewDefaultConfiguration(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
 	)
 	resp := eng.Validate(
 		context.TODO(),

@@ -37,9 +37,8 @@ type MutateExistingController struct {
 	npolicyLister kyvernov1listers.PolicyLister
 	nsLister      corev1listers.NamespaceLister
 
-	configuration          config.Configuration
-	informerCacheResolvers engineapi.ConfigmapResolver
-	eventGen               event.Interface
+	configuration config.Configuration
+	eventGen      event.Interface
 
 	log logr.Logger
 }
@@ -53,21 +52,19 @@ func NewMutateExistingController(
 	npolicyLister kyvernov1listers.PolicyLister,
 	nsLister corev1listers.NamespaceLister,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	eventGen event.Interface,
 	log logr.Logger,
 ) *MutateExistingController {
 	c := MutateExistingController{
-		client:                 client,
-		statusControl:          statusControl,
-		engine:                 engine,
-		policyLister:           policyLister,
-		npolicyLister:          npolicyLister,
-		nsLister:               nsLister,
-		configuration:          dynamicConfig,
-		informerCacheResolvers: informerCacheResolvers,
-		eventGen:               eventGen,
-		log:                    log,
+		client:        client,
+		statusControl: statusControl,
+		engine:        engine,
+		policyLister:  policyLister,
+		npolicyLister: npolicyLister,
+		nsLister:      nsLister,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
 	}
 	return &c
 }
@@ -95,7 +92,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 
 		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, c.informerCacheResolvers, namespaceLabels, logger)
+		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, namespaceLabels, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)

@@ -18,7 +18,6 @@ import (
 type scanner struct {
 	logger                 logr.Logger
 	engine                 engineapi.Engine
-	contextLoader          engineapi.ContextLoaderFactory
 	client                 dclient.Interface
 	rclient                registryclient.Client
 	informerCacheResolvers engineapi.ConfigmapResolver
@@ -39,24 +38,20 @@ type Scanner interface {
 func NewScanner(
 	logger logr.Logger,
 	engine engineapi.Engine,
-	contextLoader engineapi.ContextLoaderFactory,
 	client dclient.Interface,
 	rclient registryclient.Client,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	polexLister engine.PolicyExceptionLister,
 	config config.Configuration,
 	excludeGroupRole ...string,
 ) Scanner {
 	return &scanner{
-		logger:                 logger,
-		engine:                 engine,
-		contextLoader:          contextLoader,
-		client:                 client,
-		rclient:                rclient,
-		informerCacheResolvers: informerCacheResolvers,
-		polexLister:            polexLister,
-		config:                 config,
-		excludeGroupRole:       excludeGroupRole,
+		logger:           logger,
+		engine:           engine,
+		client:           client,
+		rclient:          rclient,
+		polexLister:      polexLister,
+		config:           config,
+		excludeGroupRole: excludeGroupRole,
 	}
 }
 
@@ -107,7 +102,6 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
-		WithInformerCacheResolver(s.informerCacheResolvers).
 		WithExceptions(s.polexLister)
 	return s.engine.Validate(ctx, policyCtx), nil
 }
@@ -132,7 +126,6 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
-		WithInformerCacheResolver(s.informerCacheResolvers).
 		WithExceptions(s.polexLister)
 	response, _ := s.engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {

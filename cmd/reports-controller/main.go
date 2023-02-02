@@ -132,7 +132,6 @@ func createReportControllers(
 					kyvernoClient,
 					rclient,
 					eng,
-					engine.LegacyContextLoaderFactory(rclient),
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
@@ -304,7 +303,7 @@ func main() {
 	go eventGenerator.Run(ctx, 3)
 	eng := engine.NewEngine(
 		configuration,
-		engine.LegacyContextLoaderFactory(rclient),
+		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
 	)
 	// setup leader election
 	le, err := leaderelection.New(

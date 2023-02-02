@@ -74,7 +74,6 @@ func NewHandlers(
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	pCache policycache.Cache,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	nsLister corev1listers.NamespaceLister,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
@@ -101,7 +100,7 @@ func NewHandlers(
 		urGenerator:      urGenerator,
 		eventGen:         eventGen,
 		openApiManager:   openApiManager,
-		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister, informerCacheResolvers, polexLister),
+		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister, polexLister),
 		urUpdater:        webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
 		admissionReports: admissionReports,
 	}
