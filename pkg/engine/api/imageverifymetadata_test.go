@@ -3,6 +3,8 @@ package api
 import (
 	"reflect"
 	"testing"
+
+	"github.com/go-logr/logr"
 )
 
 func TestImageVerificationMetadata_IsVerified(t *testing.T) {
@@ -287,6 +289,73 @@ func Test_makeAnnotationKeyForJSONPatch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := makeAnnotationKeyForJSONPatch(); got != tt.want {
 				t.Errorf("makeAnnotationKeyForJSONPatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestImageVerificationMetadata_Patches(t *testing.T) {
+	type fields struct {
+		Data map[string]bool
+	}
+	type args struct {
+		hasAnnotations bool
+		log            logr.Logger
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    [][]byte
+		wantErr bool
+	}{{
+		fields: fields{
+			Data: map[string]bool{
+				"test": true,
+			},
+		},
+		args: args{
+			hasAnnotations: false,
+			log:            logr.Discard(),
+		},
+		want: [][]byte{
+			[]byte(`{"path":"/metadata/annotations","op":"add","value":{}}`),
+			[]byte(`{"path":"/metadata/annotations/kyverno.io~1verify-images","op":"add","value":"{\"test\":true}"}`),
+		},
+	}, {
+		fields: fields{
+			Data: map[string]bool{
+				"test": true,
+			},
+		},
+		args: args{
+			hasAnnotations: true,
+			log:            logr.Discard(),
+		},
+		want: [][]byte{
+			[]byte(`{"path":"/metadata/annotations/kyverno.io~1verify-images","op":"add","value":"{\"test\":true}"}`),
+		},
+	}, {
+		args: args{
+			hasAnnotations: true,
+			log:            logr.Discard(),
+		},
+		want: [][]byte{
+			[]byte(`{"path":"/metadata/annotations/kyverno.io~1verify-images","op":"add","value":"null"}`),
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ivm := &ImageVerificationMetadata{
+				Data: tt.fields.Data,
+			}
+			got, err := ivm.Patches(tt.args.hasAnnotations, tt.args.log)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ImageVerificationMetadata.Patches() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ImageVerificationMetadata.Patches() = %v, want %v", got, tt.want)
 			}
 		})
 	}
