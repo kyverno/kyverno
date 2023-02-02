@@ -30,3 +30,4 @@ backgroundController:
         - namespaces
         - nodes
         - nodes/status
+        - pods
