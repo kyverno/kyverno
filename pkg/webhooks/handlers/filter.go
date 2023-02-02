@@ -28,6 +28,11 @@ func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandle
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			return nil
 		}
+		for _, username := range c.GetExcludeUsername() {
+			if request.UserInfo.Username == username {
+				return nil
+			}
+		}
 		if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 			return nil
 		}
