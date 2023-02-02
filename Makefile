@@ -215,9 +215,9 @@ $(REPORTS_BIN): fmt vet
 	@echo Build reports controller binary... >&2
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
-$(REPORTS_BIN): fmt vet
+$(BACKGROUND_BIN): fmt vet
 	@echo Build background controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) $(BACKGROUND_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
 .PHONY: build-kyverno-init
 build-kyverno-init: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
@@ -348,7 +348,7 @@ ko-publish-reports-controller-dev: ko-login ## Build and publish reports control
 
 .PHONY: ko-publish-background-controller-dev
 ko-publish-background-controller-dev: ko-login ## Build and publish background controller dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(BACKGROUND_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) $(KO) build $(BACKGROUND_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-all
 ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-backgound-controller ## Build and publish all images (with ko)
