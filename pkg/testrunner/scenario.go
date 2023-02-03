@@ -146,10 +146,9 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	}
 
 	policyContext := engine.NewPolicyContext().WithPolicy(policy).WithNewResource(*resource)
-
-	er := engine.Mutate(
+	eng := engine.NewEngine(config.NewDefaultConfiguration(), engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil))
+	er := eng.Mutate(
 		context.TODO(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		policyContext,
 	)
 	t.Log("---Mutation---")
@@ -163,12 +162,9 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 
 	policyContext = policyContext.WithNewResource(*resource)
 
-	cfg := config.NewDefaultConfiguration()
-	er = engine.Validate(
+	er = eng.Validate(
 		context.TODO(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		policyContext,
-		cfg,
 	)
 	t.Log("---Validation---")
 	validateResponse(t, er.PolicyResponse, tc.Expected.Validation.PolicyResponse)
@@ -185,8 +181,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		} else {
 			policyContext := policyContext.WithClient(client)
 
-			er = engine.ApplyBackgroundChecks(
-				engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+			er = eng.ApplyBackgroundChecks(
 				policyContext,
 			)
 			t.Log(("---Generation---"))

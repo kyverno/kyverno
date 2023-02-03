@@ -20,7 +20,7 @@ jobs:
         with:
           build-cache-key: release-images
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5 # v0.8.0
+        uses: aquasecurity/trivy-action@cff3e9a7f62c41dd51975266d0ae235709e39c41 # v0.9.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -198,14 +198,14 @@ jobs:
       - name: Build yaml manifest
         run: make codegen-manifest-release
       - name: Upload install manifest
-        uses: svenstaro/upload-release-action@2728235f7dc9ff598bd86ce3c274b74f802d2208 # 2.4.0
+        uses: svenstaro/upload-release-action@cc92c9093e5f785e23a3d654fe2671640b851b5f # 2.4.1
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
       - name: Upload CRD manifest
-        uses: svenstaro/upload-release-action@2728235f7dc9ff598bd86ce3c274b74f802d2208 # 2.4.0
+        uses: svenstaro/upload-release-action@cc92c9093e5f785e23a3d654fe2671640b851b5f # 2.4.1
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: config/crds/*.yaml

@@ -67,6 +67,7 @@ func setupCosign(logger logr.Logger, imageSignatureRepository string) {
 }
 
 func createReportControllers(
+	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
 	reportsChunkSize int,
@@ -130,7 +131,7 @@ func createReportControllers(
 					client,
 					kyvernoClient,
 					rclient,
-					engine.LegacyContextLoaderFactory(rclient),
+					eng,
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
@@ -157,6 +158,7 @@ func createReportControllers(
 }
 
 func createrLeaderControllers(
+	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
 	reportsChunkSize int,
@@ -173,6 +175,7 @@ func createrLeaderControllers(
 	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
+		eng,
 		backgroundScan,
 		admissionReports,
 		reportsChunkSize,
@@ -298,6 +301,10 @@ func main() {
 	}
 	// start event generator
 	go eventGenerator.Run(ctx, 3)
+	eng := engine.NewEngine(
+		configuration,
+		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+	)
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
@@ -315,6 +322,7 @@ func main() {
 			metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
+				eng,
 				backgroundScan,
 				admissionReports,
 				reportsChunkSize,

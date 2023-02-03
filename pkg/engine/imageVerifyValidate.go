@@ -16,7 +16,7 @@ import (
 
 func processImageValidationRule(
 	ctx context.Context,
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	log logr.Logger,
 	enginectx engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
@@ -110,18 +110,18 @@ func isImageVerified(resource unstructured.Unstructured, image string, log logr.
 		return false, nil
 	}
 
-	key := imageVerifyAnnotationKey
+	key := engineapi.ImageVerifyAnnotationKey
 	data, ok := annotations[key]
 	if !ok {
 		log.V(2).Info("missing image metadata in annotation", "key", key)
 		return false, fmt.Errorf("image is not verified")
 	}
 
-	ivm, err := parseImageMetadata(data)
+	ivm, err := engineapi.ParseImageMetadata(data)
 	if err != nil {
 		log.Error(err, "failed to parse image verification metadata", "data", data)
 		return false, fmt.Errorf("failed to parse image metadata: %w", err)
 	}
 
-	return ivm.isVerified(image), nil
+	return ivm.IsVerified(image), nil
 }
