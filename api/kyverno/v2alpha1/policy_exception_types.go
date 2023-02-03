@@ -16,6 +16,10 @@ limitations under the License.
 package v2alpha1
 
 import (
+	"encoding/json"
+	"fmt"
+	"regexp"
+
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,10 +42,34 @@ type PolicyException struct {
 	Spec PolicyExceptionSpec `json:"spec"`
 }
 
+var (
+	// RegexVariables represents regex for '{{}}'
+	regexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+)
+
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
+	if err := ValidateVariables(p); err != nil {
+		errs = append(errs, field.Forbidden(field.NewPath(""), err.Error()))
+	}
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
 	return errs
+}
+
+func ValidateVariables(polex *PolicyException) error {
+	return objectHasVariables(polex)
+}
+
+func objectHasVariables(object interface{}) error {
+	var err error
+	objectJSON, err := json.Marshal(object)
+	if err != nil {
+		return err
+	}
+	if len(regexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
+		return fmt.Errorf("variables are not allowed")
+	}
+	return nil
 }
 
 // Contains returns true if it contains an exception for the given policy/rule pair
@@ -73,10 +101,11 @@ func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {
 // Validate implements programmatic validation
 func (p *PolicyExceptionSpec) Validate(path *field.Path) (errs field.ErrorList) {
 	if p.BackgroundProcessingEnabled() {
-		errs = append(errs, p.Match.ValidateResourceWithNoUserInfo(path.Child("match"), false, nil)...)
-	} else {
-		errs = append(errs, p.Match.Validate(path.Child("match"), false, nil)...)
+		if userErrs := p.Match.ValidateNoUserInfo(path.Child("match")); len(userErrs) > 0 {
+			errs = append(errs, userErrs...)
+		}
 	}
+	errs = append(errs, p.Match.Validate(path.Child("match"), false, nil)...)
 	exceptionsPath := path.Child("exceptions")
 	for i, e := range p.Exceptions {
 		errs = append(errs, e.Validate(exceptionsPath.Index(i))...)

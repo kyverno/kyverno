@@ -2,9 +2,9 @@ package exception
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
+	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"gotest.tools/assert"
@@ -97,12 +97,11 @@ func Test_ValidateVariables(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			polex, err := admissionutils.UnmarshalPolicyException(c.resource)
 			assert.NilError(t, err)
-			err = validateVariables(polex)
+			err = v2alpha1.ValidateVariables(polex)
 			if c.error {
-
-				assert.Error(t, err, fmt.Sprintf(errVarsNotAllowed, polex.Name))
+				assert.Assert(t, err != nil)
 			} else {
-				assert.NilError(t, err)
+				assert.Assert(t, err)
 			}
 		})
 	}
