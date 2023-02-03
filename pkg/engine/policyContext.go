@@ -61,9 +61,6 @@ type PolicyContext struct {
 	// This is used to determine if a resource is a subresource. It is only used when the policy context is populated
 	// by kyverno CLI. In all other cases when connected to a cluster, this is empty.
 	subresourcesInPolicy []engineapi.SubResource
-
-	// // peLister list all policy exceptions
-	// peLister engineapi.PolicyExceptionSelector
 }
 
 // engineapi.PolicyContext interface
@@ -190,17 +187,12 @@ func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []engineap
 	return copy
 }
 
-// func (c *PolicyContext) WithExceptions(peLister engineapi.PolicyExceptionSelector) *PolicyContext {
-// 	copy := c.copy()
-// 	copy.peLister = peLister
-// 	return copy
-// }
-
 func (c PolicyContext) copy() *PolicyContext {
 	return &c
 }
 
 // Constructors
+
 func NewPolicyContextWithJsonContext(jsonContext enginectx.Interface) *PolicyContext {
 	return &PolicyContext{
 		jsonContext: jsonContext,
@@ -216,7 +208,6 @@ func NewPolicyContextFromAdmissionRequest(
 	admissionInfo kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 	client dclient.Interface,
-	// polexLister engineapi.PolicyExceptionSelector,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
 	if err != nil {

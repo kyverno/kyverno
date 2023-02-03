@@ -33,6 +33,4 @@ type PolicyContext interface {
 	JSONContext() enginecontext.Interface
 	Client() dclient.Interface
 	Copy() PolicyContext
-
-	// FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error)
 }
