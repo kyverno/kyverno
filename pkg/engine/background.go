@@ -17,7 +17,7 @@ import (
 //   - the caller has to check the ruleResponse to determine whether the path exist
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func ApplyBackgroundChecks(
+func doApplyBackgroundChecks(
 	contextLoader engineapi.ContextLoaderFactory,
 	policyContext engineapi.PolicyContext,
 ) (resp *engineapi.EngineResponse) {

@@ -11,7 +11,7 @@ import (
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
-func GenerateResponse(
+func doGenerateResponse(
 	contextLoader engineapi.ContextLoaderFactory,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,

@@ -48,7 +48,6 @@ type controller struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	engine        engineapi.Engine
-	contextLoader engineapi.ContextLoaderFactory
 
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
@@ -72,7 +71,6 @@ func NewController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
 	engine engineapi.Engine,
-	contextLoader engineapi.ContextLoaderFactory,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
@@ -87,7 +85,6 @@ func NewController(
 		client:                 client,
 		kyvernoClient:          kyvernoClient,
 		engine:                 engine,
-		contextLoader:          contextLoader,
 		cpolLister:             cpolInformer.Lister(),
 		polLister:              polInformer.Lister(),
 		urLister:               urLister,
@@ -421,10 +418,10 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.engine, c.contextLoader, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	case kyvernov1beta1.Generate:
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.contextLoader, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil

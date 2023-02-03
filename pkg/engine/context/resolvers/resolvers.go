@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kyverno/kyverno/pkg/engine/api"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -15,7 +15,7 @@ type informerBasedResolver struct {
 	lister corev1listers.ConfigMapLister
 }
 
-func NewInformerBasedResolver(lister corev1listers.ConfigMapLister) (api.ConfigmapResolver, error) {
+func NewInformerBasedResolver(lister corev1listers.ConfigMapLister) (engineapi.ConfigmapResolver, error) {
 	if lister == nil {
 		return nil, errors.New("lister must not be nil")
 	}
@@ -30,7 +30,7 @@ type clientBasedResolver struct {
 	kubeClient kubernetes.Interface
 }
 
-func NewClientBasedResolver(client kubernetes.Interface) (api.ConfigmapResolver, error) {
+func NewClientBasedResolver(client kubernetes.Interface) (engineapi.ConfigmapResolver, error) {
 	if client == nil {
 		return nil, errors.New("client must not be nil")
 	}

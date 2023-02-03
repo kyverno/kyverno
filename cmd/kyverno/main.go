@@ -355,7 +355,10 @@ func main() {
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		certRenewer,
 	)
-	eng := engine.NewEgine()
+	eng := engine.NewEngine(
+		configuration,
+		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
 		eng,
@@ -476,14 +479,12 @@ func main() {
 	}
 	resourceHandlers := webhooksresource.NewHandlers(
 		eng,
-		engine.LegacyContextLoaderFactory(rclient),
 		dClient,
 		kyvernoClient,
 		rclient,
 		configuration,
 		metricsConfig,
 		policyCache,
-		configMapResolver,
 		kubeInformer.Core().V1().Namespaces().Lister(),
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
