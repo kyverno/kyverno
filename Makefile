@@ -6,13 +6,17 @@
 
 GIT_VERSION          := $(shell git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))
 GIT_VERSION_DEV      := $(shell git describe --match "[0-9].[0-9]-dev*")
-GIT_BRANCH           := $(shell git branch | grep \* | cut -d ' ' -f2)
+GIT_BRANCH           := $(shell git branch --show-current | cut -d ' ' -f2)
 GIT_HASH             := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 VERSION              ?= $(shell git describe --match "v[0-9]*")
 REGISTRY             ?= ghcr.io
 REPO                 ?= kyverno
-IMAGE_TAG_LATEST_DEV  = $(shell git describe --match "[0-9].[0-9]-dev*" | cut -d '-' -f-2)
+ifeq ($(GIT_BRANCH),main)
+IMAGE_TAG_LATEST     := latest
+else
+IMAGE_TAG_LATEST     := $(subst release-,,$(GIT_BRANCH))-latest
+endif
 IMAGE_TAG_DEV         = $(GIT_VERSION_DEV)
 IMAGE_TAG            ?= $(GIT_VERSION)
 K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
@@ -219,28 +223,28 @@ build-all: build-kyvernopre build-kyverno build-cli build-cleanup-controller ## 
 
 PLATFORMS           := linux/amd64,linux/arm64,linux/s390x
 LOCAL_PLATFORM      := linux/$(GOARCH)
-KO_TAGS             := latest,$(IMAGE_TAG)
-KO_TAGS_DEV         := latest,$(IMAGE_TAG_DEV)
+KO_TAGS             := $(IMAGE_TAG_LATEST),$(IMAGE_TAG)
+KO_TAGS_DEV         := $(IMAGE_TAG_LATEST),$(IMAGE_TAG_DEV)
 
 .PHONY: ko-build-kyvernopre
 ko-build-kyvernopre: $(KO) ## Build kyvernopre local image (with ko)
 	@echo Build kyvernopre local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
 	@echo Build kyverno local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build cli local image (with ko)
 	@echo Build cli local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cleanup-controller
 ko-build-cleanup-controller: $(KO) ## Build cleanup controller local image (with ko)
 	@echo Build cleanup controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(CLEANUP_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(CLEANUP_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ko-build-cleanup-controller ## Build all local images (with ko)
