@@ -521,6 +521,7 @@ codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and 
 .PHONY: codegen-manifest-install
 codegen-manifest-install: $(HELM) ## Create install manifest
 	@echo Generate install manifest... >&2
+	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
