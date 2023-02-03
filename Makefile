@@ -598,11 +598,8 @@ verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
-.PHONY: verify-manifest-all
-verify-manifest-all: codegen-manifest-all ## Check all manifests generate without errors
-
 .PHONY: verify-codegen
-verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm verify-manifest-install ## Verify all generated code and docs are up to date
+verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm codegen-manifest-all ## Verify all generated code and docs are up to date
 
 ##############
 # UNIT TESTS #
