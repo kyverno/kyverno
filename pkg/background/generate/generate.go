@@ -360,8 +360,8 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 					foreach:       rule.Generation.ForEachGeneration,
 					policyContext: policyContext,
 					log:           log,
+					engine:        c.engine,
 					client:        c.client,
-					contextLoader: c.contextLoader,
 					resource:      resource,
 					ur:            ur,
 					nesting:       0,
@@ -646,8 +646,8 @@ type forEachGenerator struct {
 	foreach       []kyvernov1.ForEachGeneration
 	nesting       int
 	client        dclient.Interface
-	contextLoader engine.ContextLoaderFactory
 	log           logr.Logger
+	engine        engineapi.Engine
 	resource      unstructured.Unstructured
 	ur            kyvernov1beta1.UpdateRequest
 }
@@ -706,7 +706,7 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 			return newGenResources, err
 		}
 
-		if err := engine.LoadContext(ctx, f.contextLoader, foreach.Context, policyContext, f.rule.Name); err != nil {
+		if err := f.engine.ContextLoader(policyContext, f.rule.Name).Load(ctx, foreach.Context, f.policyContext.JSONContext()); err != nil {
 			return newGenResources, err
 		}
 
