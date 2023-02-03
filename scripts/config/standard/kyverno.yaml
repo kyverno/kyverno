@@ -6,6 +6,9 @@ extraArgs:
   - --loggingFormat=json
   - --enablePolicyException
 
+generatecontrollerExtraResources:
+  - pods
+
 cleanupController:
   rbac:
     clusterRole:
