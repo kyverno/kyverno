@@ -37,9 +37,9 @@ type GenerationHandler interface {
 
 func NewGenerationHandler(
 	log logr.Logger,
+	engine engineapi.Engine,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	contextLoader engineapi.ContextLoaderFactory,
 	nsLister corev1listers.NamespaceLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	urGenerator webhookgenerate.Generator,
@@ -49,9 +49,9 @@ func NewGenerationHandler(
 ) GenerationHandler {
 	return &generationHandler{
 		log:           log,
+		engine:        engine,
 		client:        client,
 		kyvernoClient: kyvernoClient,
-		contextLoader: contextLoader,
 		nsLister:      nsLister,
 		urLister:      urLister,
 		urGenerator:   urGenerator,
@@ -63,9 +63,9 @@ func NewGenerationHandler(
 
 type generationHandler struct {
 	log           logr.Logger
+	engine        engineapi.Engine
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	contextLoader engineapi.ContextLoaderFactory
 	nsLister      corev1listers.NamespaceLister
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
 	urGenerator   webhookgenerate.Generator
@@ -92,7 +92,7 @@ func (h *generationHandler) Handle(
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 				policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 			}
-			engineResponse := engine.ApplyBackgroundChecks(h.contextLoader, policyContext)
+			engineResponse := h.engine.ApplyBackgroundChecks(policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if rule.Status != engineapi.RuleStatusPass {
 					h.deleteGR(ctx, engineResponse)

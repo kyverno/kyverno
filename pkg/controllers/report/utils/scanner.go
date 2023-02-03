@@ -16,15 +16,13 @@ import (
 )
 
 type scanner struct {
-	logger                 logr.Logger
-	engine                 engineapi.Engine
-	contextLoader          engineapi.ContextLoaderFactory
-	client                 dclient.Interface
-	rclient                registryclient.Client
-	informerCacheResolvers engineapi.ConfigmapResolver
-	polexLister            engine.PolicyExceptionLister
-	excludeGroupRole       []string
-	config                 config.Configuration
+	logger           logr.Logger
+	engine           engineapi.Engine
+	client           dclient.Interface
+	rclient          registryclient.Client
+	polexLister      engine.PolicyExceptionLister
+	excludeGroupRole []string
+	config           config.Configuration
 }
 
 type ScanResult struct {
@@ -39,24 +37,20 @@ type Scanner interface {
 func NewScanner(
 	logger logr.Logger,
 	engine engineapi.Engine,
-	contextLoader engineapi.ContextLoaderFactory,
 	client dclient.Interface,
 	rclient registryclient.Client,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	polexLister engine.PolicyExceptionLister,
 	config config.Configuration,
 	excludeGroupRole ...string,
 ) Scanner {
 	return &scanner{
-		logger:                 logger,
-		engine:                 engine,
-		contextLoader:          contextLoader,
-		client:                 client,
-		rclient:                rclient,
-		informerCacheResolvers: informerCacheResolvers,
-		polexLister:            polexLister,
-		config:                 config,
-		excludeGroupRole:       excludeGroupRole,
+		logger:           logger,
+		engine:           engine,
+		client:           client,
+		rclient:          rclient,
+		polexLister:      polexLister,
+		config:           config,
+		excludeGroupRole: excludeGroupRole,
 	}
 }
 
@@ -107,9 +101,8 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
-		WithInformerCacheResolver(s.informerCacheResolvers).
 		WithExceptions(s.polexLister)
-	return s.engine.Validate(ctx, s.contextLoader, policyCtx, s.config), nil
+	return s.engine.Validate(ctx, policyCtx), nil
 }
 
 func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, error) {
@@ -132,9 +125,8 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		WithClient(s.client).
 		WithNamespaceLabels(nsLabels).
 		WithExcludeGroupRole(s.excludeGroupRole...).
-		WithInformerCacheResolver(s.informerCacheResolvers).
 		WithExceptions(s.polexLister)
-	response, _ := s.engine.VerifyAndPatchImages(ctx, s.contextLoader, s.rclient, policyCtx, s.config)
+	response, _ := s.engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}
