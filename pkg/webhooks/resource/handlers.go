@@ -137,9 +137,9 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 		namespaceLabels = engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
+	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.rclient, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig)
-
-	ok, msg, warnings := vh.HandleValidation(ctx, request, policies, policyContext, namespaceLabels, startTime)
+	ok, msg, warnings := vh.HandleValidation(ctx, request, policies, policyContext, startTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)

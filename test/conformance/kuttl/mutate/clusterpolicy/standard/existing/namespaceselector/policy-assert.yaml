@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: test-post-mutation-delete-trigger
+  name: org-label-inheritance-existing
 status:
   conditions:
   - reason: Succeeded
