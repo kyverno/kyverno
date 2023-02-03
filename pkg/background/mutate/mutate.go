@@ -31,16 +31,14 @@ type MutateExistingController struct {
 	client        dclient.Interface
 	statusControl common.StatusControlInterface
 	engine        engineapi.Engine
-	contextLoader engineapi.ContextLoaderFactory
 
 	// listers
 	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
 	nsLister      corev1listers.NamespaceLister
 
-	configuration          config.Configuration
-	informerCacheResolvers engineapi.ConfigmapResolver
-	eventGen               event.Interface
+	configuration config.Configuration
+	eventGen      event.Interface
 
 	log logr.Logger
 }
@@ -50,27 +48,23 @@ func NewMutateExistingController(
 	client dclient.Interface,
 	statusControl common.StatusControlInterface,
 	engine engineapi.Engine,
-	contextLoader engineapi.ContextLoaderFactory,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	nsLister corev1listers.NamespaceLister,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers engineapi.ConfigmapResolver,
 	eventGen event.Interface,
 	log logr.Logger,
 ) *MutateExistingController {
 	c := MutateExistingController{
-		client:                 client,
-		statusControl:          statusControl,
-		engine:                 engine,
-		contextLoader:          contextLoader,
-		policyLister:           policyLister,
-		npolicyLister:          npolicyLister,
-		nsLister:               nsLister,
-		configuration:          dynamicConfig,
-		informerCacheResolvers: informerCacheResolvers,
-		eventGen:               eventGen,
-		log:                    log,
+		client:        client,
+		statusControl: statusControl,
+		engine:        engine,
+		policyLister:  policyLister,
+		npolicyLister: npolicyLister,
+		nsLister:      nsLister,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
 	}
 	return &c
 }
@@ -98,14 +92,14 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 
 		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, c.informerCacheResolvers, namespaceLabels, logger)
+		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, namespaceLabels, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
 			continue
 		}
 
-		er := c.engine.Mutate(context.TODO(), c.contextLoader, policyContext)
+		er := c.engine.Mutate(context.TODO(), policyContext)
 		for _, r := range er.PolicyResponse.Rules {
 			patched := r.PatchedTarget
 			patchedTargetSubresourceName := r.PatchedTargetSubresourceName

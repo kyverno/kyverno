@@ -38,7 +38,6 @@ func NewValidationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
 	engine engineapi.Engine,
-	contextLoader engineapi.ContextLoaderFactory,
 	pCache policycache.Cache,
 	pcBuilder webhookutils.PolicyContextBuilder,
 	eventGen event.Interface,
@@ -50,7 +49,6 @@ func NewValidationHandler(
 		log:              log,
 		kyvernoClient:    kyvernoClient,
 		engine:           engine,
-		contextLoader:    contextLoader,
 		pCache:           pCache,
 		pcBuilder:        pcBuilder,
 		eventGen:         eventGen,
@@ -64,7 +62,6 @@ type validationHandler struct {
 	log              logr.Logger
 	kyvernoClient    versioned.Interface
 	engine           engineapi.Engine
-	contextLoader    engineapi.ContextLoaderFactory
 	pCache           policycache.Cache
 	pcBuilder        webhookutils.PolicyContextBuilder
 	eventGen         event.Interface
@@ -109,7 +106,7 @@ func (v *validationHandler) HandleValidation(
 					failurePolicy = kyvernov1.Fail
 				}
 
-				engineResponse := v.engine.Validate(ctx, v.contextLoader, policyContext, v.cfg)
+				engineResponse := v.engine.Validate(ctx, policyContext)
 				if engineResponse.IsNil() {
 					// we get an empty response if old and new resources created the same response
 					// allow updates if resource update doesnt change the policy evaluation
@@ -167,7 +164,7 @@ func (v *validationHandler) buildAuditResponses(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy)
-				responses = append(responses, v.engine.Validate(ctx, v.contextLoader, policyContext, v.cfg))
+				responses = append(responses, v.engine.Validate(ctx, policyContext))
 			},
 		)
 	}
