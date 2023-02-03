@@ -493,6 +493,10 @@ webhooksCleanup:
 # -- A writable volume to use for the TUF root initialization.
 tufRootMountPath: /.sigstore
 
+# -- Volume to be mounted in pods for TUF/cosign work.
+sigstoreVolume:
+  emptyDir: {}
+
 grafana:
   # -- Enable grafana dashboard creation.
   enabled: false
