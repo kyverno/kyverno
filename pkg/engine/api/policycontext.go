@@ -26,7 +26,6 @@ type PolicyContext interface {
 	NamespaceLabels() map[string]string
 	SubResource() string
 	SubresourcesInPolicy() []SubResource
-	ExcludeGroupRole() []string
 	AdmissionOperation() bool
 	RequestResource() metav1.GroupVersionResource
 	Element() unstructured.Unstructured
@@ -37,5 +36,4 @@ type PolicyContext interface {
 	Copy() PolicyContext
 
 	FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error)
-	ExcludeResourceFunc() ExcludeFunc
 }

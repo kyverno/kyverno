@@ -10,6 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -29,6 +30,7 @@ func testMutate(
 		ctx,
 		LegacyContextLoaderFactory(rclient, nil),
 		pContext,
+		config.NewDefaultConfiguration(),
 	)
 }
 

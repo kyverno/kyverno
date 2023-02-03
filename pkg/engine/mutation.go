@@ -10,6 +10,7 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -25,6 +26,7 @@ func doMutate(
 	ctx context.Context,
 	contextLoader engineapi.ContextLoaderFactory,
 	policyContext engineapi.PolicyContext,
+	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy()
@@ -62,8 +64,8 @@ func doMutate(
 			func(ctx context.Context, span trace.Span) {
 				logger := logger.WithValues("rule", rule.Name)
 				var excludeResource []string
-				if len(policyContext.ExcludeGroupRole()) > 0 {
-					excludeResource = policyContext.ExcludeGroupRole()
+				if len(cfg.GetExcludeGroupRole()) > 0 {
+					excludeResource = cfg.GetExcludeGroupRole()
 				}
 
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
@@ -75,7 +77,7 @@ func doMutate(
 				}
 
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(policyContext, &computeRules[i], subresourceGVKToAPIResource, logger)
+				ruleResp := hasPolicyExceptions(logger, policyContext, &computeRules[i], subresourceGVKToAPIResource, cfg)
 				if ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return

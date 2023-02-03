@@ -54,11 +54,6 @@ type PolicyContext struct {
 	// Dynamic client - used for api lookups
 	client dclient.Interface
 
-	// Config handler
-	excludeGroupRole []string
-
-	excludeResourceFunc engineapi.ExcludeFunc
-
 	// jsonContext is the variable context
 	jsonContext enginectx.Interface
 
@@ -105,10 +100,6 @@ func (c *PolicyContext) SubResource() string {
 
 func (c *PolicyContext) SubresourcesInPolicy() []engineapi.SubResource {
 	return c.subresourcesInPolicy
-}
-
-func (c *PolicyContext) ExcludeGroupRole() []string {
-	return c.excludeGroupRole
 }
 
 func (c *PolicyContext) AdmissionOperation() bool {
@@ -160,10 +151,6 @@ func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyEx
 	return result, nil
 }
 
-func (c *PolicyContext) ExcludeResourceFunc() engineapi.ExcludeFunc {
-	return c.excludeResourceFunc
-}
-
 // Mutators
 
 func (c *PolicyContext) WithPolicy(policy kyvernov1.PolicyInterface) *PolicyContext {
@@ -212,22 +199,6 @@ func (c *PolicyContext) WithClient(client dclient.Interface) *PolicyContext {
 	return copy
 }
 
-func (c *PolicyContext) WithExcludeGroupRole(excludeGroupRole ...string) *PolicyContext {
-	copy := c.copy()
-	copy.excludeGroupRole = excludeGroupRole
-	return copy
-}
-
-func (c *PolicyContext) WithExcludeResourceFunc(excludeResourceFunc engineapi.ExcludeFunc) *PolicyContext {
-	copy := c.copy()
-	copy.excludeResourceFunc = excludeResourceFunc
-	return copy
-}
-
-func (c *PolicyContext) WithConfiguration(configuration config.Configuration) *PolicyContext {
-	return c.WithExcludeResourceFunc(configuration.ToFilter).WithExcludeGroupRole(configuration.GetExcludeGroupRole()...)
-}
-
 func (c *PolicyContext) WithSubresource(subresource string) *PolicyContext {
 	copy := c.copy()
 	copy.subresource = subresource
@@ -253,11 +224,7 @@ func (c PolicyContext) copy() *PolicyContext {
 // Constructors
 func NewPolicyContextWithJsonContext(jsonContext enginectx.Interface) *PolicyContext {
 	return &PolicyContext{
-		jsonContext:      jsonContext,
-		excludeGroupRole: []string{},
-		excludeResourceFunc: func(string, string, string) bool {
-			return false
-		},
+		jsonContext: jsonContext,
 	}
 }
 
@@ -288,7 +255,6 @@ func NewPolicyContextFromAdmissionRequest(
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
-		WithConfiguration(configuration).
 		WithClient(client).
 		WithRequestResource(*requestResource).
 		WithSubresource(request.SubResource).

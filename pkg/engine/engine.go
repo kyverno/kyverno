@@ -35,7 +35,7 @@ func (e *engine) Mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doMutate(ctx, e.contextLoader, policyContext)
+	return doMutate(ctx, e.contextLoader, policyContext, e.configuration)
 }
 
 func (e *engine) VerifyAndPatchImages(
@@ -49,14 +49,14 @@ func (e *engine) VerifyAndPatchImages(
 func (e *engine) ApplyBackgroundChecks(
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doApplyBackgroundChecks(e.contextLoader, policyContext)
+	return doApplyBackgroundChecks(e.contextLoader, policyContext, e.configuration)
 }
 
 func (e *engine) GenerateResponse(
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) *engineapi.EngineResponse {
-	return doGenerateResponse(e.contextLoader, policyContext, gr)
+	return doGenerateResponse(e.contextLoader, policyContext, gr, e.configuration)
 }
 
 func (e *engine) ContextLoader(

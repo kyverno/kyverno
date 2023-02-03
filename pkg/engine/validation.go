@@ -149,11 +149,11 @@ func validateResource(
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, enginectx)
 
-				if !matches(log, rule, enginectx, subresourceGVKToAPIResource) {
+				if !matches(log, rule, enginectx, subresourceGVKToAPIResource, cfg) {
 					return nil
 				}
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(enginectx, rule, subresourceGVKToAPIResource, log)
+				ruleResp := hasPolicyExceptions(log, enginectx, rule, subresourceGVKToAPIResource, cfg)
 				if ruleResp != nil {
 					return ruleResp
 				}
@@ -595,14 +595,20 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(logger logr.Logger, rule *kyvernov1.Rule, ctx engineapi.PolicyContext, subresourceGVKToAPIResource map[string]*metav1.APIResource) bool {
-	err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.NewResource(), *rule, ctx.AdmissionInfo(), ctx.ExcludeGroupRole(), ctx.NamespaceLabels(), "", ctx.SubResource())
+func matches(
+	logger logr.Logger,
+	rule *kyvernov1.Rule,
+	ctx engineapi.PolicyContext,
+	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+	cfg config.Configuration,
+) bool {
+	err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.NewResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludeGroupRole(), ctx.NamespaceLabels(), "", ctx.SubResource())
 	if err == nil {
 		return true
 	}
 
 	if !reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.OldResource(), *rule, ctx.AdmissionInfo(), ctx.ExcludeGroupRole(), ctx.NamespaceLabels(), "", ctx.SubResource())
+		err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.OldResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludeGroupRole(), ctx.NamespaceLabels(), "", ctx.SubResource())
 		if err == nil {
 			return true
 		}
@@ -796,6 +802,7 @@ func matchesException(
 	policyContext engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
 	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+	cfg config.Configuration,
 ) (*kyvernov2alpha1.PolicyException, error) {
 	candidates, err := policyContext.FindExceptions(rule.Name)
 	if err != nil {
@@ -809,7 +816,7 @@ func matchesException(
 			subresourceGVKToAPIResource,
 			policyContext.SubResource(),
 			policyContext.AdmissionInfo(),
-			policyContext.ExcludeGroupRole(),
+			cfg.GetExcludeGroupRole(),
 		)
 		// if there's no error it means a match
 		if err == nil {
@@ -821,9 +828,15 @@ func matchesException(
 
 // hasPolicyExceptions returns nil when there are no matching exceptions.
 // A rule response is returned when an exception is matched, or there is an error.
-func hasPolicyExceptions(ctx engineapi.PolicyContext, rule *kyvernov1.Rule, subresourceGVKToAPIResource map[string]*metav1.APIResource, log logr.Logger) *engineapi.RuleResponse {
+func hasPolicyExceptions(
+	log logr.Logger,
+	ctx engineapi.PolicyContext,
+	rule *kyvernov1.Rule,
+	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+	cfg config.Configuration,
+) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(ctx, rule, subresourceGVKToAPIResource)
+	exception, err := matchesException(ctx, rule, subresourceGVKToAPIResource, cfg)
 	// if we found an exception
 	if err == nil && exception != nil {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
