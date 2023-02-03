@@ -8,9 +8,18 @@
   {{- end }}
 {{- end }}
 
-{{- if eq .Values.replicaCount 0 }}
-  {{ fail "Kyverno does not support running with 0 replicas. For a highly-available deployment, select 3 replicas or for standalone select 1 replica." }}
+# Function to check replicaCount of all deployments
+{{- define "replicaCountCheck" }}
+  {{- $value := . }}
+  {{- if eq $value 0 }}
+    {{ fail "Kyverno does not support running with 0 replicas. Please provide a non-zero value." }}
+  {{- end }}
 {{- end }}
+
+{{- template "replicaCountCheck" .Values.replicaCount }}
+{{- template "replicaCountCheck" .Values.backgroundController.replicas }}
+{{- template "replicaCountCheck" .Values.cleanupController.replicas }}
+{{- template "replicaCountCheck" .Values.reportsController.replicas }}
 
 {{- if eq (include "kyverno.namespace" .) "kube-system" }}
     {{ fail "Kyverno cannot be installed in namespace kube-system." }}
