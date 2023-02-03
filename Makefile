@@ -506,7 +506,7 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 		--set reportsController.image.tag=latest \
 		--set backgroundController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
-		> ./config/install.yaml
+		> ./.manifest/install.yaml
 
 .PHONY: codegen-manifest-debug
 codegen-manifest-debug: $(HELM) ## Create debug manifest
@@ -598,13 +598,8 @@ verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
-.PHONY: verify-manifest-install
-verify-manifest-install: codegen-manifest-install ## Check install manifest is up to date
-	@echo Checking install manifest is up to date... >&2
-	@git --no-pager diff config/install.yaml
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
-	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code config/install.yaml
+.PHONY: verify-manifest-all
+verify-manifest-all: codegen-manifest-all ## Check all manifests generate without errors
 
 .PHONY: verify-codegen
 verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm verify-manifest-install ## Verify all generated code and docs are up to date
