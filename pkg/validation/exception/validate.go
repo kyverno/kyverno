@@ -59,7 +59,7 @@ func objectHasVariables(object interface{}) error {
 	}
 
 	if len(common.RegexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
-		return fmt.Errorf("invalid variables")
+		return fmt.Errorf("variables are not allowed")
 	}
 
 	return nil
