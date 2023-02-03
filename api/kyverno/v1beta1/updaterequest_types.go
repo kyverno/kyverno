@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"reflect"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -112,6 +114,10 @@ type RequestInfo struct {
 	// UserInfo is the userInfo carried in the admission request.
 	// +optional
 	AdmissionUserInfo authenticationv1.UserInfo `json:"userInfo" yaml:"userInfo"`
+}
+
+func (r RequestInfo) IsEmpty() bool {
+	return len(r.Roles) == 0 && len(r.ClusterRoles) == 0 && reflect.DeepEqual(r.AdmissionUserInfo, authenticationv1.UserInfo{})
 }
 
 // AdmissionRequestInfoObject stores the admission request and operation details

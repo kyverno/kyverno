@@ -65,9 +65,6 @@ type PolicyContext struct {
 	// namespaceLabels stores the label of namespace to be processed by namespace selector
 	namespaceLabels map[string]string
 
-	// admissionOperation represents if the caller is from the webhook server
-	admissionOperation bool
-
 	// subresource is the subresource being requested, if any (for example, "status" or "scale")
 	subresource string
 
@@ -115,7 +112,7 @@ func (c *PolicyContext) ExcludeGroupRole() []string {
 }
 
 func (c *PolicyContext) AdmissionOperation() bool {
-	return c.admissionOperation
+	return !c.admissionInfo.IsEmpty()
 }
 
 func (c *PolicyContext) RequestResource() metav1.GroupVersionResource {
@@ -231,12 +228,6 @@ func (c *PolicyContext) WithConfiguration(configuration config.Configuration) *P
 	return c.WithExcludeResourceFunc(configuration.ToFilter).WithExcludeGroupRole(configuration.GetExcludeGroupRole()...)
 }
 
-func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
-	copy := c.copy()
-	copy.admissionOperation = admissionOperation
-	return copy
-}
-
 func (c *PolicyContext) WithSubresource(subresource string) *PolicyContext {
 	copy := c.copy()
 	copy.subresource = subresource
@@ -299,7 +290,6 @@ func NewPolicyContextFromAdmissionRequest(
 		WithAdmissionInfo(admissionInfo).
 		WithConfiguration(configuration).
 		WithClient(client).
-		WithAdmissionOperation(true).
 		WithRequestResource(*requestResource).
 		WithSubresource(request.SubResource).
 		WithExceptions(polexLister)
