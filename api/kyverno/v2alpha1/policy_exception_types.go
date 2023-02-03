@@ -50,7 +50,7 @@ var (
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
 	if err := ValidateVariables(p); err != nil {
-		errs = append(errs, field.Forbidden(field.NewPath(""), err.Error()))
+		errs = append(errs, field.Forbidden(field.NewPath(""), fmt.Sprintf("Policy Exception \"%s\" should not have variables", p.Name)))
 	}
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
 	return errs
