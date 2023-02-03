@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -13,7 +12,6 @@ import (
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -69,9 +67,6 @@ type PolicyContext struct {
 
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
-
-	// informerCacheResolvers - used to get resources from informer cache
-	informerCacheResolvers engineapi.ConfigmapResolver
 
 	// subresource is the subresource being requested, if any (for example, "status" or "scale")
 	subresource string
@@ -168,10 +163,6 @@ func (c *PolicyContext) ExcludeResourceFunc() engineapi.ExcludeFunc {
 	return c.excludeResourceFunc
 }
 
-func (c *PolicyContext) ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error) {
-	return c.informerCacheResolvers.Get(ctx, namespace, name)
-}
-
 // Setters
 
 func (c *PolicyContext) SetElement(element unstructured.Unstructured) {
@@ -248,12 +239,6 @@ func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyC
 	return copy
 }
 
-func (c *PolicyContext) WithInformerCacheResolver(informerCacheResolver engineapi.ConfigmapResolver) *PolicyContext {
-	copy := c.copy()
-	copy.informerCacheResolvers = informerCacheResolver
-	return copy
-}
-
 func (c *PolicyContext) WithSubresource(subresource string) *PolicyContext {
 	copy := c.copy()
 	copy.subresource = subresource
@@ -296,7 +281,6 @@ func NewPolicyContextFromAdmissionRequest(
 	admissionInfo kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 	client dclient.Interface,
-	informerCacheResolver engineapi.ConfigmapResolver,
 	polexLister PolicyExceptionLister,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
@@ -318,7 +302,6 @@ func NewPolicyContextFromAdmissionRequest(
 		WithConfiguration(configuration).
 		WithClient(client).
 		WithAdmissionOperation(true).
-		WithInformerCacheResolver(informerCacheResolver).
 		WithRequestResource(*requestResource).
 		WithSubresource(request.SubResource).
 		WithExceptions(polexLister)

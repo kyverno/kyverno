@@ -34,10 +34,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// Validate applies validation rules from policy on the resource
-func Validate(
+func doValidate(
 	ctx context.Context,
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
@@ -104,7 +103,7 @@ func buildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 
 func validateResource(
 	ctx context.Context,
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	log logr.Logger,
 	enginectx engineapi.PolicyContext,
 	cfg config.Configuration,
@@ -183,7 +182,7 @@ func validateResource(
 
 func processValidationRule(
 	ctx context.Context,
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	log logr.Logger,
 	policyContext engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
@@ -217,11 +216,11 @@ type validator struct {
 	deny             *kyvernov1.Deny
 	podSecurity      *kyvernov1.PodSecurity
 	forEach          []kyvernov1.ForEachValidation
-	contextLoader    ContextLoaderFactory
+	contextLoader    engineapi.ContextLoaderFactory
 	nesting          int
 }
 
-func newValidator(log logr.Logger, contextLoader ContextLoaderFactory, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, contextLoader engineapi.ContextLoaderFactory, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
 	return &validator{
 		log:              log,
@@ -240,7 +239,7 @@ func newValidator(log logr.Logger, contextLoader ContextLoaderFactory, ctx engin
 
 func newForEachValidator(
 	foreach kyvernov1.ForEachValidation,
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	nesting int,
 	rule *kyvernov1.Rule,
 	ctx engineapi.PolicyContext,

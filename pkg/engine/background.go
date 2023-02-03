@@ -17,8 +17,8 @@ import (
 //   - the caller has to check the ruleResponse to determine whether the path exist
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func ApplyBackgroundChecks(
-	contextLoader ContextLoaderFactory,
+func doApplyBackgroundChecks(
+	contextLoader engineapi.ContextLoaderFactory,
 	policyContext engineapi.PolicyContext,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
@@ -26,7 +26,7 @@ func ApplyBackgroundChecks(
 }
 
 func filterRules(
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	policyContext engineapi.PolicyContext,
 	startTime time.Time,
 ) *engineapi.EngineResponse {
@@ -75,7 +75,7 @@ func filterRules(
 }
 
 func filterRule(
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	rule kyvernov1.Rule,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.RuleResponse {
