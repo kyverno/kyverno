@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: audit-pod
+  namespace: test-audit-reports-namespacesselector
+spec:
+  containers:
+  - image: nginx:latest
+    name: audit-pod
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: non-audit-pod
+  namespace: test-non-audit-reports-namespacesselector
+spec:
+  containers:
+  - image: nginx:latest
+    name: non-audit-pod
