@@ -16,12 +16,11 @@ import (
 )
 
 type scanner struct {
-	logger      logr.Logger
-	engine      engineapi.Engine
-	client      dclient.Interface
-	rclient     registryclient.Client
-	polexLister engine.PolicyExceptionLister
-	config      config.Configuration
+	logger  logr.Logger
+	engine  engineapi.Engine
+	client  dclient.Interface
+	rclient registryclient.Client
+	config  config.Configuration
 }
 
 type ScanResult struct {
@@ -38,16 +37,14 @@ func NewScanner(
 	engine engineapi.Engine,
 	client dclient.Interface,
 	rclient registryclient.Client,
-	polexLister engine.PolicyExceptionLister,
 	config config.Configuration,
 ) Scanner {
 	return &scanner{
-		logger:      logger,
-		engine:      engine,
-		client:      client,
-		rclient:     rclient,
-		polexLister: polexLister,
-		config:      config,
+		logger:  logger,
+		engine:  engine,
+		client:  client,
+		rclient: rclient,
+		config:  config,
 	}
 }
 
@@ -96,8 +93,7 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithClient(s.client).
-		WithNamespaceLabels(nsLabels).
-		WithExceptions(s.polexLister)
+		WithNamespaceLabels(nsLabels)
 	return s.engine.Validate(ctx, policyCtx), nil
 }
 
@@ -119,8 +115,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithClient(s.client).
-		WithNamespaceLabels(nsLabels).
-		WithExceptions(s.polexLister)
+		WithNamespaceLabels(nsLabels)
 	response, _ := s.engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)

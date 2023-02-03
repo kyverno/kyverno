@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
-	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -57,7 +56,6 @@ type controller struct {
 	bgscanrLister  cache.GenericLister
 	cbgscanrLister cache.GenericLister
 	nsLister       corev1listers.NamespaceLister
-	polexLister    engine.PolicyExceptionLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -81,7 +79,6 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
-	polexLister engine.PolicyExceptionLister,
 	metadataCache resource.MetadataCache,
 	informerCacheResolvers engineapi.ConfigmapResolver,
 	forceDelay time.Duration,
@@ -101,7 +98,6 @@ func NewController(
 		bgscanrLister:          bgscanr.Lister(),
 		cbgscanrLister:         cbgscanr.Lister(),
 		nsLister:               nsInformer.Lister(),
-		polexLister:            polexLister,
 		queue:                  queue,
 		metadataCache:          metadataCache,
 		informerCacheResolvers: informerCacheResolvers,
@@ -312,7 +308,7 @@ func (c *controller) reconcileReport(
 	// calculate necessary results
 	for _, policy := range backgroundPolicies {
 		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.engine, c.client, c.rclient, c.polexLister, c.config)
+			scanner := utils.NewScanner(logger, c.engine, c.client, c.rclient, c.config)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
 					return result.Error

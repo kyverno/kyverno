@@ -25,6 +25,7 @@ import (
 func doMutate(
 	ctx context.Context,
 	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
@@ -77,7 +78,7 @@ func doMutate(
 				}
 
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(logger, policyContext, &computeRules[i], subresourceGVKToAPIResource, cfg)
+				ruleResp := hasPolicyExceptions(logger, selector, policyContext, &computeRules[i], subresourceGVKToAPIResource, cfg)
 				if ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return

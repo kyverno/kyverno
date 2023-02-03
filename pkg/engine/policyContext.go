@@ -5,7 +5,6 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -14,15 +13,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
 )
-
-type PolicyExceptionLister interface {
-	// List lists all PolicyExceptions in the indexer.
-	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*kyvernov2alpha1.PolicyException, err error)
-}
 
 // PolicyContext contains the contexts for engine to process
 type PolicyContext struct {
@@ -71,8 +62,8 @@ type PolicyContext struct {
 	// by kyverno CLI. In all other cases when connected to a cluster, this is empty.
 	subresourcesInPolicy []engineapi.SubResource
 
-	// peLister list all policy exceptions
-	peLister PolicyExceptionLister
+	// // peLister list all policy exceptions
+	// peLister engineapi.PolicyExceptionSelector
 }
 
 // engineapi.PolicyContext interface
@@ -131,27 +122,6 @@ func (c *PolicyContext) Client() dclient.Interface {
 
 func (c PolicyContext) Copy() engineapi.PolicyContext {
 	return c.copy()
-}
-
-func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error) {
-	if c.peLister == nil {
-		return nil, nil
-	}
-	polexs, err := c.peLister.List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-	var result []*kyvernov2alpha1.PolicyException
-	policyName, err := cache.MetaNamespaceKeyFunc(c.policy)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compute policy key: %w", err)
-	}
-	for _, polex := range polexs {
-		if polex.Contains(policyName, rule) {
-			result = append(result, polex)
-		}
-	}
-	return result, nil
 }
 
 // Mutators
@@ -220,11 +190,11 @@ func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []engineap
 	return copy
 }
 
-func (c *PolicyContext) WithExceptions(peLister PolicyExceptionLister) *PolicyContext {
-	copy := c.copy()
-	copy.peLister = peLister
-	return copy
-}
+// func (c *PolicyContext) WithExceptions(peLister engineapi.PolicyExceptionSelector) *PolicyContext {
+// 	copy := c.copy()
+// 	copy.peLister = peLister
+// 	return copy
+// }
 
 func (c PolicyContext) copy() *PolicyContext {
 	return &c
@@ -246,7 +216,7 @@ func NewPolicyContextFromAdmissionRequest(
 	admissionInfo kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 	client dclient.Interface,
-	polexLister PolicyExceptionLister,
+	// polexLister engineapi.PolicyExceptionSelector,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
 	if err != nil {
@@ -267,8 +237,7 @@ func NewPolicyContextFromAdmissionRequest(
 		WithClient(client).
 		withAdmissionOperation(true).
 		WithRequestResource(*requestResource).
-		WithSubresource(request.SubResource).
-		WithExceptions(polexLister)
+		WithSubresource(request.SubResource)
 	return policyContext, nil
 }
 

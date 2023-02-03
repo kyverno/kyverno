@@ -3,7 +3,6 @@ package api
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,5 +34,5 @@ type PolicyContext interface {
 	Client() dclient.Interface
 	Copy() PolicyContext
 
-	FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error)
+	// FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error)
 }

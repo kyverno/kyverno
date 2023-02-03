@@ -10,17 +10,20 @@ import (
 )
 
 type engine struct {
-	configuration config.Configuration
-	contextLoader engineapi.ContextLoaderFactory
+	configuration     config.Configuration
+	contextLoader     engineapi.ContextLoaderFactory
+	exceptionSelector engineapi.PolicyExceptionSelector
 }
 
 func NewEngine(
 	configuration config.Configuration,
 	contextLoader engineapi.ContextLoaderFactory,
+	exceptionSelector engineapi.PolicyExceptionSelector,
 ) engineapi.Engine {
 	return &engine{
-		configuration: configuration,
-		contextLoader: contextLoader,
+		configuration:     configuration,
+		contextLoader:     contextLoader,
+		exceptionSelector: exceptionSelector,
 	}
 }
 
@@ -28,14 +31,14 @@ func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doValidate(ctx, e.contextLoader, policyContext, e.configuration)
+	return doValidate(ctx, e.contextLoader, e.exceptionSelector, policyContext, e.configuration)
 }
 
 func (e *engine) Mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doMutate(ctx, e.contextLoader, policyContext, e.configuration)
+	return doMutate(ctx, e.contextLoader, e.exceptionSelector, policyContext, e.configuration)
 }
 
 func (e *engine) VerifyAndPatchImages(
@@ -43,20 +46,20 @@ func (e *engine) VerifyAndPatchImages(
 	rclient registryclient.Client,
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
-	return doVerifyAndPatchImages(ctx, e.contextLoader, rclient, policyContext, e.configuration)
+	return doVerifyAndPatchImages(ctx, e.contextLoader, e.exceptionSelector, rclient, policyContext, e.configuration)
 }
 
 func (e *engine) ApplyBackgroundChecks(
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doApplyBackgroundChecks(e.contextLoader, policyContext, e.configuration)
+	return doApplyBackgroundChecks(e.contextLoader, e.exceptionSelector, policyContext, e.configuration)
 }
 
 func (e *engine) GenerateResponse(
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) *engineapi.EngineResponse {
-	return doGenerateResponse(e.contextLoader, policyContext, gr, e.configuration)
+	return doGenerateResponse(e.contextLoader, e.exceptionSelector, policyContext, gr, e.configuration)
 }
 
 func (e *engine) ContextLoader(

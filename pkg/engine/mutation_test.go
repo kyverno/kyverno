@@ -29,6 +29,7 @@ func testMutate(
 	return doMutate(
 		ctx,
 		LegacyContextLoaderFactory(rclient, nil),
+		nil,
 		pContext,
 		config.NewDefaultConfiguration(),
 	)

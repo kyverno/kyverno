@@ -20,15 +20,17 @@ import (
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func doApplyBackgroundChecks(
 	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
-	return filterRules(contextLoader, policyContext, policyStartTime, cfg)
+	return filterRules(contextLoader, selector, policyContext, policyStartTime, cfg)
 }
 
 func filterRules(
 	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	startTime time.Time,
 	cfg config.Configuration,
@@ -66,7 +68,7 @@ func filterRules(
 
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
-		if ruleResp := filterRule(contextLoader, rule, policyContext, cfg); ruleResp != nil {
+		if ruleResp := filterRule(contextLoader, selector, rule, policyContext, cfg); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
 				break
@@ -79,6 +81,7 @@ func filterRules(
 
 func filterRule(
 	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
 	rule kyvernov1.Rule,
 	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
@@ -93,7 +96,7 @@ func filterRule(
 	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, policyContext, &rule, subresourceGVKToAPIResource, cfg)
+	ruleResp := hasPolicyExceptions(logger, selector, policyContext, &rule, subresourceGVKToAPIResource, cfg)
 	if ruleResp != nil {
 		return ruleResp
 	}
