@@ -186,7 +186,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | initImage.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
-| initContainer.extraArgs | list | `["--loggingFormat=text","--exceptionNamespace={{ include \"kyverno.namespace\" . }}"]` | Extra arguments to give to the kyvernopre binary. |
+| initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
 | replicaCount | int | `nil` | Desired number of pods |
 | podLabels | object | `{}` | Additional labels to add to each pod |
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |

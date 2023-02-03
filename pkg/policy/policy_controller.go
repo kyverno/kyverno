@@ -21,12 +21,11 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,7 +56,7 @@ const (
 type PolicyController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	contextLoader engine.ContextLoaderFactory
+	engine        engineapi.Engine
 
 	pInformer  kyvernov1informers.ClusterPolicyInformer
 	npInformer kyvernov1informers.PolicyInformer
@@ -98,7 +97,7 @@ type PolicyController struct {
 func NewPolicyController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
-	contextLoader engine.ContextLoaderFactory,
+	engine engineapi.Engine,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
@@ -119,7 +118,7 @@ func NewPolicyController(
 	pc := PolicyController{
 		client:                 client,
 		kyvernoClient:          kyvernoClient,
-		contextLoader:          contextLoader,
+		engine:                 engine,
 		pInformer:              pInformer,
 		npInformer:             npInformer,
 		eventGen:               eventGen,
@@ -508,12 +507,13 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 }
 
 func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
-	policyContext, _, err := backgroundcommon.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, pc.informerCacheResolvers, nil, pc.log)
+	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(triggerResource.GetKind(), triggerResource.GetNamespace(), pc.nsLister, pc.log)
+	policyContext, _, err := backgroundcommon.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, namespaceLabels, pc.log)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to build policy context for rule %s", rule.Name)
+		return false, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err)
 	}
 
-	engineResponse := engine.ApplyBackgroundChecks(pc.contextLoader, policyContext)
+	engineResponse := pc.engine.ApplyBackgroundChecks(policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		return true, nil
 	}

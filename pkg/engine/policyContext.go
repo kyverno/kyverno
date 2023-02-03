@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"context"
+	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -11,9 +11,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -69,9 +67,6 @@ type PolicyContext struct {
 
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
-
-	// informerCacheResolvers - used to get resources from informer cache
-	informerCacheResolvers engineapi.ConfigmapResolver
 
 	// subresource is the subresource being requested, if any (for example, "status" or "scale")
 	subresource string
@@ -158,7 +153,7 @@ func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyEx
 	var result []*kyvernov2alpha1.PolicyException
 	policyName, err := cache.MetaNamespaceKeyFunc(c.policy)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to compute policy key")
+		return nil, fmt.Errorf("failed to compute policy key: %w", err)
 	}
 	for _, polex := range polexs {
 		if polex.Contains(policyName, rule) {
@@ -170,10 +165,6 @@ func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyEx
 
 func (c *PolicyContext) ExcludeResourceFunc() engineapi.ExcludeFunc {
 	return c.excludeResourceFunc
-}
-
-func (c *PolicyContext) ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error) {
-	return c.informerCacheResolvers.Get(ctx, namespace, name)
 }
 
 // Mutators
@@ -246,12 +237,6 @@ func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyC
 	return copy
 }
 
-func (c *PolicyContext) WithInformerCacheResolver(informerCacheResolver engineapi.ConfigmapResolver) *PolicyContext {
-	copy := c.copy()
-	copy.informerCacheResolvers = informerCacheResolver
-	return copy
-}
-
 func (c *PolicyContext) WithSubresource(subresource string) *PolicyContext {
 	copy := c.copy()
 	copy.subresource = subresource
@@ -294,19 +279,18 @@ func NewPolicyContextFromAdmissionRequest(
 	admissionInfo kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 	client dclient.Interface,
-	informerCacheResolver engineapi.ConfigmapResolver,
 	polexLister PolicyExceptionLister,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create policy rule context")
+		return nil, fmt.Errorf("failed to create policy rule context: %w", err)
 	}
 	newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse resource")
+		return nil, fmt.Errorf("failed to parse resource: %w", err)
 	}
 	if err := ctx.AddImageInfos(&newResource, configuration); err != nil {
-		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
+		return nil, fmt.Errorf("failed to add image information to the policy rule context: %w", err)
 	}
 	requestResource := request.RequestResource.DeepCopy()
 	policyContext := NewPolicyContextWithJsonContext(ctx).
@@ -316,7 +300,6 @@ func NewPolicyContextFromAdmissionRequest(
 		WithConfiguration(configuration).
 		WithClient(client).
 		WithAdmissionOperation(true).
-		WithInformerCacheResolver(informerCacheResolver).
 		WithRequestResource(*requestResource).
 		WithSubresource(request.SubResource).
 		WithExceptions(polexLister)
@@ -326,13 +309,13 @@ func NewPolicyContextFromAdmissionRequest(
 func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyvernov1beta1.RequestInfo) (enginectx.Interface, error) {
 	ctx := enginectx.NewContext()
 	if err := ctx.AddRequest(request); err != nil {
-		return nil, errors.Wrap(err, "failed to load incoming request in context")
+		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)
 	}
 	if err := ctx.AddUserInfo(*userRequestInfo); err != nil {
-		return nil, errors.Wrap(err, "failed to load userInfo in context")
+		return nil, fmt.Errorf("failed to load userInfo in context: %w", err)
 	}
 	if err := ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username); err != nil {
-		return nil, errors.Wrap(err, "failed to load service account in context")
+		return nil, fmt.Errorf("failed to load service account in context: %w", err)
 	}
 	return ctx, nil
 }

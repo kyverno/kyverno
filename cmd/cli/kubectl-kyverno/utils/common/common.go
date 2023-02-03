@@ -474,7 +474,10 @@ OuterLoop:
 			})
 		}
 	}
-
+	eng := engine.NewEngine(
+		cfg,
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
+	)
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).
@@ -483,9 +486,8 @@ OuterLoop:
 		WithClient(c.Client).
 		WithSubresourcesInPolicy(subresources)
 
-	mutateResponse := engine.Mutate(
+	mutateResponse := eng.Mutate(
 		context.Background(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		policyContext,
 	)
 	if mutateResponse != nil {
@@ -511,11 +513,9 @@ OuterLoop:
 	var info Info
 	var validateResponse *engineapi.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.Validate(
+		validateResponse = eng.Validate(
 			context.Background(),
-			engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 			policyContext,
-			cfg,
 		)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
@@ -524,12 +524,10 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := engine.VerifyAndPatchImages(
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(
 		context.Background(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		registryclient.NewOrDie(),
 		policyContext,
-		cfg,
 	)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
@@ -544,8 +542,7 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		generateResponse := engine.ApplyBackgroundChecks(
-			engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
+		generateResponse := eng.ApplyBackgroundChecks(
 			policyContext,
 		)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
@@ -1080,7 +1077,10 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	}
 
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	c := generate.NewGenerateControllerWithOnlyClient(client, engine.LegacyContextLoaderFactory(nil))
+	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
+		config.NewDefaultConfiguration(),
+		engine.LegacyContextLoaderFactory(nil, nil),
+	))
 	return c, nil
 }
 

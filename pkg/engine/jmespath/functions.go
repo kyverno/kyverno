@@ -450,14 +450,14 @@ func GetFunctions() []*FunctionEntry {
 			Entry: &gojmespath.FunctionEntry{
 				Name: items,
 				Arguments: []ArgSpec{
-					{Types: []JpType{JpObject}},
+					{Types: []JpType{JpObject, JpArray}},
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
 				},
 				Handler: jpItems,
 			},
 			ReturnType: []JpType{JpArray},
-			Note:       "converts a map to an array of objects where each key:value is an item in the array",
+			Note:       "converts a map or array to an array of objects where each key:value is an item in the array",
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{
@@ -604,58 +604,37 @@ func GetFunctions() []*FunctionEntry {
 }
 
 func jpfCompare(arguments []interface{}) (interface{}, error) {
-	var err error
-	a, err := validateArg(compare, arguments, 0, reflect.String)
-	if err != nil {
+	if a, err := validateArg(compare, arguments, 0, reflect.String); err != nil {
 		return nil, err
-	}
-
-	b, err := validateArg(compare, arguments, 1, reflect.String)
-	if err != nil {
+	} else if b, err := validateArg(compare, arguments, 1, reflect.String); err != nil {
 		return nil, err
+	} else {
+		return strings.Compare(a.String(), b.String()), nil
 	}
-
-	return strings.Compare(a.String(), b.String()), nil
 }
 
 func jpfEqualFold(arguments []interface{}) (interface{}, error) {
-	var err error
-	a, err := validateArg(equalFold, arguments, 0, reflect.String)
-	if err != nil {
+	if a, err := validateArg(equalFold, arguments, 0, reflect.String); err != nil {
 		return nil, err
-	}
-
-	b, err := validateArg(equalFold, arguments, 1, reflect.String)
-	if err != nil {
+	} else if b, err := validateArg(equalFold, arguments, 1, reflect.String); err != nil {
 		return nil, err
+	} else {
+		return strings.EqualFold(a.String(), b.String()), nil
 	}
-
-	return strings.EqualFold(a.String(), b.String()), nil
 }
 
 func jpfReplace(arguments []interface{}) (interface{}, error) {
-	var err error
-	str, err := validateArg(replace, arguments, 0, reflect.String)
-	if err != nil {
+	if str, err := validateArg(replace, arguments, 0, reflect.String); err != nil {
 		return nil, err
-	}
-
-	old, err := validateArg(replace, arguments, 1, reflect.String)
-	if err != nil {
+	} else if old, err := validateArg(replace, arguments, 1, reflect.String); err != nil {
 		return nil, err
-	}
-
-	new, err := validateArg(replace, arguments, 2, reflect.String)
-	if err != nil {
+	} else if new, err := validateArg(replace, arguments, 2, reflect.String); err != nil {
 		return nil, err
-	}
-
-	n, err := validateArg(replace, arguments, 3, reflect.Float64)
-	if err != nil {
+	} else if n, err := validateArg(replace, arguments, 3, reflect.Float64); err != nil {
 		return nil, err
+	} else {
+		return strings.Replace(str.String(), old.String(), new.String(), int(n.Float())), nil
 	}
-
-	return strings.Replace(str.String(), old.String(), new.String(), int(n.Float())), nil
 }
 
 func jpfReplaceAll(arguments []interface{}) (interface{}, error) {
@@ -984,10 +963,6 @@ func jpParseYAML(arguments []interface{}) (interface{}, error) {
 }
 
 func jpItems(arguments []interface{}) (interface{}, error) {
-	input, ok := arguments[0].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Object")
-	}
 	keyName, ok := arguments[1].(string)
 	if !ok {
 		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 1, "String")
@@ -996,26 +971,34 @@ func jpItems(arguments []interface{}) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 2, "String")
 	}
-
-	arrayOfObj := make([]map[string]interface{}, 0)
-
-	keys := []string{}
-
-	// Sort the keys so that the output is deterministic
-	for key := range input {
-		keys = append(keys, key)
+	switch input := arguments[0].(type) {
+	case map[string]interface{}:
+		keys := make([]string, 0, len(input))
+		// Sort the keys so that the output is deterministic
+		for key := range input {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		arrayOfObj := make([]map[string]interface{}, 0, len(input))
+		for _, key := range keys {
+			arrayOfObj = append(arrayOfObj, map[string]interface{}{
+				keyName: key,
+				valName: input[key],
+			})
+		}
+		return arrayOfObj, nil
+	case []interface{}:
+		arrayOfObj := make([]map[string]interface{}, 0, len(input))
+		for index, value := range input {
+			arrayOfObj = append(arrayOfObj, map[string]interface{}{
+				keyName: float64(index),
+				valName: value,
+			})
+		}
+		return arrayOfObj, nil
+	default:
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Object or Array")
 	}
-
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		m := make(map[string]interface{})
-		m[keyName] = key
-		m[valName] = input[key]
-		arrayOfObj = append(arrayOfObj, m)
-	}
-
-	return arrayOfObj, nil
 }
 
 func jpObjectFromLists(arguments []interface{}) (interface{}, error) {
@@ -1068,7 +1051,6 @@ func validateArg(f string, arguments []interface{}, index int, expectedType refl
 	if arg.Type().Kind() != expectedType {
 		return reflect.Value{}, fmt.Errorf(invalidArgumentTypeError, f, index+1, expectedType.String())
 	}
-
 	return arg, nil
 }
 

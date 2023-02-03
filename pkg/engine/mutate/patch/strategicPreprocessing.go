@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
-	"github.com/pkg/errors"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -67,7 +66,7 @@ func preProcessRecursive(logger logr.Logger, pattern, resource *yaml.RNode) erro
 
 func walkMap(logger logr.Logger, pattern, resource *yaml.RNode) error {
 	if _, err := handleAddIfNotPresentAnchor(pattern, resource); err != nil {
-		return errors.Wrap(err, "failed to process addIfNotPresent anchor")
+		return fmt.Errorf("failed to process addIfNotPresent anchor: %w", err)
 	}
 
 	if err := validateConditions(logger, pattern, resource); err != nil {
@@ -157,7 +156,7 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 					anyGlobalConditionPassed = true
 				} else {
 					if err := handlePatternName(pattern, patternElementCopy, resourceElement); err != nil {
-						return errors.Wrap(err, "failed to update name in pattern")
+						return fmt.Errorf("failed to update name in pattern: %w", err)
 					}
 				}
 			}
@@ -466,7 +465,7 @@ func deleteAnchorsInMap(node *yaml.RNode, traverseMappingNodes bool) (bool, erro
 
 	if anchorsExist {
 		if err := stripAnchorsFromNode(node, ""); err != nil {
-			return false, errors.Wrap(err, "failed to remove anchor tags")
+			return false, fmt.Errorf("failed to remove anchor tags: %w", err)
 		}
 	}
 
@@ -527,7 +526,7 @@ func deleteAnchorsInList(node *yaml.RNode, traverseMappingNodes bool) (bool, err
 			if traverseMappingNodes && isMappingNode(element) {
 				shouldDelete, err = deleteAnchors(element, true, traverseMappingNodes)
 				if err != nil {
-					return false, errors.Wrap(err, "failed to delete anchors")
+					return false, fmt.Errorf("failed to delete anchors: %w", err)
 				}
 			}
 
@@ -539,7 +538,7 @@ func deleteAnchorsInList(node *yaml.RNode, traverseMappingNodes bool) (bool, err
 			// inside sub-arrays. Delete them too.
 			canDelete, err := deleteAnchors(element, false, traverseMappingNodes)
 			if err != nil {
-				return false, errors.Wrap(err, "failed to delete anchors")
+				return false, fmt.Errorf("failed to delete anchors: %w", err)
 			}
 			if canDelete {
 				deleteListElement(node, i)

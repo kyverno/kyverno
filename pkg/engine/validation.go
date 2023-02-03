@@ -24,7 +24,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
-	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -35,10 +34,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// Validate applies validation rules from policy on the resource
-func Validate(
+func doValidate(
 	ctx context.Context,
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
@@ -105,7 +103,7 @@ func buildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 
 func validateResource(
 	ctx context.Context,
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	log logr.Logger,
 	enginectx engineapi.PolicyContext,
 	cfg config.Configuration,
@@ -184,7 +182,7 @@ func validateResource(
 
 func processValidationRule(
 	ctx context.Context,
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	log logr.Logger,
 	policyContext engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
@@ -218,11 +216,11 @@ type validator struct {
 	deny             *kyvernov1.Deny
 	podSecurity      *kyvernov1.PodSecurity
 	forEach          []kyvernov1.ForEachValidation
-	contextLoader    ContextLoaderFactory
+	contextLoader    engineapi.ContextLoaderFactory
 	nesting          int
 }
 
-func newValidator(log logr.Logger, contextLoader ContextLoaderFactory, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, contextLoader engineapi.ContextLoaderFactory, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
 	return &validator{
 		log:              log,
@@ -241,7 +239,7 @@ func newValidator(log logr.Logger, contextLoader ContextLoaderFactory, ctx engin
 
 func newForEachValidator(
 	foreach kyvernov1.ForEachValidation,
-	contextLoader ContextLoaderFactory,
+	contextLoader engineapi.ContextLoaderFactory,
 	nesting int,
 	rule *kyvernov1.Rule,
 	ctx engineapi.PolicyContext,
@@ -250,12 +248,12 @@ func newForEachValidator(
 	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := datautils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
+		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
 	}
 
 	nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](foreach.ForEachValidation)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions")
+		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
 	}
 
 	return &validator{
@@ -394,7 +392,7 @@ func addElementToContext(ctx engineapi.PolicyContext, element interface{}, index
 		return err
 	}
 	if err := ctx.JSONContext().AddElement(data, index, nesting); err != nil {
-		return errors.Wrapf(err, "failed to add element (%v) to JSON context", element)
+		return fmt.Errorf("failed to add element (%v) to JSON context: %w", element, err)
 	}
 	dataMap, ok := data.(map[string]interface{})
 	// We set scoped to true by default if the data is a map
