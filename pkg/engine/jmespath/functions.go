@@ -638,43 +638,31 @@ func jpfReplace(arguments []interface{}) (interface{}, error) {
 }
 
 func jpfReplaceAll(arguments []interface{}) (interface{}, error) {
-	var err error
-	str, err := validateArg(replaceAll, arguments, 0, reflect.String)
-	if err != nil {
+	if str, err := validateArg(replaceAll, arguments, 0, reflect.String); err != nil {
 		return nil, err
-	}
-
-	old, err := validateArg(replaceAll, arguments, 1, reflect.String)
-	if err != nil {
+	} else if old, err := validateArg(replaceAll, arguments, 1, reflect.String); err != nil {
 		return nil, err
-	}
-
-	new, err := validateArg(replaceAll, arguments, 2, reflect.String)
-	if err != nil {
+	} else if new, err := validateArg(replaceAll, arguments, 2, reflect.String); err != nil {
 		return nil, err
+	} else {
+		return strings.ReplaceAll(str.String(), old.String(), new.String()), nil
 	}
-
-	return strings.ReplaceAll(str.String(), old.String(), new.String()), nil
 }
 
 func jpfToUpper(arguments []interface{}) (interface{}, error) {
-	var err error
-	str, err := validateArg(toUpper, arguments, 0, reflect.String)
-	if err != nil {
+	if str, err := validateArg(toUpper, arguments, 0, reflect.String); err != nil {
 		return nil, err
+	} else {
+		return strings.ToUpper(str.String()), nil
 	}
-
-	return strings.ToUpper(str.String()), nil
 }
 
 func jpfToLower(arguments []interface{}) (interface{}, error) {
-	var err error
-	str, err := validateArg(toLower, arguments, 0, reflect.String)
-	if err != nil {
+	if str, err := validateArg(toLower, arguments, 0, reflect.String); err != nil {
 		return nil, err
+	} else {
+		return strings.ToLower(str.String()), nil
 	}
-
-	return strings.ToLower(str.String()), nil
 }
 
 func jpfTrim(arguments []interface{}) (interface{}, error) {
