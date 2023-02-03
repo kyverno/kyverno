@@ -324,6 +324,10 @@ func ManagedPodResource(policy kyvernov1.PolicyInterface, resource unstructured.
 	return false
 }
 
+func CheckPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
+	return checkPreconditions(logger, ctx, anyAllConditions)
+}
+
 func checkPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
 	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.JSONContext(), anyAllConditions)
 	if err != nil {
@@ -337,6 +341,10 @@ func checkPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllC
 
 	pass := variables.EvaluateConditions(logger, ctx.JSONContext(), typeConditions)
 	return pass, nil
+}
+
+func EvaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, error) {
+	return evaluateList(jmesPath, ctx)
 }
 
 func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, error) {

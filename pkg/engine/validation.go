@@ -386,6 +386,10 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 	return ruleResponse(*v.rule, engineapi.Validation, "", engineapi.RuleStatusPass), applyCount
 }
 
+func AddElementToContext(ctx engineapi.PolicyContext, element interface{}, index, nesting int, elementScope *bool) error {
+	return addElementToContext(ctx, element, index, nesting, elementScope)
+}
+
 func addElementToContext(ctx engineapi.PolicyContext, element interface{}, index, nesting int, elementScope *bool) error {
 	data, err := variables.DocumentToUntyped(element)
 	if err != nil {

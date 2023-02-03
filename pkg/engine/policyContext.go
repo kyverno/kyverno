@@ -126,10 +126,6 @@ func (c *PolicyContext) Element() unstructured.Unstructured {
 	return c.element
 }
 
-func (c *PolicyContext) SetElement(element unstructured.Unstructured) {
-	c.element = element
-}
-
 func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
 }
@@ -165,6 +161,12 @@ func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyEx
 
 func (c *PolicyContext) ExcludeResourceFunc() engineapi.ExcludeFunc {
 	return c.excludeResourceFunc
+}
+
+// Setters
+
+func (c *PolicyContext) SetElement(element unstructured.Unstructured) {
+	c.element = element
 }
 
 // Mutators

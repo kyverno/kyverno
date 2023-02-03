@@ -536,6 +536,10 @@ type Generation struct {
 	// +optional
 	RawData *apiextv1.JSON `json:"data,omitempty" yaml:"data,omitempty"`
 
+	// ForEach applies Generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
+	// +optional
+	ForEachGeneration []ForEachGeneration `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+
 	// Clone specifies the source resource used to populate each generated resource.
 	// At most one of Data or Clone can be specified. If neither are provided, the generated
 	// resource will be created with default data only.
@@ -566,6 +570,57 @@ func (g *Generation) GetData() apiextensions.JSON {
 
 func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
+}
+
+type ForEachGeneration struct {
+	// List specifies a JMESPath expression that results in one or more elements
+	// to which the Generation logic is applied.
+	List string `json:"list,omitempty" yaml:"list,omitempty"`
+
+	// ResourceSpec contains information to select the resource.
+	ResourceSpec `json:",omitempty" yaml:",omitempty"`
+
+	// Context defines variables and data sources that can be used during rule execution.
+	// +optional
+	Context []ContextEntry `json:"context,omitempty" yaml:"context,omitempty"`
+
+	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	// See: https://kyverno.io/docs/writing-policies/preconditions/
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
+	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+
+	// Synchronize controls if generated resources should be kept in-sync with their source resource.
+	// If Synchronize is set to "true" changes to generated resources will be overwritten with resource
+	// data from Data or the resource specified in the Clone declaration.
+	// Optional. Defaults to "false" if not specified.
+	// +optional
+	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
+
+	// Data provides the resource declaration used to populate each generated resource.
+	// At most one of Data or Clone must be specified. If neither are provided, the generated
+	// resource will be created with default data only.
+	// +optional
+	RawData *apiextv1.JSON `json:"data,omitempty" yaml:"data,omitempty"`
+
+	// Clone specifies the source resource used to populate each generated resource.
+	// At most one of Data or Clone can be specified. If neither are provided, the generated
+	// resource will be created with default data only.
+	// +optional
+	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
+
+	// CloneList specifies the list of source resource used to populate each generated resource.
+	// +optional
+	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
+
+	// Foreach declares a nested foreach iterator
+	// +optional
+	ForEachGeneration *apiextv1.JSON `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+func (g *ForEachGeneration) GetData() apiextensions.JSON {
+	return FromJSON(g.RawData)
 }
 
 // CloneFrom provides the location of the source resource used to generate target resources.
