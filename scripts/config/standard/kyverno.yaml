@@ -19,15 +19,15 @@ backgroundController:
   rbac:
     clusterRole:
       extraResources:
-      - apiGroups:
-        - '*'
-        resources:
-        - configmaps
-        - secrets
-        - roles
-        - rolebindings
-        - limitranges
-        - namespaces
-        - nodes
-        - nodes/status
-        - pods
+        - apiGroups:
+            - '*'
+          resources:
+            - configmaps
+            - secrets
+            - roles
+            - rolebindings
+            - limitranges
+            - namespaces
+            - nodes
+            - nodes/status
+            - pods
