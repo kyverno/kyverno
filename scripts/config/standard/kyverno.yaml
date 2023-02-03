@@ -15,6 +15,10 @@ cleanupController:
           resources:
             - pods
 
+reportsController:
+  extraArgs:
+    - --enablePolicyException
+
 backgroundController:
   rbac:
     clusterRole:
@@ -31,6 +35,3 @@ backgroundController:
             - nodes
             - nodes/status
             - pods
-
-  extraArgs:
-    - --enablePolicyException
