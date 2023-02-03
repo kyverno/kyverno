@@ -8,6 +8,10 @@
   {{- end }}
 {{- end }}
 
+{{- if eq .Values.replicaCount 0 }}
+  {{ fail "Kyverno does not support running with 0 replicas. For a highly-available deployment, select 3 replicas or for standalone select 1 replica." }}
+{{- end }}
+
 {{- if eq (include "kyverno.namespace" .) "kube-system" }}
     {{ fail "Kyverno cannot be installed in namespace kube-system." }}
 {{- end }}
