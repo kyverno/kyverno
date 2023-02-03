@@ -604,58 +604,37 @@ func GetFunctions() []*FunctionEntry {
 }
 
 func jpfCompare(arguments []interface{}) (interface{}, error) {
-	var err error
-	a, err := validateArg(compare, arguments, 0, reflect.String)
-	if err != nil {
+	if a, err := validateArg(compare, arguments, 0, reflect.String); err != nil {
 		return nil, err
-	}
-
-	b, err := validateArg(compare, arguments, 1, reflect.String)
-	if err != nil {
+	} else if b, err := validateArg(compare, arguments, 1, reflect.String); err != nil {
 		return nil, err
+	} else {
+		return strings.Compare(a.String(), b.String()), nil
 	}
-
-	return strings.Compare(a.String(), b.String()), nil
 }
 
 func jpfEqualFold(arguments []interface{}) (interface{}, error) {
-	var err error
-	a, err := validateArg(equalFold, arguments, 0, reflect.String)
-	if err != nil {
+	if a, err := validateArg(equalFold, arguments, 0, reflect.String); err != nil {
 		return nil, err
-	}
-
-	b, err := validateArg(equalFold, arguments, 1, reflect.String)
-	if err != nil {
+	} else if b, err := validateArg(equalFold, arguments, 1, reflect.String); err != nil {
 		return nil, err
+	} else {
+		return strings.EqualFold(a.String(), b.String()), nil
 	}
-
-	return strings.EqualFold(a.String(), b.String()), nil
 }
 
 func jpfReplace(arguments []interface{}) (interface{}, error) {
-	var err error
-	str, err := validateArg(replace, arguments, 0, reflect.String)
-	if err != nil {
+	if str, err := validateArg(replace, arguments, 0, reflect.String); err != nil {
 		return nil, err
-	}
-
-	old, err := validateArg(replace, arguments, 1, reflect.String)
-	if err != nil {
+	} else if old, err := validateArg(replace, arguments, 1, reflect.String); err != nil {
 		return nil, err
-	}
-
-	new, err := validateArg(replace, arguments, 2, reflect.String)
-	if err != nil {
+	} else if new, err := validateArg(replace, arguments, 2, reflect.String); err != nil {
 		return nil, err
-	}
-
-	n, err := validateArg(replace, arguments, 3, reflect.Float64)
-	if err != nil {
+	} else if n, err := validateArg(replace, arguments, 3, reflect.Float64); err != nil {
 		return nil, err
+	} else {
+		return strings.Replace(str.String(), old.String(), new.String(), int(n.Float())), nil
 	}
-
-	return strings.Replace(str.String(), old.String(), new.String(), int(n.Float())), nil
 }
 
 func jpfReplaceAll(arguments []interface{}) (interface{}, error) {
