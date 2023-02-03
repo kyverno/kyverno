@@ -177,7 +177,7 @@ spec:
               name: api-token
       volumes:
       - name: sigstore
-        emptyDir: {}
+        {{- toYaml (required "A valid .Values.sigstoreVolume entry is required" .Values.sigstoreVolume) | nindent 8 }}
       - name: api-token
         projected:
           sources:
