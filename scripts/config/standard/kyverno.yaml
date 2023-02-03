@@ -31,3 +31,6 @@ backgroundController:
             - nodes
             - nodes/status
             - pods
+
+  extraArgs:
+    - --enablePolicyException
