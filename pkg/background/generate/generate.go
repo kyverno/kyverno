@@ -556,7 +556,8 @@ func forEach(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, res
 			logger.V(2).Info("created generate target resource")
 			newGenResources = append(newGenResources, newGenResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName))
 		} else if rdata.Action == Update {
-			generatedObj, err := client.GetResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName)
+			var generatedObj *unstructured.Unstructured
+			generatedObj, err = client.GetResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName)
 			if err != nil {
 				logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
 				logger.V(2).Info(fmt.Sprintf("creating generate resource name:name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
@@ -622,12 +623,14 @@ func substituteAllInForEach(fe kyvernov1.ForEachGeneration, ctx enginecontext.Ev
 		return nil, err
 	}
 
-	data, err := variables.SubstituteAll(logger, ctx, jsonObj)
+	var data interface{}
+	data, err = variables.SubstituteAll(logger, ctx, jsonObj)
 	if err != nil {
 		return nil, err
 	}
 
-	bytes, err := json.Marshal(data)
+	var bytes []byte
+	bytes, err = json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
@@ -668,7 +671,8 @@ func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.Res
 			return newGenResources, nil
 		}
 
-		elements, err := engine.EvaluateList(fe.List, f.policyContext.JSONContext())
+		var elements []interface{}
+		elements, err = engine.EvaluateList(fe.List, f.policyContext.JSONContext())
 		if err != nil {
 			err = fmt.Errorf("%v failed to evaluate list %s", err, fe.List)
 			return newGenResources, err
@@ -722,7 +726,8 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 
 		var tempNewGenResources []kyvernov1.ResourceSpec
 		if foreach.ForEachGeneration != nil {
-			nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachGeneration](foreach.ForEachGeneration)
+			var nestedForEach []kyvernov1.ForEachGeneration
+			nestedForEach, err = api.DeserializeJSONArray[kyvernov1.ForEachGeneration](foreach.ForEachGeneration)
 			if err != nil {
 				return newGenResources, err
 			}
