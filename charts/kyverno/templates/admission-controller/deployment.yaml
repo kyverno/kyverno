@@ -7,10 +7,7 @@ metadata:
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 spec:
-  {{- template "replicaCountCheck" .Values.replicaCount }}
-  {{- with .Values.replicaCount }}
-  replicas: {{ . }}
-  {{- end }}
+  replicas: {{ template "kyverno.deployment.replicas" .Values.replicaCount }}
   selector:
     matchLabels:
       {{- include "kyverno.admission-controller.matchLabels" . | nindent 6 }}

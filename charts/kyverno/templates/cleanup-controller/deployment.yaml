@@ -8,10 +8,7 @@ metadata:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
 spec:
-  {{- template "replicaCountCheck" .Values.cleanupController.replicas }}
-  {{- with .Values.cleanupController.replicas }}
-  replicas: {{ . }}
-  {{- end }}
+  replicas: {{ template "kyverno.deployment.replicas" .Values.cleanupController.replicas }}
   {{- with .Values.cleanupController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
