@@ -16,7 +16,7 @@ Before you contribute, please take a moment to review and agree to abide by our 
 
 ## Engage with us
 
-The Kyverno website has the most updated information on [how to engage with the Kyverno community](https://kyverno.io/community/) including its maintainers and contributors.
+The Kyverno website has the most updated information on [how to engage with the Kyverno community](https://kyverno.io/community/) including its maintainers and contributors. There are three classes of contributors possible: Contributor, Code Owner, and Maintainer. Please see the [Contributing section on the website](https://kyverno.io/community/#contributing) for the requirements and privileges afforded to each.
 
 Join our community meetings to learn more about Kyverno and engage with other contributors.
 
