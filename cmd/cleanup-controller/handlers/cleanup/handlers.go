@@ -2,7 +2,6 @@ package cleanup
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -75,25 +74,6 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
-	enginectx := enginecontext.NewContext()
-
-	if spec.Context != nil {
-		for _, entry := range spec.Context {
-			if entry.ImageRegistry != nil {
-				return fmt.Errorf("ImageRegistry is not allowed in CleanUp Policy")
-			} else if entry.ConfigMap != nil {
-				return fmt.Errorf("ConfigMap is not allowed in CleanUp Policy")
-			} else if entry.APICall != nil {
-				if err := loadAPIData(ctx, logger, entry, enginectx, h.client); err != nil {
-					return err
-				}
-			} else if entry.Variable != nil {
-				if err := loadVariable(logger, entry, enginectx); err != nil {
-					return err
-				}
-			}
-		}
-	}
 
 	for kind := range kinds {
 		debug := debug.WithValues("kind", kind)
@@ -159,7 +139,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 					}
 					// check conditions
 					if spec.Conditions != nil {
-						enginectx.Reset()
+						enginectx := enginecontext.NewContext()
 						if err := enginectx.AddTargetResource(resource.Object); err != nil {
 							debug.Error(err, "failed to add resource in context")
 							errs = append(errs, err)
