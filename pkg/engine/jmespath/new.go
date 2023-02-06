@@ -10,7 +10,7 @@ func New(query string) (*gojmespath.JMESPath, error) {
 		return nil, err
 	}
 	for _, function := range GetFunctions() {
-		jp.Register(function.Entry)
+		jp.Register(&function.FunctionEntry)
 	}
 	return jp, nil
 }
