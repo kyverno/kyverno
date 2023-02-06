@@ -8,33 +8,30 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func processImageValidationRule(
+func (e *engine) processImageValidationRule(
 	ctx context.Context,
-	contextLoader engineapi.ContextLoaderFactory,
 	log logr.Logger,
 	enginectx engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
-	cfg config.Configuration,
 ) *engineapi.RuleResponse {
 	if isDeleteRequest(enginectx) {
 		return nil
 	}
 
 	log = log.WithValues("rule", rule.Name)
-	matchingImages, _, err := extractMatchingImages(enginectx, rule, cfg)
+	matchingImages, _, err := e.extractMatchingImages(enginectx, rule)
 	if err != nil {
 		return ruleResponse(*rule, engineapi.Validation, err.Error(), engineapi.RuleStatusError)
 	}
 	if len(matchingImages) == 0 {
 		return ruleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusSkip)
 	}
-	if err := LoadContext(ctx, contextLoader, rule.Context, enginectx, rule.Name); err != nil {
+	if err := LoadContext(ctx, e.contextLoader, rule.Context, enginectx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
