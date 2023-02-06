@@ -1480,36 +1480,28 @@ UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 	testCases := []struct {
 		jmesPath       string
 		expectedResult map[string]interface{}
-	}{
-		{
-			jmesPath:       "x509_decode(base64_decode('" + certs[0] + "'))",
-			expectedResult: resExpected[0],
-		},
-		{
-			jmesPath:       "x509_decode(base64_decode('" + certs[1] + "'))",
-			expectedResult: resExpected[1],
-		},
-		{
-			jmesPath:       "x509_decode('" + certs[2] + "')",
-			expectedResult: resExpected[0],
-		},
-		{
-			jmesPath:       "x509_decode('" + certs[3] + "')",
-			expectedResult: resExpected[1],
-		},
-		{
-			jmesPath:       "x509_decode('" + certs[4] + "')",
-			expectedResult: resExpected[0],
-		},
-		{
-			jmesPath:       "x509_decode('" + certs[5] + "')",
-			expectedResult: resExpected[1],
-		},
-		{
-			jmesPath:       "x509_decode('xyz')",
-			expectedResult: map[string]interface{}{},
-		},
-	}
+	}{{
+		jmesPath:       "x509_decode(base64_decode('" + certs[0] + "'))",
+		expectedResult: resExpected[0],
+	}, {
+		jmesPath:       "x509_decode(base64_decode('" + certs[1] + "'))",
+		expectedResult: resExpected[1],
+	}, {
+		jmesPath:       "x509_decode('" + certs[2] + "')",
+		expectedResult: resExpected[0],
+	}, {
+		jmesPath:       "x509_decode('" + certs[3] + "')",
+		expectedResult: resExpected[1],
+	}, {
+		jmesPath:       "x509_decode('" + certs[4] + "')",
+		expectedResult: resExpected[0],
+	}, {
+		jmesPath:       "x509_decode('" + certs[5] + "')",
+		expectedResult: resExpected[1],
+	}, {
+		jmesPath:       "x509_decode('xyz')",
+		expectedResult: map[string]interface{}{},
+	}}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := New(tc.jmesPath)
@@ -1536,38 +1528,32 @@ func Test_jpfCompare(t *testing.T) {
 		args    args
 		want    interface{}
 		wantErr bool
-	}{
-		{
-			args: args{
-				arguments: []interface{}{"a", "b"},
-			},
-			want: -1,
+	}{{
+		args: args{
+			arguments: []interface{}{"a", "b"},
 		},
-		{
-			args: args{
-				arguments: []interface{}{"b", "a"},
-			},
-			want: 1,
+		want: -1,
+	}, {
+		args: args{
+			arguments: []interface{}{"b", "a"},
 		},
-		{
-			args: args{
-				arguments: []interface{}{"b", "b"},
-			},
-			want: 0,
+		want: 1,
+	}, {
+		args: args{
+			arguments: []interface{}{"b", "b"},
 		},
-		{
-			args: args{
-				arguments: []interface{}{1, "b"},
-			},
-			wantErr: true,
+		want: 0,
+	}, {
+		args: args{
+			arguments: []interface{}{1, "b"},
 		},
-		{
-			args: args{
-				arguments: []interface{}{"a", 1},
-			},
-			wantErr: true,
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{"a", 1},
 		},
-	}
+		wantErr: true,
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := jpfCompare(tt.args.arguments)
@@ -1591,32 +1577,27 @@ func Test_jpfEqualFold(t *testing.T) {
 		args    args
 		want    interface{}
 		wantErr bool
-	}{
-		{
-			args: args{
-				arguments: []interface{}{"Go", "go"},
-			},
-			want: true,
+	}{{
+		args: args{
+			arguments: []interface{}{"Go", "go"},
 		},
-		{
-			args: args{
-				arguments: []interface{}{"a", "b"},
-			},
-			want: false,
+		want: true,
+	}, {
+		args: args{
+			arguments: []interface{}{"a", "b"},
 		},
-		{
-			args: args{
-				arguments: []interface{}{1, "b"},
-			},
-			wantErr: true,
+		want: false,
+	}, {
+		args: args{
+			arguments: []interface{}{1, "b"},
 		},
-		{
-			args: args{
-				arguments: []interface{}{"a", 1},
-			},
-			wantErr: true,
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{"a", 1},
 		},
-	}
+		wantErr: true,
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := jpfEqualFold(tt.args.arguments)
@@ -1640,85 +1621,77 @@ func Test_jpfReplace(t *testing.T) {
 		args    args
 		want    interface{}
 		wantErr bool
-	}{
-		{
-			args: args{
-				arguments: []interface{}{
-					"Lorem ipsum dolor sit amet",
-					"ipsum",
-					"muspi",
-					-1.0,
-				},
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+				-1.0,
 			},
-			want: "Lorem muspi dolor sit amet",
 		},
-		{
-			args: args{
-				arguments: []interface{}{
-					"Lorem ipsum ipsum ipsum dolor sit amet",
-					"ipsum",
-					"muspi",
-					-1.0,
-				},
+		want: "Lorem muspi dolor sit amet",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+				-1.0,
 			},
-			want: "Lorem muspi muspi muspi dolor sit amet",
 		},
-		{
-			args: args{
-				arguments: []interface{}{
-					"Lorem ipsum ipsum ipsum dolor sit amet",
-					"ipsum",
-					"muspi",
-					1.0,
-				},
+		want: "Lorem muspi muspi muspi dolor sit amet",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+				1.0,
 			},
-			want: "Lorem muspi ipsum ipsum dolor sit amet",
 		},
-		{
-			args: args{
-				arguments: []interface{}{
-					1.0,
-					"ipsum",
-					"muspi",
-					1.0,
-				},
+		want: "Lorem muspi ipsum ipsum dolor sit amet",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				1.0,
+				"ipsum",
+				"muspi",
+				1.0,
 			},
-			wantErr: true,
 		},
-		{
-			args: args{
-				arguments: []interface{}{
-					"Lorem ipsum ipsum ipsum dolor sit amet",
-					1.0,
-					"muspi",
-					1.0,
-				},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				1.0,
+				"muspi",
+				1.0,
 			},
-			wantErr: true,
 		},
-		{
-			args: args{
-				arguments: []interface{}{
-					"Lorem ipsum ipsum ipsum dolor sit amet",
-					"ipsum",
-					false,
-					1.0,
-				},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				false,
+				1.0,
 			},
-			wantErr: true,
 		},
-		{
-			args: args{
-				arguments: []interface{}{
-					"Lorem ipsum ipsum ipsum dolor sit amet",
-					"ipsum",
-					"muspi",
-					true,
-				},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+				true,
 			},
-			wantErr: true,
 		},
-	}
+		wantErr: true,
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := jpfReplace(tt.args.arguments)
@@ -1728,6 +1701,179 @@ func Test_jpfReplace(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("jpfReplace() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpfReplaceAll(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+			},
+		},
+		want: "Lorem muspi dolor sit amet",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+			},
+		},
+		want: "Lorem muspi muspi muspi dolor sit amet",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				1.0,
+				"ipsum",
+				"muspi",
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				1.0,
+				"muspi",
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				false,
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfReplaceAll(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfReplaceAll() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfReplaceAll() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpfToUpper(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"abc",
+			},
+		},
+		want: "ABC",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"123",
+			},
+		},
+		want: "123",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"a#%&123Bc",
+			},
+		},
+		want: "A#%&123BC",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				32.0,
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfToUpper(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfToUpper() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfToUpper() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpfToLower(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"ABC",
+			},
+		},
+		want: "abc",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"123",
+			},
+		},
+		want: "123",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"A#%&123BC",
+			},
+		},
+		want: "a#%&123bc",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				32.0,
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfToLower(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfToLower() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfToLower() = %v, want %v", got, tt.want)
 			}
 		})
 	}
