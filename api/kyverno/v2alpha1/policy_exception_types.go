@@ -42,10 +42,8 @@ type PolicyException struct {
 	Spec PolicyExceptionSpec `json:"spec"`
 }
 
-var (
-	// regexVariables represents regex for '{{}}'
-	regexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
-)
+// regexVariables represents regex for '{{}}'
+var regexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
