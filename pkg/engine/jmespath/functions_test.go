@@ -845,6 +845,30 @@ func Test_Divide(t *testing.T) {
 	}{
 		// Quantity
 		{
+			name:           "Quantity / Quantity -> Scalar",
+			test:           "divide('256M', '256M')",
+			expectedResult: 1.0,
+			retFloat:       true,
+		},
+		{
+			name:           "Quantity / Quantity -> Scalar",
+			test:           "divide('512M', '256M')",
+			expectedResult: 2.0,
+			retFloat:       true,
+		},
+		{
+			name:           "Quantity / Quantity -> Scalar",
+			test:           "divide('8', '3')",
+			expectedResult: 8.0 / 3.0,
+			retFloat:       true,
+		},
+		{
+			name:           "Quantity / Quantity -> Scalar",
+			test:           "divide('128M', '256M')",
+			expectedResult: 0.5,
+			retFloat:       true,
+		},
+		{
 			name:           "Quantity / Scalar -> Quantity",
 			test:           "divide('12Ki', `3`)",
 			expectedResult: "4Ki",
@@ -858,7 +882,7 @@ func Test_Divide(t *testing.T) {
 		{
 			name:           "Quantity / Quantity -> Scalar",
 			test:           "divide('12Ki', '200')",
-			expectedResult: 61.0,
+			expectedResult: 61.44,
 			retFloat:       true,
 		},
 		{
