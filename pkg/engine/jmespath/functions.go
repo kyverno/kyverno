@@ -70,6 +70,7 @@ const (
 	errorPrefix              = "JMESPath function '%s': "
 	invalidArgumentTypeError = errorPrefix + "%d argument is expected of %s type"
 	genericError             = errorPrefix + "%s"
+	argOutOfBoundsError      = errorPrefix + "%d argument is out of bounds (%d)"
 	zeroDivisionError        = errorPrefix + "Zero divisor passed"
 	undefinedQuoError        = errorPrefix + "Undefined quotient"
 	nonIntModuloError        = errorPrefix + "Non-integer argument(s) passed for modulo"
