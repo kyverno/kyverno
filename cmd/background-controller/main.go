@@ -63,38 +63,11 @@ func setupCosign(logger logr.Logger, imageSignatureRepository string) {
 	}
 }
 
-func createNonLeaderControllers(
+func createrLeaderControllers(
 	eng engineapi.Engine,
 	genWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
-	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	kyvernoClient versioned.Interface,
-	dynamicClient dclient.Interface,
-	rclient registryclient.Client,
-	configuration config.Configuration,
-	eventGenerator event.Interface,
-	informerCacheResolvers engineapi.ConfigmapResolver,
-) []internal.Controller {
-	updateRequestController := background.NewController(
-		kyvernoClient,
-		dynamicClient,
-		eng,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		kubeInformer.Core().V1().Namespaces(),
-		kubeKyvernoInformer.Core().V1().Pods(),
-		eventGenerator,
-		configuration,
-		informerCacheResolvers,
-	)
-	return []internal.Controller{internal.NewController("updaterequest-controller", updateRequestController, genWorkers)}
-}
-
-func createrLeaderControllers(
-	eng engineapi.Engine,
-	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
@@ -122,8 +95,23 @@ func createrLeaderControllers(
 	if err != nil {
 		return nil, err
 	}
+
+	backgroundController := background.NewController(
+		kyvernoClient,
+		dynamicClient,
+		eng,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kubeInformer.Core().V1().Namespaces(),
+		kubeKyvernoInformer.Core().V1().Pods(),
+		eventGenerator,
+		configuration,
+		configMapResolver,
+	)
 	return []internal.Controller{
 		internal.NewController("policy-controller", policyCtrl, 2),
+		internal.NewController("background-controller", backgroundController, genWorkers),
 	}, err
 }
 
@@ -176,7 +164,6 @@ func main() {
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// informer factories
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
 	cacheInformer, err := resolvers.GetCacheInformerFactory(kubeClient, resyncPeriod)
@@ -232,25 +219,6 @@ func main() {
 		// TODO: do we need exceptions here ?
 		nil,
 	)
-	// create non leader controllers
-	nonLeaderControllers := createNonLeaderControllers(
-		engine,
-		genWorkers,
-		kubeInformer,
-		kubeKyvernoInformer,
-		kyvernoInformer,
-		kyvernoClient,
-		dClient,
-		rclient,
-		configuration,
-		eventGenerator,
-		configMapResolver,
-	)
-	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
-		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
-		os.Exit(1)
-	}
 	// start event generator
 	go eventGenerator.Run(signalCtx, 3)
 	// setup leader election
@@ -269,7 +237,9 @@ func main() {
 			// create leader controllers
 			leaderControllers, err := createrLeaderControllers(
 				engine,
+				genWorkers,
 				kubeInformer,
+				kubeKyvernoInformer,
 				kyvernoInformer,
 				kyvernoClient,
 				dClient,
@@ -302,11 +272,6 @@ func main() {
 		logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
 	}
-	// start non leader controllers
-	var wg sync.WaitGroup
-	for _, controller := range nonLeaderControllers {
-		controller.Run(signalCtx, logger.WithName("controllers"), &wg)
-	}
 	// start leader election
 	go func() {
 		select {
@@ -316,5 +281,4 @@ func main() {
 			le.Run(signalCtx)
 		}
 	}()
-	wg.Wait()
 }

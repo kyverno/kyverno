@@ -29,7 +29,6 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -195,18 +194,6 @@ func (c *controller) syncUpdateRequest(key string) error {
 		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
 		return err
 	}
-	// if it was acquired by a pod that is gone, release it
-	if ur.Status.Handler != "" {
-		_, err = c.podLister.Pods(config.KyvernoNamespace()).Get(ur.Status.Handler)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				ur = ur.DeepCopy()
-				ur.Status.Handler = ""
-				_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-			}
-			return err
-		}
-	}
 	// try to get the linked policy
 	if _, err := c.getPolicy(ur.Spec.Policy); err != nil {
 		if apierrors.IsNotFound(err) && ur.Spec.Type == kyvernov1beta1.Mutate {
@@ -228,26 +215,11 @@ func (c *controller) syncUpdateRequest(key string) error {
 	}
 	// if in pending state, try to acquire ur and eventually process it
 	if ur.Status.State == kyvernov1beta1.Pending {
-		ur, ok, err := c.acquireUR(ur)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil
-			}
-			return fmt.Errorf("failed to mark handler for UR %s: %v", key, err)
-		}
-		if !ok {
-			logger.V(3).Info("another instance is handling the UR", "handler", ur.Status.Handler)
-			return nil
-		}
-		logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
 		if err := c.processUR(ur); err != nil {
 			return fmt.Errorf("failed to process UR %s: %v", key, err)
 		}
 	}
-	ur, err = c.releaseUR(ur)
-	if err != nil {
-		return fmt.Errorf("failed to unmark UR %s: %v", key, err)
-	}
+
 	err = c.cleanUR(ur)
 	return err
 }
@@ -425,47 +397,6 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
-}
-
-func (c *controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
-	name := ur.GetName()
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		var err error
-		ur, err = c.urLister.Get(name)
-		if err != nil {
-			return err
-		}
-		if ur.Status.Handler != "" {
-			return nil
-		}
-		ur = ur.DeepCopy()
-		ur.Status.Handler = config.KyvernoPodName()
-		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-		return err
-	})
-	if err != nil {
-		logger.Error(err, "failed to acquire ur", "name", name, "ur", ur)
-		return nil, false, err
-	}
-	return ur, ur.Status.Handler == config.KyvernoPodName(), err
-}
-
-func (c *controller) releaseUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, error) {
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		var err error
-		ur, err = c.urLister.Get(ur.GetName())
-		if err != nil {
-			return err
-		}
-		if ur.Status.Handler != config.KyvernoPodName() {
-			return nil
-		}
-		ur = ur.DeepCopy()
-		ur.Status.Handler = ""
-		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-		return err
-	})
-	return ur, err
 }
 
 func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
