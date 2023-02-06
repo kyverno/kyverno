@@ -52,14 +52,14 @@ func (e *engine) VerifyAndPatchImages(
 func (e *engine) ApplyBackgroundChecks(
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doApplyBackgroundChecks(e.contextLoader, e.exceptionSelector, policyContext, e.configuration)
+	return e.applyBackgroundChecks(policyContext)
 }
 
 func (e *engine) GenerateResponse(
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) *engineapi.EngineResponse {
-	return doGenerateResponse(e.contextLoader, e.exceptionSelector, policyContext, gr, e.configuration)
+	return e.generateResponse(policyContext, gr)
 }
 
 func (e *engine) ContextLoader(
