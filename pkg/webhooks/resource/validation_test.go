@@ -1049,8 +1049,11 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 		},
 	}
 
-	cfg := config.NewDefaultConfiguration()
-	eng := engine.NewEgine()
+	eng := engine.NewEngine(
+		config.NewDefaultConfiguration(),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
+		nil,
+	)
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			var policy kyvernov1.ClusterPolicy
@@ -1062,9 +1065,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
 			er := eng.Validate(
 				context.TODO(),
-				engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 				ctx,
-				cfg,
 			)
 			if tc.blocked && tc.messages != nil {
 				for _, r := range er.PolicyResponse.Rules {
@@ -1125,13 +1126,14 @@ func Test_RuleSelector(t *testing.T) {
 
 	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
-	cfg := config.NewDefaultConfiguration()
-	eng := engine.NewEgine()
+	eng := engine.NewEngine(
+		config.NewDefaultConfiguration(),
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
+		nil,
+	)
 	resp := eng.Validate(
 		context.TODO(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		ctx,
-		cfg,
 	)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 2)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
@@ -1144,9 +1146,7 @@ func Test_RuleSelector(t *testing.T) {
 	policy.Spec.ApplyRules = &applyOne
 	resp = eng.Validate(
 		context.TODO(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		ctx,
-		cfg,
 	)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)

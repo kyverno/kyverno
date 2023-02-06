@@ -1,14 +1,10 @@
 package api
 
 import (
-	"context"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -29,7 +25,6 @@ type PolicyContext interface {
 	NamespaceLabels() map[string]string
 	SubResource() string
 	SubresourcesInPolicy() []SubResource
-	ExcludeGroupRole() []string
 	AdmissionOperation() bool
 	RequestResource() metav1.GroupVersionResource
 	Element() unstructured.Unstructured
@@ -38,8 +33,4 @@ type PolicyContext interface {
 	JSONContext() enginecontext.Interface
 	Client() dclient.Interface
 	Copy() PolicyContext
-
-	FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error)
-	ExcludeResourceFunc() ExcludeFunc
-	ResolveConfigMap(ctx context.Context, namespace string, name string) (*corev1.ConfigMap, error)
 }

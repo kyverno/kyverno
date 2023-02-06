@@ -32,6 +32,7 @@ import (
 func doVerifyAndPatchImages(
 	ctx context.Context,
 	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
 	rclient registryclient.Client,
 	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
@@ -73,12 +74,12 @@ func doVerifyAndPatchImages(
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
 
-				if !matches(logger, rule, policyContext, subresourceGVKToAPIResource) {
+				if !matches(logger, rule, policyContext, subresourceGVKToAPIResource, cfg) {
 					return
 				}
 
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(policyContext, rule, subresourceGVKToAPIResource, logger)
+				ruleResp := hasPolicyExceptions(logger, selector, policyContext, rule, subresourceGVKToAPIResource, cfg)
 				if ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return

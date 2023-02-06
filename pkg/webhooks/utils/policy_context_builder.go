@@ -7,7 +7,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	admissionv1 "k8s.io/api/admission/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
@@ -18,12 +17,10 @@ type PolicyContextBuilder interface {
 }
 
 type policyContextBuilder struct {
-	configuration          config.Configuration
-	client                 dclient.Interface
-	rbLister               rbacv1listers.RoleBindingLister
-	crbLister              rbacv1listers.ClusterRoleBindingLister
-	informerCacheResolvers engineapi.ConfigmapResolver
-	polexLister            engine.PolicyExceptionLister
+	configuration config.Configuration
+	client        dclient.Interface
+	rbLister      rbacv1listers.RoleBindingLister
+	crbLister     rbacv1listers.ClusterRoleBindingLister
 }
 
 func NewPolicyContextBuilder(
@@ -31,16 +28,12 @@ func NewPolicyContextBuilder(
 	client dclient.Interface,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
-	informerCacheResolvers engineapi.ConfigmapResolver,
-	polexLister engine.PolicyExceptionLister,
 ) PolicyContextBuilder {
 	return &policyContextBuilder{
-		configuration:          configuration,
-		client:                 client,
-		rbLister:               rbLister,
-		crbLister:              crbLister,
-		informerCacheResolvers: informerCacheResolvers,
-		polexLister:            polexLister,
+		configuration: configuration,
+		client:        client,
+		rbLister:      rbLister,
+		crbLister:     crbLister,
 	}
 }
 
@@ -54,5 +47,5 @@ func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest) (*en
 		userRequestInfo.Roles = roles
 		userRequestInfo.ClusterRoles = clusterRoles
 	}
-	return engine.NewPolicyContextFromAdmissionRequest(request, userRequestInfo, b.configuration, b.client, b.informerCacheResolvers, b.polexLister)
+	return engine.NewPolicyContextFromAdmissionRequest(request, userRequestInfo, b.configuration, b.client)
 }

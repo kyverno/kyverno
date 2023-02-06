@@ -16,10 +16,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	corev1 "k8s.io/api/core/v1"
 )
 
-func LegacyContextLoaderFactory(rclient registryclient.Client) engineapi.ContextLoaderFactory {
+func LegacyContextLoaderFactory(
+	rclient registryclient.Client,
+	cmResolver engineapi.ConfigmapResolver,
+) engineapi.ContextLoaderFactory {
 	if store.IsMock() {
 		return func(pContext engineapi.PolicyContext, ruleName string) engineapi.ContextLoader {
 			policy := pContext.Policy()
@@ -29,7 +31,7 @@ func LegacyContextLoaderFactory(rclient registryclient.Client) engineapi.Context
 				ruleName:   ruleName,
 				client:     pContext.Client(),
 				rclient:    rclient,
-				cmResolver: pContext.ResolveConfigMap,
+				cmResolver: cmResolver,
 			}
 		}
 	}
@@ -38,7 +40,7 @@ func LegacyContextLoaderFactory(rclient registryclient.Client) engineapi.Context
 			logger:     logging.WithName("LegacyContextLoaderFactory"),
 			client:     pContext.Client(),
 			rclient:    rclient,
-			cmResolver: pContext.ResolveConfigMap,
+			cmResolver: cmResolver,
 		}
 	}
 }
@@ -47,7 +49,7 @@ type contextLoader struct {
 	logger     logr.Logger
 	rclient    registryclient.Client
 	client     dclient.Interface
-	cmResolver func(context.Context, string, string) (*corev1.ConfigMap, error)
+	cmResolver engineapi.ConfigmapResolver
 }
 
 func (l *contextLoader) Load(ctx context.Context, contextEntries []kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
@@ -79,7 +81,7 @@ type mockContextLoader struct {
 	ruleName   string
 	rclient    registryclient.Client
 	client     dclient.Interface
-	cmResolver func(context.Context, string, string) (*corev1.ConfigMap, error)
+	cmResolver engineapi.ConfigmapResolver
 }
 
 func (l *mockContextLoader) Load(ctx context.Context, contextEntries []kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
@@ -298,7 +300,7 @@ func applyJMESPath(jmesPath string, data interface{}) (interface{}, error) {
 	return jp.Search(data)
 }
 
-func loadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, resolver func(context.Context, string, string) (*corev1.ConfigMap, error)) error {
+func loadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, resolver engineapi.ConfigmapResolver) error {
 	data, err := fetchConfigMap(ctx, logger, entry, enginectx, resolver)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve config map for context entry %s: %v", entry.Name, err)
@@ -310,7 +312,7 @@ func loadConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.Cont
 	return nil
 }
 
-func fetchConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, resolver func(context.Context, string, string) (*corev1.ConfigMap, error)) ([]byte, error) {
+func fetchConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.ContextEntry, enginectx enginecontext.Interface, resolver engineapi.ConfigmapResolver) ([]byte, error) {
 	contextData := make(map[string]interface{})
 
 	name, err := variables.SubstituteAll(logger, enginectx, entry.ConfigMap.Name)
@@ -327,7 +329,7 @@ func fetchConfigMap(ctx context.Context, logger logr.Logger, entry kyvernov1.Con
 		namespace = "default"
 	}
 
-	obj, err := resolver(ctx, namespace.(string), name.(string))
+	obj, err := resolver.Get(ctx, namespace.(string), name.(string))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespace, name, err)
 	}
