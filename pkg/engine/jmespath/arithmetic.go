@@ -64,7 +64,7 @@ func ParseArithemticOperands(arguments []interface{}, operator string) (Operand,
 	}
 
 	if op[0] == nil || op[1] == nil || t[0]|t[1] == 3 {
-		return nil, nil, fmt.Errorf(genericError, operator, "invalid operands")
+		return nil, nil, formatError(genericError, operator, "invalid operands")
 	}
 
 	return op[0], op[1], nil
@@ -198,13 +198,13 @@ func (op1 Quantity) Divide(op2 interface{}) (interface{}, error) {
 	case Quantity:
 		divisor := v.AsApproximateFloat64()
 		if divisor == 0 {
-			return nil, fmt.Errorf(zeroDivisionError, divide)
+			return nil, formatError(zeroDivisionError, divide)
 		}
 		dividend := op1.AsApproximateFloat64()
 		return dividend / divisor, nil
 	case Scalar:
 		if v.float64 == 0 {
-			return nil, fmt.Errorf(zeroDivisionError, divide)
+			return nil, formatError(zeroDivisionError, divide)
 		}
 		q, err := resource.ParseQuantity(fmt.Sprintf("%v", v.float64))
 		if err != nil {
@@ -223,12 +223,12 @@ func (op1 Duration) Divide(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Duration:
 		if v.Seconds() == 0 {
-			return nil, fmt.Errorf(undefinedQuoError, divide)
+			return nil, formatError(zeroDivisionError, divide)
 		}
 		return op1.Seconds() / v.Seconds(), nil
 	case Scalar:
 		if v.float64 == 0 {
-			return nil, fmt.Errorf(undefinedQuoError, divide)
+			return nil, formatError(zeroDivisionError, divide)
 		}
 		seconds := op1.Seconds() / v.float64
 		return time.Duration(seconds * float64(time.Second)).String(), nil
@@ -241,7 +241,7 @@ func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Scalar:
 		if v.float64 == 0 {
-			return nil, fmt.Errorf(zeroDivisionError, divide)
+			return nil, formatError(zeroDivisionError, divide)
 		}
 		return op1.float64 / v.float64, nil
 	default:
@@ -266,13 +266,13 @@ func (op1 Quantity) Modulo(op2 interface{}) (interface{}, error) {
 		i1 := int64(f1)
 		i2 := int64(f2)
 		if f1 != float64(i1) {
-			return nil, fmt.Errorf(nonIntModuloError, modulo)
+			return nil, formatError(nonIntModuloError, modulo)
 		}
 		if f2 != float64(i2) {
-			return nil, fmt.Errorf(nonIntModuloError, modulo)
+			return nil, formatError(nonIntModuloError, modulo)
 		}
 		if i2 == 0 {
-			return nil, fmt.Errorf(zeroDivisionError, modulo)
+			return nil, formatError(zeroDivisionError, modulo)
 		}
 		return resource.NewQuantity(i1%i2, op1.Quantity.Format).String(), nil
 	default:
@@ -284,7 +284,7 @@ func (op1 Duration) Modulo(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Duration:
 		if v.Duration == 0 {
-			return nil, fmt.Errorf(zeroDivisionError, modulo)
+			return nil, formatError(zeroDivisionError, modulo)
 		}
 		return (op1.Duration % v.Duration).String(), nil
 	default:
@@ -298,13 +298,13 @@ func (op1 Scalar) Modulo(op2 interface{}) (interface{}, error) {
 		val1 := int64(op1.float64)
 		val2 := int64(v.float64)
 		if op1.float64 != float64(val1) {
-			return nil, fmt.Errorf(nonIntModuloError, modulo)
+			return nil, formatError(nonIntModuloError, modulo)
 		}
 		if v.float64 != float64(val2) {
-			return nil, fmt.Errorf(nonIntModuloError, modulo)
+			return nil, formatError(nonIntModuloError, modulo)
 		}
 		if val2 == 0 {
-			return nil, fmt.Errorf(zeroDivisionError, modulo)
+			return nil, formatError(zeroDivisionError, modulo)
 		}
 		return float64(val1 % val2), nil
 	default:
