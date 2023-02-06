@@ -147,7 +147,7 @@ func main() {
 	// setup signals
 	// setup maxprocs
 	// setup metrics
-	signalCtx, logger, metricsConfig, sdown := internal.Setup("kyverno-updaterequest-controller")
+	signalCtx, logger, metricsConfig, sdown := internal.Setup("kyverno-background-controller")
 	defer sdown()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
@@ -224,7 +224,7 @@ func main() {
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
-		"kyverno-updaterequest-controller",
+		"kyverno-background-controller",
 		config.KyvernoNamespace(),
 		leaderElectionClient,
 		config.KyvernoPodName(),
@@ -273,12 +273,12 @@ func main() {
 		os.Exit(1)
 	}
 	// start leader election
-	go func() {
+	for {
 		select {
 		case <-signalCtx.Done():
 			return
 		default:
 			le.Run(signalCtx)
 		}
-	}()
+	}
 }
