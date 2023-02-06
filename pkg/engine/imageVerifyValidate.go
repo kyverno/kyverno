@@ -44,7 +44,7 @@ func processImageValidationRule(
 		return ruleError(rule, engineapi.Validation, "failed to load context", err)
 	}
 
-	preconditionsPassed, err := checkPreconditions(log, enginectx, rule.RawAnyAllConditions)
+	preconditionsPassed, err := CheckPreconditions(log, enginectx, rule.RawAnyAllConditions)
 	if err != nil {
 		return ruleError(rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}

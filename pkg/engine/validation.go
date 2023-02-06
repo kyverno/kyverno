@@ -275,7 +275,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return ruleError(v.rule, engineapi.Validation, "failed to load context", err)
 	}
 
-	preconditionsPassed, err := checkPreconditions(v.log, v.policyContext, v.anyAllConditions)
+	preconditionsPassed, err := CheckPreconditions(v.log, v.policyContext, v.anyAllConditions)
 	if err != nil {
 		return ruleError(v.rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}

@@ -190,7 +190,7 @@ func doMutate(
 }
 
 func mutateResource(rule *kyvernov1.Rule, ctx engineapi.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
-	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
+	preconditionsPassed, err := CheckPreconditions(logger, ctx, rule.GetAnyAllConditions())
 	if err != nil {
 		return mutate.NewErrorResponse("failed to evaluate preconditions", err)
 	}
@@ -222,7 +222,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			return mutate.NewErrorResponse("failed to load context", err)
 		}
 
-		preconditionsPassed, err := checkPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
+		preconditionsPassed, err := CheckPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
 		if err != nil {
 			return mutate.NewErrorResponse("failed to evaluate preconditions", err)
 		}
@@ -286,7 +286,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", index), err)
 		}
 
-		preconditionsPassed, err := checkPreconditions(f.log, policyContext, foreach.AnyAllConditions)
+		preconditionsPassed, err := CheckPreconditions(f.log, policyContext, foreach.AnyAllConditions)
 		if err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", index), err)
 		}
