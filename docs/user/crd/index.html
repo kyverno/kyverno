@@ -5106,6 +5106,19 @@ PolicyExceptionSpec
 <table class="table table-striped">
 <tr>
 <td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>match</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.MatchResources">
@@ -5314,6 +5327,19 @@ references a ClusterPolicy.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>match</code><br/>
