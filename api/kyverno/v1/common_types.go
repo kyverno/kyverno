@@ -557,10 +557,10 @@ type ForEachGeneration struct {
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
 
 	// ListSubResources specifies a list of sub resources that will be triggered to generate when foreach in generation is specified.
-	ListSubResources []ListSubResources
+	ListSubResources []ListSubResource
 }
 
-type ListSubResources struct {
+type ListSubResource struct {
 	// ResourceSpec contains information to select the resource.
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
@@ -595,7 +595,7 @@ type ListSubResources struct {
 	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
 }
 
-func (g *ListSubResources) GetData() apiextensions.JSON {
+func (g *ListSubResource) GetData() apiextensions.JSON {
 	return FromJSON(g.RawData)
 }
 
