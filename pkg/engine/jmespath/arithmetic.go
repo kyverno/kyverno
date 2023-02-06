@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"strconv"
 	"time"
 
 	"gopkg.in/inf.v0"
@@ -197,13 +196,12 @@ func (op1 Scalar) Multiply(op2 interface{}) (interface{}, error) {
 func (op1 Quantity) Divide(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
-		if v.ToDec().AsApproximateFloat64() == 0 {
+		divisor := v.AsApproximateFloat64()
+		if divisor == 0 {
 			return nil, fmt.Errorf(zeroDivisionError, divide)
 		}
-		var quo inf.Dec
-		scale := inf.Scale(math.Max(float64(op1.AsDec().Scale()), float64(v.AsDec().Scale())))
-		quo.QuoRound(op1.AsDec(), v.AsDec(), scale, inf.RoundDown)
-		return strconv.ParseFloat(quo.String(), 64)
+		dividend := op1.AsApproximateFloat64()
+		return dividend / divisor, nil
 	case Scalar:
 		if v.float64 == 0 {
 			return nil, fmt.Errorf(zeroDivisionError, divide)
