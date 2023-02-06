@@ -5,28 +5,41 @@ import (
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"k8s.io/client-go/tools/cache"
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
-func GenerateResponse(rclient registryclient.Client, policyContext *PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *engineapi.EngineResponse) {
+func doGenerateResponse(
+	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
+	policyContext engineapi.PolicyContext,
+	gr kyvernov1beta1.UpdateRequest,
+	cfg config.Configuration,
+) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
-	return filterGenerateRules(rclient, policyContext, gr.Spec.Policy, policyStartTime)
+	return filterGenerateRules(contextLoader, selector, policyContext, gr.Spec.Policy, policyStartTime, cfg)
 }
 
-func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyContext, policyNameKey string, startTime time.Time) *engineapi.EngineResponse {
-	kind := policyContext.newResource.GetKind()
-	name := policyContext.newResource.GetName()
-	namespace := policyContext.newResource.GetNamespace()
-	apiVersion := policyContext.newResource.GetAPIVersion()
+func filterGenerateRules(
+	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
+	policyContext engineapi.PolicyContext,
+	policyNameKey string,
+	startTime time.Time,
+	cfg config.Configuration,
+) *engineapi.EngineResponse {
+	newResource := policyContext.NewResource()
+	kind := newResource.GetKind()
+	name := newResource.GetName()
+	namespace := newResource.GetNamespace()
+	apiVersion := newResource.GetAPIVersion()
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(policyNameKey)
 	if err != nil {
 		logging.Error(err, "failed to spilt name and namespace", policyNameKey)
 	}
-
 	resp := &engineapi.EngineResponse{
 		PolicyResponse: engineapi.PolicyResponse{
 			Policy: engineapi.PolicySpec{
@@ -34,7 +47,9 @@ func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyCon
 				Namespace: pNamespace,
 			},
 			PolicyStats: engineapi.PolicyStats{
-				PolicyExecutionTimestamp: startTime.Unix(),
+				ExecutionStats: engineapi.ExecutionStats{
+					Timestamp: startTime.Unix(),
+				},
 			},
 			Resource: engineapi.ResourceSpec{
 				Kind:       kind,
@@ -44,14 +59,13 @@ func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyCon
 			},
 		},
 	}
-
-	if policyContext.excludeResourceFunc(kind, namespace, name) {
+	if cfg.ToFilter(kind, namespace, name) {
 		logging.WithName("Generate").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
 		return resp
 	}
 
-	for _, rule := range autogen.ComputeRules(policyContext.policy) {
-		if ruleResp := filterRule(rclient, rule, policyContext); ruleResp != nil {
+	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
+		if ruleResp := filterRule(contextLoader, selector, rule, policyContext, cfg); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}

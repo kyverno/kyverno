@@ -18,11 +18,9 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -49,7 +47,7 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	rclient       registryclient.Client
+	engine        engineapi.Engine
 
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
@@ -65,14 +63,14 @@ type controller struct {
 
 	eventGen               event.Interface
 	configuration          config.Configuration
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 }
 
 // NewController returns an instance of the Generate-Request Controller
 func NewController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
-	rclient registryclient.Client,
+	engine engineapi.Engine,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
@@ -80,13 +78,13 @@ func NewController(
 	podInformer corev1informers.PodInformer,
 	eventGen event.Interface,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
 		client:                 client,
 		kyvernoClient:          kyvernoClient,
-		rclient:                rclient,
+		engine:                 engine,
 		cpolLister:             cpolInformer.Lister(),
 		polLister:              polInformer.Lister(),
 		urLister:               urLister,
@@ -420,10 +418,10 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.rclient, c.cpolLister, c.polLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	case kyvernov1beta1.Generate:
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.rclient, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
@@ -518,7 +516,7 @@ func (c *controller) processDeletePolicyForCloneGenerateRule(policy kyvernov1.Po
 func (c *controller) updateSourceResource(pName string, rule kyvernov1.Rule) error {
 	obj, err := c.client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	if err != nil {
-		return errors.Wrapf(err, "source resource %s/%s/%s not found", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+		return fmt.Errorf("source resource %s/%s/%s not found: %w", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name, err)
 	}
 
 	var update bool

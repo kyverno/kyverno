@@ -26,7 +26,7 @@ jobs:
         with:
           build-cache-key: publish-images
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5 # v0.8.0
+        uses: aquasecurity/trivy-action@cff3e9a7f62c41dd51975266d0ae235709e39c41 # v0.9.0
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -89,3 +89,29 @@ jobs:
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/cli/kubectl-kyverno
+      - name: Publish reports-controller
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-reports-controller-dev
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: reports-controller
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/reports-controller
+      - name: Publish background-controller
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-background-controller-dev
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: background-controller
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/background-controller

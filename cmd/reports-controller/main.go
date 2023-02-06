@@ -24,6 +24,8 @@ import (
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/cosign"
+	"github.com/kyverno/kyverno/pkg/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -65,6 +67,7 @@ func setupCosign(logger logr.Logger, imageSignatureRepository string) {
 }
 
 func createReportControllers(
+	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
 	reportsChunkSize int,
@@ -75,7 +78,7 @@ func createReportControllers(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	configMapResolver resolvers.ConfigmapResolver,
+	configMapResolver engineapi.ConfigmapResolver,
 	backgroundScanInterval time.Duration,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
@@ -83,7 +86,6 @@ func createReportControllers(
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV2Alpha1 := kyvernoInformer.Kyverno().V2alpha1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
@@ -128,11 +130,11 @@ func createReportControllers(
 					client,
 					kyvernoClient,
 					rclient,
+					eng,
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
-					kyvernoV2Alpha1.PolicyExceptions().Lister(),
 					resourceReportController,
 					configMapResolver,
 					backgroundScanInterval,
@@ -154,6 +156,7 @@ func createReportControllers(
 }
 
 func createrLeaderControllers(
+	eng engineapi.Engine,
 	backgroundScan bool,
 	admissionReports bool,
 	reportsChunkSize int,
@@ -166,10 +169,11 @@ func createrLeaderControllers(
 	rclient registryclient.Client,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	configMapResolver resolvers.ConfigmapResolver,
+	configMapResolver engineapi.ConfigmapResolver,
 	backgroundScanInterval time.Duration,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	reportControllers, warmup := createReportControllers(
+		eng,
 		backgroundScan,
 		admissionReports,
 		reportsChunkSize,
@@ -200,6 +204,8 @@ func main() {
 		backgroundScanWorkers     int
 		backgroundScanInterval    time.Duration
 		maxQueuedEvents           int
+		enablePolicyException     bool
+		exceptionNamespace        string
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
@@ -212,6 +218,8 @@ func main() {
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
+	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -271,7 +279,7 @@ func main() {
 		logger.Error(err, "failed to create client based resolver")
 		os.Exit(1)
 	}
-	configMapResolver, err := resolvers.NewResolverChain(informerBasedResolver, clientBasedResolver)
+	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
 	if err != nil {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)
@@ -288,6 +296,15 @@ func main() {
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
+	var exceptionsLister engineapi.PolicyExceptionSelector
+	if enablePolicyException {
+		lister := kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
+		if exceptionNamespace != "" {
+			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
+		} else {
+			exceptionsLister = lister
+		}
+	}
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
 		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
@@ -295,6 +312,11 @@ func main() {
 	}
 	// start event generator
 	go eventGenerator.Run(ctx, 3)
+	eng := engine.NewEngine(
+		configuration,
+		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+		exceptionsLister,
+	)
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
@@ -312,6 +334,7 @@ func main() {
 			metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
+				eng,
 				backgroundScan,
 				admissionReports,
 				reportsChunkSize,

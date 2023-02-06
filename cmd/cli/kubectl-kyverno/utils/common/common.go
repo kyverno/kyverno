@@ -362,9 +362,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		})
 	}
 
-	store.SetContext(store.Context{
-		Policies: storePolicies,
-	})
+	store.SetPolicies(storePolicies...)
 
 	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, nil
 }
@@ -463,10 +461,7 @@ OuterLoop:
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
-	subresources := make([]struct {
-		APIResource    metav1.APIResource
-		ParentResource metav1.APIResource
-	}, 0)
+	subresources := make([]engineapi.SubResource, 0)
 
 	// If --cluster flag is not set, then we need to add subresources to the context
 	if c.Client == nil {
@@ -479,7 +474,11 @@ OuterLoop:
 			})
 		}
 	}
-
+	eng := engine.NewEngine(
+		cfg,
+		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
+		nil,
+	)
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).
@@ -488,7 +487,10 @@ OuterLoop:
 		WithClient(c.Client).
 		WithSubresourcesInPolicy(subresources)
 
-	mutateResponse := engine.Mutate(context.Background(), registryclient.NewOrDie(), policyContext)
+	mutateResponse := eng.Mutate(
+		context.Background(),
+		policyContext,
+	)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -512,7 +514,10 @@ OuterLoop:
 	var info Info
 	var validateResponse *engineapi.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.Validate(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
+		validateResponse = eng.Validate(
+			context.Background(),
+			policyContext,
+		)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
@@ -520,7 +525,11 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := engine.VerifyAndPatchImages(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(
+		context.Background(),
+		registryclient.NewOrDie(),
+		policyContext,
+	)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
@@ -534,7 +543,9 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		generateResponse := engine.ApplyBackgroundChecks(registryclient.NewOrDie(), policyContext)
+		generateResponse := eng.ApplyBackgroundChecks(
+			policyContext,
+		)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
@@ -855,9 +866,7 @@ func SetInStoreContext(mutatedPolicies []kyvernov1.PolicyInterface, variables ma
 		})
 	}
 
-	store.SetContext(store.Context{
-		Policies: storePolicies,
-	})
+	store.SetPolicies(storePolicies...)
 
 	return variables
 }
@@ -965,7 +974,7 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 
 	// skipping the variable check for non matching kind
 	if _, ok := kindOnwhichPolicyIsApplied[resourceKind]; ok {
-		if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
+		if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && store.HasPolicies() {
 			return thisPolicyResourceValues, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policyName, resourceName), nil)
 		}
 	}
@@ -1069,7 +1078,11 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	}
 
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	c := generate.NewGenerateControllerWithOnlyClient(client)
+	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
+		config.NewDefaultConfiguration(),
+		engine.LegacyContextLoaderFactory(nil, nil),
+		nil,
+	))
 	return c, nil
 }
 

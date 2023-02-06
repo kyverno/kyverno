@@ -21,6 +21,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	"github.com/kyverno/kyverno/pkg/cosign"
+	"github.com/kyverno/kyverno/pkg/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -62,6 +64,7 @@ func setupCosign(logger logr.Logger, imageSignatureRepository string) {
 }
 
 func createNonLeaderControllers(
+	eng engineapi.Engine,
 	genWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
@@ -71,12 +74,12 @@ func createNonLeaderControllers(
 	rclient registryclient.Client,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 ) []internal.Controller {
 	updateRequestController := background.NewController(
 		kyvernoClient,
 		dynamicClient,
-		rclient,
+		eng,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -90,6 +93,7 @@ func createNonLeaderControllers(
 }
 
 func createrLeaderControllers(
+	eng engineapi.Engine,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
@@ -98,12 +102,12 @@ func createrLeaderControllers(
 	configuration config.Configuration,
 	metricsConfig metrics.MetricsConfigManager,
 	eventGenerator event.Interface,
-	configMapResolver resolvers.ConfigmapResolver,
+	configMapResolver engineapi.ConfigmapResolver,
 ) ([]internal.Controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
 		dynamicClient,
-		rclient,
+		eng,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
@@ -199,7 +203,7 @@ func main() {
 		logger.Error(err, "failed to create client based resolver")
 		os.Exit(1)
 	}
-	configMapResolver, err := resolvers.NewResolverChain(informerBasedResolver, clientBasedResolver)
+	configMapResolver, err := engineapi.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
 	if err != nil {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)
@@ -222,8 +226,15 @@ func main() {
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
+	engine := engine.NewEngine(
+		configuration,
+		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+		// TODO: do we need exceptions here ?
+		nil,
+	)
 	// create non leader controllers
 	nonLeaderControllers := createNonLeaderControllers(
+		engine,
 		genWorkers,
 		kubeInformer,
 		kubeKyvernoInformer,
@@ -257,6 +268,7 @@ func main() {
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, err := createrLeaderControllers(
+				engine,
 				kubeInformer,
 				kyvernoInformer,
 				kyvernoClient,
