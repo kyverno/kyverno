@@ -110,6 +110,10 @@ func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
 }
 
+func (c *PolicyContext) NamespaceLabels() map[string]string {
+	return c.namespaceLabels
+}
+
 func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error) {
 	if c.peLister == nil {
 		return nil, nil
