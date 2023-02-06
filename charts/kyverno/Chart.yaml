@@ -26,5 +26,5 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
-    - kind: added
-      description: make sigstore volume configurable
+    - kind: changed
+      description: change dashboard title of kyverno grafana dashboard
