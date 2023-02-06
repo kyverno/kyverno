@@ -40,6 +40,13 @@ spec:
           spec:
             description: Spec declares policy exception behaviors.
             properties:
+              background:
+                description: Background controls if exceptions are applied to existing
+                  policies during a background scan. Optional. Default value is "true".
+                  The value must be set to "false" if the policy rule uses variables
+                  that are only available in the admission review request (e.g. user
+                  name).
+                type: boolean
               exceptions:
                 description: Exceptions is a list policy/rules to be excluded
                 items:
