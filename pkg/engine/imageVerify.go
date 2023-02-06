@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -31,6 +32,7 @@ import (
 
 func doVerifyAndPatchImages(
 	ctx context.Context,
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
 	selector engineapi.PolicyExceptionSelector,
 	rclient registryclient.Client,
@@ -72,7 +74,7 @@ func doVerifyAndPatchImages(
 				}
 
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(client, kindsInPolicy, policyContext)
 
 				if !matches(logger, rule, policyContext, subresourceGVKToAPIResource, cfg) {
 					return

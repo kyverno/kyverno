@@ -169,7 +169,8 @@ func testVerifyAndPatchImages(
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
 	return doVerifyAndPatchImages(
 		ctx,
-		LegacyContextLoaderFactory(rclient, cmResolver),
+		nil,
+		LegacyContextLoaderFactory(nil, rclient, cmResolver),
 		nil,
 		rclient,
 		pContext,

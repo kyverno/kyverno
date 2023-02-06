@@ -10,6 +10,7 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
@@ -24,6 +25,7 @@ import (
 // Mutate performs mutation. Overlay first and then mutation patches
 func doMutate(
 	ctx context.Context,
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
@@ -70,7 +72,7 @@ func doMutate(
 				}
 
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(client, kindsInPolicy, policyContext)
 				if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.AdmissionInfo(), excludeResource, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), policyContext.SubResource()); err != nil {
 					logger.V(4).Info("rule not matched", "reason", err.Error())
 					skippedRules = append(skippedRules, rule.Name)
@@ -107,7 +109,7 @@ func doMutate(
 				ruleCopy := rule.DeepCopy()
 				var patchedResources []resourceInfo
 				if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
-					targets, err := loadTargets(ruleCopy.Mutation.Targets, policyContext, logger)
+					targets, err := loadTargets(client, ruleCopy.Mutation.Targets, policyContext, logger)
 					if err != nil {
 						rr := ruleResponse(rule, engineapi.Mutation, err.Error(), engineapi.RuleStatusError)
 						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)

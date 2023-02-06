@@ -22,7 +22,8 @@ import (
 func testValidate(ctx context.Context, rclient registryclient.Client, pContext *PolicyContext, cfg config.Configuration) *engineapi.EngineResponse {
 	return doValidate(
 		ctx,
-		LegacyContextLoaderFactory(rclient, nil),
+		nil,
+		LegacyContextLoaderFactory(nil, rclient, nil),
 		nil,
 		pContext,
 		cfg,

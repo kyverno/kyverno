@@ -6,6 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -19,16 +20,18 @@ import (
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func doApplyBackgroundChecks(
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
-	return filterRules(contextLoader, selector, policyContext, policyStartTime, cfg)
+	return filterRules(client, contextLoader, selector, policyContext, policyStartTime, cfg)
 }
 
 func filterRules(
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
@@ -68,7 +71,7 @@ func filterRules(
 
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
-		if ruleResp := filterRule(contextLoader, selector, rule, policyContext, cfg); ruleResp != nil {
+		if ruleResp := filterRule(client, contextLoader, selector, rule, policyContext, cfg); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
 				break
@@ -80,6 +83,7 @@ func filterRules(
 }
 
 func filterRule(
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
 	selector engineapi.PolicyExceptionSelector,
 	rule kyvernov1.Rule,
@@ -93,7 +97,7 @@ func filterRule(
 	logger := logging.WithName("exception")
 
 	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(client, kindsInPolicy, policyContext)
 
 	// check if there is a corresponding policy exception
 	ruleResp := hasPolicyExceptions(logger, selector, policyContext, &rule, subresourceGVKToAPIResource, cfg)

@@ -12,6 +12,7 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -33,6 +34,7 @@ import (
 
 func doValidate(
 	ctx context.Context,
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
@@ -48,7 +50,7 @@ func doValidate(
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	resp = validateResource(ctx, contextLoader, selector, logger, policyContext, cfg)
+	resp = validateResource(ctx, client, contextLoader, selector, logger, policyContext, cfg)
 	resp.NamespaceLabels = policyContext.NamespaceLabels()
 	return
 }
@@ -101,6 +103,7 @@ func buildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 
 func validateResource(
 	ctx context.Context,
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
 	selector engineapi.PolicyExceptionSelector,
 	log logr.Logger,
@@ -146,7 +149,7 @@ func validateResource(
 				}
 				log = log.WithValues("rule", rule.Name)
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, enginectx)
+				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(client, kindsInPolicy, enginectx)
 
 				if !matches(log, rule, enginectx, subresourceGVKToAPIResource, cfg) {
 					return nil
@@ -163,7 +166,7 @@ func validateResource(
 				} else if hasValidateImage {
 					return processImageValidationRule(ctx, contextLoader, log, enginectx, rule, cfg)
 				} else if hasYAMLSignatureVerify {
-					return processYAMLValidationRule(log, enginectx, rule)
+					return processYAMLValidationRule(client, log, enginectx, rule)
 				}
 				return nil
 			},

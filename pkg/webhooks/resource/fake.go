@@ -58,7 +58,8 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		urUpdater:      webhookutils.NewUpdateRequestUpdater(kyvernoclient, urLister),
 		engine: engine.NewEngine(
 			configuration,
-			engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+			dclient,
+			engine.LegacyContextLoaderFactory(dclient, rclient, configMapResolver),
 			peLister,
 		),
 	}

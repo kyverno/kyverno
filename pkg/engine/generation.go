@@ -5,6 +5,7 @@ import (
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -13,6 +14,7 @@ import (
 
 // GenerateResponse checks for validity of generate rule on the resource
 func doGenerateResponse(
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
@@ -20,10 +22,11 @@ func doGenerateResponse(
 	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
-	return filterGenerateRules(contextLoader, selector, policyContext, gr.Spec.Policy, policyStartTime, cfg)
+	return filterGenerateRules(client, contextLoader, selector, policyContext, gr.Spec.Policy, policyStartTime, cfg)
 }
 
 func filterGenerateRules(
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
@@ -65,7 +68,7 @@ func filterGenerateRules(
 	}
 
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
-		if ruleResp := filterRule(contextLoader, selector, rule, policyContext, cfg); ruleResp != nil {
+		if ruleResp := filterRule(client, contextLoader, selector, rule, policyContext, cfg); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}
