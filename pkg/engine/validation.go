@@ -11,7 +11,6 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -23,7 +22,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	"go.opentelemetry.io/otel/trace"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -31,12 +29,12 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/tools/cache"
 )
 
 func doValidate(
 	ctx context.Context,
 	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
@@ -50,7 +48,7 @@ func doValidate(
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
 	}()
 
-	resp = validateResource(ctx, contextLoader, logger, policyContext, cfg)
+	resp = validateResource(ctx, contextLoader, selector, logger, policyContext, cfg)
 	resp.NamespaceLabels = policyContext.NamespaceLabels()
 	return
 }
@@ -104,6 +102,7 @@ func buildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 func validateResource(
 	ctx context.Context,
 	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
 	log logr.Logger,
 	enginectx engineapi.PolicyContext,
 	cfg config.Configuration,
@@ -149,11 +148,11 @@ func validateResource(
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, enginectx)
 
-				if !matches(log, rule, enginectx, subresourceGVKToAPIResource) {
+				if !matches(log, rule, enginectx, subresourceGVKToAPIResource, cfg) {
 					return nil
 				}
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(enginectx, rule, subresourceGVKToAPIResource, log)
+				ruleResp := hasPolicyExceptions(log, selector, enginectx, rule, subresourceGVKToAPIResource, cfg)
 				if ruleResp != nil {
 					return ruleResp
 				}
@@ -595,14 +594,20 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(logger logr.Logger, rule *kyvernov1.Rule, ctx engineapi.PolicyContext, subresourceGVKToAPIResource map[string]*metav1.APIResource) bool {
-	err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.NewResource(), *rule, ctx.AdmissionInfo(), ctx.ExcludeGroupRole(), ctx.NamespaceLabels(), "", ctx.SubResource())
+func matches(
+	logger logr.Logger,
+	rule *kyvernov1.Rule,
+	ctx engineapi.PolicyContext,
+	subresourceGVKToAPIResource map[string]*metav1.APIResource,
+	cfg config.Configuration,
+) bool {
+	err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.NewResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludeGroupRole(), ctx.NamespaceLabels(), "", ctx.SubResource())
 	if err == nil {
 		return true
 	}
 
 	if !reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.OldResource(), *rule, ctx.AdmissionInfo(), ctx.ExcludeGroupRole(), ctx.NamespaceLabels(), "", ctx.SubResource())
+		err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.OldResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludeGroupRole(), ctx.NamespaceLabels(), "", ctx.SubResource())
 		if err == nil {
 			return true
 		}
@@ -788,59 +793,5 @@ func (v *validator) substituteDeny() error {
 		return err
 	}
 	v.deny = i.(*kyvernov1.Deny)
-	return nil
-}
-
-// matchesException checks if an exception applies to the resource being admitted
-func matchesException(
-	policyContext engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
-	subresourceGVKToAPIResource map[string]*metav1.APIResource,
-) (*kyvernov2alpha1.PolicyException, error) {
-	candidates, err := policyContext.FindExceptions(rule.Name)
-	if err != nil {
-		return nil, err
-	}
-	for _, candidate := range candidates {
-		err := matched.CheckMatchesResources(
-			policyContext.NewResource(),
-			candidate.Spec.Match,
-			policyContext.NamespaceLabels(),
-			subresourceGVKToAPIResource,
-			policyContext.SubResource(),
-			policyContext.AdmissionInfo(),
-			policyContext.ExcludeGroupRole(),
-		)
-		// if there's no error it means a match
-		if err == nil {
-			return candidate, nil
-		}
-	}
-	return nil, nil
-}
-
-// hasPolicyExceptions returns nil when there are no matching exceptions.
-// A rule response is returned when an exception is matched, or there is an error.
-func hasPolicyExceptions(ctx engineapi.PolicyContext, rule *kyvernov1.Rule, subresourceGVKToAPIResource map[string]*metav1.APIResource, log logr.Logger) *engineapi.RuleResponse {
-	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(ctx, rule, subresourceGVKToAPIResource)
-	// if we found an exception
-	if err == nil && exception != nil {
-		key, err := cache.MetaNamespaceKeyFunc(exception)
-		if err != nil {
-			log.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-			return &engineapi.RuleResponse{
-				Name:    rule.Name,
-				Message: "failed to find matched exception " + key,
-				Status:  engineapi.RuleStatusError,
-			}
-		}
-		log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
-		return &engineapi.RuleResponse{
-			Name:    rule.Name,
-			Message: "rule skipped due to policy exception " + key,
-			Status:  engineapi.RuleStatusSkip,
-		}
-	}
 	return nil
 }
