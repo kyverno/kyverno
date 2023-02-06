@@ -31,14 +31,14 @@ func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doValidate(ctx, e.contextLoader, e.exceptionSelector, policyContext, e.configuration)
+	return e.validate(ctx, policyContext)
 }
 
 func (e *engine) Mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doMutate(ctx, e.contextLoader, e.exceptionSelector, policyContext, e.configuration)
+	return e.mutate(ctx, policyContext)
 }
 
 func (e *engine) VerifyAndPatchImages(
@@ -46,7 +46,7 @@ func (e *engine) VerifyAndPatchImages(
 	rclient registryclient.Client,
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
-	return doVerifyAndPatchImages(ctx, e.contextLoader, e.exceptionSelector, rclient, policyContext, e.configuration)
+	return e.verifyAndPatchImages(ctx, rclient, policyContext)
 }
 
 func (e *engine) ApplyBackgroundChecks(
