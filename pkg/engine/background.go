@@ -6,6 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -19,16 +20,20 @@ import (
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func doApplyBackgroundChecks(
 	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
+	cfg config.Configuration,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
-	return filterRules(contextLoader, policyContext, policyStartTime)
+	return filterRules(contextLoader, selector, policyContext, policyStartTime, cfg)
 }
 
 func filterRules(
 	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	startTime time.Time,
+	cfg config.Configuration,
 ) *engineapi.EngineResponse {
 	newResource := policyContext.NewResource()
 	policy := policyContext.Policy()
@@ -56,14 +61,14 @@ func filterRules(
 		},
 	}
 
-	if policyContext.ExcludeResourceFunc()(kind, namespace, name) {
+	if cfg.ToFilter(kind, namespace, name) {
 		logging.WithName("ApplyBackgroundChecks").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
 		return resp
 	}
 
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
-		if ruleResp := filterRule(contextLoader, rule, policyContext); ruleResp != nil {
+		if ruleResp := filterRule(contextLoader, selector, rule, policyContext, cfg); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
 				break
@@ -76,8 +81,10 @@ func filterRules(
 
 func filterRule(
 	contextLoader engineapi.ContextLoaderFactory,
+	selector engineapi.PolicyExceptionSelector,
 	rule kyvernov1.Rule,
 	policyContext engineapi.PolicyContext,
+	cfg config.Configuration,
 ) *engineapi.RuleResponse {
 	if !rule.HasGenerate() && !rule.IsMutateExisting() {
 		return nil
@@ -89,7 +96,7 @@ func filterRule(
 	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(policyContext, &rule, subresourceGVKToAPIResource, logger)
+	ruleResp := hasPolicyExceptions(logger, selector, policyContext, &rule, subresourceGVKToAPIResource, cfg)
 	if ruleResp != nil {
 		return ruleResp
 	}
@@ -106,7 +113,7 @@ func filterRule(
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
 	ctx := policyContext.JSONContext()
-	excludeGroupRole := policyContext.ExcludeGroupRole()
+	excludeGroupRole := cfg.GetExcludeGroupRole()
 	namespaceLabels := policyContext.NamespaceLabels()
 
 	logger = logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),

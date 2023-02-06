@@ -232,6 +232,8 @@ func main() {
 	engine := engine.NewEngine(
 		configuration,
 		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+		// TODO: do we need exceptions here ?
+		nil,
 	)
 	// create non leader controllers
 	nonLeaderControllers := createNonLeaderControllers(
