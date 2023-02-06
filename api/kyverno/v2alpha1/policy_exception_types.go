@@ -43,7 +43,7 @@ type PolicyException struct {
 }
 
 var (
-	// RegexVariables represents regex for '{{}}'
+	// regexVariables represents regex for '{{}}'
 	regexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 )
 
