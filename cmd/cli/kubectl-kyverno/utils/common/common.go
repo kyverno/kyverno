@@ -477,6 +477,7 @@ OuterLoop:
 	eng := engine.NewEngine(
 		cfg,
 		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
+		nil,
 	)
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(c.Policy).
@@ -1080,6 +1081,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		config.NewDefaultConfiguration(),
 		engine.LegacyContextLoaderFactory(nil, nil),
+		nil,
 	))
 	return c, nil
 }

@@ -5,7 +5,6 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -14,15 +13,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
 )
-
-type PolicyExceptionLister interface {
-	// List lists all PolicyExceptions in the indexer.
-	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*kyvernov2alpha1.PolicyException, err error)
-}
 
 // PolicyContext contains the contexts for engine to process
 type PolicyContext struct {
@@ -54,11 +45,6 @@ type PolicyContext struct {
 	// Dynamic client - used for api lookups
 	client dclient.Interface
 
-	// Config handler
-	excludeGroupRole []string
-
-	excludeResourceFunc engineapi.ExcludeFunc
-
 	// jsonContext is the variable context
 	jsonContext enginectx.Interface
 
@@ -75,9 +61,6 @@ type PolicyContext struct {
 	// This is used to determine if a resource is a subresource. It is only used when the policy context is populated
 	// by kyverno CLI. In all other cases when connected to a cluster, this is empty.
 	subresourcesInPolicy []engineapi.SubResource
-
-	// peLister list all policy exceptions
-	peLister PolicyExceptionLister
 }
 
 // engineapi.PolicyContext interface
@@ -110,10 +93,6 @@ func (c *PolicyContext) SubresourcesInPolicy() []engineapi.SubResource {
 	return c.subresourcesInPolicy
 }
 
-func (c *PolicyContext) ExcludeGroupRole() []string {
-	return c.excludeGroupRole
-}
-
 func (c *PolicyContext) AdmissionOperation() bool {
 	return c.admissionOperation
 }
@@ -140,31 +119,6 @@ func (c *PolicyContext) Client() dclient.Interface {
 
 func (c PolicyContext) Copy() engineapi.PolicyContext {
 	return c.copy()
-}
-
-func (c *PolicyContext) FindExceptions(rule string) ([]*kyvernov2alpha1.PolicyException, error) {
-	if c.peLister == nil {
-		return nil, nil
-	}
-	polexs, err := c.peLister.List(labels.Everything())
-	if err != nil {
-		return nil, err
-	}
-	var result []*kyvernov2alpha1.PolicyException
-	policyName, err := cache.MetaNamespaceKeyFunc(c.policy)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compute policy key: %w", err)
-	}
-	for _, polex := range polexs {
-		if polex.Contains(policyName, rule) {
-			result = append(result, polex)
-		}
-	}
-	return result, nil
-}
-
-func (c *PolicyContext) ExcludeResourceFunc() engineapi.ExcludeFunc {
-	return c.excludeResourceFunc
 }
 
 // Mutators
@@ -215,23 +169,7 @@ func (c *PolicyContext) WithClient(client dclient.Interface) *PolicyContext {
 	return copy
 }
 
-func (c *PolicyContext) WithExcludeGroupRole(excludeGroupRole ...string) *PolicyContext {
-	copy := c.copy()
-	copy.excludeGroupRole = excludeGroupRole
-	return copy
-}
-
-func (c *PolicyContext) WithExcludeResourceFunc(excludeResourceFunc engineapi.ExcludeFunc) *PolicyContext {
-	copy := c.copy()
-	copy.excludeResourceFunc = excludeResourceFunc
-	return copy
-}
-
-func (c *PolicyContext) WithConfiguration(configuration config.Configuration) *PolicyContext {
-	return c.WithExcludeResourceFunc(configuration.ToFilter).WithExcludeGroupRole(configuration.GetExcludeGroupRole()...)
-}
-
-func (c *PolicyContext) WithAdmissionOperation(admissionOperation bool) *PolicyContext {
+func (c *PolicyContext) withAdmissionOperation(admissionOperation bool) *PolicyContext {
 	copy := c.copy()
 	copy.admissionOperation = admissionOperation
 	return copy
@@ -249,24 +187,15 @@ func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []engineap
 	return copy
 }
 
-func (c *PolicyContext) WithExceptions(peLister PolicyExceptionLister) *PolicyContext {
-	copy := c.copy()
-	copy.peLister = peLister
-	return copy
-}
-
 func (c PolicyContext) copy() *PolicyContext {
 	return &c
 }
 
 // Constructors
+
 func NewPolicyContextWithJsonContext(jsonContext enginectx.Interface) *PolicyContext {
 	return &PolicyContext{
-		jsonContext:      jsonContext,
-		excludeGroupRole: []string{},
-		excludeResourceFunc: func(string, string, string) bool {
-			return false
-		},
+		jsonContext: jsonContext,
 	}
 }
 
@@ -279,7 +208,6 @@ func NewPolicyContextFromAdmissionRequest(
 	admissionInfo kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 	client dclient.Interface,
-	polexLister PolicyExceptionLister,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
 	if err != nil {
@@ -297,12 +225,10 @@ func NewPolicyContextFromAdmissionRequest(
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
-		WithConfiguration(configuration).
 		WithClient(client).
-		WithAdmissionOperation(true).
+		withAdmissionOperation(true).
 		WithRequestResource(*requestResource).
-		WithSubresource(request.SubResource).
-		WithExceptions(polexLister)
+		WithSubresource(request.SubResource)
 	return policyContext, nil
 }
 
