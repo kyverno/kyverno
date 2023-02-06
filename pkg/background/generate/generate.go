@@ -408,17 +408,17 @@ func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.Res
 	log := f.log
 	var newGenResources []kyvernov1.ResourceSpec
 
+	preconditionsPassed, err := engine.CheckPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
+	if err != nil {
+		return newGenResources, err
+	}
+
+	if !preconditionsPassed {
+		log.Info("preconditions not met")
+		return newGenResources, nil
+	}
+
 	for _, fe := range f.foreach {
-		preconditionsPassed, err := engine.CheckPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
-		if err != nil {
-			return newGenResources, err
-		}
-
-		if !preconditionsPassed {
-			log.Info("preconditions not met")
-			return newGenResources, nil
-		}
-
 		var elements []interface{}
 		elements, err = engine.EvaluateList(fe.List, f.policyContext.JSONContext())
 		if err != nil {

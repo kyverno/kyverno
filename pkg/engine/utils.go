@@ -339,7 +339,7 @@ func CheckPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllC
 	return pass, nil
 }
 
-func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, error) {
+func EvaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, error) {
 	i, err := ctx.Query(jmesPath)
 	if err != nil {
 		return nil, err

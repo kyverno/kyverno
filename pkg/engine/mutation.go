@@ -231,7 +231,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			return mutate.NewResponse(engineapi.RuleStatusSkip, f.resource.unstructured, nil, "preconditions not met")
 		}
 
-		elements, err := evaluateList(foreach.List, f.policyContext.JSONContext())
+		elements, err := EvaluateList(foreach.List, f.policyContext.JSONContext())
 		if err != nil {
 			msg := fmt.Sprintf("failed to evaluate list %s: %v", foreach.List, err)
 			return mutate.NewErrorResponse(msg, err)

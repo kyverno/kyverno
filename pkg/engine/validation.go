@@ -316,7 +316,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {
 	applyCount := 0
 	for _, foreach := range v.forEach {
-		elements, err := evaluateList(foreach.List, (v.policyContext.JSONContext()))
+		elements, err := EvaluateList(foreach.List, (v.policyContext.JSONContext()))
 		if err != nil {
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
