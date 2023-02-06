@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -25,6 +26,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -425,7 +427,6 @@ func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.Res
 			err = fmt.Errorf("%v failed to evaluate list %s", err, fe.List)
 			return newGenResources, err
 		}
-
 		newGenResources, err = f.generateElements(ctx, fe, elements)
 		if err != nil {
 			return newGenResources, err
@@ -434,6 +435,76 @@ func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.Res
 	}
 	msg := fmt.Sprintf("%d elements processed", applyCount)
 	log.Info(msg)
+	return newGenResources, nil
+}
+
+func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyvernov1.ForEachGeneration, elements []interface{}) ([]kyvernov1.ResourceSpec, error) {
+	f.policyContext.JSONContext().Checkpoint()
+	defer f.policyContext.JSONContext().Restore()
+	var newGenResources []kyvernov1.ResourceSpec
+
+	for i, element := range elements {
+		if element == nil {
+			continue
+		}
+
+		// TODO - this needs to be refactored. The engine should not have a dependency to the CLI code
+		store.SetForEachElement(i)
+
+		f.policyContext.JSONContext().Reset()
+		falseVar := false
+		policyContext := f.policyContext.Copy()
+		if err := engine.AddElementToContext(policyContext, element, i, f.nesting, &falseVar); err != nil {
+			err = fmt.Errorf("%v failed to add element to context", err)
+			return newGenResources, err
+		}
+
+		if err := f.engine.ContextLoader(policyContext, f.rule.Name).Load(ctx, foreach.Context, f.policyContext.JSONContext()); err != nil {
+			return newGenResources, err
+		}
+
+		preconditionsPassed, err := engine.CheckPreconditions(f.log, policyContext, foreach.AnyAllConditions)
+		if err != nil {
+			return newGenResources, err
+		}
+
+		if !preconditionsPassed {
+			f.log.Info("mutate.foreach.preconditions not met", "elementIndex", i)
+			continue
+		}
+
+		var tempNewGenResources []kyvernov1.ResourceSpec
+		if foreach.ForEachGeneration != nil {
+			var nestedForEach []kyvernov1.ForEachGeneration
+			nestedForEach, err = api.DeserializeJSONArray[kyvernov1.ForEachGeneration](foreach.ForEachGeneration)
+			if err != nil {
+				return newGenResources, err
+			}
+
+			log := f.log.WithValues("element", element)
+
+			g := &forEachGenerator{
+				rule:          f.rule,
+				policyContext: f.policyContext,
+				resource:      f.resource,
+				log:           log,
+				foreach:       nestedForEach,
+				nesting:       f.nesting + 1,
+			}
+
+			// append not assign
+			tempNewGenResources, err = g.generateForEach(ctx)
+		} else {
+			tempNewGenResources, err = forEach(f.log, f.client, f.rule, f.resource, f.policyContext.JSONContext(), f.policyContext.Policy(), f.ur, foreach, element)
+		}
+
+		if err != nil {
+			f.log.Error(err, "could not apply generate with", "element", element)
+			return newGenResources, err
+		}
+
+		newGenResources = append(newGenResources, tempNewGenResources...)
+	}
 	return newGenResources, nil
 }
 

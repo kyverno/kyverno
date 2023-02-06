@@ -349,7 +349,7 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 
 		v.policyContext.JSONContext().Reset()
 		policyContext := v.policyContext.Copy()
-		if err := addElementToContext(policyContext, element, index, v.nesting, elementScope); err != nil {
+		if err := AddElementToContext(policyContext, element, index, v.nesting, elementScope); err != nil {
 			v.log.Error(err, "failed to add element to context")
 			return ruleError(v.rule, engineapi.Validation, "failed to process foreach", err), applyCount
 		}
@@ -385,7 +385,7 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 	return ruleResponse(*v.rule, engineapi.Validation, "", engineapi.RuleStatusPass), applyCount
 }
 
-func addElementToContext(ctx engineapi.PolicyContext, element interface{}, index, nesting int, elementScope *bool) error {
+func AddElementToContext(ctx engineapi.PolicyContext, element interface{}, index, nesting int, elementScope *bool) error {
 	data, err := variables.DocumentToUntyped(element)
 	if err != nil {
 		return err

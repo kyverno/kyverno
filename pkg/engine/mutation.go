@@ -278,7 +278,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		policyContext := f.policyContext.Copy()
 
 		falseVar := false
-		if err := addElementToContext(policyContext, element, index, f.nesting, &falseVar); err != nil {
+		if err := AddElementToContext(policyContext, element, index, f.nesting, &falseVar); err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to add element to mutate.foreach[%d].context", index), err)
 		}
 
