@@ -23,6 +23,7 @@ func testValidate(ctx context.Context, rclient registryclient.Client, pContext *
 	return doValidate(
 		ctx,
 		LegacyContextLoaderFactory(rclient, nil),
+		nil,
 		pContext,
 		cfg,
 	)

@@ -170,11 +170,11 @@ func testVerifyAndPatchImages(
 	return doVerifyAndPatchImages(
 		ctx,
 		LegacyContextLoaderFactory(rclient, cmResolver),
+		nil,
 		rclient,
 		pContext,
 		cfg,
 	)
-
 }
 
 func Test_CosignMockAttest(t *testing.T) {

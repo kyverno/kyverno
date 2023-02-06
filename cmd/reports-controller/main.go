@@ -86,7 +86,6 @@ func createReportControllers(
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV2Alpha1 := kyvernoInformer.Kyverno().V2alpha1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
@@ -136,7 +135,6 @@ func createReportControllers(
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
 					kubeInformer.Core().V1().Namespaces(),
-					kyvernoV2Alpha1.PolicyExceptions().Lister(),
 					resourceReportController,
 					configMapResolver,
 					backgroundScanInterval,
@@ -206,6 +204,8 @@ func main() {
 		backgroundScanWorkers     int
 		backgroundScanInterval    time.Duration
 		maxQueuedEvents           int
+		enablePolicyException     bool
+		exceptionNamespace        string
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
@@ -218,6 +218,8 @@ func main() {
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
+	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -294,6 +296,15 @@ func main() {
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
+	var exceptionsLister engineapi.PolicyExceptionSelector
+	if enablePolicyException {
+		lister := kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
+		if exceptionNamespace != "" {
+			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
+		} else {
+			exceptionsLister = lister
+		}
+	}
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
 		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
@@ -304,6 +315,7 @@ func main() {
 	eng := engine.NewEngine(
 		configuration,
 		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+		exceptionsLister,
 	)
 	// setup leader election
 	le, err := leaderelection.New(
