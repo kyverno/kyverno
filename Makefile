@@ -197,27 +197,33 @@ unused-package-check:
 
 $(KYVERNOPRE_BIN): fmt vet
 	@echo Build kyvernopre binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
+		go build -o ./$(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNOPRE_DIR)
 
 $(KYVERNO_BIN): fmt vet
 	@echo Build kyverno binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
+		go build -o ./$(KYVERNO_BIN) -ldflags=$(LD_FLAGS) ./$(KYVERNO_DIR)
 
 $(CLI_BIN): fmt vet
 	@echo Build cli binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
+		go build -o ./$(CLI_BIN) -ldflags=$(LD_FLAGS) ./$(CLI_DIR)
 
 $(CLEANUP_BIN): fmt vet
 	@echo Build cleanup controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
+		go build -o ./$(CLEANUP_BIN) -ldflags=$(LD_FLAGS) ./$(CLEANUP_DIR)
 
 $(REPORTS_BIN): fmt vet
 	@echo Build reports controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
+		go build -o ./$(REPORTS_BIN) -ldflags=$(LD_FLAGS) ./$(REPORTS_DIR)
 
 $(BACKGROUND_BIN): fmt vet
 	@echo Build background controller binary... >&2
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) \
+		go build -o ./$(BACKGROUND_BIN) -ldflags=$(LD_FLAGS) ./$(BACKGROUND_DIR)
 
 .PHONY: build-kyverno-init
 build-kyverno-init: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
@@ -254,32 +260,38 @@ KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
 	@echo Build kyvernopre local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
 	@echo Build kyverno local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(KYVERNO_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(KYVERNO_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build cli local image (with ko)
 	@echo Build cli local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(CLI_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(CLI_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cleanup-controller
 ko-build-cleanup-controller: $(KO) ## Build cleanup controller local image (with ko)
 	@echo Build cleanup controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(CLEANUP_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(CLEANUP_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-reports-controller
 ko-build-reports-controller: $(KO) ## Build reports controller local image (with ko)
 	@echo Build reports controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) $(KO) build ./$(REPORTS_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
+		$(KO) build ./$(REPORTS_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-background-controller
 ko-build-background-controller: $(KO) ## Build background controller local image (with ko)
 	@echo Build background controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local \
+		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-cleanup-controller ko-build-reports-controller ko-build-background-controller ## Build all local images (with ko)
@@ -304,51 +316,63 @@ ko-login: $(KO)
 
 .PHONY: ko-publish-kyverno-init
 ko-publish-kyverno-init: ko-login ## Build and publish kyvernopre image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) \
+		$(KO) build ./$(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno
 ko-publish-kyverno: ko-login ## Build and publish kyverno image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNO) \
+		$(KO) build ./$(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cli
 ko-publish-cli: ko-login ## Build and publish cli image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLI) \
+		$(KO) build ./$(CLI_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cleanup-controller
 ko-publish-cleanup-controller: ko-login ## Build and publish cleanup controller image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) $(KO) build $(CLEANUP_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) \
+		$(KO) build ./$(CLEANUP_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-reports-controller
 ko-publish-reports-controller: ko-login ## Build and publish reports controller image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(REPORTS_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) \
+		$(KO) build ./$(REPORTS_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-background-controller
 ko-publish-background-controller: ko-login ## Build and publish background controller image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) $(KO) build $(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) \
+		$(KO) build ./$(BACKGROUND_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno-init-dev
 ko-publish-kyverno-init-dev: ko-login ## Build and publish kyvernopre dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) \
+		$(KO) build ./$(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno-dev
 ko-publish-kyverno-dev: ko-login ## Build and publish kyverno dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNO) \
+		$(KO) build ./$(KYVERNO_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cli-dev
 ko-publish-cli-dev: ko-login ## Build and publish cli dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLI) \
+		$(KO) build ./$(CLI_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cleanup-controller-dev
 ko-publish-cleanup-controller-dev: ko-login ## Build and publish cleanup controller dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) $(KO) build $(CLEANUP_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLEANUP) \
+		$(KO) build ./$(CLEANUP_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-reports-controller-dev
 ko-publish-reports-controller-dev: ko-login ## Build and publish reports controller dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) $(KO) build $(REPORTS_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_REPORTS) \
+		$(KO) build ./$(REPORTS_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-background-controller-dev
 ko-publish-background-controller-dev: ko-login ## Build and publish background controller dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) $(KO) build $(BACKGROUND_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_BACKGROUND) \
+		$(KO) build ./$(BACKGROUND_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-all
 ko-publish-all: ko-publish-kyverno-init ko-publish-kyverno ko-publish-cli ko-publish-cleanup-controller ko-publish-reports-controller ko-publish-background-controller ## Build and publish all images (with ko)
@@ -497,6 +521,7 @@ codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and 
 .PHONY: codegen-manifest-install
 codegen-manifest-install: $(HELM) ## Create install manifest
 	@echo Generate install manifest... >&2
+	@mkdir -p ./.manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
@@ -506,7 +531,7 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 		--set reportsController.image.tag=latest \
 		--set backgroundController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
-		> ./config/install.yaml
+		> ./.manifest/install.yaml
 
 .PHONY: codegen-manifest-debug
 codegen-manifest-debug: $(HELM) ## Create debug manifest
@@ -598,16 +623,8 @@ verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
-.PHONY: verify-manifest-install
-verify-manifest-install: codegen-manifest-install ## Check install manifest is up to date
-	@echo Checking install manifest is up to date... >&2
-	@git --no-pager diff config/install.yaml
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
-	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code config/install.yaml
-
 .PHONY: verify-codegen
-verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm verify-manifest-install ## Verify all generated code and docs are up to date
+verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm codegen-manifest-all ## Verify all generated code and docs are up to date
 
 ##############
 # UNIT TESTS #

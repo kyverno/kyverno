@@ -4,8 +4,18 @@ import (
 	"context"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"k8s.io/apimachinery/pkg/labels"
 )
+
+type NamespacedResourceSelector[T any] interface {
+	// List selects resources based on label selector.
+	// Objects returned here must be treated as read-only.
+	List(selector labels.Selector) (ret []T, err error)
+}
+
+type PolicyExceptionSelector = NamespacedResourceSelector[*kyvernov2alpha1.PolicyException]
 
 type Engine interface {
 	// Validate applies validation rules from policy on the resource
