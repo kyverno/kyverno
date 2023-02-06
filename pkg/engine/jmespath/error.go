@@ -11,6 +11,7 @@ const (
 	argOutOfBoundsError      = errorPrefix + "%d argument is out of bounds (%d)"
 	zeroDivisionError        = errorPrefix + "Zero divisor passed"
 	nonIntModuloError        = errorPrefix + "Non-integer argument(s) passed for modulo"
+	typeMismatchError        = errorPrefix + "Types mismatch"
 )
 
 func formatError(format string, function string, values ...interface{}) error {
