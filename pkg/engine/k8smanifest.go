@@ -169,8 +169,8 @@ func verifyManifest(
 
 func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
 	verifiedCount := 0
-	attestorSet = expandStaticKeys(attestorSet)
-	requiredCount := getRequiredCount(attestorSet)
+	attestorSet = internal.ExpandStaticKeys(attestorSet)
+	requiredCount := attestorSet.RequiredCount()
 	errorList := []error{}
 	verifiedMessageList := []string{}
 	failedMessageList := []string{}
