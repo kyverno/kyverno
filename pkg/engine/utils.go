@@ -353,21 +353,6 @@ func EvaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	return l, nil
 }
 
-func ruleError(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) *engineapi.RuleResponse {
-	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return ruleResponse(*rule, ruleType, msg, engineapi.RuleStatusError)
-}
-
-func ruleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, status engineapi.RuleStatus) *engineapi.RuleResponse {
-	resp := &engineapi.RuleResponse{
-		Name:    rule.Name,
-		Type:    ruleType,
-		Message: msg,
-		Status:  status,
-	}
-	return resp
-}
-
 func incrementAppliedCount(resp *engineapi.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
