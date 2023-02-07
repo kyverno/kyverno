@@ -8,9 +8,7 @@ metadata:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
 spec:
-  {{- with .Values.reportsController.replicas }}
-  replicas: {{ . }}
-  {{- end }}
+  replicas: {{ template "kyverno.deployment.replicas" .Values.reportsController.replicas }}
   {{- with .Values.reportsController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
