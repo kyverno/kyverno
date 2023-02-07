@@ -586,3 +586,63 @@ func Test_convertNumberToString(t *testing.T) {
 		})
 	}
 }
+
+func Test_validateMapPattern(t *testing.T) {
+	type args struct {
+		value interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{{
+		args: args{
+			value: nil,
+		},
+		want: false,
+	}, {
+		args: args{
+			value: true,
+		},
+		want: false,
+	}, {
+		args: args{
+			value: 8,
+		},
+		want: false,
+	}, {
+		args: args{
+			value: "",
+		},
+		want: false,
+	}, {
+		args: args{
+			value: "abc",
+		},
+		want: false,
+	}, {
+		args: args{
+			value: map[string]interface{}(nil),
+		},
+		want: true,
+	}, {
+		args: args{
+			value: map[string]interface{}{},
+		},
+		want: true,
+	}, {
+		args: args{
+			value: map[string]interface{}{
+				"a": true,
+			},
+		},
+		want: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validateMapPattern(logr.Discard(), tt.args.value, nil); got != tt.want {
+				t.Errorf("validateMapPattern() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
