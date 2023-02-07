@@ -1119,6 +1119,7 @@ string
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
 <a href="#kyverno.io/v1.Rule">Rule</a>, 
+<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>
@@ -4795,6 +4796,20 @@ CleanupPolicySpec
 <table class="table table-striped">
 <tr>
 <td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>match</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.MatchResources">
@@ -4928,6 +4943,20 @@ CleanupPolicySpec
 <br/>
 <br/>
 <table class="table table-striped">
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>match</code><br/>
@@ -5132,6 +5161,20 @@ and schedule when the matching resources needs deleted.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>match</code><br/>
