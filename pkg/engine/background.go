@@ -84,7 +84,7 @@ func (e *engine) filterRule(
 	logger := logging.WithName("exception")
 
 	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
 
 	// check if there is a corresponding policy exception
 	ruleResp := hasPolicyExceptions(logger, e.exceptionSelector, policyContext, &rule, subresourceGVKToAPIResource, e.configuration)
