@@ -556,11 +556,11 @@ type ForEachGeneration struct {
 	// to which the Generation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
 
-	// ListSubResources specifies a list of sub resources that will be triggered to generate when foreach in generation is specified.
-	ListSubResources []ListSubResource
+	// GenerateSubResources specifies a list of sub resources that will be triggered to generate when foreach in generation is specified.
+	GenerateSubResources []GenerateSubResource `json:"generateResources,omitempty" yaml:"generateResources,omitempty"`
 }
 
-type ListSubResource struct {
+type GenerateSubResource struct {
 	// ResourceSpec contains information to select the resource.
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 
@@ -593,9 +593,13 @@ type ListSubResource struct {
 	// resource will be created with default data only.
 	// +optional
 	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
+
+	// CloneList specifies the list of source resource used to populate each generated resource.
+	// +optional
+	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
 }
 
-func (g *ListSubResource) GetData() apiextensions.JSON {
+func (g *GenerateSubResource) GetData() apiextensions.JSON {
 	return FromJSON(g.RawData)
 }
 

@@ -362,9 +362,6 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
-			if rule.Generation.ForEachGeneration != nil && (rule.Generation.Kind != "" || rule.Generation.Name != "" || rule.Generation.Namespace != "") {
-				log.Error(err, "Generate rule cannot be written individually when foreach specified in Generate block, All the Generate rules must be specified inside the foreach block")
-			}
 			if rule.Generation.ForEachGeneration != nil {
 				g := &forEachGenerator{
 					rule:          rule,
@@ -458,7 +455,7 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 			return newGenResources, err
 		}
 
-		for _, subResource := range foreach.ListSubResources {
+		for _, subResource := range foreach.GenerateSubResources {
 			if err := f.engine.ContextLoader(policyContext, f.rule.Name).Load(ctx, subResource.Context, f.policyContext.JSONContext()); err != nil {
 				return newGenResources, err
 			}
@@ -469,10 +466,10 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 			}
 
 			if !preconditionsPassed {
-				f.log.Info("generate.foreach.[preconditions] not met", "elementIndex", i)
+				f.log.Info("generate.foreach.[preconditions] not met", "elementIndex", i, "for subResource", subResource)
 				continue
 			}
-			tempNewGenResources, err := f.forEach(subResource, element)
+			tempNewGenResources, err := f.forEach(subResource)
 			if err != nil {
 				f.log.Error(err, "could not apply generate with", "element", element)
 				return newGenResources, err
@@ -483,7 +480,7 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 	return newGenResources, nil
 }
 
-func subResourceGetResourceInfoForDataAndClone(se kyvernov1.ListSubResource) (kind, name, namespace, apiversion string, err error) {
+func subResourceGetResourceInfoForDataAndClone(se kyvernov1.GenerateSubResource) (kind, name, namespace, apiversion string, err error) {
 	if kind = se.Kind; kind == "" {
 		return "", "", "", "", fmt.Errorf("%s", "kind can not be empty")
 	}
@@ -495,7 +492,7 @@ func subResourceGetResourceInfoForDataAndClone(se kyvernov1.ListSubResource) (ki
 	return
 }
 
-func (f *forEachGenerator) forEach(subResource kyvernov1.ListSubResource, element interface{}) ([]kyvernov1.ResourceSpec, error) {
+func (f *forEachGenerator) forEach(subResource kyvernov1.GenerateSubResource) ([]kyvernov1.ResourceSpec, error) {
 	log, client, rule, resource, ctx, policy, ur := f.log, f.client, f.rule, f.resource, f.policyContext.JSONContext(), f.policyContext.Policy(), f.ur
 	var noGenResource kyvernov1.ResourceSpec
 	var newGenResources []kyvernov1.ResourceSpec
@@ -669,7 +666,7 @@ func (f *forEachGenerator) forEach(subResource kyvernov1.ListSubResource, elemen
 	return newGenResources, nil
 }
 
-func substituteAllInSubResource(sr kyvernov1.ListSubResource, ctx enginecontext.EvalInterface, logger logr.Logger) (*kyvernov1.ListSubResource, error) {
+func substituteAllInSubResource(sr kyvernov1.GenerateSubResource, ctx enginecontext.EvalInterface, logger logr.Logger) (*kyvernov1.GenerateSubResource, error) {
 	jsonObj, err := datautils.ToMap(sr)
 	if err != nil {
 		return nil, err
@@ -687,7 +684,7 @@ func substituteAllInSubResource(sr kyvernov1.ListSubResource, ctx enginecontext.
 		return nil, err
 	}
 
-	var updatedListSubResource kyvernov1.ListSubResource
+	var updatedListSubResource kyvernov1.GenerateSubResource
 	if err = json.Unmarshal(bytes, &updatedListSubResource); err != nil {
 		return nil, err
 	}
@@ -735,7 +732,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 	var err error
 	var mode ResourceMode
 	var noGenResource kyvernov1.ResourceSpec
-	var noSubResource kyvernov1.ListSubResource
+	var noSubResource kyvernov1.GenerateSubResource
 	var newGenResources []kyvernov1.ResourceSpec
 
 	genKind, genName, genNamespace, genAPIVersion, err := getResourceInfoForDataAndClone(rule)
@@ -942,7 +939,7 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 	return updateObj.UnstructuredContent(), Update, nil
 }
 
-func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, ur kyvernov1beta1.UpdateRequest, clone kyvernov1.Generation, sr kyvernov1.ListSubResource, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
+func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, ur kyvernov1beta1.UpdateRequest, clone kyvernov1.Generation, sr kyvernov1.GenerateSubResource, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
 	var rNamespace string
 	var rName string
 	// resource namespace can be nil in case of clusters scope resource
