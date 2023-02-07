@@ -1,22 +1,15 @@
 package pattern
 
 import (
-	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"
 )
 
 var logger = logging.GlobalLogger()
-
-func TestValidateValueWithPattern_Bool(t *testing.T) {
-	assert.Assert(t, Validate(logger, true, true))
-	assert.Assert(t, !Validate(logger, true, false))
-	assert.Assert(t, !Validate(logger, false, true))
-	assert.Assert(t, Validate(logger, false, false))
-}
 
 func TestValidateString_AsteriskTest(t *testing.T) {
 	pattern := "*"
@@ -58,164 +51,6 @@ func TestValidateString_QuestionMark(t *testing.T) {
 
 	value = "abbbba"
 	assert.Assert(t, !compareString(logger, value, pattern, operator.Equal))
-}
-
-func TestValidateValueWithPattern_BoolInJson(t *testing.T) {
-	rawPattern := []byte(`
-	{
-		"key": true
-	}
-	`)
-
-	rawValue := []byte(`
-	{
-		"key": true
-	}
-	`)
-
-	var pattern, value map[string]interface{}
-	err := json.Unmarshal(rawPattern, &pattern)
-	assert.Assert(t, err)
-	err = json.Unmarshal(rawValue, &value)
-	assert.Assert(t, err)
-
-	assert.Assert(t, Validate(logger, value["key"], pattern["key"]))
-}
-
-func TestValidateValueWithPattern_NullPatternStringValue(t *testing.T) {
-	rawPattern := []byte(`
-	{
-		"key": null
-	}
-	`)
-
-	rawValue := []byte(`
-	{
-		"key": "value"
-	}
-	`)
-
-	var pattern, value map[string]interface{}
-	err := json.Unmarshal(rawPattern, &pattern)
-	assert.Assert(t, err)
-	err = json.Unmarshal(rawValue, &value)
-	assert.Assert(t, err)
-
-	assert.Assert(t, !Validate(logger, value["key"], pattern["key"]))
-}
-
-func TestValidateValueWithPattern_NullPatternDefaultString(t *testing.T) {
-	rawPattern := []byte(`
-	{
-		"key": null
-	}
-	`)
-
-	rawValue := []byte(`
-	{
-		"key": ""
-	}
-	`)
-
-	var pattern, value map[string]interface{}
-	err := json.Unmarshal(rawPattern, &pattern)
-	assert.Assert(t, err)
-	err = json.Unmarshal(rawValue, &value)
-	assert.Assert(t, err)
-
-	assert.Assert(t, Validate(logger, value["key"], pattern["key"]))
-}
-
-func TestValidateValueWithPattern_NullPatternDefaultFloat(t *testing.T) {
-	rawPattern := []byte(`
-	{
-		"key": null
-	}
-	`)
-
-	rawValue := []byte(`
-	{
-		"key": 0.0
-	}
-	`)
-
-	var pattern, value map[string]interface{}
-	err := json.Unmarshal(rawPattern, &pattern)
-	assert.Assert(t, err)
-	err = json.Unmarshal(rawValue, &value)
-	assert.Assert(t, err)
-
-	assert.Assert(t, Validate(logger, value["key"], pattern["key"]))
-}
-
-func TestValidateValueWithPattern_NullPatternDefaultInt(t *testing.T) {
-	rawPattern := []byte(`
-	{
-		"key": null
-	}
-	`)
-
-	rawValue := []byte(`
-	{
-		"key": 0
-	}
-	`)
-
-	var pattern, value map[string]interface{}
-	err := json.Unmarshal(rawPattern, &pattern)
-	assert.Assert(t, err)
-	err = json.Unmarshal(rawValue, &value)
-	assert.Assert(t, err)
-
-	assert.Assert(t, Validate(logger, value["key"], pattern["key"]))
-}
-
-func TestValidateValueWithPattern_NullPatternDefaultBool(t *testing.T) {
-	rawPattern := []byte(`
-	{
-		"key": null
-	}
-	`)
-
-	rawValue := []byte(`
-	{
-		"key": false
-	}
-	`)
-
-	var pattern, value map[string]interface{}
-	err := json.Unmarshal(rawPattern, &pattern)
-	assert.Assert(t, err)
-	err = json.Unmarshal(rawValue, &value)
-	assert.Assert(t, err)
-
-	assert.Assert(t, Validate(logger, value["key"], pattern["key"]))
-}
-
-func TestValidateValueWithPattern_StringsLogicalOr(t *testing.T) {
-	pattern := "192.168.88.1 | 10.100.11.*"
-	value := "10.100.11.54"
-	assert.Assert(t, Validate(logger, value, pattern))
-}
-
-func TestValidateValueWithPattern_StringsLogicalAnd(t *testing.T) {
-	pattern := ">1 & <20"
-	value := "10"
-	assert.Assert(t, Validate(logger, value, pattern))
-}
-
-func TestValidateValueWithPattern_StringsAllLogicalOperators(t *testing.T) {
-	pattern := ">1 & <20 | >31 & <33"
-	value := "10"
-	assert.Assert(t, Validate(logger, value, pattern))
-	value = "32"
-	assert.Assert(t, Validate(logger, value, pattern))
-	value = "21"
-	assert.Assert(t, !Validate(logger, value, pattern))
-}
-
-func TestValidateValueWithPattern_EqualTwoFloats(t *testing.T) {
-	assert.Assert(t, Validate(logger, 7.0, 7.000))
 }
 
 func TestValidateValueWithNilPattern_NullPatternStringValue(t *testing.T) {
@@ -403,4 +238,255 @@ func TestValidateKernelVersion_NotEquals(t *testing.T) {
 	assert.Assert(t, validateStringPatterns(logger, "5.16.5-arch1-1", "!5.10.84-1 & !5.15.2-1"))
 	assert.Assert(t, !validateStringPatterns(logger, "5.10.84-1", "!5.10.84-1 & !5.15.2-1"))
 	assert.Assert(t, !validateStringPatterns(logger, "5.15.2-1", "!5.10.84-1 & !5.15.2-1"))
+}
+
+func TestValidate(t *testing.T) {
+	type args struct {
+		value   interface{}
+		pattern interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{{
+		args: args{
+			value:   true,
+			pattern: true,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   true,
+			pattern: false,
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   false,
+			pattern: true,
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   false,
+			pattern: false,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   "value",
+			pattern: nil,
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   "",
+			pattern: nil,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   0.0,
+			pattern: nil,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   0,
+			pattern: nil,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   false,
+			pattern: nil,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   "10.100.11.54",
+			pattern: "192.168.88.1 | 10.100.11.*",
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   "10",
+			pattern: ">1 & <20",
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   "10",
+			pattern: ">1 & <20 | >31 & <33",
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   "32",
+			pattern: ">1 & <20 | >31 & <33",
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   "21",
+			pattern: ">1 & <20 | >31 & <33",
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   7.0,
+			pattern: 7.000,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   10,
+			pattern: 10,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   8,
+			pattern: 10,
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   int64(10),
+			pattern: int64(10),
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   int64(8),
+			pattern: int64(10),
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   nil,
+			pattern: []interface{}{},
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   nil,
+			pattern: []string{},
+		},
+		want: false,
+	}, {
+		args: args{
+			value: map[string]interface{}{
+				"a": true,
+			},
+			pattern: map[string]interface{}{
+				"a": true,
+			},
+		},
+		want: true,
+	}, {
+		args: args{
+			value: map[string]interface{}{
+				"a": true,
+			},
+			pattern: map[string]interface{}{
+				"b": false,
+			},
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   nil,
+			pattern: false,
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   8.0,
+			pattern: 8,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   8.1,
+			pattern: 8,
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   "8",
+			pattern: 8,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   "8.1",
+			pattern: 8,
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   false,
+			pattern: 8,
+		},
+		want: false,
+	},
+
+		{
+			args: args{
+				value:   8,
+				pattern: 8.0,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:   8,
+				pattern: 8.1,
+			},
+			want: false,
+		}, {
+			args: args{
+				value:   int64(8),
+				pattern: 8.0,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:   int64(8),
+				pattern: 8.1,
+			},
+			want: false,
+		}, {
+			args: args{
+				value:   "8",
+				pattern: 8.0,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:   "8.1",
+				pattern: 8.1,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:   "abc",
+				pattern: 8.1,
+			},
+			want: false,
+		}, {
+			args: args{
+				value:   false,
+				pattern: 8.0,
+			},
+			want: false,
+		}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Validate(logr.Discard(), tt.args.value, tt.args.pattern); got != tt.want {
+				t.Errorf("Validate() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
