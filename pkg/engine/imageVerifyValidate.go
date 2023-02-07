@@ -52,7 +52,7 @@ func (e *engine) processImageValidationRule(
 			return nil
 		}
 
-		return internal.RuleResponse(*rule, engineapi.Validation, "preconditions not met", engineapi.RuleStatusSkip)
+		return internal.RuleSkip(rule, engineapi.Validation, "preconditions not met")
 	}
 
 	for _, v := range rule.VerifyImages {

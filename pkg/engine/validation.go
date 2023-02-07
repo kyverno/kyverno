@@ -93,7 +93,7 @@ func (e *engine) validateResource(
 					return nil
 				}
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(log, e.exceptionSelector, enginectx, rule, subresourceGVKToAPIResource, e.configuration)
+				ruleResp := hasPolicyExceptions(log, engineapi.Validation, e.exceptionSelector, enginectx, rule, subresourceGVKToAPIResource, e.configuration)
 				if ruleResp != nil {
 					return ruleResp
 				}
@@ -208,7 +208,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	}
 
 	if !preconditionsPassed {
-		return internal.RuleResponse(*v.rule, engineapi.Validation, "preconditions not met", engineapi.RuleStatusSkip)
+		return internal.RuleSkip(v.rule, engineapi.Validation, "preconditions not met")
 	}
 
 	if v.deny != nil {
@@ -258,7 +258,7 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 		if v.forEach == nil {
 			return nil
 		}
-		return internal.RuleResponse(*v.rule, engineapi.Validation, "rule skipped", engineapi.RuleStatusSkip)
+		return internal.RuleSkip(v.rule, engineapi.Validation, "rule skipped")
 	}
 	return internal.RuleResponse(*v.rule, engineapi.Validation, "rule passed", engineapi.RuleStatusPass)
 }
@@ -539,7 +539,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 				v.log.V(3).Info("validation error", "path", pe.Path, "error", err.Error())
 
 				if pe.Skip {
-					return internal.RuleResponse(*v.rule, engineapi.Validation, pe.Error(), engineapi.RuleStatusSkip)
+					return internal.RuleSkip(v.rule, engineapi.Validation, pe.Error())
 				}
 
 				if pe.Path == "" {
@@ -599,9 +599,8 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 			for _, err := range skippedAnyPatternErrors {
 				errorStr = append(errorStr, err.Error())
 			}
-
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' skipped. %s", v.rule.Name, errorStr))
-			return internal.RuleResponse(*v.rule, engineapi.Validation, strings.Join(errorStr, " "), engineapi.RuleStatusSkip)
+			return internal.RuleSkip(v.rule, engineapi.Validation, strings.Join(errorStr, " "))
 		} else if len(failedAnyPatternsErrors) > 0 {
 			var errorStr []string
 			for _, err := range failedAnyPatternsErrors {

@@ -86,15 +86,15 @@ func (e *engine) filterRule(
 	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
 
-	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, e.exceptionSelector, policyContext, &rule, subresourceGVKToAPIResource, e.configuration)
-	if ruleResp != nil {
-		return ruleResp
-	}
-
 	ruleType := engineapi.Mutation
 	if rule.HasGenerate() {
 		ruleType = engineapi.Generation
+	}
+
+	// check if there is a corresponding policy exception
+	ruleResp := hasPolicyExceptions(logger, ruleType, e.exceptionSelector, policyContext, &rule, subresourceGVKToAPIResource, e.configuration)
+	if ruleResp != nil {
+		return ruleResp
 	}
 
 	startTime := time.Now()
@@ -155,15 +155,7 @@ func (e *engine) filterRule(
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return &engineapi.RuleResponse{
-			Name:   ruleCopy.Name,
-			Type:   ruleType,
-			Status: engineapi.RuleStatusSkip,
-			ExecutionStats: engineapi.ExecutionStats{
-				ProcessingTime: time.Since(startTime),
-				Timestamp:      startTime.Unix(),
-			},
-		}
+		return internal.RuleSkip(ruleCopy, ruleType, "")
 	}
 
 	// build rule Response

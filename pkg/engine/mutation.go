@@ -75,7 +75,7 @@ func (e *engine) mutate(
 				}
 
 				// check if there is a corresponding policy exception
-				if ruleResp := hasPolicyExceptions(logger, e.exceptionSelector, policyContext, &computeRules[i], subresourceGVKToAPIResource, e.configuration); ruleResp != nil {
+				if ruleResp := hasPolicyExceptions(logger, engineapi.Mutation, e.exceptionSelector, policyContext, &computeRules[i], subresourceGVKToAPIResource, e.configuration); ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return
 				}

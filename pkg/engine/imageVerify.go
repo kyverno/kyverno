@@ -68,7 +68,7 @@ func (e *engine) verifyAndPatchImages(
 				}
 
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(logger, e.exceptionSelector, policyContext, rule, subresourceGVKToAPIResource, e.configuration)
+				ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, rule, subresourceGVKToAPIResource, e.configuration)
 				if ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return
