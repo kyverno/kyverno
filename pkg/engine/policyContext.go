@@ -5,7 +5,6 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -41,9 +40,6 @@ type PolicyContext struct {
 	// with `resource: {group:"apps", version:"v1", resource:"deployments"}` (matching the resource the webhook registered for),
 	// and `requestResource: {group:"apps", version:"v1beta1", resource:"deployments"}` (indicating the resource of the original API request).
 	requestResource metav1.GroupVersionResource
-
-	// Dynamic client - used for api lookups
-	client dclient.Interface
 
 	// jsonContext is the variable context
 	jsonContext enginectx.Interface
@@ -113,10 +109,6 @@ func (c *PolicyContext) JSONContext() enginectx.Interface {
 	return c.jsonContext
 }
 
-func (c *PolicyContext) Client() dclient.Interface {
-	return c.client
-}
-
 func (c PolicyContext) Copy() engineapi.PolicyContext {
 	return c.copy()
 }
@@ -163,12 +155,6 @@ func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, old
 	return c.WithNewResource(newResource).WithOldResource(oldResource)
 }
 
-func (c *PolicyContext) WithClient(client dclient.Interface) *PolicyContext {
-	copy := c.copy()
-	copy.client = client
-	return copy
-}
-
 func (c *PolicyContext) withAdmissionOperation(admissionOperation bool) *PolicyContext {
 	copy := c.copy()
 	copy.admissionOperation = admissionOperation
@@ -207,7 +193,6 @@ func NewPolicyContextFromAdmissionRequest(
 	request *admissionv1.AdmissionRequest,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
-	client dclient.Interface,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
 	if err != nil {
@@ -225,7 +210,6 @@ func NewPolicyContextFromAdmissionRequest(
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
-		WithClient(client).
 		withAdmissionOperation(true).
 		WithRequestResource(*requestResource).
 		WithSubresource(request.SubResource)
