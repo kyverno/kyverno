@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -24,7 +25,12 @@ type resourceInfo struct {
 	parentResourceGVR metav1.GroupVersionResource
 }
 
-func loadTargets(targets []kyvernov1.ResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) ([]resourceInfo, error) {
+func loadTargets(
+	client dclient.Interface,
+	targets []kyvernov1.ResourceSpec,
+	ctx engineapi.PolicyContext,
+	logger logr.Logger,
+) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	var errors []error
 
@@ -35,7 +41,7 @@ func loadTargets(targets []kyvernov1.ResourceSpec, ctx engineapi.PolicyContext, 
 			continue
 		}
 
-		objs, err := getTargets(spec, ctx)
+		objs, err := getTargets(client, spec, ctx)
 		if err != nil {
 			errors = append(errors, err)
 			continue
@@ -76,7 +82,11 @@ func resolveSpec(i int, target kyvernov1.ResourceSpec, ctx engineapi.PolicyConte
 	}, nil
 }
 
-func getTargets(target kyvernov1.ResourceSpec, ctx engineapi.PolicyContext) ([]resourceInfo, error) {
+func getTargets(
+	client dclient.Interface,
+	target kyvernov1.ResourceSpec,
+	ctx engineapi.PolicyContext,
+) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	namespace := target.Namespace
 	name := target.Name
@@ -86,7 +96,6 @@ func getTargets(target kyvernov1.ResourceSpec, ctx engineapi.PolicyContext) ([]r
 	if policy.IsNamespaced() {
 		namespace = policy.GetNamespace()
 	}
-	client := ctx.Client()
 	apiResource, parentAPIResource, _, err := client.Discovery().FindResource(target.APIVersion, target.Kind)
 	if err != nil {
 		return nil, err

@@ -19,6 +19,7 @@ import (
 )
 
 func LegacyContextLoaderFactory(
+	client dclient.Interface,
 	rclient registryclient.Client,
 	cmResolver engineapi.ConfigmapResolver,
 ) engineapi.ContextLoaderFactory {
@@ -29,7 +30,7 @@ func LegacyContextLoaderFactory(
 				logger:     logging.WithName("MockContextLoaderFactory"),
 				policyName: policy.GetName(),
 				ruleName:   ruleName,
-				client:     pContext.Client(),
+				client:     client,
 				rclient:    rclient,
 				cmResolver: cmResolver,
 			}
@@ -38,7 +39,7 @@ func LegacyContextLoaderFactory(
 	return func(pContext engineapi.PolicyContext, ruleName string) engineapi.ContextLoader {
 		return &contextLoader{
 			logger:     logging.WithName("LegacyContextLoaderFactory"),
-			client:     pContext.Client(),
+			client:     client,
 			rclient:    rclient,
 			cmResolver: cmResolver,
 		}
@@ -120,10 +121,6 @@ func (l *mockContextLoader) Load(ctx context.Context, contextEntries []kyvernov1
 		}
 	}
 	return nil
-}
-
-func LoadContext(ctx context.Context, factory engineapi.ContextLoaderFactory, contextEntries []kyvernov1.ContextEntry, pContext engineapi.PolicyContext, ruleName string) error {
-	return factory(pContext, ruleName).Load(ctx, contextEntries, pContext.JSONContext())
 }
 
 func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx enginecontext.Interface) (err error) {

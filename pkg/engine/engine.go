@@ -4,23 +4,30 @@ import (
 	"context"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 type engine struct {
-	configuration config.Configuration
-	contextLoader engineapi.ContextLoaderFactory
+	configuration     config.Configuration
+	client            dclient.Interface
+	contextLoader     engineapi.ContextLoaderFactory
+	exceptionSelector engineapi.PolicyExceptionSelector
 }
 
 func NewEngine(
 	configuration config.Configuration,
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
+	exceptionSelector engineapi.PolicyExceptionSelector,
 ) engineapi.Engine {
 	return &engine{
-		configuration: configuration,
-		contextLoader: contextLoader,
+		configuration:     configuration,
+		client:            client,
+		contextLoader:     contextLoader,
+		exceptionSelector: exceptionSelector,
 	}
 }
 
@@ -28,14 +35,14 @@ func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doValidate(ctx, e.contextLoader, policyContext, e.configuration)
+	return e.validate(ctx, policyContext)
 }
 
 func (e *engine) Mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doMutate(ctx, e.contextLoader, policyContext)
+	return e.mutate(ctx, policyContext)
 }
 
 func (e *engine) VerifyAndPatchImages(
@@ -43,20 +50,20 @@ func (e *engine) VerifyAndPatchImages(
 	rclient registryclient.Client,
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
-	return doVerifyAndPatchImages(ctx, e.contextLoader, rclient, policyContext, e.configuration)
+	return e.verifyAndPatchImages(ctx, rclient, policyContext)
 }
 
 func (e *engine) ApplyBackgroundChecks(
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doApplyBackgroundChecks(e.contextLoader, policyContext)
+	return e.applyBackgroundChecks(policyContext)
 }
 
 func (e *engine) GenerateResponse(
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) *engineapi.EngineResponse {
-	return doGenerateResponse(e.contextLoader, policyContext, gr)
+	return e.generateResponse(policyContext, gr)
 }
 
 func (e *engine) ContextLoader(

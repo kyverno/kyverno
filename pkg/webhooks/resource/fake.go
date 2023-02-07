@@ -54,8 +54,13 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		urGenerator:    updaterequest.NewFake(),
 		eventGen:       event.NewFake(),
 		openApiManager: openapi.NewFake(),
-		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister, peLister),
+		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister),
 		urUpdater:      webhookutils.NewUpdateRequestUpdater(kyvernoclient, urLister),
-		engine:         engine.NewEngine(configuration, engine.LegacyContextLoaderFactory(rclient, configMapResolver)),
+		engine: engine.NewEngine(
+			configuration,
+			dclient,
+			engine.LegacyContextLoaderFactory(dclient, rclient, configMapResolver),
+			peLister,
+		),
 	}
 }

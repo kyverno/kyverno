@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
+// Engine is the main interface to run policies against resources
 type Engine interface {
 	// Validate applies validation rules from policy on the resource
 	Validate(
