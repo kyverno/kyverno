@@ -490,3 +490,99 @@ func TestValidate(t *testing.T) {
 		})
 	}
 }
+
+func Test_convertNumberToString(t *testing.T) {
+	type args struct {
+		value interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{{
+		args: args{
+			value: nil,
+		},
+		want: "0",
+	}, {
+		args: args{
+			value: "123",
+		},
+		want: "123",
+	}, {
+		args: args{
+			value: "",
+		},
+		want: "",
+	}, {
+		args: args{
+			value: "abc",
+		},
+		want: "abc",
+	}, {
+		args: args{
+			value: 0.0,
+		},
+		want: "0.000000",
+	}, {
+		args: args{
+			value: 3.10,
+		},
+		want: "3.100000",
+	}, {
+		args: args{
+			value: -3.10,
+		},
+		want: "-3.100000",
+	}, {
+		args: args{
+			value: -3,
+		},
+		want: "-3",
+	}, {
+		args: args{
+			value: 3,
+		},
+		want: "3",
+	}, {
+		args: args{
+			value: 0,
+		},
+		want: "0",
+	}, {
+		args: args{
+			value: int64(-3),
+		},
+		want: "-3",
+	}, {
+		args: args{
+			value: int64(3),
+		},
+		want: "3",
+	}, {
+		args: args{
+			value: int64(0),
+		},
+		want: "0",
+	}, {
+		args: args{
+			value: false,
+		},
+		wantErr: true,
+	},
+	// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := convertNumberToString(tt.args.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("convertNumberToString() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("convertNumberToString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
