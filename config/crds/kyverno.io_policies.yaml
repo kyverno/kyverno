@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
   name: policies.kyverno.io
 spec:
@@ -980,14 +980,9 @@ spec:
                             list and looping over it to apply the specified logic.
                           items:
                             properties:
-                              list:
-                                description: List specifies a JMESPath expression
-                                  that results in one or more elements to which the
-                                  Generation logic is applied.
-                                type: string
-                              subResources:
-                                description: ListSubResources specifies a list of
-                                  sub resources that will be triggered to generate
+                              generateResources:
+                                description: GenerateSubResources specifies a list
+                                  of sub resources that will be triggered to generate
                                   when foreach in generation is specified.
                                 items:
                                   properties:
@@ -1367,6 +1362,11 @@ spec:
                                       type: boolean
                                   type: object
                                 type: array
+                              list:
+                                description: List specifies a JMESPath expression
+                                  that results in one or more elements to which the
+                                  Generation logic is applied.
+                                type: string
                             type: object
                           type: array
                         kind:
@@ -4638,15 +4638,10 @@ spec:
                                 logic.
                               items:
                                 properties:
-                                  list:
-                                    description: List specifies a JMESPath expression
-                                      that results in one or more elements to which
-                                      the Generation logic is applied.
-                                    type: string
-                                  subResources:
-                                    description: ListSubResources specifies a list
-                                      of sub resources that will be triggered to generate
-                                      when foreach in generation is specified.
+                                  generateResources:
+                                    description: GenerateSubResources specifies a
+                                      list of sub resources that will be triggered
+                                      to generate when foreach in generation is specified.
                                     items:
                                       properties:
                                         apiVersion:
@@ -5050,6 +5045,11 @@ spec:
                                           type: boolean
                                       type: object
                                     type: array
+                                  list:
+                                    description: List specifies a JMESPath expression
+                                      that results in one or more elements to which
+                                      the Generation logic is applied.
+                                    type: string
                                 type: object
                               type: array
                             kind:
@@ -8276,14 +8276,9 @@ spec:
                             list and looping over it to apply the specified logic.
                           items:
                             properties:
-                              list:
-                                description: List specifies a JMESPath expression
-                                  that results in one or more elements to which the
-                                  Generation logic is applied.
-                                type: string
-                              subResources:
-                                description: ListSubResources specifies a list of
-                                  sub resources that will be triggered to generate
+                              generateResources:
+                                description: GenerateSubResources specifies a list
+                                  of sub resources that will be triggered to generate
                                   when foreach in generation is specified.
                                 items:
                                   properties:
@@ -8663,6 +8658,11 @@ spec:
                                       type: boolean
                                   type: object
                                 type: array
+                              list:
+                                description: List specifies a JMESPath expression
+                                  that results in one or more elements to which the
+                                  Generation logic is applied.
+                                type: string
                             type: object
                           type: array
                         kind:
@@ -11863,15 +11863,10 @@ spec:
                                 logic.
                               items:
                                 properties:
-                                  list:
-                                    description: List specifies a JMESPath expression
-                                      that results in one or more elements to which
-                                      the Generation logic is applied.
-                                    type: string
-                                  subResources:
-                                    description: ListSubResources specifies a list
-                                      of sub resources that will be triggered to generate
-                                      when foreach in generation is specified.
+                                  generateResources:
+                                    description: GenerateSubResources specifies a
+                                      list of sub resources that will be triggered
+                                      to generate when foreach in generation is specified.
                                     items:
                                       properties:
                                         apiVersion:
@@ -12275,6 +12270,11 @@ spec:
                                           type: boolean
                                       type: object
                                     type: array
+                                  list:
+                                    description: List specifies a JMESPath expression
+                                      that results in one or more elements to which
+                                      the Generation logic is applied.
+                                    type: string
                                 type: object
                               type: array
                             kind:
