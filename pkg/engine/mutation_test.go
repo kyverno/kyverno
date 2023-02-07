@@ -30,7 +30,8 @@ func testMutate(
 	e := NewEngine(
 		cfg,
 		client,
-		LegacyContextLoaderFactory(client, rclient, nil),
+		rclient,
+		LegacyContextLoaderFactory(nil),
 		nil,
 	)
 	return e.Mutate(
