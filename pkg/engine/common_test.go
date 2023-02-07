@@ -51,7 +51,7 @@ func Test_GetSubresourceGVKToAPIResourceMap(t *testing.T) {
 
 	kindsInPolicy := []string{"Pod", "Eviction", "Pod/status", "Pod/eviction"}
 
-	subresourceGVKToAPIResourceMap := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+	subresourceGVKToAPIResourceMap := GetSubresourceGVKToAPIResourceMap(nil, kindsInPolicy, policyContext)
 
 	podStatusResourceFromMap := subresourceGVKToAPIResourceMap["Pod/status"]
 	assert.Equal(t, podStatusResourceFromMap.Name, podStatusAPIResource.Name)

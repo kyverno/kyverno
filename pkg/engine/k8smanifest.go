@@ -35,16 +35,26 @@ const (
 //go:embed resources/default-config.yaml
 var defaultConfigBytes []byte
 
-func processYAMLValidationRule(log logr.Logger, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *engineapi.RuleResponse {
+func processYAMLValidationRule(
+	client dclient.Interface,
+	log logr.Logger,
+	ctx engineapi.PolicyContext,
+	rule *kyvernov1.Rule,
+) *engineapi.RuleResponse {
 	if isDeleteRequest(ctx) {
 		return nil
 	}
-	ruleResp := handleVerifyManifest(ctx, rule, log)
+	ruleResp := handleVerifyManifest(client, ctx, rule, log)
 	return ruleResp
 }
 
-func handleVerifyManifest(ctx engineapi.PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *engineapi.RuleResponse {
-	verified, reason, err := verifyManifest(ctx, *rule.Validation.Manifests, logger)
+func handleVerifyManifest(
+	client dclient.Interface,
+	ctx engineapi.PolicyContext,
+	rule *kyvernov1.Rule,
+	logger logr.Logger,
+) *engineapi.RuleResponse {
+	verified, reason, err := verifyManifest(client, ctx, *rule.Validation.Manifests, logger)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
 		return internal.RuleError(rule, engineapi.Validation, "error occurred during manifest verification", err)
@@ -56,7 +66,12 @@ func handleVerifyManifest(ctx engineapi.PolicyContext, rule *kyvernov1.Rule, log
 	return internal.RuleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusPass)
 }
 
-func verifyManifest(policyContext engineapi.PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
+func verifyManifest(
+	client dclient.Interface,
+	policyContext engineapi.PolicyContext,
+	verifyRule kyvernov1.Manifests,
+	logger logr.Logger,
+) (bool, string, error) {
 	// load AdmissionRequest
 	request, err := policyContext.JSONContext().Query("request")
 	if err != nil {
@@ -106,7 +121,7 @@ func verifyManifest(policyContext engineapi.PolicyContext, verifyRule kyvernov1.
 	}
 	if !vo.DisableDryRun {
 		// check if kyverno can 'create' dryrun resource
-		ok, err := checkDryRunPermission(policyContext.Client(), adreq.Kind.Kind, vo.DryRunNamespace)
+		ok, err := checkDryRunPermission(client, adreq.Kind.Kind, vo.DryRunNamespace)
 		if err != nil {
 			logger.V(1).Info("failed to check permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind, "error", err.Error())
 			vo.DisableDryRun = true
