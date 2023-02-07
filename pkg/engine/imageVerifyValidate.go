@@ -30,7 +30,7 @@ func (e *engine) processImageValidationRule(
 		return internal.RuleResponse(*rule, engineapi.Validation, err.Error(), engineapi.RuleStatusError)
 	}
 	if len(matchingImages) == 0 {
-		return internal.RuleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusSkip)
+		return internal.RuleSkip(rule, engineapi.Validation, "image verified")
 	}
 	if err := internal.LoadContext(ctx, e.contextLoader, rule.Context, enginectx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
@@ -42,7 +42,7 @@ func (e *engine) processImageValidationRule(
 		return internal.RuleError(rule, engineapi.Validation, "failed to load context", err)
 	}
 
-	preconditionsPassed, err := checkPreconditions(log, enginectx, rule.RawAnyAllConditions)
+	preconditionsPassed, err := internal.CheckPreconditions(log, enginectx, rule.RawAnyAllConditions)
 	if err != nil {
 		return internal.RuleError(rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}
@@ -52,7 +52,7 @@ func (e *engine) processImageValidationRule(
 			return nil
 		}
 
-		return internal.RuleResponse(*rule, engineapi.Validation, "preconditions not met", engineapi.RuleStatusSkip)
+		return internal.RuleSkip(rule, engineapi.Validation, "preconditions not met")
 	}
 
 	for _, v := range rule.VerifyImages {

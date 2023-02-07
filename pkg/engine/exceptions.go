@@ -8,6 +8,7 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -73,6 +74,7 @@ func matchesException(
 // A rule response is returned when an exception is matched, or there is an error.
 func hasPolicyExceptions(
 	log logr.Logger,
+	ruleType engineapi.RuleType,
 	selector engineapi.PolicyExceptionSelector,
 	ctx engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
@@ -93,11 +95,7 @@ func hasPolicyExceptions(
 			}
 		}
 		log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
-		return &engineapi.RuleResponse{
-			Name:    rule.Name,
-			Message: "rule skipped due to policy exception " + key,
-			Status:  engineapi.RuleStatusSkip,
-		}
+		return internal.RuleSkip(rule, ruleType, "rule skipped due to policy exception "+key)
 	}
 	return nil
 }
