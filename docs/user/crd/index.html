@@ -563,7 +563,8 @@ of deployments across all namespaces.</p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Attestation">Attestation</a>, 
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
-<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
+<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
+<a href="#kyverno.io/v1.GenerateSubResource">GenerateSubResource</a>)
 </p>
 <p>
 <p>AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -957,6 +958,7 @@ Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is u
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.GenerateSubResource">GenerateSubResource</a>, 
 <a href="#kyverno.io/v1.Generation">Generation</a>)
 </p>
 <p>
@@ -1118,6 +1120,7 @@ string
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
+<a href="#kyverno.io/v1.GenerateSubResource">GenerateSubResource</a>, 
 <a href="#kyverno.io/v1.Rule">Rule</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
@@ -1291,6 +1294,50 @@ string
 <p>
 <p>FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.</p>
 </p>
+<h3 id="kyverno.io/v1.ForEachGeneration">ForEachGeneration
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Generation">Generation</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>list</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>List specifies a JMESPath expression that results in one or more elements
+to which the Generation logic is applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateResources</code><br/>
+<em>
+<a href="#kyverno.io/v1.GenerateSubResource">
+[]GenerateSubResource
+</a>
+</em>
+</td>
+<td>
+<p>GenerateSubResources specifies a list of sub resources that will be triggered to generate when foreach in generation is specified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.ForEachMutation">ForEachMutation
 </h3>
 <p>
@@ -1530,6 +1577,129 @@ Kubernetes apiextensions/v1.JSON
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.GenerateSubResource">GenerateSubResource
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ForEachGeneration">ForEachGeneration</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ResourceSpec</code><br/>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<p>ResourceSpec contains information to select the resource.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>context</code><br/>
+<em>
+<a href="#kyverno.io/v1.ContextEntry">
+[]ContextEntry
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Context defines variables and data sources that can be used during rule execution.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>preconditions</code><br/>
+<em>
+<a href="#kyverno.io/v1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
+See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Synchronize controls if generated resources should be kept in-sync with their source resource.
+If Synchronize is set to &ldquo;true&rdquo; changes to generated resources will be overwritten with resource
+data from Data or the resource specified in the Clone declaration.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>data</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Data provides the resource declaration used to populate each generated resource.
+At most one of Data or Clone must be specified. If neither are provided, the generated
+resource will be created with default data only.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>clone</code><br/>
+<em>
+<a href="#kyverno.io/v1.CloneFrom">
+CloneFrom
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Clone specifies the source resource used to populate each generated resource.
+At most one of Data or Clone can be specified. If neither are provided, the generated
+resource will be created with default data only.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>cloneList</code><br/>
+<em>
+<a href="#kyverno.io/v1.CloneList">
+CloneList
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>CloneList specifies the list of source resource used to populate each generated resource.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.Generation">Generation
 </h3>
 <p>
@@ -1590,6 +1760,20 @@ Kubernetes apiextensions/v1.JSON
 <p>Data provides the resource declaration used to populate each generated resource.
 At most one of Data or Clone must be specified. If neither are provided, the generated
 resource will be created with default data only.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>foreach</code><br/>
+<em>
+<a href="#kyverno.io/v1.ForEachGeneration">
+[]ForEachGeneration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ForEach applies Generate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </td>
 </tr>
 <tr>
@@ -2728,6 +2912,7 @@ ResourceDescription
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.GenerateSubResource">GenerateSubResource</a>, 
 <a href="#kyverno.io/v1.Generation">Generation</a>, 
 <a href="#kyverno.io/v1.Mutation">Mutation</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
