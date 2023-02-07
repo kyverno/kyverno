@@ -106,7 +106,7 @@ spec:
             {{- end }}
           env:
           - name: METRICS_CONFIG
-            value: {{ template "kyverno.metricsConfigMapName" . }}
+            value: {{ template "kyverno.config.metricsConfigMapName" . }}
           - name: KYVERNO_POD_NAME
             valueFrom:
               fieldRef:
@@ -118,8 +118,9 @@ spec:
           {{- with .Values.reportsController.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if .Values.reportsController.securityContext }}
-          securityContext: {{ include "kyverno.reports-controller.securityContext" . | nindent 12 }}
+          {{- with .Values.reportsController.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
 {{- end -}}
 {{- end -}}

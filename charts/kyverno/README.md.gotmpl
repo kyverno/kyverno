@@ -21,6 +21,10 @@ Access the complete user documentation and guides at: https://kyverno.io.
 
 ## Installing the Chart
 
+**IMPORTANT IMPORTANT IMPORTANT IMPORTANT**
+
+This chart changed significantly between `v2` and `v3`. If you are upgrading from `v2`, please read `Migrating from v2 to v3` section.
+
 **Add the Kyverno Helm repository:**
 
 ```console
@@ -104,6 +108,25 @@ spec:
       - CreateNamespace=true
       - Replace=true
 ```
+
+## Migrating from v2 to v3
+
+In `v3` chart values changed significantly, please read the instructions below to migrate your values:
+
+- `config.metricsConfig` is now `metricsConfig`
+- `config.existingConfig` has been replaced with `config.create` and `config.name` to __support bring your own config__
+- `config.existingMetricsConfig` has been replaced with `metricsConfig.create` and `metricsConfig.name` to __support bring your own config__
+- `namespace` has been renamed `namespaceOverride`
+- `installCRDs` has been replaced with `crds.install`
+- `testImage` has been replaced with `test.image`
+- `testResources` has been replaced with `test.resources`
+- `testSecurityContext` has been replaced with `test.securityContext`
+
+- Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
+
+- Image tags are now validated and must be strings, if you use image tags in the `1.35` form please add quotes around the tag value. 
+
+- Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
 
 ## Uninstalling the Chart
 

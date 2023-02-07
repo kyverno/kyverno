@@ -34,3 +34,15 @@ cleanupController:
 
   logging:
     format: json
+
+reportsController:
+  serviceMonitor:
+    enabled: true
+
+  tracing:
+    enabled: true
+    address: tempo.monitoring
+    port: 4317
+
+  logging:
+    format: json

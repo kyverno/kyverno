@@ -18,11 +18,9 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -31,7 +29,6 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -49,14 +46,13 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	rclient       registryclient.Client
+	engine        engineapi.Engine
 
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
 	urLister   kyvernov1beta1listers.UpdateRequestNamespaceLister
 	nsLister   corev1listers.NamespaceLister
-	podLister  corev1listers.PodLister
 
 	informersSynced []cache.InformerSynced
 
@@ -65,34 +61,32 @@ type controller struct {
 
 	eventGen               event.Interface
 	configuration          config.Configuration
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 }
 
 // NewController returns an instance of the Generate-Request Controller
 func NewController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
-	rclient registryclient.Client,
+	engine engineapi.Engine,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
-	podInformer corev1informers.PodInformer,
 	eventGen event.Interface,
 	dynamicConfig config.Configuration,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
 		client:                 client,
 		kyvernoClient:          kyvernoClient,
-		rclient:                rclient,
+		engine:                 engine,
 		cpolLister:             cpolInformer.Lister(),
 		polLister:              polInformer.Lister(),
 		urLister:               urLister,
 		nsLister:               namespaceInformer.Lister(),
-		podLister:              podInformer.Lister(),
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "update-request"),
+		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "background"),
 		eventGen:               eventGen,
 		configuration:          dynamicConfig,
 		informerCacheResolvers: informerCacheResolvers,
@@ -111,7 +105,7 @@ func NewController(
 		DeleteFunc: c.deletePolicy,
 	})
 
-	c.informersSynced = []cache.InformerSynced{cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced, podInformer.Informer().HasSynced}
+	c.informersSynced = []cache.InformerSynced{cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced}
 
 	return &c
 }
@@ -194,18 +188,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 	if ur.Status.State == "" {
 		ur = ur.DeepCopy()
 		ur.Status.State = kyvernov1beta1.Pending
-		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-		return err
-	}
-	// if it was acquired by a pod that is gone, release it
-	if ur.Status.Handler != "" {
-		_, err = c.podLister.Pods(config.KyvernoNamespace()).Get(ur.Status.Handler)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				ur = ur.DeepCopy()
-				ur.Status.Handler = ""
-				_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-			}
+		if _, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -228,28 +211,13 @@ func (c *controller) syncUpdateRequest(key string) error {
 			return err
 		}
 	}
-	// if in pending state, try to acquire ur and eventually process it
+	// process pending URs
 	if ur.Status.State == kyvernov1beta1.Pending {
-		ur, ok, err := c.acquireUR(ur)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil
-			}
-			return fmt.Errorf("failed to mark handler for UR %s: %v", key, err)
-		}
-		if !ok {
-			logger.V(3).Info("another instance is handling the UR", "handler", ur.Status.Handler)
-			return nil
-		}
-		logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
 		if err := c.processUR(ur); err != nil {
 			return fmt.Errorf("failed to process UR %s: %v", key, err)
 		}
 	}
-	ur, err = c.releaseUR(ur)
-	if err != nil {
-		return fmt.Errorf("failed to unmark UR %s: %v", key, err)
-	}
+
 	err = c.cleanUR(ur)
 	return err
 }
@@ -420,54 +388,13 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.rclient, c.cpolLister, c.polLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	case kyvernov1beta1.Generate:
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.rclient, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.informerCacheResolvers, c.eventGen, logger)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
-}
-
-func (c *controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
-	name := ur.GetName()
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		var err error
-		ur, err = c.urLister.Get(name)
-		if err != nil {
-			return err
-		}
-		if ur.Status.Handler != "" {
-			return nil
-		}
-		ur = ur.DeepCopy()
-		ur.Status.Handler = config.KyvernoPodName()
-		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-		return err
-	})
-	if err != nil {
-		logger.Error(err, "failed to acquire ur", "name", name, "ur", ur)
-		return nil, false, err
-	}
-	return ur, ur.Status.Handler == config.KyvernoPodName(), err
-}
-
-func (c *controller) releaseUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, error) {
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		var err error
-		ur, err = c.urLister.Get(ur.GetName())
-		if err != nil {
-			return err
-		}
-		if ur.Status.Handler != config.KyvernoPodName() {
-			return nil
-		}
-		ur = ur.DeepCopy()
-		ur.Status.Handler = ""
-		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-		return err
-	})
-	return ur, err
 }
 
 func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
@@ -518,7 +445,7 @@ func (c *controller) processDeletePolicyForCloneGenerateRule(policy kyvernov1.Po
 func (c *controller) updateSourceResource(pName string, rule kyvernov1.Rule) error {
 	obj, err := c.client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	if err != nil {
-		return errors.Wrapf(err, "source resource %s/%s/%s not found", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+		return fmt.Errorf("source resource %s/%s/%s not found: %w", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name, err)
 	}
 
 	var update bool

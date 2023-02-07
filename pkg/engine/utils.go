@@ -10,14 +10,13 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -161,8 +160,8 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
 func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo, dynamicConfig []string) bool {
-	if store.GetMock() {
-		mockSubject := store.GetSubjects().Subject
+	if store.IsMock() {
+		mockSubject := store.GetSubject()
 		for _, subject := range ruleSubjects {
 			switch subject.Kind {
 			case "ServiceAccount":
@@ -189,7 +188,7 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 
 	var reasonsForFailure []error
 	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {
-		return errors.New(" The policy and resource namespace are different. Therefore, policy skip this resource.")
+		return fmt.Errorf(" The policy and resource namespace are different. Therefore, policy skip this resource.")
 	}
 
 	if len(rule.MatchResources.Any) > 0 {
@@ -249,7 +248,7 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 	}
 
 	if len(reasonsForFailure) > 0 {
-		return errors.New(errorMessage)
+		return fmt.Errorf(errorMessage)
 	}
 
 	return nil
@@ -325,18 +324,18 @@ func ManagedPodResource(policy kyvernov1.PolicyInterface, resource unstructured.
 	return false
 }
 
-func checkPreconditions(logger logr.Logger, ctx *PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
-	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.jsonContext, anyAllConditions)
+func checkPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
+	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.JSONContext(), anyAllConditions)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
+		return false, fmt.Errorf("failed to substitute variables in preconditions: %w", err)
 	}
 
-	typeConditions, err := common.TransformConditions(preconditions)
+	typeConditions, err := utils.TransformConditions(preconditions)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to parse preconditions")
+		return false, fmt.Errorf("failed to parse preconditions: %w", err)
 	}
 
-	pass := variables.EvaluateConditions(logger, ctx.jsonContext, typeConditions)
+	pass := variables.EvaluateConditions(logger, ctx.JSONContext(), typeConditions)
 	return pass, nil
 }
 
@@ -354,26 +353,11 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	return l, nil
 }
 
-func ruleError(rule *kyvernov1.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
-	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return ruleResponse(*rule, ruleType, msg, response.RuleStatusError)
-}
-
-func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, status response.RuleStatus) *response.RuleResponse {
-	resp := &response.RuleResponse{
-		Name:    rule.Name,
-		Type:    ruleType,
-		Message: msg,
-		Status:  status,
-	}
-	return resp
-}
-
-func incrementAppliedCount(resp *response.EngineResponse) {
+func incrementAppliedCount(resp *engineapi.EngineResponse) {
 	resp.PolicyResponse.RulesAppliedCount++
 }
 
-func incrementErrorCount(resp *response.EngineResponse) {
+func incrementErrorCount(resp *engineapi.EngineResponse) {
 	resp.PolicyResponse.RulesErrorCount++
 }
 

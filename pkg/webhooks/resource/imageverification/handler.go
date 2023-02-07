@@ -11,7 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
@@ -32,6 +32,7 @@ type ImageVerificationHandler interface {
 
 type imageVerificationHandler struct {
 	kyvernoClient    versioned.Interface
+	engine           engineapi.Engine
 	rclient          registryclient.Client
 	log              logr.Logger
 	eventGen         event.Interface
@@ -42,6 +43,7 @@ type imageVerificationHandler struct {
 func NewImageVerificationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
+	engine engineapi.Engine,
 	rclient registryclient.Client,
 	eventGen event.Interface,
 	admissionReports bool,
@@ -49,6 +51,7 @@ func NewImageVerificationHandler(
 ) ImageVerificationHandler {
 	return &imageVerificationHandler{
 		kyvernoClient:    kyvernoClient,
+		engine:           engine,
 		rclient:          rclient,
 		log:              log,
 		eventGen:         eventGen,
@@ -81,9 +84,9 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	if len(policies) == 0 {
 		return true, "", nil, nil
 	}
-	var engineResponses []*response.EngineResponse
+	var engineResponses []*engineapi.EngineResponse
 	var patches [][]byte
-	verifiedImageData := &engine.ImageVerificationMetadata{}
+	verifiedImageData := &engineapi.ImageVerificationMetadata{}
 	for _, policy := range policies {
 		tracing.ChildSpan(
 			ctx,
@@ -91,7 +94,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy)
-				resp, ivm := engine.VerifyAndPatchImages(ctx, h.rclient, policyContext, h.cfg)
+				resp, ivm := h.engine.VerifyAndPatchImages(ctx, h.rclient, policyContext)
 
 				engineResponses = append(engineResponses, resp)
 				patches = append(patches, resp.GetPatches()...)
@@ -152,7 +155,7 @@ func (v *imageVerificationHandler) handleAudit(
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-	engineResponses ...*response.EngineResponse,
+	engineResponses ...*engineapi.EngineResponse,
 ) {
 	if !v.admissionReports {
 		return
