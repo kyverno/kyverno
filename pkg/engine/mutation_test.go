@@ -1597,18 +1597,18 @@ func Test_mutate_existing_resources(t *testing.T) {
 			assert.NilError(t, err)
 
 			policyContext = &PolicyContext{
-				// client:      dclient,
 				policy:      &policy,
 				jsonContext: ctx,
 				newResource: *trigger,
 			}
-		}
-		er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext)
 
-		for _, rr := range er.PolicyResponse.Rules {
-			for i, p := range rr.Patches {
-				assert.Equal(t, test.patches[i], string(p), "test %s failed:\nGot %s\nExpected: %s", test.name, rr.Patches[i], test.patches[i])
-				assert.Equal(t, rr.Status, engineapi.RuleStatusPass, rr.Status)
+			er := testMutate(context.TODO(), dclient, registryclient.NewOrDie(), policyContext)
+
+			for _, rr := range er.PolicyResponse.Rules {
+				for i, p := range rr.Patches {
+					assert.Equal(t, test.patches[i], string(p), "test %s failed:\nGot %s\nExpected: %s", test.name, rr.Patches[i], test.patches[i])
+					assert.Equal(t, rr.Status, engineapi.RuleStatusPass, rr.Status)
+				}
 			}
 		}
 	}
