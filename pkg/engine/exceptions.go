@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -57,7 +58,7 @@ func matchesException(
 			for _, iv := range rule.VerifyImages {
 				for _, iref := range iv.ImageReferences {
 					for _, i := range candidate.Spec.Images {
-						if iref == i {
+						if wildcard.Match(iref, i) {
 							// if there's a match, return no error
 							return candidate, nil
 						}
