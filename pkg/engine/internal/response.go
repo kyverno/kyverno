@@ -14,6 +14,10 @@ func RuleError(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string, er
 	return RuleResponse(*rule, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), engineapi.RuleStatusError)
 }
 
+func RuleSkip(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string) *engineapi.RuleResponse {
+	return RuleResponse(*rule, ruleType, msg, engineapi.RuleStatusSkip)
+}
+
 func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, status engineapi.RuleStatus) *engineapi.RuleResponse {
 	resp := &engineapi.RuleResponse{
 		Name:    rule.Name,

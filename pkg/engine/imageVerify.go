@@ -88,11 +88,10 @@ func (e *engine) verifyAndPatchImages(
 				if len(ruleImages) == 0 {
 					internal.AddRuleResponse(
 						&resp.PolicyResponse,
-						internal.RuleResponse(
-							*rule,
+						internal.RuleSkip(
+							rule,
 							engineapi.ImageVerify,
 							fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
-							engineapi.RuleStatusSkip,
 						),
 						startTime,
 					)

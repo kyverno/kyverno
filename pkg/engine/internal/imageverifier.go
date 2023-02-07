@@ -222,7 +222,7 @@ func (iv *ImageVerifier) Verify(
 				responses = append(responses, RuleError(iv.rule, engineapi.ImageVerify, "failed to update digest", err))
 			} else if patch != nil {
 				if ruleResp == nil {
-					responses = append(responses, RuleResponse(*iv.rule, engineapi.ImageVerify, "mutated image digest", engineapi.RuleStatusPass))
+					ruleResp = RuleResponse(*iv.rule, engineapi.ImageVerify, "mutated image digest", engineapi.RuleStatusPass)
 				}
 				ruleResp.Patches = append(ruleResp.Patches, patch)
 				imageInfo.Digest = retrievedDigest

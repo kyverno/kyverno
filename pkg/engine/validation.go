@@ -694,15 +694,3 @@ func (v *validator) substitutePatterns() error {
 
 	return nil
 }
-
-func (v *validator) substituteDeny() error {
-	if v.deny == nil {
-		return nil
-	}
-	i, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), v.deny)
-	if err != nil {
-		return err
-	}
-	v.deny = i.(*kyvernov1.Deny)
-	return nil
-}

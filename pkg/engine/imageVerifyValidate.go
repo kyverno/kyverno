@@ -30,7 +30,7 @@ func (e *engine) processImageValidationRule(
 		return internal.RuleResponse(*rule, engineapi.Validation, err.Error(), engineapi.RuleStatusError)
 	}
 	if len(matchingImages) == 0 {
-		return internal.RuleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusSkip)
+		return internal.RuleSkip(rule, engineapi.Validation, "image verified")
 	}
 	if err := internal.LoadContext(ctx, e.contextLoader, rule.Context, enginectx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
