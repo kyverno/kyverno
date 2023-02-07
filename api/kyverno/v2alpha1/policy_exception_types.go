@@ -85,8 +85,16 @@ type PolicyExceptionSpec struct {
 	// Match defines match clause used to check if a resource applies to the exception
 	Match kyvernov2beta1.MatchResources `json:"match"`
 
+	// Images is a list of images to check if a resource applies to the exception.
+	// Applicable only to rule types that apply to images: verifyImages, validate.podSecurity.
+	Images []string `json:"images"`
+
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions"`
+}
+
+func (p *PolicyExceptionSpec) HasImages() bool {
+	return len(p.Images) > 0
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {
