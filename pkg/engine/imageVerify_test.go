@@ -13,6 +13,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -681,29 +682,28 @@ func Test_NestedAttestors(t *testing.T) {
 }
 
 func Test_ExpandKeys(t *testing.T) {
-	as := expandStaticKeys(createStaticKeyAttestorSet("", true, false, false))
+	as := internal.ExpandStaticKeys(createStaticKeyAttestorSet("", true, false, false))
 	assert.Equal(t, 1, len(as.Entries))
 
-	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey, true, false, false))
+	as = internal.ExpandStaticKeys(createStaticKeyAttestorSet(testOtherKey, true, false, false))
 	assert.Equal(t, 1, len(as.Entries))
 
-	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey+testOtherKey+testOtherKey, true, false, false))
+	as = internal.ExpandStaticKeys(createStaticKeyAttestorSet(testOtherKey+testOtherKey+testOtherKey, true, false, false))
 	assert.Equal(t, 3, len(as.Entries))
 
-	as = expandStaticKeys(createStaticKeyAttestorSet("", false, true, false))
+	as = internal.ExpandStaticKeys(createStaticKeyAttestorSet("", false, true, false))
 	assert.Equal(t, 1, len(as.Entries))
 	assert.DeepEqual(t, &kyverno.SecretReference{Name: "testsecret", Namespace: "default"},
 		as.Entries[0].Keys.Secret)
 
-	as = expandStaticKeys(createStaticKeyAttestorSet("", false, false, true))
+	as = internal.ExpandStaticKeys(createStaticKeyAttestorSet("", false, false, true))
 	assert.Equal(t, 1, len(as.Entries))
 	assert.DeepEqual(t, "gcpkms://projects/test_project_id/locations/asia-south1/keyRings/test_key_ring_name/cryptoKeys/test_key_name/versions/1", as.Entries[0].Keys.KMS)
 
-	as = expandStaticKeys((createStaticKeyAttestorSet(testOtherKey, true, true, false)))
+	as = internal.ExpandStaticKeys((createStaticKeyAttestorSet(testOtherKey, true, true, false)))
 	assert.Equal(t, 2, len(as.Entries))
 	assert.DeepEqual(t, testOtherKey, as.Entries[0].Keys.PublicKeys)
-	assert.DeepEqual(t, &kyverno.SecretReference{Name: "testsecret", Namespace: "default"},
-		as.Entries[1].Keys.Secret)
+	assert.DeepEqual(t, &kyverno.SecretReference{Name: "testsecret", Namespace: "default"}, as.Entries[1].Keys.Secret)
 }
 
 func createStaticKeyAttestorSet(s string, withPublicKey, withSecret, withKMS bool) kyverno.AttestorSet {
@@ -746,18 +746,18 @@ func Test_ChangedAnnotation(t *testing.T) {
 
 	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
 
-	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
+	hasChanged := internal.HasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, false)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
+	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, true)
 
 	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
 	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
+	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, true)
 }
 
