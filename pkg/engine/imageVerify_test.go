@@ -169,7 +169,8 @@ func testVerifyAndPatchImages(
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
 	e := NewEngine(
 		cfg,
-		LegacyContextLoaderFactory(rclient, cmResolver),
+		nil,
+		LegacyContextLoaderFactory(nil, rclient, cmResolver),
 		nil,
 	)
 	return e.VerifyAndPatchImages(

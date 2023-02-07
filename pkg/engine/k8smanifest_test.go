@@ -628,7 +628,7 @@ func Test_VerifyManifest_SignedYAML(t *testing.T) {
 		},
 	})
 	logger := logr.Discard()
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }
@@ -650,7 +650,7 @@ func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 		},
 	})
 	logger := logr.Discard()
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, false)
 }
@@ -672,7 +672,7 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 		},
 	})
 	logger := logr.Discard()
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, false)
 }
@@ -699,7 +699,7 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 		},
 	})
 	logger := logr.Discard()
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	errMsg := `.attestors[0].entries[1].keys: failed to verify signature: verification failed for 1 signature. all trials: ["[publickey 1/1] [signature 1/1] error: cosign.VerifyBlobCmd() returned an error: invalid signature when validating ASN.1 encoded signature"]`
 	assert.Error(t, err, errMsg)
 	assert.Equal(t, verified, false)
@@ -732,7 +732,7 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 		},
 	})
 	logger := logr.Discard()
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }
@@ -761,7 +761,7 @@ func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 		},
 	})
 	logger := logr.Discard()
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }

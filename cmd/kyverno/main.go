@@ -366,7 +366,8 @@ func main() {
 	}
 	eng := engine.NewEngine(
 		configuration,
-		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+		dClient,
+		engine.LegacyContextLoaderFactory(dClient, rclient, configMapResolver),
 		exceptionsLister,
 	)
 	// create non leader controllers

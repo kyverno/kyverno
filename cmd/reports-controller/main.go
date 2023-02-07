@@ -314,7 +314,8 @@ func main() {
 	go eventGenerator.Run(ctx, 3)
 	eng := engine.NewEngine(
 		configuration,
-		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+		dClient,
+		engine.LegacyContextLoaderFactory(dClient, rclient, configMapResolver),
 		exceptionsLister,
 	)
 	// setup leader election

@@ -87,7 +87,7 @@ func (e *engine) validateResource(
 				}
 				log = log.WithValues("rule", rule.Name)
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, enginectx)
+				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, enginectx)
 
 				if !matches(log, rule, enginectx, subresourceGVKToAPIResource, e.configuration) {
 					return nil
@@ -104,7 +104,7 @@ func (e *engine) validateResource(
 				} else if hasValidateImage {
 					return e.processImageValidationRule(ctx, log, enginectx, rule)
 				} else if hasYAMLSignatureVerify {
-					return processYAMLValidationRule(log, enginectx, rule)
+					return processYAMLValidationRule(e.client, log, enginectx, rule)
 				}
 				return nil
 			},

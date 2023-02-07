@@ -67,7 +67,7 @@ func (e *engine) mutate(
 				}
 
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
 				if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.AdmissionInfo(), excludeResource, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), policyContext.SubResource()); err != nil {
 					logger.V(4).Info("rule not matched", "reason", err.Error())
 					skippedRules = append(skippedRules, rule.Name)
@@ -104,7 +104,7 @@ func (e *engine) mutate(
 				ruleCopy := rule.DeepCopy()
 				var patchedResources []resourceInfo
 				if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
-					targets, err := loadTargets(ruleCopy.Mutation.Targets, policyContext, logger)
+					targets, err := loadTargets(e.client, ruleCopy.Mutation.Targets, policyContext, logger)
 					if err != nil {
 						rr := internal.RuleResponse(rule, engineapi.Mutation, err.Error(), engineapi.RuleStatusError)
 						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)

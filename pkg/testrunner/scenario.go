@@ -148,7 +148,8 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	policyContext := engine.NewPolicyContext().WithPolicy(policy).WithNewResource(*resource)
 	eng := engine.NewEngine(
 		config.NewDefaultConfiguration(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
+		nil,
+		engine.LegacyContextLoaderFactory(nil, registryclient.NewOrDie(), nil),
 		nil,
 	)
 	er := eng.Mutate(
@@ -183,7 +184,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		if err := createNamespace(client, resource); err != nil {
 			t.Error(err)
 		} else {
-			policyContext := policyContext.WithClient(client)
+			// policyContext := policyContext.WithClient(client)
 
 			er = eng.ApplyBackgroundChecks(
 				policyContext,

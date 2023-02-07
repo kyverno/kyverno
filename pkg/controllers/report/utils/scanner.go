@@ -92,7 +92,6 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 	policyCtx := engine.NewPolicyContextWithJsonContext(enginectx).
 		WithNewResource(resource).
 		WithPolicy(policy).
-		WithClient(s.client).
 		WithNamespaceLabels(nsLabels)
 	return s.engine.Validate(ctx, policyCtx), nil
 }
@@ -114,7 +113,6 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	policyCtx := engine.NewPolicyContextWithJsonContext(enginectx).
 		WithNewResource(resource).
 		WithPolicy(policy).
-		WithClient(s.client).
 		WithNamespaceLabels(nsLabels)
 	response, _ := s.engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
