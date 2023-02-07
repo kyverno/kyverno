@@ -61,7 +61,7 @@ func (e *engine) ApplyBackgroundChecks(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return e.applyBackgroundChecks(policyContext)
+	return e.applyBackgroundChecks(ctx, policyContext)
 }
 
 func (e *engine) GenerateResponse(
@@ -69,7 +69,7 @@ func (e *engine) GenerateResponse(
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) *engineapi.EngineResponse {
-	return e.generateResponse(policyContext, gr)
+	return e.generateResponse(ctx, policyContext, gr)
 }
 
 func (e *engine) ContextLoader(

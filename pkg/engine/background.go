@@ -19,6 +19,7 @@ import (
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func (e *engine) applyBackgroundChecks(
+	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
