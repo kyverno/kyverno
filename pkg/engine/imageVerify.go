@@ -70,7 +70,7 @@ func (e *engine) verifyAndPatchImages(
 				}
 
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(client, kindsInPolicy, policyContext)
+				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
 
 				if !matches(logger, rule, policyContext, subresourceGVKToAPIResource, e.configuration) {
 					return

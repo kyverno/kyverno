@@ -29,7 +29,8 @@ func testMutate(
 ) *engineapi.EngineResponse {
 	e := NewEngine(
 		cfg,
-		LegacyContextLoaderFactory(rclient, nil),
+		client,
+		LegacyContextLoaderFactory(client, rclient, nil),
 		nil,
 	)
 	return e.Mutate(
