@@ -28,3 +28,5 @@ annotations:
   artifacthub.io/changes: |
     - kind: added
       description: make sigstore volume configurable
+    - kind: changed
+      description: no deployments can run with 0 replicas
