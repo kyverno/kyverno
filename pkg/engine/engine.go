@@ -4,6 +4,7 @@ import (
 	"context"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -11,17 +12,20 @@ import (
 
 type engine struct {
 	configuration     config.Configuration
+	client            dclient.Interface
 	contextLoader     engineapi.ContextLoaderFactory
 	exceptionSelector engineapi.PolicyExceptionSelector
 }
 
 func NewEngine(
 	configuration config.Configuration,
+	client dclient.Interface,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 ) engineapi.Engine {
 	return &engine{
 		configuration:     configuration,
+		client:            client,
 		contextLoader:     contextLoader,
 		exceptionSelector: exceptionSelector,
 	}

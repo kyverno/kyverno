@@ -19,6 +19,7 @@ import (
 )
 
 func LegacyContextLoaderFactory(
+	client dclient.Interface,
 	rclient registryclient.Client,
 	cmResolver engineapi.ConfigmapResolver,
 ) engineapi.ContextLoaderFactory {
@@ -29,7 +30,7 @@ func LegacyContextLoaderFactory(
 				logger:     logging.WithName("MockContextLoaderFactory"),
 				policyName: policy.GetName(),
 				ruleName:   ruleName,
-				client:     pContext.Client(),
+				client:     client,
 				rclient:    rclient,
 				cmResolver: cmResolver,
 			}
@@ -38,7 +39,7 @@ func LegacyContextLoaderFactory(
 	return func(pContext engineapi.PolicyContext, ruleName string) engineapi.ContextLoader {
 		return &contextLoader{
 			logger:     logging.WithName("LegacyContextLoaderFactory"),
-			client:     pContext.Client(),
+			client:     client,
 			rclient:    rclient,
 			cmResolver: cmResolver,
 		}
