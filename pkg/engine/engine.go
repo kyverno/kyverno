@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
@@ -75,6 +76,15 @@ func (e *engine) ContextLoader(
 	policy kyvernov1.PolicyInterface,
 	rule kyvernov1.Rule,
 ) engineapi.EngineContextLoader {
-	return nil
-	// return e.contextLoader(policy, rule)
+	loader := e.contextLoader(policy, rule)
+	return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+		return loader.Load(
+			ctx,
+			e.client,
+			e.rclient,
+			e.exceptionSelector,
+			contextEntries,
+			jsonContext,
+		)
+	}
 }
