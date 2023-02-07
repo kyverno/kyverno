@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -56,13 +57,13 @@ func handleVerifyManifest(
 	verified, reason, err := verifyManifest(client, ctx, *rule.Validation.Manifests, logger)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
-		return ruleError(rule, engineapi.Validation, "error occurred during manifest verification", err)
+		return internal.RuleError(rule, engineapi.Validation, "error occurred during manifest verification", err)
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {
-		return ruleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusFail)
+		return internal.RuleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusFail)
 	}
-	return ruleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusPass)
+	return internal.RuleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusPass)
 }
 
 func verifyManifest(

@@ -123,10 +123,6 @@ func (l *mockContextLoader) Load(ctx context.Context, contextEntries []kyvernov1
 	return nil
 }
 
-func LoadContext(ctx context.Context, factory engineapi.ContextLoaderFactory, contextEntries []kyvernov1.ContextEntry, pContext engineapi.PolicyContext, ruleName string) error {
-	return factory(pContext, ruleName).Load(ctx, contextEntries, pContext.JSONContext())
-}
-
 func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx enginecontext.Interface) (err error) {
 	path := ""
 	if entry.Variable.JMESPath != "" {

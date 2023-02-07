@@ -35,14 +35,14 @@ func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doValidate(ctx, e.client, e.contextLoader, e.exceptionSelector, policyContext, e.configuration)
+	return e.validate(ctx, policyContext)
 }
 
 func (e *engine) Mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doMutate(ctx, e.client, e.contextLoader, e.exceptionSelector, policyContext, e.configuration)
+	return e.mutate(ctx, policyContext)
 }
 
 func (e *engine) VerifyAndPatchImages(
@@ -50,20 +50,20 @@ func (e *engine) VerifyAndPatchImages(
 	rclient registryclient.Client,
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
-	return doVerifyAndPatchImages(ctx, e.client, e.contextLoader, e.exceptionSelector, rclient, policyContext, e.configuration)
+	return e.verifyAndPatchImages(ctx, rclient, policyContext)
 }
 
 func (e *engine) ApplyBackgroundChecks(
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return doApplyBackgroundChecks(e.client, e.contextLoader, e.exceptionSelector, policyContext, e.configuration)
+	return e.applyBackgroundChecks(policyContext)
 }
 
 func (e *engine) GenerateResponse(
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) *engineapi.EngineResponse {
-	return doGenerateResponse(e.client, e.contextLoader, e.exceptionSelector, policyContext, gr, e.configuration)
+	return e.generateResponse(policyContext, gr)
 }
 
 func (e *engine) ContextLoader(

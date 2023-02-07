@@ -13,11 +13,11 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -30,14 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func doVerifyAndPatchImages(
+func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
-	client dclient.Interface,
-	contextLoader engineapi.ContextLoaderFactory,
-	selector engineapi.PolicyExceptionSelector,
 	rclient registryclient.Client,
 	policyContext engineapi.PolicyContext,
-	cfg config.Configuration,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
 	resp := &engineapi.EngineResponse{}
 
@@ -48,7 +44,7 @@ func doVerifyAndPatchImages(
 
 	startTime := time.Now()
 	defer func() {
-		buildResponse(policyContext, resp, startTime)
+		internal.BuildResponse(policyContext, resp, startTime)
 		logger.V(4).Info("processed image verification rules",
 			"time", resp.PolicyResponse.ProcessingTime.String(),
 			"applied", resp.PolicyResponse.RulesAppliedCount, "successful", resp.IsSuccessful())
@@ -76,12 +72,12 @@ func doVerifyAndPatchImages(
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(client, kindsInPolicy, policyContext)
 
-				if !matches(logger, rule, policyContext, subresourceGVKToAPIResource, cfg) {
+				if !matches(logger, rule, policyContext, subresourceGVKToAPIResource, e.configuration) {
 					return
 				}
 
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(logger, selector, policyContext, rule, subresourceGVKToAPIResource, cfg)
+				ruleResp := hasPolicyExceptions(logger, e.exceptionSelector, policyContext, rule, subresourceGVKToAPIResource, e.configuration)
 				if ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return
@@ -89,7 +85,7 @@ func doVerifyAndPatchImages(
 
 				logger.V(3).Info("processing image verification rule", "ruleSelector", applyRules)
 
-				ruleImages, imageRefs, err := extractMatchingImages(policyContext, rule, cfg)
+				ruleImages, imageRefs, err := e.extractMatchingImages(policyContext, rule)
 				if err != nil {
 					appendResponse(resp, rule, fmt.Sprintf("failed to extract images: %s", err.Error()), engineapi.RuleStatusError)
 					return
@@ -105,7 +101,7 @@ func doVerifyAndPatchImages(
 				}
 
 				policyContext.JSONContext().Restore()
-				if err := LoadContext(ctx, contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+				if err := internal.LoadContext(ctx, e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
 					appendResponse(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), engineapi.RuleStatusError)
 					return
 				}
@@ -126,7 +122,7 @@ func doVerifyAndPatchImages(
 				}
 
 				for _, imageVerify := range ruleCopy.VerifyImages {
-					iv.verify(ctx, imageVerify, ruleImages, cfg)
+					iv.verify(ctx, imageVerify, ruleImages, e.configuration)
 				}
 			},
 		)
@@ -157,7 +153,7 @@ func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule *ky
 	return imageInfos, strings.Join(imageRefs, ",")
 }
 
-func extractMatchingImages(policyContext engineapi.PolicyContext, rule *kyvernov1.Rule, cfg config.Configuration) ([]apiutils.ImageInfo, string, error) {
+func (e *engine) extractMatchingImages(policyContext engineapi.PolicyContext, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string, error) {
 	var (
 		images map[string]map[string]apiutils.ImageInfo
 		err    error
@@ -165,7 +161,7 @@ func extractMatchingImages(policyContext engineapi.PolicyContext, rule *kyvernov
 	newResource := policyContext.NewResource()
 	images = policyContext.JSONContext().ImageInfo()
 	if rule.ImageExtractors != nil {
-		images, err = policyContext.JSONContext().GenerateCustomImageInfo(&newResource, rule.ImageExtractors, cfg)
+		images, err = policyContext.JSONContext().GenerateCustomImageInfo(&newResource, rule.ImageExtractors, e.configuration)
 		if err != nil {
 			// if we get an error while generating custom images from image extractors,
 			// don't check for matching images in imageExtractors
@@ -177,7 +173,7 @@ func extractMatchingImages(policyContext engineapi.PolicyContext, rule *kyvernov
 }
 
 func appendResponse(resp *engineapi.EngineResponse, rule *kyvernov1.Rule, msg string, status engineapi.RuleStatus) {
-	rr := ruleResponse(*rule, engineapi.ImageVerify, msg, status)
+	rr := internal.RuleResponse(*rule, engineapi.ImageVerify, msg, status)
 	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 	incrementErrorCount(resp)
 }
@@ -224,7 +220,7 @@ func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.Image
 		if hasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
 			msg := engineapi.ImageVerifyAnnotationKey + " annotation cannot be changed"
 			iv.logger.Info("image verification error", "reason", msg)
-			ruleResp := ruleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail)
+			ruleResp := internal.RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail)
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 			incrementAppliedCount(iv.resp)
 			continue
@@ -248,10 +244,10 @@ func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.Image
 		if imageVerify.MutateDigest {
 			patch, retrievedDigest, err := iv.handleMutateDigest(ctx, digest, imageInfo)
 			if err != nil {
-				ruleResp = ruleError(iv.rule, engineapi.ImageVerify, "failed to update digest", err)
+				ruleResp = internal.RuleError(iv.rule, engineapi.ImageVerify, "failed to update digest", err)
 			} else if patch != nil {
 				if ruleResp == nil {
-					ruleResp = ruleResponse(*iv.rule, engineapi.ImageVerify, "mutated image digest", engineapi.RuleStatusPass)
+					ruleResp = internal.RuleResponse(*iv.rule, engineapi.ImageVerify, "mutated image digest", engineapi.RuleStatusPass)
 				}
 
 				ruleResp.Patches = append(ruleResp.Patches, patch)
@@ -341,7 +337,7 @@ func (iv *imageVerifier) verifyImage(
 	if err := iv.policyContext.JSONContext().AddImageInfo(imageInfo, cfg); err != nil {
 		iv.logger.Error(err, "failed to add image to context")
 		msg := fmt.Sprintf("failed to add image to context %s: %s", image, err.Error())
-		return ruleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusError), ""
+		return internal.RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusError), ""
 	}
 
 	if len(imageVerify.Attestors) > 0 {
@@ -396,11 +392,11 @@ func (iv *imageVerifier) verifyAttestors(
 	}
 
 	if cosignResponse == nil {
-		return ruleError(iv.rule, engineapi.ImageVerify, "invalid response", fmt.Errorf("nil")), nil
+		return internal.RuleError(iv.rule, engineapi.ImageVerify, "invalid response", fmt.Errorf("nil")), nil
 	}
 
 	msg := fmt.Sprintf("verified image signatures for %s", image)
-	return ruleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusPass), cosignResponse
+	return internal.RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusPass), cosignResponse
 }
 
 // handle registry network errors as a rule error (instead of a policy failure)
@@ -408,10 +404,10 @@ func (iv *imageVerifier) handleRegistryErrors(image string, err error) *engineap
 	msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
 	var netErr *net.OpError
 	if errors.As(err, &netErr) {
-		return ruleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusError)
+		return internal.RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusError)
 	}
 
-	return ruleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail)
+	return internal.RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail)
 }
 
 func (iv *imageVerifier) verifyAttestations(
@@ -425,7 +421,7 @@ func (iv *imageVerifier) verifyAttestations(
 		path := fmt.Sprintf(".attestations[%d]", i)
 
 		if attestation.PredicateType == "" {
-			return ruleResponse(*iv.rule, engineapi.ImageVerify, path+": missing predicateType", engineapi.RuleStatusFail), ""
+			return internal.RuleResponse(*iv.rule, engineapi.ImageVerify, path+": missing predicateType", engineapi.RuleStatusFail), ""
 		}
 
 		if len(attestation.Attestors) == 0 {
@@ -455,7 +451,7 @@ func (iv *imageVerifier) verifyAttestations(
 				attestationError = iv.verifyAttestation(cosignResp.Statements, attestation, imageInfo)
 				if attestationError != nil {
 					attestationError = fmt.Errorf("%s: %w", entryPath+subPath, attestationError)
-					return ruleResponse(*iv.rule, engineapi.ImageVerify, attestationError.Error(), engineapi.RuleStatusFail), ""
+					return internal.RuleResponse(*iv.rule, engineapi.ImageVerify, attestationError.Error(), engineapi.RuleStatusFail), ""
 				}
 
 				verifiedCount++
@@ -467,7 +463,7 @@ func (iv *imageVerifier) verifyAttestations(
 
 			if verifiedCount < requiredCount {
 				msg := fmt.Sprintf("image attestations verification failed, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
-				return ruleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail), ""
+				return internal.RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail), ""
 			}
 		}
 
@@ -476,7 +472,7 @@ func (iv *imageVerifier) verifyAttestations(
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
-	return ruleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusPass), imageInfo.Digest
+	return internal.RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusPass), imageInfo.Digest
 }
 
 func (iv *imageVerifier) verifyAttestorSet(

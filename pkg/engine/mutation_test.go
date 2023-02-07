@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -28,13 +27,14 @@ func testMutate(
 	rclient registryclient.Client,
 	pContext *PolicyContext,
 ) *engineapi.EngineResponse {
-	return doMutate(
-		ctx,
-		client,
-		LegacyContextLoaderFactory(client, rclient, nil),
+	e := NewEngine(
+		cfg,
+		LegacyContextLoaderFactory(rclient, nil),
 		nil,
+	)
+	return e.Mutate(
+		ctx,
 		pContext,
-		config.NewDefaultConfiguration(),
 	)
 }
 

@@ -20,13 +20,14 @@ import (
 )
 
 func testValidate(ctx context.Context, rclient registryclient.Client, pContext *PolicyContext, cfg config.Configuration) *engineapi.EngineResponse {
-	return doValidate(
-		ctx,
-		nil,
-		LegacyContextLoaderFactory(nil, rclient, nil),
-		nil,
-		pContext,
+	e := NewEngine(
 		cfg,
+		LegacyContextLoaderFactory(rclient, nil),
+		nil,
+	)
+	return e.Validate(
+		ctx,
+		pContext,
 	)
 }
 

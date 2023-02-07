@@ -167,14 +167,15 @@ func testVerifyAndPatchImages(
 	pContext engineapi.PolicyContext,
 	cfg config.Configuration,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
-	return doVerifyAndPatchImages(
+	e := NewEngine(
+		cfg,
+		LegacyContextLoaderFactory(rclient, cmResolver),
+		nil,
+	)
+	return e.VerifyAndPatchImages(
 		ctx,
-		nil,
-		LegacyContextLoaderFactory(nil, rclient, cmResolver),
-		nil,
 		rclient,
 		pContext,
-		cfg,
 	)
 }
 
