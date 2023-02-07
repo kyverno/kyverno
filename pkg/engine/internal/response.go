@@ -11,8 +11,7 @@ import (
 )
 
 func RuleError(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) *engineapi.RuleResponse {
-	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return RuleResponse(*rule, ruleType, msg, engineapi.RuleStatusError)
+	return RuleResponse(*rule, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), engineapi.RuleStatusError)
 }
 
 func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, status engineapi.RuleStatus) *engineapi.RuleResponse {
@@ -23,6 +22,17 @@ func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, 
 		Status:  status,
 	}
 	return resp
+}
+
+func AddRuleResponse(resp *engineapi.PolicyResponse, ruleResp *engineapi.RuleResponse, startTime time.Time) {
+	ruleResp.ExecutionStats.ProcessingTime = time.Since(startTime)
+	ruleResp.ExecutionStats.Timestamp = startTime.Unix()
+	resp.Rules = append(resp.Rules, *ruleResp)
+	if ruleResp.Status == engineapi.RuleStatusPass || ruleResp.Status == engineapi.RuleStatusFail {
+		resp.RulesAppliedCount++
+	} else if ruleResp.Status == engineapi.RuleStatusError {
+		resp.RulesErrorCount++
+	}
 }
 
 func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, startTime time.Time) *engineapi.EngineResponse {

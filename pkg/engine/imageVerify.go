@@ -68,7 +68,7 @@ func (e *engine) verifyAndPatchImages(
 				if len(rule.VerifyImages) == 0 {
 					return
 				}
-
+				startTime := time.Now()
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
 
@@ -87,31 +87,44 @@ func (e *engine) verifyAndPatchImages(
 
 				ruleImages, imageRefs, err := e.extractMatchingImages(policyContext, rule)
 				if err != nil {
-					appendResponse(resp, rule, fmt.Sprintf("failed to extract images: %s", err.Error()), engineapi.RuleStatusError)
-					return
-				}
-				if len(ruleImages) == 0 {
-					appendResponse(
-						resp,
-						rule,
-						fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
-						engineapi.RuleStatusSkip,
+					internal.AddRuleResponse(
+						&resp.PolicyResponse,
+						internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err),
+						startTime,
 					)
 					return
 				}
-
+				if len(ruleImages) == 0 {
+					internal.AddRuleResponse(
+						&resp.PolicyResponse,
+						internal.RuleResponse(
+							*rule,
+							engineapi.ImageVerify,
+							fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
+							engineapi.RuleStatusSkip,
+						),
+						startTime,
+					)
+					return
+				}
 				policyContext.JSONContext().Restore()
 				if err := internal.LoadContext(ctx, e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
-					appendResponse(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), engineapi.RuleStatusError)
+					internal.AddRuleResponse(
+						&resp.PolicyResponse,
+						internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
+						startTime,
+					)
 					return
 				}
-
 				ruleCopy, err := substituteVariables(rule, policyContext.JSONContext(), logger)
 				if err != nil {
-					appendResponse(resp, rule, fmt.Sprintf("failed to substitute variables: %s", err.Error()), engineapi.RuleStatusError)
+					internal.AddRuleResponse(
+						&resp.PolicyResponse,
+						internal.RuleError(rule, engineapi.ImageVerify, "failed to substitute variables", err),
+						startTime,
+					)
 					return
 				}
-
 				iv := &imageVerifier{
 					logger:        logger,
 					rclient:       rclient,
@@ -119,8 +132,8 @@ func (e *engine) verifyAndPatchImages(
 					rule:          ruleCopy,
 					resp:          resp,
 					ivm:           ivm,
+					startTime:     startTime,
 				}
-
 				for _, imageVerify := range ruleCopy.VerifyImages {
 					iv.verify(ctx, imageVerify, ruleImages, e.configuration)
 				}
@@ -172,12 +185,6 @@ func (e *engine) extractMatchingImages(policyContext engineapi.PolicyContext, ru
 	return matchingImages, imageRefs, nil
 }
 
-func appendResponse(resp *engineapi.EngineResponse, rule *kyvernov1.Rule, msg string, status engineapi.RuleStatus) {
-	rr := internal.RuleResponse(*rule, engineapi.ImageVerify, msg, status)
-	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
-	incrementErrorCount(resp)
-}
-
 func substituteVariables(rule *kyvernov1.Rule, ctx enginecontext.EvalInterface, logger logr.Logger) (*kyvernov1.Rule, error) {
 	// remove attestations as variables are not substituted in them
 	ruleCopy := *rule.DeepCopy()
@@ -206,6 +213,7 @@ type imageVerifier struct {
 	rule          *kyvernov1.Rule
 	resp          *engineapi.EngineResponse
 	ivm           *engineapi.ImageVerificationMetadata
+	startTime     time.Time
 }
 
 // verify applies policy rules to each matching image. The policy rule results and annotation patches are
@@ -220,9 +228,11 @@ func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.Image
 		if hasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
 			msg := engineapi.ImageVerifyAnnotationKey + " annotation cannot be changed"
 			iv.logger.Info("image verification error", "reason", msg)
-			ruleResp := internal.RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail)
-			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
-			incrementAppliedCount(iv.resp)
+			internal.AddRuleResponse(
+				&iv.resp.PolicyResponse,
+				internal.RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail),
+				iv.startTime,
+			)
 			continue
 		}
 
@@ -261,9 +271,7 @@ func (iv *imageVerifier) verify(ctx context.Context, imageVerify kyvernov1.Image
 				verified := ruleResp.Status == engineapi.RuleStatusPass
 				iv.ivm.Add(image, verified)
 			}
-
-			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
-			incrementAppliedCount(iv.resp)
+			internal.AddRuleResponse(&iv.resp.PolicyResponse, ruleResp, iv.startTime)
 		}
 	}
 }

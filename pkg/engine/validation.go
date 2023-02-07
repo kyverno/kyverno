@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/pss"
@@ -38,17 +37,18 @@ func (e *engine) validate(
 	startTime := time.Now()
 	logger := internal.BuildLogger(policyContext)
 	logger.V(4).Info("start validate policy processing", "startTime", startTime)
-	resp := e.validateResource(ctx, logger, policyContext)
-	defer logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
-	return internal.BuildResponse(policyContext, resp, startTime)
+	policyResponse := e.validateResource(ctx, logger, policyContext)
+	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.ProcessingTime.String(), "validationRulesApplied", policyResponse.RulesAppliedCount)
+	engineResponse := &engineapi.EngineResponse{PolicyResponse: *policyResponse}
+	return internal.BuildResponse(policyContext, engineResponse, startTime)
 }
 
 func (e *engine) validateResource(
 	ctx context.Context,
 	log logr.Logger,
 	enginectx engineapi.PolicyContext,
-) *engineapi.EngineResponse {
-	resp := &engineapi.EngineResponse{}
+) *engineapi.PolicyResponse {
+	resp := &engineapi.PolicyResponse{}
 
 	enginectx.JSONContext().Checkpoint()
 	defer enginectx.JSONContext().Restore()
@@ -110,10 +110,11 @@ func (e *engine) validateResource(
 			},
 		)
 		if ruleResp != nil {
-			addRuleResponse(log, resp, ruleResp, startTime)
-			if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
-				break
-			}
+			internal.AddRuleResponse(resp, ruleResp, startTime)
+			log.V(4).Info("finished processing rule", "processingTime", ruleResp.ExecutionStats.ProcessingTime.String())
+		}
+		if applyRules == kyvernov1.ApplyOne && resp.RulesAppliedCount > 0 {
+			break
 		}
 	}
 
@@ -128,20 +129,6 @@ func (e *engine) processValidationRule(
 ) *engineapi.RuleResponse {
 	v := newValidator(log, e.contextLoader, policyContext, rule)
 	return v.validate(ctx)
-}
-
-func addRuleResponse(log logr.Logger, resp *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, startTime time.Time) {
-	ruleResp.ExecutionStats.ProcessingTime = time.Since(startTime)
-	ruleResp.ExecutionStats.Timestamp = startTime.Unix()
-	log.V(4).Info("finished processing rule", "processingTime", ruleResp.ExecutionStats.ProcessingTime.String())
-
-	if ruleResp.Status == engineapi.RuleStatusPass || ruleResp.Status == engineapi.RuleStatusFail {
-		incrementAppliedCount(resp)
-	} else if ruleResp.Status == engineapi.RuleStatusError {
-		incrementErrorCount(resp)
-	}
-
-	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 }
 
 type validator struct {
@@ -215,7 +202,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to load context", err)
 	}
 
-	preconditionsPassed, err := checkPreconditions(v.log, v.policyContext, v.anyAllConditions)
+	preconditionsPassed, err := internal.CheckPreconditions(v.log, v.policyContext, v.anyAllConditions)
 	if err != nil {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}
@@ -371,27 +358,14 @@ func (v *validator) loadContext(ctx context.Context) error {
 }
 
 func (v *validator) validateDeny() *engineapi.RuleResponse {
-	anyAllCond := v.deny.GetAnyAllConditions()
-	anyAllCond, err := variables.SubstituteAll(v.log, v.policyContext.JSONContext(), anyAllCond)
-	if err != nil {
-		return internal.RuleError(v.rule, engineapi.Validation, "failed to substitute variables in deny conditions", err)
+	if deny, err := internal.CheckDenyPreconditions(v.log, v.policyContext, v.deny.GetAnyAllConditions()); err != nil {
+		return internal.RuleError(v.rule, engineapi.Validation, "failed to check deny preconditions", err)
+	} else {
+		if deny {
+			return internal.RuleResponse(*v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusFail)
+		}
+		return internal.RuleResponse(*v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusPass)
 	}
-
-	if err = v.substituteDeny(); err != nil {
-		return internal.RuleError(v.rule, engineapi.Validation, "failed to substitute variables in rule", err)
-	}
-
-	denyConditions, err := utils.TransformConditions(anyAllCond)
-	if err != nil {
-		return internal.RuleError(v.rule, engineapi.Validation, "invalid deny conditions", err)
-	}
-
-	deny := variables.EvaluateConditions(v.log, v.policyContext.JSONContext(), denyConditions)
-	if deny {
-		return internal.RuleResponse(*v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusFail)
-	}
-
-	return internal.RuleResponse(*v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusPass)
 }
 
 func (v *validator) getDenyMessage(deny bool) string {
@@ -705,7 +679,6 @@ func (v *validator) substitutePatterns() error {
 		if err != nil {
 			return err
 		}
-
 		v.pattern = i.(apiextensions.JSON)
 		return nil
 	}
@@ -715,7 +688,6 @@ func (v *validator) substitutePatterns() error {
 		if err != nil {
 			return err
 		}
-
 		v.anyPattern = i.(apiextensions.JSON)
 		return nil
 	}
