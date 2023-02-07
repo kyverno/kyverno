@@ -30509,6 +30509,7 @@ spec:
                 type: array
               handler:
                 description: Handler represents the instance ID that handles the UR
+                  Deprecated
                 type: string
               message:
                 description: Specifies request status message.
