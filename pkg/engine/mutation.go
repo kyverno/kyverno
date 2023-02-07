@@ -11,6 +11,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tracing"
@@ -91,7 +92,7 @@ func (e *engine) mutate(
 					logger.Error(err, "failed to query resource object")
 				}
 
-				if err := LoadContext(ctx, e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+				if err := internal.LoadContext(ctx, e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
 					if _, ok := err.(gojmespath.NotFoundError); ok {
 						logger.V(3).Info("failed to load context", "reason", err.Error())
 					} else {
@@ -105,7 +106,7 @@ func (e *engine) mutate(
 				if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
 					targets, err := loadTargets(ruleCopy.Mutation.Targets, policyContext, logger)
 					if err != nil {
-						rr := ruleResponse(rule, engineapi.Mutation, err.Error(), engineapi.RuleStatusError)
+						rr := internal.RuleResponse(rule, engineapi.Mutation, err.Error(), engineapi.RuleStatusError)
 						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 					} else {
 						patchedResources = append(patchedResources, targets...)
@@ -213,7 +214,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range f.foreach {
-		if err := LoadContext(ctx, f.contextLoader, f.rule.Context, f.policyContext, f.rule.Name); err != nil {
+		if err := internal.LoadContext(ctx, f.contextLoader, f.rule.Context, f.policyContext, f.rule.Name); err != nil {
 			f.log.Error(err, "failed to load context")
 			return mutate.NewErrorResponse("failed to load context", err)
 		}
@@ -278,7 +279,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to add element to mutate.foreach[%d].context", index), err)
 		}
 
-		if err := LoadContext(ctx, f.contextLoader, foreach.Context, policyContext, f.rule.Name); err != nil {
+		if err := internal.LoadContext(ctx, f.contextLoader, foreach.Context, policyContext, f.rule.Name); err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", index), err)
 		}
 
@@ -328,7 +329,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 }
 
 func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
-	resp := ruleResponse(*rule, engineapi.Mutation, mutateResp.Message, mutateResp.Status)
+	resp := internal.RuleResponse(*rule, engineapi.Mutation, mutateResp.Message, mutateResp.Status)
 	if resp.Status == engineapi.RuleStatusPass {
 		resp.Patches = mutateResp.Patches
 		resp.Message = buildSuccessMessage(mutateResp.PatchedResource)
