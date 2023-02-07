@@ -67,7 +67,6 @@ func createrLeaderControllers(
 	eng engineapi.Engine,
 	genWorkers int,
 	kubeInformer kubeinformers.SharedInformerFactory,
-	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
@@ -104,7 +103,6 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
-		kubeKyvernoInformer.Core().V1().Pods(),
 		eventGenerator,
 		configuration,
 		configMapResolver,
@@ -125,7 +123,7 @@ func main() {
 		leaderElectionRetryPeriod time.Duration
 	)
 	flagset := flag.NewFlagSet("updaterequest-controller", flag.ExitOnError)
-	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
+	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for the background controller.")
 	flagset.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flagset.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
@@ -219,6 +217,11 @@ func main() {
 		// TODO: do we need exceptions here ?
 		nil,
 	)
+	// start informers and wait for cache sync
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
+		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		os.Exit(1)
+	}
 	// start event generator
 	go eventGenerator.Run(signalCtx, 3)
 	// setup leader election
@@ -239,7 +242,6 @@ func main() {
 				engine,
 				genWorkers,
 				kubeInformer,
-				kubeKyvernoInformer,
 				kyvernoInformer,
 				kyvernoClient,
 				dClient,

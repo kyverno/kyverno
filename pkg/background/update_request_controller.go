@@ -53,7 +53,6 @@ type controller struct {
 	polLister  kyvernov1listers.PolicyLister
 	urLister   kyvernov1beta1listers.UpdateRequestNamespaceLister
 	nsLister   corev1listers.NamespaceLister
-	podLister  corev1listers.PodLister
 
 	informersSynced []cache.InformerSynced
 
@@ -74,7 +73,6 @@ func NewController(
 	polInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
-	podInformer corev1informers.PodInformer,
 	eventGen event.Interface,
 	dynamicConfig config.Configuration,
 	informerCacheResolvers engineapi.ConfigmapResolver,
@@ -88,8 +86,7 @@ func NewController(
 		polLister:              polInformer.Lister(),
 		urLister:               urLister,
 		nsLister:               namespaceInformer.Lister(),
-		podLister:              podInformer.Lister(),
-		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "update-request"),
+		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "background"),
 		eventGen:               eventGen,
 		configuration:          dynamicConfig,
 		informerCacheResolvers: informerCacheResolvers,
@@ -108,7 +105,7 @@ func NewController(
 		DeleteFunc: c.deletePolicy,
 	})
 
-	c.informersSynced = []cache.InformerSynced{cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced, podInformer.Informer().HasSynced}
+	c.informersSynced = []cache.InformerSynced{cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced}
 
 	return &c
 }
@@ -191,8 +188,9 @@ func (c *controller) syncUpdateRequest(key string) error {
 	if ur.Status.State == "" {
 		ur = ur.DeepCopy()
 		ur.Status.State = kyvernov1beta1.Pending
-		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-		return err
+		if _, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
 	}
 	// try to get the linked policy
 	if _, err := c.getPolicy(ur.Spec.Policy); err != nil {
@@ -213,7 +211,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 			return err
 		}
 	}
-	// if in pending state, try to acquire ur and eventually process it
+	// process pending URs
 	if ur.Status.State == kyvernov1beta1.Pending {
 		if err := c.processUR(ur); err != nil {
 			return fmt.Errorf("failed to process UR %s: %v", key, err)
