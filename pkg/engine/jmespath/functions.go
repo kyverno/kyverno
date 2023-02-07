@@ -66,15 +66,6 @@ var (
 	x509_decode            = "x509_decode"
 )
 
-const (
-	errorPrefix              = "JMESPath function '%s': "
-	invalidArgumentTypeError = errorPrefix + "%d argument is expected of %s type"
-	genericError             = errorPrefix + "%s"
-	zeroDivisionError        = errorPrefix + "Zero divisor passed"
-	undefinedQuoError        = errorPrefix + "Undefined quotient"
-	nonIntModuloError        = errorPrefix + "Non-integer argument(s) passed for modulo"
-)
-
 func GetFunctions() []FunctionEntry {
 	return []FunctionEntry{{
 		FunctionEntry: gojmespath.FunctionEntry{
@@ -628,17 +619,17 @@ func jpRegexReplaceAll(arguments []interface{}) (interface{}, error) {
 
 	src, err := ifaceToString(arguments[1])
 	if err != nil {
-		return nil, fmt.Errorf(invalidArgumentTypeError, regexReplaceAll, 2, "String or Real")
+		return nil, formatError(invalidArgumentTypeError, regexReplaceAll, 2, "String or Real")
 	}
 
 	repl, err := ifaceToString(arguments[2])
 	if err != nil {
-		return nil, fmt.Errorf(invalidArgumentTypeError, regexReplaceAll, 3, "String or Real")
+		return nil, formatError(invalidArgumentTypeError, regexReplaceAll, 3, "String or Real")
 	}
 
 	reg, err := regexp.Compile(regex.String())
 	if err != nil {
-		return nil, fmt.Errorf(genericError, regexReplaceAll, err.Error())
+		return nil, formatError(genericError, regexReplaceAll, err.Error())
 	}
 	return string(reg.ReplaceAll([]byte(src), []byte(repl))), nil
 }
@@ -652,17 +643,17 @@ func jpRegexReplaceAllLiteral(arguments []interface{}) (interface{}, error) {
 
 	src, err := ifaceToString(arguments[1])
 	if err != nil {
-		return nil, fmt.Errorf(invalidArgumentTypeError, regexReplaceAllLiteral, 2, "String or Real")
+		return nil, formatError(invalidArgumentTypeError, regexReplaceAllLiteral, 2, "String or Real")
 	}
 
 	repl, err := ifaceToString(arguments[2])
 	if err != nil {
-		return nil, fmt.Errorf(invalidArgumentTypeError, regexReplaceAllLiteral, 3, "String or Real")
+		return nil, formatError(invalidArgumentTypeError, regexReplaceAllLiteral, 3, "String or Real")
 	}
 
 	reg, err := regexp.Compile(regex.String())
 	if err != nil {
-		return nil, fmt.Errorf(genericError, regexReplaceAllLiteral, err.Error())
+		return nil, formatError(genericError, regexReplaceAllLiteral, err.Error())
 	}
 	return string(reg.ReplaceAllLiteral([]byte(src), []byte(repl))), nil
 }
@@ -676,7 +667,7 @@ func jpRegexMatch(arguments []interface{}) (interface{}, error) {
 
 	src, err := ifaceToString(arguments[1])
 	if err != nil {
-		return nil, fmt.Errorf(invalidArgumentTypeError, regexMatch, 2, "String or Real")
+		return nil, formatError(invalidArgumentTypeError, regexMatch, 2, "String or Real")
 	}
 
 	return regexp.Match(regex.String(), []byte(src))
@@ -690,7 +681,7 @@ func jpPatternMatch(arguments []interface{}) (interface{}, error) {
 
 	src, err := ifaceToString(arguments[1])
 	if err != nil {
-		return nil, fmt.Errorf(invalidArgumentTypeError, regexMatch, 2, "String or Real")
+		return nil, formatError(invalidArgumentTypeError, regexMatch, 2, "String or Real")
 	}
 
 	return wildcard.Match(pattern.String(), src), nil
@@ -700,13 +691,13 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 	labelMap, ok := arguments[0].(map[string]interface{})
 
 	if !ok {
-		return nil, fmt.Errorf(invalidArgumentTypeError, labelMatch, 0, "Object")
+		return nil, formatError(invalidArgumentTypeError, labelMatch, 0, "Object")
 	}
 
 	matchMap, ok := arguments[1].(map[string]interface{})
 
 	if !ok {
-		return nil, fmt.Errorf(invalidArgumentTypeError, labelMatch, 1, "Object")
+		return nil, formatError(invalidArgumentTypeError, labelMatch, 1, "Object")
 	}
 
 	for key, value := range labelMap {
@@ -870,11 +861,11 @@ func jpParseYAML(arguments []interface{}) (interface{}, error) {
 func jpItems(arguments []interface{}) (interface{}, error) {
 	keyName, ok := arguments[1].(string)
 	if !ok {
-		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 1, "String")
+		return nil, formatError(invalidArgumentTypeError, items, arguments, 1, "String")
 	}
 	valName, ok := arguments[2].(string)
 	if !ok {
-		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 2, "String")
+		return nil, formatError(invalidArgumentTypeError, items, arguments, 2, "String")
 	}
 	switch input := arguments[0].(type) {
 	case map[string]interface{}:
@@ -902,18 +893,18 @@ func jpItems(arguments []interface{}) (interface{}, error) {
 		}
 		return arrayOfObj, nil
 	default:
-		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Object or Array")
+		return nil, formatError(invalidArgumentTypeError, items, arguments, 0, "Object or Array")
 	}
 }
 
 func jpObjectFromLists(arguments []interface{}) (interface{}, error) {
 	keys, ok := arguments[0].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Array")
+		return nil, formatError(invalidArgumentTypeError, objectFromLists, arguments, 0, "Array")
 	}
 	values, ok := arguments[1].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 1, "Array")
+		return nil, formatError(invalidArgumentTypeError, objectFromLists, arguments, 1, "Array")
 	}
 
 	output := map[string]interface{}{}
@@ -921,7 +912,7 @@ func jpObjectFromLists(arguments []interface{}) (interface{}, error) {
 	for i, ikey := range keys {
 		key, err := ifaceToString(ikey)
 		if err != nil {
-			return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "StringArray")
+			return nil, formatError(invalidArgumentTypeError, objectFromLists, arguments, 0, "StringArray")
 		}
 		if i < len(values) {
 			output[key] = values[i]

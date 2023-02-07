@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"gotest.tools/assert"
@@ -71,6 +72,37 @@ func Test_Validate(t *testing.T) {
 			warnings, err := Validate(context.Background(), logging.GlobalLogger(), polex, c.args.opts)
 			assert.NilError(t, err)
 			assert.Assert(t, len(warnings) == c.want)
+		})
+	}
+}
+
+func Test_ValidateVariables(t *testing.T) {
+	tc := []struct {
+		name     string
+		resource []byte
+		error    bool
+	}{
+		{
+			name:     "Variable used.",
+			resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"PolicyException","metadata":{"name":"enforce-label-polex"},"spec":{"background":true,"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"],"namespaces":["{{request.object.name}}"],"names":["{{request.userInfo.username}}"]}}]}}}`),
+			error:    true,
+		},
+		{
+			name:     "Variable not used.",
+			resource: []byte(`{"apiVersion":"kyverno.io/v2alpha1","kind":"PolicyException","metadata":{"name":"enforce-label-polex"},"spec":{"background":true,"exceptions":[{"policyName":"enforce-label","ruleNames":["enforce-label"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`),
+			error:    false,
+		},
+	}
+	for _, c := range tc {
+		t.Run(c.name, func(t *testing.T) {
+			polex, err := admissionutils.UnmarshalPolicyException(c.resource)
+			assert.NilError(t, err)
+			err = v2alpha1.ValidateVariables(polex)
+			if c.error {
+				assert.Assert(t, err != nil)
+			} else {
+				assert.Assert(t, err)
+			}
 		})
 	}
 }
