@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -131,7 +132,7 @@ func (e *engine) filterRule(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	if err := LoadContext(context.TODO(), e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+	if err := internal.LoadContext(context.TODO(), e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
