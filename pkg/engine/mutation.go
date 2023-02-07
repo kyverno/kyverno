@@ -75,8 +75,7 @@ func (e *engine) mutate(
 				}
 
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(logger, e.exceptionSelector, policyContext, &computeRules[i], subresourceGVKToAPIResource, e.configuration)
-				if ruleResp != nil {
+				if ruleResp := hasPolicyExceptions(logger, e.exceptionSelector, policyContext, &computeRules[i], subresourceGVKToAPIResource, e.configuration); ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return
 				}
@@ -155,10 +154,9 @@ func (e *engine) mutate(
 					}
 
 					matchedResource = mutateResp.PatchedResource
-					ruleResponse := buildRuleResponse(ruleCopy, mutateResp, patchedResource)
 
-					if ruleResponse != nil {
-						internal.AddRuleResponse(&resp.PolicyResponse, ruleResp, startTime)
+					if ruleResponse := buildRuleResponse(ruleCopy, mutateResp, patchedResource); ruleResponse != nil {
+						internal.AddRuleResponse(&resp.PolicyResponse, ruleResponse, startTime)
 					}
 				}
 			},
