@@ -29693,6 +29693,13 @@ spec:
                   - ruleNames
                   type: object
                 type: array
+              images:
+                description: 'Images is a list of images to check if a resource applies
+                  to the exception. Applicable only to rule types that apply to images:
+                  verifyImages, validate.podSecurity.'
+                items:
+                  type: string
+                type: array
               match:
                 description: Match defines match clause used to check if a resource
                   applies to the exception
@@ -30106,6 +30113,7 @@ spec:
                 type: object
             required:
             - exceptions
+            - images
             - match
             type: object
         required:
