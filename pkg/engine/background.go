@@ -36,20 +36,18 @@ func (e *engine) filterRules(
 	name := newResource.GetName()
 	namespace := newResource.GetNamespace()
 	apiVersion := newResource.GetAPIVersion()
-	resp := &engineapi.EngineResponse{
-		Policy: policy,
-		PolicyResponse: engineapi.PolicyResponse{
-			PolicyStats: engineapi.PolicyStats{
-				ExecutionStats: engineapi.ExecutionStats{
-					Timestamp: startTime.Unix(),
-				},
+	resp := engineapi.NewEngineResponse(policy)
+	resp.PolicyResponse = engineapi.PolicyResponse{
+		PolicyStats: engineapi.PolicyStats{
+			ExecutionStats: engineapi.ExecutionStats{
+				Timestamp: startTime.Unix(),
 			},
-			Resource: engineapi.ResourceSpec{
-				Kind:       kind,
-				Name:       name,
-				Namespace:  namespace,
-				APIVersion: apiVersion,
-			},
+		},
+		Resource: engineapi.ResourceSpec{
+			Kind:       kind,
+			Name:       name,
+			Namespace:  namespace,
+			APIVersion: apiVersion,
 		},
 	}
 

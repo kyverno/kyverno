@@ -24,9 +24,8 @@ func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
-	resp := &engineapi.EngineResponse{}
-
 	policy := policyContext.Policy()
+	resp := engineapi.NewEngineResponse(policy)
 	patchedResource := policyContext.NewResource()
 	logger := logging.WithName("EngineVerifyImages").WithValues("policy", policy.GetName(),
 		"kind", patchedResource.GetKind(), "namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())

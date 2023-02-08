@@ -30,19 +30,18 @@ func (e *engine) filterGenerateRules(
 	name := newResource.GetName()
 	namespace := newResource.GetNamespace()
 	apiVersion := newResource.GetAPIVersion()
-	resp := &engineapi.EngineResponse{
-		PolicyResponse: engineapi.PolicyResponse{
-			PolicyStats: engineapi.PolicyStats{
-				ExecutionStats: engineapi.ExecutionStats{
-					Timestamp: startTime.Unix(),
-				},
+	resp := engineapi.NewEngineResponse(policyContext.Policy())
+	resp.PolicyResponse = engineapi.PolicyResponse{
+		PolicyStats: engineapi.PolicyStats{
+			ExecutionStats: engineapi.ExecutionStats{
+				Timestamp: startTime.Unix(),
 			},
-			Resource: engineapi.ResourceSpec{
-				Kind:       kind,
-				Name:       name,
-				Namespace:  namespace,
-				APIVersion: apiVersion,
-			},
+		},
+		Resource: engineapi.ResourceSpec{
+			Kind:       kind,
+			Name:       name,
+			Namespace:  namespace,
+			APIVersion: apiVersion,
 		},
 	}
 	if e.configuration.ToFilter(kind, namespace, name) {
