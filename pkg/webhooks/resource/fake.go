@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -54,8 +55,14 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		urGenerator:    updaterequest.NewFake(),
 		eventGen:       event.NewFake(),
 		openApiManager: openapi.NewFake(),
-		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister, peLister),
+		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister),
 		urUpdater:      webhookutils.NewUpdateRequestUpdater(kyvernoclient, urLister),
-		engine:         engine.NewEngine(configuration, engine.LegacyContextLoaderFactory(rclient, configMapResolver)),
+		engine: engine.NewEngine(
+			configuration,
+			dclient,
+			rclient,
+			engineapi.DefaultContextLoaderFactory(configMapResolver),
+			peLister,
+		),
 	}
 }

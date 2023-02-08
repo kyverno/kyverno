@@ -81,9 +81,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 		WithNewResource(*trigger).
 		WithOldResource(old).
 		WithAdmissionInfo(ur.Spec.Context.UserRequestInfo).
-		WithConfiguration(cfg).
-		WithNamespaceLabels(namespaceLabels).
-		WithClient(dclient)
+		WithNamespaceLabels(namespaceLabels)
 
 	return policyContext, false, nil
 }

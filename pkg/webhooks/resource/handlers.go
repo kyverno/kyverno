@@ -12,7 +12,6 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -51,11 +50,10 @@ type handlers struct {
 	pCache policycache.Cache
 
 	// listers
-	nsLister    corev1listers.NamespaceLister
-	rbLister    rbacv1listers.RoleBindingLister
-	crbLister   rbacv1listers.ClusterRoleBindingLister
-	urLister    kyvernov1beta1listers.UpdateRequestNamespaceLister
-	polexLister engine.PolicyExceptionLister
+	nsLister  corev1listers.NamespaceLister
+	rbLister  rbacv1listers.RoleBindingLister
+	crbLister rbacv1listers.ClusterRoleBindingLister
+	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
 
 	urGenerator    webhookgenerate.Generator
 	eventGen       event.Interface
@@ -78,7 +76,6 @@ func NewHandlers(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
-	polexLister engine.PolicyExceptionLister,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	openApiManager openapi.ValidateInterface,
@@ -96,11 +93,10 @@ func NewHandlers(
 		rbLister:         rbLister,
 		crbLister:        crbLister,
 		urLister:         urLister,
-		polexLister:      polexLister,
 		urGenerator:      urGenerator,
 		eventGen:         eventGen,
 		openApiManager:   openApiManager,
-		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister, polexLister),
+		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
 		urUpdater:        webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
 		admissionReports: admissionReports,
 	}
@@ -186,7 +182,7 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.rclient, h.eventGen, h.admissionReports, h.configuration)
+	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")

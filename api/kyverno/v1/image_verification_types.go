@@ -96,6 +96,13 @@ type AttestorSet struct {
 	Entries []Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
 }
 
+func (as AttestorSet) RequiredCount() int {
+	if as.Count == nil || *as.Count == 0 {
+		return len(as.Entries)
+	}
+	return *as.Count
+}
+
 type Attestor struct {
 	// Keys specifies one or more public keys
 	// +kubebuilder:validation:Optional

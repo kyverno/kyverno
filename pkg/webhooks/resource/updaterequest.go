@@ -43,7 +43,7 @@ func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger,
 
 		var rules []engineapi.RuleResponse
 		policyContext := policyContext.WithPolicy(policy)
-		engineResponse := h.engine.ApplyBackgroundChecks(policyContext)
+		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 
 		for _, rule := range engineResponse.PolicyResponse.Rules {
 			if rule.Status == engineapi.RuleStatusPass {
