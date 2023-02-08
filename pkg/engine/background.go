@@ -37,6 +37,7 @@ func (e *engine) filterRules(
 	namespace := newResource.GetNamespace()
 	apiVersion := newResource.GetAPIVersion()
 	resp := &engineapi.EngineResponse{
+		Policy: policy,
 		PolicyResponse: engineapi.PolicyResponse{
 			PolicyStats: engineapi.PolicyStats{
 				ExecutionStats: engineapi.ExecutionStats{
