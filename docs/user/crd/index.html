@@ -1689,6 +1689,21 @@ string
 Note - this field MUST be unique.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>jmesPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>JMESPath is an optional JMESPath expression to apply to the image value.
+This is useful when the extracted image begins with a prefix like &lsquo;docker://&rsquo;.
+The &lsquo;trim_prefix&rsquo; function may be used to trim the prefix: trim_prefix(@, &lsquo;docker://&rsquo;).
+Note - Image digest mutation may not be used when applying a JMESPAth to an image.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
