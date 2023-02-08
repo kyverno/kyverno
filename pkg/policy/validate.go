@@ -219,6 +219,10 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
+		if err := validateRuleImageExtractorsJMESPath(rule); err != nil {
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		}
+
 		// If a rule's match block does not match any kind,
 		// we should only allow it to have metadata in its overlay
 		if len(rule.MatchResources.Any) > 0 {
@@ -1011,6 +1015,44 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// validateRuleImageExtractorsJMESPath ensures that the rule does not
+// mutate image digests if it has an image extractor that uses a JMESPath.
+func validateRuleImageExtractorsJMESPath(rule kyvernov1.Rule) error {
+	imageExtractorConfigs := rule.ImageExtractors
+	imageVerifications := rule.VerifyImages
+	if imageExtractorConfigs == nil || imageVerifications == nil {
+		return nil
+	}
+
+	anyMutateDigest := false
+	for _, imageVerification := range imageVerifications {
+		if imageVerification.MutateDigest {
+			anyMutateDigest = true
+			break
+		}
+	}
+
+	if !anyMutateDigest {
+		return nil
+	}
+
+	anyJMESPath := false
+	for _, imageExtractors := range imageExtractorConfigs {
+		for _, imageExtractor := range imageExtractors {
+			if imageExtractor.JMESPath != "" {
+				anyJMESPath = true
+				break
+			}
+		}
+	}
+
+	if anyJMESPath {
+		return fmt.Errorf("jmespath may not be used in an image extractor when mutating digests with verify images")
+	}
+
 	return nil
 }
 

@@ -334,6 +334,65 @@ func Test_Trim(t *testing.T) {
 	assert.Equal(t, trim, "Hello, Gophers")
 }
 
+func Test_TrimPrefix(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{
+		{
+			name: "trims prefix",
+			args: args{
+				arguments: []interface{}{"¡¡¡Hello, Gophers!!!", "¡¡¡Hello, "},
+			},
+			want:    "Gophers!!!",
+			wantErr: false,
+		},
+		{
+			name: "does not trim prefix",
+			args: args{
+				arguments: []interface{}{"¡¡¡Hello, Gophers!!!", "¡¡¡Hola, "},
+			},
+			want:    "¡¡¡Hello, Gophers!!!",
+			wantErr: false,
+		},
+		{
+			name: "invalid first argument",
+			args: args{
+				arguments: []interface{}{1, "¡¡¡Hello, "},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid first argument",
+			args: args{
+				arguments: []interface{}{"¡¡¡Hello, Gophers!!!", 1},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfTrimPrefix(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfTrimPrefix() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfTrimPrefix() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_Split(t *testing.T) {
 	jp, err := New("split('Hello, Gophers', ', ')")
 	assert.NilError(t, err)

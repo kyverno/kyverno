@@ -373,6 +373,7 @@ func TestNotAllowedVars_VariableFormats(t *testing.T) {
 		{"custom_func_to_upper", "to_upper(string)", true},
 		{"custom_func_to_lower", "to_lower(string)", true},
 		{"custom_func_trim", "trim(str string, cutset string)", true},
+		{"custom_func_trim_prefix", "trim_prefix(str string, prefix string)", true},
 		{"custom_func_split", "split(str string, sep string)", true},
 		{"custom_func_regex_replace_all", "regex_replace_all(regex string, src string|number, replace string|number)", true},
 		{"custom_func_regex_replace_all_literal", "regex_replace_all_literal(regex string, src string|number, replace string|number)", true},

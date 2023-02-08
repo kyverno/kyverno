@@ -32,6 +32,12 @@ type ImageExtractorConfig struct {
 	// Note - this field MUST be unique.
 	// +optional
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+	// JMESPath is an optional JMESPath expression to apply to the image value.
+	// This is useful when the extracted image begins with a prefix like 'docker://'.
+	// The 'trim_prefix' function may be used to trim the prefix: trim_prefix(@, 'docker://').
+	// Note - Image digest mutation may not be used when applying a JMESPAth to an image.
+	// +optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.

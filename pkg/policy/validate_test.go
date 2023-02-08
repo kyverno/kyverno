@@ -3,6 +3,7 @@ package policy
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -2238,4 +2239,62 @@ func Test_Any_wildcard_policy(t *testing.T) {
 	openApiManager, _ := openapi.NewManager()
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
+}
+
+func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "jmes-path-and-mutate-digest"
+		},
+		"spec": {
+			"rules": [
+				{
+					"match": {
+						"resources": {
+							"kinds": [
+								"CRD"
+							]
+						}
+					},
+					"imageExtractors": {
+						"CRD": [
+							{
+								"path": "/path/to/image/prefixed/with/scheme",
+								"jmesPath": "trim_prefix(@, 'docker://')"
+							}
+						]
+					},
+					"verifyImages": [
+						{
+							"mutateDigest": true,
+							"attestors": [
+								{
+									"count": 1,
+									"entries": [
+										{
+											"keys": {
+												"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	}`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	expectedErr := fmt.Errorf("path: spec.rules[0]: jmespath may not be used in an image extractor when mutating digests with verify images")
+
+	openApiManager, _ := openapi.NewManager()
+	_, actualErr := Validate(policy, nil, true, openApiManager)
+	assert.Equal(t, expectedErr.Error(), actualErr.Error())
 }
