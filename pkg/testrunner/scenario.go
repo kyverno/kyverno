@@ -55,8 +55,8 @@ type PolicySpec struct {
 }
 
 type PolicyResponse struct {
-	engineapi.PolicyResponse
-	Policy PolicySpec
+	engineapi.PolicyResponse `yaml:",inline"`
+	Policy                   PolicySpec
 }
 
 type Mutation struct {
