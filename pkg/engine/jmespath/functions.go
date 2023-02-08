@@ -42,6 +42,7 @@ var (
 	toUpper                = "to_upper"
 	toLower                = "to_lower"
 	trim                   = "trim"
+	trimPrefix             = "trim_prefix"
 	split                  = "split"
 	regexReplaceAll        = "regex_replace_all"
 	regexReplaceAllLiteral = "regex_replace_all_literal"
@@ -145,6 +146,17 @@ func GetFunctions() []FunctionEntry {
 		},
 		ReturnType: []jpType{jpString},
 		Note:       "trims both ends of the source string by characters appearing in the second string",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: trimPrefix,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpfTrimPrefix,
+		},
+		ReturnType: []jpType{jpString},
+		Note:       "trims the second string prefix from the first string if the first string starts with the prefix",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: split,
@@ -586,6 +598,21 @@ func jpfTrim(arguments []interface{}) (interface{}, error) {
 	}
 
 	return strings.Trim(str.String(), cutset.String()), nil
+}
+
+func jpfTrimPrefix(arguments []interface{}) (interface{}, error) {
+	var err error
+	str, err := validateArg(trimPrefix, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	prefix, err := validateArg(trimPrefix, arguments, 1, reflect.String)
+	if err != nil {
+		return nil, err
+	}
+
+	return strings.TrimPrefix(str.String(), prefix.String()), nil
 }
 
 func jpfSplit(arguments []interface{}) (interface{}, error) {
