@@ -26,9 +26,9 @@ The list of organizations that have publicly shared the usage of Kyverno:
 | [Techcombank](https://www.techcombank.com.vn/trang-chu)                                                       | Use Kyverno to enforce security policies rules, Kubernetes best practices for their internal container based workload on Kubernetes                                                                                          |
 | [Trendyol](https://www.trendyol.com)                                                                          | In adoption planning to roll out to hundreds of production clusters using GitOps                                                                                                                                             |
 | [Rafay Systems](https://rafay.co/)                                                                            | Platform supports centralized deployment of Kyverno across clusters                                                                                                                                                          |
-| [Wayfair](https://wayfair.com)                                                                                | Policy enforcement on managed clusters. Replacement of some in-house mutating webhooks.                                                                                                                                      | 
+| [Wayfair](https://wayfair.com)                                                                                | Policy enforcement on managed clusters. Replacement of some in-house mutating webhooks.                                                                                                                                      |
+| [Yahoo](https://www.yahoo.com/)                                                                               | Use Kyverno for mutation, to replace image tags to digest and also for validation for checking freshness of images.                                                                                                          |
+| [T-Systems](https://www.t-systems.com)                                                                        |                                                                                                                                                                                                                              |
 <!-- append the line below to the table
 | [name](URL) | brief description of how you are using Kyverno | 
 -->
-
-
