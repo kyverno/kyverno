@@ -8,7 +8,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"k8s.io/client-go/tools/cache"
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
@@ -31,10 +30,6 @@ func (e *engine) filterGenerateRules(
 	name := newResource.GetName()
 	namespace := newResource.GetNamespace()
 	apiVersion := newResource.GetAPIVersion()
-	pNamespace, pName, err := cache.SplitMetaNamespaceKey(policyNameKey)
-	if err != nil {
-		logging.Error(err, "failed to spilt name and namespace", policyNameKey)
-	}
 	resp := &engineapi.EngineResponse{
 		PolicyResponse: engineapi.PolicyResponse{
 			PolicyStats: engineapi.PolicyStats{
