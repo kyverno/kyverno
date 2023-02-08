@@ -476,7 +476,9 @@ OuterLoop:
 	}
 	eng := engine.NewEngine(
 		cfg,
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
+		c.Client,
+		registryclient.NewOrDie(),
+		engine.LegacyContextLoaderFactory(nil),
 		nil,
 	)
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
@@ -484,7 +486,6 @@ OuterLoop:
 		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).
 		WithAdmissionInfo(c.UserInfo).
-		WithClient(c.Client).
 		WithSubresourcesInPolicy(subresources)
 
 	mutateResponse := eng.Mutate(
@@ -525,11 +526,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := eng.VerifyAndPatchImages(
-		context.Background(),
-		registryclient.NewOrDie(),
-		policyContext,
-	)
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
@@ -543,9 +540,7 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		generateResponse := eng.ApplyBackgroundChecks(
-			policyContext,
-		)
+		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
@@ -1080,7 +1075,9 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		config.NewDefaultConfiguration(),
-		engine.LegacyContextLoaderFactory(nil, nil),
+		client,
+		nil,
+		engine.LegacyContextLoaderFactory(nil),
 		nil,
 	))
 	return c, nil

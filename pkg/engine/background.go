@@ -19,6 +19,7 @@ import (
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func (e *engine) applyBackgroundChecks(
+	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
@@ -84,17 +85,17 @@ func (e *engine) filterRule(
 	logger := logging.WithName("exception")
 
 	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
-
-	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, e.exceptionSelector, policyContext, &rule, subresourceGVKToAPIResource, e.configuration)
-	if ruleResp != nil {
-		return ruleResp
-	}
+	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
 
 	ruleType := engineapi.Mutation
 	if rule.HasGenerate() {
 		ruleType = engineapi.Generation
+	}
+
+	// check if there is a corresponding policy exception
+	ruleResp := hasPolicyExceptions(logger, ruleType, e.exceptionSelector, policyContext, &rule, subresourceGVKToAPIResource, e.configuration)
+	if ruleResp != nil {
+		return ruleResp
 	}
 
 	startTime := time.Now()
@@ -132,7 +133,7 @@ func (e *engine) filterRule(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	if err := internal.LoadContext(context.TODO(), e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+	if err := internal.LoadContext(context.TODO(), e, policyContext, rule); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
@@ -155,15 +156,7 @@ func (e *engine) filterRule(
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return &engineapi.RuleResponse{
-			Name:   ruleCopy.Name,
-			Type:   ruleType,
-			Status: engineapi.RuleStatusSkip,
-			ExecutionStats: engineapi.ExecutionStats{
-				ProcessingTime: time.Since(startTime),
-				Timestamp:      startTime.Unix(),
-			},
-		}
+		return internal.RuleSkip(ruleCopy, ruleType, "")
 	}
 
 	// build rule Response

@@ -213,7 +213,9 @@ func main() {
 	)
 	engine := engine.NewEngine(
 		configuration,
-		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+		dClient,
+		rclient,
+		engine.LegacyContextLoaderFactory(configMapResolver),
 		// TODO: do we need exceptions here ?
 		nil,
 	)

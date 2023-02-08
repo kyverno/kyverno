@@ -19,55 +19,52 @@ import (
 )
 
 func LegacyContextLoaderFactory(
-	rclient registryclient.Client,
 	cmResolver engineapi.ConfigmapResolver,
 ) engineapi.ContextLoaderFactory {
-	if store.IsMock() {
-		return func(pContext engineapi.PolicyContext, ruleName string) engineapi.ContextLoader {
-			policy := pContext.Policy()
+	return func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.ContextLoader {
+		if store.IsMock() {
 			return &mockContextLoader{
 				logger:     logging.WithName("MockContextLoaderFactory"),
 				policyName: policy.GetName(),
-				ruleName:   ruleName,
-				client:     pContext.Client(),
-				rclient:    rclient,
+				ruleName:   rule.Name,
+			}
+		} else {
+			return &contextLoader{
+				logger:     logging.WithName("LegacyContextLoaderFactory"),
 				cmResolver: cmResolver,
 			}
-		}
-	}
-	return func(pContext engineapi.PolicyContext, ruleName string) engineapi.ContextLoader {
-		return &contextLoader{
-			logger:     logging.WithName("LegacyContextLoaderFactory"),
-			client:     pContext.Client(),
-			rclient:    rclient,
-			cmResolver: cmResolver,
 		}
 	}
 }
 
 type contextLoader struct {
 	logger     logr.Logger
-	rclient    registryclient.Client
-	client     dclient.Interface
 	cmResolver engineapi.ConfigmapResolver
 }
 
-func (l *contextLoader) Load(ctx context.Context, contextEntries []kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
+func (l *contextLoader) Load(
+	ctx context.Context,
+	client dclient.Interface,
+	rclient registryclient.Client,
+	exceptionSelector engineapi.PolicyExceptionSelector,
+	contextEntries []kyvernov1.ContextEntry,
+	jsonContext enginecontext.Interface,
+) error {
 	for _, entry := range contextEntries {
 		if entry.ConfigMap != nil {
-			if err := loadConfigMap(ctx, l.logger, entry, enginectx, l.cmResolver); err != nil {
+			if err := loadConfigMap(ctx, l.logger, entry, jsonContext, l.cmResolver); err != nil {
 				return err
 			}
 		} else if entry.APICall != nil {
-			if err := loadAPIData(ctx, l.logger, entry, enginectx, l.client); err != nil {
+			if err := loadAPIData(ctx, l.logger, entry, jsonContext, client); err != nil {
 				return err
 			}
 		} else if entry.ImageRegistry != nil {
-			if err := loadImageData(ctx, l.rclient, l.logger, entry, enginectx); err != nil {
+			if err := loadImageData(ctx, rclient, l.logger, entry, jsonContext); err != nil {
 				return err
 			}
 		} else if entry.Variable != nil {
-			if err := loadVariable(l.logger, entry, enginectx); err != nil {
+			if err := loadVariable(l.logger, entry, jsonContext); err != nil {
 				return err
 			}
 		}
@@ -79,17 +76,21 @@ type mockContextLoader struct {
 	logger     logr.Logger
 	policyName string
 	ruleName   string
-	rclient    registryclient.Client
-	client     dclient.Interface
-	cmResolver engineapi.ConfigmapResolver
 }
 
-func (l *mockContextLoader) Load(ctx context.Context, contextEntries []kyvernov1.ContextEntry, enginectx enginecontext.Interface) error {
+func (l *mockContextLoader) Load(
+	ctx context.Context,
+	client dclient.Interface,
+	_ registryclient.Client,
+	_ engineapi.PolicyExceptionSelector,
+	contextEntries []kyvernov1.ContextEntry,
+	jsonContext enginecontext.Interface,
+) error {
 	rule := store.GetPolicyRule(l.policyName, l.ruleName)
 	if rule != nil && len(rule.Values) > 0 {
 		variables := rule.Values
 		for key, value := range variables {
-			if err := enginectx.AddVariable(key, value); err != nil {
+			if err := jsonContext.AddVariable(key, value); err != nil {
 				return err
 			}
 		}
@@ -99,22 +100,22 @@ func (l *mockContextLoader) Load(ctx context.Context, contextEntries []kyvernov1
 	for _, entry := range contextEntries {
 		if entry.ImageRegistry != nil && hasRegistryAccess {
 			rclient := store.GetRegistryClient()
-			if err := loadImageData(ctx, rclient, l.logger, entry, enginectx); err != nil {
+			if err := loadImageData(ctx, rclient, l.logger, entry, jsonContext); err != nil {
 				return err
 			}
 		} else if entry.Variable != nil {
-			if err := loadVariable(l.logger, entry, enginectx); err != nil {
+			if err := loadVariable(l.logger, entry, jsonContext); err != nil {
 				return err
 			}
 		} else if entry.APICall != nil && store.IsApiCallAllowed() {
-			if err := loadAPIData(ctx, l.logger, entry, enginectx, l.client); err != nil {
+			if err := loadAPIData(ctx, l.logger, entry, jsonContext, client); err != nil {
 				return err
 			}
 		}
 	}
 	if rule != nil && len(rule.ForEachValues) > 0 {
 		for key, value := range rule.ForEachValues {
-			if err := enginectx.AddVariable(key, value[store.GetForeachElement()]); err != nil {
+			if err := jsonContext.AddVariable(key, value[store.GetForeachElement()]); err != nil {
 				return err
 			}
 		}

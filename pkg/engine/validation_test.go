@@ -22,7 +22,9 @@ import (
 func testValidate(ctx context.Context, rclient registryclient.Client, pContext *PolicyContext, cfg config.Configuration) *engineapi.EngineResponse {
 	e := NewEngine(
 		cfg,
-		LegacyContextLoaderFactory(rclient, nil),
+		nil,
+		rclient,
+		LegacyContextLoaderFactory(nil),
 		nil,
 	)
 	return e.Validate(
@@ -1939,7 +1941,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 			// referred variable path not present
 			resourceRaw:      []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
 			expectedResults:  []engineapi.RuleStatus{engineapi.RuleStatusPass, engineapi.RuleStatusError},
-			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "failed to substitute variables in deny conditions: failed to resolve request.object.spec.sourceRef.namespace at path /0/key: JMESPath query failed: Unknown key \"namespace\" in path"},
+			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "failed to check deny preconditions: failed to substitute variables in deny conditions: failed to resolve request.object.spec.sourceRef.namespace at path /0/key: JMESPath query failed: Unknown key \"namespace\" in path"},
 		},
 		{
 			name:      "resource-with-violation",

@@ -67,7 +67,7 @@ func (e *engine) mutate(
 				}
 
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
 				if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.AdmissionInfo(), excludeResource, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), policyContext.SubResource()); err != nil {
 					logger.V(4).Info("rule not matched", "reason", err.Error())
 					skippedRules = append(skippedRules, rule.Name)
@@ -75,8 +75,7 @@ func (e *engine) mutate(
 				}
 
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(logger, e.exceptionSelector, policyContext, &computeRules[i], subresourceGVKToAPIResource, e.configuration)
-				if ruleResp != nil {
+				if ruleResp := hasPolicyExceptions(logger, engineapi.Mutation, e.exceptionSelector, policyContext, &computeRules[i], subresourceGVKToAPIResource, e.configuration); ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return
 				}
@@ -92,7 +91,7 @@ func (e *engine) mutate(
 					logger.Error(err, "failed to query resource object")
 				}
 
-				if err := internal.LoadContext(ctx, e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
 					if _, ok := err.(gojmespath.NotFoundError); ok {
 						logger.V(3).Info("failed to load context", "reason", err.Error())
 					} else {
@@ -104,7 +103,7 @@ func (e *engine) mutate(
 				ruleCopy := rule.DeepCopy()
 				var patchedResources []resourceInfo
 				if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
-					targets, err := loadTargets(ruleCopy.Mutation.Targets, policyContext, logger)
+					targets, err := loadTargets(e.client, ruleCopy.Mutation.Targets, policyContext, logger)
 					if err != nil {
 						rr := internal.RuleResponse(rule, engineapi.Mutation, err.Error(), engineapi.RuleStatusError)
 						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
@@ -145,7 +144,7 @@ func (e *engine) mutate(
 							policyContext: policyContext,
 							resource:      patchedResource,
 							log:           logger,
-							contextLoader: e.contextLoader,
+							contextLoader: e.ContextLoader(policyContext.Policy(), *ruleCopy),
 							nesting:       0,
 						}
 
@@ -155,15 +154,9 @@ func (e *engine) mutate(
 					}
 
 					matchedResource = mutateResp.PatchedResource
-					ruleResponse := buildRuleResponse(ruleCopy, mutateResp, patchedResource)
 
-					if ruleResponse != nil {
-						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResponse)
-						if ruleResponse.Status == engineapi.RuleStatusError {
-							incrementErrorCount(resp)
-						} else {
-							incrementAppliedCount(resp)
-						}
+					if ruleResponse := buildRuleResponse(ruleCopy, mutateResp, patchedResource); ruleResponse != nil {
+						internal.AddRuleResponse(&resp.PolicyResponse, ruleResponse, startTime)
 					}
 				}
 			},
@@ -187,7 +180,7 @@ func (e *engine) mutate(
 }
 
 func mutateResource(rule *kyvernov1.Rule, ctx engineapi.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
-	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
+	preconditionsPassed, err := internal.CheckPreconditions(logger, ctx, rule.GetAnyAllConditions())
 	if err != nil {
 		return mutate.NewErrorResponse("failed to evaluate preconditions", err)
 	}
@@ -205,7 +198,7 @@ type forEachMutator struct {
 	foreach       []kyvernov1.ForEachMutation
 	resource      resourceInfo
 	nesting       int
-	contextLoader engineapi.ContextLoaderFactory
+	contextLoader engineapi.EngineContextLoader
 	log           logr.Logger
 }
 
@@ -214,12 +207,12 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range f.foreach {
-		if err := internal.LoadContext(ctx, f.contextLoader, f.rule.Context, f.policyContext, f.rule.Name); err != nil {
+		if err := f.contextLoader(ctx, f.rule.Context, f.policyContext.JSONContext()); err != nil {
 			f.log.Error(err, "failed to load context")
 			return mutate.NewErrorResponse("failed to load context", err)
 		}
 
-		preconditionsPassed, err := checkPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
+		preconditionsPassed, err := internal.CheckPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
 		if err != nil {
 			return mutate.NewErrorResponse("failed to evaluate preconditions", err)
 		}
@@ -279,11 +272,11 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to add element to mutate.foreach[%d].context", index), err)
 		}
 
-		if err := internal.LoadContext(ctx, f.contextLoader, foreach.Context, policyContext, f.rule.Name); err != nil {
+		if err := f.contextLoader(ctx, foreach.Context, policyContext.JSONContext()); err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", index), err)
 		}
 
-		preconditionsPassed, err := checkPreconditions(f.log, policyContext, foreach.AnyAllConditions)
+		preconditionsPassed, err := internal.CheckPreconditions(f.log, policyContext, foreach.AnyAllConditions)
 		if err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", index), err)
 		}

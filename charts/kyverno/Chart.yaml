@@ -26,5 +26,9 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
+    - kind: added
+      description: make sigstore volume configurable
+    - kind: changed
+      description: no deployments can run with 0 replicas
     - kind: changed
       description: change dashboard title of kyverno grafana dashboard

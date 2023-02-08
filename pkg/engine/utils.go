@@ -6,21 +6,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"golang.org/x/exp/slices"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -185,6 +180,7 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
+	empty := []string{}
 
 	var reasonsForFailure []error
 	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {
@@ -197,7 +193,7 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 		oneMatched := false
 		for _, rmr := range rule.MatchResources.Any {
 			// if there are no errors it means it was a match
-			if len(matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)) == 0 {
+			if len(matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, empty, namespaceLabels, subresourceInAdmnReview)) == 0 {
 				oneMatched = true
 				break
 			}
@@ -208,11 +204,11 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 	} else if len(rule.MatchResources.All) > 0 {
 		// include object if ALL of the criteria match
 		for _, rmr := range rule.MatchResources.All {
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, empty, namespaceLabels, subresourceInAdmnReview)...)
 		}
 	} else {
 		rmr := kyvernov1.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
-		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)...)
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, empty, namespaceLabels, subresourceInAdmnReview)...)
 	}
 
 	if len(rule.ExcludeResources.Any) > 0 {
@@ -324,21 +320,6 @@ func ManagedPodResource(policy kyvernov1.PolicyInterface, resource unstructured.
 	return false
 }
 
-func checkPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
-	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.JSONContext(), anyAllConditions)
-	if err != nil {
-		return false, fmt.Errorf("failed to substitute variables in preconditions: %w", err)
-	}
-
-	typeConditions, err := utils.TransformConditions(preconditions)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse preconditions: %w", err)
-	}
-
-	pass := variables.EvaluateConditions(logger, ctx.JSONContext(), typeConditions)
-	return pass, nil
-}
-
 func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, error) {
 	i, err := ctx.Query(jmesPath)
 	if err != nil {
@@ -351,14 +332,6 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	}
 
 	return l, nil
-}
-
-func incrementAppliedCount(resp *engineapi.EngineResponse) {
-	resp.PolicyResponse.RulesAppliedCount++
-}
-
-func incrementErrorCount(resp *engineapi.EngineResponse) {
-	resp.PolicyResponse.RulesErrorCount++
 }
 
 // invertedElement inverted the order of element for patchStrategicMerge  policies as kustomize patch revering the order of patch resources.
