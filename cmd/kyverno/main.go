@@ -371,7 +371,7 @@ func main() {
 		configuration,
 		dClient,
 		rclient,
-		engine.LegacyContextLoaderFactory(configMapResolver),
+		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsLister,
 	)
 	// create non leader controllers
