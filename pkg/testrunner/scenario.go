@@ -150,7 +150,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		config.NewDefaultConfiguration(),
 		nil,
 		registryclient.NewOrDie(),
-		engine.LegacyContextLoaderFactory(nil),
+		engineapi.DefaultContextLoaderFactory(nil),
 		nil,
 	)
 	er := eng.Mutate(

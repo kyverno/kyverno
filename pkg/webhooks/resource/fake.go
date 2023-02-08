@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -60,7 +61,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 			configuration,
 			dclient,
 			rclient,
-			engine.LegacyContextLoaderFactory(configMapResolver),
+			engineapi.DefaultContextLoaderFactory(configMapResolver),
 			peLister,
 		),
 	}

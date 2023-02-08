@@ -334,14 +334,12 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 
 	// get the user info as request info from a different file
 	var userInfo v1beta1.RequestInfo
-	var subjectInfo store.Subject
 	if c.UserInfoPath != "" {
-		userInfo, subjectInfo, err = common.GetUserInfoFromPath(fs, c.UserInfoPath, false, "")
+		userInfo, err = common.GetUserInfoFromPath(fs, c.UserInfoPath, false, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			osExit(1)
 		}
-		store.SetSubject(subjectInfo.Subject)
 	}
 
 	if c.VariablesString != "" {

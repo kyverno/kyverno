@@ -315,7 +315,7 @@ func main() {
 		configuration,
 		dClient,
 		rclient,
-		engine.LegacyContextLoaderFactory(configMapResolver),
+		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsLister,
 	)
 	// setup leader election
