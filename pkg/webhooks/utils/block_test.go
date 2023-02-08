@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_getAction(t *testing.T) {
@@ -58,6 +59,11 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
+					Policy: &kyvernov1.ClusterPolicy{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "test",
+						},
+					},
 					PolicyResponse: engineapi.PolicyResponse{
 						ValidationFailureAction: "Enforce",
 						Rules: []engineapi.RuleResponse{
@@ -79,6 +85,11 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
+					Policy: &kyvernov1.ClusterPolicy{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "test",
+						},
+					},
 					PolicyResponse: engineapi.PolicyResponse{
 						ValidationFailureAction: "Audit",
 						Rules: []engineapi.RuleResponse{
@@ -100,6 +111,11 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
+					Policy: &kyvernov1.ClusterPolicy{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "test",
+						},
+					},
 					PolicyResponse: engineapi.PolicyResponse{
 						ValidationFailureAction: "Audit",
 						Rules: []engineapi.RuleResponse{
@@ -121,6 +137,11 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
+					Policy: &kyvernov1.ClusterPolicy{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "test",
+						},
+					},
 					PolicyResponse: engineapi.PolicyResponse{
 						ValidationFailureAction: "Audit",
 						Rules: []engineapi.RuleResponse{
@@ -142,6 +163,11 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
+					Policy: &kyvernov1.ClusterPolicy{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "test",
+						},
+					},
 					PolicyResponse: engineapi.PolicyResponse{
 						ValidationFailureAction: "Audit",
 						Rules: []engineapi.RuleResponse{
@@ -163,6 +189,11 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
+					Policy: &kyvernov1.ClusterPolicy{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "test",
+						},
+					},
 					PolicyResponse: engineapi.PolicyResponse{
 						ValidationFailureAction: "Audit",
 						Rules: []engineapi.RuleResponse{
@@ -201,6 +232,11 @@ func TestGetBlockedMessages(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
+					Policy: &kyvernov1.ClusterPolicy{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "test",
+						},
+					},
 					PolicyResponse: engineapi.PolicyResponse{
 						ValidationFailureAction: "Enforce",
 						Rules: []engineapi.RuleResponse{
@@ -225,6 +261,11 @@ func TestGetBlockedMessages(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
+					Policy: &kyvernov1.ClusterPolicy{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "test",
+						},
+					},
 					PolicyResponse: engineapi.PolicyResponse{
 						ValidationFailureAction: "Enforce",
 						Rules: []engineapi.RuleResponse{
@@ -249,6 +290,11 @@ func TestGetBlockedMessages(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
+					Policy: &kyvernov1.ClusterPolicy{
+						ObjectMeta: v1.ObjectMeta{
+							Name: "test",
+						},
+					},
 					PolicyResponse: engineapi.PolicyResponse{
 						ValidationFailureAction: "Enforce",
 						Rules: []engineapi.RuleResponse{
