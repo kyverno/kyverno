@@ -215,7 +215,7 @@ func main() {
 		configuration,
 		dClient,
 		rclient,
-		engine.LegacyContextLoaderFactory(configMapResolver),
+		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		// TODO: do we need exceptions here ?
 		nil,
 	)
