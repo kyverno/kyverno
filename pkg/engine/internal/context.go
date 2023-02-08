@@ -7,6 +7,12 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
-func LoadContext(ctx context.Context, factory engineapi.ContextLoaderFactory, contextEntries []kyvernov1.ContextEntry, pContext engineapi.PolicyContext, ruleName string) error {
-	return factory(pContext, ruleName).Load(ctx, contextEntries, pContext.JSONContext())
+func LoadContext(
+	ctx context.Context,
+	engine engineapi.Engine,
+	pContext engineapi.PolicyContext,
+	rule kyvernov1.Rule,
+) error {
+	loader := engine.ContextLoader(pContext.Policy(), rule)
+	return loader(ctx, rule.Context, pContext.JSONContext())
 }

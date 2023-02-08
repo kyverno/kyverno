@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -23,7 +22,6 @@ import (
 
 func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
-	rclient registryclient.Client,
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
 	resp := &engineapi.EngineResponse{}
@@ -98,7 +96,7 @@ func (e *engine) verifyAndPatchImages(
 					return
 				}
 				policyContext.JSONContext().Restore()
-				if err := internal.LoadContext(ctx, e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+				if err := internal.LoadContext(ctx, e, policyContext, *rule); err != nil {
 					internal.AddRuleResponse(
 						&resp.PolicyResponse,
 						internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
@@ -117,7 +115,7 @@ func (e *engine) verifyAndPatchImages(
 				}
 				iv := internal.NewImageVerifier(
 					logger,
-					rclient,
+					e.rclient,
 					policyContext,
 					ruleCopy,
 					ivm,

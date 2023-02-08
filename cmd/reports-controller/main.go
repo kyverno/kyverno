@@ -129,7 +129,6 @@ func createReportControllers(
 				backgroundscancontroller.NewController(
 					client,
 					kyvernoClient,
-					rclient,
 					eng,
 					metadataFactory,
 					kyvernoV1.Policies(),
@@ -315,7 +314,8 @@ func main() {
 	eng := engine.NewEngine(
 		configuration,
 		dClient,
-		engine.LegacyContextLoaderFactory(dClient, rclient, configMapResolver),
+		rclient,
+		engine.LegacyContextLoaderFactory(configMapResolver),
 		exceptionsLister,
 	)
 	// setup leader election

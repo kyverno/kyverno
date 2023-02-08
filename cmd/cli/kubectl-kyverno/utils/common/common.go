@@ -477,7 +477,8 @@ OuterLoop:
 	eng := engine.NewEngine(
 		cfg,
 		c.Client,
-		engine.LegacyContextLoaderFactory(c.Client, registryclient.NewOrDie(), nil),
+		registryclient.NewOrDie(),
+		engine.LegacyContextLoaderFactory(nil),
 		nil,
 	)
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
@@ -525,11 +526,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := eng.VerifyAndPatchImages(
-		context.Background(),
-		registryclient.NewOrDie(),
-		policyContext,
-	)
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
@@ -543,9 +540,7 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		generateResponse := eng.ApplyBackgroundChecks(
-			policyContext,
-		)
+		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
@@ -1081,7 +1076,8 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		config.NewDefaultConfiguration(),
 		client,
-		engine.LegacyContextLoaderFactory(client, nil, nil),
+		nil,
+		engine.LegacyContextLoaderFactory(nil),
 		nil,
 	))
 	return c, nil

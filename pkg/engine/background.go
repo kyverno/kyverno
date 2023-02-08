@@ -19,6 +19,7 @@ import (
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func (e *engine) applyBackgroundChecks(
+	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
@@ -132,7 +133,7 @@ func (e *engine) filterRule(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	if err := internal.LoadContext(context.TODO(), e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+	if err := internal.LoadContext(context.TODO(), e, policyContext, rule); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}

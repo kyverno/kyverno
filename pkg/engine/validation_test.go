@@ -23,7 +23,8 @@ func testValidate(ctx context.Context, rclient registryclient.Client, pContext *
 	e := NewEngine(
 		cfg,
 		nil,
-		LegacyContextLoaderFactory(nil, rclient, nil),
+		rclient,
+		LegacyContextLoaderFactory(nil),
 		nil,
 	)
 	return e.Validate(

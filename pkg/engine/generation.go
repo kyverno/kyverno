@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"time"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -12,6 +13,7 @@ import (
 
 // GenerateResponse checks for validity of generate rule on the resource
 func (e *engine) generateResponse(
+	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) (resp *engineapi.EngineResponse) {

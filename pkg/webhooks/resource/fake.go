@@ -59,7 +59,8 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		engine: engine.NewEngine(
 			configuration,
 			dclient,
-			engine.LegacyContextLoaderFactory(dclient, rclient, configMapResolver),
+			rclient,
+			engine.LegacyContextLoaderFactory(configMapResolver),
 			peLister,
 		),
 	}

@@ -197,7 +197,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := c.engine.GenerateResponse(policyContext, ur)
+	engineResponse := c.engine.GenerateResponse(context.Background(), policyContext, ur)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
 		return nil, false, errors.New(doesNotApply)
@@ -343,7 +343,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		// add configmap json data to context
-		if err := c.engine.ContextLoader(policyContext, rule.Name).Load(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
+		if err := c.engine.ContextLoader(policyContext.Policy(), rule)(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
 			log.Error(err, "cannot add configmaps to context")
 			return nil, processExisting, err
 		}

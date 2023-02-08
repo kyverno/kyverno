@@ -171,12 +171,12 @@ func testVerifyAndPatchImages(
 	e := NewEngine(
 		cfg,
 		nil,
-		LegacyContextLoaderFactory(nil, rclient, cmResolver),
+		rclient,
+		LegacyContextLoaderFactory(cmResolver),
 		nil,
 	)
 	return e.VerifyAndPatchImages(
 		ctx,
-		rclient,
 		pContext,
 	)
 }

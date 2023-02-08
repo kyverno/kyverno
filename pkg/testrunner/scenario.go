@@ -149,7 +149,8 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	eng := engine.NewEngine(
 		config.NewDefaultConfiguration(),
 		nil,
-		engine.LegacyContextLoaderFactory(nil, registryclient.NewOrDie(), nil),
+		registryclient.NewOrDie(),
+		engine.LegacyContextLoaderFactory(nil),
 		nil,
 	)
 	er := eng.Mutate(
@@ -184,11 +185,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		if err := createNamespace(client, resource); err != nil {
 			t.Error(err)
 		} else {
-			// policyContext := policyContext.WithClient(client)
-
-			er = eng.ApplyBackgroundChecks(
-				policyContext,
-			)
+			er = eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namespaces as resource
