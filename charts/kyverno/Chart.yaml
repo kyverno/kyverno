@@ -30,3 +30,5 @@ annotations:
       description: make sigstore volume configurable
     - kind: changed
       description: no deployments can run with 0 replicas
+    - kind: changed
+      description: change dashboard title of kyverno grafana dashboard
