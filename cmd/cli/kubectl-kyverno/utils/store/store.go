@@ -2,7 +2,6 @@ package store
 
 import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 type Context struct {
@@ -20,17 +19,12 @@ type Rule struct {
 	ForEachValues map[string][]interface{} `json:"foreachValues"`
 }
 
-type Subject struct {
-	Subject rbacv1.Subject `json:"subject,omitempty" yaml:"subject,omitempty"`
-}
-
 var (
 	mock           bool
 	registryClient registryclient.Client
 	allowApiCalls  bool
 	policies       []Policy
 	foreachElement int
-	subject        rbacv1.Subject
 )
 
 func SetMock(m bool) {
@@ -91,14 +85,6 @@ func GetPolicyRule(policyName string, ruleName string) *Rule {
 		}
 	}
 	return nil
-}
-
-func SetSubject(s rbacv1.Subject) {
-	subject = s
-}
-
-func GetSubject() rbacv1.Subject {
-	return subject
 }
 
 func AllowApiCall(allow bool) {
