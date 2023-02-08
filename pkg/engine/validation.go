@@ -127,7 +127,7 @@ func (e *engine) processValidationRule(
 	policyContext engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
 ) *engineapi.RuleResponse {
-	v := newValidator(log, e.contextLoader, policyContext, rule)
+	v := newValidator(log, e.ContextLoader(policyContext.Policy(), *rule), policyContext, rule)
 	return v.validate(ctx)
 }
 
@@ -142,11 +142,11 @@ type validator struct {
 	deny             *kyvernov1.Deny
 	podSecurity      *kyvernov1.PodSecurity
 	forEach          []kyvernov1.ForEachValidation
-	contextLoader    engineapi.ContextLoaderFactory
+	contextLoader    engineapi.EngineContextLoader
 	nesting          int
 }
 
-func newValidator(log logr.Logger, contextLoader engineapi.ContextLoaderFactory, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
 	return &validator{
 		log:              log,
@@ -165,7 +165,7 @@ func newValidator(log logr.Logger, contextLoader engineapi.ContextLoaderFactory,
 
 func newForEachValidator(
 	foreach kyvernov1.ForEachValidation,
-	contextLoader engineapi.ContextLoaderFactory,
+	contextLoader engineapi.EngineContextLoader,
 	nesting int,
 	rule *kyvernov1.Rule,
 	ctx engineapi.PolicyContext,
@@ -344,7 +344,7 @@ func addElementToContext(ctx engineapi.PolicyContext, element interface{}, index
 }
 
 func (v *validator) loadContext(ctx context.Context) error {
-	if err := internal.LoadContext(ctx, v.contextLoader, v.contextEntries, v.policyContext, v.rule.Name); err != nil {
+	if err := v.contextLoader(ctx, v.contextEntries, v.policyContext.JSONContext()); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			v.log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
