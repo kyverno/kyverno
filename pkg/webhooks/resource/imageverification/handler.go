@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -33,7 +32,6 @@ type ImageVerificationHandler interface {
 type imageVerificationHandler struct {
 	kyvernoClient    versioned.Interface
 	engine           engineapi.Engine
-	rclient          registryclient.Client
 	log              logr.Logger
 	eventGen         event.Interface
 	admissionReports bool
