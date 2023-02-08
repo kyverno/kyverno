@@ -82,7 +82,6 @@ func (e *engine) ContextLoader(
 			ctx,
 			e.client,
 			e.rclient,
-			e.exceptionSelector,
 			contextEntries,
 			jsonContext,
 		)

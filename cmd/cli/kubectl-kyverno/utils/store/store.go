@@ -29,7 +29,6 @@ var (
 	registryClient registryclient.Client
 	allowApiCalls  bool
 	policies       []Policy
-	// contextVar     Context
 	foreachElement int
 	subject        rbacv1.Subject
 )
