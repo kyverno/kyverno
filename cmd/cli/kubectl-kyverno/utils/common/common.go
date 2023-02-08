@@ -474,18 +474,22 @@ OuterLoop:
 			})
 		}
 	}
-	eng := engine.NewEgine()
+	eng := engine.NewEngine(
+		cfg,
+		c.Client,
+		registryclient.NewOrDie(),
+		engine.LegacyContextLoaderFactory(nil),
+		nil,
+	)
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).
 		WithAdmissionInfo(c.UserInfo).
-		WithClient(c.Client).
 		WithSubresourcesInPolicy(subresources)
 
 	mutateResponse := eng.Mutate(
 		context.Background(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 		policyContext,
 	)
 	if mutateResponse != nil {
@@ -513,9 +517,7 @@ OuterLoop:
 	if policyHasValidate {
 		validateResponse = eng.Validate(
 			context.Background(),
-			engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
 			policyContext,
-			cfg,
 		)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
@@ -524,13 +526,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := eng.VerifyAndPatchImages(
-		context.Background(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
-		registryclient.NewOrDie(),
-		policyContext,
-		cfg,
-	)
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
@@ -544,10 +540,7 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		generateResponse := engine.ApplyBackgroundChecks(
-			engine.LegacyContextLoaderFactory(registryclient.NewOrDie()),
-			policyContext,
-		)
+		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
@@ -1080,7 +1073,13 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	}
 
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	c := generate.NewGenerateControllerWithOnlyClient(client, engine.LegacyContextLoaderFactory(nil))
+	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
+		config.NewDefaultConfiguration(),
+		client,
+		nil,
+		engine.LegacyContextLoaderFactory(nil),
+		nil,
+	))
 	return c, nil
 }
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 )
 
 const ImageVerifyAnnotationKey = "kyverno.io/verify-images"
@@ -43,44 +44,35 @@ func ParseImageMetadata(jsonData string) (*ImageVerificationMetadata, error) {
 }
 
 func (ivm *ImageVerificationMetadata) Patches(hasAnnotations bool, log logr.Logger) ([][]byte, error) {
-	var patches [][]byte
-	if !hasAnnotations {
-		addAnnotationsPatch := make(map[string]interface{})
-		addAnnotationsPatch["op"] = "add"
-		addAnnotationsPatch["path"] = "/metadata/annotations"
-		addAnnotationsPatch["value"] = map[string]string{}
-		patchBytes, err := json.Marshal(addAnnotationsPatch)
+	if data, err := json.Marshal(ivm.Data); err != nil {
+		return nil, fmt.Errorf("failed to marshal metadata value: %v: %w", data, err)
+	} else {
+		var patches [][]byte
+		if !hasAnnotations {
+			patch := jsonutils.NewPatchOperation("/metadata/annotations", "add", map[string]string{})
+			patchBytes, err := patch.Marshal()
+			if err != nil {
+				return nil, err
+			}
+			log.V(4).Info("adding annotation patch", "patch", patch)
+			patches = append(patches, patchBytes)
+		}
+		patch := jsonutils.NewPatchOperation(makeAnnotationKeyForJSONPatch(), "add", string(data))
+		patchBytes, err := patch.Marshal()
 		if err != nil {
 			return nil, err
 		}
-
-		log.V(4).Info("adding annotation patch", "patch", string(patchBytes))
+		log.V(4).Info("adding image verification patch", "patch", patch)
 		patches = append(patches, patchBytes)
+		return patches, nil
 	}
-
-	data, err := json.Marshal(ivm.Data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal metadata value: %v: %w", data, err)
-	}
-
-	addKeyPatch := make(map[string]interface{})
-	addKeyPatch["op"] = "add"
-	addKeyPatch["path"] = makeAnnotationKeyForJSONPatch()
-	addKeyPatch["value"] = string(data)
-
-	patchBytes, err := json.Marshal(addKeyPatch)
-	if err != nil {
-		return nil, err
-	}
-
-	log.V(4).Info("adding image verification patch", "patch", string(patchBytes))
-	patches = append(patches, patchBytes)
-	return patches, nil
 }
 
 func (ivm *ImageVerificationMetadata) Merge(other *ImageVerificationMetadata) {
-	for k, v := range other.Data {
-		ivm.Add(k, v)
+	if other != nil {
+		for k, v := range other.Data {
+			ivm.Add(k, v)
+		}
 	}
 }
 

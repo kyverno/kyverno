@@ -355,7 +355,22 @@ func main() {
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		certRenewer,
 	)
-	eng := engine.NewEgine()
+	var exceptionsLister engineapi.PolicyExceptionSelector
+	if enablePolicyException {
+		lister := kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
+		if exceptionNamespace != "" {
+			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
+		} else {
+			exceptionsLister = lister
+		}
+	}
+	eng := engine.NewEngine(
+		configuration,
+		dClient,
+		rclient,
+		engine.LegacyContextLoaderFactory(configMapResolver),
+		exceptionsLister,
+	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
 		eng,
@@ -465,30 +480,18 @@ func main() {
 		dClient,
 		openApiManager,
 	)
-	var exceptionsLister engine.PolicyExceptionLister
-	if enablePolicyException {
-		lister := kyvernoInformer.Kyverno().V2alpha1().PolicyExceptions().Lister()
-		if exceptionNamespace != "" {
-			exceptionsLister = lister.PolicyExceptions(exceptionNamespace)
-		} else {
-			exceptionsLister = lister
-		}
-	}
 	resourceHandlers := webhooksresource.NewHandlers(
 		eng,
-		engine.LegacyContextLoaderFactory(rclient),
 		dClient,
 		kyvernoClient,
 		rclient,
 		configuration,
 		metricsConfig,
 		policyCache,
-		configMapResolver,
 		kubeInformer.Core().V1().Namespaces().Lister(),
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
-		exceptionsLister,
 		urgen,
 		eventGenerator,
 		openApiManager,

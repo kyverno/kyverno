@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"time"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -11,17 +12,16 @@ import (
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
-func GenerateResponse(
-	contextLoader engineapi.ContextLoaderFactory,
+func (e *engine) generateResponse(
+	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
-	return filterGenerateRules(contextLoader, policyContext, gr.Spec.Policy, policyStartTime)
+	return e.filterGenerateRules(policyContext, gr.Spec.Policy, policyStartTime)
 }
 
-func filterGenerateRules(
-	contextLoader engineapi.ContextLoaderFactory,
+func (e *engine) filterGenerateRules(
 	policyContext engineapi.PolicyContext,
 	policyNameKey string,
 	startTime time.Time,
@@ -54,13 +54,13 @@ func filterGenerateRules(
 			},
 		},
 	}
-	if policyContext.ExcludeResourceFunc()(kind, namespace, name) {
+	if e.configuration.ToFilter(kind, namespace, name) {
 		logging.WithName("Generate").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
 		return resp
 	}
 
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
-		if ruleResp := filterRule(contextLoader, rule, policyContext); ruleResp != nil {
+		if ruleResp := e.filterRule(rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}

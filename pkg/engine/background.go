@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -17,16 +18,15 @@ import (
 //   - the caller has to check the ruleResponse to determine whether the path exist
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func ApplyBackgroundChecks(
-	contextLoader engineapi.ContextLoaderFactory,
+func (e *engine) applyBackgroundChecks(
+	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) (resp *engineapi.EngineResponse) {
 	policyStartTime := time.Now()
-	return filterRules(contextLoader, policyContext, policyStartTime)
+	return e.filterRules(policyContext, policyStartTime)
 }
 
-func filterRules(
-	contextLoader engineapi.ContextLoaderFactory,
+func (e *engine) filterRules(
 	policyContext engineapi.PolicyContext,
 	startTime time.Time,
 ) *engineapi.EngineResponse {
@@ -56,14 +56,14 @@ func filterRules(
 		},
 	}
 
-	if policyContext.ExcludeResourceFunc()(kind, namespace, name) {
+	if e.configuration.ToFilter(kind, namespace, name) {
 		logging.WithName("ApplyBackgroundChecks").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
 		return resp
 	}
 
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
-		if ruleResp := filterRule(contextLoader, rule, policyContext); ruleResp != nil {
+		if ruleResp := e.filterRule(rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
 				break
@@ -74,8 +74,7 @@ func filterRules(
 	return resp
 }
 
-func filterRule(
-	contextLoader engineapi.ContextLoaderFactory,
+func (e *engine) filterRule(
 	rule kyvernov1.Rule,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.RuleResponse {
@@ -86,17 +85,17 @@ func filterRule(
 	logger := logging.WithName("exception")
 
 	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
-
-	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(policyContext, &rule, subresourceGVKToAPIResource, logger)
-	if ruleResp != nil {
-		return ruleResp
-	}
+	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
 
 	ruleType := engineapi.Mutation
 	if rule.HasGenerate() {
 		ruleType = engineapi.Generation
+	}
+
+	// check if there is a corresponding policy exception
+	ruleResp := hasPolicyExceptions(logger, ruleType, e.exceptionSelector, policyContext, &rule, subresourceGVKToAPIResource, e.configuration)
+	if ruleResp != nil {
+		return ruleResp
 	}
 
 	startTime := time.Now()
@@ -106,7 +105,7 @@ func filterRule(
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
 	ctx := policyContext.JSONContext()
-	excludeGroupRole := policyContext.ExcludeGroupRole()
+	excludeGroupRole := e.configuration.GetExcludeGroupRole()
 	namespaceLabels := policyContext.NamespaceLabels()
 
 	logger = logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
@@ -134,7 +133,7 @@ func filterRule(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	if err := LoadContext(context.TODO(), contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+	if err := internal.LoadContext(context.TODO(), e, policyContext, rule); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
@@ -157,15 +156,7 @@ func filterRule(
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return &engineapi.RuleResponse{
-			Name:   ruleCopy.Name,
-			Type:   ruleType,
-			Status: engineapi.RuleStatusSkip,
-			ExecutionStats: engineapi.ExecutionStats{
-				ProcessingTime: time.Since(startTime),
-				Timestamp:      startTime.Unix(),
-			},
-		}
+		return internal.RuleSkip(ruleCopy, ruleType, "")
 	}
 
 	// build rule Response

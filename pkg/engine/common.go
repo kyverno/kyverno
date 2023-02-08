@@ -3,13 +3,14 @@ package engine
 import (
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // GetSubresourceGVKToAPIResourceMap returns a map of subresource GVK to APIResource. This is used to determine if a resource is a subresource.
-func GetSubresourceGVKToAPIResourceMap(kindsInPolicy []string, ctx engineapi.PolicyContext) map[string]*metav1.APIResource {
+func GetSubresourceGVKToAPIResourceMap(client dclient.Interface, kindsInPolicy []string, ctx engineapi.PolicyContext) map[string]*metav1.APIResource {
 	subresourceGVKToAPIResource := make(map[string]*metav1.APIResource)
 	for _, gvk := range kindsInPolicy {
 		gv, k := kubeutils.GetKindFromGVK(gvk)
@@ -50,9 +51,9 @@ func GetSubresourceGVKToAPIResourceMap(kindsInPolicy []string, ctx engineapi.Pol
 					}
 				}
 			}
-		} else if ctx.Client() != nil {
+		} else if client != nil {
 			// find the resource from API client
-			apiResource, _, _, err := ctx.Client().Discovery().FindResource(gv, k)
+			apiResource, _, _, err := client.Discovery().FindResource(gv, k)
 			if err == nil {
 				if kubeutils.IsSubresource(apiResource.Name) {
 					subresourceGVKToAPIResource[gvk] = apiResource

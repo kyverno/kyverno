@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	authenticationv1 "k8s.io/api/authentication/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -1877,6 +1880,152 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 
 	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, v1beta1.RequestInfo{}, []string{}, nil, "", ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
+	}
+}
+
+func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
+
+	// slightly simplified ingress controller pod that lives in the ingress-nginx namespace
+	rawResource := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "ingress-nginx-controller-57bc6474bb-mcpt2",
+			"namespace": "ingress-nginx"
+		},
+		"spec": {
+			"containers": [
+				{
+					"args": ["/nginx-ingress-controller"],
+					"env": [],
+					"image": "registry.k8s.io/ingress-nginx/controller:v1.5.1",
+					"imagePullPolicy": "IfNotPresent",
+					"name": "controller",
+					"securityContext": {
+						"allowPrivilegeEscalation": true,
+						"capabilities": {
+							"add": [
+								"NET_BIND_SERVICE"
+							],
+							"drop": [
+								"ALL"
+							]
+						},
+						"runAsUser": 101
+					},
+					"volumeMounts": [
+						{
+							"mountPath": "/usr/local/certificates/",
+							"name": "webhook-cert",
+							"readOnly": true
+						},
+						{
+							"mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+							"name": "kube-api-access-vc2qz",
+							"readOnly": true
+						}
+					]
+				}
+			],
+			"securityContext": {},
+			"serviceAccount": "ingress-nginx",
+			"serviceAccountName": "ingress-nginx"
+		}
+	}`)
+	resource, err := kubeutils.BytesToUnstructured(rawResource)
+	if err != nil {
+		t.Errorf("unable to convert raw resource to unstructured: %v", err)
+	}
+
+	// this rule should match only pods in the user1-restricted namespace, and also pods of User:user1.
+	rule := v1.Rule{
+		MatchResources: v1.MatchResources{Any: v1.ResourceFilters{
+			// pods in user1-restricted namespace
+			v1.ResourceFilter{
+				ResourceDescription: v1.ResourceDescription{
+					Kinds: []string{"Pod"},
+					Namespaces: []string{
+						"user1-restricted",
+					},
+				},
+			},
+			// pods for User user1 account
+			v1.ResourceFilter{
+				ResourceDescription: v1.ResourceDescription{
+					Kinds: []string{"Pod"},
+				},
+				UserInfo: v1.UserInfo{
+					Subjects: []rbacv1.Subject{
+						{
+							Kind: "User",
+							Name: "user1",
+						},
+					},
+				},
+			},
+		}},
+		ExcludeResources: v1.MatchResources{},
+	}
+
+	// the following groups are added by default to ensure that these groups or users are always excluded
+	// these should not affect the rule in our case, we expect our rule to NOT match with the nginx pod.
+
+	dynamicConfig := []string{
+		"system:serviceaccounts:kube-system",
+		"system:nodes",
+		"system:kube-scheduler",
+	}
+
+	// this is the request info that was also passed with the mocked pod
+	requestInfo := v1beta1.RequestInfo{
+		AdmissionUserInfo: authenticationv1.UserInfo{
+			Username: "system:serviceaccount:kube-system:replicaset-controller",
+			UID:      "8f36cad4-eb68-4931-bea8-8a42dd1fee4c",
+			Groups: []string{
+				"system:serviceaccounts",
+				"system:serviceaccounts:kube-system",
+				"system:authenticated",
+			},
+		},
+	}
+
+	// First test: confirm that this above rule produces errors (and raise an error if err == nil)
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule, requestInfo, dynamicConfig, nil, "", ""); err == nil {
+		t.Error("Testcase was expected to fail, but err was nil")
+	}
+
+	// This next rule *should* match, because we explicitly match the ingress-nginx namespace this time.
+	rule2 := v1.Rule{
+		MatchResources: v1.MatchResources{Any: v1.ResourceFilters{
+			v1.ResourceFilter{
+				ResourceDescription: v1.ResourceDescription{
+					Kinds: []string{"Pod"},
+					Namespaces: []string{
+						"ingress-nginx",
+					},
+				},
+			},
+		}},
+		ExcludeResources: v1.MatchResources{Any: v1.ResourceFilters{}},
+	}
+
+	// Second test: confirm that matching this rule does not create any errors (and raise if err != nil)
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule2, requestInfo, dynamicConfig, nil, "", ""); err != nil {
+		t.Errorf("Testcase was expected to not fail, but err was %s", err)
+	}
+
+	// Now we extend the previous rule to have an Exclude part. Making it 'not-empty' should make the exclude-code run.
+	rule2.ExcludeResources = v1.MatchResources{Any: v1.ResourceFilters{
+		v1.ResourceFilter{
+			ResourceDescription: v1.ResourceDescription{
+				Kinds: []string{"Pod"},
+			},
+		},
+	}}
+
+	// Third test: confirm that now the custom exclude-snippet should run in CheckSubjects() and that should result in this rule failing (raise if err == nil for that reason)
+	if err := MatchesResourceDescription(make(map[string]*metav1.APIResource), *resource, rule2, requestInfo, dynamicConfig, nil, "", ""); err == nil {
+		t.Error("Testcase was expected to fail, but err was nil #1!")
 	}
 }
 

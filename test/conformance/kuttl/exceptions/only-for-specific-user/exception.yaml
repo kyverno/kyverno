@@ -4,6 +4,7 @@ metadata:
   name: mynewpolex
   namespace: kyverno
 spec:
+  background: false
   exceptions:
     - policyName: require-labels
       ruleNames:

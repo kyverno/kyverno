@@ -38,7 +38,6 @@ func NewValidationHandler(
 	log logr.Logger,
 	kyvernoClient versioned.Interface,
 	engine engineapi.Engine,
-	contextLoader engineapi.ContextLoaderFactory,
 	pCache policycache.Cache,
 	pcBuilder webhookutils.PolicyContextBuilder,
 	eventGen event.Interface,
@@ -50,7 +49,6 @@ func NewValidationHandler(
 		log:              log,
 		kyvernoClient:    kyvernoClient,
 		engine:           engine,
-		contextLoader:    contextLoader,
 		pCache:           pCache,
 		pcBuilder:        pcBuilder,
 		eventGen:         eventGen,
@@ -64,7 +62,6 @@ type validationHandler struct {
 	log              logr.Logger
 	kyvernoClient    versioned.Interface
 	engine           engineapi.Engine
-	contextLoader    engineapi.ContextLoaderFactory
 	pCache           policycache.Cache
 	pcBuilder        webhookutils.PolicyContextBuilder
 	eventGen         event.Interface
@@ -109,7 +106,7 @@ func (v *validationHandler) HandleValidation(
 					failurePolicy = kyvernov1.Fail
 				}
 
-				engineResponse := v.engine.Validate(ctx, v.contextLoader, policyContext, v.cfg)
+				engineResponse := v.engine.Validate(ctx, policyContext)
 				if engineResponse.IsNil() {
 					// we get an empty response if old and new resources created the same response
 					// allow updates if resource update doesnt change the policy evaluation
@@ -143,7 +140,7 @@ func (v *validationHandler) HandleValidation(
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil
 	}
 
-	go v.handleAudit(ctx, policyContext.NewResource(), request, engineResponses...)
+	go v.handleAudit(ctx, policyContext.NewResource(), request, policyContext.NamespaceLabels(), engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings
@@ -153,6 +150,7 @@ func (v *validationHandler) buildAuditResponses(
 	ctx context.Context,
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
+	namespaceLabels map[string]string,
 ) ([]*engineapi.EngineResponse, error) {
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
@@ -166,8 +164,8 @@ func (v *validationHandler) buildAuditResponses(
 			"pkg/webhooks/resource/validate",
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
-				policyContext := policyContext.WithPolicy(policy)
-				responses = append(responses, v.engine.Validate(ctx, v.contextLoader, policyContext, v.cfg))
+				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
+				responses = append(responses, v.engine.Validate(ctx, policyContext))
 			},
 		)
 	}
@@ -178,6 +176,7 @@ func (v *validationHandler) handleAudit(
 	ctx context.Context,
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
+	namespaceLabels map[string]string,
 	engineResponses ...*engineapi.EngineResponse,
 ) {
 	if !v.admissionReports {
@@ -199,7 +198,7 @@ func (v *validationHandler) handleAudit(
 		"",
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
-			responses, err := v.buildAuditResponses(ctx, resource, request)
+			responses, err := v.buildAuditResponses(ctx, resource, request, namespaceLabels)
 			if err != nil {
 				v.log.Error(err, "failed to build audit responses")
 			}

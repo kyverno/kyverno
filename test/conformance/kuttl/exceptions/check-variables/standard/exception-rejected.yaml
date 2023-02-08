@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: polex-wrong
+spec:
+  background: true
+  exceptions:
+    - policyName: test
+      ruleNames:
+        - test
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pods
+          names: 
+          - "{{ request.userInfo.username }}"
