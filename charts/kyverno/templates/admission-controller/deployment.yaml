@@ -7,9 +7,7 @@ metadata:
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 spec:
-  {{- with .Values.replicaCount }}
-  replicas: {{ . }}
-  {{- end }}
+  replicas: {{ template "kyverno.deployment.replicas" .Values.replicaCount }}
   selector:
     matchLabels:
       {{- include "kyverno.admission-controller.matchLabels" . | nindent 6 }}
@@ -177,7 +175,7 @@ spec:
               name: api-token
       volumes:
       - name: sigstore
-        emptyDir: {}
+        {{- toYaml (required "A valid .Values.sigstoreVolume entry is required" .Values.sigstoreVolume) | nindent 8 }}
       - name: api-token
         projected:
           sources:

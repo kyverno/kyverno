@@ -19,7 +19,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
@@ -38,9 +37,9 @@ type GenerationHandler interface {
 
 func NewGenerationHandler(
 	log logr.Logger,
+	engine engineapi.Engine,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
 	nsLister corev1listers.NamespaceLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	urGenerator webhookgenerate.Generator,
@@ -50,9 +49,9 @@ func NewGenerationHandler(
 ) GenerationHandler {
 	return &generationHandler{
 		log:           log,
+		engine:        engine,
 		client:        client,
 		kyvernoClient: kyvernoClient,
-		rclient:       rclient,
 		nsLister:      nsLister,
 		urLister:      urLister,
 		urGenerator:   urGenerator,
@@ -64,9 +63,9 @@ func NewGenerationHandler(
 
 type generationHandler struct {
 	log           logr.Logger
+	engine        engineapi.Engine
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	rclient       registryclient.Client
 	nsLister      corev1listers.NamespaceLister
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
 	urGenerator   webhookgenerate.Generator
@@ -93,7 +92,7 @@ func (h *generationHandler) Handle(
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 				policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 			}
-			engineResponse := engine.ApplyBackgroundChecks(h.rclient, policyContext)
+			engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if rule.Status != engineapi.RuleStatusPass {
 					h.deleteGR(ctx, engineResponse)
