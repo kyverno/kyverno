@@ -91,7 +91,7 @@ func (e *engine) mutate(
 					logger.Error(err, "failed to query resource object")
 				}
 
-				if err := internal.LoadContext(ctx, e.contextLoader, rule.Context, policyContext, rule.Name); err != nil {
+				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
 					if _, ok := err.(gojmespath.NotFoundError); ok {
 						logger.V(3).Info("failed to load context", "reason", err.Error())
 					} else {
@@ -144,7 +144,7 @@ func (e *engine) mutate(
 							policyContext: policyContext,
 							resource:      patchedResource,
 							log:           logger,
-							contextLoader: e.contextLoader,
+							contextLoader: e.ContextLoader(policyContext.Policy(), *ruleCopy),
 							nesting:       0,
 						}
 
@@ -198,7 +198,7 @@ type forEachMutator struct {
 	foreach       []kyvernov1.ForEachMutation
 	resource      resourceInfo
 	nesting       int
-	contextLoader engineapi.ContextLoaderFactory
+	contextLoader engineapi.EngineContextLoader
 	log           logr.Logger
 }
 
@@ -207,7 +207,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 	allPatches := make([][]byte, 0)
 
 	for _, foreach := range f.foreach {
-		if err := internal.LoadContext(ctx, f.contextLoader, f.rule.Context, f.policyContext, f.rule.Name); err != nil {
+		if err := f.contextLoader(ctx, f.rule.Context, f.policyContext.JSONContext()); err != nil {
 			f.log.Error(err, "failed to load context")
 			return mutate.NewErrorResponse("failed to load context", err)
 		}
@@ -272,7 +272,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to add element to mutate.foreach[%d].context", index), err)
 		}
 
-		if err := internal.LoadContext(ctx, f.contextLoader, foreach.Context, policyContext, f.rule.Name); err != nil {
+		if err := f.contextLoader(ctx, foreach.Context, policyContext.JSONContext()); err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", index), err)
 		}
 

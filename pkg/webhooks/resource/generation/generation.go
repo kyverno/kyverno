@@ -92,7 +92,7 @@ func (h *generationHandler) Handle(
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 				policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 			}
-			engineResponse := h.engine.ApplyBackgroundChecks(policyContext)
+			engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if rule.Status != engineapi.RuleStatusPass {
 					h.deleteGR(ctx, engineResponse)
