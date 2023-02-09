@@ -12,8 +12,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	"github.com/kyverno/kyverno/pkg/engine"
-
-	// "github.com/kyverno/kyverno/pkg/logging"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
