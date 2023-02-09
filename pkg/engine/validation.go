@@ -50,7 +50,7 @@ func (e *engine) validateResource(
 ) *engineapi.PolicyResponse {
 	resp := &engineapi.PolicyResponse{}
 
-	if !internal.MatchPolicyContext(logger, policyContext) {
+	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		return resp
 	}
 

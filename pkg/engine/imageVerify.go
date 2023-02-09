@@ -36,7 +36,7 @@ func (e *engine) verifyAndPatchImages(
 			"applied", resp.PolicyResponse.RulesAppliedCount, "successful", resp.IsSuccessful())
 	}()
 
-	if !internal.MatchPolicyContext(logger, policyContext) {
+	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		return resp, ivm
 	}
 

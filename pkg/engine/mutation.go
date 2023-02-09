@@ -30,7 +30,7 @@ func (e *engine) mutate(
 	resp = &engineapi.EngineResponse{
 		Policy: policy,
 	}
-	if !internal.MatchPolicyContext(logger, policyContext) {
+	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		return resp
 	}
 

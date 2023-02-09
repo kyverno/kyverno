@@ -2,31 +2,48 @@ package internal
 
 import (
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func MatchPolicyContext(logger logr.Logger, policyContext engineapi.PolicyContext) bool {
-	match := matchPolicyContext(policyContext)
-	if !match {
-		logger.V(2).Info("policy context does not match")
+func MatchPolicyContext(logger logr.Logger, policyContext engineapi.PolicyContext, configuration config.Configuration) bool {
+	policy := policyContext.Policy()
+	old := policyContext.OldResource()
+	new := policyContext.NewResource()
+	if !checkNamespacedPolicy(policy, new, old) {
+		logger.V(2).Info("policy namespace doesn't match resource namespace")
+		return false
 	}
-	return match
+	if !checkResourceFilters(configuration, new, old) {
+		logger.V(2).Info("configuration resource filters doesn't match resource")
+		return false
+	}
+	return false
 }
 
-func matchPolicyContext(policyContext engineapi.PolicyContext) bool {
-	policy := policyContext.Policy()
-	if policy.IsNamespaced() {
-		policyNamespace := policy.GetNamespace()
-		if resource := policyContext.NewResource(); resource.Object != nil {
-			resourceNamespace := resource.GetNamespace()
-			if resourceNamespace != policyNamespace || resourceNamespace == "" {
+func checkResourceFilters(configuration config.Configuration, resources ...unstructured.Unstructured) bool {
+	for _, resource := range resources {
+		if resource.Object != nil {
+			// TODO: account for generate name here ?
+			if configuration.ToFilter(resource.GetKind(), resource.GetNamespace(), resource.GetName()) {
 				return false
 			}
 		}
-		if resource := policyContext.OldResource(); resource.Object != nil {
-			resourceNamespace := resource.GetNamespace()
-			if resourceNamespace != policyNamespace || resourceNamespace == "" {
-				return false
+	}
+	return true
+}
+
+func checkNamespacedPolicy(policy kyvernov1.PolicyInterface, resources ...unstructured.Unstructured) bool {
+	if policy.IsNamespaced() {
+		policyNamespace := policy.GetNamespace()
+		for _, resource := range resources {
+			if resource.Object != nil {
+				resourceNamespace := resource.GetNamespace()
+				if resourceNamespace != policyNamespace || resourceNamespace == "" {
+					return false
+				}
 			}
 		}
 	}

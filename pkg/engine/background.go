@@ -57,12 +57,7 @@ func (e *engine) filterRules(
 		},
 	}
 
-	if !internal.MatchPolicyContext(logger, policyContext) {
-		return resp
-	}
-
-	if e.configuration.ToFilter(kind, namespace, name) {
-		logger.Info("resource excluded")
+	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		return resp
 	}
 

@@ -56,8 +56,7 @@ func (e *engine) filterGenerateRules(
 			},
 		},
 	}
-	if e.configuration.ToFilter(kind, namespace, name) {
-		logger.Info("resource excluded")
+	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		return resp
 	}
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
