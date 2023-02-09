@@ -322,7 +322,7 @@ func main() {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
-	openApiManager, err := openapi.NewManager()
+	openApiManager, err := openapi.NewManager(logger.WithName("openapi"))
 	if err != nil {
 		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)

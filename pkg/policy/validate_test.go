@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"gotest.tools/assert"
@@ -346,7 +347,7 @@ func Test_Validate_Policy(t *testing.T) {
 		}
 	 }`)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
@@ -497,7 +498,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
@@ -899,7 +900,7 @@ func Test_Validate_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
@@ -948,7 +949,7 @@ func Test_Validate_Any_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
@@ -1038,7 +1039,7 @@ func Test_Wildcards_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
@@ -1088,7 +1089,7 @@ func Test_Namespced_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
@@ -1266,7 +1267,7 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
@@ -1314,7 +1315,7 @@ func Test_deny_exec(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
@@ -1462,7 +1463,7 @@ func Test_SignatureAlgorithm(t *testing.T) {
 		err := json.Unmarshal(testcase.policy, &policy)
 		assert.NilError(t, err)
 
-		openApiManager, _ := openapi.NewManager()
+		openApiManager, _ := openapi.NewManager(logr.Discard())
 		_, err = Validate(policy, nil, true, openApiManager)
 		if testcase.expectedOutput {
 			assert.NilError(t, err)
@@ -1512,7 +1513,7 @@ func Test_existing_resource_policy(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
@@ -1568,7 +1569,7 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	res, err := Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
 	assert.Assert(t, res == nil)
@@ -1625,7 +1626,7 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	warnings, err := Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, warnings != nil)
 	assert.NilError(t, err)
@@ -1682,7 +1683,7 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	warnings, err := Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, warnings == nil)
 	assert.NilError(t, err)
@@ -2236,7 +2237,7 @@ func Test_Any_wildcard_policy(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
@@ -2294,7 +2295,7 @@ func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
 
 	expectedErr := fmt.Errorf("path: spec.rules[0]: jmespath may not be used in an image extractor when mutating digests with verify images")
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	_, actualErr := Validate(policy, nil, true, openApiManager)
 	assert.Equal(t, expectedErr.Error(), actualErr.Error())
 }
