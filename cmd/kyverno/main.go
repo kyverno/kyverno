@@ -135,24 +135,11 @@ func createNonLeaderControllers(
 		configuration,
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 	)
-	updateRequestController := background.NewController(
-		kyvernoClient,
-		dynamicClient,
-		rclient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		kubeInformer.Core().V1().Namespaces(),
-		kubeKyvernoInformer.Core().V1().Pods(),
-		eventGenerator,
-		configuration,
-		informerCacheResolvers,
-	)
+
 	return []internal.Controller{
 			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
 			internal.NewController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
 			internal.NewController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
-			internal.NewController("update-request-controller", updateRequestController, genWorkers),
 		},
 		func() error {
 			return policyCacheController.WarmUp()
@@ -264,6 +251,7 @@ func createrLeaderControllers(
 	admissionReports bool,
 	reportsChunkSize int,
 	backgroundScanWorkers int,
+	genWorkers int,
 	serverIP string,
 	webhookTimeout int,
 	autoUpdateWebhooks bool,
@@ -367,12 +355,26 @@ func createrLeaderControllers(
 		enablePolicyException,
 		exceptionNamespace,
 	)
+	backgroundController := background.NewController(
+		kyvernoClient,
+		dynamicClient,
+		rclient,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kubeInformer.Core().V1().Namespaces(),
+		eventGenerator,
+		configuration,
+		configMapResolver,
+	)
+
 	return append(
 			[]internal.Controller{
 				internal.NewController("policy-controller", policyCtrl, 2),
 				internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
 				internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
 				internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1),
+				internal.NewController("background-controller", backgroundController, genWorkers),
 			},
 			reportControllers...,
 		),
@@ -589,6 +591,7 @@ func main() {
 				admissionReports,
 				reportsChunkSize,
 				backgroundScanWorkers,
+				genWorkers,
 				serverIP,
 				webhookTimeout,
 				autoUpdateWebhooks,
