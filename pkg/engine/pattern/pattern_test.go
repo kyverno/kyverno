@@ -6,149 +6,146 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"
 )
 
-var logger = logging.GlobalLogger()
-
 func TestValidateValueWithFloatPattern_FloatValue(t *testing.T) {
-	assert.Assert(t, validateFloatPattern(logger, 7.9914, 7.9914))
+	assert.Assert(t, validateFloatPattern(logr.Discard(), 7.9914, 7.9914))
 }
 
 func TestValidateValueWithFloatPattern_FloatValueNotPass(t *testing.T) {
-	assert.Assert(t, !validateFloatPattern(logger, 7.9914, 7.99141))
+	assert.Assert(t, !validateFloatPattern(logr.Discard(), 7.9914, 7.99141))
 }
 
 func TestValidateValueWithFloatPattern_FloatPatternWithoutFractionIntValue(t *testing.T) {
-	assert.Assert(t, validateFloatPattern(logger, 7, 7.000000))
+	assert.Assert(t, validateFloatPattern(logr.Discard(), 7, 7.000000))
 }
 
 func TestValidateValueWithFloatPattern_FloatPatternWithoutFraction(t *testing.T) {
-	assert.Assert(t, validateFloatPattern(logger, 7.000000, 7.000000))
+	assert.Assert(t, validateFloatPattern(logr.Discard(), 7.000000, 7.000000))
 }
 
 func TestValidateValueWithIntPattern_FloatValueWithoutFraction(t *testing.T) {
-	assert.Assert(t, validateFloatPattern(logger, 7.000000, 7))
+	assert.Assert(t, validateFloatPattern(logr.Discard(), 7.000000, 7))
 }
 
 func TestValidateValueWithIntPattern_FloatValueWitFraction(t *testing.T) {
-	assert.Assert(t, !validateFloatPattern(logger, 7.000001, 7))
+	assert.Assert(t, !validateFloatPattern(logr.Discard(), 7.000001, 7))
 }
 
 func TestValidateValueWithIntPattern_NotPass(t *testing.T) {
-	assert.Assert(t, !validateFloatPattern(logger, 8, 7))
+	assert.Assert(t, !validateFloatPattern(logr.Discard(), 8, 7))
 }
 
 func TestValidateValueWithStringPattern_WithSpace(t *testing.T) {
-	assert.Assert(t, validateStringPattern(logger, 4, ">= 3"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 4, ">= 3"))
 }
 
 func TestValidateValueWithStringPattern_Ranges(t *testing.T) {
-	assert.Assert(t, validateStringPattern(logger, 0, "0-2"))
-	assert.Assert(t, validateStringPattern(logger, 1, "0-2"))
-	assert.Assert(t, validateStringPattern(logger, 2, "0-2"))
-	assert.Assert(t, !validateStringPattern(logger, 3, "0-2"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 0, "0-2"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 1, "0-2"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 2, "0-2"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), 3, "0-2"))
 
-	assert.Assert(t, validateStringPattern(logger, 0, "10!-20"))
-	assert.Assert(t, !validateStringPattern(logger, 15, "10!-20"))
-	assert.Assert(t, validateStringPattern(logger, 25, "10!-20"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 0, "10!-20"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), 15, "10!-20"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 25, "10!-20"))
 
-	assert.Assert(t, !validateStringPattern(logger, 0, "0.00001-2.00001"))
-	assert.Assert(t, validateStringPattern(logger, 1, "0.00001-2.00001"))
-	assert.Assert(t, validateStringPattern(logger, 2, "0.00001-2.00001"))
-	assert.Assert(t, !validateStringPattern(logger, 2.0001, "0.00001-2.00001"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), 0, "0.00001-2.00001"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 1, "0.00001-2.00001"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 2, "0.00001-2.00001"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), 2.0001, "0.00001-2.00001"))
 
-	assert.Assert(t, validateStringPattern(logger, 0, "0.00001!-2.00001"))
-	assert.Assert(t, !validateStringPattern(logger, 1, "0.00001!-2.00001"))
-	assert.Assert(t, !validateStringPattern(logger, 2, "0.00001!-2.00001"))
-	assert.Assert(t, validateStringPattern(logger, 2.0001, "0.00001!-2.00001"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 0, "0.00001!-2.00001"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), 1, "0.00001!-2.00001"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), 2, "0.00001!-2.00001"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 2.0001, "0.00001!-2.00001"))
 
-	assert.Assert(t, validateStringPattern(logger, 2, "2-2"))
-	assert.Assert(t, !validateStringPattern(logger, 2, "2!-2"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 2, "2-2"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), 2, "2!-2"))
 
-	assert.Assert(t, validateStringPattern(logger, 2.99999, "2.99998-3"))
-	assert.Assert(t, validateStringPattern(logger, 2.99997, "2.99998!-3"))
-	assert.Assert(t, validateStringPattern(logger, 3.00001, "2.99998!-3"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 2.99999, "2.99998-3"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 2.99997, "2.99998!-3"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 3.00001, "2.99998!-3"))
 
-	assert.Assert(t, validateStringPattern(logger, "256Mi", "128Mi-512Mi"))
-	assert.Assert(t, !validateStringPattern(logger, "1024Mi", "128Mi-512Mi"))
-	assert.Assert(t, !validateStringPattern(logger, "64Mi", "128Mi-512Mi"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), "256Mi", "128Mi-512Mi"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), "1024Mi", "128Mi-512Mi"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), "64Mi", "128Mi-512Mi"))
 
-	assert.Assert(t, !validateStringPattern(logger, "256Mi", "128Mi!-512Mi"))
-	assert.Assert(t, validateStringPattern(logger, "1024Mi", "128Mi!-512Mi"))
-	assert.Assert(t, validateStringPattern(logger, "64Mi", "128Mi!-512Mi"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), "256Mi", "128Mi!-512Mi"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), "1024Mi", "128Mi!-512Mi"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), "64Mi", "128Mi!-512Mi"))
 
-	assert.Assert(t, validateStringPattern(logger, -9, "-10-8"))
-	assert.Assert(t, !validateStringPattern(logger, 9, "-10--8"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), -9, "-10-8"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), 9, "-10--8"))
 
-	assert.Assert(t, validateStringPattern(logger, 9, "-10!--8"))
-	assert.Assert(t, validateStringPattern(logger, "9Mi", "-10Mi!--8Mi"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 9, "-10!--8"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), "9Mi", "-10Mi!--8Mi"))
 
-	assert.Assert(t, !validateStringPattern(logger, -9, "-10!--8"))
+	assert.Assert(t, !validateStringPattern(logr.Discard(), -9, "-10!--8"))
 
-	assert.Assert(t, validateStringPattern(logger, "-9Mi", "-10Mi-8Mi"))
-	assert.Assert(t, validateStringPattern(logger, "9Mi", "-10Mi!-8Mi"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), "-9Mi", "-10Mi-8Mi"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), "9Mi", "-10Mi!-8Mi"))
 
-	assert.Assert(t, validateStringPattern(logger, 0, "-10-+8"))
-	assert.Assert(t, validateStringPattern(logger, "7Mi", "-10Mi-+8Mi"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 0, "-10-+8"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), "7Mi", "-10Mi-+8Mi"))
 
-	assert.Assert(t, validateStringPattern(logger, 10, "-10!-+8"))
-	assert.Assert(t, validateStringPattern(logger, "10Mi", "-10Mi!-+8Mi"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 10, "-10!-+8"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), "10Mi", "-10Mi!-+8Mi"))
 
-	assert.Assert(t, validateStringPattern(logger, 0, "+0-+1"))
-	assert.Assert(t, validateStringPattern(logger, "10Mi", "+0Mi-+1024Mi"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 0, "+0-+1"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), "10Mi", "+0Mi-+1024Mi"))
 
-	assert.Assert(t, validateStringPattern(logger, 10, "+0!-+1"))
-	assert.Assert(t, validateStringPattern(logger, "1025Mi", "+0Mi!-+1024Mi"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), 10, "+0!-+1"))
+	assert.Assert(t, validateStringPattern(logr.Discard(), "1025Mi", "+0Mi!-+1024Mi"))
 
 }
 
 func TestValidateNumberWithStr_LessFloatAndInt(t *testing.T) {
-	assert.Assert(t, validateString(logger, 7.00001, "7.000001", operator.More))
-	assert.Assert(t, validateString(logger, 7.00001, "7", operator.NotEqual))
+	assert.Assert(t, validateString(logr.Discard(), 7.00001, "7.000001", operator.More))
+	assert.Assert(t, validateString(logr.Discard(), 7.00001, "7", operator.NotEqual))
 
-	assert.Assert(t, validateString(logger, 7.0000, "7", operator.Equal))
-	assert.Assert(t, !validateString(logger, 6.000000001, "6", operator.Less))
+	assert.Assert(t, validateString(logr.Discard(), 7.0000, "7", operator.Equal))
+	assert.Assert(t, !validateString(logr.Discard(), 6.000000001, "6", operator.Less))
 }
 
 func TestValidateQuantity_InvalidQuantity(t *testing.T) {
-	assert.Assert(t, !validateString(logger, "1024Gi", "", operator.Equal))
-	assert.Assert(t, !validateString(logger, "gii", "1024Gi", operator.Equal))
+	assert.Assert(t, !validateString(logr.Discard(), "1024Gi", "", operator.Equal))
+	assert.Assert(t, !validateString(logr.Discard(), "gii", "1024Gi", operator.Equal))
 }
 
 func TestValidateDuration(t *testing.T) {
-	assert.Assert(t, validateString(logger, "12s", "12s", operator.Equal))
-	assert.Assert(t, validateString(logger, "12s", "15s", operator.NotEqual))
-	assert.Assert(t, validateString(logger, "12s", "15s", operator.Less))
-	assert.Assert(t, validateString(logger, "12s", "15s", operator.LessEqual))
-	assert.Assert(t, validateString(logger, "12s", "12s", operator.LessEqual))
-	assert.Assert(t, !validateString(logger, "15s", "12s", operator.Less))
-	assert.Assert(t, !validateString(logger, "15s", "12s", operator.LessEqual))
-	assert.Assert(t, validateString(logger, "15s", "12s", operator.More))
-	assert.Assert(t, validateString(logger, "15s", "12s", operator.MoreEqual))
-	assert.Assert(t, validateString(logger, "12s", "12s", operator.MoreEqual))
-	assert.Assert(t, !validateString(logger, "12s", "15s", operator.More))
-	assert.Assert(t, !validateString(logger, "12s", "15s", operator.MoreEqual))
+	assert.Assert(t, validateString(logr.Discard(), "12s", "12s", operator.Equal))
+	assert.Assert(t, validateString(logr.Discard(), "12s", "15s", operator.NotEqual))
+	assert.Assert(t, validateString(logr.Discard(), "12s", "15s", operator.Less))
+	assert.Assert(t, validateString(logr.Discard(), "12s", "15s", operator.LessEqual))
+	assert.Assert(t, validateString(logr.Discard(), "12s", "12s", operator.LessEqual))
+	assert.Assert(t, !validateString(logr.Discard(), "15s", "12s", operator.Less))
+	assert.Assert(t, !validateString(logr.Discard(), "15s", "12s", operator.LessEqual))
+	assert.Assert(t, validateString(logr.Discard(), "15s", "12s", operator.More))
+	assert.Assert(t, validateString(logr.Discard(), "15s", "12s", operator.MoreEqual))
+	assert.Assert(t, validateString(logr.Discard(), "12s", "12s", operator.MoreEqual))
+	assert.Assert(t, !validateString(logr.Discard(), "12s", "15s", operator.More))
+	assert.Assert(t, !validateString(logr.Discard(), "12s", "15s", operator.MoreEqual))
 }
 
 func TestValidateQuantity_Equal(t *testing.T) {
-	assert.Assert(t, validateString(logger, "1024Gi", "1024Gi", operator.Equal))
-	assert.Assert(t, validateString(logger, "1024Mi", "1Gi", operator.Equal))
-	assert.Assert(t, validateString(logger, "0.2", "200m", operator.Equal))
-	assert.Assert(t, validateString(logger, "500", "500", operator.Equal))
-	assert.Assert(t, !validateString(logger, "2048", "1024", operator.Equal))
-	assert.Assert(t, validateString(logger, 1024, "1024", operator.Equal))
+	assert.Assert(t, validateString(logr.Discard(), "1024Gi", "1024Gi", operator.Equal))
+	assert.Assert(t, validateString(logr.Discard(), "1024Mi", "1Gi", operator.Equal))
+	assert.Assert(t, validateString(logr.Discard(), "0.2", "200m", operator.Equal))
+	assert.Assert(t, validateString(logr.Discard(), "500", "500", operator.Equal))
+	assert.Assert(t, !validateString(logr.Discard(), "2048", "1024", operator.Equal))
+	assert.Assert(t, validateString(logr.Discard(), 1024, "1024", operator.Equal))
 }
 
 func TestValidateQuantity_Operation(t *testing.T) {
-	assert.Assert(t, validateString(logger, "1Gi", "1000Mi", operator.More))
-	assert.Assert(t, validateString(logger, "1G", "1Gi", operator.Less))
-	assert.Assert(t, validateString(logger, "500m", "0.5", operator.MoreEqual))
-	assert.Assert(t, validateString(logger, "1", "500m", operator.MoreEqual))
-	assert.Assert(t, validateString(logger, "0.5", ".5", operator.LessEqual))
-	assert.Assert(t, validateString(logger, "0.2", ".5", operator.LessEqual))
-	assert.Assert(t, validateString(logger, "0.2", ".5", operator.NotEqual))
+	assert.Assert(t, validateString(logr.Discard(), "1Gi", "1000Mi", operator.More))
+	assert.Assert(t, validateString(logr.Discard(), "1G", "1Gi", operator.Less))
+	assert.Assert(t, validateString(logr.Discard(), "500m", "0.5", operator.MoreEqual))
+	assert.Assert(t, validateString(logr.Discard(), "1", "500m", operator.MoreEqual))
+	assert.Assert(t, validateString(logr.Discard(), "0.5", ".5", operator.LessEqual))
+	assert.Assert(t, validateString(logr.Discard(), "0.2", ".5", operator.LessEqual))
+	assert.Assert(t, validateString(logr.Discard(), "0.2", ".5", operator.NotEqual))
 }
 
 func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {
