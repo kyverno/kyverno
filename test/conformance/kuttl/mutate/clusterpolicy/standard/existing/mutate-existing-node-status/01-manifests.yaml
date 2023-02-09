@@ -25,9 +25,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app: kyverno
+    app.kubernetes.io/component: admission-controller
     app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:modify-nodes
 rules:
   - apiGroups:

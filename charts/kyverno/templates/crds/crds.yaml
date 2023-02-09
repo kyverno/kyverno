@@ -9,7 +9,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: admissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -354,7 +354,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: backgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -659,7 +659,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -1707,7 +1707,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: clusteradmissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2053,7 +2053,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: clusterbackgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2358,7 +2358,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3406,7 +3406,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3432,9 +3432,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -10114,9 +10114,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -16526,7 +16526,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -16552,9 +16552,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -23236,9 +23236,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -29649,7 +29649,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -30136,7 +30136,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -30527,7 +30527,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -30894,7 +30894,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
