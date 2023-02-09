@@ -203,6 +203,7 @@ func main() {
 		backgroundScanWorkers     int
 		backgroundScanInterval    time.Duration
 		maxQueuedEvents           int
+		eventsApplied             bool
 		enablePolicyException     bool
 		exceptionNamespace        string
 	)
@@ -217,6 +218,7 @@ func main() {
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.BoolVar(&eventsApplied, "eventsApplied", true, "Set this flag to 'false' to disable policy applied events")
 	flagset.StringVar(&exceptionNamespace, "exceptionNamespace", "", "Configure the namespace to accept PolicyExceptions.")
 	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
 	// config
@@ -293,6 +295,7 @@ func main() {
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
+		eventsApplied,
 		logging.WithName("EventGenerator"),
 	)
 	var exceptionsLister engineapi.PolicyExceptionSelector

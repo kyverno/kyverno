@@ -216,6 +216,7 @@ func main() {
 		webhookTimeout             int
 		genWorkers                 int
 		maxQueuedEvents            int
+		eventsApplied              bool
 		autoUpdateWebhooks         bool
 		imagePullSecrets           string
 		imageSignatureRepository   string
@@ -233,6 +234,7 @@ func main() {
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flagset.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.BoolVar(&eventsApplied, "eventsApplied", true, "Set this flag to 'false' to disable policy applied events")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
@@ -341,6 +343,7 @@ func main() {
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
+		eventsApplied,
 		logging.WithName("EventGenerator"),
 	)
 	// this controller only subscribe to events, nothing is returned...

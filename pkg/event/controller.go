@@ -43,6 +43,8 @@ type generator struct {
 
 	maxQueuedEvents int
 
+	eventsApplied bool
+
 	log logr.Logger
 }
 
@@ -64,6 +66,7 @@ func NewEventGenerator(
 	cpInformer kyvernov1informers.ClusterPolicyInformer,
 	pInformer kyvernov1informers.PolicyInformer,
 	maxQueuedEvents int,
+	eventsApplied bool,
 	log logr.Logger,
 ) Controller {
 	gen := generator{
@@ -76,6 +79,7 @@ func NewEventGenerator(
 		genPolicyRecorder:      NewRecorder(GeneratePolicyController, client.GetEventsInterface()),
 		mutateExistingRecorder: NewRecorder(MutateExistingController, client.GetEventsInterface()),
 		maxQueuedEvents:        maxQueuedEvents,
+		eventsApplied:          eventsApplied,
 		log:                    log,
 	}
 	return &gen
@@ -96,6 +100,10 @@ func (gen *generator) Add(infos ...Info) {
 			// dont create event for resources with generateName
 			// as the name is not generated yet
 			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
+			continue
+		}
+		if !gen.eventsApplied && info.Reason == PolicyApplied {
+			logger.V(3).Info("skipping policy event applied event creation", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
 		gen.queue.Add(info)
