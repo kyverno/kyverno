@@ -58,7 +58,7 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
-					PolicyResponse: engineapi.PolicyResponse{
+					PolicyResponse: &engineapi.PolicyResponse{
 						ValidationFailureAction: "Enforce",
 						Rules: []engineapi.RuleResponse{
 							{
@@ -79,7 +79,7 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
-					PolicyResponse: engineapi.PolicyResponse{
+					PolicyResponse: &engineapi.PolicyResponse{
 						ValidationFailureAction: "Audit",
 						Rules: []engineapi.RuleResponse{
 							{
@@ -100,7 +100,7 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
-					PolicyResponse: engineapi.PolicyResponse{
+					PolicyResponse: &engineapi.PolicyResponse{
 						ValidationFailureAction: "Audit",
 						Rules: []engineapi.RuleResponse{
 							{
@@ -121,7 +121,7 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
-					PolicyResponse: engineapi.PolicyResponse{
+					PolicyResponse: &engineapi.PolicyResponse{
 						ValidationFailureAction: "Audit",
 						Rules: []engineapi.RuleResponse{
 							{
@@ -142,7 +142,7 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
-					PolicyResponse: engineapi.PolicyResponse{
+					PolicyResponse: &engineapi.PolicyResponse{
 						ValidationFailureAction: "Audit",
 						Rules: []engineapi.RuleResponse{
 							{
@@ -163,7 +163,7 @@ func TestBlockRequest(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
-					PolicyResponse: engineapi.PolicyResponse{
+					PolicyResponse: &engineapi.PolicyResponse{
 						ValidationFailureAction: "Audit",
 						Rules: []engineapi.RuleResponse{
 							{
@@ -201,7 +201,7 @@ func TestGetBlockedMessages(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
-					PolicyResponse: engineapi.PolicyResponse{
+					PolicyResponse: &engineapi.PolicyResponse{
 						Policy: engineapi.PolicySpec{
 							Name: "test",
 						},
@@ -228,7 +228,7 @@ func TestGetBlockedMessages(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
-					PolicyResponse: engineapi.PolicyResponse{
+					PolicyResponse: &engineapi.PolicyResponse{
 						Policy: engineapi.PolicySpec{
 							Name: "test",
 						},
@@ -255,7 +255,7 @@ func TestGetBlockedMessages(t *testing.T) {
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
 				{
-					PolicyResponse: engineapi.PolicyResponse{
+					PolicyResponse: &engineapi.PolicyResponse{
 						Policy: engineapi.PolicySpec{
 							Name: "test",
 						},

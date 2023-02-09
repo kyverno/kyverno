@@ -156,7 +156,7 @@ func (e *engine) mutate(
 					matchedResource = mutateResp.PatchedResource
 
 					if ruleResponse := buildRuleResponse(ruleCopy, mutateResp, patchedResource); ruleResponse != nil {
-						internal.AddRuleResponse(&resp.PolicyResponse, ruleResponse, startTime)
+						internal.AddRuleResponse(resp.PolicyResponse, ruleResponse, startTime)
 					}
 				}
 			},

@@ -36,7 +36,7 @@ func (e *engine) filterGenerateRules(
 		logging.Error(err, "failed to spilt name and namespace", policyNameKey)
 	}
 	resp := &engineapi.EngineResponse{
-		PolicyResponse: engineapi.PolicyResponse{
+		PolicyResponse: &engineapi.PolicyResponse{
 			Policy: engineapi.PolicySpec{
 				Name:      pName,
 				Namespace: pNamespace,

@@ -119,7 +119,7 @@ func annotationFromEngineResponses(engineResponses []*engineapi.EngineResponse, 
 	return result
 }
 
-func annotationFromPolicyResponse(policyResponse engineapi.PolicyResponse, log logr.Logger) []RulePatch {
+func annotationFromPolicyResponse(policyResponse *engineapi.PolicyResponse, log logr.Logger) []RulePatch {
 	var RulePatches []RulePatch
 	for _, ruleInfo := range policyResponse.Rules {
 		for _, patch := range ruleInfo.Patches {

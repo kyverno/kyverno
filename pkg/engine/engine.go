@@ -40,7 +40,13 @@ func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
-	return e.validate(ctx, policyContext)
+	return &engineapi.EngineResponse{
+		// TODO
+		// PatchedResource unstructured.Unstructured
+		Policy:          policyContext.Policy(),
+		NamespaceLabels: policyContext.NamespaceLabels(),
+		PolicyResponse:  e.validate(ctx, policyContext),
+	}
 }
 
 func (e *engine) Mutate(

@@ -34,7 +34,7 @@ func TestGetWarningMessages(t *testing.T) {
 						Name: "test",
 					},
 				},
-				PolicyResponse: engineapi.PolicyResponse{
+				PolicyResponse: &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule",
@@ -57,7 +57,7 @@ func TestGetWarningMessages(t *testing.T) {
 						Name: "test",
 					},
 				},
-				PolicyResponse: engineapi.PolicyResponse{
+				PolicyResponse: &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule-pass",

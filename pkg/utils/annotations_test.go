@@ -28,6 +28,7 @@ func newPolicyResponse(policy, rule string, patchesStr []string, status engineap
 }
 
 func newEngineResponse(policy, rule string, patchesStr []string, status engineapi.RuleStatus, annotation map[string]interface{}) *engineapi.EngineResponse {
+	pr := newPolicyResponse(policy, rule, patchesStr, status)
 	return &engineapi.EngineResponse{
 		PatchedResource: unstructured.Unstructured{
 			Object: map[string]interface{}{
@@ -36,7 +37,7 @@ func newEngineResponse(policy, rule string, patchesStr []string, status engineap
 				},
 			},
 		},
-		PolicyResponse: newPolicyResponse(policy, rule, patchesStr, status),
+		PolicyResponse: &pr,
 	}
 }
 

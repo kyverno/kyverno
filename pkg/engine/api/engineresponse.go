@@ -16,7 +16,7 @@ type EngineResponse struct {
 	// Policy is the original policy
 	Policy kyvernov1.PolicyInterface
 	// PolicyResponse contains the engine policy response
-	PolicyResponse PolicyResponse
+	PolicyResponse *PolicyResponse
 	// NamespaceLabels given by policy context
 	NamespaceLabels map[string]string
 }

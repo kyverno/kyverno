@@ -77,7 +77,7 @@ func (e *engine) verifyAndPatchImages(
 				ruleImages, imageRefs, err := e.extractMatchingImages(policyContext, rule)
 				if err != nil {
 					internal.AddRuleResponse(
-						&resp.PolicyResponse,
+						resp.PolicyResponse,
 						internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err),
 						startTime,
 					)
@@ -85,7 +85,7 @@ func (e *engine) verifyAndPatchImages(
 				}
 				if len(ruleImages) == 0 {
 					internal.AddRuleResponse(
-						&resp.PolicyResponse,
+						resp.PolicyResponse,
 						internal.RuleSkip(
 							rule,
 							engineapi.ImageVerify,
@@ -98,7 +98,7 @@ func (e *engine) verifyAndPatchImages(
 				policyContext.JSONContext().Restore()
 				if err := internal.LoadContext(ctx, e, policyContext, *rule); err != nil {
 					internal.AddRuleResponse(
-						&resp.PolicyResponse,
+						resp.PolicyResponse,
 						internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
 						startTime,
 					)
@@ -107,7 +107,7 @@ func (e *engine) verifyAndPatchImages(
 				ruleCopy, err := substituteVariables(rule, policyContext.JSONContext(), logger)
 				if err != nil {
 					internal.AddRuleResponse(
-						&resp.PolicyResponse,
+						resp.PolicyResponse,
 						internal.RuleError(rule, engineapi.ImageVerify, "failed to substitute variables", err),
 						startTime,
 					)
@@ -122,7 +122,7 @@ func (e *engine) verifyAndPatchImages(
 				)
 				for _, imageVerify := range ruleCopy.VerifyImages {
 					for _, r := range iv.Verify(ctx, imageVerify, ruleImages, e.configuration) {
-						internal.AddRuleResponse(&resp.PolicyResponse, r, startTime)
+						internal.AddRuleResponse(resp.PolicyResponse, r, startTime)
 					}
 				}
 			},
