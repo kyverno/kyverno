@@ -32,10 +32,10 @@ import (
 
 func (e *engine) validate(
 	ctx context.Context,
+	logger logr.Logger,
 	enginectx engineapi.PolicyContext,
 ) *engineapi.PolicyResponse {
 	startTime := time.Now()
-	logger := internal.BuildLogger(enginectx)
 	resp := &engineapi.PolicyResponse{}
 	logger.V(4).Info("start validate policy processing", "startTime", startTime)
 	defer logger.V(4).Info("finished policy processing", "processingTime", resp.ProcessingTime.String(), "validationRulesApplied", resp.RulesAppliedCount)
@@ -61,7 +61,8 @@ func (e *engine) validate(
 
 	for i := range rules {
 		rule := &rules[i]
-		logger.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
+		logger := internal.LoggerWithRule(logger, rules[i])
+		logger.V(3).Info("processing validation rule", "matchCount", matchCount)
 		enginectx.JSONContext().Reset()
 		startTime := time.Now()
 		ruleResp := tracing.ChildSpan1(
@@ -75,7 +76,6 @@ func (e *engine) validate(
 				if !hasValidate && !hasValidateImage {
 					return nil
 				}
-				logger = logger.WithValues("rule", rule.Name)
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, enginectx)
 
@@ -87,7 +87,6 @@ func (e *engine) validate(
 				if ruleResp != nil {
 					return ruleResp
 				}
-				logger.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 				enginectx.JSONContext().Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
 					return e.processValidationRule(ctx, logger, enginectx, rule)
@@ -113,11 +112,11 @@ func (e *engine) validate(
 
 func (e *engine) processValidationRule(
 	ctx context.Context,
-	log logr.Logger,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
 ) *engineapi.RuleResponse {
-	v := newValidator(log, e.ContextLoader(policyContext.Policy(), *rule), policyContext, rule)
+	v := newValidator(logger, e.ContextLoader(policyContext.Policy(), *rule), policyContext, rule)
 	return v.validate(ctx)
 }
 

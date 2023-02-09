@@ -4,16 +4,18 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"k8s.io/client-go/tools/cache"
 )
 
 // generateResponse checks for validity of generate rule on the resource
 func (e *engine) generateResponse(
 	ctx context.Context,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) *engineapi.PolicyResponse {
@@ -25,7 +27,7 @@ func (e *engine) generateResponse(
 	apiVersion := newResource.GetAPIVersion()
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
 	if err != nil {
-		logging.Error(err, "failed to spilt name and namespace", gr.Spec.Policy)
+		logger.Error(err, "failed to spilt name and namespace", "policy.key", gr.Spec.Policy)
 	}
 	resp := &engineapi.PolicyResponse{
 		Policy: engineapi.PolicySpec{
@@ -45,15 +47,14 @@ func (e *engine) generateResponse(
 		},
 	}
 	if e.configuration.ToFilter(kind, namespace, name) {
-		logging.WithName("Generate").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
+		logger.Info("resource excluded")
 		return resp
 	}
-
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
-		if ruleResp := e.filterRule(rule, policyContext); ruleResp != nil {
+		logger := internal.LoggerWithRule(logger, rule)
+		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
 			resp.Rules = append(resp.Rules, *ruleResp)
 		}
 	}
-
 	return resp
 }
