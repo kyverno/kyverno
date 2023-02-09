@@ -39,8 +39,8 @@ func NewEngine(
 func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
-	return &engineapi.EngineResponse{
+) engineapi.EngineResponse {
+	return engineapi.EngineResponse{
 		// TODO
 		// PatchedResource unstructured.Unstructured
 		Policy:          policyContext.Policy(),
@@ -52,8 +52,14 @@ func (e *engine) Validate(
 func (e *engine) Mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
-	return e.mutate(ctx, policyContext)
+) engineapi.EngineResponse {
+	return engineapi.EngineResponse{
+		// TODO
+		// PatchedResource unstructured.Unstructured
+		Policy:          policyContext.Policy(),
+		NamespaceLabels: policyContext.NamespaceLabels(),
+		PolicyResponse:  e.mutate(ctx, policyContext),
+	}
 }
 
 func (e *engine) VerifyAndPatchImages(
@@ -66,16 +72,28 @@ func (e *engine) VerifyAndPatchImages(
 func (e *engine) ApplyBackgroundChecks(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
-	return e.applyBackgroundChecks(ctx, policyContext)
+) engineapi.EngineResponse {
+	return engineapi.EngineResponse{
+		// TODO
+		// PatchedResource unstructured.Unstructured
+		Policy:          policyContext.Policy(),
+		NamespaceLabels: policyContext.NamespaceLabels(),
+		PolicyResponse:  e.applyBackgroundChecks(ctx, policyContext),
+	}
 }
 
 func (e *engine) GenerateResponse(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
-) *engineapi.EngineResponse {
-	return e.generateResponse(ctx, policyContext, gr)
+) engineapi.EngineResponse {
+	return engineapi.EngineResponse{
+		// TODO
+		// PatchedResource unstructured.Unstructured
+		Policy:          policyContext.Policy(),
+		NamespaceLabels: policyContext.NamespaceLabels(),
+		PolicyResponse:  e.generateResponse(ctx, policyContext, gr),
+	}
 }
 
 func (e *engine) ContextLoader(

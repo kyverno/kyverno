@@ -36,10 +36,11 @@ func testValidate(
 		contextLoader,
 		nil,
 	)
-	return e.Validate(
+	response := e.Validate(
 		ctx,
 		pContext,
 	)
+	return &response
 }
 
 func TestValidate_image_tag_fail(t *testing.T) {

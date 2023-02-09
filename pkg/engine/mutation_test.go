@@ -38,10 +38,11 @@ func testMutate(
 		contextLoader,
 		nil,
 	)
-	return e.Mutate(
+	response := e.Mutate(
 		ctx,
 		pContext,
 	)
+	return &response
 }
 
 func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {

@@ -170,7 +170,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 		}
 	}
 
-	return engineResponse, policyPatches, nil
+	return &engineResponse, policyPatches, nil
 }
 
 func logMutationResponse(patches [][]byte, engineResponses []*engineapi.EngineResponse, logger logr.Logger) {

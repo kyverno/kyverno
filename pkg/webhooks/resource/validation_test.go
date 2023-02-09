@@ -1077,7 +1077,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			}
 
 			failurePolicy := kyvernov1.Fail
-			blocked := webhookutils.BlockRequest([]*engineapi.EngineResponse{er}, failurePolicy, log.WithName("WebhookServer"))
+			blocked := webhookutils.BlockRequest([]*engineapi.EngineResponse{&er}, failurePolicy, log.WithName("WebhookServer"))
 			assert.Assert(t, tc.blocked == blocked)
 		})
 	}
@@ -1143,7 +1143,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
 	log := log.WithName("Test_RuleSelector")
-	blocked := webhookutils.BlockRequest([]*engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
+	blocked := webhookutils.BlockRequest([]*engineapi.EngineResponse{&resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == true)
 
 	applyOne := kyvernov1.ApplyOne
@@ -1155,6 +1155,6 @@ func Test_RuleSelector(t *testing.T) {
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
-	blocked = webhookutils.BlockRequest([]*engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
+	blocked = webhookutils.BlockRequest([]*engineapi.EngineResponse{&resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == false)
 }

@@ -16,13 +16,13 @@ type Engine interface {
 	Validate(
 		ctx context.Context,
 		policyContext PolicyContext,
-	) *EngineResponse
+	) EngineResponse
 
 	// Mutate performs mutation. Overlay first and then mutation patches
 	Mutate(
 		ctx context.Context,
 		policyContext PolicyContext,
-	) *EngineResponse
+	) EngineResponse
 
 	// VerifyAndPatchImages ...
 	VerifyAndPatchImages(
@@ -38,14 +38,14 @@ type Engine interface {
 	ApplyBackgroundChecks(
 		ctx context.Context,
 		policyContext PolicyContext,
-	) *EngineResponse
+	) EngineResponse
 
 	// GenerateResponse checks for validity of generate rule on the resource
 	GenerateResponse(
 		ctx context.Context,
 		policyContext PolicyContext,
 		gr kyvernov1beta1.UpdateRequest,
-	) *EngineResponse
+	) EngineResponse
 
 	ContextLoader(
 		policy kyvernov1.PolicyInterface,

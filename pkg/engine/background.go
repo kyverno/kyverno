@@ -21,38 +21,29 @@ import (
 func (e *engine) applyBackgroundChecks(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) (resp *engineapi.EngineResponse) {
-	policyStartTime := time.Now()
-	return e.filterRules(policyContext, policyStartTime)
-}
-
-func (e *engine) filterRules(
-	policyContext engineapi.PolicyContext,
-	startTime time.Time,
-) *engineapi.EngineResponse {
+) *engineapi.PolicyResponse {
+	startTime := time.Now()
 	newResource := policyContext.NewResource()
 	policy := policyContext.Policy()
 	kind := newResource.GetKind()
 	name := newResource.GetName()
 	namespace := newResource.GetNamespace()
 	apiVersion := newResource.GetAPIVersion()
-	resp := &engineapi.EngineResponse{
-		PolicyResponse: &engineapi.PolicyResponse{
-			Policy: engineapi.PolicySpec{
-				Name:      policy.GetName(),
-				Namespace: policy.GetNamespace(),
+	resp := &engineapi.PolicyResponse{
+		Policy: engineapi.PolicySpec{
+			Name:      policy.GetName(),
+			Namespace: policy.GetNamespace(),
+		},
+		PolicyStats: engineapi.PolicyStats{
+			ExecutionStats: engineapi.ExecutionStats{
+				Timestamp: startTime.Unix(),
 			},
-			PolicyStats: engineapi.PolicyStats{
-				ExecutionStats: engineapi.ExecutionStats{
-					Timestamp: startTime.Unix(),
-				},
-			},
-			Resource: engineapi.ResourceSpec{
-				Kind:       kind,
-				Name:       name,
-				Namespace:  namespace,
-				APIVersion: apiVersion,
-			},
+		},
+		Resource: engineapi.ResourceSpec{
+			Kind:       kind,
+			Name:       name,
+			Namespace:  namespace,
+			APIVersion: apiVersion,
 		},
 	}
 
@@ -64,7 +55,7 @@ func (e *engine) filterRules(
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
 		if ruleResp := e.filterRule(rule, policyContext); ruleResp != nil {
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+			resp.Rules = append(resp.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
 				break
 			}

@@ -11,47 +11,37 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// GenerateResponse checks for validity of generate rule on the resource
+// generateResponse checks for validity of generate rule on the resource
 func (e *engine) generateResponse(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
-) (resp *engineapi.EngineResponse) {
-	policyStartTime := time.Now()
-	return e.filterGenerateRules(policyContext, gr.Spec.Policy, policyStartTime)
-}
-
-func (e *engine) filterGenerateRules(
-	policyContext engineapi.PolicyContext,
-	policyNameKey string,
-	startTime time.Time,
-) *engineapi.EngineResponse {
+) *engineapi.PolicyResponse {
+	startTime := time.Now()
 	newResource := policyContext.NewResource()
 	kind := newResource.GetKind()
 	name := newResource.GetName()
 	namespace := newResource.GetNamespace()
 	apiVersion := newResource.GetAPIVersion()
-	pNamespace, pName, err := cache.SplitMetaNamespaceKey(policyNameKey)
+	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
 	if err != nil {
-		logging.Error(err, "failed to spilt name and namespace", policyNameKey)
+		logging.Error(err, "failed to spilt name and namespace", gr.Spec.Policy)
 	}
-	resp := &engineapi.EngineResponse{
-		PolicyResponse: &engineapi.PolicyResponse{
-			Policy: engineapi.PolicySpec{
-				Name:      pName,
-				Namespace: pNamespace,
+	resp := &engineapi.PolicyResponse{
+		Policy: engineapi.PolicySpec{
+			Name:      pName,
+			Namespace: pNamespace,
+		},
+		PolicyStats: engineapi.PolicyStats{
+			ExecutionStats: engineapi.ExecutionStats{
+				Timestamp: startTime.Unix(),
 			},
-			PolicyStats: engineapi.PolicyStats{
-				ExecutionStats: engineapi.ExecutionStats{
-					Timestamp: startTime.Unix(),
-				},
-			},
-			Resource: engineapi.ResourceSpec{
-				Kind:       kind,
-				Name:       name,
-				Namespace:  namespace,
-				APIVersion: apiVersion,
-			},
+		},
+		Resource: engineapi.ResourceSpec{
+			Kind:       kind,
+			Name:       name,
+			Namespace:  namespace,
+			APIVersion: apiVersion,
 		},
 	}
 	if e.configuration.ToFilter(kind, namespace, name) {
@@ -61,7 +51,7 @@ func (e *engine) filterGenerateRules(
 
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		if ruleResp := e.filterRule(rule, policyContext); ruleResp != nil {
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+			resp.Rules = append(resp.Rules, *ruleResp)
 		}
 	}
 

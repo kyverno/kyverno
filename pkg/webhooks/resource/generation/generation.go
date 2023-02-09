@@ -95,7 +95,7 @@ func (h *generationHandler) Handle(
 			engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if rule.Status != engineapi.RuleStatusPass {
-					h.deleteGR(ctx, engineResponse)
+					h.deleteGR(ctx, &engineResponse)
 					continue
 				}
 				rules = append(rules, rule)
@@ -104,13 +104,13 @@ func (h *generationHandler) Handle(
 			if len(rules) > 0 {
 				engineResponse.PolicyResponse.Rules = rules
 				// some generate rules do apply to the resource
-				engineResponses = append(engineResponses, engineResponse)
+				engineResponses = append(engineResponses, &engineResponse)
 			}
 
 			// registering the kyverno_policy_results_total metric concurrently
-			go webhookutils.RegisterPolicyResultsMetricGeneration(context.TODO(), h.log, h.metrics, string(request.Operation), policy, *engineResponse)
+			go webhookutils.RegisterPolicyResultsMetricGeneration(context.TODO(), h.log, h.metrics, string(request.Operation), policy, engineResponse)
 			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(context.TODO(), h.log, h.metrics, string(request.Operation), policy, *engineResponse)
+			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(context.TODO(), h.log, h.metrics, string(request.Operation), policy, engineResponse)
 		}
 
 		if failedResponse := applyUpdateRequest(ctx, request, kyvernov1beta1.Generate, h.urGenerator, policyContext.AdmissionInfo(), request.Operation, engineResponses...); failedResponse != nil {

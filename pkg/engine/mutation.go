@@ -25,12 +25,10 @@ import (
 func (e *engine) mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) (resp *engineapi.EngineResponse) {
+) *engineapi.PolicyResponse {
 	startTime := time.Now()
 	policy := policyContext.Policy()
-	resp = &engineapi.EngineResponse{
-		Policy: policy,
-	}
+
 	matchedResource := policyContext.NewResource()
 	enginectx := policyContext.JSONContext()
 	var skippedRules []string
@@ -39,7 +37,7 @@ func (e *engine) mutate(
 		"namespace", matchedResource.GetNamespace(), "name", matchedResource.GetName())
 
 	logger.V(4).Info("start mutate policy processing", "startTime", startTime)
-
+	resp := &engineapi.PolicyResponse{}
 	startMutateResultResponse(resp, policy, matchedResource)
 	defer endMutateResultResponse(logger, resp, startTime)
 
@@ -76,7 +74,7 @@ func (e *engine) mutate(
 
 				// check if there is a corresponding policy exception
 				if ruleResp := hasPolicyExceptions(logger, engineapi.Mutation, e.exceptionSelector, policyContext, &computeRules[i], subresourceGVKToAPIResource, e.configuration); ruleResp != nil {
-					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+					resp.Rules = append(resp.Rules, *ruleResp)
 					return
 				}
 
@@ -106,7 +104,7 @@ func (e *engine) mutate(
 					targets, err := loadTargets(e.client, ruleCopy.Mutation.Targets, policyContext, logger)
 					if err != nil {
 						rr := internal.RuleError(ruleCopy, engineapi.Mutation, "", err)
-						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
+						resp.Rules = append(resp.Rules, *rr)
 					} else {
 						patchedResources = append(patchedResources, targets...)
 					}
@@ -156,17 +154,17 @@ func (e *engine) mutate(
 					matchedResource = mutateResp.PatchedResource
 
 					if ruleResponse := buildRuleResponse(ruleCopy, mutateResp, patchedResource); ruleResponse != nil {
-						internal.AddRuleResponse(resp.PolicyResponse, ruleResponse, startTime)
+						internal.AddRuleResponse(resp, ruleResponse, startTime)
 					}
 				}
 			},
 		)
-		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.RulesAppliedCount > 0 {
 			break
 		}
 	}
 
-	for _, r := range resp.PolicyResponse.Rules {
+	for _, r := range resp.Rules {
 		for _, n := range skippedRules {
 			if r.Name == n {
 				r.Status = engineapi.RuleStatusSkip
@@ -175,7 +173,8 @@ func (e *engine) mutate(
 		}
 	}
 
-	resp.PatchedResource = matchedResource
+	// TODO
+	// resp.PatchedResource = matchedResource
 	return resp
 }
 
@@ -349,25 +348,25 @@ func buildSuccessMessage(r unstructured.Unstructured) string {
 	return fmt.Sprintf("mutated %s/%s in namespace %s", r.GetKind(), r.GetName(), r.GetNamespace())
 }
 
-func startMutateResultResponse(resp *engineapi.EngineResponse, policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) {
+func startMutateResultResponse(resp *engineapi.PolicyResponse, policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) {
 	if resp == nil {
 		return
 	}
 
-	resp.PolicyResponse.Policy.Name = policy.GetName()
-	resp.PolicyResponse.Policy.Namespace = policy.GetNamespace()
-	resp.PolicyResponse.Resource.Name = resource.GetName()
-	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
-	resp.PolicyResponse.Resource.Kind = resource.GetKind()
-	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
+	resp.Policy.Name = policy.GetName()
+	resp.Policy.Namespace = policy.GetNamespace()
+	resp.Resource.Name = resource.GetName()
+	resp.Resource.Namespace = resource.GetNamespace()
+	resp.Resource.Kind = resource.GetKind()
+	resp.Resource.APIVersion = resource.GetAPIVersion()
 }
 
-func endMutateResultResponse(logger logr.Logger, resp *engineapi.EngineResponse, startTime time.Time) {
+func endMutateResultResponse(logger logr.Logger, resp *engineapi.PolicyResponse, startTime time.Time) {
 	if resp == nil {
 		return
 	}
 
-	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	resp.PolicyResponse.Timestamp = startTime.Unix()
-	logger.V(5).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	resp.ProcessingTime = time.Since(startTime)
+	resp.Timestamp = startTime.Unix()
+	logger.V(5).Info("finished processing policy", "processingTime", resp.ProcessingTime.String(), "mutationRulesApplied", resp.RulesAppliedCount)
 }

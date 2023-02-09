@@ -85,7 +85,8 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 		WithNewResource(resource).
 		WithPolicy(policy).
 		WithNamespaceLabels(nsLabels)
-	return s.engine.Validate(ctx, policyCtx), nil
+	response := s.engine.Validate(ctx, policyCtx)
+	return &response, nil
 }
 
 func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*engineapi.EngineResponse, error) {
