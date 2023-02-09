@@ -206,6 +206,7 @@ func main() {
 		eventsApplied             bool
 		enablePolicyException     bool
 		exceptionNamespace        string
+		eventsApplied             bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
@@ -220,6 +221,7 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.BoolVar(&eventsApplied, "eventsApplied", true, "Set this flag to 'false' to disable policy applied events")
 	flagset.BoolVar(&enablePolicyException, "enablePolicyException", false, "Enable PolicyException feature.")
+	flagset.BoolVar(&eventsApplied, "eventsApplied", true, "Set this flag to 'false' to disable policy applied events")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithMetrics(),
