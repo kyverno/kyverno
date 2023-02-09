@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -18,14 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-// EngineStats stores in the statistics for a single application of resource
-type EngineStats struct {
-	// average time required to process the policy rules on a resource
-	ExecutionTime time.Duration
-	// Count of rules that were applied successfully
-	RulesAppliedCount int
-}
 
 func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
 	resourceNameSpace := resource.GetNamespace()
