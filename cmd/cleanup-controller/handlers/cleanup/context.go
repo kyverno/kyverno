@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -45,7 +45,7 @@ func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx engineco
 			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Value, err)
 		}
 		if path != "" {
-			variable, err := engine.ApplyJMESPath(path, variable)
+			variable, err := engineapi.ApplyJMESPath(path, variable)
 			if err == nil {
 				output = variable
 			} else if defaultValue == nil {

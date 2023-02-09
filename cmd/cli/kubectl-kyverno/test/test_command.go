@@ -275,7 +275,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		tf.enabled = false
 	}
 
-	openApiManager, err := openapi.NewManager()
+	openApiManager, err := openapi.NewManager(log.Log)
 	if err != nil {
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}
@@ -770,15 +770,13 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 
 	// get the user info as request info from a different file
 	var userInfo v1beta1.RequestInfo
-	var subjectInfo store.Subject
 
 	if userInfoFile != "" {
-		userInfo, subjectInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
+		userInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			os.Exit(1)
 		}
-		store.SetSubject(subjectInfo.Subject)
 	}
 
 	policyFullPath := getFullPath(values.Policies, policyResourcePath, isGit)

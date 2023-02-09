@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
@@ -19,14 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-// EngineStats stores in the statistics for a single application of resource
-type EngineStats struct {
-	// average time required to process the policy rules on a resource
-	ExecutionTime time.Duration
-	// Count of rules that were applied successfully
-	RulesAppliedCount int
-}
 
 func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
 	resourceNameSpace := resource.GetNamespace()
@@ -155,24 +145,7 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
 func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo, dynamicConfig []string) bool {
-	if store.IsMock() {
-		mockSubject := store.GetSubject()
-		for _, subject := range ruleSubjects {
-			switch subject.Kind {
-			case "ServiceAccount":
-				if subject.Name == mockSubject.Name && subject.Namespace == mockSubject.Namespace {
-					return true
-				}
-			case "User", "Group":
-				if mockSubject.Name == subject.Name {
-					return true
-				}
-			}
-		}
-		return false
-	} else {
-		return matchutils.CheckSubjects(ruleSubjects, userInfo, dynamicConfig)
-	}
+	return matchutils.CheckSubjects(ruleSubjects, userInfo, dynamicConfig)
 }
 
 // MatchesResourceDescription checks if the resource matches resource description of the rule or not

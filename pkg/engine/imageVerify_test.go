@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -15,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
@@ -172,7 +172,7 @@ func testVerifyAndPatchImages(
 		cfg,
 		nil,
 		rclient,
-		LegacyContextLoaderFactory(cmResolver),
+		engineapi.DefaultContextLoaderFactory(cmResolver),
 		nil,
 	)
 	return e.VerifyAndPatchImages(
@@ -746,18 +746,18 @@ func Test_ChangedAnnotation(t *testing.T) {
 
 	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
 
-	hasChanged := internal.HasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
+	hasChanged := internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
 	assert.Equal(t, hasChanged, false)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
+	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
 	assert.Equal(t, hasChanged, true)
 
 	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
 	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
+	hasChanged = internal.HasImageVerifiedAnnotationChanged(policyContext, logr.Discard())
 	assert.Equal(t, hasChanged, true)
 }
 
@@ -778,7 +778,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.IsVerified(image), true)
 
-	patches, err := verifiedImages.Patches(false, logging.GlobalLogger())
+	patches, err := verifiedImages.Patches(false, logr.Discard())
 	assert.NilError(t, err)
 	assert.Equal(t, len(patches), 2)
 
@@ -789,7 +789,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	json := patchedAnnotations[engineapi.ImageVerifyAnnotationKey]
 	assert.Assert(t, json != "")
 
-	verified, err := isImageVerified(resource, image, logging.GlobalLogger())
+	verified, err := isImageVerified(resource, image, logr.Discard())
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }
