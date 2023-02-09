@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured, ruleType kyvernov1beta1.RequestType) *kyvernov1beta1.UpdateRequest {
+func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured, ruleType kyvernov1beta1.RequestType, status kyvernov1beta1.UpdateRequestState) *kyvernov1beta1.UpdateRequest {
 	var policyNameNamespaceKey string
 
 	if policy.IsNamespaced() {
@@ -26,7 +26,7 @@ func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured,
 		label = common.GenerateLabelsSet(policyNameNamespaceKey, trigger)
 	}
 
-	return &kyvernov1beta1.UpdateRequest{
+	ur := &kyvernov1beta1.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "ur-",
 			Namespace:    config.KyvernoNamespace(),
@@ -43,4 +43,13 @@ func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured,
 			},
 		},
 	}
+	if status != "" {
+		ur = newURWithStatus(ur, status)
+	}
+	return ur
+}
+
+func newURWithStatus(ur *kyvernov1beta1.UpdateRequest, status kyvernov1beta1.UpdateRequestState) *kyvernov1beta1.UpdateRequest {
+	ur.Status = kyvernov1beta1.UpdateRequestStatus{State: status}
+	return ur
 }
