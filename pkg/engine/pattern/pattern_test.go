@@ -1,6 +1,7 @@
 package pattern
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -10,80 +11,6 @@ import (
 )
 
 var logger = logging.GlobalLogger()
-
-func TestValidateString_AsteriskTest(t *testing.T) {
-	pattern := "*"
-	value := "anything"
-	empty := ""
-
-	assert.Assert(t, compareString(logger, value, pattern, operator.Equal))
-	assert.Assert(t, compareString(logger, empty, pattern, operator.Equal))
-}
-
-func TestValidateString_LeftAsteriskTest(t *testing.T) {
-	pattern := "*right"
-	value := "leftright"
-	right := "right"
-
-	assert.Assert(t, compareString(logger, value, pattern, operator.Equal))
-	assert.Assert(t, compareString(logger, right, pattern, operator.Equal))
-
-	value = "leftmiddle"
-	middle := "middle"
-
-	assert.Assert(t, !compareString(logger, value, pattern, operator.Equal))
-	assert.Assert(t, !compareString(logger, middle, pattern, operator.Equal))
-}
-
-func TestValidateString_MiddleAsteriskTest(t *testing.T) {
-	pattern := "ab*ba"
-	value := "abbeba"
-	assert.Assert(t, compareString(logger, value, pattern, operator.Equal))
-
-	value = "abbca"
-	assert.Assert(t, !compareString(logger, value, pattern, operator.Equal))
-}
-
-func TestValidateString_QuestionMark(t *testing.T) {
-	pattern := "ab?ba"
-	value := "abbba"
-	assert.Assert(t, compareString(logger, value, pattern, operator.Equal))
-
-	value = "abbbba"
-	assert.Assert(t, !compareString(logger, value, pattern, operator.Equal))
-}
-
-func TestValidateValueWithNilPattern_NullPatternStringValue(t *testing.T) {
-	assert.Assert(t, !validateNilPattern(logger, "value"))
-}
-
-func TestValidateValueWithNilPattern_NullPatternDefaultString(t *testing.T) {
-	assert.Assert(t, validateNilPattern(logger, ""))
-}
-
-func TestValidateValueWithNilPattern_NullPatternDefaultFloat(t *testing.T) {
-	assert.Assert(t, validateNilPattern(logger, 0.0))
-}
-
-func TestValidateValueWithNilPattern_NullPatternFloat(t *testing.T) {
-	assert.Assert(t, !validateNilPattern(logger, 0.1))
-}
-
-func TestValidateValueWithNilPattern_NullPatternDefaultInt(t *testing.T) {
-	assert.Assert(t, validateNilPattern(logger, 0))
-}
-
-func TestValidateValueWithNilPattern_NullPatternInt(t *testing.T) {
-	assert.Assert(t, !validateNilPattern(logger, 1))
-}
-
-func TestValidateValueWithNilPattern_NullPatternDefaultBool(t *testing.T) {
-	assert.Assert(t, validateNilPattern(logger, false))
-}
-
-func TestValidateValueWithNilPattern_NullPatternTrueBool(t *testing.T) {
-	assert.Assert(t, !validateNilPattern(logger, true))
-}
 
 func TestValidateValueWithFloatPattern_FloatValue(t *testing.T) {
 	assert.Assert(t, validateFloatPattern(logger, 7.9914, 7.9914))
@@ -230,14 +157,6 @@ func TestGetOperatorFromStringPattern_OneChar(t *testing.T) {
 
 func TestGetOperatorFromStringPattern_EmptyString(t *testing.T) {
 	assert.Equal(t, operator.GetOperatorFromStringPattern(""), operator.Equal)
-}
-
-func TestValidateKernelVersion_NotEquals(t *testing.T) {
-	assert.Assert(t, validateStringPattern(logger, "5.16.5-arch1-1", "!5.10.84-1"))
-	assert.Assert(t, !validateStringPattern(logger, "5.10.84-1", "!5.10.84-1"))
-	assert.Assert(t, validateStringPatterns(logger, "5.16.5-arch1-1", "!5.10.84-1 & !5.15.2-1"))
-	assert.Assert(t, !validateStringPatterns(logger, "5.10.84-1", "!5.10.84-1 & !5.15.2-1"))
-	assert.Assert(t, !validateStringPatterns(logger, "5.15.2-1", "!5.10.84-1 & !5.15.2-1"))
 }
 
 func TestValidate(t *testing.T) {
@@ -431,57 +350,55 @@ func TestValidate(t *testing.T) {
 			pattern: 8,
 		},
 		want: false,
-	},
-
-		{
-			args: args{
-				value:   8,
-				pattern: 8.0,
-			},
-			want: true,
-		}, {
-			args: args{
-				value:   8,
-				pattern: 8.1,
-			},
-			want: false,
-		}, {
-			args: args{
-				value:   int64(8),
-				pattern: 8.0,
-			},
-			want: true,
-		}, {
-			args: args{
-				value:   int64(8),
-				pattern: 8.1,
-			},
-			want: false,
-		}, {
-			args: args{
-				value:   "8",
-				pattern: 8.0,
-			},
-			want: true,
-		}, {
-			args: args{
-				value:   "8.1",
-				pattern: 8.1,
-			},
-			want: true,
-		}, {
-			args: args{
-				value:   "abc",
-				pattern: 8.1,
-			},
-			want: false,
-		}, {
-			args: args{
-				value:   false,
-				pattern: 8.0,
-			},
-			want: false,
-		}}
+	}, {
+		args: args{
+			value:   8,
+			pattern: 8.0,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   8,
+			pattern: 8.1,
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   int64(8),
+			pattern: 8.0,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   int64(8),
+			pattern: 8.1,
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   "8",
+			pattern: 8.0,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   "8.1",
+			pattern: 8.1,
+		},
+		want: true,
+	}, {
+		args: args{
+			value:   "abc",
+			pattern: 8.1,
+		},
+		want: false,
+	}, {
+		args: args{
+			value:   false,
+			pattern: 8.0,
+		},
+		want: false,
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := Validate(logr.Discard(), tt.args.value, tt.args.pattern); got != tt.want {
@@ -642,6 +559,349 @@ func Test_validateMapPattern(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := validateMapPattern(logr.Discard(), tt.args.value, nil); got != tt.want {
 				t.Errorf("validateMapPattern() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_validateNilPattern(t *testing.T) {
+	type args struct {
+		value interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{{
+		args: args{
+			value: nil,
+		},
+		want: true,
+	}, {
+		args: args{
+			value: 0.0,
+		},
+		want: true,
+	}, {
+		args: args{
+			value: 0,
+		},
+		want: true,
+	}, {
+		args: args{
+			value: int64(0),
+		},
+		want: true,
+	}, {
+		args: args{
+			value: "",
+		},
+		want: true,
+	}, {
+		args: args{
+			value: false,
+		},
+		want: true,
+	}, {
+		args: args{
+			value: map[string]interface{}{},
+		},
+		want: false,
+	}, {
+		args: args{
+			value: []interface{}{},
+		},
+		want: false,
+	}, {
+		args: args{
+			value: map[string]string{},
+		},
+		want: false,
+	}, {
+		args: args{
+			value: 1.0,
+		},
+		want: false,
+	}, {
+		args: args{
+			value: 1,
+		},
+		want: false,
+	}, {
+		args: args{
+			value: int64(1),
+		},
+		want: false,
+	}, {
+		args: args{
+			value: "abc",
+		},
+		want: false,
+	}, {
+		args: args{
+			value: true,
+		},
+		want: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validateNilPattern(logr.Discard(), tt.args.value); got != tt.want {
+				t.Errorf("validateNilPattern() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_validateStringPatterns(t *testing.T) {
+	type args struct {
+		value   interface{}
+		pattern string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			args: args{
+				value:   "5.16.5-arch1-1",
+				pattern: "!5.10.84-1",
+			},
+			want: true,
+		},
+		{
+			args: args{
+				value:   "5.10.84-1",
+				pattern: "5.10.84-1",
+			},
+			want: true,
+		},
+		{
+			args: args{
+				value:   "!5.10.84-1",
+				pattern: "!5.10.84-1",
+			},
+			want: true,
+		},
+		{
+			args: args{
+				value:   "5.10.84-1",
+				pattern: "!5.10.84-1",
+			},
+			want: false,
+		},
+		{
+			args: args{
+				value:   "5.16.5-arch1-1",
+				pattern: "!5.10.84-1 & !5.15.2-1",
+			},
+			want: true,
+		},
+		{
+			args: args{
+				value:   "5.10.84-1",
+				pattern: "!5.10.84-1 & !5.15.2-1",
+			},
+			want: false,
+		},
+		{
+			args: args{
+				value:   "5.15.2-1",
+				pattern: "!5.10.84-1 & !5.15.2-1",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validateStringPatterns(logr.Discard(), tt.args.value, tt.args.pattern); got != tt.want {
+				t.Errorf("validateStringPatterns() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_split(t *testing.T) {
+	type args struct {
+		pattern string
+		r       *regexp.Regexp
+	}
+	tests := []struct {
+		name  string
+		args  args
+		want  string
+		want1 string
+		want2 bool
+	}{{
+		args: args{
+			pattern: "",
+			r:       operator.InRangeRegex,
+		},
+		want:  "",
+		want1: "",
+		want2: false,
+	}, {
+		args: args{
+			pattern: "",
+			r:       operator.NotInRangeRegex,
+		},
+		want:  "",
+		want1: "",
+		want2: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, got2 := split(tt.args.pattern, tt.args.r)
+			if got != tt.want {
+				t.Errorf("split() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("split() got1 = %v, want %v", got1, tt.want1)
+			}
+			if got2 != tt.want2 {
+				t.Errorf("split() got2 = %v, want %v", got2, tt.want2)
+			}
+		})
+	}
+}
+
+func Test_compareString(t *testing.T) {
+	type args struct {
+		value            interface{}
+		pattern          string
+		operatorVariable operator.Operator
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			args: args{
+				value:            "anything",
+				pattern:          "*",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:            "",
+				pattern:          "*",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:            "leftright",
+				pattern:          "*right",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:            "right",
+				pattern:          "*right",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:            "leftmiddle",
+				pattern:          "*right",
+				operatorVariable: operator.Equal,
+			},
+			want: false,
+		}, {
+			args: args{
+				value:            "middle",
+				pattern:          "*right",
+				operatorVariable: operator.Equal,
+			},
+			want: false,
+		}, {
+			args: args{
+				value:            "abbeba",
+				pattern:          "ab*ba",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:            "abbca",
+				pattern:          "ab*ba",
+				operatorVariable: operator.Equal,
+			},
+			want: false,
+		}, {
+			args: args{
+				value:            "abbba",
+				pattern:          "ab?ba",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:            "abbbba",
+				pattern:          "ab?ba",
+				operatorVariable: operator.Equal,
+			},
+			want: false,
+		}, {
+			args: args{
+				value:            nil,
+				pattern:          "ab?ba",
+				operatorVariable: operator.Equal,
+			},
+			want: false,
+		}, {
+			args: args{
+				value:            "",
+				pattern:          "ab?ba",
+				operatorVariable: operator.Equal,
+			},
+			want: false,
+		}, {
+			args: args{
+				value:            "",
+				pattern:          "",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:            1,
+				pattern:          "1",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:            int64(1),
+				pattern:          "1",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:            1.0,
+				pattern:          "1E+*",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		}, {
+			args: args{
+				value:            true,
+				pattern:          "true",
+				operatorVariable: operator.Equal,
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := compareString(logr.Discard(), tt.args.value, tt.args.pattern, tt.args.operatorVariable); got != tt.want {
+				t.Errorf("compareString() = %v, want %v", got, tt.want)
 			}
 		})
 	}
