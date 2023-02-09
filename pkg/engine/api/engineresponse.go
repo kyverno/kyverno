@@ -1,8 +1,6 @@
 package api
 
 import (
-	"reflect"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	utils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -53,12 +51,7 @@ func (er EngineResponse) IsError() bool {
 
 // IsEmpty checks if any rule results are present
 func (er EngineResponse) IsEmpty() bool {
-	return len(er.PolicyResponse.Rules) == 0
-}
-
-// isNil checks if rule is an empty rule
-func (er EngineResponse) IsNil() bool {
-	return reflect.DeepEqual(er, EngineResponse{})
+	return er.PolicyResponse == nil || len(er.PolicyResponse.Rules) == 0
 }
 
 // GetPatches returns all the patches joined

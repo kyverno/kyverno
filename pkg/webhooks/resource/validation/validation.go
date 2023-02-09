@@ -107,7 +107,7 @@ func (v *validationHandler) HandleValidation(
 				}
 
 				engineResponse := v.engine.Validate(ctx, policyContext)
-				if engineResponse.IsNil() {
+				if engineResponse.PolicyResponse == nil {
 					// we get an empty response if old and new resources created the same response
 					// allow updates if resource update doesnt change the policy evaluation
 					return
