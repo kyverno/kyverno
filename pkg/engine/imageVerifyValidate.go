@@ -27,7 +27,7 @@ func (e *engine) processImageValidationRule(
 	log = log.WithValues("rule", rule.Name)
 	matchingImages, _, err := e.extractMatchingImages(enginectx, rule)
 	if err != nil {
-		return internal.RuleResponse(*rule, engineapi.Validation, err.Error(), engineapi.RuleStatusError)
+		return internal.RuleError(rule, engineapi.Validation, "", err)
 	}
 	if len(matchingImages) == 0 {
 		return internal.RuleSkip(rule, engineapi.Validation, "image verified")
@@ -76,7 +76,7 @@ func (e *engine) processImageValidationRule(
 	}
 
 	log.V(4).Info("validated image", "rule", rule.Name)
-	return internal.RuleResponse(*rule, engineapi.Validation, "image verified", engineapi.RuleStatusPass)
+	return internal.RulePass(rule, engineapi.Validation, "image verified")
 }
 
 func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {
@@ -102,24 +102,15 @@ func isImageVerified(resource unstructured.Unstructured, image string, log logr.
 	if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
 		return false, fmt.Errorf("nil resource")
 	}
-
-	annotations := resource.GetAnnotations()
-	if len(annotations) == 0 {
+	if annotations := resource.GetAnnotations(); len(annotations) == 0 {
 		return false, nil
-	}
-
-	key := engineapi.ImageVerifyAnnotationKey
-	data, ok := annotations[key]
-	if !ok {
-		log.V(2).Info("missing image metadata in annotation", "key", key)
+	} else if data, ok := annotations[engineapi.ImageVerifyAnnotationKey]; !ok {
+		log.V(2).Info("missing image metadata in annotation", "key", engineapi.ImageVerifyAnnotationKey)
 		return false, fmt.Errorf("image is not verified")
-	}
-
-	ivm, err := engineapi.ParseImageMetadata(data)
-	if err != nil {
+	} else if ivm, err := engineapi.ParseImageMetadata(data); err != nil {
 		log.Error(err, "failed to parse image verification metadata", "data", data)
 		return false, fmt.Errorf("failed to parse image metadata: %w", err)
+	} else {
+		return ivm.IsVerified(image), nil
 	}
-
-	return ivm.IsVerified(image), nil
 }
