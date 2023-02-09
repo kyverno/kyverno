@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/go-logr/logr"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/logging"
 	assert "github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -50,7 +50,7 @@ func TestTypeConversion(t *testing.T) {
 	jsonPatches, err := yaml.YAMLToJSON(patchesJSON6902)
 	assert.Nil(t, err)
 	// apply patches
-	resp, _ := ProcessPatchJSON6902("type-conversion", jsonPatches, resource, logging.GlobalLogger())
+	resp, _ := ProcessPatchJSON6902("type-conversion", jsonPatches, resource, logr.Discard())
 	if !assert.Equal(t, engineapi.RuleStatusPass, resp.Status) {
 		t.Fatal(resp.Message)
 	}
