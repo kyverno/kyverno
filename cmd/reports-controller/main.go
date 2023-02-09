@@ -206,7 +206,6 @@ func main() {
 		eventsApplied             bool
 		enablePolicyException     bool
 		exceptionNamespace        string
-		eventsApplied             bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
