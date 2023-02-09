@@ -127,6 +127,7 @@ func main() {
 	var (
 		genWorkers                int
 		maxQueuedEvents           int
+		eventsApplied             bool
 		imagePullSecrets          string
 		imageSignatureRepository  string
 		allowInsecureRegistry     bool
@@ -138,6 +139,7 @@ func main() {
 	flagset.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flagset.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.BoolVar(&eventsApplied, "eventsApplied", true, "Set this flag to 'false' to disable policy applied events")
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	// config
 	appConfig := internal.NewConfiguration(
@@ -214,6 +216,7 @@ func main() {
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
+		eventsApplied,
 		logging.WithName("EventGenerator"),
 	)
 	// this controller only subscribe to events, nothing is returned...

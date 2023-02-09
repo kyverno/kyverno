@@ -39,6 +39,8 @@ type Generator struct {
 
 	maxQueuedEvents int
 
+	eventsApplied bool
+
 	log logr.Logger
 }
 
@@ -48,7 +50,7 @@ type Interface interface {
 }
 
 // NewEventGenerator to generate a new event controller
-func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, maxQueuedEvents int, log logr.Logger) *Generator {
+func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, maxQueuedEvents int, eventsApplied bool, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
@@ -59,6 +61,7 @@ func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.C
 		genPolicyRecorder:      initRecorder(client, GeneratePolicyController, log),
 		mutateExistingRecorder: initRecorder(client, MutateExistingController, log),
 		maxQueuedEvents:        maxQueuedEvents,
+		eventsApplied:          eventsApplied,
 		log:                    log,
 	}
 	return &gen
@@ -106,6 +109,10 @@ func (gen *Generator) Add(infos ...Info) {
 			// dont create event for resources with generateName
 			// as the name is not generated yet
 			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
+			continue
+		}
+		if !gen.eventsApplied && info.Reason == PolicyApplied.String() {
+			logger.V(3).Info("skipping policy event applied event creation", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
 		gen.queue.Add(info)

@@ -200,6 +200,7 @@ func main() {
 		backgroundScanWorkers     int
 		backgroundScanInterval    time.Duration
 		maxQueuedEvents           int
+		eventsApplied             bool
 	)
 	flagset := flag.NewFlagSet("reports-controller", flag.ExitOnError)
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
@@ -212,6 +213,7 @@ func main() {
 	flagset.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	flagset.DurationVar(&backgroundScanInterval, "backgroundScanInterval", time.Hour, "Configure background scan interval.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flagset.BoolVar(&eventsApplied, "eventsApplied", true, "Set this flag to 'false' to disable policy applied events")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -286,6 +288,7 @@ func main() {
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 		maxQueuedEvents,
+		eventsApplied,
 		logging.WithName("EventGenerator"),
 	)
 	// setup leader election
