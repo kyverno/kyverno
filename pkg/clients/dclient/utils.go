@@ -22,6 +22,6 @@ func logDiscoveryErrors(err error) {
 func isMetricsServerUnavailable(groupVersion string, err error) bool {
 	// error message is defined at:
 	// https://github.com/kubernetes/apimachinery/blob/2456ebdaba229616fab2161a615148884b46644b/pkg/api/errors/errors.go#L432
-	return strings.HasPrefix(groupVersion, "metrics.k8s.io/") &&
+	return (strings.HasPrefix(groupVersion, "metrics.k8s.io/") || strings.HasPrefix(groupVersion, "custom.metrics.k8s.io/") || strings.HasPrefix(groupVersion, "external.metrics.k8s.io/")) &&
 		strings.Contains(err.Error(), "the server is currently unable to handle the request")
 }

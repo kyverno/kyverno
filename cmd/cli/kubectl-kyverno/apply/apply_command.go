@@ -217,7 +217,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, err
 	}
 
-	openApiManager, err := openapi.NewManager()
+	openApiManager, err := openapi.NewManager(log.Log)
 	if err != nil {
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to initialize openAPIController", err)
 	}

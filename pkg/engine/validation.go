@@ -32,10 +32,10 @@ import (
 
 func (e *engine) validate(
 	ctx context.Context,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
 	startTime := time.Now()
-	logger := internal.BuildLogger(policyContext)
 	logger.V(4).Info("start validate policy processing", "startTime", startTime)
 	policyResponse := e.validateResource(ctx, logger, policyContext)
 	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.ProcessingTime.String(), "validationRulesApplied", policyResponse.RulesAppliedCount)
@@ -45,7 +45,7 @@ func (e *engine) validate(
 
 func (e *engine) validateResource(
 	ctx context.Context,
-	log logr.Logger,
+	logger logr.Logger,
 	enginectx engineapi.PolicyContext,
 ) *engineapi.PolicyResponse {
 	resp := &engineapi.PolicyResponse{}
@@ -71,7 +71,8 @@ func (e *engine) validateResource(
 
 	for i := range rules {
 		rule := &rules[i]
-		log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
+		logger := internal.LoggerWithRule(logger, rules[i])
+		logger.V(3).Info("processing validation rule", "matchCount", matchCount)
 		enginectx.JSONContext().Reset()
 		startTime := time.Now()
 		ruleResp := tracing.ChildSpan1(
@@ -85,33 +86,31 @@ func (e *engine) validateResource(
 				if !hasValidate && !hasValidateImage {
 					return nil
 				}
-				log = log.WithValues("rule", rule.Name)
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, enginectx)
 
-				if !matches(log, rule, enginectx, subresourceGVKToAPIResource, e.configuration) {
+				if !matches(logger, rule, enginectx, subresourceGVKToAPIResource, e.configuration) {
 					return nil
 				}
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(log, engineapi.Validation, e.exceptionSelector, enginectx, rule, subresourceGVKToAPIResource, e.configuration)
+				ruleResp := hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, enginectx, rule, subresourceGVKToAPIResource, e.configuration)
 				if ruleResp != nil {
 					return ruleResp
 				}
-				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 				enginectx.JSONContext().Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
-					return e.processValidationRule(ctx, log, enginectx, rule)
+					return e.processValidationRule(ctx, logger, enginectx, rule)
 				} else if hasValidateImage {
-					return e.processImageValidationRule(ctx, log, enginectx, rule)
+					return e.processImageValidationRule(ctx, logger, enginectx, rule)
 				} else if hasYAMLSignatureVerify {
-					return processYAMLValidationRule(e.client, log, enginectx, rule)
+					return processYAMLValidationRule(e.client, logger, enginectx, rule)
 				}
 				return nil
 			},
 		)
 		if ruleResp != nil {
 			internal.AddRuleResponse(resp, ruleResp, startTime)
-			log.V(4).Info("finished processing rule", "processingTime", ruleResp.ExecutionStats.ProcessingTime.String())
+			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.ExecutionStats.ProcessingTime.String())
 		}
 		if applyRules == kyvernov1.ApplyOne && resp.RulesAppliedCount > 0 {
 			break
@@ -123,11 +122,11 @@ func (e *engine) validateResource(
 
 func (e *engine) processValidationRule(
 	ctx context.Context,
-	log logr.Logger,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
 ) *engineapi.RuleResponse {
-	v := newValidator(log, e.ContextLoader(policyContext.Policy(), *rule), policyContext, rule)
+	v := newValidator(logger, e.ContextLoader(policyContext.Policy(), *rule), policyContext, rule)
 	return v.validate(ctx)
 }
 

@@ -4,19 +4,37 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func BuildLogger(ctx engineapi.PolicyContext) logr.Logger {
-	logger := logging.WithName("EngineValidate").WithValues("policy", ctx.Policy().GetName())
-	newResource := ctx.NewResource()
-	oldResource := ctx.OldResource()
-	if reflect.DeepEqual(newResource, unstructured.Unstructured{}) {
-		logger = logger.WithValues("kind", oldResource.GetKind(), "namespace", oldResource.GetNamespace(), "name", oldResource.GetName())
-	} else {
-		logger = logger.WithValues("kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
-	}
+func LoggerWithPolicyContext(logger logr.Logger, policyContext engineapi.PolicyContext) logr.Logger {
+	logger = LoggerWithPolicy(logger, policyContext.Policy())
+	logger = LoggerWithResource(logger, "new", policyContext.NewResource())
+	logger = LoggerWithResource(logger, "old", policyContext.OldResource())
 	return logger
+}
+
+func LoggerWithPolicy(logger logr.Logger, policy kyvernov1.PolicyInterface) logr.Logger {
+	return logger.WithValues(
+		"policy.name", policy.GetName(),
+		"policy.namespace", policy.GetNamespace(),
+		"policy.apply", policy.GetSpec().GetApplyRules(),
+	)
+}
+
+func LoggerWithResource(logger logr.Logger, prefix string, resource unstructured.Unstructured) logr.Logger {
+	if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
+		return logger
+	}
+	return logger.WithValues(
+		prefix+".kind", resource.GetKind(),
+		prefix+".namespace", resource.GetNamespace(),
+		prefix+".name", resource.GetName(),
+	)
+}
+
+func LoggerWithRule(logger logr.Logger, rule kyvernov1.Rule) logr.Logger {
+	return logger.WithValues("rule.name", rule.Name)
 }

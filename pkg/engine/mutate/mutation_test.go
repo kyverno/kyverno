@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	types "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -47,7 +47,7 @@ const endpointsDocument string = `{
 }`
 
 func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engineapi.RuleResponse, unstructured.Unstructured) {
-	mutateResp := Mutate(rule, context.NewContext(), resource, logging.GlobalLogger())
+	mutateResp := Mutate(rule, context.NewContext(), resource, logr.Discard())
 
 	if mutateResp.Status != engineapi.RuleStatusPass {
 		return &engineapi.RuleResponse{
