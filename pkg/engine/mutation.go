@@ -105,7 +105,7 @@ func (e *engine) mutate(
 				if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
 					targets, err := loadTargets(e.client, ruleCopy.Mutation.Targets, policyContext, logger)
 					if err != nil {
-						rr := internal.RuleResponse(rule, engineapi.Mutation, err.Error(), engineapi.RuleStatusError)
+						rr := internal.RuleError(ruleCopy, engineapi.Mutation, "", err)
 						resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 					} else {
 						patchedResources = append(patchedResources, targets...)

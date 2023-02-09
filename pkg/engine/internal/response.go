@@ -18,6 +18,10 @@ func RuleSkip(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string) *en
 	return RuleResponse(*rule, ruleType, msg, engineapi.RuleStatusSkip)
 }
 
+func RulePass(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string) *engineapi.RuleResponse {
+	return RuleResponse(*rule, ruleType, msg, engineapi.RuleStatusPass)
+}
+
 func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, status engineapi.RuleStatus) *engineapi.RuleResponse {
 	resp := &engineapi.RuleResponse{
 		Name:    rule.Name,

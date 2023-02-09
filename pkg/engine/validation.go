@@ -260,7 +260,7 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 		}
 		return internal.RuleSkip(v.rule, engineapi.Validation, "rule skipped")
 	}
-	return internal.RuleResponse(*v.rule, engineapi.Validation, "rule passed", engineapi.RuleStatusPass)
+	return internal.RulePass(v.rule, engineapi.Validation, "rule passed")
 }
 
 func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*engineapi.RuleResponse, int) {
@@ -308,7 +308,7 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 		applyCount++
 	}
 
-	return internal.RuleResponse(*v.rule, engineapi.Validation, "", engineapi.RuleStatusPass), applyCount
+	return internal.RulePass(v.rule, engineapi.Validation, ""), applyCount
 }
 
 func addElementToContext(ctx engineapi.PolicyContext, element interface{}, index, nesting int, elementScope *bool) error {
@@ -364,7 +364,7 @@ func (v *validator) validateDeny() *engineapi.RuleResponse {
 		if deny {
 			return internal.RuleResponse(*v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusFail)
 		}
-		return internal.RuleResponse(*v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusPass)
+		return internal.RulePass(v.rule, engineapi.Validation, v.getDenyMessage(deny))
 	}
 }
 
@@ -464,7 +464,7 @@ func (v *validator) validatePodSecurity() *engineapi.RuleResponse {
 	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
-		rspn := internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusPass)
+		rspn := internal.RulePass(v.rule, engineapi.Validation, msg)
 		rspn.PodSecurityChecks = podSecurityChecks
 		return rspn
 	} else {
@@ -554,7 +554,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 
 		v.log.V(4).Info("successfully processed rule")
 		msg := fmt.Sprintf("validation rule '%s' passed.", v.rule.Name)
-		return internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusPass)
+		return internal.RulePass(v.rule, engineapi.Validation, msg)
 	}
 
 	if v.anyPattern != nil {
@@ -564,15 +564,14 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 
 		anyPatterns, err := deserializeAnyPattern(v.anyPattern)
 		if err != nil {
-			msg := fmt.Sprintf("failed to deserialize anyPattern, expected type array: %v", err)
-			return internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusError)
+			return internal.RuleError(v.rule, engineapi.Validation, "failed to deserialize anyPattern, expected type array", err)
 		}
 
 		for idx, pattern := range anyPatterns {
 			err := validate.MatchPattern(v.log, resource.Object, pattern)
 			if err == nil {
 				msg := fmt.Sprintf("validation rule '%s' anyPattern[%d] passed.", v.rule.Name, idx)
-				return internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusPass)
+				return internal.RulePass(v.rule, engineapi.Validation, msg)
 			}
 
 			if pe, ok := err.(*validate.PatternError); ok {
@@ -613,7 +612,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 		}
 	}
 
-	return internal.RuleResponse(*v.rule, engineapi.Validation, v.rule.Validation.Message, engineapi.RuleStatusPass)
+	return internal.RulePass(v.rule, engineapi.Validation, v.rule.Validation.Message)
 }
 
 func deserializeAnyPattern(anyPattern apiextensions.JSON) ([]interface{}, error) {

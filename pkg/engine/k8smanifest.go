@@ -63,7 +63,7 @@ func handleVerifyManifest(
 	if !verified {
 		return internal.RuleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusFail)
 	}
-	return internal.RuleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusPass)
+	return internal.RulePass(rule, engineapi.Validation, reason)
 }
 
 func verifyManifest(
