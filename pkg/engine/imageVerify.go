@@ -25,6 +25,7 @@ func (e *engine) verifyAndPatchImages(
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
 	resp := &engineapi.EngineResponse{}
+	ivm := &engineapi.ImageVerificationMetadata{}
 
 	policy := policyContext.Policy()
 	startTime := time.Now()
@@ -35,10 +36,13 @@ func (e *engine) verifyAndPatchImages(
 			"applied", resp.PolicyResponse.RulesAppliedCount, "successful", resp.IsSuccessful())
 	}()
 
+	if !internal.MatchPolicyContext(logger, policyContext) {
+		return resp, ivm
+	}
+
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	ivm := &engineapi.ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy())
 	applyRules := policy.GetSpec().GetApplyRules()
 
