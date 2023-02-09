@@ -101,8 +101,7 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 				GenerateName: "ur-",
 				Labels:       queryLabels,
 			},
-			Spec:   urSpec,
-			Status: kyvernov1beta1.UpdateRequestStatus{State: kyvernov1beta1.Pending},
+			Spec: urSpec,
 		}
 		if new, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(ctx, &ur, metav1.CreateOptions{}); err != nil {
 			l.V(4).Error(err, "failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())

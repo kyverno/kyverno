@@ -455,7 +455,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 				}
 
 				logger.Info("creating new UR for mutate")
-				ur := newUR(policy, trigger, ruleType, kyvernov1beta1.Pending)
+				ur := newUR(policy, trigger, ruleType)
 				skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
 					pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
@@ -481,7 +481,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 					continue
 				}
 
-				ur := newUR(policy, trigger, ruleType, kyvernov1beta1.Pending)
+				ur := newUR(policy, trigger, ruleType)
 				skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
 					pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
