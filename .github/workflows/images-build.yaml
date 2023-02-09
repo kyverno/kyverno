@@ -3,8 +3,7 @@ name: Build images
 on:
   push:
     branches:
-      - 'main'
-      - 'release*'
+      - '*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
