@@ -1,35 +1,37 @@
 package kube
 
 import (
-	"fmt"
+	"context"
 
-	"github.com/kyverno/kyverno/pkg/logging"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type disco interface {
-	GetGVRFromKind(string) (schema.GroupVersionResource, error)
-}
-
 // CRDsInstalled checks if the Kyverno CRDs are installed or not
-func CRDsInstalled(discovery disco) bool {
-	kyvernoCRDs := []string{"ClusterPolicy", "Policy", "ClusterPolicyReport", "PolicyReport", "AdmissionReport", "BackgroundScanReport", "ClusterAdmissionReport", "ClusterBackgroundScanReport"}
+func CRDsInstalled(apiserverClient apiserver.Interface) bool {
+	kyvernoCRDs := []string{
+		"admissionreports.kyverno.io",
+		"backgroundscanreports.kyverno.io",
+		"cleanuppolicies.kyverno.io",
+		"clusteradmissionreports.kyverno.io",
+		"clusterbackgroundscanreports.kyverno.io",
+		"clustercleanuppolicies.kyverno.io",
+		"clusterpolicies.kyverno.io",
+		"clusterpolicyreports.wgpolicyk8s.io",
+		"policies.kyverno.io",
+		"policyexceptions.kyverno.io",
+		"policyreports.wgpolicyk8s.io",
+		"updaterequests.kyverno.io",
+	}
 	for _, crd := range kyvernoCRDs {
-		if !isCRDInstalled(discovery, crd) {
+		if !isCRDInstalled(apiserverClient, crd) {
 			return false
 		}
 	}
 	return true
 }
 
-func isCRDInstalled(discovery disco, kind string) bool {
-	gvr, err := discovery.GetGVRFromKind(kind)
-	if gvr.Empty() {
-		if err == nil {
-			err = fmt.Errorf("not found")
-		}
-		logging.Error(err, "failed to retrieve CRD", "kind", kind)
-		return false
-	}
-	return true
+func isCRDInstalled(apiserverClient apiserver.Interface, kind string) bool {
+	_, err := apiserverClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), kind, metav1.GetOptions{})
+	return err == nil
 }
