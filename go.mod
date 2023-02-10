@@ -67,6 +67,7 @@ require (
 	k8s.io/cli-runtime v0.26.1
 	k8s.io/client-go v0.26.1
 	k8s.io/klog/v2 v2.90.0
+	k8s.io/kube-aggregator v0.26.1
 	k8s.io/kube-openapi v0.0.0-20230118215034-64b6bb138190
 	k8s.io/pod-security-admission v0.26.1
 	k8s.io/utils v0.0.0-20230115233650-391b47cb4029
