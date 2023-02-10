@@ -24,10 +24,10 @@ func (e *engine) verifyAndPatchImages(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
-	resp := &engineapi.EngineResponse{}
+	policy := policyContext.Policy()
+	resp := engineapi.NewEngineResponse(policy)
 	ivm := &engineapi.ImageVerificationMetadata{}
 
-	policy := policyContext.Policy()
 	startTime := time.Now()
 	defer func() {
 		internal.BuildResponse(policyContext, resp, startTime)

@@ -23,7 +23,7 @@ func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.
 
 func generateSuccessEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
-		logger := log.WithValues("policy", er.PolicyResponse.Policy, "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)
+		logger := log.WithValues("policy", er.Policy.GetName(), "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)
 		if !er.IsFailed() {
 			logger.V(4).Info("generating event on policy for success rules")
 			e := event.NewPolicyAppliedEvent(event.PolicyController, er)
@@ -55,7 +55,7 @@ func generateFailEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (even
 func generateFailEventsPerEr(log logr.Logger, er *engineapi.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	logger := log.WithValues(
-		"policy", er.PolicyResponse.Policy.Name,
+		"policy", er.Policy.GetName(),
 		"kind", er.PolicyResponse.Resource.Kind,
 		"namespace", er.PolicyResponse.Resource.Namespace,
 		"name", er.PolicyResponse.Resource.Name,
