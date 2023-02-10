@@ -17,6 +17,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -440,18 +441,18 @@ func UpdateSourceResource(client dclient.Interface, kind, namespace string, poli
 
 	if len(label) == 0 {
 		label = make(map[string]string)
-		label["generate.kyverno.io/clone-policy-name"] = policyName
+		label[generate.LabelClonePolicyName] = policyName
 	} else {
-		if label["generate.kyverno.io/clone-policy-name"] != "" {
-			policyNames := label["generate.kyverno.io/clone-policy-name"]
+		if label[generate.LabelClonePolicyName] != "" {
+			policyNames := label[generate.LabelClonePolicyName]
 			if !strings.Contains(policyNames, policyName) {
 				policyNames = policyNames + "," + policyName
-				label["generate.kyverno.io/clone-policy-name"] = policyNames
+				label[generate.LabelClonePolicyName] = policyNames
 			} else {
 				updateSource = false
 			}
 		} else {
-			label["generate.kyverno.io/clone-policy-name"] = policyName
+			label[generate.LabelClonePolicyName] = policyName
 		}
 	}
 
