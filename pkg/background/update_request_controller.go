@@ -184,13 +184,14 @@ func (c *controller) syncUpdateRequest(key string) error {
 		return err
 	}
 
+	// Deep-copy otherwise we are mutating our cache.
+	ur = ur.DeepCopy()
+
 	// if not in any state, try to set it to pending
 	if ur.Status.State == "" {
-		ur = ur.DeepCopy()
 		ur.Status.State = kyvernov1beta1.Pending
-		if _, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{}); err != nil {
-			return err
-		}
+		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+		return err
 	}
 	// try to get the linked policy
 	if _, err := c.getPolicy(ur.Spec.Policy); err != nil {
