@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"strings"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -36,7 +34,7 @@ func generateSuccessEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (e
 func generateExceptionEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		for i, ruleResp := range er.PolicyResponse.Rules {
-			isException := strings.Contains(ruleResp.Message, "rule skipped due to policy exception")
+			isException := ruleResp.Exception != nil
 			if ruleResp.Status == engineapi.RuleStatusSkip && isException {
 				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i])...)
 			}
