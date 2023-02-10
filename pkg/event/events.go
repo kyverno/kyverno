@@ -48,14 +48,14 @@ func getPolicyKind(policy kyvernov1.PolicyInterface) string {
 }
 
 func NewPolicyAppliedEvent(source Source, engineResponse *engineapi.EngineResponse) Info {
-	resource := engineResponse.PolicyResponse.Resource
+	resource := engineResponse.Resource
 	var bldr strings.Builder
 	defer bldr.Reset()
 
-	if resource.Namespace != "" {
-		fmt.Fprintf(&bldr, "%s %s/%s: pass", resource.Kind, resource.Namespace, resource.Name)
+	if resource.GetNamespace() != "" {
+		fmt.Fprintf(&bldr, "%s %s/%s: pass", resource.GetKind(), resource.GetNamespace(), resource.GetName())
 	} else {
-		fmt.Fprintf(&bldr, "%s %s: pass", resource.Kind, resource.Name)
+		fmt.Fprintf(&bldr, "%s %s: pass", resource.GetKind(), resource.GetName())
 	}
 
 	return Info{
