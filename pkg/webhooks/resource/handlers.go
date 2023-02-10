@@ -211,7 +211,7 @@ func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.Admissi
 				return
 			}
 
-			if ur.Spec.Type == kyvernov1beta1.Mutate {
+			if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate {
 				return
 			}
 			h.urUpdater.UpdateAnnotation(logger, ur.GetName())
