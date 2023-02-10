@@ -32,10 +32,10 @@ import (
 
 func (e *engine) validate(
 	ctx context.Context,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
 	startTime := time.Now()
-	logger := internal.BuildLogger(policyContext)
 	logger.V(4).Info("start validate policy processing", "startTime", startTime)
 	policyResponse := e.validateResource(ctx, logger, policyContext)
 	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.ProcessingTime.String(), "validationRulesApplied", policyResponse.RulesAppliedCount)
@@ -45,7 +45,7 @@ func (e *engine) validate(
 
 func (e *engine) validateResource(
 	ctx context.Context,
-	log logr.Logger,
+	logger logr.Logger,
 	enginectx engineapi.PolicyContext,
 ) *engineapi.PolicyResponse {
 	resp := &engineapi.PolicyResponse{}
@@ -71,7 +71,8 @@ func (e *engine) validateResource(
 
 	for i := range rules {
 		rule := &rules[i]
-		log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
+		logger := internal.LoggerWithRule(logger, rules[i])
+		logger.V(3).Info("processing validation rule", "matchCount", matchCount)
 		enginectx.JSONContext().Reset()
 		startTime := time.Now()
 		ruleResp := tracing.ChildSpan1(
@@ -85,33 +86,31 @@ func (e *engine) validateResource(
 				if !hasValidate && !hasValidateImage {
 					return nil
 				}
-				log = log.WithValues("rule", rule.Name)
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, enginectx)
 
-				if !matches(log, rule, enginectx, subresourceGVKToAPIResource, e.configuration) {
+				if !matches(logger, rule, enginectx, subresourceGVKToAPIResource, e.configuration) {
 					return nil
 				}
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(log, engineapi.Validation, e.exceptionSelector, enginectx, rule, subresourceGVKToAPIResource, e.configuration)
+				ruleResp := hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, enginectx, rule, subresourceGVKToAPIResource, e.configuration)
 				if ruleResp != nil {
 					return ruleResp
 				}
-				log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 				enginectx.JSONContext().Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
-					return e.processValidationRule(ctx, log, enginectx, rule)
+					return e.processValidationRule(ctx, logger, enginectx, rule)
 				} else if hasValidateImage {
-					return e.processImageValidationRule(ctx, log, enginectx, rule)
+					return e.processImageValidationRule(ctx, logger, enginectx, rule)
 				} else if hasYAMLSignatureVerify {
-					return processYAMLValidationRule(e.client, log, enginectx, rule)
+					return processYAMLValidationRule(e.client, logger, enginectx, rule)
 				}
 				return nil
 			},
 		)
 		if ruleResp != nil {
 			internal.AddRuleResponse(resp, ruleResp, startTime)
-			log.V(4).Info("finished processing rule", "processingTime", ruleResp.ExecutionStats.ProcessingTime.String())
+			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.ExecutionStats.ProcessingTime.String())
 		}
 		if applyRules == kyvernov1.ApplyOne && resp.RulesAppliedCount > 0 {
 			break
@@ -123,11 +122,11 @@ func (e *engine) validateResource(
 
 func (e *engine) processValidationRule(
 	ctx context.Context,
-	log logr.Logger,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
 ) *engineapi.RuleResponse {
-	v := newValidator(log, e.ContextLoader(policyContext.Policy(), *rule), policyContext, rule)
+	v := newValidator(logger, e.ContextLoader(policyContext.Policy(), *rule), policyContext, rule)
 	return v.validate(ctx)
 }
 
@@ -260,7 +259,7 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 		}
 		return internal.RuleSkip(v.rule, engineapi.Validation, "rule skipped")
 	}
-	return internal.RuleResponse(*v.rule, engineapi.Validation, "rule passed", engineapi.RuleStatusPass)
+	return internal.RulePass(v.rule, engineapi.Validation, "rule passed")
 }
 
 func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*engineapi.RuleResponse, int) {
@@ -308,7 +307,7 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 		applyCount++
 	}
 
-	return internal.RuleResponse(*v.rule, engineapi.Validation, "", engineapi.RuleStatusPass), applyCount
+	return internal.RulePass(v.rule, engineapi.Validation, ""), applyCount
 }
 
 func addElementToContext(ctx engineapi.PolicyContext, element interface{}, index, nesting int, elementScope *bool) error {
@@ -364,7 +363,7 @@ func (v *validator) validateDeny() *engineapi.RuleResponse {
 		if deny {
 			return internal.RuleResponse(*v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusFail)
 		}
-		return internal.RuleResponse(*v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusPass)
+		return internal.RulePass(v.rule, engineapi.Validation, v.getDenyMessage(deny))
 	}
 }
 
@@ -464,7 +463,7 @@ func (v *validator) validatePodSecurity() *engineapi.RuleResponse {
 	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
-		rspn := internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusPass)
+		rspn := internal.RulePass(v.rule, engineapi.Validation, msg)
 		rspn.PodSecurityChecks = podSecurityChecks
 		return rspn
 	} else {
@@ -554,7 +553,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 
 		v.log.V(4).Info("successfully processed rule")
 		msg := fmt.Sprintf("validation rule '%s' passed.", v.rule.Name)
-		return internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusPass)
+		return internal.RulePass(v.rule, engineapi.Validation, msg)
 	}
 
 	if v.anyPattern != nil {
@@ -564,15 +563,14 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 
 		anyPatterns, err := deserializeAnyPattern(v.anyPattern)
 		if err != nil {
-			msg := fmt.Sprintf("failed to deserialize anyPattern, expected type array: %v", err)
-			return internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusError)
+			return internal.RuleError(v.rule, engineapi.Validation, "failed to deserialize anyPattern, expected type array", err)
 		}
 
 		for idx, pattern := range anyPatterns {
 			err := validate.MatchPattern(v.log, resource.Object, pattern)
 			if err == nil {
 				msg := fmt.Sprintf("validation rule '%s' anyPattern[%d] passed.", v.rule.Name, idx)
-				return internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusPass)
+				return internal.RulePass(v.rule, engineapi.Validation, msg)
 			}
 
 			if pe, ok := err.(*validate.PatternError); ok {
@@ -613,7 +611,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 		}
 	}
 
-	return internal.RuleResponse(*v.rule, engineapi.Validation, v.rule.Validation.Message, engineapi.RuleStatusPass)
+	return internal.RulePass(v.rule, engineapi.Validation, v.rule.Validation.Message)
 }
 
 func deserializeAnyPattern(anyPattern apiextensions.JSON) ([]interface{}, error) {
