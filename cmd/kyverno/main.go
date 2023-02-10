@@ -50,6 +50,7 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -93,8 +94,8 @@ func showWarnings(logger logr.Logger) {
 	}
 }
 
-func sanityChecks(dynamicClient dclient.Interface) error {
-	if !kubeutils.CRDsInstalled(dynamicClient.Discovery()) {
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	if !kubeutils.CRDsInstalled(apiserverClient) {
 		return fmt.Errorf("CRDs not installed")
 	}
 	return nil
@@ -276,11 +277,16 @@ func main() {
 		logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
 	}
+	apiserverClient, err := apiserver.NewForConfig(internal.CreateClientConfig(logger))
+	if err != nil {
+		logger.Error(err, "failed to create apiserver client")
+		os.Exit(1)
+	}
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// check we can run
-	if err := sanityChecks(dClient); err != nil {
+	if err := sanityChecks(apiserverClient); err != nil {
 		logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
