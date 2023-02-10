@@ -94,6 +94,7 @@ func Test_buildPolicyReports(t *testing.T) {
 
 	var er engineapi.EngineResponse
 	err = json.Unmarshal(rawEngRes, &er)
+	er.Policy = &policy
 	assert.NilError(t, err)
 
 	info := kyvCommon.ProcessValidateEngineResponse(&policy, er, "", rc, true, false)
@@ -130,6 +131,7 @@ func Test_buildPolicyResults(t *testing.T) {
 
 	var er engineapi.EngineResponse
 	err = json.Unmarshal(rawEngRes, &er)
+	er.Policy = &policy
 	assert.NilError(t, err)
 
 	info := kyvCommon.ProcessValidateEngineResponse(&policy, er, "", rc, true, false)

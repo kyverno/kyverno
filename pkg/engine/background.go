@@ -31,10 +31,6 @@ func (e *engine) applyBackgroundChecks(
 	namespace := newResource.GetNamespace()
 	apiVersion := newResource.GetAPIVersion()
 	resp := &engineapi.PolicyResponse{
-		Policy: engineapi.PolicySpec{
-			Name:      policy.GetName(),
-			Namespace: policy.GetNamespace(),
-		},
 		PolicyStats: engineapi.PolicyStats{
 			ExecutionStats: engineapi.ExecutionStats{
 				Timestamp: startTime.Unix(),
