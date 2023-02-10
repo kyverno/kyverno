@@ -33,7 +33,7 @@ func (e *engine) filterGenerateRules(
 	namespace := newResource.GetNamespace()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	resp.PolicyResponse = engineapi.PolicyResponse{
-		PolicyStats: engineapi.PolicyStats{
+		Stats: engineapi.PolicyStats{
 			ExecutionStats: engineapi.ExecutionStats{
 				Timestamp: startTime.Unix(),
 			},
