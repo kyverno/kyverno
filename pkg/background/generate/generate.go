@@ -185,13 +185,13 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 			logger.V(4).Info("querying all update requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
 				kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.Policy.GetName(),
-				kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.PolicyResponse.Resource.Name,
-				kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.PolicyResponse.Resource.Kind,
-				kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.PolicyResponse.Resource.Namespace,
+				kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.Resource.GetName(),
+				kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.Resource.GetKind(),
+				kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.Resource.GetNamespace(),
 			}))
 			urList, err := c.urLister.List(selector)
 			if err != nil {
-				logger.Error(err, "failed to get update request for the resource", "kind", engineResponse.PolicyResponse.Resource.Kind, "name", engineResponse.PolicyResponse.Resource.Name, "namespace", engineResponse.PolicyResponse.Resource.Namespace)
+				logger.Error(err, "failed to get update request for the resource", "kind", engineResponse.Resource.GetKind(), "name", engineResponse.Resource.GetName(), "namespace", engineResponse.Resource.GetNamespace())
 				continue
 			}
 

@@ -81,10 +81,10 @@ func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, u
 		Type:   ruleType,
 		Policy: PolicyNameNamespaceKey,
 		Resource: kyvernov1.ResourceSpec{
-			Kind:       er.PolicyResponse.Resource.Kind,
-			Namespace:  er.PolicyResponse.Resource.Namespace,
-			Name:       er.PolicyResponse.Resource.Name,
-			APIVersion: er.PolicyResponse.Resource.APIVersion,
+			Kind:       er.Resource.GetKind(),
+			Namespace:  er.Resource.GetNamespace(),
+			Name:       er.Resource.GetName(),
+			APIVersion: er.Resource.GetAPIVersion(),
 		},
 		Context: kyvernov1beta1.UpdateRequestSpecContext{
 			UserRequestInfo:      userRequestInfo,

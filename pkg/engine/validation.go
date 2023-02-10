@@ -39,7 +39,8 @@ func (e *engine) validate(
 	logger.V(4).Info("start validate policy processing", "startTime", startTime)
 	policyResponse := e.validateResource(ctx, logger, policyContext)
 	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.ProcessingTime.String(), "validationRulesApplied", policyResponse.RulesAppliedCount)
-	engineResponse := &engineapi.EngineResponse{PolicyResponse: *policyResponse}
+	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	engineResponse.PolicyResponse = *policyResponse
 	return internal.BuildResponse(policyContext, engineResponse, startTime)
 }
 

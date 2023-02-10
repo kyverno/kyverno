@@ -1117,10 +1117,10 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 			Type:   kyvernov1beta1.Generate,
 			Policy: generateResponse.Policy.GetName(),
 			Resource: kyvernov1.ResourceSpec{
-				Kind:       generateResponse.PolicyResponse.Resource.Kind,
-				Namespace:  generateResponse.PolicyResponse.Resource.Namespace,
-				Name:       generateResponse.PolicyResponse.Resource.Name,
-				APIVersion: generateResponse.PolicyResponse.Resource.APIVersion,
+				Kind:       generateResponse.Resource.GetKind(),
+				Namespace:  generateResponse.Resource.GetNamespace(),
+				Name:       generateResponse.Resource.GetName(),
+				APIVersion: generateResponse.Resource.GetAPIVersion(),
 			},
 		},
 	}
