@@ -44,10 +44,6 @@ func AddRuleResponse(resp *engineapi.PolicyResponse, ruleResp *engineapi.RuleRes
 }
 
 func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, startTime time.Time) *engineapi.EngineResponse {
-	resp.NamespaceLabels = ctx.NamespaceLabels()
-	if reflect.DeepEqual(resp, engineapi.EngineResponse{}) {
-		return resp
-	}
 	if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
 		// for delete requests patched resource will be oldResource since newResource is empty
 		resource := ctx.NewResource()
@@ -57,11 +53,6 @@ func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 		resp.PatchedResource = resource
 	}
 	policy := ctx.Policy()
-	resp.Policy = policy
-	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()
-	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
-	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
-	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
 	resp.PolicyResponse.ValidationFailureAction = policy.GetSpec().ValidationFailureAction
 	for _, v := range policy.GetSpec().ValidationFailureActionOverrides {
 		newOverrides := engineapi.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces, NamespaceSelector: v.NamespaceSelector}
