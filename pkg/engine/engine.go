@@ -69,7 +69,7 @@ func (e *engine) Mutate(
 func (e *engine) VerifyAndPatchImages(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.verify"), policyContext)
 	return e.verifyAndPatchImages(ctx, logger, policyContext)
 }

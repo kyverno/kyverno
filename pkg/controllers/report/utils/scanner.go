@@ -111,5 +111,5 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}
-	return response, nil
+	return &response, nil
 }

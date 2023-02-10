@@ -175,10 +175,11 @@ func testVerifyAndPatchImages(
 		engineapi.DefaultContextLoaderFactory(cmResolver),
 		nil,
 	)
-	return e.VerifyAndPatchImages(
+	r, m := e.VerifyAndPatchImages(
 		ctx,
 		pContext,
 	)
+	return &r, &m
 }
 
 func Test_CosignMockAttest(t *testing.T) {

@@ -23,7 +23,7 @@ func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	policy := policyContext.Policy()
 	resp := engineapi.NewEngineResponse(policy)
 	startTime := time.Now()
@@ -129,7 +129,7 @@ func (e *engine) verifyAndPatchImages(
 		}
 	}
 
-	return resp, ivm
+	return *resp, *ivm
 }
 
 func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string) {

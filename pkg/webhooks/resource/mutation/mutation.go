@@ -123,9 +123,9 @@ func (v *mutationHandler) applyMutations(
 				engineResponses = append(engineResponses, engineResponse)
 
 				// registering the kyverno_policy_results_total metric concurrently
-				go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
+				go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), v.log, v.metrics, string(request.Operation), policy, engineResponse)
 				// registering the kyverno_policy_execution_duration_seconds metric concurrently
-				go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
+				go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), v.log, v.metrics, string(request.Operation), policy, engineResponse)
 
 				return nil
 			},
@@ -160,17 +160,17 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 	policyPatches := engineResponse.GetPatches()
 
 	if !engineResponse.IsSuccessful() {
-		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRules())
+		return engineResponse, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRules())
 	}
 
 	if policyContext.Policy().ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
 		err := h.openApiManager.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to validate resource mutated by policy %s: %w", policyContext.Policy().GetName(), err)
+			return engineResponse, nil, fmt.Errorf("failed to validate resource mutated by policy %s: %w", policyContext.Policy().GetName(), err)
 		}
 	}
 
-	return &engineResponse, policyPatches, nil
+	return engineResponse, policyPatches, nil
 }
 
 func logMutationResponse(patches [][]byte, engineResponses []engineapi.EngineResponse, logger logr.Logger) {

@@ -94,7 +94,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 
 				engineResponses = append(engineResponses, resp)
 				patches = append(patches, resp.GetPatches()...)
-				verifiedImageData.Merge(ivm)
+				verifiedImageData.Merge(&ivm)
 			},
 		)
 	}
