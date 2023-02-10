@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,6 +44,8 @@ type RuleResponse struct {
 	PatchedTargetParentResourceGVR metav1.GroupVersionResource
 	// PodSecurityChecks contains pod security checks (only if this is a pod security rule)
 	PodSecurityChecks *PodSecurityChecks
+	// Exception is the exception applied (if any)
+	Exception *kyvernov2alpha1.PolicyException
 }
 
 // HasStatus checks if rule status is in a given list
