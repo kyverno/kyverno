@@ -144,7 +144,9 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 						}
 						_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedTargetSubresourceName)
 					} else {
-						_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+						// _, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+						ptch, _ := patchedNew.MarshalJSON()
+						_, updateErr = c.client.ApplyResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.GetName(), ptch)
 					}
 					if updateErr != nil {
 						errs = append(errs, updateErr)

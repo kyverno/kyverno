@@ -47,6 +47,8 @@ type Interface interface {
 	UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error)
 	// UpdateStatusResource updates the resource "status" subresource
 	UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
+	// ApplyResource updates object for the specified resource/namespace using server-side apply
+	ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error)
 }
 
 // Client enables interaction with k8 resource
@@ -205,6 +207,13 @@ func (c *client) UpdateStatusResource(ctx context.Context, apiVersion string, ki
 		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(ctx, unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to update resource ")
+}
+
+// ApplyResource updates object for the specified resource/namespace using server-side apply
+func (c *client) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
+	shouldForce := true
+	options := metav1.PatchOptions{FieldManager: "kyverno-controller", Force: &shouldForce}
+	return c.getResourceInterface(apiVersion, kind, namespace).Patch(ctx, name, types.ApplyPatchType, patch, options)
 }
 
 // Discovery return the discovery client implementation
