@@ -30,8 +30,8 @@ func (e *engine) verifyAndPatchImages(
 	defer func() {
 		internal.BuildResponse(policyContext, resp, startTime)
 		logger.V(4).Info("processed image verification rules",
-			"time", resp.PolicyResponse.ProcessingTime.String(),
-			"applied", resp.PolicyResponse.RulesAppliedCount, "successful", resp.IsSuccessful())
+			"time", resp.PolicyResponse.Stats.ProcessingTime.String(),
+			"applied", resp.PolicyResponse.Stats.RulesAppliedCount, "successful", resp.IsSuccessful())
 	}()
 
 	policyContext.JSONContext().Checkpoint()
@@ -124,7 +124,7 @@ func (e *engine) verifyAndPatchImages(
 			},
 		)
 
-		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}
