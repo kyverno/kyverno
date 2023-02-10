@@ -28,7 +28,7 @@ func (e *engine) mutate(
 ) (resp *engineapi.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy()
-	resp = engineapi.NewEngineResponse(policy)
+	resp = engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	matchedResource := policyContext.NewResource()
 	enginectx := policyContext.JSONContext()
 	var skippedRules []string
@@ -348,10 +348,6 @@ func startMutateResultResponse(resp *engineapi.EngineResponse, policy kyvernov1.
 	if resp == nil {
 		return
 	}
-	resp.PolicyResponse.Resource.Name = resource.GetName()
-	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
-	resp.PolicyResponse.Resource.Kind = resource.GetKind()
-	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
 }
 
 func endMutateResultResponse(logger logr.Logger, resp *engineapi.EngineResponse, startTime time.Time) {

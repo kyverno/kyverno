@@ -433,9 +433,9 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 
 	for _, resp := range engineResponses {
 		policyName := resp.Policy.GetName()
-		resourceName := resp.PolicyResponse.Resource.Name
-		resourceKind := resp.PolicyResponse.Resource.Kind
-		resourceNamespace := resp.PolicyResponse.Resource.Namespace
+		resourceName := resp.Resource.GetName()
+		resourceKind := resp.Resource.GetKind()
+		resourceNamespace := resp.Resource.GetNamespace()
 		policyNamespace := resp.Policy.GetNamespace()
 
 		var rules []string

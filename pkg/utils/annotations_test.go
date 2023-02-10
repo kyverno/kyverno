@@ -29,21 +29,21 @@ func newPolicyResponse(rule string, patchesStr []string, status engineapi.RuleSt
 }
 
 func newEngineResponse(policy, rule string, patchesStr []string, status engineapi.RuleStatus, annotation map[string]interface{}) *engineapi.EngineResponse {
-	return &engineapi.EngineResponse{
-		Policy: &kyvernov1.ClusterPolicy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: policy,
-			},
+	p := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: policy,
 		},
-		PatchedResource: unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"metadata": map[string]interface{}{
-					"annotations": annotation,
-				},
-			},
-		},
-		PolicyResponse: newPolicyResponse(rule, patchesStr, status),
 	}
+	policyResponse := newPolicyResponse(rule, patchesStr, status)
+	response := engineapi.NewEngineResponse(unstructured.Unstructured{}, p, nil, &policyResponse)
+	response.PatchedResource = unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"annotations": annotation,
+			},
+		},
+	}
+	return response
 }
 
 func Test_empty_annotation(t *testing.T) {

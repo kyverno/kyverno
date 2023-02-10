@@ -37,8 +37,8 @@ func ProcessEngineResponse(ctx context.Context, m metrics.MetricsConfigManager, 
 	if err != nil {
 		return err
 	}
-	resourceSpec := engineResponse.PolicyResponse.Resource
-	resourceNamespace := resourceSpec.Namespace
+	resourceSpec := engineResponse.Resource
+	resourceNamespace := resourceSpec.GetNamespace()
 	ruleResponses := engineResponse.PolicyResponse.Rules
 	for _, rule := range ruleResponses {
 		ruleName := rule.Name
