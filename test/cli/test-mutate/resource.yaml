@@ -74,6 +74,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: same-name-but-diff-kind
+  namespace: testing
 spec:
   selector:
     app: MyApp
@@ -90,6 +91,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: same-name-but-diff-kind
+  namespace: testing
   labels:
     foo: bar
 spec:
