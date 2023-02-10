@@ -39,7 +39,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 		if !reflect.DeepEqual(new, unstructured.Unstructured{}) {
 			if !check(&new, trigger) {
 				err := fmt.Errorf("resources don't match")
-				return nil, false, fmt.Errorf("resource %v: %w", ur.Spec.Resource, err)
+				return nil, false, fmt.Errorf("resource %v: %w", ur.Spec.GetResource().String(), err)
 			}
 		}
 	}

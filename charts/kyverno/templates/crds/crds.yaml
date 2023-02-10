@@ -30532,10 +30532,18 @@ spec:
                     description: Namespace specifies resource namespace.
                     type: string
                 type: object
+              rule:
+                description: Rule is the associate rule name of the current UR.
+                type: string
+              synchronize:
+                description: Synchronize represents the sync behavior of the corresponding
+                  rule Optional. Defaults to "false" if not specified.
+                type: boolean
             required:
             - context
             - policy
             - resource
+            - rule
             type: object
           status:
             description: Status contains statistics related to update request.

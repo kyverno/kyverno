@@ -70,7 +70,7 @@ func NewMutateExistingController(
 }
 
 func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
-	logger := c.log.WithValues("name", ur.Name, "policy", ur.Spec.Policy, "kind", ur.Spec.Resource.Kind, "apiVersion", ur.Spec.Resource.APIVersion, "namespace", ur.Spec.Resource.Namespace, "name", ur.Spec.Resource.Name)
+	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
 	policy, err := c.getPolicy(ur.Spec.Policy)

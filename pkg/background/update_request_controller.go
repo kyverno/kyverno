@@ -195,7 +195,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 	}
 	// try to get the linked policy
 	if _, err := c.getPolicy(ur.Spec.Policy); err != nil {
-		if apierrors.IsNotFound(err) && ur.Spec.Type == kyvernov1beta1.Mutate {
+		if apierrors.IsNotFound(err) && ur.Spec.GetRequestType() == kyvernov1beta1.Mutate {
 			// here only takes care of mutateExisting policies
 			// generate cleanup controller handles policy deletion
 			selector := &metav1.LabelSelector{
@@ -387,7 +387,7 @@ func (c *controller) deleteUR(obj interface{}) {
 
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
-	switch ur.Spec.Type {
+	switch ur.Spec.GetRequestType() {
 	case kyvernov1beta1.Mutate:
 		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
@@ -399,7 +399,7 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 }
 
 func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
-	if ur.Spec.Type == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
+	if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
