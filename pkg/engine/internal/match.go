@@ -20,7 +20,7 @@ func MatchPolicyContext(logger logr.Logger, policyContext engineapi.PolicyContex
 		logger.V(2).Info("configuration resource filters doesn't match resource")
 		return false
 	}
-	return false
+	return true
 }
 
 func checkResourceFilters(configuration config.Configuration, resources ...unstructured.Unstructured) bool {
