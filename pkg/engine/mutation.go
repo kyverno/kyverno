@@ -28,7 +28,7 @@ func (e *engine) mutate(
 ) (resp *engineapi.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy()
-	resp = engineapi.NewEngineResponse(policyContext)
+	resp = engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	matchedResource := policyContext.NewResource()
 	enginectx := policyContext.JSONContext()
 	var skippedRules []string

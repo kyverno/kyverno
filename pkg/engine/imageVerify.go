@@ -25,7 +25,7 @@ func (e *engine) verifyAndPatchImages(
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
 	policy := policyContext.Policy()
-	resp := engineapi.NewEngineResponse(policyContext)
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	startTime := time.Now()
 	defer func() {
 		internal.BuildResponse(policyContext, resp, startTime)

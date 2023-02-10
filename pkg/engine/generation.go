@@ -31,7 +31,7 @@ func (e *engine) filterGenerateRules(
 	kind := newResource.GetKind()
 	name := newResource.GetName()
 	namespace := newResource.GetNamespace()
-	resp := engineapi.NewEngineResponse(policyContext)
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	resp.PolicyResponse = engineapi.PolicyResponse{
 		PolicyStats: engineapi.PolicyStats{
 			ExecutionStats: engineapi.ExecutionStats{

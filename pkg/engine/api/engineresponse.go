@@ -23,18 +23,41 @@ type EngineResponse struct {
 	PolicyResponse PolicyResponse
 }
 
-func NewEngineResponse(
-	policyContext PolicyContext,
-) *EngineResponse {
+func Resource(policyContext PolicyContext) unstructured.Unstructured {
 	resource := policyContext.NewResource()
 	if resource.Object == nil {
 		resource = policyContext.OldResource()
 	}
-	return &EngineResponse{
+	return resource
+}
+
+func NewEngineResponseFromPolicyContext(
+	policyContext PolicyContext,
+	policyResponse *PolicyResponse,
+) *EngineResponse {
+	return NewEngineResponse(
+		Resource(policyContext),
+		policyContext.Policy(),
+		policyContext.NamespaceLabels(),
+		policyResponse,
+	)
+}
+
+func NewEngineResponse(
+	resource unstructured.Unstructured,
+	policy kyvernov1.PolicyInterface,
+	namespaceLabels map[string]string,
+	policyResponse *PolicyResponse,
+) *EngineResponse {
+	response := &EngineResponse{
 		Resource:        resource,
-		Policy:          policyContext.Policy(),
-		NamespaceLabels: policyContext.NamespaceLabels(),
+		Policy:          policy,
+		NamespaceLabels: namespaceLabels,
 	}
+	if policyResponse != nil {
+		response.PolicyResponse = *policyResponse
+	}
+	return response
 }
 
 // IsOneOf checks if any rule has status in a given list
