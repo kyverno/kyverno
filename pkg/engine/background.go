@@ -38,7 +38,7 @@ func (e *engine) filterRules(
 	namespace := newResource.GetNamespace()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	resp.PolicyResponse = engineapi.PolicyResponse{
-		PolicyStats: engineapi.PolicyStats{
+		Stats: engineapi.PolicyStats{
 			ExecutionStats: engineapi.ExecutionStats{
 				Timestamp: startTime.Unix(),
 			},
@@ -104,7 +104,7 @@ func (e *engine) filterRule(
 					Name:   rule.Name,
 					Type:   ruleType,
 					Status: engineapi.RuleStatusFail,
-					ExecutionStats: engineapi.ExecutionStats{
+					Stats: engineapi.ExecutionStats{
 						ProcessingTime: time.Since(startTime),
 						Timestamp:      startTime.Unix(),
 					},
@@ -149,7 +149,7 @@ func (e *engine) filterRule(
 		Name:   ruleCopy.Name,
 		Type:   ruleType,
 		Status: engineapi.RuleStatusPass,
-		ExecutionStats: engineapi.ExecutionStats{
+		Stats: engineapi.ExecutionStats{
 			ProcessingTime: time.Since(startTime),
 			Timestamp:      startTime.Unix(),
 		},

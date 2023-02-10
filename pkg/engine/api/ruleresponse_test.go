@@ -15,7 +15,7 @@ func TestRuleResponse_String(t *testing.T) {
 		Patches                        [][]byte
 		GeneratedResource              unstructured.Unstructured
 		Status                         RuleStatus
-		ExecutionStats                 ExecutionStats
+		Stats                          ExecutionStats
 		PatchedTarget                  *unstructured.Unstructured
 		PatchedTargetSubresourceName   string
 		PatchedTargetParentResourceGVR metav1.GroupVersionResource
@@ -63,7 +63,7 @@ func TestRuleResponse_String(t *testing.T) {
 				Patches:                        tt.fields.Patches,
 				GeneratedResource:              tt.fields.GeneratedResource,
 				Status:                         tt.fields.Status,
-				ExecutionStats:                 tt.fields.ExecutionStats,
+				Stats:                          tt.fields.Stats,
 				PatchedTarget:                  tt.fields.PatchedTarget,
 				PatchedTargetSubresourceName:   tt.fields.PatchedTargetSubresourceName,
 				PatchedTargetParentResourceGVR: tt.fields.PatchedTargetParentResourceGVR,
@@ -84,7 +84,7 @@ func TestRuleResponse_HasStatus(t *testing.T) {
 		Patches                        [][]byte
 		GeneratedResource              unstructured.Unstructured
 		Status                         RuleStatus
-		ExecutionStats                 ExecutionStats
+		Stats                          ExecutionStats
 		PatchedTarget                  *unstructured.Unstructured
 		PatchedTargetSubresourceName   string
 		PatchedTargetParentResourceGVR metav1.GroupVersionResource
@@ -145,7 +145,7 @@ func TestRuleResponse_HasStatus(t *testing.T) {
 				Patches:                        tt.fields.Patches,
 				GeneratedResource:              tt.fields.GeneratedResource,
 				Status:                         tt.fields.Status,
-				ExecutionStats:                 tt.fields.ExecutionStats,
+				Stats:                          tt.fields.Stats,
 				PatchedTarget:                  tt.fields.PatchedTarget,
 				PatchedTargetSubresourceName:   tt.fields.PatchedTargetSubresourceName,
 				PatchedTargetParentResourceGVR: tt.fields.PatchedTargetParentResourceGVR,

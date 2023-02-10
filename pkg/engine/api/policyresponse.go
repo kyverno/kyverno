@@ -13,8 +13,8 @@ type ValidationFailureActionOverride struct {
 
 // PolicyResponse policy application response
 type PolicyResponse struct {
-	// PolicyStats contains policy statistics
-	PolicyStats
+	// Stats contains policy statistics
+	Stats PolicyStats
 	// Rules contains policy rules responses
 	Rules []RuleResponse
 	// ValidationFailureAction audit (default) or enforce

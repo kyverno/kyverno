@@ -38,7 +38,7 @@ func (e *engine) validate(
 	startTime := time.Now()
 	logger.V(4).Info("start validate policy processing", "startTime", startTime)
 	policyResponse := e.validateResource(ctx, logger, policyContext)
-	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.ProcessingTime.String(), "validationRulesApplied", policyResponse.RulesAppliedCount)
+	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.Stats.ProcessingTime.String(), "validationRulesApplied", policyResponse.Stats.RulesAppliedCount)
 	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	engineResponse.PolicyResponse = *policyResponse
 	return internal.BuildResponse(policyContext, engineResponse, startTime)
@@ -111,9 +111,9 @@ func (e *engine) validateResource(
 		)
 		if ruleResp != nil {
 			internal.AddRuleResponse(resp, ruleResp, startTime)
-			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.ExecutionStats.ProcessingTime.String())
+			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
 		}
-		if applyRules == kyvernov1.ApplyOne && resp.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}
