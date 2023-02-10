@@ -10,6 +10,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	gen "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
@@ -25,6 +26,7 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -141,18 +143,18 @@ func (h *generationHandler) HandleUpdatesForGenerateRules(ctx context.Context, r
 	}
 
 	resLabels := resource.GetLabels()
-	if resLabels["generate.kyverno.io/clone-policy-name"] != "" {
+	if resLabels[generate.LabelClonePolicyName] != "" {
 		h.handleUpdateGenerateSourceResource(ctx, resLabels)
 	}
 
-	if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == admissionv1.Update {
-		h.handleUpdateGenerateTargetResource(ctx, request, policies, resLabels)
+	if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp && resLabels[generate.LabelSynchronize] == "enable" && request.Operation == admissionv1.Update {
+		h.handleUpdateGenerateTargetResource(ctx, resource, policies, resLabels)
 	}
 }
 
 // handleUpdateGenerateSourceResource - handles update of clone source for generate policy
 func (h *generationHandler) handleUpdateGenerateSourceResource(ctx context.Context, resLabels map[string]string) {
-	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
+	policyNames := strings.Split(resLabels[generate.LabelClonePolicyName], ",")
 	for _, policyName := range policyNames {
 		// check if the policy exists
 		_, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, policyName, metav1.GetOptions{})
@@ -181,14 +183,10 @@ func (h *generationHandler) handleUpdateGenerateSourceResource(ctx context.Conte
 }
 
 // handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Context, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, resLabels map[string]string) {
+func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Context, newRes *unstructured.Unstructured, policies []kyvernov1.PolicyInterface, resLabels map[string]string) {
 	enqueueBool := false
-	newRes, err := kubeutils.BytesToUnstructured(request.Object.Raw)
-	if err != nil {
-		h.log.Error(err, "failed to convert object resource to unstructured format")
-	}
 
-	policyName := resLabels["policy.kyverno.io/policy-name"]
+	policyName := resLabels[generate.LabelDataPolicyName]
 	targetSourceName := newRes.GetName()
 	targetSourceKind := newRes.GetKind()
 
@@ -232,7 +230,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Conte
 	}
 
 	if enqueueBool {
-		urName := resLabels["policy.kyverno.io/gr-name"]
+		urName := resLabels[generate.LabelURName]
 		ur, err := h.urLister.Get(urName)
 		if err != nil {
 			h.log.Error(err, "failed to get update request", "name", urName)

@@ -249,8 +249,8 @@ func (c *GenerateController) cleanupClonedResource(targetSpec kyvernov1.Resource
 	}
 
 	labels := target.GetLabels()
-	syncEnabled := labels["policy.kyverno.io/synchronize"] == "enable"
-	clone := labels["generate.kyverno.io/clone-policy-name"] != ""
+	syncEnabled := labels[LabelSynchronize] == "enable"
+	clone := labels[LabelClonePolicyName] != ""
 
 	if syncEnabled && !clone {
 		if err := c.client.DeleteResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), false); err != nil {
@@ -480,27 +480,22 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 		}
 
 		newResource.SetAPIVersion(rdata.GenAPIVersion)
-		// manage labels
-		// - app.kubernetes.io/managed-by: kyverno
-		// "kyverno.io/generated-by-kind": kind (trigger resource)
-		// "kyverno.io/generated-by-namespace": namespace (trigger resource)
-		// "kyverno.io/generated-by-name": name (trigger resource)
 		common.ManageLabels(newResource, resource)
 		// Add Synchronize label
 		label := newResource.GetLabels()
 
 		// Add background gen-rule label if generate rule applied on existing resource
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
-			label["kyverno.io/background-gen-rule"] = rule.Name
+			label[LabelBackgroundGenRuleName] = rule.Name
 		}
 
-		label["policy.kyverno.io/policy-name"] = policy.GetName()
-		label["policy.kyverno.io/gr-name"] = ur.Name
+		label[LabelDataPolicyName] = policy.GetName()
+		label[LabelURName] = ur.Name
 		if rdata.Action == Create {
 			if rule.Generation.Synchronize {
-				label["policy.kyverno.io/synchronize"] = "enable"
+				label[LabelSynchronize] = "enable"
 			} else {
-				label["policy.kyverno.io/synchronize"] = "disable"
+				label[LabelSynchronize] = "disable"
 			}
 
 			// Reset resource version
@@ -532,7 +527,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 				// if synchronize is true - update the label and generated resource with generate policy data
 				if rule.Generation.Synchronize {
 					logger.V(4).Info("updating existing resource")
-					label["policy.kyverno.io/synchronize"] = "enable"
+					label[LabelSynchronize] = "enable"
 					newResource.SetLabels(label)
 
 					if rdata.GenAPIVersion == "" {
@@ -553,13 +548,13 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 					}
 				} else {
 					currentGeneratedResourcelabel := generatedObj.GetLabels()
-					currentSynclabel := currentGeneratedResourcelabel["policy.kyverno.io/synchronize"]
+					currentSynclabel := currentGeneratedResourcelabel[LabelSynchronize]
 
 					// update only if the labels mismatches
 					if (!rule.Generation.Synchronize && currentSynclabel == "enable") ||
 						(rule.Generation.Synchronize && currentSynclabel == "disable") {
 						logger.V(4).Info("updating label in existing resource")
-						currentGeneratedResourcelabel["policy.kyverno.io/synchronize"] = "disable"
+						currentGeneratedResourcelabel[LabelSynchronize] = "disable"
 						generatedObj.SetLabels(currentGeneratedResourcelabel)
 
 						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, generatedObj, false)
