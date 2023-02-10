@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -100,49 +99,25 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 		// Don't update status
 		// re-queueing the UR by updating the annotation
 		// retry - 5 times
-		logger.V(3).Info("resource does not exist or is pending creation, re-queueing", "details", err.Error(), "retry")
-		urAnnotations := ur.Annotations
-
-		if len(urAnnotations) == 0 {
-			urAnnotations = map[string]string{
-				urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]: "1",
-			}
-		} else {
-			if val, ok := urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]; ok {
-				sleepCountInt64, err := strconv.ParseUint(val, 10, 32)
-				if err != nil {
-					logger.Error(err, "unable to convert retry-count")
-					return err
-				}
-
-				sleepCountInt := int(sleepCountInt64) + 1
-				if sleepCountInt > 5 {
-					if err := deleteGeneratedResources(logger, c.client, *ur); err != nil {
-						return err
-					}
-					// - trigger-resource is deleted
-					// - generated-resources are deleted
-					// - > Now delete the UpdateRequest CR
-					return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.Name, metav1.DeleteOptions{})
-				} else {
-					time.Sleep(time.Second * time.Duration(sleepCountInt))
-					incrementedCountString := strconv.Itoa(sleepCountInt)
-					urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation] = incrementedCountString
-				}
-			} else {
-				time.Sleep(time.Second * 1)
-				urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation] = "1"
+		logger.V(3).Info("resource does not exist or is pending creation, re-queueing", "details", err.Error())
+		retry, urAnnotations, err := increaseRetryAnnotation(ur)
+		if err != nil {
+			return err
+		}
+		if retry > 5 {
+			err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+			if err != nil {
+				logger.Error(err, "exceeds retry limit, failed to delete the UR", "update request", ur.Name, "retry", retry, "resourceVersion", ur.GetResourceVersion())
+				return err
 			}
 		}
 
 		ur.SetAnnotations(urAnnotations)
-		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
+		_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
 		if err != nil {
-			logger.Error(err, "failed to update annotation in update request for the resource", "update request", ur.Name, "resourceVersion", ur.GetResourceVersion())
+			logger.Error(err, "failed to update annotation in update request for the resource", "update request", ur.Name, "resourceVersion", ur.GetResourceVersion(), "annotations", urAnnotations, "retry", retry)
 			return err
 		}
-
-		return err
 	}
 
 	// trigger resource is being terminated
@@ -840,16 +815,4 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 		return nil, err
 	}
 	return resource, nil
-}
-
-func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
-	for _, genResource := range ur.Status.GeneratedResources {
-		err := client.DeleteResource(context.TODO(), genResource.APIVersion, genResource.Kind, genResource.Namespace, genResource.Name, false)
-		if err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-
-		log.V(3).Info("generated resource deleted", "genKind", ur.Spec.Resource.Kind, "genNamespace", ur.Spec.Resource.Namespace, "genName", ur.Spec.Resource.Name)
-	}
-	return nil
 }
