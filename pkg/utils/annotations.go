@@ -33,7 +33,7 @@ var OperationToPastTense = map[string]string{
 	"test":    "tested",
 }
 
-func GenerateAnnotationPatches(engineResponses []*engineapi.EngineResponse, log logr.Logger) [][]byte {
+func GenerateAnnotationPatches(engineResponses []engineapi.EngineResponse, log logr.Logger) [][]byte {
 	var annotations map[string]string
 	var patchBytes [][]byte
 	for _, er := range engineResponses {
@@ -91,7 +91,7 @@ func GenerateAnnotationPatches(engineResponses []*engineapi.EngineResponse, log 
 	return patchBytes
 }
 
-func annotationFromEngineResponses(engineResponses []*engineapi.EngineResponse, log logr.Logger) []byte {
+func annotationFromEngineResponses(engineResponses []engineapi.EngineResponse, log logr.Logger) []byte {
 	annotationContent := make(map[string]string)
 	for _, engineResponse := range engineResponses {
 		if !engineResponse.IsSuccessful() {

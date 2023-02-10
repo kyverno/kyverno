@@ -7,7 +7,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
-func GetErrorMsg(engineReponses []*engineapi.EngineResponse) string {
+func GetErrorMsg(engineReponses []engineapi.EngineResponse) string {
 	var str []string
 	var resourceInfo string
 	for _, er := range engineReponses {

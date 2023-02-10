@@ -46,7 +46,7 @@ func Test_getAction(t *testing.T) {
 
 func TestBlockRequest(t *testing.T) {
 	type args struct {
-		engineResponses []*engineapi.EngineResponse
+		engineResponses []engineapi.EngineResponse
 		failurePolicy   kyvernov1.FailurePolicyType
 		log             logr.Logger
 	}
@@ -57,7 +57,7 @@ func TestBlockRequest(t *testing.T) {
 	}{{
 		name: "failure - enforce",
 		args: args{
-			engineResponses: []*engineapi.EngineResponse{
+			engineResponses: []engineapi.EngineResponse{
 				{
 					Policy: &kyvernov1.ClusterPolicy{
 						ObjectMeta: v1.ObjectMeta{
@@ -83,7 +83,7 @@ func TestBlockRequest(t *testing.T) {
 	}, {
 		name: "failure - audit",
 		args: args{
-			engineResponses: []*engineapi.EngineResponse{
+			engineResponses: []engineapi.EngineResponse{
 				{
 					Policy: &kyvernov1.ClusterPolicy{
 						ObjectMeta: v1.ObjectMeta{
@@ -109,7 +109,7 @@ func TestBlockRequest(t *testing.T) {
 	}, {
 		name: "error - fail",
 		args: args{
-			engineResponses: []*engineapi.EngineResponse{
+			engineResponses: []engineapi.EngineResponse{
 				{
 					Policy: &kyvernov1.ClusterPolicy{
 						ObjectMeta: v1.ObjectMeta{
@@ -135,7 +135,7 @@ func TestBlockRequest(t *testing.T) {
 	}, {
 		name: "error - ignore",
 		args: args{
-			engineResponses: []*engineapi.EngineResponse{
+			engineResponses: []engineapi.EngineResponse{
 				{
 					Policy: &kyvernov1.ClusterPolicy{
 						ObjectMeta: v1.ObjectMeta{
@@ -161,7 +161,7 @@ func TestBlockRequest(t *testing.T) {
 	}, {
 		name: "warning - ignore",
 		args: args{
-			engineResponses: []*engineapi.EngineResponse{
+			engineResponses: []engineapi.EngineResponse{
 				{
 					Policy: &kyvernov1.ClusterPolicy{
 						ObjectMeta: v1.ObjectMeta{
@@ -187,7 +187,7 @@ func TestBlockRequest(t *testing.T) {
 	}, {
 		name: "warning - fail",
 		args: args{
-			engineResponses: []*engineapi.EngineResponse{
+			engineResponses: []engineapi.EngineResponse{
 				{
 					Policy: &kyvernov1.ClusterPolicy{
 						ObjectMeta: v1.ObjectMeta{
@@ -221,7 +221,7 @@ func TestBlockRequest(t *testing.T) {
 
 func TestGetBlockedMessages(t *testing.T) {
 	type args struct {
-		engineResponses []*engineapi.EngineResponse
+		engineResponses []engineapi.EngineResponse
 	}
 	tests := []struct {
 		name string
@@ -230,7 +230,7 @@ func TestGetBlockedMessages(t *testing.T) {
 	}{{
 		name: "failure - enforce",
 		args: args{
-			engineResponses: []*engineapi.EngineResponse{
+			engineResponses: []engineapi.EngineResponse{
 				{
 					Policy: &kyvernov1.ClusterPolicy{
 						ObjectMeta: v1.ObjectMeta{
@@ -259,7 +259,7 @@ func TestGetBlockedMessages(t *testing.T) {
 	}, {
 		name: "error - enforce",
 		args: args{
-			engineResponses: []*engineapi.EngineResponse{
+			engineResponses: []engineapi.EngineResponse{
 				{
 					Policy: &kyvernov1.ClusterPolicy{
 						ObjectMeta: v1.ObjectMeta{
@@ -288,7 +288,7 @@ func TestGetBlockedMessages(t *testing.T) {
 	}, {
 		name: "error and failure - enforce",
 		args: args{
-			engineResponses: []*engineapi.EngineResponse{
+			engineResponses: []engineapi.EngineResponse{
 				{
 					Policy: &kyvernov1.ClusterPolicy{
 						ObjectMeta: v1.ObjectMeta{

@@ -6,7 +6,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
-func GetWarningMessages(engineResponses []*engineapi.EngineResponse) []string {
+func GetWarningMessages(engineResponses []engineapi.EngineResponse) []string {
 	var warnings []string
 	for _, er := range engineResponses {
 		for _, rule := range er.PolicyResponse.Rules {

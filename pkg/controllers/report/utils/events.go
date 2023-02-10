@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 )
 
-func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.Configuration, results ...*engineapi.EngineResponse) {
+func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.Configuration, results ...engineapi.EngineResponse) {
 	for _, result := range results {
 		var eventInfos []event.Info
 		eventInfos = append(eventInfos, generateFailEvents(logger, result)...)
@@ -21,7 +21,7 @@ func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.
 	}
 }
 
-func generateSuccessEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (eventInfos []event.Info) {
+func generateSuccessEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		logger := log.WithValues("policy", er.Policy.GetName(), "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)
 		if !er.IsFailed() {
@@ -33,7 +33,7 @@ func generateSuccessEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (e
 	return eventInfos
 }
 
-func generateExceptionEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (eventInfos []event.Info) {
+func generateExceptionEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		for i, ruleResp := range er.PolicyResponse.Rules {
 			isException := strings.Contains(ruleResp.Message, "rule skipped due to policy exception")
@@ -45,14 +45,14 @@ func generateExceptionEvents(log logr.Logger, ers ...*engineapi.EngineResponse) 
 	return eventInfos
 }
 
-func generateFailEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (eventInfos []event.Info) {
+func generateFailEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		eventInfos = append(eventInfos, generateFailEventsPerEr(log, er)...)
 	}
 	return eventInfos
 }
 
-func generateFailEventsPerEr(log logr.Logger, er *engineapi.EngineResponse) []event.Info {
+func generateFailEventsPerEr(log logr.Logger, er engineapi.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	logger := log.WithValues(
 		"policy", er.Policy.GetName(),

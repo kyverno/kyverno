@@ -8,7 +8,7 @@ import (
 )
 
 // GenerateEvents generates event info for the engine responses
-func GenerateEvents(engineResponses []*engineapi.EngineResponse, blocked bool) []event.Info {
+func GenerateEvents(engineResponses []engineapi.EngineResponse, blocked bool) []event.Info {
 	var events []event.Info
 	//   - Some/All policies fail or error
 	//     - report failure events on policy

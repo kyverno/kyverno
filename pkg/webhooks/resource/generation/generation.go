@@ -84,7 +84,7 @@ func (h *generationHandler) Handle(
 ) {
 	h.log.V(6).Info("update request for generate policy")
 
-	var engineResponses []*engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
 	if (request.Operation == admissionv1.Create || request.Operation == admissionv1.Update) && len(policies) != 0 {
 		for _, policy := range policies {
 			var rules []engineapi.RuleResponse
@@ -95,7 +95,7 @@ func (h *generationHandler) Handle(
 			engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if rule.Status != engineapi.RuleStatusPass {
-					h.deleteGR(ctx, &engineResponse)
+					h.deleteGR(ctx, engineResponse)
 					continue
 				}
 				rules = append(rules, rule)
@@ -104,7 +104,7 @@ func (h *generationHandler) Handle(
 			if len(rules) > 0 {
 				engineResponse.PolicyResponse.Rules = rules
 				// some generate rules do apply to the resource
-				engineResponses = append(engineResponses, &engineResponse)
+				engineResponses = append(engineResponses, engineResponse)
 			}
 
 			// registering the kyverno_policy_results_total metric concurrently
@@ -242,7 +242,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Conte
 	}
 }
 
-func (h *generationHandler) deleteGR(ctx context.Context, engineResponse *engineapi.EngineResponse) {
+func (h *generationHandler) deleteGR(ctx context.Context, engineResponse engineapi.EngineResponse) {
 	h.log.V(4).Info("querying all update requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.Policy.GetName(),

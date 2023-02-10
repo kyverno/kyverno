@@ -23,7 +23,7 @@ func getAction(hasViolations bool, i int) string {
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func BlockRequest(engineResponses []*engineapi.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
+func BlockRequest(engineResponses []engineapi.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
 	for _, er := range engineResponses {
 		if engineutils.BlockRequest(er, failurePolicy) {
 			log.V(2).Info("blocking admission request", "policy", er.Policy.GetName())
@@ -35,7 +35,7 @@ func BlockRequest(engineResponses []*engineapi.EngineResponse, failurePolicy kyv
 }
 
 // GetBlockedMessages gets the error messages for rules with error or fail status
-func GetBlockedMessages(engineResponses []*engineapi.EngineResponse) string {
+func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 	if len(engineResponses) == 0 {
 		return ""
 	}

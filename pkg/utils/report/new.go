@@ -32,7 +32,7 @@ func NewAdmissionReport(namespace, name, owner string, uid types.UID, gvk metav1
 	return report
 }
 
-func BuildAdmissionReport(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...*engineapi.EngineResponse) kyvernov1alpha2.ReportInterface {
+func BuildAdmissionReport(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...engineapi.EngineResponse) kyvernov1alpha2.ReportInterface {
 	report := NewAdmissionReport(resource.GetNamespace(), string(request.UID), resource.GetName(), resource.GetUID(), gvk)
 	SetResourceVersionLabels(report, &resource)
 	SetResponses(report, responses...)

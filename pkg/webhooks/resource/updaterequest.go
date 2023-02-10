@@ -34,7 +34,7 @@ func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger,
 		return
 	}
 
-	var engineResponses []*engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
 	for _, policy := range policies {
 		if !policy.GetSpec().IsMutateExisting() {
 			continue
@@ -53,7 +53,7 @@ func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger,
 
 		if len(rules) > 0 {
 			engineResponse.PolicyResponse.Rules = rules
-			engineResponses = append(engineResponses, &engineResponse)
+			engineResponses = append(engineResponses, engineResponse)
 		}
 
 		// registering the kyverno_policy_results_total metric concurrently

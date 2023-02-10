@@ -80,7 +80,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	if len(policies) == 0 {
 		return true, "", nil, nil
 	}
-	var engineResponses []*engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
 	var patches [][]byte
 	verifiedImageData := &engineapi.ImageVerificationMetadata{}
 	for _, policy := range policies {
@@ -151,7 +151,7 @@ func (v *imageVerificationHandler) handleAudit(
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-	engineResponses ...*engineapi.EngineResponse,
+	engineResponses ...engineapi.EngineResponse,
 ) {
 	if !v.admissionReports {
 		return

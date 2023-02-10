@@ -81,7 +81,7 @@ func (v *mutationHandler) applyMutations(
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
-) ([]byte, []*engineapi.EngineResponse, error) {
+) ([]byte, []engineapi.EngineResponse, error) {
 	if len(policies) == 0 {
 		return nil, nil, nil
 	}
@@ -91,7 +91,7 @@ func (v *mutationHandler) applyMutations(
 	}
 
 	var patches [][]byte
-	var engineResponses []*engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
 
 	for _, policy := range policies {
 		spec := policy.GetSpec()
@@ -151,7 +151,7 @@ func (v *mutationHandler) applyMutations(
 	return jsonutils.JoinPatches(patches...), engineResponses, nil
 }
 
-func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (*engineapi.EngineResponse, [][]byte, error) {
+func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (engineapi.EngineResponse, [][]byte, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 		policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 	}
@@ -173,7 +173,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 	return &engineResponse, policyPatches, nil
 }
 
-func logMutationResponse(patches [][]byte, engineResponses []*engineapi.EngineResponse, logger logr.Logger) {
+func logMutationResponse(patches [][]byte, engineResponses []engineapi.EngineResponse, logger logr.Logger) {
 	if len(patches) != 0 {
 		logger.V(4).Info("created patches", "count", len(patches))
 	}
