@@ -11,21 +11,29 @@ import (
 
 // EngineResponse engine response to the action
 type EngineResponse struct {
-	// PatchedResource is the resource patched with the engine action changes
-	PatchedResource unstructured.Unstructured
+	// Resource is the original resource
+	Resource unstructured.Unstructured
 	// Policy is the original policy
 	Policy kyvernov1.PolicyInterface
-	// PolicyResponse contains the engine policy response
-	PolicyResponse PolicyResponse
 	// NamespaceLabels given by policy context
 	NamespaceLabels map[string]string
+	// PatchedResource is the resource patched with the engine action changes
+	PatchedResource unstructured.Unstructured
+	// PolicyResponse contains the engine policy response
+	PolicyResponse PolicyResponse
 }
 
 func NewEngineResponse(
-	policy kyvernov1.PolicyInterface,
+	policyContext PolicyContext,
 ) *EngineResponse {
+	resource := policyContext.NewResource()
+	if resource.Object == nil {
+		resource = policyContext.OldResource()
+	}
 	return &EngineResponse{
-		Policy: policy,
+		Resource:        resource,
+		Policy:          policyContext.Policy(),
+		NamespaceLabels: policyContext.NamespaceLabels(),
 	}
 }
 
