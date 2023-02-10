@@ -17,8 +17,4 @@ type PolicyResponse struct {
 	Stats PolicyStats
 	// Rules contains policy rules responses
 	Rules []RuleResponse
-	// ValidationFailureAction audit (default) or enforce
-	ValidationFailureAction kyvernov1.ValidationFailureAction
-	// ValidationFailureActionOverrides overrides
-	ValidationFailureActionOverrides []ValidationFailureActionOverride
 }

@@ -143,7 +143,8 @@ func (er EngineResponse) getRules(predicate func(RuleResponse) bool) []string {
 }
 
 func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
-	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
+	spec := er.Policy.GetSpec()
+	for _, v := range spec.ValidationFailureActionOverrides {
 		if !v.Action.IsValid() {
 			continue
 		}
@@ -165,5 +166,5 @@ func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailu
 			}
 		}
 	}
-	return er.PolicyResponse.ValidationFailureAction
+	return spec.ValidationFailureAction
 }
