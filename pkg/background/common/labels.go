@@ -93,7 +93,6 @@ func managedBy(labels map[string]string) {
 }
 
 func generatedBy(labels map[string]string, triggerResource unstructured.Unstructured) {
-
 	checkGeneratedBy(labels, LabelKeyKind, triggerResource.GetKind())
 	checkGeneratedBy(labels, LabelKeyNamespace, triggerResource.GetNamespace())
 	checkGeneratedBy(labels, LabelKeyName, triggerResource.GetName())
