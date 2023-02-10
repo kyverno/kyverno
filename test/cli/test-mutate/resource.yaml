@@ -49,6 +49,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mydeploy
+  namespace: testing
   labels:
     app: nginx
 spec:
