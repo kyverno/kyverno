@@ -124,7 +124,7 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 }
 
 func NewPolicyExceptionEvents(engineResponse *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) []Info {
-	exceptionName, exceptionNamespace := getExceptionEventInfoFromRuleResponseMsg(ruleResp.Message)
+	exceptionName, exceptionNamespace := ruleResp.Exception.GetName(), ruleResp.Exception.GetNamespace()
 	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", engineResponse.PatchedResource.GetName(), ruleResp.Name, exceptionNamespace, exceptionName)
 	var exceptionMessage string
 	if engineResponse.Policy.GetNamespace() == "" {
@@ -147,19 +147,4 @@ func NewPolicyExceptionEvents(engineResponse *engineapi.EngineResponse, ruleResp
 		Message:   exceptionMessage,
 	}
 	return []Info{policyEvent, exceptionEvent}
-}
-
-func getExceptionEventInfoFromRuleResponseMsg(message string) (name string, namespace string) {
-	key := message[strings.LastIndex(message, " ")+1:]
-	arr := strings.Split(key, "/")
-
-	if len(arr) > 1 {
-		namespace = arr[0]
-		name = arr[1]
-	} else {
-		namespace = ""
-		name = arr[0]
-	}
-
-	return name, namespace
 }

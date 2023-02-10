@@ -83,19 +83,18 @@ func hasPolicyExceptions(
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
 	exception, err := matchesException(selector, ctx, rule, subresourceGVKToAPIResource, cfg)
+	var response *engineapi.RuleResponse
 	// if we found an exception
 	if err == nil && exception != nil {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {
 			log.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-			return &engineapi.RuleResponse{
-				Name:    rule.Name,
-				Message: "failed to find matched exception " + key,
-				Status:  engineapi.RuleStatusError,
-			}
+			response = internal.RuleError(rule, ruleType, "failed to compute exception key", err)
+		} else {
+			log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			response = internal.RuleSkip(rule, ruleType, "rule skipped due to policy exception "+key)
+			response.Exception = exception
 		}
-		log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
-		return internal.RuleSkip(rule, ruleType, "rule skipped due to policy exception "+key)
 	}
-	return nil
+	return response
 }
