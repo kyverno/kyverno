@@ -7,6 +7,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	agg "github.com/kyverno/kyverno/pkg/clients/aggregator"
+	apisrv "github.com/kyverno/kyverno/pkg/clients/apiserver"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dyn "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kube "github.com/kyverno/kyverno/pkg/clients/kube"
@@ -15,10 +17,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
+	aggregator "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
 
 func CreateClientConfig(logger logr.Logger) *rest.Config {
@@ -61,6 +65,22 @@ func CreateMetadataClient(logger logr.Logger, opts ...meta.NewOption) metadata.I
 	logger.Info("create metadata client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	client, err := meta.NewForConfig(CreateClientConfig(logger), opts...)
 	checkError(logger, err, "failed to create metadata client")
+	return client
+}
+
+func CreateApiServerClient(logger logr.Logger, opts ...apisrv.NewOption) apiserver.Interface {
+	logger = logger.WithName("apiserver-client")
+	logger.Info("create apiserver client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	client, err := apisrv.NewForConfig(CreateClientConfig(logger), opts...)
+	checkError(logger, err, "failed to create apiserver client")
+	return client
+}
+
+func CreateAggregatorClient(logger logr.Logger, opts ...agg.NewOption) aggregator.Interface {
+	logger = logger.WithName("aggregator-client")
+	logger.Info("create aggregator client...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	client, err := agg.NewForConfig(CreateClientConfig(logger), opts...)
+	checkError(logger, err, "failed to create aggregator client")
 	return client
 }
 
