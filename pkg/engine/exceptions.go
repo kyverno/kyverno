@@ -93,8 +93,8 @@ func hasPolicyExceptions(
 		} else {
 			log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
 			response = internal.RuleSkip(rule, ruleType, "rule skipped due to policy exception "+key)
+			response.Exception = exception
 		}
-		response.Exception = exception
 	}
 	return response
 }
