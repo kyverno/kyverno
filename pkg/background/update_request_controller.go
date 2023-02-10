@@ -399,7 +399,7 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 }
 
 func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
-	if ur.Status.State == kyvernov1beta1.Completed {
+	if ur.Spec.Type == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
