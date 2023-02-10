@@ -19,9 +19,9 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 	resp.Name = ruleName
 	resp.Type = engineapi.Mutation
 	defer func() {
-		resp.ExecutionStats.ProcessingTime = time.Since(startTime)
-		resp.ExecutionStats.Timestamp = startTime.Unix()
-		logger.V(4).Info("applied JSON6902 patch", "processingTime", resp.ExecutionStats.ProcessingTime.String())
+		resp.Stats.ProcessingTime = time.Since(startTime)
+		resp.Stats.Timestamp = startTime.Unix()
+		logger.V(4).Info("applied JSON6902 patch", "processingTime", resp.Stats.ProcessingTime.String())
 	}()
 
 	resourceRaw, err := resource.MarshalJSON()

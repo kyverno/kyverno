@@ -33,8 +33,8 @@ type RuleResponse struct {
 	GeneratedResource unstructured.Unstructured
 	// Status rule status
 	Status RuleStatus
-	// ExecutionStats statistics
-	ExecutionStats
+	// Stats contains rule statistics
+	Stats ExecutionStats
 	// PatchedTarget is the patched resource for mutate.targets
 	PatchedTarget *unstructured.Unstructured
 	// PatchedTargetSubresourceName is the name of the subresource which is patched, empty if the resource patched is not a subresource.
