@@ -95,14 +95,14 @@ func annotationFromEngineResponses(engineResponses []*engineapi.EngineResponse, 
 	annotationContent := make(map[string]string)
 	for _, engineResponse := range engineResponses {
 		if !engineResponse.IsSuccessful() {
-			log.V(3).Info("skip building annotation; policy failed to apply", "policy", engineResponse.PolicyResponse.Policy.Name)
+			log.V(3).Info("skip building annotation; policy failed to apply", "policy", engineResponse.Policy.GetName())
 			continue
 		}
 		rulePatches := annotationFromPolicyResponse(engineResponse.PolicyResponse, log)
 		if rulePatches == nil {
 			continue
 		}
-		policyName := engineResponse.PolicyResponse.Policy.Name
+		policyName := engineResponse.Policy.GetName()
 		for _, rulePatch := range rulePatches {
 			annotationContent[rulePatch.RuleName+"."+policyName+".kyverno.io"] = OperationToPastTense[rulePatch.Op] + " " + rulePatch.Path
 		}

@@ -13,8 +13,6 @@ type ValidationFailureActionOverride struct {
 
 // PolicyResponse policy application response
 type PolicyResponse struct {
-	// Policy contains policy details
-	Policy PolicySpec
 	// Resource contains resource details
 	Resource ResourceSpec
 	// PolicyStats contains policy statistics

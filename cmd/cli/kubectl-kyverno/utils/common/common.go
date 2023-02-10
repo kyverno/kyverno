@@ -789,7 +789,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 
 func buildPVInfo(er *engineapi.EngineResponse, violatedRules []kyvernov1.ViolatedRule) Info {
 	info := Info{
-		PolicyName: er.PolicyResponse.Policy.Name,
+		PolicyName: er.Policy.GetName(),
 		Namespace:  er.PatchedResource.GetNamespace(),
 		Results: []EngineResponseResult{
 			{
@@ -1115,7 +1115,7 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	gr := kyvernov1beta1.UpdateRequest{
 		Spec: kyvernov1beta1.UpdateRequestSpec{
 			Type:   kyvernov1beta1.Generate,
-			Policy: generateResponse.PolicyResponse.Policy.Name,
+			Policy: generateResponse.Policy.GetName(),
 			Resource: kyvernov1.ResourceSpec{
 				Kind:       generateResponse.PolicyResponse.Resource.Kind,
 				Namespace:  generateResponse.PolicyResponse.Resource.Namespace,

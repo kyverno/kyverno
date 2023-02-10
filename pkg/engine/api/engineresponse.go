@@ -21,6 +21,14 @@ type EngineResponse struct {
 	NamespaceLabels map[string]string
 }
 
+func NewEngineResponse(
+	policy kyvernov1.PolicyInterface,
+) *EngineResponse {
+	return &EngineResponse{
+		Policy: policy,
+	}
+}
+
 // IsOneOf checks if any rule has status in a given list
 func (er EngineResponse) IsOneOf(status ...RuleStatus) bool {
 	for _, r := range er.PolicyResponse.Rules {

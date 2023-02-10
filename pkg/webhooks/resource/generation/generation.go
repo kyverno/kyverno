@@ -245,7 +245,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Conte
 func (h *generationHandler) deleteGR(ctx context.Context, engineResponse *engineapi.EngineResponse) {
 	h.log.V(4).Info("querying all update requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.PolicyResponse.Policy.Name,
+		kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.Policy.GetName(),
 		kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.PolicyResponse.Resource.Name,
 		kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.PolicyResponse.Resource.Kind,
 		kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.PolicyResponse.Resource.Namespace,
