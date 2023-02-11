@@ -629,8 +629,8 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 		c.recordPolicyState(config.MutatingWebhookConfigurationName, policies...)
 		// TODO: shouldn't be per failure policy, depending of the policy/rules that apply ?
 		if hasWildcard(policies...) {
-			ignore.setWildcard()
-			fail.setWildcard()
+			ignore.setWildcard(c.discoveryClient.DiscoveryInterface())
+			fail.setWildcard(c.discoveryClient.DiscoveryInterface())
 		} else {
 			for _, p := range policies {
 				spec := p.GetSpec()
@@ -736,8 +736,8 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
 		// TODO: shouldn't be per failure policy, depending of the policy/rules that apply ?
 		if hasWildcard(policies...) {
-			ignore.setWildcard()
-			fail.setWildcard()
+			ignore.setWildcard(c.discoveryClient.DiscoveryInterface())
+			fail.setWildcard(c.discoveryClient.DiscoveryInterface())
 		} else {
 			for _, p := range policies {
 				spec := p.GetSpec()
@@ -881,13 +881,11 @@ func (c *controller) buildOwner() []metav1.OwnerReference {
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		utils.KyvernoComponentLabel: "kyverno",
 	}))
-
 	clusterroles, err := c.clusterroleLister.List(selector)
 	if err != nil {
 		logger.Error(err, "failed to fetch kyverno clusterroles, won't set owners for webhook configurations")
 		return nil
 	}
-
 	for _, clusterrole := range clusterroles {
 		if wildcard.Match("*:webhook", clusterrole.GetName()) {
 			return []metav1.OwnerReference{

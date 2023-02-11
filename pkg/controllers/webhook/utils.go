@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/discovery"
 )
 
 // webhook is the instance that aggregates the GVK of existing policies
@@ -17,26 +18,26 @@ import (
 type webhook struct {
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
-	rules             map[schema.GroupVersionResource]struct{}
+	rules             map[schema.GroupVersion]sets.Set[string]
 }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType) *webhook {
 	return &webhook{
 		maxWebhookTimeout: timeout,
 		failurePolicy:     failurePolicy,
-		rules:             map[schema.GroupVersionResource]struct{}{},
+		rules:             map[schema.GroupVersion]sets.Set[string]{},
 	}
 }
 
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
-	for gvr := range wh.rules {
-		resources := sets.New(gvr.Resource)
-		ephemeralContainersGVR := schema.GroupVersionResource{Resource: "pods/ephemeralcontainers", Group: "", Version: "v1"}
-		_, rulesContainEphemeralContainers := wh.rules[ephemeralContainersGVR]
-		if resources.Has("pods") && !rulesContainEphemeralContainers {
-			resources.Insert("pods/ephemeralcontainers")
-		}
+	for gvr, resources := range wh.rules {
+		// resources := sets.New(gvr.Resource)
+		// ephemeralContainersGVR := schema.GroupVersionResource{Resource: "pods/ephemeralcontainers", Group: "", Version: "v1"}
+		// _, rulesContainEphemeralContainers := wh.rules[ephemeralContainersGVR]
+		// if resources.Has("pods") && !rulesContainEphemeralContainers {
+		// 	resources.Insert("pods/ephemeralcontainers")
+		// }
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{gvr.Group},
@@ -73,16 +74,28 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 }
 
 func (wh *webhook) set(gvr schema.GroupVersionResource) {
-	wh.rules[gvr] = struct{}{}
+	gv := gvr.GroupVersion()
+	resources := wh.rules[gv]
+	if resources == nil {
+		resources = sets.New(gvr.Resource)
+	} else {
+		resources.Insert(gvr.Resource)
+	}
+	wh.rules[gv] = resources
 }
 
 func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
 }
 
-func (wh *webhook) setWildcard() {
-	wh.rules = map[schema.GroupVersionResource]struct{}{
-		{Group: "*", Version: "*", Resource: "*/*"}: {},
+func (wh *webhook) setWildcard(disco discovery.DiscoveryInterface) {
+	_, resources, _ := disco.ServerGroupsAndResources()
+	wh.rules = map[schema.GroupVersion]sets.Set[string]{}
+	for _, group := range resources {
+		gv, _ := schema.ParseGroupVersion(group.GroupVersion)
+		for _, resource := range group.APIResources {
+			wh.set(schema.GroupVersionResource{Group: gv.Group, Version: gv.Version, Resource: resource.Name})
+		}
 	}
 }
 
