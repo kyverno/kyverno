@@ -15,6 +15,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -115,7 +116,6 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
 			case engineapi.RuleStatusPass:
-
 				patchedNew, err := addAnnotation(policy, patched, r)
 				if err != nil {
 					logger.Error(err, "failed to apply patches")
@@ -128,11 +128,21 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 					continue
 				}
 
+				metadata, err := data.ToMap(patchedNew.Object["metadata"])
+				if err != nil {
+					logger.Error(err, "failed to convert resource metadata to map")
+					errs = append(errs, err)
+				}
+
+				// remove managedFields object from resource before sending
+				delete(metadata, "managedFields")
+				patchedNew.Object["metadata"] = metadata
+
 				if r.Status == engineapi.RuleStatusPass {
 					patchedNew.SetResourceVersion(patched.GetResourceVersion())
 					var updateErr error
 					if patchedTargetSubresourceName == "status" {
-						_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+						_, updateErr = c.client.ApplyStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.GetName(), patchedNew.Object)
 					} else if patchedTargetSubresourceName != "" {
 						parentResourceGVR := r.PatchedTargetParentResourceGVR
 						parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
@@ -142,11 +152,9 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 							errs = append(errs, err)
 							continue
 						}
-						_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedTargetSubresourceName)
+						_, updateErr = c.client.ApplyResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.GetName(), patchedNew.Object, patchedTargetSubresourceName)
 					} else {
-						// _, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
-						ptch, _ := patchedNew.MarshalJSON()
-						_, updateErr = c.client.ApplyResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.GetName(), ptch)
+						_, updateErr = c.client.ApplyResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.GetName(), patchedNew.Object)
 					}
 					if updateErr != nil {
 						errs = append(errs, updateErr)

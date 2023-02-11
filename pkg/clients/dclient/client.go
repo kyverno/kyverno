@@ -48,7 +48,9 @@ type Interface interface {
 	// UpdateStatusResource updates the resource "status" subresource
 	UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
 	// ApplyResource updates object for the specified resource/namespace using server-side apply
-	ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error)
+	ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, subresources ...string) (*unstructured.Unstructured, error)
+	// ApplyStatusResource updates the resource "status" subresource using server-side apply
+	ApplyStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}) (*unstructured.Unstructured, error)
 }
 
 // Client enables interaction with k8 resource
@@ -210,10 +212,21 @@ func (c *client) UpdateStatusResource(ctx context.Context, apiVersion string, ki
 }
 
 // ApplyResource updates object for the specified resource/namespace using server-side apply
-func (c *client) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
-	shouldForce := true
-	options := metav1.PatchOptions{FieldManager: "kyverno-controller", Force: &shouldForce}
-	return c.getResourceInterface(apiVersion, kind, namespace).Patch(ctx, name, types.ApplyPatchType, patch, options)
+func (c *client) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, subresources ...string) (*unstructured.Unstructured, error) {
+	options := metav1.ApplyOptions{FieldManager: "kyverno-update-controller", Force: true}
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
+		return c.getResourceInterface(apiVersion, kind, namespace).Apply(ctx, name, unstructuredObj, options, subresources...)
+	}
+	return nil, fmt.Errorf("unable to update resource ")
+}
+
+// ApplyStatusResource updates the resource "status" subresource using server-side apply
+func (c *client) ApplyStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}) (*unstructured.Unstructured, error) {
+	options := metav1.ApplyOptions{FieldManager: "kyverno-update-controller", Force: true}
+	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
+		return c.getResourceInterface(apiVersion, kind, namespace).ApplyStatus(ctx, name, unstructuredObj, options)
+	}
+	return nil, fmt.Errorf("unable to update resource ")
 }
 
 // Discovery return the discovery client implementation
