@@ -478,7 +478,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 			newResource.SetLabels(label)
 
 			// Create the resource
-			_, err = client.CreateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
+			_, err = client.ApplyResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName, newResource)
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
 					newGenResources = append(newGenResources, noGenResource)
@@ -492,7 +492,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 			if err != nil {
 				logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
 				logger.V(2).Info(fmt.Sprintf("creating generate resource name:name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
-				_, err = client.CreateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
+				_, err = client.ApplyResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName, newResource)
 				if err != nil {
 					newGenResources = append(newGenResources, noGenResource)
 					return newGenResources, err
@@ -514,7 +514,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 					}
 
 					if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
-						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
+						_, err = client.ApplyResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName, newResource)
 						if err != nil {
 							logger.Error(err, "failed to update resource")
 							newGenResources = append(newGenResources, noGenResource)
@@ -532,7 +532,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 						currentGeneratedResourcelabel[LabelSynchronize] = "disable"
 						generatedObj.SetLabels(currentGeneratedResourcelabel)
 
-						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, generatedObj, false)
+						_, err = client.ApplyResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName, generatedObj)
 						if err != nil {
 							logger.Error(err, "failed to update label in existing resource")
 							newGenResources = append(newGenResources, noGenResource)
