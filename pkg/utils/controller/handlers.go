@@ -43,6 +43,16 @@ func AddEventHandlersT[T any](informer cache.SharedInformer, a addFuncT[T], u up
 	)
 }
 
+func AddEventHandlersWithLog(informer cache.SharedInformer, a addFunc, u updateFunc, d deleteFunc) {
+	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    a,
+		UpdateFunc: u,
+		DeleteFunc: func(obj interface{}) {
+			d(kubeutils.GetObjectWithTombstone(obj))
+		},
+	})
+}
+
 func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) EnqueueFunc {
 	enqueueFunc := LogError(logger, Parse(parseKey, Queue(queue)))
 	AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc))
@@ -55,14 +65,24 @@ func AddKeyedEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.
 	return enqueueFunc
 }
 
+func AddKeyedEventHandlersWithLog(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) EnqueueFunc {
+	enqueueFunc := LogError(logger, Parse(parseKey, Queue(queue)))
+	AddEventHandlersWithLog(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc))
+	return enqueueFunc
+}
+
 func AddDelayedKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration, parseKey keyFunc) EnqueueFunc {
 	enqueueFunc := LogError(logger, Parse(parseKey, QueueAfter(queue, delay)))
-	AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc))
+	AddEventHandlers(informer, AddFuncWithLog(logger, enqueueFunc), UpdateFuncWithLog(logger, enqueueFunc), DeleteFuncWithLog(logger, enqueueFunc))
 	return enqueueFunc
 }
 
 func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) EnqueueFunc {
 	return AddKeyedEventHandlers(logger, informer, queue, MetaNamespaceKey)
+}
+
+func AddDefaultEventHandlersWithLog(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) EnqueueFunc {
+	return AddKeyedEventHandlersWithLog(logger, informer, queue, MetaNamespaceKeyWithLog)
 }
 
 func AddDefaultEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) EnqueueFuncT[K] {
@@ -119,6 +139,10 @@ func MetaNamespaceKey(obj interface{}) (interface{}, error) {
 	return cache.MetaNamespaceKeyFunc(obj)
 }
 
+func MetaNamespaceKeyWithLog(obj interface{}) (interface{}, error) {
+	return cache.MetaNamespaceKeyFunc(obj)
+}
+
 func MetaNamespaceKeyT[T any](obj T) (interface{}, error) {
 	return MetaNamespaceKey(obj)
 }
@@ -161,6 +185,37 @@ func DeleteFunc(logger logr.Logger, enqueue EnqueueFunc) deleteFunc {
 		if err := enqueue(obj); err != nil {
 			logger.Error(err, "failed to enqueue object", "obj", obj)
 		}
+	}
+}
+
+func AddFuncWithLog(logger logr.Logger, enqueue EnqueueFunc) addFunc {
+	return func(obj interface{}) {
+		if err := enqueue(obj); err != nil {
+			logger.Error(err, "failed to enqueue object", "obj", obj)
+		}
+		logger.V(4).Info("object created", "obj", obj)
+	}
+}
+
+func UpdateFuncWithLog(logger logr.Logger, enqueue EnqueueFunc) updateFunc {
+	return func(old, obj interface{}) {
+		oldMeta := old.(metav1.Object)
+		objMeta := obj.(metav1.Object)
+		if oldMeta.GetResourceVersion() != objMeta.GetResourceVersion() {
+			if err := enqueue(obj); err != nil {
+				logger.Error(err, "failed to enqueue object", "obj", obj)
+			}
+		}
+		logger.V(4).Info("Object updated", "obj", objMeta)
+	}
+}
+
+func DeleteFuncWithLog(logger logr.Logger, enqueue EnqueueFunc) deleteFunc {
+	return func(obj interface{}) {
+		if err := enqueue(obj); err != nil {
+			logger.Error(err, "failed to enqueue object", "obj", obj)
+		}
+		logger.V(4).Info("Object deleted", "obj", obj)
 	}
 }
 
