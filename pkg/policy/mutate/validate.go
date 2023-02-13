@@ -5,7 +5,6 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/pkg/errors"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -61,7 +60,7 @@ func (m *Mutate) validateForEach(tag string, foreach []kyvernov1.ForEachMutation
 func (m *Mutate) validateNestedForEach(tag string, j *v1.JSON) (string, error) {
 	nestedForeach, err := api.DeserializeJSONArray[kyvernov1.ForEachMutation](j)
 	if err != nil {
-		return tag, errors.Wrapf(err, "invalid foreach syntax")
+		return tag, fmt.Errorf("invalid foreach syntax: %w", err)
 	}
 
 	return m.validateForEach(tag, nestedForeach)

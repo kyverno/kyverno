@@ -1,60 +1,53 @@
 package engine
 
 import (
+	"context"
 	"time"
 
+	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
-	"k8s.io/client-go/tools/cache"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
-func GenerateResponse(rclient registryclient.Client, policyContext *PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *response.EngineResponse) {
-	policyStartTime := time.Now()
-	return filterGenerateRules(rclient, policyContext, gr.Spec.Policy, policyStartTime)
+func (e *engine) generateResponse(
+	ctx context.Context,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+	gr kyvernov1beta1.UpdateRequest,
+) (resp *engineapi.EngineResponse) {
+	return e.filterGenerateRules(policyContext, logger, gr.Spec.Policy, time.Now())
 }
 
-func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyContext, policyNameKey string, startTime time.Time) *response.EngineResponse {
-	kind := policyContext.newResource.GetKind()
-	name := policyContext.newResource.GetName()
-	namespace := policyContext.newResource.GetNamespace()
-	apiVersion := policyContext.newResource.GetAPIVersion()
-	pNamespace, pName, err := cache.SplitMetaNamespaceKey(policyNameKey)
-	if err != nil {
-		logging.Error(err, "failed to spilt name and namespace", policyNameKey)
-	}
-
-	resp := &response.EngineResponse{
-		PolicyResponse: response.PolicyResponse{
-			Policy: response.PolicySpec{
-				Name:      pName,
-				Namespace: pNamespace,
-			},
-			PolicyStats: response.PolicyStats{
-				PolicyExecutionTimestamp: startTime.Unix(),
-			},
-			Resource: response.ResourceSpec{
-				Kind:       kind,
-				Name:       name,
-				Namespace:  namespace,
-				APIVersion: apiVersion,
+func (e *engine) filterGenerateRules(
+	policyContext engineapi.PolicyContext,
+	logger logr.Logger,
+	policyNameKey string,
+	startTime time.Time,
+) *engineapi.EngineResponse {
+	newResource := policyContext.NewResource()
+	kind := newResource.GetKind()
+	name := newResource.GetName()
+	namespace := newResource.GetNamespace()
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	resp.PolicyResponse = engineapi.PolicyResponse{
+		Stats: engineapi.PolicyStats{
+			ExecutionStats: engineapi.ExecutionStats{
+				Timestamp: startTime.Unix(),
 			},
 		},
 	}
-
-	if policyContext.excludeResourceFunc(kind, namespace, name) {
-		logging.WithName("Generate").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
+	if e.configuration.ToFilter(kind, namespace, name) {
+		logger.Info("resource excluded")
 		return resp
 	}
-
-	for _, rule := range autogen.ComputeRules(policyContext.policy) {
-		if ruleResp := filterRule(rclient, rule, policyContext); ruleResp != nil {
+	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
+		logger := internal.LoggerWithRule(logger, rule)
+		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}
-
 	return resp
 }

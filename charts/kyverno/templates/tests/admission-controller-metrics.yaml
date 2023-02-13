@@ -18,10 +18,12 @@ spec:
       resources:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
+      {{- with .Values.test.securityContext }}
       securityContext:
-        {{- include "kyverno.test.securityContext" . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       command:
         - /bin/sh
         - -c
-        - sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.serviceName" . }}-metrics:{{ .Values.metricsService.port }}/metrics
+        - sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.admission-controller.serviceName" . }}-metrics.{{ template "kyverno.namespace" . }}:{{ .Values.metricsService.port }}/metrics
 {{- end -}}

@@ -23,8 +23,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -362,16 +362,14 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		})
 	}
 
-	store.SetContext(store.Context{
-		Policies: storePolicies,
-	})
+	store.SetPolicies(storePolicies...)
 
 	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, subresources, nil
 }
 
 // ApplyPolicyOnResource - function to apply policy on resource
-func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]*response.EngineResponse, Info, error) {
-	var engineResponses []*response.EngineResponse
+func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]*engineapi.EngineResponse, Info, error) {
+	var engineResponses []*engineapi.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operationIsDelete := false
 
@@ -463,10 +461,7 @@ OuterLoop:
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
-	subresources := make([]struct {
-		APIResource    metav1.APIResource
-		ParentResource metav1.APIResource
-	}, 0)
+	subresources := make([]engineapi.SubResource, 0)
 
 	// If --cluster flag is not set, then we need to add subresources to the context
 	if c.Client == nil {
@@ -479,16 +474,24 @@ OuterLoop:
 			})
 		}
 	}
-
+	eng := engine.NewEngine(
+		cfg,
+		c.Client,
+		registryclient.NewOrDie(),
+		store.ContextLoaderFactory(nil),
+		nil,
+	)
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).
 		WithAdmissionInfo(c.UserInfo).
-		WithClient(c.Client).
 		WithSubresourcesInPolicy(subresources)
 
-	mutateResponse := engine.Mutate(context.Background(), registryclient.NewOrDie(), policyContext)
+	mutateResponse := eng.Mutate(
+		context.Background(),
+		policyContext,
+	)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -510,9 +513,12 @@ OuterLoop:
 	policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
 
 	var info Info
-	var validateResponse *response.EngineResponse
+	var validateResponse *engineapi.EngineResponse
 	if policyHasValidate {
-		validateResponse = engine.Validate(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
+		validateResponse = eng.Validate(
+			context.Background(),
+			policyContext,
+		)
 		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
@@ -520,7 +526,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := engine.VerifyAndPatchImages(context.Background(), registryclient.NewOrDie(), policyContext, cfg)
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
@@ -534,7 +540,7 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		generateResponse := engine.ApplyBackgroundChecks(registryclient.NewOrDie(), policyContext)
+		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
@@ -696,7 +702,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
-func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool, auditWarn bool) Info {
+func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse *engineapi.EngineResponse, resPath string, rc *ResultCounts, policyReport bool, auditWarn bool) Info {
 	var violatedRules []kyvernov1.ViolatedRule
 
 	printCount := 0
@@ -716,11 +722,11 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 				}
 
 				switch valResponseRule.Status {
-				case response.RuleStatusPass:
+				case engineapi.RuleStatusPass:
 					rc.Pass++
 					vrule.Status = policyreportv1alpha2.StatusPass
 
-				case response.RuleStatusFail:
+				case engineapi.RuleStatusFail:
 					auditWarning := false
 					ann := policy.GetAnnotations()
 					if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
@@ -749,15 +755,15 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message)
 					}
 
-				case response.RuleStatusError:
+				case engineapi.RuleStatusError:
 					rc.Error++
 					vrule.Status = policyreportv1alpha2.StatusError
 
-				case response.RuleStatusWarn:
+				case engineapi.RuleStatusWarn:
 					rc.Warn++
 					vrule.Status = policyreportv1alpha2.StatusWarn
 
-				case response.RuleStatusSkip:
+				case engineapi.RuleStatusSkip:
 					rc.Skip++
 					vrule.Status = policyreportv1alpha2.StatusSkip
 				}
@@ -781,9 +787,9 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 	return buildPVInfo(validateResponse, violatedRules)
 }
 
-func buildPVInfo(er *response.EngineResponse, violatedRules []kyvernov1.ViolatedRule) Info {
+func buildPVInfo(er *engineapi.EngineResponse, violatedRules []kyvernov1.ViolatedRule) Info {
 	info := Info{
-		PolicyName: er.PolicyResponse.Policy.Name,
+		PolicyName: er.Policy.GetName(),
 		Namespace:  er.PatchedResource.GetNamespace(),
 		Results: []EngineResponseResult{
 			{
@@ -795,7 +801,7 @@ func buildPVInfo(er *response.EngineResponse, violatedRules []kyvernov1.Violated
 	return info
 }
 
-func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *response.EngineResponse, resPath string, rc *ResultCounts, auditWarn bool) {
+func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *engineapi.EngineResponse, resPath string, rc *ResultCounts, auditWarn bool) {
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
@@ -803,7 +809,7 @@ func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *respon
 			if policyRule.Name == ruleResponse.Name {
 				ruleFoundInEngineResponse = true
 
-				if ruleResponse.Status == response.RuleStatusPass {
+				if ruleResponse.Status == engineapi.RuleStatusPass {
 					rc.Pass++
 				} else {
 					if printCount < 1 {
@@ -855,14 +861,12 @@ func SetInStoreContext(mutatedPolicies []kyvernov1.PolicyInterface, variables ma
 		})
 	}
 
-	store.SetContext(store.Context{
-		Policies: storePolicies,
-	})
+	store.SetPolicies(storePolicies...)
 
 	return variables
 }
 
-func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *response.EngineResponse, resPath string) error {
+func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.EngineResponse, resPath string) error {
 	var policyHasMutate bool
 	for _, rule := range autogen.ComputeRules(c.Policy) {
 		if rule.HasMutate() {
@@ -880,13 +884,13 @@ func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *response.E
 		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name {
 				ruleFoundInEngineResponse = true
-				if mutateResponseRule.Status == response.RuleStatusPass {
+				if mutateResponseRule.Status == engineapi.RuleStatusPass {
 					c.Rc.Pass++
 					printMutatedRes = true
-				} else if mutateResponseRule.Status == response.RuleStatusSkip {
+				} else if mutateResponseRule.Status == engineapi.RuleStatusSkip {
 					fmt.Printf("\nskipped mutate policy %s -> resource %s", c.Policy.GetName(), resPath)
 					c.Rc.Skip++
-				} else if mutateResponseRule.Status == response.RuleStatusError {
+				} else if mutateResponseRule.Status == engineapi.RuleStatusError {
 					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", c.Policy.GetName(), resPath, mutateResponseRule.Message)
 					c.Rc.Error++
 				} else {
@@ -965,7 +969,7 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 
 	// skipping the variable check for non matching kind
 	if _, ok := kindOnwhichPolicyIsApplied[resourceKind]; ok {
-		if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && len(store.GetContext().Policies) == 0 {
+		if len(variable) > 0 && len(thisPolicyResourceValues) == 0 && store.HasPolicies() {
 			return thisPolicyResourceValues, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policyName, resourceName), nil)
 		}
 	}
@@ -1069,12 +1073,18 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	}
 
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
-	c := generate.NewGenerateControllerWithOnlyClient(client)
+	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
+		config.NewDefaultConfiguration(),
+		client,
+		nil,
+		store.ContextLoaderFactory(nil),
+		nil,
+	))
 	return c, nil
 }
 
 // handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
-func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
+func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
 	resource := policyContext.NewResource()
 	objects := []runtime.Object{&resource}
 	resources := []*unstructured.Unstructured{}
@@ -1105,28 +1115,28 @@ func handleGeneratePolicy(generateResponse *response.EngineResponse, policyConte
 	gr := kyvernov1beta1.UpdateRequest{
 		Spec: kyvernov1beta1.UpdateRequestSpec{
 			Type:   kyvernov1beta1.Generate,
-			Policy: generateResponse.PolicyResponse.Policy.Name,
+			Policy: generateResponse.Policy.GetName(),
 			Resource: kyvernov1.ResourceSpec{
-				Kind:       generateResponse.PolicyResponse.Resource.Kind,
-				Namespace:  generateResponse.PolicyResponse.Resource.Namespace,
-				Name:       generateResponse.PolicyResponse.Resource.Name,
-				APIVersion: generateResponse.PolicyResponse.Resource.APIVersion,
+				Kind:       generateResponse.Resource.GetKind(),
+				Namespace:  generateResponse.Resource.GetNamespace(),
+				Name:       generateResponse.Resource.GetName(),
+				APIVersion: generateResponse.Resource.GetAPIVersion(),
 			},
 		},
 	}
 
-	var newRuleResponse []response.RuleResponse
+	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		genResource, _, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.Name})
 		if err != nil {
-			rule.Status = response.RuleStatusError
+			rule.Status = engineapi.RuleStatusError
 			return nil, err
 		}
 
 		unstrGenResource, err := c.GetUnstrResource(genResource[0])
 		if err != nil {
-			rule.Status = response.RuleStatusError
+			rule.Status = engineapi.RuleStatusError
 			return nil, err
 		}
 
@@ -1138,9 +1148,8 @@ func handleGeneratePolicy(generateResponse *response.EngineResponse, policyConte
 }
 
 // GetUserInfoFromPath - get the request info as user info from a given path
-func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (kyvernov1beta1.RequestInfo, store.Subject, error) {
+func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (kyvernov1beta1.RequestInfo, error) {
 	userInfo := &kyvernov1beta1.RequestInfo{}
-	subjectInfo := &store.Subject{}
 	if isGit {
 		filep, err := fs.Open(filepath.Join(policyResourcePath, path))
 		if err != nil {
@@ -1158,14 +1167,6 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			fmt.Printf("failed to decode yaml: %v", err)
 		}
-		subjectBytes, err := yaml.ToJSON(bytes)
-		if err != nil {
-			fmt.Printf("failed to convert to JSON: %v", err)
-		}
-
-		if err := json.Unmarshal(subjectBytes, subjectInfo); err != nil {
-			fmt.Printf("failed to decode yaml: %v", err)
-		}
 	} else {
 		var errors []error
 		pathname := filepath.Clean(filepath.Join(policyResourcePath, path))
@@ -1180,13 +1181,6 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
 		}
-		if err := json.Unmarshal(userInfoBytes, subjectInfo); err != nil {
-			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
-		}
-		if len(errors) > 0 {
-			return *userInfo, *subjectInfo, sanitizederror.NewWithErrors("failed to read file", errors)
-		}
-
 		if len(errors) > 0 && log.Log.V(1).Enabled() {
 			fmt.Printf("ignoring errors: \n")
 			for _, e := range errors {
@@ -1194,7 +1188,7 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 			}
 		}
 	}
-	return *userInfo, *subjectInfo, nil
+	return *userInfo, nil
 }
 
 func IsGitSourcePath(policyPaths []string) bool {

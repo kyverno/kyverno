@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	yamlv2 "gopkg.in/yaml.v2"
 )
@@ -33,7 +33,7 @@ var OperationToPastTense = map[string]string{
 	"test":    "tested",
 }
 
-func GenerateAnnotationPatches(engineResponses []*response.EngineResponse, log logr.Logger) [][]byte {
+func GenerateAnnotationPatches(engineResponses []*engineapi.EngineResponse, log logr.Logger) [][]byte {
 	var annotations map[string]string
 	var patchBytes [][]byte
 	for _, er := range engineResponses {
@@ -91,18 +91,18 @@ func GenerateAnnotationPatches(engineResponses []*response.EngineResponse, log l
 	return patchBytes
 }
 
-func annotationFromEngineResponses(engineResponses []*response.EngineResponse, log logr.Logger) []byte {
+func annotationFromEngineResponses(engineResponses []*engineapi.EngineResponse, log logr.Logger) []byte {
 	annotationContent := make(map[string]string)
 	for _, engineResponse := range engineResponses {
 		if !engineResponse.IsSuccessful() {
-			log.V(3).Info("skip building annotation; policy failed to apply", "policy", engineResponse.PolicyResponse.Policy.Name)
+			log.V(3).Info("skip building annotation; policy failed to apply", "policy", engineResponse.Policy.GetName())
 			continue
 		}
 		rulePatches := annotationFromPolicyResponse(engineResponse.PolicyResponse, log)
 		if rulePatches == nil {
 			continue
 		}
-		policyName := engineResponse.PolicyResponse.Policy.Name
+		policyName := engineResponse.Policy.GetName()
 		for _, rulePatch := range rulePatches {
 			annotationContent[rulePatch.RuleName+"."+policyName+".kyverno.io"] = OperationToPastTense[rulePatch.Op] + " " + rulePatch.Path
 		}
@@ -119,7 +119,7 @@ func annotationFromEngineResponses(engineResponses []*response.EngineResponse, l
 	return result
 }
 
-func annotationFromPolicyResponse(policyResponse response.PolicyResponse, log logr.Logger) []RulePatch {
+func annotationFromPolicyResponse(policyResponse engineapi.PolicyResponse, log logr.Logger) []RulePatch {
 	var RulePatches []RulePatch
 	for _, ruleInfo := range policyResponse.Rules {
 		for _, patch := range ruleInfo.Patches {

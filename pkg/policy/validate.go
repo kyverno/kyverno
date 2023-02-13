@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -16,6 +17,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -25,7 +27,6 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -219,6 +220,10 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
+		if err := validateRuleImageExtractorsJMESPath(rule); err != nil {
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		}
+
 		// If a rule's match block does not match any kind,
 		// we should only allow it to have metadata in its overlay
 		if len(rule.MatchResources.Any) > 0 {
@@ -292,7 +297,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
 				if err != nil {
-					return warnings, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
+					return warnings, fmt.Errorf("the kind defined in the any match resource is invalid: %w", err)
 				}
 			}
 		}
@@ -304,7 +309,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
 				if err != nil {
-					return warnings, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
+					return warnings, fmt.Errorf("the kind defined in the all match resource is invalid: %w", err)
 				}
 			}
 		}
@@ -316,7 +321,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
 				if err != nil {
-					return warnings, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
+					return warnings, fmt.Errorf("the kind defined in the any exclude resource is invalid: %w", err)
 				}
 			}
 		}
@@ -328,7 +333,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
 				if err != nil {
-					return warnings, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
+					return warnings, fmt.Errorf("the kind defined in the all exclude resource is invalid: %w", err)
 				}
 			}
 		}
@@ -336,11 +341,11 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		if !slices.Contains(rule.MatchResources.Kinds, "*") {
 			err := validateKinds(rule.MatchResources.Kinds, mock, background, rule.HasValidate(), client)
 			if err != nil {
-				return warnings, errors.Wrapf(err, "match resource kind is invalid")
+				return warnings, fmt.Errorf("match resource kind is invalid: %w", err)
 			}
 			err = validateKinds(rule.ExcludeResources.Kinds, mock, background, rule.HasValidate(), client)
 			if err != nil {
-				return warnings, errors.Wrapf(err, "exclude resource kind is invalid")
+				return warnings, fmt.Errorf("exclude resource kind is invalid: %w", err)
 			}
 		} else {
 			wildcardErr := validateWildcard(rule.MatchResources.Kinds, spec, rule)
@@ -436,18 +441,18 @@ func UpdateSourceResource(client dclient.Interface, kind, namespace string, poli
 
 	if len(label) == 0 {
 		label = make(map[string]string)
-		label["generate.kyverno.io/clone-policy-name"] = policyName
+		label[generate.LabelClonePolicyName] = policyName
 	} else {
-		if label["generate.kyverno.io/clone-policy-name"] != "" {
-			policyNames := label["generate.kyverno.io/clone-policy-name"]
+		if label[generate.LabelClonePolicyName] != "" {
+			policyNames := label[generate.LabelClonePolicyName]
 			if !strings.Contains(policyNames, policyName) {
 				policyNames = policyNames + "," + policyName
-				label["generate.kyverno.io/clone-policy-name"] = policyNames
+				label[generate.LabelClonePolicyName] = policyNames
 			} else {
 				updateSource = false
 			}
 		} else {
-			label["generate.kyverno.io/clone-policy-name"] = policyName
+			label[generate.LabelClonePolicyName] = policyName
 		}
 	}
 
@@ -640,7 +645,10 @@ func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.Mo
 		}
 
 		if contextEntry.ConfigMap != nil {
+			ctx.AddVariable(contextEntry.Name + ".data")
+			ctx.AddVariable(contextEntry.Name + ".metadata")
 			ctx.AddVariable(contextEntry.Name + ".data.*")
+			ctx.AddVariable(contextEntry.Name + ".metadata.*")
 		}
 	}
 }
@@ -1011,6 +1019,44 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 	return nil
 }
 
+// validateRuleImageExtractorsJMESPath ensures that the rule does not
+// mutate image digests if it has an image extractor that uses a JMESPath.
+func validateRuleImageExtractorsJMESPath(rule kyvernov1.Rule) error {
+	imageExtractorConfigs := rule.ImageExtractors
+	imageVerifications := rule.VerifyImages
+	if imageExtractorConfigs == nil || imageVerifications == nil {
+		return nil
+	}
+
+	anyMutateDigest := false
+	for _, imageVerification := range imageVerifications {
+		if imageVerification.MutateDigest {
+			anyMutateDigest = true
+			break
+		}
+	}
+
+	if !anyMutateDigest {
+		return nil
+	}
+
+	anyJMESPath := false
+	for _, imageExtractors := range imageExtractorConfigs {
+		for _, imageExtractor := range imageExtractors {
+			if imageExtractor.JMESPath != "" {
+				anyJMESPath = true
+				break
+			}
+		}
+	}
+
+	if anyJMESPath {
+		return fmt.Errorf("jmespath may not be used in an image extractor when mutating digests with verify images")
+	}
+
+	return nil
+}
+
 func validateVariable(entry kyvernov1.ContextEntry) error {
 	// If JMESPath contains variables, the validation will fail because it's not possible to infer which value
 	// will be inserted by the variable
@@ -1069,7 +1115,7 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 	if !strings.Contains(ref, "kyvernoimageref") {
 		_, err := reference.Parse(ref)
 		if err != nil {
-			return errors.Wrapf(err, "bad image: %s", ref)
+			return fmt.Errorf("bad image: %s: %w", ref, err)
 		}
 	}
 

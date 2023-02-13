@@ -1689,6 +1689,21 @@ string
 Note - this field MUST be unique.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>jmesPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>JMESPath is an optional JMESPath expression to apply to the image value.
+This is useful when the extracted image begins with a prefix like &lsquo;docker://&rsquo;.
+The &lsquo;trim_prefix&rsquo; function may be used to trim the prefix: trim_prefix(@, &lsquo;docker://&rsquo;).
+Note - Image digest mutation may not be used when applying a JMESPAth to an image.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -4371,6 +4386,29 @@ string
 </tr>
 <tr>
 <td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Rule is the associate rule name of the current UR.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>resource</code><br/>
 <em>
 <a href="#kyverno.io/v1.ResourceSpec">
@@ -4570,6 +4608,29 @@ string
 </tr>
 <tr>
 <td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Rule is the associate rule name of the current UR.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>resource</code><br/>
 <em>
 <a href="#kyverno.io/v1.ResourceSpec">
@@ -4677,7 +4738,8 @@ string
 </em>
 </td>
 <td>
-<p>Handler represents the instance ID that handles the UR</p>
+<p>Handler represents the instance ID that handles the UR
+Deprecated</p>
 </td>
 </tr>
 <tr>
@@ -5064,6 +5126,19 @@ PolicyExceptionSpec
 <table class="table table-striped">
 <tr>
 <td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>match</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.MatchResources">
@@ -5272,6 +5347,19 @@ references a ClusterPolicy.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>match</code><br/>

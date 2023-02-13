@@ -3,6 +3,7 @@ package engine
 import (
 	"testing"
 
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,10 +38,7 @@ func Test_GetSubresourceGVKToAPIResourceMap(t *testing.T) {
 	}
 
 	policyContext := NewPolicyContext().
-		WithSubresourcesInPolicy([]struct {
-			APIResource    metav1.APIResource
-			ParentResource metav1.APIResource
-		}{
+		WithSubresourcesInPolicy([]engineapi.SubResource{
 			{
 				APIResource:    podStatusAPIResource,
 				ParentResource: podAPIResource,
@@ -53,7 +51,7 @@ func Test_GetSubresourceGVKToAPIResourceMap(t *testing.T) {
 
 	kindsInPolicy := []string{"Pod", "Eviction", "Pod/status", "Pod/eviction"}
 
-	subresourceGVKToAPIResourceMap := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+	subresourceGVKToAPIResourceMap := GetSubresourceGVKToAPIResourceMap(nil, kindsInPolicy, policyContext)
 
 	podStatusResourceFromMap := subresourceGVKToAPIResourceMap["Pod/status"]
 	assert.Equal(t, podStatusResourceFromMap.Name, podStatusAPIResource.Name)

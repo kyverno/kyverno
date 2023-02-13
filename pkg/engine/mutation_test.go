@@ -8,10 +8,11 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
@@ -19,6 +20,29 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+func testMutate(
+	ctx context.Context,
+	client dclient.Interface,
+	rclient registryclient.Client,
+	pContext *PolicyContext,
+	contextLoader engineapi.ContextLoaderFactory,
+) *engineapi.EngineResponse {
+	if contextLoader == nil {
+		contextLoader = engineapi.DefaultContextLoaderFactory(nil)
+	}
+	e := NewEngine(
+		cfg,
+		client,
+		rclient,
+		contextLoader,
+		nil,
+	)
+	return e.Mutate(
+		ctx,
+		pContext,
+	)
+}
 
 func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	policyRaw := []byte(`{
@@ -95,7 +119,7 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 		jsonContext: ctx,
 		newResource: *resourceUnstructured,
 	}
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	t.Log(string(expectedPatch))
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
@@ -169,7 +193,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 		jsonContext: ctx,
 		newResource: *resourceUnstructured,
 	}
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
 }
@@ -230,26 +254,8 @@ func Test_variableSubstitutionCLI(t *testing.T) {
   }
 }`)
 
-	configMapVariableContext := store.Context{
-		Policies: []store.Policy{
-			{
-				Name: "cm-variable-example",
-				Rules: []store.Rule{
-					{
-						Name: "example-configmap-lookup",
-						Values: map[string]interface{}{
-							"dictionary.data.env": "dev1",
-						},
-					},
-				},
-			},
-		},
-	}
-
 	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels","value":{"my-environment-name":"dev1"}}`)
 
-	store.SetContext(configMapVariableContext)
-	store.SetMock(true)
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
@@ -266,7 +272,26 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 		newResource: *resourceUnstructured,
 	}
 
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(
+		context.TODO(),
+		nil,
+		registryclient.NewOrDie(),
+		policyContext,
+		enginetest.ContextLoaderFactory(
+			nil,
+			map[string]enginetest.Policy{
+				"cm-variable-example": {
+					Rules: map[string]enginetest.Rule{
+						"example-configmap-lookup": {
+							Values: map[string]interface{}{
+								"dictionary.data.env": "dev1",
+							},
+						},
+					},
+				},
+			},
+		),
+	)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
 	t.Log(string(expectedPatch))
@@ -375,7 +400,7 @@ func Test_chained_rules(t *testing.T) {
 	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
 	assert.Equal(t, containers[0].(map[string]interface{})["image"], "otherregistry.corp.com/foo/bash:5.0")
@@ -446,7 +471,6 @@ func Test_precondition(t *testing.T) {
 }`)
 	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels/my-added-label","value":"test"}`)
 
-	store.SetMock(true)
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
@@ -463,7 +487,7 @@ func Test_precondition(t *testing.T) {
 		newResource: *resourceUnstructured,
 	}
 
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, enginetest.ContextLoaderFactory(nil, nil))
 	t.Log(string(expectedPatch))
 	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
 	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
@@ -543,7 +567,6 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 
 	expectedPatch := []byte(`{"op":"add","path":"/subsets/0/addresses/1","value":{"ip":"192.168.42.172"}}`)
 
-	store.SetMock(true)
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyraw, &policy)
 	assert.NilError(t, err)
@@ -560,7 +583,7 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 		newResource: *resourceUnstructured,
 	}
 
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, enginetest.ContextLoaderFactory(nil, nil))
 	t.Log(string(expectedPatch))
 	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
 	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
@@ -654,10 +677,10 @@ func Test_foreach(t *testing.T) {
 	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -761,10 +784,10 @@ func Test_foreach_element_mutation(t *testing.T) {
 	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -887,10 +910,10 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -995,7 +1018,7 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	er := testApplyPolicyToResource(t, policyRaw, resourceRaw)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
 	containers, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "containers")
 	assert.NilError(t, err)
@@ -1013,7 +1036,7 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	}
 }
 
-func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *response.EngineResponse {
+func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *engineapi.EngineResponse {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)
@@ -1037,7 +1060,7 @@ func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *res
 	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	return er
 }
 
@@ -1148,7 +1171,7 @@ func Test_mutate_nested_foreach(t *testing.T) {
 
 	er := testApplyPolicyToResource(t, policyRaw, resourceRaw)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 2)
 
 	tlsArr, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "tls")
@@ -1582,18 +1605,18 @@ func Test_mutate_existing_resources(t *testing.T) {
 			assert.NilError(t, err)
 
 			policyContext = &PolicyContext{
-				client:      dclient,
 				policy:      &policy,
 				jsonContext: ctx,
 				newResource: *trigger,
 			}
-		}
-		er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
 
-		for _, rr := range er.PolicyResponse.Rules {
-			for i, p := range rr.Patches {
-				assert.Equal(t, test.patches[i], string(p), "test %s failed:\nGot %s\nExpected: %s", test.name, rr.Patches[i], test.patches[i])
-				assert.Equal(t, rr.Status, response.RuleStatusPass, rr.Status)
+			er := testMutate(context.TODO(), dclient, registryclient.NewOrDie(), policyContext, nil)
+
+			for _, rr := range er.PolicyResponse.Rules {
+				for i, p := range rr.Patches {
+					assert.Equal(t, test.patches[i], string(p), "test %s failed:\nGot %s\nExpected: %s", test.name, rr.Patches[i], test.patches[i])
+					assert.Equal(t, rr.Status, engineapi.RuleStatusPass, rr.Status)
+				}
 			}
 		}
 	}
@@ -1696,7 +1719,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 		newResource: *resourceUnstructured,
 	}
 
-	er := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 2)
 	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
 	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches), 1)
@@ -1711,7 +1734,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 	applyOne := kyverno.ApplyOne
 	policyContext.policy.GetSpec().ApplyRules = &applyOne
 
-	er = Mutate(context.TODO(), registryclient.NewOrDie(), policyContext)
+	er = testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
 
@@ -2078,7 +2101,7 @@ func Test_SpecialCharacters(t *testing.T) {
 			}
 
 			// Mutate and make sure that we got the expected amount of rules.
-			patches := Mutate(context.TODO(), registryclient.NewOrDie(), policyContext).GetPatches()
+			patches := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil).GetPatches()
 			if !reflect.DeepEqual(patches, tt.want) {
 				t.Errorf("Mutate() got patches %s, expected %s", patches, tt.want)
 			}

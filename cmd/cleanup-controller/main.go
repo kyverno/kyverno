@@ -54,11 +54,13 @@ func main() {
 		leaderElectionRetryPeriod time.Duration
 		dumpPayload               bool
 		serverIP                  string
+		servicePort               int
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.DurationVar(&leaderElectionRetryPeriod, "leaderElectionRetryPeriod", leaderelection.DefaultRetryPeriod, "Configure leader election retry period.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
+	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -75,7 +77,7 @@ func main() {
 	// setup signals
 	// setup maxprocs
 	// setup metrics
-	ctx, logger, metricsConfig, sdown := internal.Setup()
+	ctx, logger, metricsConfig, sdown := internal.Setup("kyverno-cleanup-controller")
 	defer sdown()
 	// create instrumented clients
 	kubeClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
@@ -124,6 +126,7 @@ func main() {
 					config.CleanupValidatingWebhookConfigurationName,
 					config.CleanupValidatingWebhookServicePath,
 					serverIP,
+					int32(servicePort),
 					[]admissionregistrationv1.RuleWithOperations{{
 						Rule: admissionregistrationv1.Rule{
 							APIGroups:   []string{"kyverno.io"},
@@ -155,7 +158,7 @@ func main() {
 				cleanup.Workers,
 			)
 			// start informers and wait for cache sync
-			if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+			if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 				os.Exit(1)
 			}
@@ -185,7 +188,7 @@ func main() {
 	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(ctx, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
 	}
 	// create handlers

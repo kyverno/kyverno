@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	logr "github.com/go-logr/logr"
+	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	retryutils "github.com/kyverno/kyverno/pkg/utils/retry"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -15,7 +16,7 @@ import (
 )
 
 func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSpec, log logr.Logger) (*unstructured.Unstructured, error) {
-	resourceSpec := urSpec.Resource
+	resourceSpec := urSpec.GetResource()
 
 	get := func() (*unstructured.Unstructured, error) {
 		if resourceSpec.Kind == "Namespace" {
@@ -23,7 +24,7 @@ func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSp
 		}
 		resource, err := client.GetResource(context.TODO(), resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
 		if err != nil {
-			if urSpec.Type == kyvernov1beta1.Mutate && errors.IsNotFound(err) && urSpec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
+			if urSpec.GetRequestType() == kyvernov1beta1.Mutate && errors.IsNotFound(err) && urSpec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
 				log.V(4).Info("trigger resource does not exist for mutateExisting rule", "operation", urSpec.Context.AdmissionRequestInfo.Operation)
 				return nil, nil
 			}
@@ -51,6 +52,16 @@ func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSp
 		return nil, err
 	}
 
-	log.V(2).Info("fetched trigger resource", "resourceSpec", resourceSpec)
+	if resource == nil && urSpec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
+		request := urSpec.Context.AdmissionRequestInfo.AdmissionRequest
+		raw := request.Object.Raw
+		if request.Operation == admissionv1.Delete {
+			raw = request.OldObject.Raw
+		}
+
+		resource, err = kubeutils.BytesToUnstructured(raw)
+	}
+
+	log.V(3).Info("fetched trigger resource", "resourceSpec", resourceSpec)
 	return resource, err
 }
