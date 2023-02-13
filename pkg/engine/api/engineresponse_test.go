@@ -736,61 +736,73 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 		want   kyvernov1.ValidationFailureAction
 	}{{
 		fields: fields{
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Audit,
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Audit,
+				},
 			},
 		},
 		want: kyvernov1.Audit,
 	}, {
 		fields: fields{
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+				},
 			},
 		},
 		want: kyvernov1.Enforce,
 	}, {
 		fields: fields{
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
-				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
-					Action:     kyvernov1.Audit,
-					Namespaces: []string{"*"},
-				}},
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action:     kyvernov1.Audit,
+						Namespaces: []string{"*"},
+					}},
+				},
 			},
 		},
 		want: kyvernov1.Audit,
 	}, {
 		fields: fields{
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
-				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
-					Action:     "invalid",
-					Namespaces: []string{"*"},
-				}},
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action:     "invalid",
+						Namespaces: []string{"*"},
+					}},
+				},
 			},
 		},
 		want: kyvernov1.Enforce,
 	}, {
 		fields: fields{
 			PatchedResource: resource,
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
-				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
-					Action:     kyvernov1.Audit,
-					Namespaces: []string{"foo"},
-				}},
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action:     kyvernov1.Audit,
+						Namespaces: []string{"foo"},
+					}},
+				},
 			},
 		},
 		want: kyvernov1.Audit,
 	}, {
 		fields: fields{
 			PatchedResource: resource,
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
-				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
-					Action:     kyvernov1.Audit,
-					Namespaces: []string{"bar"},
-				}},
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action:     kyvernov1.Audit,
+						Namespaces: []string{"bar"},
+					}},
+				},
 			},
 		},
 		want: kyvernov1.Enforce,
@@ -800,16 +812,18 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				"foo": "bar",
 			},
 			PatchedResource: resource,
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
-				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
-					Action: kyvernov1.Audit,
-					NamespaceSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"bar": "foo",
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action: kyvernov1.Audit,
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"bar": "foo",
+							},
 						},
-					},
-				}},
+					}},
+				},
 			},
 		},
 		want: kyvernov1.Enforce,
@@ -819,76 +833,18 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				"foo": "bar",
 			},
 			PatchedResource: resource,
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
-				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
-					Action: kyvernov1.Audit,
-					NamespaceSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"foo": "bar",
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action: kyvernov1.Audit,
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"foo": "bar",
+							},
 						},
-					},
-				}},
-			},
-		},
-		want: kyvernov1.Audit,
-	}, {
-		fields: fields{
-			NamespaceLabels: map[string]string{
-				"foo": "bar",
-			},
-			PatchedResource: resource,
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
-				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
-					Action:     kyvernov1.Audit,
-					Namespaces: []string{"foo"},
-					NamespaceSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"bar": "foo",
-						},
-					},
-				}},
-			},
-		},
-		want: kyvernov1.Enforce,
-	}, {
-		fields: fields{
-			NamespaceLabels: map[string]string{
-				"foo": "bar",
-			},
-			PatchedResource: resource,
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
-				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
-					Action:     kyvernov1.Audit,
-					Namespaces: []string{"bar"},
-					NamespaceSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"foo": "bar",
-						},
-					},
-				}},
-			},
-		},
-		want: kyvernov1.Enforce,
-	}, {
-		fields: fields{
-			NamespaceLabels: map[string]string{
-				"foo": "bar",
-			},
-			PatchedResource: resource,
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
-				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
-					Action:     kyvernov1.Audit,
-					Namespaces: []string{"foo"},
-					NamespaceSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"foo": "bar",
-						},
-					},
-				}},
+					}},
+				},
 			},
 		},
 		want: kyvernov1.Audit,
@@ -898,17 +854,85 @@ func TestEngineResponse_GetValidationFailureAction(t *testing.T) {
 				"foo": "bar",
 			},
 			PatchedResource: resource,
-			PolicyResponse: PolicyResponse{
-				ValidationFailureAction: kyvernov1.Enforce,
-				ValidationFailureActionOverrides: []ValidationFailureActionOverride{{
-					Action:     kyvernov1.Audit,
-					Namespaces: []string{"*"},
-					NamespaceSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							"foo": "bar",
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action:     kyvernov1.Audit,
+						Namespaces: []string{"foo"},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"bar": "foo",
+							},
 						},
-					},
-				}},
+					}},
+				},
+			},
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			NamespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action:     kyvernov1.Audit,
+						Namespaces: []string{"bar"},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"foo": "bar",
+							},
+						},
+					}},
+				},
+			},
+		},
+		want: kyvernov1.Enforce,
+	}, {
+		fields: fields{
+			NamespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action:     kyvernov1.Audit,
+						Namespaces: []string{"foo"},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"foo": "bar",
+							},
+						},
+					}},
+				},
+			},
+		},
+		want: kyvernov1.Audit,
+	}, {
+		fields: fields{
+			NamespaceLabels: map[string]string{
+				"foo": "bar",
+			},
+			PatchedResource: resource,
+			Policy: &kyvernov1.ClusterPolicy{
+				Spec: kyvernov1.Spec{
+					ValidationFailureAction: kyvernov1.Enforce,
+					ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{{
+						Action:     kyvernov1.Audit,
+						Namespaces: []string{"*"},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"foo": "bar",
+							},
+						},
+					}},
+				},
 			},
 		},
 		want: kyvernov1.Audit,

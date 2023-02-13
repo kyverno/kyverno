@@ -46,9 +46,20 @@ func Test_getAction(t *testing.T) {
 }
 
 func TestBlockRequest(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{
+	auditPolicy := &kyvernov1.ClusterPolicy{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test",
+		},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: kyvernov1.Audit,
+		},
+	}
+	enforcePolicy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test",
+		},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: kyvernov1.Enforce,
 		},
 	}
 	resource := unstructured.Unstructured{
@@ -73,8 +84,7 @@ func TestBlockRequest(t *testing.T) {
 		name: "failure - enforce",
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, policy, nil, &engineapi.PolicyResponse{
-					ValidationFailureAction: "Enforce",
+				engineapi.NewEngineResponse(resource, enforcePolicy, nil, &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule-fail",
@@ -92,8 +102,7 @@ func TestBlockRequest(t *testing.T) {
 		name: "failure - audit",
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, policy, nil, &engineapi.PolicyResponse{
-					ValidationFailureAction: "Audit",
+				engineapi.NewEngineResponse(resource, auditPolicy, nil, &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule-fail",
@@ -111,8 +120,7 @@ func TestBlockRequest(t *testing.T) {
 		name: "error - fail",
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, policy, nil, &engineapi.PolicyResponse{
-					ValidationFailureAction: "Audit",
+				engineapi.NewEngineResponse(resource, auditPolicy, nil, &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule-error",
@@ -130,8 +138,7 @@ func TestBlockRequest(t *testing.T) {
 		name: "error - ignore",
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, policy, nil, &engineapi.PolicyResponse{
-					ValidationFailureAction: "Audit",
+				engineapi.NewEngineResponse(resource, auditPolicy, nil, &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule-error",
@@ -149,8 +156,7 @@ func TestBlockRequest(t *testing.T) {
 		name: "warning - ignore",
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, policy, nil, &engineapi.PolicyResponse{
-					ValidationFailureAction: "Audit",
+				engineapi.NewEngineResponse(resource, auditPolicy, nil, &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule-warning",
@@ -168,8 +174,7 @@ func TestBlockRequest(t *testing.T) {
 		name: "warning - fail",
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, policy, nil, &engineapi.PolicyResponse{
-					ValidationFailureAction: "Audit",
+				engineapi.NewEngineResponse(resource, auditPolicy, nil, &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule-warning",
@@ -193,9 +198,12 @@ func TestBlockRequest(t *testing.T) {
 }
 
 func TestGetBlockedMessages(t *testing.T) {
-	policy := &kyvernov1.ClusterPolicy{
+	enforcePolicy := &kyvernov1.ClusterPolicy{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test",
+		},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: kyvernov1.Enforce,
 		},
 	}
 	resource := unstructured.Unstructured{
@@ -218,8 +226,7 @@ func TestGetBlockedMessages(t *testing.T) {
 		name: "failure - enforce",
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, policy, nil, &engineapi.PolicyResponse{
-					ValidationFailureAction: "Enforce",
+				engineapi.NewEngineResponse(resource, enforcePolicy, nil, &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule-fail",
@@ -235,8 +242,7 @@ func TestGetBlockedMessages(t *testing.T) {
 		name: "error - enforce",
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, policy, nil, &engineapi.PolicyResponse{
-					ValidationFailureAction: "Enforce",
+				engineapi.NewEngineResponse(resource, enforcePolicy, nil, &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule-error",
@@ -252,8 +258,7 @@ func TestGetBlockedMessages(t *testing.T) {
 		name: "error and failure - enforce",
 		args: args{
 			engineResponses: []*engineapi.EngineResponse{
-				engineapi.NewEngineResponse(resource, policy, nil, &engineapi.PolicyResponse{
-					ValidationFailureAction: "Enforce",
+				engineapi.NewEngineResponse(resource, enforcePolicy, nil, &engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						{
 							Name:    "rule-fail",
