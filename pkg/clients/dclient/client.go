@@ -213,7 +213,7 @@ func (c *client) UpdateStatusResource(ctx context.Context, apiVersion string, ki
 
 // ApplyResource updates object for the specified resource/namespace using server-side apply
 func (c *client) ApplyResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}, subresources ...string) (*unstructured.Unstructured, error) {
-	options := metav1.ApplyOptions{FieldManager: "kyverno-update-controller", Force: true}
+	options := metav1.ApplyOptions{FieldManager: "kyverno", Force: true}
 	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).Apply(ctx, name, unstructuredObj, options, subresources...)
 	}
@@ -222,7 +222,7 @@ func (c *client) ApplyResource(ctx context.Context, apiVersion string, kind stri
 
 // ApplyStatusResource updates the resource "status" subresource using server-side apply
 func (c *client) ApplyStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, obj interface{}) (*unstructured.Unstructured, error) {
-	options := metav1.ApplyOptions{FieldManager: "kyverno-update-controller", Force: true}
+	options := metav1.ApplyOptions{FieldManager: "kyverno", Force: true}
 	if unstructuredObj, err := kubeutils.ObjToUnstructured(obj); err == nil && unstructuredObj != nil {
 		return c.getResourceInterface(apiVersion, kind, namespace).ApplyStatus(ctx, name, unstructuredObj, options)
 	}
