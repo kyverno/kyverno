@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	apiserverclient "github.com/kyverno/kyverno/pkg/clients/apiserver"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
@@ -272,14 +273,10 @@ func main() {
 	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KyvernoClient), kyvernoclient.WithTracing())
 	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
+	apiserverClient := internal.CreateApiServerClient(logger, apiserverclient.WithMetrics(metricsConfig, metrics.KubeClient), apiserverclient.WithTracing())
 	dClient, err := dclient.NewClient(signalCtx, dynamicClient, kubeClient, 15*time.Minute)
 	if err != nil {
 		logger.Error(err, "failed to create dynamic client")
-		os.Exit(1)
-	}
-	apiserverClient, err := apiserver.NewForConfig(internal.CreateClientConfig(logger))
-	if err != nil {
-		logger.Error(err, "failed to create apiserver client")
 		os.Exit(1)
 	}
 	// THIS IS AN UGLY FIX
