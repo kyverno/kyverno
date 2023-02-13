@@ -67,13 +67,13 @@ func AddKeyedEventHandlersT[K metav1.Object](logger logr.Logger, informer cache.
 
 func AddKeyedEventHandlersWithLog(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) EnqueueFunc {
 	enqueueFunc := LogError(logger, Parse(parseKey, Queue(queue)))
-	AddEventHandlersWithLog(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc))
+	AddEventHandlersWithLog(informer, AddFuncWithLog(logger, enqueueFunc), UpdateFuncWithLog(logger, enqueueFunc), DeleteFuncWithLog(logger, enqueueFunc))
 	return enqueueFunc
 }
 
 func AddDelayedKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration, parseKey keyFunc) EnqueueFunc {
 	enqueueFunc := LogError(logger, Parse(parseKey, QueueAfter(queue, delay)))
-	AddEventHandlers(informer, AddFuncWithLog(logger, enqueueFunc), UpdateFuncWithLog(logger, enqueueFunc), DeleteFuncWithLog(logger, enqueueFunc))
+	AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc))
 	return enqueueFunc
 }
 
