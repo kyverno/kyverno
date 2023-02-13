@@ -33,13 +33,13 @@ func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, 
 }
 
 func AddRuleResponse(resp *engineapi.PolicyResponse, ruleResp *engineapi.RuleResponse, startTime time.Time) {
-	ruleResp.ExecutionStats.ProcessingTime = time.Since(startTime)
-	ruleResp.ExecutionStats.Timestamp = startTime.Unix()
+	ruleResp.Stats.ProcessingTime = time.Since(startTime)
+	ruleResp.Stats.Timestamp = startTime.Unix()
 	resp.Rules = append(resp.Rules, *ruleResp)
 	if ruleResp.Status == engineapi.RuleStatusPass || ruleResp.Status == engineapi.RuleStatusFail {
-		resp.RulesAppliedCount++
+		resp.Stats.RulesAppliedCount++
 	} else if ruleResp.Status == engineapi.RuleStatusError {
-		resp.RulesErrorCount++
+		resp.Stats.RulesErrorCount++
 	}
 }
 
@@ -58,7 +58,7 @@ func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 		newOverrides := engineapi.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces, NamespaceSelector: v.NamespaceSelector}
 		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, newOverrides)
 	}
-	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	resp.PolicyResponse.Timestamp = startTime.Unix()
+	resp.PolicyResponse.Stats.ProcessingTime = time.Since(startTime)
+	resp.PolicyResponse.Stats.Timestamp = startTime.Unix()
 	return resp
 }
