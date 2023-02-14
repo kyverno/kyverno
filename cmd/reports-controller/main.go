@@ -129,7 +129,6 @@ func createReportControllers(
 				backgroundscancontroller.NewController(
 					client,
 					kyvernoClient,
-					rclient,
 					eng,
 					metadataFactory,
 					kyvernoV1.Policies(),
@@ -306,7 +305,7 @@ func main() {
 		}
 	}
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
 		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
@@ -314,7 +313,9 @@ func main() {
 	go eventGenerator.Run(ctx, 3)
 	eng := engine.NewEngine(
 		configuration,
-		engine.LegacyContextLoaderFactory(rclient, configMapResolver),
+		dClient,
+		rclient,
+		engineapi.DefaultContextLoaderFactory(configMapResolver),
 		exceptionsLister,
 	)
 	// setup leader election
@@ -355,12 +356,12 @@ func main() {
 				os.Exit(1)
 			}
 			// start informers and wait for cache sync
-			if !internal.StartInformersAndWaitForCacheSync(ctx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+			if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 				os.Exit(1)
 			}
 			internal.StartInformers(ctx, metadataInformer)
-			if !internal.CheckCacheSync(metadataInformer.WaitForCacheSync(ctx.Done())) {
+			if !internal.CheckCacheSync(logger, metadataInformer.WaitForCacheSync(ctx.Done())) {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 				os.Exit(1)
 			}

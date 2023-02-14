@@ -17,6 +17,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -216,6 +217,10 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		}
 
 		if err := validateRuleContext(rule); err != nil {
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		}
+
+		if err := validateRuleImageExtractorsJMESPath(rule); err != nil {
 			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
@@ -436,18 +441,18 @@ func UpdateSourceResource(client dclient.Interface, kind, namespace string, poli
 
 	if len(label) == 0 {
 		label = make(map[string]string)
-		label["generate.kyverno.io/clone-policy-name"] = policyName
+		label[generate.LabelClonePolicyName] = policyName
 	} else {
-		if label["generate.kyverno.io/clone-policy-name"] != "" {
-			policyNames := label["generate.kyverno.io/clone-policy-name"]
+		if label[generate.LabelClonePolicyName] != "" {
+			policyNames := label[generate.LabelClonePolicyName]
 			if !strings.Contains(policyNames, policyName) {
 				policyNames = policyNames + "," + policyName
-				label["generate.kyverno.io/clone-policy-name"] = policyNames
+				label[generate.LabelClonePolicyName] = policyNames
 			} else {
 				updateSource = false
 			}
 		} else {
-			label["generate.kyverno.io/clone-policy-name"] = policyName
+			label[generate.LabelClonePolicyName] = policyName
 		}
 	}
 
@@ -1011,6 +1016,44 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// validateRuleImageExtractorsJMESPath ensures that the rule does not
+// mutate image digests if it has an image extractor that uses a JMESPath.
+func validateRuleImageExtractorsJMESPath(rule kyvernov1.Rule) error {
+	imageExtractorConfigs := rule.ImageExtractors
+	imageVerifications := rule.VerifyImages
+	if imageExtractorConfigs == nil || imageVerifications == nil {
+		return nil
+	}
+
+	anyMutateDigest := false
+	for _, imageVerification := range imageVerifications {
+		if imageVerification.MutateDigest {
+			anyMutateDigest = true
+			break
+		}
+	}
+
+	if !anyMutateDigest {
+		return nil
+	}
+
+	anyJMESPath := false
+	for _, imageExtractors := range imageExtractorConfigs {
+		for _, imageExtractor := range imageExtractors {
+			if imageExtractor.JMESPath != "" {
+				anyJMESPath = true
+				break
+			}
+		}
+	}
+
+	if anyJMESPath {
+		return fmt.Errorf("jmespath may not be used in an image extractor when mutating digests with verify images")
+	}
+
 	return nil
 }
 

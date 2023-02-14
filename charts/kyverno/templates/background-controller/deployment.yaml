@@ -8,9 +8,7 @@ metadata:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
 spec:
-  {{- with .Values.backgroundController.replicas }}
-  replicas: {{ . }}
-  {{- end }}
+  replicas: {{ template "kyverno.deployment.replicas" .Values.backgroundController.replicas }}
   {{- with .Values.backgroundController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}

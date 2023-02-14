@@ -476,7 +476,9 @@ OuterLoop:
 	}
 	eng := engine.NewEngine(
 		cfg,
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
+		c.Client,
+		registryclient.NewOrDie(),
+		store.ContextLoaderFactory(nil),
 		nil,
 	)
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
@@ -484,7 +486,6 @@ OuterLoop:
 		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).
 		WithAdmissionInfo(c.UserInfo).
-		WithClient(c.Client).
 		WithSubresourcesInPolicy(subresources)
 
 	mutateResponse := eng.Mutate(
@@ -525,11 +526,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse, _ := eng.VerifyAndPatchImages(
-		context.Background(),
-		registryclient.NewOrDie(),
-		policyContext,
-	)
+	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
@@ -543,9 +540,7 @@ OuterLoop:
 	}
 
 	if policyHasGenerate {
-		generateResponse := eng.ApplyBackgroundChecks(
-			policyContext,
-		)
+		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
 			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
@@ -794,7 +789,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 
 func buildPVInfo(er *engineapi.EngineResponse, violatedRules []kyvernov1.ViolatedRule) Info {
 	info := Info{
-		PolicyName: er.PolicyResponse.Policy.Name,
+		PolicyName: er.Policy.GetName(),
 		Namespace:  er.PatchedResource.GetNamespace(),
 		Results: []EngineResponseResult{
 			{
@@ -1080,7 +1075,9 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		config.NewDefaultConfiguration(),
-		engine.LegacyContextLoaderFactory(nil, nil),
+		client,
+		nil,
+		store.ContextLoaderFactory(nil),
 		nil,
 	))
 	return c, nil
@@ -1118,12 +1115,12 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	gr := kyvernov1beta1.UpdateRequest{
 		Spec: kyvernov1beta1.UpdateRequestSpec{
 			Type:   kyvernov1beta1.Generate,
-			Policy: generateResponse.PolicyResponse.Policy.Name,
+			Policy: generateResponse.Policy.GetName(),
 			Resource: kyvernov1.ResourceSpec{
-				Kind:       generateResponse.PolicyResponse.Resource.Kind,
-				Namespace:  generateResponse.PolicyResponse.Resource.Namespace,
-				Name:       generateResponse.PolicyResponse.Resource.Name,
-				APIVersion: generateResponse.PolicyResponse.Resource.APIVersion,
+				Kind:       generateResponse.Resource.GetKind(),
+				Namespace:  generateResponse.Resource.GetNamespace(),
+				Name:       generateResponse.Resource.GetName(),
+				APIVersion: generateResponse.Resource.GetAPIVersion(),
 			},
 		},
 	}
@@ -1151,9 +1148,8 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 }
 
 // GetUserInfoFromPath - get the request info as user info from a given path
-func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (kyvernov1beta1.RequestInfo, store.Subject, error) {
+func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (kyvernov1beta1.RequestInfo, error) {
 	userInfo := &kyvernov1beta1.RequestInfo{}
-	subjectInfo := &store.Subject{}
 	if isGit {
 		filep, err := fs.Open(filepath.Join(policyResourcePath, path))
 		if err != nil {
@@ -1171,14 +1167,6 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			fmt.Printf("failed to decode yaml: %v", err)
 		}
-		subjectBytes, err := yaml.ToJSON(bytes)
-		if err != nil {
-			fmt.Printf("failed to convert to JSON: %v", err)
-		}
-
-		if err := json.Unmarshal(subjectBytes, subjectInfo); err != nil {
-			fmt.Printf("failed to decode yaml: %v", err)
-		}
 	} else {
 		var errors []error
 		pathname := filepath.Clean(filepath.Join(policyResourcePath, path))
@@ -1193,13 +1181,6 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
 		}
-		if err := json.Unmarshal(userInfoBytes, subjectInfo); err != nil {
-			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
-		}
-		if len(errors) > 0 {
-			return *userInfo, *subjectInfo, sanitizederror.NewWithErrors("failed to read file", errors)
-		}
-
 		if len(errors) > 0 && log.Log.V(1).Enabled() {
 			fmt.Printf("ignoring errors: \n")
 			for _, e := range errors {
@@ -1207,7 +1188,7 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 			}
 		}
 	}
-	return *userInfo, *subjectInfo, nil
+	return *userInfo, nil
 }
 
 func IsGitSourcePath(policyPaths []string) bool {

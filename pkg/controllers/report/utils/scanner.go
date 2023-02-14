@@ -5,22 +5,18 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type scanner struct {
-	logger  logr.Logger
-	engine  engineapi.Engine
-	client  dclient.Interface
-	rclient registryclient.Client
-	config  config.Configuration
+	logger logr.Logger
+	engine engineapi.Engine
+	config config.Configuration
 }
 
 type ScanResult struct {
@@ -35,16 +31,12 @@ type Scanner interface {
 func NewScanner(
 	logger logr.Logger,
 	engine engineapi.Engine,
-	client dclient.Interface,
-	rclient registryclient.Client,
 	config config.Configuration,
 ) Scanner {
 	return &scanner{
-		logger:  logger,
-		engine:  engine,
-		client:  client,
-		rclient: rclient,
-		config:  config,
+		logger: logger,
+		engine: engine,
+		config: config,
 	}
 }
 
@@ -92,7 +84,6 @@ func (s *scanner) validateResource(ctx context.Context, resource unstructured.Un
 	policyCtx := engine.NewPolicyContextWithJsonContext(enginectx).
 		WithNewResource(resource).
 		WithPolicy(policy).
-		WithClient(s.client).
 		WithNamespaceLabels(nsLabels)
 	return s.engine.Validate(ctx, policyCtx), nil
 }
@@ -114,9 +105,8 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	policyCtx := engine.NewPolicyContextWithJsonContext(enginectx).
 		WithNewResource(resource).
 		WithPolicy(policy).
-		WithClient(s.client).
 		WithNamespaceLabels(nsLabels)
-	response, _ := s.engine.VerifyAndPatchImages(ctx, s.rclient, policyCtx)
+	response, _ := s.engine.VerifyAndPatchImages(ctx, policyCtx)
 	if len(response.PolicyResponse.Rules) > 0 {
 		s.logger.Info("validateImages", "policy", policy, "response", response)
 	}

@@ -11,8 +11,15 @@ import (
 )
 
 func RuleError(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) *engineapi.RuleResponse {
-	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return RuleResponse(*rule, ruleType, msg, engineapi.RuleStatusError)
+	return RuleResponse(*rule, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), engineapi.RuleStatusError)
+}
+
+func RuleSkip(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string) *engineapi.RuleResponse {
+	return RuleResponse(*rule, ruleType, msg, engineapi.RuleStatusSkip)
+}
+
+func RulePass(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string) *engineapi.RuleResponse {
+	return RuleResponse(*rule, ruleType, msg, engineapi.RuleStatusPass)
 }
 
 func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, status engineapi.RuleStatus) *engineapi.RuleResponse {
@@ -25,11 +32,18 @@ func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, 
 	return resp
 }
 
-func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, startTime time.Time) *engineapi.EngineResponse {
-	resp.NamespaceLabels = ctx.NamespaceLabels()
-	if reflect.DeepEqual(resp, engineapi.EngineResponse{}) {
-		return resp
+func AddRuleResponse(resp *engineapi.PolicyResponse, ruleResp *engineapi.RuleResponse, startTime time.Time) {
+	ruleResp.Stats.ProcessingTime = time.Since(startTime)
+	ruleResp.Stats.Timestamp = startTime.Unix()
+	resp.Rules = append(resp.Rules, *ruleResp)
+	if ruleResp.Status == engineapi.RuleStatusPass || ruleResp.Status == engineapi.RuleStatusFail {
+		resp.Stats.RulesAppliedCount++
+	} else if ruleResp.Status == engineapi.RuleStatusError {
+		resp.Stats.RulesErrorCount++
 	}
+}
+
+func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, startTime time.Time) *engineapi.EngineResponse {
 	if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
 		// for delete requests patched resource will be oldResource since newResource is empty
 		resource := ctx.NewResource()
@@ -38,20 +52,7 @@ func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 		}
 		resp.PatchedResource = resource
 	}
-	policy := ctx.Policy()
-	resp.Policy = policy
-	resp.PolicyResponse.Policy.Name = policy.GetName()
-	resp.PolicyResponse.Policy.Namespace = policy.GetNamespace()
-	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()
-	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
-	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
-	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
-	resp.PolicyResponse.ValidationFailureAction = policy.GetSpec().ValidationFailureAction
-	for _, v := range policy.GetSpec().ValidationFailureActionOverrides {
-		newOverrides := engineapi.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces, NamespaceSelector: v.NamespaceSelector}
-		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, newOverrides)
-	}
-	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	resp.PolicyResponse.Timestamp = startTime.Unix()
+	resp.PolicyResponse.Stats.ProcessingTime = time.Since(startTime)
+	resp.PolicyResponse.Stats.Timestamp = startTime.Unix()
 	return resp
 }

@@ -513,7 +513,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		return false, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err)
 	}
 
-	engineResponse := pc.engine.ApplyBackgroundChecks(policyContext)
+	engineResponse := pc.engine.ApplyBackgroundChecks(context.TODO(), policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		return true, nil
 	}
@@ -567,7 +567,7 @@ func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Lo
 
 func updateUR(kyvernoClient versioned.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
 	for _, ur := range urList {
-		if policyKey == ur.Spec.Policy {
+		if policyKey == ur.Spec.GetPolicyKey() {
 			_, err := backgroundcommon.Update(kyvernoClient, urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
 				urLabels := ur.Labels
 				if len(urLabels) == 0 {

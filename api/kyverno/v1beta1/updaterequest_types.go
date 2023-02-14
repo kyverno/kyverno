@@ -26,6 +26,7 @@ import (
 // UpdateRequestStatus defines the observed state of UpdateRequest
 type UpdateRequestStatus struct {
 	// Handler represents the instance ID that handles the UR
+	// Deprecated
 	Handler string `json:"handler,omitempty" yaml:"handler,omitempty"`
 
 	// State represents state of the update request.
@@ -81,6 +82,13 @@ type UpdateRequestSpec struct {
 
 	// Specifies the name of the policy.
 	Policy string `json:"policy" yaml:"policy"`
+
+	// Rule is the associate rule name of the current UR.
+	Rule string `json:"rule" yaml:"rule"`
+
+	// Synchronize represents the sync behavior of the corresponding rule
+	// Optional. Defaults to "false" if not specified.
+	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
 	// ResourceSpec is the information to identify the update request.
 	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
@@ -150,4 +158,20 @@ type UpdateRequestList struct {
 
 func (s *UpdateRequestSpec) GetRequestType() RequestType {
 	return s.Type
+}
+
+func (s *UpdateRequestSpec) GetPolicyKey() string {
+	return s.Policy
+}
+
+func (s *UpdateRequestSpec) GetRuleName() string {
+	return s.Rule
+}
+
+func (s *UpdateRequestSpec) GetSynchronize() bool {
+	return s.Synchronize
+}
+
+func (s *UpdateRequestSpec) GetResource() kyvernov1.ResourceSpec {
+	return s.Resource
 }

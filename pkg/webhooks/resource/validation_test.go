@@ -1051,7 +1051,9 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 
 	eng := engine.NewEngine(
 		config.NewDefaultConfiguration(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
+		nil,
+		registryclient.NewOrDie(),
+		engineapi.DefaultContextLoaderFactory(nil),
 		nil,
 	)
 	for i, tc := range testcases {
@@ -1128,15 +1130,17 @@ func Test_RuleSelector(t *testing.T) {
 
 	eng := engine.NewEngine(
 		config.NewDefaultConfiguration(),
-		engine.LegacyContextLoaderFactory(registryclient.NewOrDie(), nil),
+		nil,
+		registryclient.NewOrDie(),
+		engineapi.DefaultContextLoaderFactory(nil),
 		nil,
 	)
 	resp := eng.Validate(
 		context.TODO(),
 		ctx,
 	)
-	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 2)
-	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
+	assert.Assert(t, resp.PolicyResponse.Stats.RulesAppliedCount == 2)
+	assert.Assert(t, resp.PolicyResponse.Stats.RulesErrorCount == 0)
 
 	log := log.WithName("Test_RuleSelector")
 	blocked := webhookutils.BlockRequest([]*engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
@@ -1148,8 +1152,8 @@ func Test_RuleSelector(t *testing.T) {
 		context.TODO(),
 		ctx,
 	)
-	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)
-	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
+	assert.Assert(t, resp.PolicyResponse.Stats.RulesAppliedCount == 1)
+	assert.Assert(t, resp.PolicyResponse.Stats.RulesErrorCount == 0)
 
 	blocked = webhookutils.BlockRequest([]*engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == false)

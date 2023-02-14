@@ -4792,6 +4792,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -8474,6 +8483,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -12086,6 +12104,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -15698,6 +15725,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -19535,6 +19571,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -23218,6 +23263,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -26831,6 +26885,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -30443,6 +30506,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -33724,10 +33796,18 @@ spec:
                     description: Namespace specifies resource namespace.
                     type: string
                 type: object
+              rule:
+                description: Rule is the associate rule name of the current UR.
+                type: string
+              synchronize:
+                description: Synchronize represents the sync behavior of the corresponding
+                  rule Optional. Defaults to "false" if not specified.
+                type: boolean
             required:
             - context
             - policy
             - resource
+            - rule
             type: object
           status:
             description: Status contains statistics related to update request.
@@ -33753,6 +33833,7 @@ spec:
                 type: array
               handler:
                 description: Handler represents the instance ID that handles the UR
+                  Deprecated
                 type: string
               message:
                 description: Specifies request status message.

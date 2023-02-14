@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -182,7 +183,7 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.rclient, h.eventGen, h.admissionReports, h.configuration)
+	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")
@@ -204,14 +205,14 @@ func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.Admissi
 
 		resLabels := resource.GetLabels()
 		if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
-			urName := resLabels["policy.kyverno.io/gr-name"]
+			urName := resLabels[generate.LabelURName]
 			ur, err := h.urLister.Get(urName)
 			if err != nil {
 				logger.Error(err, "failed to get update request", "name", urName)
 				return
 			}
 
-			if ur.Spec.Type == kyvernov1beta1.Mutate {
+			if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate {
 				return
 			}
 			h.urUpdater.UpdateAnnotation(logger, ur.GetName())
