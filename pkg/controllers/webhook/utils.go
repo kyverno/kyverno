@@ -10,7 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/discovery"
 )
 
 // webhook is the instance that aggregates the GVK of existing policies
@@ -31,17 +30,15 @@ func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePoli
 
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
-	for gvr, resources := range wh.rules {
-		// resources := sets.New(gvr.Resource)
-		// ephemeralContainersGVR := schema.GroupVersionResource{Resource: "pods/ephemeralcontainers", Group: "", Version: "v1"}
-		// _, rulesContainEphemeralContainers := wh.rules[ephemeralContainersGVR]
-		// if resources.Has("pods") && !rulesContainEphemeralContainers {
-		// 	resources.Insert("pods/ephemeralcontainers")
-		// }
+	for gv, resources := range wh.rules {
+		resources := resources.Clone()
+		if gv.Group == "" && gv.Version == "v1" && resources.Has("pods") {
+			resources.Insert("pods/ephemeralcontainers")
+		}
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{gvr.Group},
-				APIVersions: []string{gvr.Version},
+				APIGroups:   []string{gv.Group},
+				APIVersions: []string{gv.Version},
 				Resources:   sets.List(resources),
 			},
 			Operations: ops,
@@ -88,8 +85,7 @@ func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
 }
 
-func (wh *webhook) setWildcard(disco discovery.DiscoveryInterface) {
-	_, resources, _ := disco.ServerGroupsAndResources()
+func (wh *webhook) setWildcard(resources []*metav1.APIResourceList) {
 	wh.rules = map[schema.GroupVersion]sets.Set[string]{}
 	for _, group := range resources {
 		gv, _ := schema.ParseGroupVersion(group.GroupVersion)

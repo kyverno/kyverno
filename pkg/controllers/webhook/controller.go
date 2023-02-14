@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -629,8 +630,12 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 		c.recordPolicyState(config.MutatingWebhookConfigurationName, policies...)
 		// TODO: shouldn't be per failure policy, depending of the policy/rules that apply ?
 		if hasWildcard(policies...) {
-			ignore.setWildcard(c.discoveryClient.DiscoveryInterface())
-			fail.setWildcard(c.discoveryClient.DiscoveryInterface())
+			if _, resources, err := c.discoveryClient.DiscoveryInterface().ServerGroupsAndResources(); err != nil {
+				return nil, err
+			} else {
+				ignore.setWildcard(resources)
+				fail.setWildcard(resources)
+			}
 		} else {
 			for _, p := range policies {
 				spec := p.GetSpec()
@@ -736,8 +741,12 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
 		// TODO: shouldn't be per failure policy, depending of the policy/rules that apply ?
 		if hasWildcard(policies...) {
-			ignore.setWildcard(c.discoveryClient.DiscoveryInterface())
-			fail.setWildcard(c.discoveryClient.DiscoveryInterface())
+			if _, resources, err := c.discoveryClient.DiscoveryInterface().ServerGroupsAndResources(); err != nil {
+				return nil, err
+			} else {
+				ignore.setWildcard(resources)
+				fail.setWildcard(resources)
+			}
 		} else {
 			for _, p := range policies {
 				spec := p.GetSpec()
@@ -819,6 +828,20 @@ func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
 
 func (c *controller) getLease() (*coordinationv1.Lease, error) {
 	return c.leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno-health")
+}
+
+func excludableKinds(rules ...kyvernov1.Rule) []string {
+	var kinds []string
+	for _, rule := range rules {
+		if rule.ExcludeResources.ResourceDescription.IsEmpty() && rule.ExcludeResources.UserInfo.IsEmpty() && len(rule.ExcludeResources.All) == 0 {
+			for _, any := range rule.ExcludeResources.Any {
+				if any.UserInfo.IsEmpty() && reflect.DeepEqual(any.ResourceDescription, kyvernov1.ResourceDescription{Kinds: any.Kinds}) {
+					kinds = append(kinds, rule.ExcludeResources.Kinds...)
+				}
+			}
+		}
+	}
+	return kinds
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
