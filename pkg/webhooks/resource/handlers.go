@@ -51,10 +51,8 @@ type handlers struct {
 	pCache policycache.Cache
 
 	// listers
-	nsLister  corev1listers.NamespaceLister
-	rbLister  rbacv1listers.RoleBindingLister
-	crbLister rbacv1listers.ClusterRoleBindingLister
-	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
+	nsLister corev1listers.NamespaceLister
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 
 	urGenerator    webhookgenerate.Generator
 	eventGen       event.Interface
@@ -91,8 +89,6 @@ func NewHandlers(
 		metricsConfig:    metricsConfig,
 		pCache:           pCache,
 		nsLister:         nsLister,
-		rbLister:         rbLister,
-		crbLister:        crbLister,
 		urLister:         urLister,
 		urGenerator:      urGenerator,
 		eventGen:         eventGen,
