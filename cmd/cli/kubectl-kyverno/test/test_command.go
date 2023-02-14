@@ -432,11 +432,11 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, resp := range engineResponses {
-		policyName := resp.PolicyResponse.Policy.Name
-		resourceName := resp.PolicyResponse.Resource.Name
-		resourceKind := resp.PolicyResponse.Resource.Kind
-		resourceNamespace := resp.PolicyResponse.Resource.Namespace
-		policyNamespace := resp.PolicyResponse.Policy.Namespace
+		policyName := resp.Policy.GetName()
+		resourceName := resp.Resource.GetName()
+		resourceKind := resp.Resource.GetKind()
+		resourceNamespace := resp.Resource.GetNamespace()
+		policyNamespace := resp.Policy.GetNamespace()
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {

@@ -1,5 +1,7 @@
 package v1
 
+import "strings"
+
 type ResourceSpec struct {
 	// APIVersion specifies resource apiVersion.
 	// +optional
@@ -18,3 +20,7 @@ func (s ResourceSpec) GetName() string       { return s.Name }
 func (s ResourceSpec) GetNamespace() string  { return s.Namespace }
 func (s ResourceSpec) GetKind() string       { return s.Kind }
 func (s ResourceSpec) GetAPIVersion() string { return s.APIVersion }
+
+func (s ResourceSpec) String() string {
+	return strings.Join([]string{s.APIVersion, s.Kind, s.Namespace, s.Name}, "/")
+}
