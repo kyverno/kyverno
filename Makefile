@@ -306,7 +306,7 @@ KO_KYVERNO_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/kyverno
 KO_CLEANUP_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/cleanup-controller
 KO_REPORTS_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/reports-controller
 KO_BACKGROUND_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/background-controller
-PLATFORMS           := linux/amd64,linux/arm64,linux/s390x
+PLATFORMS           := all
 KO_TAGS             := $(IMAGE_TAG_LATEST),$(IMAGE_TAG)
 KO_TAGS_DEV         := $(IMAGE_TAG_LATEST),$(IMAGE_TAG_DEV)
 
