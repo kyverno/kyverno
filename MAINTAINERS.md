@@ -15,4 +15,11 @@ Maintainers are approvers who have shown good technical judgement in guiding fea
 | Charles-Edouard Brétéché | [@eddycharly](https://github.com/eddycharly)           | Nirmata                   |
 
 
-**Note**: Please refer to the [Project Governance](https://main.kyverno.io/community/#project-governance) for more information on the responsibilities and privileges of a maintainer in Kyverno.
+**Note**: Please refer to the [Project Governance](https://kyverno.io/community/#project-governance) for more information on the responsibilities and privileges of a maintainer in Kyverno.
+
+## Maintainers Emeritus
+
+| Maintainer               | GitHub ID                                              | Affiliation               |
+|--------------------------|--------------------------------------------------------|---------------------------|
+| Vyankatesh Kudtarkar     | [@vyankyGH](https://github.com/vyankyGH)               |                           |
+| Prateek Pandey           | [@prateekpandey14](https://github.com/prateekpandey14) |                           |
