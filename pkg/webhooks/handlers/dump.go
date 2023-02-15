@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/userinfo"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -13,25 +15,42 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
 
-func (inner AdmissionHandler) WithDump(enabled bool) AdmissionHandler {
+func (inner AdmissionHandler) WithDump(
+	enabled bool,
+	rbLister rbacv1listers.RoleBindingLister,
+	crbLister rbacv1listers.ClusterRoleBindingLister,
+	configuration config.Configuration,
+) AdmissionHandler {
 	if !enabled {
 		return inner
 	}
-	return inner.withDump().WithTrace("DUMP")
+	return inner.withDump(rbLister, crbLister, configuration).WithTrace("DUMP")
 }
 
-func (inner AdmissionHandler) withDump() AdmissionHandler {
+func (inner AdmissionHandler) withDump(
+	rbLister rbacv1listers.RoleBindingLister,
+	crbLister rbacv1listers.ClusterRoleBindingLister,
+	configuration config.Configuration,
+) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		response := inner(ctx, logger, request, startTime)
-		dumpPayload(logger, request, response)
+		dumpPayload(logger, rbLister, crbLister, configuration, request, response)
 		return response
 	}
 }
 
-func dumpPayload(logger logr.Logger, request *admissionv1.AdmissionRequest, response *admissionv1.AdmissionResponse) {
-	reqPayload, err := newAdmissionRequestPayload(request)
+func dumpPayload(
+	logger logr.Logger,
+	rbLister rbacv1listers.RoleBindingLister,
+	crbLister rbacv1listers.ClusterRoleBindingLister,
+	configuration config.Configuration,
+	request *admissionv1.AdmissionRequest,
+	response *admissionv1.AdmissionResponse,
+) {
+	reqPayload, err := newAdmissionRequestPayload(request, rbLister, crbLister, configuration)
 	if err != nil {
 		logger.Error(err, "Failed to extract resources")
 	} else {
@@ -52,13 +71,15 @@ type admissionRequestPayload struct {
 	Namespace          string                       `json:"namespace,omitempty"`
 	Operation          string                       `json:"operation"`
 	UserInfo           authenticationv1.UserInfo    `json:"userInfo"`
+	Roles              []string                     `json:"roles"`
+	ClusterRoles       []string                     `json:"clusterRoles"`
 	Object             unstructured.Unstructured    `json:"object,omitempty"`
 	OldObject          unstructured.Unstructured    `json:"oldObject,omitempty"`
 	DryRun             *bool                        `json:"dryRun,omitempty"`
 	Options            unstructured.Unstructured    `json:"options,omitempty"`
 }
 
-func newAdmissionRequestPayload(request *admissionv1.AdmissionRequest) (*admissionRequestPayload, error) {
+func newAdmissionRequestPayload(request *admissionv1.AdmissionRequest, rbLister rbacv1listers.RoleBindingLister, crbLister rbacv1listers.ClusterRoleBindingLister, configuration config.Configuration) (*admissionRequestPayload, error) {
 	newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
 	if err != nil {
 		return nil, err
@@ -68,6 +89,15 @@ func newAdmissionRequestPayload(request *admissionv1.AdmissionRequest) (*admissi
 		options, err = kubeutils.BytesToUnstructured(request.Options.Raw)
 		if err != nil {
 			return nil, err
+		}
+	}
+	var roles, clusterRoles []string
+	if rbLister != nil && crbLister != nil && configuration != nil {
+		if r, cr, err := userinfo.GetRoleRef(rbLister, crbLister, request, configuration); err != nil {
+			return nil, err
+		} else {
+			roles = r
+			clusterRoles = cr
 		}
 	}
 	return redactPayload(&admissionRequestPayload{
@@ -82,6 +112,8 @@ func newAdmissionRequestPayload(request *admissionv1.AdmissionRequest) (*admissi
 		Namespace:          request.Namespace,
 		Operation:          string(request.Operation),
 		UserInfo:           request.UserInfo,
+		Roles:              roles,
+		ClusterRoles:       clusterRoles,
 		Object:             newResource,
 		OldObject:          oldResource,
 		DryRun:             request.DryRun,
