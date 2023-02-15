@@ -834,6 +834,26 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 	return true, nil
 }
 
+func jpToBoolean(validateArg []interface{}) (interface{}, error) {
+	if len(validateArg) != 1 {
+		return nil, fmt.Errorf("jpToBoolean: expected 1 argument, got %d", len(validateArg))
+	}
+	str, ok := validateArg[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("jpToBoolean: argument must be a string")
+	}
+	lowerStr := strings.ToLower(str)
+
+	if lowerStr != "true" && lowerStr != "false" {
+		return nil, fmt.Errorf("jpToBoolean: argument must be 'true' or 'false'")
+	}
+	b, err := strconv.ParseBool(lowerStr)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+
+}
 func jpAdd(arguments []interface{}) (interface{}, error) {
 	op1, op2, err := ParseArithemticOperands(arguments, add)
 	if err != nil {

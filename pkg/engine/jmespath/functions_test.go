@@ -536,7 +536,35 @@ func Test_LabelMatch(t *testing.T) {
 		})
 	}
 }
+func Test_JpToBoolean(t *testing.T) {
+	testCases := []struct {
+		input    interface{}
+		expected interface{}
+		err      bool
+	}{
+		{"true", true, false},
+		{"TRue", true, false},
+		{"FaLse", false, false},
+		{"FaLsee", nil, true},
+		{"false", false, false},
+		{"foo", nil, true},
+		{1, nil, true},
+		{nil, nil, true},
+	}
 
+	for _, tc := range testCases {
+		res, err := jpToBoolean([]interface{}{tc.input})
+		if tc.err && err == nil {
+			t.Errorf("Expected an error but received nil")
+		}
+		if !tc.err && err != nil {
+			t.Errorf("Expected nil error but received: %s", err)
+		}
+		if res != tc.expected {
+			t.Errorf("Expected %v but received %v", tc.expected, res)
+		}
+	}
+}
 func Test_Add(t *testing.T) {
 	testCases := []struct {
 		name           string
