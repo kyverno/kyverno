@@ -11,14 +11,53 @@ import (
 
 // EngineResponse engine response to the action
 type EngineResponse struct {
-	// PatchedResource is the resource patched with the engine action changes
-	PatchedResource unstructured.Unstructured
+	// Resource is the original resource
+	Resource unstructured.Unstructured
 	// Policy is the original policy
 	Policy kyvernov1.PolicyInterface
-	// PolicyResponse contains the engine policy response
-	PolicyResponse PolicyResponse
 	// NamespaceLabels given by policy context
 	NamespaceLabels map[string]string
+	// PatchedResource is the resource patched with the engine action changes
+	PatchedResource unstructured.Unstructured
+	// PolicyResponse contains the engine policy response
+	PolicyResponse PolicyResponse
+}
+
+func Resource(policyContext PolicyContext) unstructured.Unstructured {
+	resource := policyContext.NewResource()
+	if resource.Object == nil {
+		resource = policyContext.OldResource()
+	}
+	return resource
+}
+
+func NewEngineResponseFromPolicyContext(
+	policyContext PolicyContext,
+	policyResponse *PolicyResponse,
+) *EngineResponse {
+	return NewEngineResponse(
+		Resource(policyContext),
+		policyContext.Policy(),
+		policyContext.NamespaceLabels(),
+		policyResponse,
+	)
+}
+
+func NewEngineResponse(
+	resource unstructured.Unstructured,
+	policy kyvernov1.PolicyInterface,
+	namespaceLabels map[string]string,
+	policyResponse *PolicyResponse,
+) *EngineResponse {
+	response := &EngineResponse{
+		Resource:        resource,
+		Policy:          policy,
+		NamespaceLabels: namespaceLabels,
+	}
+	if policyResponse != nil {
+		response.PolicyResponse = *policyResponse
+	}
+	return response
 }
 
 // IsOneOf checks if any rule has status in a given list
@@ -104,7 +143,8 @@ func (er EngineResponse) getRules(predicate func(RuleResponse) bool) []string {
 }
 
 func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
-	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
+	spec := er.Policy.GetSpec()
+	for _, v := range spec.ValidationFailureActionOverrides {
 		if !v.Action.IsValid() {
 			continue
 		}
@@ -126,5 +166,5 @@ func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailu
 			}
 		}
 	}
-	return er.PolicyResponse.ValidationFailureAction
+	return spec.ValidationFailureAction
 }

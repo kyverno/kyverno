@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,8 +34,8 @@ type RuleResponse struct {
 	GeneratedResource unstructured.Unstructured
 	// Status rule status
 	Status RuleStatus
-	// ExecutionStats statistics
-	ExecutionStats
+	// Stats contains rule statistics
+	Stats ExecutionStats
 	// PatchedTarget is the patched resource for mutate.targets
 	PatchedTarget *unstructured.Unstructured
 	// PatchedTargetSubresourceName is the name of the subresource which is patched, empty if the resource patched is not a subresource.
@@ -43,6 +44,8 @@ type RuleResponse struct {
 	PatchedTargetParentResourceGVR metav1.GroupVersionResource
 	// PodSecurityChecks contains pod security checks (only if this is a pod security rule)
 	PodSecurityChecks *PodSecurityChecks
+	// Exception is the exception applied (if any)
+	Exception *kyvernov2alpha1.PolicyException
 }
 
 // HasStatus checks if rule status is in a given list

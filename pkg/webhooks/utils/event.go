@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"strings"
-
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 )
@@ -34,7 +32,7 @@ func GenerateEvents(engineResponses []*engineapi.EngineResponse, blocked bool) [
 			}
 		} else if er.IsSkipped() { // Handle PolicyException Event
 			for i, ruleResp := range er.PolicyResponse.Rules {
-				isException := strings.Contains(ruleResp.Message, "rule skipped due to policy exception")
+				isException := ruleResp.Exception != nil
 				if ruleResp.Status == engineapi.RuleStatusSkip && !blocked && isException {
 					events = append(events, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i])...)
 				}

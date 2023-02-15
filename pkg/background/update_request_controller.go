@@ -184,17 +184,18 @@ func (c *controller) syncUpdateRequest(key string) error {
 		return err
 	}
 
+	// Deep-copy otherwise we are mutating our cache.
+	ur = ur.DeepCopy()
+
 	// if not in any state, try to set it to pending
 	if ur.Status.State == "" {
-		ur = ur.DeepCopy()
 		ur.Status.State = kyvernov1beta1.Pending
-		if _, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{}); err != nil {
-			return err
-		}
+		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+		return err
 	}
 	// try to get the linked policy
 	if _, err := c.getPolicy(ur.Spec.Policy); err != nil {
-		if apierrors.IsNotFound(err) && ur.Spec.Type == kyvernov1beta1.Mutate {
+		if apierrors.IsNotFound(err) && ur.Spec.GetRequestType() == kyvernov1beta1.Mutate {
 			// here only takes care of mutateExisting policies
 			// generate cleanup controller handles policy deletion
 			selector := &metav1.LabelSelector{
@@ -264,8 +265,8 @@ func (c *controller) cleanupDataResource(targetSpec kyvernov1.ResourceSpec) erro
 	}
 
 	labels := target.GetLabels()
-	syncEnabled := labels["policy.kyverno.io/synchronize"] == "enable"
-	clone := labels["generate.kyverno.io/clone-policy-name"] != ""
+	syncEnabled := labels[generate.LabelSynchronize] == "enable"
+	clone := labels[generate.LabelClonePolicyName] != ""
 
 	if syncEnabled && !clone {
 		if err := c.client.DeleteResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), false); err != nil {
@@ -386,7 +387,7 @@ func (c *controller) deleteUR(obj interface{}) {
 
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
-	switch ur.Spec.Type {
+	switch ur.Spec.GetRequestType() {
 	case kyvernov1beta1.Mutate:
 		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.engine, c.cpolLister, c.polLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
@@ -398,7 +399,7 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 }
 
 func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
-	if ur.Spec.Type == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
+	if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
@@ -464,12 +465,12 @@ func removePolicyFromLabels(pName string, labels map[string]string) (bool, map[s
 	if len(labels) == 0 {
 		return false, labels
 	}
-	if labels["generate.kyverno.io/clone-policy-name"] != "" {
-		policyNames := labels["generate.kyverno.io/clone-policy-name"]
+	if labels[generate.LabelClonePolicyName] != "" {
+		policyNames := labels[generate.LabelClonePolicyName]
 		if strings.Contains(policyNames, pName) {
 			desiredLabels := make(map[string]string, len(labels)-1)
 			for k, v := range labels {
-				if k != "generate.kyverno.io/clone-policy-name" {
+				if k != generate.LabelClonePolicyName {
 					desiredLabels[k] = v
 				}
 			}

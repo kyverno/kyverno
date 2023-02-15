@@ -12,8 +12,8 @@ import (
 func NewPolicyFailEvent(source Source, reason Reason, engineResponse *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, blocked bool) Info {
 	return Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
-		Name:      engineResponse.PolicyResponse.Policy.Name,
-		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
+		Name:      engineResponse.Policy.GetName(),
+		Namespace: engineResponse.Policy.GetNamespace(),
 		Reason:    reason,
 		Source:    source,
 		Message:   buildPolicyEventMessage(ruleResp, engineResponse.GetResourceSpec(), blocked),
@@ -48,20 +48,20 @@ func getPolicyKind(policy kyvernov1.PolicyInterface) string {
 }
 
 func NewPolicyAppliedEvent(source Source, engineResponse *engineapi.EngineResponse) Info {
-	resource := engineResponse.PolicyResponse.Resource
+	resource := engineResponse.Resource
 	var bldr strings.Builder
 	defer bldr.Reset()
 
-	if resource.Namespace != "" {
-		fmt.Fprintf(&bldr, "%s %s/%s: pass", resource.Kind, resource.Namespace, resource.Name)
+	if resource.GetNamespace() != "" {
+		fmt.Fprintf(&bldr, "%s %s/%s: pass", resource.GetKind(), resource.GetNamespace(), resource.GetName())
 	} else {
-		fmt.Fprintf(&bldr, "%s %s: pass", resource.Kind, resource.Name)
+		fmt.Fprintf(&bldr, "%s %s: pass", resource.GetKind(), resource.GetName())
 	}
 
 	return Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
-		Name:      engineResponse.PolicyResponse.Policy.Name,
-		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
+		Name:      engineResponse.Policy.GetName(),
+		Namespace: engineResponse.Policy.GetNamespace(),
 		Reason:    PolicyApplied,
 		Source:    source,
 		Message:   bldr.String(),
@@ -124,18 +124,18 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 }
 
 func NewPolicyExceptionEvents(engineResponse *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) []Info {
-	exceptionName, exceptionNamespace := getExceptionEventInfoFromRuleResponseMsg(ruleResp.Message)
+	exceptionName, exceptionNamespace := ruleResp.Exception.GetName(), ruleResp.Exception.GetNamespace()
 	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", engineResponse.PatchedResource.GetName(), ruleResp.Name, exceptionNamespace, exceptionName)
 	var exceptionMessage string
-	if engineResponse.PolicyResponse.Policy.Namespace == "" {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", engineResponse.PatchedResource.GetName(), engineResponse.PolicyResponse.Policy.Name, ruleResp.Name)
+	if engineResponse.Policy.GetNamespace() == "" {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", engineResponse.PatchedResource.GetName(), engineResponse.Policy.GetName(), ruleResp.Name)
 	} else {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", engineResponse.PatchedResource.GetName(), engineResponse.PolicyResponse.Policy.Namespace, engineResponse.PolicyResponse.Policy.Name, ruleResp.Name)
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", engineResponse.PatchedResource.GetName(), engineResponse.Policy.GetNamespace(), engineResponse.Policy.GetName(), ruleResp.Name)
 	}
 	policyEvent := Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
-		Name:      engineResponse.PolicyResponse.Policy.Name,
-		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
+		Name:      engineResponse.Policy.GetName(),
+		Namespace: engineResponse.Policy.GetNamespace(),
 		Reason:    PolicySkipped,
 		Message:   policyMessage,
 	}
@@ -147,19 +147,4 @@ func NewPolicyExceptionEvents(engineResponse *engineapi.EngineResponse, ruleResp
 		Message:   exceptionMessage,
 	}
 	return []Info{policyEvent, exceptionEvent}
-}
-
-func getExceptionEventInfoFromRuleResponseMsg(message string) (name string, namespace string) {
-	key := message[strings.LastIndex(message, " ")+1:]
-	arr := strings.Split(key, "/")
-
-	if len(arr) > 1 {
-		namespace = arr[0]
-		name = arr[1]
-	} else {
-		namespace = ""
-		name = arr[0]
-	}
-
-	return name, namespace
 }

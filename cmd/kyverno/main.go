@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	apiserverclient "github.com/kyverno/kyverno/pkg/clients/apiserver"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
@@ -50,6 +51,7 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -93,8 +95,8 @@ func showWarnings(logger logr.Logger) {
 	}
 }
 
-func sanityChecks(dynamicClient dclient.Interface) error {
-	if !kubeutils.CRDsInstalled(dynamicClient.Discovery()) {
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	if !kubeutils.CRDsInstalled(apiserverClient) {
 		return fmt.Errorf("CRDs not installed")
 	}
 	return nil
@@ -271,6 +273,7 @@ func main() {
 	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KyvernoClient), kyvernoclient.WithTracing())
 	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
+	apiserverClient := internal.CreateApiServerClient(logger, apiserverclient.WithMetrics(metricsConfig, metrics.KubeClient), apiserverclient.WithTracing())
 	dClient, err := dclient.NewClient(signalCtx, dynamicClient, kubeClient, 15*time.Minute)
 	if err != nil {
 		logger.Error(err, "failed to create dynamic client")
@@ -280,7 +283,7 @@ func main() {
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// check we can run
-	if err := sanityChecks(dClient); err != nil {
+	if err := sanityChecks(apiserverClient); err != nil {
 		logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
@@ -322,7 +325,7 @@ func main() {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
-	openApiManager, err := openapi.NewManager()
+	openApiManager, err := openapi.NewManager(logger.WithName("openapi"))
 	if err != nil {
 		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)
@@ -385,7 +388,7 @@ func main() {
 		openApiManager,
 	)
 	// start informers and wait for cache sync
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
 		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
@@ -433,7 +436,7 @@ func main() {
 				os.Exit(1)
 			}
 			// start informers and wait for cache sync
-			if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+			if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 				os.Exit(1)
 			}
@@ -524,7 +527,7 @@ func main() {
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers
-	if !internal.StartInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
+	if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer, cacheInformer) {
 		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}

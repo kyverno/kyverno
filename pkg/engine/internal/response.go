@@ -33,21 +33,17 @@ func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, 
 }
 
 func AddRuleResponse(resp *engineapi.PolicyResponse, ruleResp *engineapi.RuleResponse, startTime time.Time) {
-	ruleResp.ExecutionStats.ProcessingTime = time.Since(startTime)
-	ruleResp.ExecutionStats.Timestamp = startTime.Unix()
+	ruleResp.Stats.ProcessingTime = time.Since(startTime)
+	ruleResp.Stats.Timestamp = startTime.Unix()
 	resp.Rules = append(resp.Rules, *ruleResp)
 	if ruleResp.Status == engineapi.RuleStatusPass || ruleResp.Status == engineapi.RuleStatusFail {
-		resp.RulesAppliedCount++
+		resp.Stats.RulesAppliedCount++
 	} else if ruleResp.Status == engineapi.RuleStatusError {
-		resp.RulesErrorCount++
+		resp.Stats.RulesErrorCount++
 	}
 }
 
 func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, startTime time.Time) *engineapi.EngineResponse {
-	resp.NamespaceLabels = ctx.NamespaceLabels()
-	if reflect.DeepEqual(resp, engineapi.EngineResponse{}) {
-		return resp
-	}
 	if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
 		// for delete requests patched resource will be oldResource since newResource is empty
 		resource := ctx.NewResource()
@@ -56,20 +52,7 @@ func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 		}
 		resp.PatchedResource = resource
 	}
-	policy := ctx.Policy()
-	resp.Policy = policy
-	resp.PolicyResponse.Policy.Name = policy.GetName()
-	resp.PolicyResponse.Policy.Namespace = policy.GetNamespace()
-	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()
-	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
-	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
-	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
-	resp.PolicyResponse.ValidationFailureAction = policy.GetSpec().ValidationFailureAction
-	for _, v := range policy.GetSpec().ValidationFailureActionOverrides {
-		newOverrides := engineapi.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces, NamespaceSelector: v.NamespaceSelector}
-		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, newOverrides)
-	}
-	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	resp.PolicyResponse.Timestamp = startTime.Unix()
+	resp.PolicyResponse.Stats.ProcessingTime = time.Since(startTime)
+	resp.PolicyResponse.Stats.Timestamp = startTime.Unix()
 	return resp
 }

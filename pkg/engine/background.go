@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/logging"
 )
 
 // ApplyBackgroundChecks checks for validity of generate and mutateExisting rules on the resource
@@ -20,14 +20,15 @@ import (
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func (e *engine) applyBackgroundChecks(
 	ctx context.Context,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) (resp *engineapi.EngineResponse) {
-	policyStartTime := time.Now()
-	return e.filterRules(policyContext, policyStartTime)
+	return e.filterRules(policyContext, logger, time.Now())
 }
 
 func (e *engine) filterRules(
 	policyContext engineapi.PolicyContext,
+	logger logr.Logger,
 	startTime time.Time,
 ) *engineapi.EngineResponse {
 	newResource := policyContext.NewResource()
@@ -35,35 +36,24 @@ func (e *engine) filterRules(
 	kind := newResource.GetKind()
 	name := newResource.GetName()
 	namespace := newResource.GetNamespace()
-	apiVersion := newResource.GetAPIVersion()
-	resp := &engineapi.EngineResponse{
-		PolicyResponse: engineapi.PolicyResponse{
-			Policy: engineapi.PolicySpec{
-				Name:      policy.GetName(),
-				Namespace: policy.GetNamespace(),
-			},
-			PolicyStats: engineapi.PolicyStats{
-				ExecutionStats: engineapi.ExecutionStats{
-					Timestamp: startTime.Unix(),
-				},
-			},
-			Resource: engineapi.ResourceSpec{
-				Kind:       kind,
-				Name:       name,
-				Namespace:  namespace,
-				APIVersion: apiVersion,
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	resp.PolicyResponse = engineapi.PolicyResponse{
+		Stats: engineapi.PolicyStats{
+			ExecutionStats: engineapi.ExecutionStats{
+				Timestamp: startTime.Unix(),
 			},
 		},
 	}
 
 	if e.configuration.ToFilter(kind, namespace, name) {
-		logging.WithName("ApplyBackgroundChecks").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
+		logger.Info("resource excluded")
 		return resp
 	}
 
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
-		if ruleResp := e.filterRule(rule, policyContext); ruleResp != nil {
+		logger := internal.LoggerWithRule(logger, rule)
+		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
 				break
@@ -76,13 +66,12 @@ func (e *engine) filterRules(
 
 func (e *engine) filterRule(
 	rule kyvernov1.Rule,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) *engineapi.RuleResponse {
 	if !rule.HasGenerate() && !rule.IsMutateExisting() {
 		return nil
 	}
-
-	logger := logging.WithName("exception")
 
 	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
@@ -100,16 +89,12 @@ func (e *engine) filterRule(
 
 	startTime := time.Now()
 
-	policy := policyContext.Policy()
 	newResource := policyContext.NewResource()
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
 	ctx := policyContext.JSONContext()
 	excludeGroupRole := e.configuration.GetExcludeGroupRole()
 	namespaceLabels := policyContext.NamespaceLabels()
-
-	logger = logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
-		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
 	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err != nil {
 		if ruleType == engineapi.Generation {
@@ -119,7 +104,7 @@ func (e *engine) filterRule(
 					Name:   rule.Name,
 					Type:   ruleType,
 					Status: engineapi.RuleStatusFail,
-					ExecutionStats: engineapi.ExecutionStats{
+					Stats: engineapi.ExecutionStats{
 						ProcessingTime: time.Since(startTime),
 						Timestamp:      startTime.Unix(),
 					},
@@ -164,7 +149,7 @@ func (e *engine) filterRule(
 		Name:   ruleCopy.Name,
 		Type:   ruleType,
 		Status: engineapi.RuleStatusPass,
-		ExecutionStats: engineapi.ExecutionStats{
+		Stats: engineapi.ExecutionStats{
 			ProcessingTime: time.Since(startTime),
 			Timestamp:      startTime.Unix(),
 		},

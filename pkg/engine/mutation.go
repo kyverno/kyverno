@@ -13,7 +13,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	"go.opentelemetry.io/otel/trace"
@@ -24,19 +23,15 @@ import (
 // Mutate performs mutation. Overlay first and then mutation patches
 func (e *engine) mutate(
 	ctx context.Context,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) (resp *engineapi.EngineResponse) {
 	startTime := time.Now()
 	policy := policyContext.Policy()
-	resp = &engineapi.EngineResponse{
-		Policy: policy,
-	}
+	resp = engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	matchedResource := policyContext.NewResource()
 	enginectx := policyContext.JSONContext()
 	var skippedRules []string
-
-	logger := logging.WithName("EngineMutate").WithValues("policy", policy.GetName(), "kind", matchedResource.GetKind(),
-		"namespace", matchedResource.GetNamespace(), "name", matchedResource.GetName())
 
 	logger.V(4).Info("start mutate policy processing", "startTime", startTime)
 
@@ -60,7 +55,7 @@ func (e *engine) mutate(
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),
 			func(ctx context.Context, span trace.Span) {
-				logger := logger.WithValues("rule", rule.Name)
+				logger := internal.LoggerWithRule(logger, rule)
 				var excludeResource []string
 				if len(e.configuration.GetExcludeGroupRole()) > 0 {
 					excludeResource = e.configuration.GetExcludeGroupRole()
@@ -80,7 +75,7 @@ func (e *engine) mutate(
 					return
 				}
 
-				logger.V(3).Info("processing mutate rule", "applyRules", applyRules)
+				logger.V(3).Info("processing mutate rule")
 				resource, err := policyContext.JSONContext().Query("request.object")
 				policyContext.JSONContext().Reset()
 				if err == nil && resource != nil {
@@ -130,12 +125,12 @@ func (e *engine) mutate(
 					if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
 						policyContext := policyContext.Copy()
 						if err := policyContext.JSONContext().AddTargetResource(patchedResource.unstructured.Object); err != nil {
-							logging.Error(err, "failed to add target resource to the context")
+							logger.Error(err, "failed to add target resource to the context")
 							continue
 						}
 					}
 
-					logger.V(4).Info("apply rule to resource", "rule", rule.Name, "resource namespace", patchedResource.unstructured.GetNamespace(), "resource name", patchedResource.unstructured.GetName())
+					logger.V(4).Info("apply rule to resource", "resource namespace", patchedResource.unstructured.GetNamespace(), "resource name", patchedResource.unstructured.GetName())
 					var mutateResp *mutate.Response
 					if rule.Mutation.ForEachMutation != nil {
 						m := &forEachMutator{
@@ -161,7 +156,7 @@ func (e *engine) mutate(
 				}
 			},
 		)
-		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}
@@ -353,21 +348,13 @@ func startMutateResultResponse(resp *engineapi.EngineResponse, policy kyvernov1.
 	if resp == nil {
 		return
 	}
-
-	resp.PolicyResponse.Policy.Name = policy.GetName()
-	resp.PolicyResponse.Policy.Namespace = policy.GetNamespace()
-	resp.PolicyResponse.Resource.Name = resource.GetName()
-	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
-	resp.PolicyResponse.Resource.Kind = resource.GetKind()
-	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
 }
 
 func endMutateResultResponse(logger logr.Logger, resp *engineapi.EngineResponse, startTime time.Time) {
 	if resp == nil {
 		return
 	}
-
-	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	resp.PolicyResponse.Timestamp = startTime.Unix()
-	logger.V(5).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	resp.PolicyResponse.Stats.ProcessingTime = time.Since(startTime)
+	resp.PolicyResponse.Stats.Timestamp = startTime.Unix()
+	logger.V(5).Info("finished processing policy", "processingTime", resp.PolicyResponse.Stats.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.Stats.RulesAppliedCount)
 }
