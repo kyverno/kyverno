@@ -49,7 +49,7 @@ var (
 	regexMatch             = "regex_match"
 	patternMatch           = "pattern_match"
 	labelMatch             = "label_match"
-	ToBoolean              = "to_boolean"
+	toBoolean              = "to_boolean"
 	add                    = "add"
 	subtract               = "subtract"
 	multiply               = "multiply"
@@ -227,6 +227,16 @@ func GetFunctions() []FunctionEntry {
 		},
 		ReturnType: []jpType{jpBool},
 		Note:       "object arguments must be enclosed in backticks; ex. `{{request.object.spec.template.metadata.labels}}`",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: toBoolean,
+			Arguments: []argSpec{
+				{Types: []jpType{jpString}},
+			},
+			Handler: jpToBoolean,
+		},
+		ReturnType: []jpType{jpBool},
+		Note:       "it return true or false for any string True, TruE or False,FAlse, faLSE etc",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: add,
