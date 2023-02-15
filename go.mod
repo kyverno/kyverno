@@ -40,7 +40,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/robfig/cron v1.2.0
 	github.com/sigstore/cosign v1.13.1
-	github.com/sigstore/k8s-manifest-sigstore v0.4.3
+	github.com/sigstore/k8s-manifest-sigstore v0.4.4
 	github.com/sigstore/sigstore v1.5.1
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
