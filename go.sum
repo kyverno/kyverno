@@ -1323,8 +1323,8 @@ github.com/sigstore/cosign v1.13.1 h1:+5oF8jisEcDw2TuXxCADC1u5//HfdnJhGbpv9Isiwu
 github.com/sigstore/cosign v1.13.1/go.mod h1:PlfJODkovUOKsLrGI7Su57Ie/Eb/Ks7hRHw3tn5hQS4=
 github.com/sigstore/fulcio v1.0.0 h1:hBZW6qg9GXTtCX8jOg1hmyjYLrmsEKZGeMwAbW3XNEg=
 github.com/sigstore/fulcio v1.0.0/go.mod h1:j4MzLxX/Be0rHYh3JF2dgMorkWGzEMHBqIHwFU8I/Rw=
-github.com/sigstore/k8s-manifest-sigstore v0.4.3 h1:qX8yRL6gcMHwaGNTgwr3cqkMHcI1P9mdESVnodxUkEI=
-github.com/sigstore/k8s-manifest-sigstore v0.4.3/go.mod h1:JlvZCXvL1M/mR9+PBxMKyAag/KPS2ogJF13hEI9BY1Y=
+github.com/sigstore/k8s-manifest-sigstore v0.4.4 h1:7ae///+L0nqFBsRwr26anJc5bnJxoDXCGhVHXQB1GSo=
+github.com/sigstore/k8s-manifest-sigstore v0.4.4/go.mod h1:PJSnSF8Nh7PqV4xhU3BRweqEFwGvJq6Xi2B5yhYjxb0=
 github.com/sigstore/rekor v1.0.1 h1:rcESXSNkAPRWFYZel9rarspdvneET60F2ngNkadi89c=
 github.com/sigstore/rekor v1.0.1/go.mod h1:ecTKdZWGWqE1pl3U1m1JebQJLU/hSjD9vYHOmHQ7w4g=
 github.com/sigstore/sigstore v1.5.0 h1:NqstQ6SwwhQsp6Ll0wgk/d9g5MlfmEppo14aquUjJ/8=
