@@ -3,8 +3,7 @@ name: Build images
 on:
   push:
     branches:
-      - 'main'
-      - 'release*'
+      - '*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,7 +25,7 @@ jobs:
       - name: ko build
         run: make ko-build-all
       - name: Trivy Scan Image
-        uses: aquasecurity/trivy-action@9ab158e8597f3b310480b9a69402b419bc03dbd5 # v0.8.0
+        uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # v0.9.1
         with:
           scan-type: 'fs'
           ignore-unfixed: true

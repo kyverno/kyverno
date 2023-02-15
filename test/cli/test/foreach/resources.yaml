@@ -4,12 +4,12 @@ metadata:
   name: test-pod
 spec:
   containers:
-    - image: k8s.gcr.io/test-webserver
+    - image: registry.k8s.io/test-webserver
       name: test1
       volumeMounts:
         - mountPath: /tmp/cache
           name: cache-volume
-    - image: k8s.gcr.io/test-webserver
+    - image: registry.k8s.io/test-webserver
       name: test2
       volumeMounts:
         - mountPath: /tmp/cache
@@ -52,12 +52,12 @@ metadata:
   name: test-pod2
 spec:
   containers:
-    - image: k8s.gcr.io/test-webserver
+    - image: registry.k8s.io/test-webserver
       name: test1
       volumeMounts:
         - mountPath: /tmp/cache
           name: cache-volume
-    - image: k8s.gcr.io/test-webserver
+    - image: registry.k8s.io/test-webserver
       name: test2
       volumeMounts:
         - mountPath: /gce
@@ -74,7 +74,7 @@ metadata:
   name: test-pod-bad-mount
 spec:
   containers:
-    - image: k8s.gcr.io/test-webserver
+    - image: registry.k8s.io8s.io/test-webserver
       name: test1
       volumeMounts:
         - mountPath: /cache
@@ -89,7 +89,7 @@ metadata:
   name: test-pod-with-resources
 spec:
   containers:
-  - image: k8s.gcr.io/test-webserver
+  - image: registry.k8s.io/test-webserver
     name: test1
     resources:
       requests:
@@ -109,7 +109,7 @@ metadata:
   name: test-pod-with-gke-vol
 spec:
   containers:
-    - image: k8s.gcr.io/test-webserver
+    - image: registry.k8s.io/test-webserver
       name: test2
       resources:
         requests: {}
@@ -127,7 +127,7 @@ metadata:
   name: test-pod-with-resources-multiple-ctnrs
 spec:
   containers:
-    - image: k8s.gcr.io/test-webserver
+    - image: registry.k8s.io/test-webserver
       name: test1
       resources:
         requests:
@@ -137,7 +137,7 @@ spec:
       volumeMounts:
         - mountPath: /tmp/cache
           name: cache-volume
-    - image: k8s.gcr.io/test-webserver
+    - image: registry.k8s.io/test-webserver
       name: test2
       resources:
         requests: {}

@@ -2,8 +2,8 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 
-	"github.com/pkg/errors"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -109,6 +109,13 @@ type AttestorSet struct {
 	// attributes for keyless verification, or a nested attestor declaration.
 	// +kubebuilder:validation:Optional
 	Entries []Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
+}
+
+func (as AttestorSet) RequiredCount() int {
+	if as.Count == nil || *as.Count == 0 {
+		return len(as.Entries)
+	}
+	return *as.Count
 }
 
 type Attestor struct {
@@ -355,7 +362,7 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
 	var as AttestorSet
 	if err := json.Unmarshal(o.Raw, &as); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal attestor set %s", string(o.Raw))
+		return nil, fmt.Errorf("failed to unmarshal attestor set %s: %w", string(o.Raw), err)
 	}
 
 	return &as, nil

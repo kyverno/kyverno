@@ -8,7 +8,7 @@ import (
 	preport "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	kyvCommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/core/v1"
 )
@@ -92,8 +92,9 @@ func Test_buildPolicyReports(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	var er response.EngineResponse
+	var er engineapi.EngineResponse
 	err = json.Unmarshal(rawEngRes, &er)
+	er.Policy = &policy
 	assert.NilError(t, err)
 
 	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
@@ -128,8 +129,9 @@ func Test_buildPolicyResults(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	var er response.EngineResponse
+	var er engineapi.EngineResponse
 	err = json.Unmarshal(rawEngRes, &er)
+	er.Policy = &policy
 	assert.NilError(t, err)
 
 	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)

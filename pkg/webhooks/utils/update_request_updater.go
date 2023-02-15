@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 )
@@ -33,7 +34,7 @@ func (h *updateRequestUpdater) updateAnnotation(logger logr.Logger, name string)
 		if len(urAnnotations) == 0 {
 			urAnnotations = make(map[string]string)
 		}
-		urAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
+		urAnnotations[generate.AnnotationUpdateTime] = time.Now().String()
 		ur.SetAnnotations(urAnnotations)
 	}); err != nil {
 		logger.Error(err, "failed to update update request update-time annotations for the resource", "update request", name)

@@ -4,35 +4,19 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
-	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-// EngineStats stores in the statistics for a single application of resource
-type EngineStats struct {
-	// average time required to process the policy rules on a resource
-	ExecutionTime time.Duration
-	// Count of rules that were applied successfully
-	RulesAppliedCount int
-}
 
 func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
 	resourceNameSpace := resource.GetNamespace()
@@ -161,24 +145,7 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
 func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo, dynamicConfig []string) bool {
-	if store.GetMock() {
-		mockSubject := store.GetSubjects().Subject
-		for _, subject := range ruleSubjects {
-			switch subject.Kind {
-			case "ServiceAccount":
-				if subject.Name == mockSubject.Name && subject.Namespace == mockSubject.Namespace {
-					return true
-				}
-			case "User", "Group":
-				if mockSubject.Name == subject.Name {
-					return true
-				}
-			}
-		}
-		return false
-	} else {
-		return matchutils.CheckSubjects(ruleSubjects, userInfo, dynamicConfig)
-	}
+	return matchutils.CheckSubjects(ruleSubjects, userInfo, dynamicConfig)
 }
 
 // MatchesResourceDescription checks if the resource matches resource description of the rule or not
@@ -186,10 +153,11 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
+	empty := []string{}
 
 	var reasonsForFailure []error
 	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {
-		return errors.New(" The policy and resource namespace are different. Therefore, policy skip this resource.")
+		return fmt.Errorf(" The policy and resource namespace are different. Therefore, policy skip this resource.")
 	}
 
 	if len(rule.MatchResources.Any) > 0 {
@@ -198,7 +166,7 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 		oneMatched := false
 		for _, rmr := range rule.MatchResources.Any {
 			// if there are no errors it means it was a match
-			if len(matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)) == 0 {
+			if len(matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, empty, namespaceLabels, subresourceInAdmnReview)) == 0 {
 				oneMatched = true
 				break
 			}
@@ -209,11 +177,11 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 	} else if len(rule.MatchResources.All) > 0 {
 		// include object if ALL of the criteria match
 		for _, rmr := range rule.MatchResources.All {
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, empty, namespaceLabels, subresourceInAdmnReview)...)
 		}
 	} else {
 		rmr := kyvernov1.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
-		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)...)
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource, rmr, admissionInfo, resource, empty, namespaceLabels, subresourceInAdmnReview)...)
 	}
 
 	if len(rule.ExcludeResources.Any) > 0 {
@@ -249,7 +217,7 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 	}
 
 	if len(reasonsForFailure) > 0 {
-		return errors.New(errorMessage)
+		return fmt.Errorf(errorMessage)
 	}
 
 	return nil
@@ -325,21 +293,6 @@ func ManagedPodResource(policy kyvernov1.PolicyInterface, resource unstructured.
 	return false
 }
 
-func checkPreconditions(logger logr.Logger, ctx *PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
-	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.jsonContext, anyAllConditions)
-	if err != nil {
-		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
-	}
-
-	typeConditions, err := common.TransformConditions(preconditions)
-	if err != nil {
-		return false, errors.Wrapf(err, "failed to parse preconditions")
-	}
-
-	pass := variables.EvaluateConditions(logger, ctx.jsonContext, typeConditions)
-	return pass, nil
-}
-
 func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, error) {
 	i, err := ctx.Query(jmesPath)
 	if err != nil {
@@ -352,29 +305,6 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	}
 
 	return l, nil
-}
-
-func ruleError(rule *kyvernov1.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
-	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return ruleResponse(*rule, ruleType, msg, response.RuleStatusError)
-}
-
-func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, status response.RuleStatus) *response.RuleResponse {
-	resp := &response.RuleResponse{
-		Name:    rule.Name,
-		Type:    ruleType,
-		Message: msg,
-		Status:  status,
-	}
-	return resp
-}
-
-func incrementAppliedCount(resp *response.EngineResponse) {
-	resp.PolicyResponse.RulesAppliedCount++
-}
-
-func incrementErrorCount(resp *response.EngineResponse) {
-	resp.PolicyResponse.RulesErrorCount++
 }
 
 // invertedElement inverted the order of element for patchStrategicMerge  policies as kustomize patch revering the order of patch resources.

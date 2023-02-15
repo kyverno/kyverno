@@ -8,9 +8,7 @@ metadata:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
   namespace: {{ template "kyverno.namespace" . }}
 spec:
-  {{- with .Values.reportsController.replicas }}
-  replicas: {{ . }}
-  {{- end }}
+  replicas: {{ template "kyverno.deployment.replicas" .Values.reportsController.replicas }}
   {{- with .Values.reportsController.updateStrategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
@@ -118,8 +116,9 @@ spec:
           {{- with .Values.reportsController.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- if .Values.reportsController.securityContext }}
-          securityContext: {{ include "kyverno.reports-controller.securityContext" . | nindent 12 }}
+          {{- with .Values.reportsController.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
 {{- end -}}
 {{- end -}}

@@ -9,7 +9,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: admissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -354,7 +354,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: backgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -659,7 +659,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -1707,7 +1707,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: clusteradmissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2053,7 +2053,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: clusterbackgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -2358,7 +2358,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3406,7 +3406,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3432,9 +3432,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -4397,6 +4397,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -7666,6 +7675,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -10125,9 +10143,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -10891,6 +10909,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -14090,6 +14117,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -16548,7 +16584,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -16574,9 +16610,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -17540,6 +17576,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -20810,6 +20855,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -23269,9 +23323,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -24036,6 +24090,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -27235,6 +27298,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -29693,7 +29765,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -29729,6 +29801,13 @@ spec:
           spec:
             description: Spec declares policy exception behaviors.
             properties:
+              background:
+                description: Background controls if exceptions are applied to existing
+                  policies during a background scan. Optional. Default value is "true".
+                  The value must be set to "false" if the policy rule uses variables
+                  that are only available in the admission review request (e.g. user
+                  name).
+                type: boolean
               exceptions:
                 description: Exceptions is a list policy/rules to be excluded
                 items:
@@ -30180,7 +30259,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -30517,10 +30596,18 @@ spec:
                     description: Namespace specifies resource namespace.
                     type: string
                 type: object
+              rule:
+                description: Rule is the associate rule name of the current UR.
+                type: string
+              synchronize:
+                description: Synchronize represents the sync behavior of the corresponding
+                  rule Optional. Defaults to "false" if not specified.
+                type: boolean
             required:
             - context
             - policy
             - resource
+            - rule
             type: object
           status:
             description: Status contains statistics related to update request.
@@ -30546,6 +30633,7 @@ spec:
                 type: array
               handler:
                 description: Handler represents the instance ID that handles the UR
+                  Deprecated
                 type: string
               message:
                 description: Specifies request status message.
@@ -30571,7 +30659,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -30938,7 +31026,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
-    {{- include "kyverno.crd.labels" . | nindent 4 }}
+    {{- include "kyverno.crds.labels" . | nindent 4 }}
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io

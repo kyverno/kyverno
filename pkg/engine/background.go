@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/engine/common"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
+	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 // ApplyBackgroundChecks checks for validity of generate and mutateExisting rules on the resource
@@ -18,44 +18,44 @@ import (
 //   - the caller has to check the ruleResponse to determine whether the path exist
 //
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
-func ApplyBackgroundChecks(rclient registryclient.Client, policyContext *PolicyContext) (resp *response.EngineResponse) {
-	policyStartTime := time.Now()
-	return filterRules(rclient, policyContext, policyStartTime)
+func (e *engine) applyBackgroundChecks(
+	ctx context.Context,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+) (resp *engineapi.EngineResponse) {
+	return e.filterRules(policyContext, logger, time.Now())
 }
 
-func filterRules(rclient registryclient.Client, policyContext *PolicyContext, startTime time.Time) *response.EngineResponse {
-	kind := policyContext.newResource.GetKind()
-	name := policyContext.newResource.GetName()
-	namespace := policyContext.newResource.GetNamespace()
-	apiVersion := policyContext.newResource.GetAPIVersion()
-	resp := &response.EngineResponse{
-		PolicyResponse: response.PolicyResponse{
-			Policy: response.PolicySpec{
-				Name:      policyContext.policy.GetName(),
-				Namespace: policyContext.policy.GetNamespace(),
-			},
-			PolicyStats: response.PolicyStats{
-				PolicyExecutionTimestamp: startTime.Unix(),
-			},
-			Resource: response.ResourceSpec{
-				Kind:       kind,
-				Name:       name,
-				Namespace:  namespace,
-				APIVersion: apiVersion,
+func (e *engine) filterRules(
+	policyContext engineapi.PolicyContext,
+	logger logr.Logger,
+	startTime time.Time,
+) *engineapi.EngineResponse {
+	newResource := policyContext.NewResource()
+	policy := policyContext.Policy()
+	kind := newResource.GetKind()
+	name := newResource.GetName()
+	namespace := newResource.GetNamespace()
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	resp.PolicyResponse = engineapi.PolicyResponse{
+		Stats: engineapi.PolicyStats{
+			ExecutionStats: engineapi.ExecutionStats{
+				Timestamp: startTime.Unix(),
 			},
 		},
 	}
 
-	if policyContext.excludeResourceFunc(kind, namespace, name) {
-		logging.WithName("ApplyBackgroundChecks").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
+	if e.configuration.ToFilter(kind, namespace, name) {
+		logger.Info("resource excluded")
 		return resp
 	}
 
-	applyRules := policyContext.policy.GetSpec().GetApplyRules()
-	for _, rule := range autogen.ComputeRules(policyContext.policy) {
-		if ruleResp := filterRule(rclient, rule, policyContext); ruleResp != nil {
+	applyRules := policy.GetSpec().GetApplyRules()
+	for _, rule := range autogen.ComputeRules(policy) {
+		logger := internal.LoggerWithRule(logger, rule)
+		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != response.RuleStatusSkip {
+			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
 				break
 			}
 		}
@@ -64,51 +64,49 @@ func filterRules(rclient registryclient.Client, policyContext *PolicyContext, st
 	return resp
 }
 
-func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContext *PolicyContext) *response.RuleResponse {
+func (e *engine) filterRule(
+	rule kyvernov1.Rule,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+) *engineapi.RuleResponse {
 	if !rule.HasGenerate() && !rule.IsMutateExisting() {
 		return nil
 	}
 
-	logger := logging.WithName("exception")
-
 	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(kindsInPolicy, policyContext)
+	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
+
+	ruleType := engineapi.Mutation
+	if rule.HasGenerate() {
+		ruleType = engineapi.Generation
+	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(policyContext, &rule, subresourceGVKToAPIResource, logger)
+	ruleResp := hasPolicyExceptions(logger, ruleType, e.exceptionSelector, policyContext, &rule, subresourceGVKToAPIResource, e.configuration)
 	if ruleResp != nil {
 		return ruleResp
 	}
 
-	ruleType := response.Mutation
-	if rule.HasGenerate() {
-		ruleType = response.Generation
-	}
-
 	startTime := time.Now()
 
-	policy := policyContext.policy
-	newResource := policyContext.newResource
-	oldResource := policyContext.oldResource
-	admissionInfo := policyContext.admissionInfo
-	ctx := policyContext.jsonContext
-	excludeGroupRole := policyContext.excludeGroupRole
-	namespaceLabels := policyContext.namespaceLabels
+	newResource := policyContext.NewResource()
+	oldResource := policyContext.OldResource()
+	admissionInfo := policyContext.AdmissionInfo()
+	ctx := policyContext.JSONContext()
+	excludeGroupRole := e.configuration.GetExcludeGroupRole()
+	namespaceLabels := policyContext.NamespaceLabels()
 
-	logger = logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
-		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
-
-	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err != nil {
-		if ruleType == response.Generation {
+	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err != nil {
+		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.subresource); err == nil {
-				return &response.RuleResponse{
+			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err == nil {
+				return &engineapi.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,
-					Status: response.RuleStatusFail,
-					RuleStats: response.RuleStats{
-						ProcessingTime:         time.Since(startTime),
-						RuleExecutionTimestamp: startTime.Unix(),
+					Status: engineapi.RuleStatusFail,
+					Stats: engineapi.ExecutionStats{
+						ProcessingTime: time.Since(startTime),
+						Timestamp:      startTime.Unix(),
 					},
 				}
 			}
@@ -117,10 +115,10 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 		return nil
 	}
 
-	policyContext.jsonContext.Checkpoint()
-	defer policyContext.jsonContext.Restore()
+	policyContext.JSONContext().Checkpoint()
+	defer policyContext.JSONContext().Restore()
 
-	if err := LoadContext(context.TODO(), logger, rclient, rule.Context, policyContext, rule.Name); err != nil {
+	if err := internal.LoadContext(context.TODO(), e, policyContext, rule); err != nil {
 		logger.V(4).Info("cannot add external data to the context", "reason", err.Error())
 		return nil
 	}
@@ -134,7 +132,7 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	}
 
 	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := common.TransformConditions(ruleCopy.GetAnyAllConditions())
+	copyConditions, err := utils.TransformConditions(ruleCopy.GetAnyAllConditions())
 	if err != nil {
 		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
 		return nil
@@ -143,25 +141,17 @@ func filterRule(rclient registryclient.Client, rule kyvernov1.Rule, policyContex
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return &response.RuleResponse{
-			Name:   ruleCopy.Name,
-			Type:   ruleType,
-			Status: response.RuleStatusSkip,
-			RuleStats: response.RuleStats{
-				ProcessingTime:         time.Since(startTime),
-				RuleExecutionTimestamp: startTime.Unix(),
-			},
-		}
+		return internal.RuleSkip(ruleCopy, ruleType, "")
 	}
 
 	// build rule Response
-	return &response.RuleResponse{
+	return &engineapi.RuleResponse{
 		Name:   ruleCopy.Name,
 		Type:   ruleType,
-		Status: response.RuleStatusPass,
-		RuleStats: response.RuleStats{
-			ProcessingTime:         time.Since(startTime),
-			RuleExecutionTimestamp: startTime.Unix(),
+		Status: engineapi.RuleStatusPass,
+		Stats: engineapi.ExecutionStats{
+			ProcessingTime: time.Since(startTime),
+			Timestamp:      startTime.Unix(),
 		},
 	}
 }

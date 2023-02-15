@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"sort"
 
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
 )
 
 // Checks if pattern has anchors
@@ -44,7 +44,7 @@ func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List 
 
 	for _, k := range keys {
 		v := resources[k]
-		if commonAnchors.IsGlobalAnchor(k) {
+		if anchor.IsGlobal(anchor.Parse(k)) {
 			sortedResourceKeys.PushFront(k)
 			continue
 		}
@@ -61,7 +61,7 @@ func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List 
 func getAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for key, value := range anchorsMap {
-		if commonAnchors.IsConditionAnchor(key) || commonAnchors.IsExistenceAnchor(key) || commonAnchors.IsEqualityAnchor(key) || commonAnchors.IsNegationAnchor(key) || commonAnchors.IsGlobalAnchor(key) {
+		if a := anchor.Parse(key); anchor.IsCondition(a) || anchor.IsExistence(a) || anchor.IsEquality(a) || anchor.IsNegation(a) || anchor.IsGlobal(a) {
 			result[key] = value
 		}
 	}

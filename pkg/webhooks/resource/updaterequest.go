@@ -9,7 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
@@ -18,7 +18,7 @@ import (
 
 // createUpdateRequests applies generate and mutateExisting policies, and creates update requests for background reconcile
 func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
-	gh := generation.NewGenerationHandler(logger, h.client, h.kyvernoClient, h.rclient, h.nsLister, h.urLister, h.urGenerator, h.urUpdater, h.eventGen, h.metricsConfig)
+	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.urGenerator, h.urUpdater, h.eventGen, h.metricsConfig)
 	go h.handleMutateExisting(context.TODO(), logger, request, mutatePolicies, policyContext, ts)
 	go gh.Handle(context.TODO(), request, generatePolicies, policyContext, ts)
 }
@@ -34,19 +34,19 @@ func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger,
 		return
 	}
 
-	var engineResponses []*response.EngineResponse
+	var engineResponses []*engineapi.EngineResponse
 	for _, policy := range policies {
 		if !policy.GetSpec().IsMutateExisting() {
 			continue
 		}
 		logger.V(4).Info("update request for mutateExisting policy")
 
-		var rules []response.RuleResponse
+		var rules []engineapi.RuleResponse
 		policyContext := policyContext.WithPolicy(policy)
-		engineResponse := engine.ApplyBackgroundChecks(h.rclient, policyContext)
+		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 
 		for _, rule := range engineResponse.PolicyResponse.Rules {
-			if rule.Status == response.RuleStatusPass {
+			if rule.Status == engineapi.RuleStatusPass {
 				rules = append(rules, rule)
 			}
 		}

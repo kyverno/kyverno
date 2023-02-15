@@ -30,9 +30,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -995,6 +995,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -4264,6 +4273,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -6723,9 +6741,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -7489,6 +7507,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -10688,6 +10715,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify

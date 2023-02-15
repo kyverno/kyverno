@@ -17,9 +17,11 @@ spec:
       resources:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
+      {{- with .Values.test.securityContext }}
       securityContext:
-        {{- include "kyverno.test.securityContext" . | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       command:
         - /bin/sh
         - -c
-        - sleep 20 ; wget -O- -S --no-check-certificate https://{{ template "kyverno.serviceName" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.service.port }}/health/liveness
+        - sleep 20 ; wget -O- -S --no-check-certificate https://{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}:{{ .Values.service.port }}/health/liveness

@@ -10,22 +10,23 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	gen "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -38,9 +39,9 @@ type GenerationHandler interface {
 
 func NewGenerationHandler(
 	log logr.Logger,
+	engine engineapi.Engine,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
 	nsLister corev1listers.NamespaceLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	urGenerator webhookgenerate.Generator,
@@ -50,9 +51,9 @@ func NewGenerationHandler(
 ) GenerationHandler {
 	return &generationHandler{
 		log:           log,
+		engine:        engine,
 		client:        client,
 		kyvernoClient: kyvernoClient,
-		rclient:       rclient,
 		nsLister:      nsLister,
 		urLister:      urLister,
 		urGenerator:   urGenerator,
@@ -64,9 +65,9 @@ func NewGenerationHandler(
 
 type generationHandler struct {
 	log           logr.Logger
+	engine        engineapi.Engine
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	rclient       registryclient.Client
 	nsLister      corev1listers.NamespaceLister
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
 	urGenerator   webhookgenerate.Generator
@@ -85,17 +86,17 @@ func (h *generationHandler) Handle(
 ) {
 	h.log.V(6).Info("update request for generate policy")
 
-	var engineResponses []*response.EngineResponse
+	var engineResponses []*engineapi.EngineResponse
 	if (request.Operation == admissionv1.Create || request.Operation == admissionv1.Update) && len(policies) != 0 {
 		for _, policy := range policies {
-			var rules []response.RuleResponse
+			var rules []engineapi.RuleResponse
 			policyContext := policyContext.WithPolicy(policy)
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 				policyContext = policyContext.WithNamespaceLabels(engineutils.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, h.log))
 			}
-			engineResponse := engine.ApplyBackgroundChecks(h.rclient, policyContext)
+			engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
-				if rule.Status != response.RuleStatusPass {
+				if rule.Status != engineapi.RuleStatusPass {
 					h.deleteGR(ctx, engineResponse)
 					continue
 				}
@@ -142,18 +143,18 @@ func (h *generationHandler) HandleUpdatesForGenerateRules(ctx context.Context, r
 	}
 
 	resLabels := resource.GetLabels()
-	if resLabels["generate.kyverno.io/clone-policy-name"] != "" {
+	if resLabels[generate.LabelClonePolicyName] != "" {
 		h.handleUpdateGenerateSourceResource(ctx, resLabels)
 	}
 
-	if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == admissionv1.Update {
-		h.handleUpdateGenerateTargetResource(ctx, request, policies, resLabels)
+	if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp && resLabels[generate.LabelSynchronize] == "enable" && request.Operation == admissionv1.Update {
+		h.handleUpdateGenerateTargetResource(ctx, resource, policies, resLabels)
 	}
 }
 
 // handleUpdateGenerateSourceResource - handles update of clone source for generate policy
 func (h *generationHandler) handleUpdateGenerateSourceResource(ctx context.Context, resLabels map[string]string) {
-	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
+	policyNames := strings.Split(resLabels[generate.LabelClonePolicyName], ",")
 	for _, policyName := range policyNames {
 		// check if the policy exists
 		_, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, policyName, metav1.GetOptions{})
@@ -182,14 +183,10 @@ func (h *generationHandler) handleUpdateGenerateSourceResource(ctx context.Conte
 }
 
 // handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Context, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, resLabels map[string]string) {
+func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Context, newRes *unstructured.Unstructured, policies []kyvernov1.PolicyInterface, resLabels map[string]string) {
 	enqueueBool := false
-	newRes, err := kubeutils.BytesToUnstructured(request.Object.Raw)
-	if err != nil {
-		h.log.Error(err, "failed to convert object resource to unstructured format")
-	}
 
-	policyName := resLabels["policy.kyverno.io/policy-name"]
+	policyName := resLabels[generate.LabelDataPolicyName]
 	targetSourceName := newRes.GetName()
 	targetSourceKind := newRes.GetKind()
 
@@ -233,7 +230,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Conte
 	}
 
 	if enqueueBool {
-		urName := resLabels["policy.kyverno.io/gr-name"]
+		urName := resLabels[generate.LabelURName]
 		ur, err := h.urLister.Get(urName)
 		if err != nil {
 			h.log.Error(err, "failed to get update request", "name", urName)
@@ -243,18 +240,18 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Conte
 	}
 }
 
-func (h *generationHandler) deleteGR(ctx context.Context, engineResponse *response.EngineResponse) {
+func (h *generationHandler) deleteGR(ctx context.Context, engineResponse *engineapi.EngineResponse) {
 	h.log.V(4).Info("querying all update requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.PolicyResponse.Policy.Name,
-		kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.PolicyResponse.Resource.Name,
-		kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.PolicyResponse.Resource.Kind,
-		kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.PolicyResponse.Resource.Namespace,
+		kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.Policy.GetName(),
+		kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.Resource.GetName(),
+		kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.Resource.GetKind(),
+		kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.Resource.GetNamespace(),
 	}))
 
 	urList, err := h.urLister.List(selector)
 	if err != nil {
-		h.log.Error(err, "failed to get update request for the resource", "kind", engineResponse.PolicyResponse.Resource.Kind, "name", engineResponse.PolicyResponse.Resource.Name, "namespace", engineResponse.PolicyResponse.Resource.Namespace)
+		h.log.Error(err, "failed to get update request for the resource", "kind", engineResponse.Resource.GetKind(), "name", engineResponse.Resource.GetName(), "namespace", engineResponse.Resource.GetNamespace())
 		return
 	}
 

@@ -2,10 +2,10 @@ package retry
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 )
 
 // RetryFunc allows retrying a function on error within a given timeout
@@ -25,7 +25,7 @@ func RetryFunc(ctx context.Context, retryInterval, timeout time.Duration, logger
 					return nil
 				}
 			case <-ctx.Done():
-				return errors.Wrap(err, "retry times out")
+				return fmt.Errorf("retry times out: %w", err)
 			}
 		}
 	}
