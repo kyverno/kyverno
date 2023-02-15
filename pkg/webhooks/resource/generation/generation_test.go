@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"gotest.tools/assert"
 )
 
@@ -30,7 +31,7 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 						"kubectl.kubernetes.io/last-applied-configuration": `{"apiVersion":"v1","data":{"ca":"-----BEGIN CERTIFICATE-----\nMIID5zCCAs+gAwIBAgIUCl6BKlpe2QiS5IQby6QOW7vexMwwDQYJKoZIhvcNAQEL\nBQAwgYIxCzAJBgNVBAYTAlVTMQswCQYDVQQIDAJDQTENMAsGA1UEBwwEVG93bjEQ\n-----END CERTIFICATE-----"},"kind":"ConfigMap","metadata":{"annotations":{"imageregistry":"https://hub.docker.com/"},"name":"corp-ca-cert","namespace":"default"}}`,
 					},
 					"creationTimestamp": "2021-01-09T12:37:26Z",
-					"labels":            map[string]interface{}{"generate.kyverno.io/clone-policy-name": "generate-policy"},
+					"labels":            map[string]interface{}{generate.LabelClonePolicyName: "generate-policy"},
 					"managedFields": map[string]interface{}{
 						"apiVersion": "v1",
 						"fieldsType": "FieldsV1",
@@ -90,7 +91,7 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 						"kubectl.kubernetes.io/last-applied-configuration": `{"apiVersion":"v1","data":{"tls.crt":"MIIC2DCCAcCgAwIBAgIBATANBgkqh","tls.key": "MIIEpgIBAAKCAQEA7yn3bRHQ5FHMQ"},"type": "kubernetes.io/tls","kind":"Secret"}`,
 					},
 					"creationTimestamp": "2021-01-09T12:37:26Z",
-					"labels":            map[string]interface{}{"generate.kyverno.io/clone-policy-name": "generate-policy"},
+					"labels":            map[string]interface{}{generate.LabelClonePolicyName: "generate-policy"},
 					"managedFields": map[string]interface{}{
 						"apiVersion": "v1",
 						"fieldsType": "FieldsV1",
@@ -110,8 +111,8 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 					"annotations":       map[string]interface{}{},
 					"creationTimestamp": "2021-01-09T12:37:26Z",
 					"labels": map[string]interface{}{
-						"policy.kyverno.io/gr-name":     "gr-qmjr9",
-						"policy.kyverno.io/policy-name": "generate-policy",
+						generate.LabelURName:         "gr-qmjr9",
+						generate.LabelDataPolicyName: "generate-policy",
 					},
 					"managedFields": map[string]interface{}{
 						"apiVersion": "v1",
@@ -145,8 +146,8 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 				"metadata": map[string]interface{}{
 					"annotations": map[string]interface{}{},
 					"labels": map[string]interface{}{
-						"policy.kyverno.io/gr-name":     "gr-qmjr9",
-						"policy.kyverno.io/policy-name": "generate-policy",
+						generate.LabelURName:         "gr-qmjr9",
+						generate.LabelDataPolicyName: "generate-policy",
 					},
 				},
 			},
@@ -160,7 +161,7 @@ func Test_updateFeildsInSourceAndUpdatedResource(t *testing.T) {
 						"kubectl.kubernetes.io/last-applied-configuration": `{"apiVersion":"v1","kind":"Pod", ...}`,
 					},
 					"creationTimestamp": "2021-01-09T12:37:26Z",
-					"labels":            map[string]interface{}{"generate.kyverno.io/clone-policy-name": "generate-policy"},
+					"labels":            map[string]interface{}{generate.LabelClonePolicyName: "generate-policy"},
 					"managedFields": map[string]interface{}{
 						"apiVersion": "v1",
 						"fieldsType": "FieldsV1",

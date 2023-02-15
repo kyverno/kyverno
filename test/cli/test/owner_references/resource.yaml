@@ -10,7 +10,7 @@ metadata:
 spec:
   containers:
   - name: test-probes
-    image: k8s.gcr.io/liveness
+    image: registry.k8s.io/liveness
     args:
     - /server
 ---
@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: test-probes
-        image: k8s.gcr.io/liveness
+        image: registry.k8s.io/liveness
         args:
         - /server
 ---

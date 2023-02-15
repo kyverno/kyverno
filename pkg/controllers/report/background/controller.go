@@ -17,10 +17,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
-	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -48,7 +46,7 @@ type controller struct {
 	// clients
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
-	rclient       registryclient.Client
+	engine        engineapi.Engine
 
 	// listers
 	polLister      kyvernov1listers.PolicyLister
@@ -56,14 +54,13 @@ type controller struct {
 	bgscanrLister  cache.GenericLister
 	cbgscanrLister cache.GenericLister
 	nsLister       corev1listers.NamespaceLister
-	polexLister    engine.PolicyExceptionLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
 
 	// cache
 	metadataCache          resource.MetadataCache
-	informerCacheResolvers resolvers.ConfigmapResolver
+	informerCacheResolvers engineapi.ConfigmapResolver
 	forceDelay             time.Duration
 
 	// config
@@ -74,14 +71,13 @@ type controller struct {
 func NewController(
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
-	rclient registryclient.Client,
+	engine engineapi.Engine,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
-	polexLister engine.PolicyExceptionLister,
 	metadataCache resource.MetadataCache,
-	informerCacheResolvers resolvers.ConfigmapResolver,
+	informerCacheResolvers engineapi.ConfigmapResolver,
 	forceDelay time.Duration,
 	config config.Configuration,
 	eventGen event.Interface,
@@ -92,13 +88,12 @@ func NewController(
 	c := controller{
 		client:                 client,
 		kyvernoClient:          kyvernoClient,
-		rclient:                rclient,
+		engine:                 engine,
 		polLister:              polInformer.Lister(),
 		cpolLister:             cpolInformer.Lister(),
 		bgscanrLister:          bgscanr.Lister(),
 		cbgscanrLister:         cbgscanr.Lister(),
 		nsLister:               nsInformer.Lister(),
-		polexLister:            polexLister,
 		queue:                  queue,
 		metadataCache:          metadataCache,
 		informerCacheResolvers: informerCacheResolvers,
@@ -309,7 +304,7 @@ func (c *controller) reconcileReport(
 	// calculate necessary results
 	for _, policy := range backgroundPolicies {
 		if full || actual[reportutils.PolicyLabel(policy)] != policy.GetResourceVersion() {
-			scanner := utils.NewScanner(logger, c.client, c.rclient, c.informerCacheResolvers, c.polexLister, c.config)
+			scanner := utils.NewScanner(logger, c.engine, c.config)
 			for _, result := range scanner.ScanResource(ctx, *target, nsLabels, policy) {
 				if result.Error != nil {
 					return result.Error

@@ -3,20 +3,21 @@ package utils
 import (
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func newPolicyResponse(policy, rule string, patchesStr []string, status engineapi.RuleStatus) engineapi.PolicyResponse {
+func newPolicyResponse(rule string, patchesStr []string, status engineapi.RuleStatus) engineapi.PolicyResponse {
 	var patches [][]byte
 	for _, p := range patchesStr {
 		patches = append(patches, []byte(p))
 	}
 
 	return engineapi.PolicyResponse{
-		Policy: engineapi.PolicySpec{Name: policy},
 		Rules: []engineapi.RuleResponse{
 			{
 				Name:    rule,
@@ -28,16 +29,21 @@ func newPolicyResponse(policy, rule string, patchesStr []string, status engineap
 }
 
 func newEngineResponse(policy, rule string, patchesStr []string, status engineapi.RuleStatus, annotation map[string]interface{}) *engineapi.EngineResponse {
-	return &engineapi.EngineResponse{
-		PatchedResource: unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"metadata": map[string]interface{}{
-					"annotations": annotation,
-				},
+	p := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: policy,
+		},
+	}
+	policyResponse := newPolicyResponse(rule, patchesStr, status)
+	response := engineapi.NewEngineResponse(unstructured.Unstructured{}, p, nil, &policyResponse)
+	response.PatchedResource = unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"annotations": annotation,
 			},
 		},
-		PolicyResponse: newPolicyResponse(policy, rule, patchesStr, status),
 	}
+	return response
 }
 
 func Test_empty_annotation(t *testing.T) {

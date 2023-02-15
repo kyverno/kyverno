@@ -138,7 +138,7 @@ func validateNilPattern(log logr.Logger, value interface{}) bool {
 	}
 }
 
-func validateMapPattern(log logr.Logger, value interface{}, typedPattern map[string]interface{}) bool {
+func validateMapPattern(log logr.Logger, value interface{}, _ map[string]interface{}) bool {
 	// verify the type of the resource value is map[string]interface,
 	// we only check for existence of object, not the equality of content and value
 	_, ok := value.(map[string]interface{})
@@ -313,8 +313,6 @@ func convertNumberToString(value interface{}) (string, error) {
 		return strconv.FormatInt(typed, 10), nil
 	case int:
 		return strconv.Itoa(typed), nil
-	case nil:
-		return "", fmt.Errorf("got empty string, expect %v", value)
 	default:
 		return "", fmt.Errorf("could not convert %v to string", typed)
 	}

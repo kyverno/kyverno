@@ -3,6 +3,7 @@ package jmespath
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"runtime"
 	"testing"
 
@@ -333,6 +334,65 @@ func Test_Trim(t *testing.T) {
 	assert.Equal(t, trim, "Hello, Gophers")
 }
 
+func Test_TrimPrefix(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{
+		{
+			name: "trims prefix",
+			args: args{
+				arguments: []interface{}{"¡¡¡Hello, Gophers!!!", "¡¡¡Hello, "},
+			},
+			want:    "Gophers!!!",
+			wantErr: false,
+		},
+		{
+			name: "does not trim prefix",
+			args: args{
+				arguments: []interface{}{"¡¡¡Hello, Gophers!!!", "¡¡¡Hola, "},
+			},
+			want:    "¡¡¡Hello, Gophers!!!",
+			wantErr: false,
+		},
+		{
+			name: "invalid first argument",
+			args: args{
+				arguments: []interface{}{1, "¡¡¡Hello, "},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid first argument",
+			args: args{
+				arguments: []interface{}{"¡¡¡Hello, Gophers!!!", 1},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfTrimPrefix(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfTrimPrefix() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfTrimPrefix() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func Test_Split(t *testing.T) {
 	jp, err := New("split('Hello, Gophers', ', ')")
 	assert.NilError(t, err)
@@ -565,576 +625,6 @@ func Test_JpToBoolean(t *testing.T) {
 		}
 	}
 }
-func Test_Add(t *testing.T) {
-	testCases := []struct {
-		name           string
-		test           string
-		expectedResult interface{}
-		err            bool
-		retFloat       bool
-	}{
-		// Scalar
-		{
-			name:           "Scalar + Scalar -> Scalar",
-			test:           "add(`12`, `13`)",
-			expectedResult: 25.0,
-			retFloat:       true,
-		},
-		{
-			name: "Scalar + Duration -> error",
-			test: "add('12', '13s')",
-			err:  true,
-		},
-		{
-			name: "Scalar + Quantity -> error",
-			test: "add(`12`, '13Ki')",
-			err:  true,
-		},
-		{
-			name: "Scalar + Quantity -> error",
-			test: "add(`12`, '13')",
-			err:  true,
-		},
-		// Quantity
-		{
-			name:           "Quantity + Quantity -> Quantity",
-			test:           "add('12Ki', '13Ki')",
-			expectedResult: `25Ki`,
-		},
-		{
-			name:           "Quantity + Quantity -> Quantity",
-			test:           "add('12Ki', '13')",
-			expectedResult: `12301`,
-		},
-		{
-			name: "Quantity + Duration -> error",
-			test: "add('12Ki', '13s')",
-			err:  true,
-		},
-		{
-			name: "Quantity + Scalar -> error",
-			test: "add('12Ki', `13`)",
-			err:  true,
-		},
-		// Duration
-		{
-			name:           "Duration + Duration -> Duration",
-			test:           "add('12s', '13s')",
-			expectedResult: `25s`,
-		},
-		{
-			name: "Duration + Scalar -> error",
-			test: "add('12s', '13')",
-			err:  true,
-		},
-		{
-			name: "Duration + Quantity -> error",
-			test: "add('12s', '13Ki')",
-			err:  true,
-		},
-		{
-			name: "Duration + Quantity -> error",
-			test: "add('12s', '13')",
-			err:  true,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
-			assert.NilError(t, err)
-
-			result, err := jp.Search("")
-			if !tc.err {
-				assert.NilError(t, err)
-			} else {
-				assert.Assert(t, err != nil)
-				return
-			}
-
-			if tc.retFloat {
-				equal, ok := result.(float64)
-				assert.Assert(t, ok)
-				assert.Equal(t, equal, tc.expectedResult.(float64))
-			} else {
-				equal, ok := result.(string)
-				assert.Assert(t, ok)
-				assert.Equal(t, equal, tc.expectedResult.(string))
-			}
-		})
-	}
-}
-
-func Test_Subtract(t *testing.T) {
-	testCases := []struct {
-		name           string
-		test           string
-		expectedResult interface{}
-		err            bool
-		retFloat       bool
-	}{
-		// Scalar
-		{
-			name:           "Scalar - Scalar -> Scalar",
-			test:           "subtract(`12`, `13`)",
-			expectedResult: -1.0,
-			retFloat:       true,
-		},
-		{
-			name: "Scalar - Duration -> error",
-			test: "subtract('12', '13s')",
-			err:  true,
-		},
-		{
-			name: "Scalar - Quantity -> error",
-			test: "subtract(`12`, '13Ki')",
-			err:  true,
-		},
-		{
-			name: "Scalar - Quantity -> error",
-			test: "subtract(`12`, '13')",
-			err:  true,
-		},
-		// Quantity
-		{
-			name:           "Quantity - Quantity -> Quantity",
-			test:           "subtract('12Ki', '13Ki')",
-			expectedResult: `-1Ki`,
-		},
-		{
-			name:           "Quantity - Quantity -> Quantity",
-			test:           "subtract('12Ki', '13')",
-			expectedResult: `12275`,
-		},
-		{
-			name: "Quantity - Duration -> error",
-			test: "subtract('12Ki', '13s')",
-			err:  true,
-		},
-		{
-			name: "Quantity - Scalar -> error",
-			test: "subtract('12Ki', `13`)",
-			err:  true,
-		},
-		// Duration
-		{
-			name:           "Duration - Duration -> Duration",
-			test:           "subtract('12s', '13s')",
-			expectedResult: `-1s`,
-		},
-		{
-			name: "Duration - Scalar -> error",
-			test: "subtract('12s', '13')",
-			err:  true,
-		},
-		{
-			name: "Duration - Quantity -> error",
-			test: "subtract('12s', '13Ki')",
-			err:  true,
-		},
-		{
-			name: "Duration - Quantity -> error",
-			test: "subtract('12s', '13')",
-			err:  true,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
-			assert.NilError(t, err)
-
-			result, err := jp.Search("")
-			if !tc.err {
-				assert.NilError(t, err)
-			} else {
-				assert.Assert(t, err != nil)
-				return
-			}
-
-			if tc.retFloat {
-				equal, ok := result.(float64)
-				assert.Assert(t, ok)
-				assert.Equal(t, equal, tc.expectedResult.(float64))
-			} else {
-				equal, ok := result.(string)
-				assert.Assert(t, ok)
-				assert.Equal(t, equal, tc.expectedResult.(string))
-			}
-		})
-	}
-}
-
-func Test_Multiply(t *testing.T) {
-	testCases := []struct {
-		name           string
-		test           string
-		expectedResult interface{}
-		err            bool
-		retFloat       bool
-	}{
-		// Quantity
-		{
-			name:           "Quantity * Scalar -> Quantity",
-			test:           "multiply('12Ki', `2`)",
-			expectedResult: `24Ki`,
-		},
-		{
-			name: "Quantity * Quantity -> error",
-			test: "multiply('12Ki', '12Ki')",
-			err:  true,
-		},
-		{
-			name: "Quantity * Quantity -> error",
-			test: "multiply('12Ki', '12')",
-			err:  true,
-		},
-		{
-			name: "Quantity * Duration -> error",
-			test: "multiply('12Ki', '12s')",
-			err:  true,
-		},
-		// Duration
-		{
-			name:           "Duration * Scalar -> Duration",
-			test:           "multiply('12s', `2`)",
-			expectedResult: `24s`,
-		},
-		{
-			name: "Duration * Quantity -> error",
-			test: "multiply('12s', '12Ki')",
-			err:  true,
-		},
-		{
-			name: "Duration * Quantity -> error",
-			test: "multiply('12s', '12')",
-			err:  true,
-		},
-		{
-			name: "Duration * Duration -> error",
-			test: "multiply('12s', '12s')",
-			err:  true,
-		},
-		// Scalar
-		{
-			name:           "Scalar * Scalar -> Scalar",
-			test:           "multiply(`2.5`, `2.5`)",
-			expectedResult: 2.5 * 2.5,
-			retFloat:       true,
-		},
-		{
-			name:           "Scalar * Quantity -> Quantity",
-			test:           "multiply(`2.5`, '12Ki')",
-			expectedResult: "30Ki",
-		},
-		{
-			name:           "Scalar * Quantity -> Quantity",
-			test:           "multiply(`2.5`, '12')",
-			expectedResult: "30",
-		},
-		{
-			name:           "Scalar * Duration -> Duration",
-			test:           "multiply(`2.5`, '40s')",
-			expectedResult: "1m40s",
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
-			assert.NilError(t, err)
-
-			result, err := jp.Search("")
-			if !tc.err {
-				assert.NilError(t, err)
-			} else {
-				assert.Assert(t, err != nil)
-				return
-			}
-
-			if tc.retFloat {
-				equal, ok := result.(float64)
-				assert.Assert(t, ok)
-				assert.Equal(t, equal, tc.expectedResult.(float64))
-			} else {
-				equal, ok := result.(string)
-				assert.Assert(t, ok)
-				assert.Equal(t, equal, tc.expectedResult.(string))
-			}
-		})
-	}
-}
-
-func Test_Divide(t *testing.T) {
-	testCases := []struct {
-		name           string
-		test           string
-		expectedResult interface{}
-		err            bool
-		retFloat       bool
-	}{
-		// Quantity
-		{
-			name:           "Quantity / Scalar -> Quantity",
-			test:           "divide('12Ki', `3`)",
-			expectedResult: "4Ki",
-		},
-		{
-			name:           "Quantity / Quantity -> Scalar",
-			test:           "divide('12Ki', '2Ki')",
-			expectedResult: 6.0,
-			retFloat:       true,
-		},
-		{
-			name:           "Quantity / Quantity -> Scalar",
-			test:           "divide('12Ki', '200')",
-			expectedResult: 61.0,
-			retFloat:       true,
-		},
-		{
-			name: "Quantity / Duration -> error",
-			test: "divide('12Ki', '2s')",
-			err:  true,
-		},
-		// Duration
-		{
-			name:           "Duration / Scalar -> Duration",
-			test:           "divide('12s', `3`)",
-			expectedResult: "4s",
-		},
-		{
-			name:           "Duration / Duration -> Scalar",
-			test:           "divide('12s', '5s')",
-			expectedResult: 2.4,
-			retFloat:       true,
-		},
-		{
-			name: "Duration / Quantity -> error",
-			test: "divide('12s', '4Ki')",
-			err:  true,
-		},
-		{
-			name: "Duration / Quantity -> error",
-			test: "divide('12s', '4')",
-			err:  true,
-		},
-		// Scalar
-		{
-			name:           "Scalar / Scalar -> Scalar",
-			test:           "divide(`14`, `3`)",
-			expectedResult: 4.666666666666667,
-			retFloat:       true,
-		},
-		{
-			name: "Scalar / Duration -> error",
-			test: "divide(`14`, '5s')",
-			err:  true,
-		},
-		{
-			name: "Scalar / Quantity -> error",
-			test: "divide(`14`, '5Ki')",
-			err:  true,
-		},
-		{
-			name: "Scalar / Quantity -> error",
-			test: "divide(`14`, '5')",
-			err:  true,
-		},
-		// Divide by 0
-		{
-			name: "Scalar / Zero -> error",
-			test: "divide(`14`, `0`)",
-			err:  true,
-		},
-		{
-			name: "Quantity / Zero -> error",
-			test: "divide('4Ki', `0`)",
-			err:  true,
-		},
-		{
-			name: "Quantity / Zero -> error",
-			test: "divide('4Ki', '0Ki')",
-			err:  true,
-		},
-		{
-			name: "Quantity / Zero -> error",
-			test: "divide('4', `0`)",
-			err:  true,
-		},
-		{
-			name: "Quantity / Zero -> error",
-			test: "divide('4', '0')",
-			err:  true,
-		},
-		{
-			name: "Duration / Zero -> error",
-			test: "divide('4s', `0`)",
-			err:  true,
-		},
-		{
-			name: "Duration / Zero -> error",
-			test: "divide('4s', '0s')",
-			err:  true,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
-			assert.NilError(t, err)
-
-			result, err := jp.Search("")
-			if !tc.err {
-				assert.NilError(t, err)
-			} else {
-				assert.Assert(t, err != nil)
-				return
-			}
-
-			if tc.retFloat {
-				equal, ok := result.(float64)
-				assert.Assert(t, ok)
-				assert.Equal(t, equal, tc.expectedResult.(float64))
-			} else {
-				equal, ok := result.(string)
-				assert.Assert(t, ok)
-				assert.Equal(t, equal, tc.expectedResult.(string))
-			}
-		})
-	}
-}
-
-func Test_Modulo(t *testing.T) {
-	testCases := []struct {
-		name           string
-		test           string
-		expectedResult interface{}
-		err            bool
-		retFloat       bool
-	}{
-		// Quantity
-		{
-			name: "Quantity % Duration -> error",
-			test: "modulo('12', '13s')",
-			err:  true,
-		},
-		{
-			name: "Quantity % Duration -> error",
-			test: "modulo('12Ki', '13s')",
-			err:  true,
-		},
-		{
-			name: "Quantity % Scalar -> error",
-			test: "modulo('12Ki', `13`)",
-			err:  true,
-		},
-		{
-			name:           "Quantity % Quantity -> Quantity",
-			test:           "modulo('12Ki', '5Ki')",
-			expectedResult: `2Ki`,
-		},
-		// Duration
-		{
-			name: "Duration % Quantity -> error",
-			test: "modulo('13s', '12')",
-			err:  true,
-		},
-		{
-			name: "Duration % Quantity -> error",
-			test: "modulo('13s', '12Ki')",
-			err:  true,
-		},
-		{
-			name:           "Duration % Duration -> Duration",
-			test:           "modulo('13s', '2s')",
-			expectedResult: `1s`,
-		},
-		{
-			name: "Duration % Scalar -> error",
-			test: "modulo('13s', `2`)",
-			err:  true,
-		},
-		// Scalar
-		{
-			name: "Scalar % Quantity -> error",
-			test: "modulo(`13`, '12')",
-			err:  true,
-		},
-		{
-			name: "Scalar % Quantity -> error",
-			test: "modulo(`13`, '12Ki')",
-			err:  true,
-		},
-		{
-			name: "Scalar % Duration -> error",
-			test: "modulo(`13`, '5s')",
-			err:  true,
-		},
-		{
-			name:           "Scalar % Scalar -> Scalar",
-			test:           "modulo(`13`, `5`)",
-			expectedResult: 3.0,
-			retFloat:       true,
-		},
-		// Modulo by 0
-		{
-			name: "Scalar % Zero -> error",
-			test: "modulo(`14`, `0`)",
-			err:  true,
-		},
-		{
-			name: "Quantity % Zero -> error",
-			test: "modulo('4Ki', `0`)",
-			err:  true,
-		},
-		{
-			name: "Quantity % Zero -> error",
-			test: "modulo('4Ki', '0Ki')",
-			err:  true,
-		},
-		{
-			name: "Quantity % Zero -> error",
-			test: "modulo('4', `0`)",
-			err:  true,
-		},
-		{
-			name: "Quantity % Zero -> error",
-			test: "modulo('4', '0')",
-			err:  true,
-		},
-		{
-			name: "Duration % Zero -> error",
-			test: "modulo('4s', `0`)",
-			err:  true,
-		},
-		{
-			name: "Duration % Zero -> error",
-			test: "modulo('4s', '0s')",
-			err:  true,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			jp, err := New(tc.test)
-			assert.NilError(t, err)
-
-			result, err := jp.Search("")
-			if !tc.err {
-				assert.NilError(t, err)
-			} else {
-				assert.Assert(t, err != nil)
-				return
-			}
-
-			if tc.retFloat {
-				equal, ok := result.(float64)
-				assert.Assert(t, ok)
-				assert.Equal(t, equal, tc.expectedResult.(float64))
-			} else {
-				equal, ok := result.(string)
-				assert.Assert(t, ok)
-				assert.Equal(t, equal, tc.expectedResult.(string))
-			}
-		})
-	}
-}
-
 func Test_Base64Decode(t *testing.T) {
 	jp, err := New("base64_decode('SGVsbG8sIHdvcmxkIQ==')")
 	assert.NilError(t, err)
@@ -1377,6 +867,12 @@ func Test_Items(t *testing.T) {
 			valName:        `"myValue"`,
 			expectedResult: `[{ "myKey": "key1", "myValue": "value1" }, { "myKey": "key2", "myValue": "value2" }]`,
 		},
+		{
+			object:         `["A", "B", "C"]`,
+			keyName:        `"myKey"`,
+			valName:        `"myValue"`,
+			expectedResult: `[{ "myKey": 0, "myValue": "A" }, { "myKey": 1, "myValue": "B" }, { "myKey": 2, "myValue": "C" }]`,
+		},
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
@@ -1501,36 +997,28 @@ UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 	testCases := []struct {
 		jmesPath       string
 		expectedResult map[string]interface{}
-	}{
-		{
-			jmesPath:       "x509_decode(base64_decode('" + certs[0] + "'))",
-			expectedResult: resExpected[0],
-		},
-		{
-			jmesPath:       "x509_decode(base64_decode('" + certs[1] + "'))",
-			expectedResult: resExpected[1],
-		},
-		{
-			jmesPath:       "x509_decode('" + certs[2] + "')",
-			expectedResult: resExpected[0],
-		},
-		{
-			jmesPath:       "x509_decode('" + certs[3] + "')",
-			expectedResult: resExpected[1],
-		},
-		{
-			jmesPath:       "x509_decode('" + certs[4] + "')",
-			expectedResult: resExpected[0],
-		},
-		{
-			jmesPath:       "x509_decode('" + certs[5] + "')",
-			expectedResult: resExpected[1],
-		},
-		{
-			jmesPath:       "x509_decode('xyz')",
-			expectedResult: map[string]interface{}{},
-		},
-	}
+	}{{
+		jmesPath:       "x509_decode(base64_decode('" + certs[0] + "'))",
+		expectedResult: resExpected[0],
+	}, {
+		jmesPath:       "x509_decode(base64_decode('" + certs[1] + "'))",
+		expectedResult: resExpected[1],
+	}, {
+		jmesPath:       "x509_decode('" + certs[2] + "')",
+		expectedResult: resExpected[0],
+	}, {
+		jmesPath:       "x509_decode('" + certs[3] + "')",
+		expectedResult: resExpected[1],
+	}, {
+		jmesPath:       "x509_decode('" + certs[4] + "')",
+		expectedResult: resExpected[0],
+	}, {
+		jmesPath:       "x509_decode('" + certs[5] + "')",
+		expectedResult: resExpected[1],
+	}, {
+		jmesPath:       "x509_decode('xyz')",
+		expectedResult: map[string]interface{}{},
+	}}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
 			jp, err := New(tc.jmesPath)
@@ -1544,6 +1032,366 @@ UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 			res, ok := result.(map[string]interface{})
 			assert.Assert(t, ok)
 			assert.DeepEqual(t, res, tc.expectedResult)
+		})
+	}
+}
+
+func Test_jpfCompare(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{"a", "b"},
+		},
+		want: -1,
+	}, {
+		args: args{
+			arguments: []interface{}{"b", "a"},
+		},
+		want: 1,
+	}, {
+		args: args{
+			arguments: []interface{}{"b", "b"},
+		},
+		want: 0,
+	}, {
+		args: args{
+			arguments: []interface{}{1, "b"},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{"a", 1},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfCompare(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfCompare() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfCompare() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpfEqualFold(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{"Go", "go"},
+		},
+		want: true,
+	}, {
+		args: args{
+			arguments: []interface{}{"a", "b"},
+		},
+		want: false,
+	}, {
+		args: args{
+			arguments: []interface{}{1, "b"},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{"a", 1},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfEqualFold(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfEqualFold() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfEqualFold() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpfReplace(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+				-1.0,
+			},
+		},
+		want: "Lorem muspi dolor sit amet",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+				-1.0,
+			},
+		},
+		want: "Lorem muspi muspi muspi dolor sit amet",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+				1.0,
+			},
+		},
+		want: "Lorem muspi ipsum ipsum dolor sit amet",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				1.0,
+				"ipsum",
+				"muspi",
+				1.0,
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				1.0,
+				"muspi",
+				1.0,
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				false,
+				1.0,
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+				true,
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfReplace(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfReplace() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfReplace() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpfReplaceAll(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+			},
+		},
+		want: "Lorem muspi dolor sit amet",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				"muspi",
+			},
+		},
+		want: "Lorem muspi muspi muspi dolor sit amet",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				1.0,
+				"ipsum",
+				"muspi",
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				1.0,
+				"muspi",
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"Lorem ipsum ipsum ipsum dolor sit amet",
+				"ipsum",
+				false,
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfReplaceAll(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfReplaceAll() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfReplaceAll() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpfToUpper(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"abc",
+			},
+		},
+		want: "ABC",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"123",
+			},
+		},
+		want: "123",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"a#%&123Bc",
+			},
+		},
+		want: "A#%&123BC",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				32.0,
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfToUpper(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfToUpper() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfToUpper() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpfToLower(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"ABC",
+			},
+		},
+		want: "abc",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"123",
+			},
+		},
+		want: "123",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"A#%&123BC",
+			},
+		},
+		want: "a#%&123bc",
+	}, {
+		args: args{
+			arguments: []interface{}{
+				32.0,
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpfToLower(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpfToLower() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpfToLower() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

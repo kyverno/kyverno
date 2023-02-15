@@ -2,9 +2,9 @@ package kube
 
 import (
 	"encoding/json"
+	"fmt"
 
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -18,7 +18,7 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 	}
 	err = json.Unmarshal(data, &secret)
 	if err != nil {
-		return *resource, errors.Wrap(err, "unable to convert object to secret")
+		return *resource, fmt.Errorf("unable to convert object to secret: %w", err)
 	}
 	stringSecret := struct {
 		Data map[string]string `json:"string_data"`
@@ -41,27 +41,27 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 	}
 	err = json.Unmarshal(raw, &updateSecret)
 	if err != nil {
-		return *resource, errors.Wrap(err, "unable to convert object from secret")
+		return *resource, fmt.Errorf("unable to convert object from secret: %w", err)
 	}
 	if secret.Data != nil {
 		v := updateSecret["string_data"].(map[string]interface{})
 		err = unstructured.SetNestedMap(resource.Object, v, "data")
 		if err != nil {
-			return *resource, errors.Wrap(err, "failed to set secret.data")
+			return *resource, fmt.Errorf("failed to set secret.data: %w", err)
 		}
 	}
 	if secret.Annotations != nil {
 		metadata, err := datautils.ToMap(resource.Object["metadata"])
 		if err != nil {
-			return *resource, errors.Wrap(err, "unable to convert metadata to map")
+			return *resource, fmt.Errorf("unable to convert metadata to map: %w", err)
 		}
 		updatedMeta := updateSecret["metadata"].(map[string]interface{})
 		if err != nil {
-			return *resource, errors.Wrap(err, "unable to convert object from secret")
+			return *resource, fmt.Errorf("unable to convert object from secret: %w", err)
 		}
 		err = unstructured.SetNestedMap(metadata, updatedMeta["annotations"].(map[string]interface{}), "annotations")
 		if err != nil {
-			return *resource, errors.Wrap(err, "failed to set secret.annotations")
+			return *resource, fmt.Errorf("failed to set secret.annotations: %w", err)
 		}
 	}
 	return *resource, nil

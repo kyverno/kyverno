@@ -1049,7 +1049,13 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 		},
 	}
 
-	cfg := config.NewDefaultConfiguration()
+	eng := engine.NewEngine(
+		config.NewDefaultConfiguration(),
+		nil,
+		registryclient.NewOrDie(),
+		engineapi.DefaultContextLoaderFactory(nil),
+		nil,
+	)
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			var policy kyvernov1.ClusterPolicy
@@ -1058,11 +1064,10 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
-			er := engine.Validate(
+			ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
+			er := eng.Validate(
 				context.TODO(),
-				registryclient.NewOrDie(),
-				engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels),
-				cfg,
+				ctx,
 			)
 			if tc.blocked && tc.messages != nil {
 				for _, r := range er.PolicyResponse.Rules {
@@ -1123,10 +1128,19 @@ func Test_RuleSelector(t *testing.T) {
 
 	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
-	cfg := config.NewDefaultConfiguration()
-	resp := engine.Validate(context.TODO(), registryclient.NewOrDie(), ctx, cfg)
-	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 2)
-	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
+	eng := engine.NewEngine(
+		config.NewDefaultConfiguration(),
+		nil,
+		registryclient.NewOrDie(),
+		engineapi.DefaultContextLoaderFactory(nil),
+		nil,
+	)
+	resp := eng.Validate(
+		context.TODO(),
+		ctx,
+	)
+	assert.Assert(t, resp.PolicyResponse.Stats.RulesAppliedCount == 2)
+	assert.Assert(t, resp.PolicyResponse.Stats.RulesErrorCount == 0)
 
 	log := log.WithName("Test_RuleSelector")
 	blocked := webhookutils.BlockRequest([]*engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
@@ -1134,10 +1148,12 @@ func Test_RuleSelector(t *testing.T) {
 
 	applyOne := kyvernov1.ApplyOne
 	policy.Spec.ApplyRules = &applyOne
-
-	resp = engine.Validate(context.TODO(), registryclient.NewOrDie(), ctx, cfg)
-	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)
-	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
+	resp = eng.Validate(
+		context.TODO(),
+		ctx,
+	)
+	assert.Assert(t, resp.PolicyResponse.Stats.RulesAppliedCount == 1)
+	assert.Assert(t, resp.PolicyResponse.Stats.RulesErrorCount == 0)
 
 	blocked = webhookutils.BlockRequest([]*engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == false)

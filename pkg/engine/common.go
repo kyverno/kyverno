@@ -3,20 +3,23 @@ package engine
 import (
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // GetSubresourceGVKToAPIResourceMap returns a map of subresource GVK to APIResource. This is used to determine if a resource is a subresource.
-func GetSubresourceGVKToAPIResourceMap(kindsInPolicy []string, ctx *PolicyContext) map[string]*metav1.APIResource {
+func GetSubresourceGVKToAPIResourceMap(client dclient.Interface, kindsInPolicy []string, ctx engineapi.PolicyContext) map[string]*metav1.APIResource {
 	subresourceGVKToAPIResource := make(map[string]*metav1.APIResource)
 	for _, gvk := range kindsInPolicy {
 		gv, k := kubeutils.GetKindFromGVK(gvk)
 		parentKind, subresource := kubeutils.SplitSubresource(k)
 		// Len of subresources is non zero only when validation request was sent from CLI without connecting to the cluster.
-		if len(ctx.subresourcesInPolicy) != 0 {
+		subresourcesInPolicy := ctx.SubresourcesInPolicy()
+		if len(subresourcesInPolicy) != 0 {
 			if subresource != "" {
-				for _, subresourceInPolicy := range ctx.subresourcesInPolicy {
+				for _, subresourceInPolicy := range subresourcesInPolicy {
 					parentResourceGroupVersion := metav1.GroupVersion{
 						Group:   subresourceInPolicy.ParentResource.Group,
 						Version: subresourceInPolicy.ParentResource.Version,
@@ -31,7 +34,7 @@ func GetSubresourceGVKToAPIResourceMap(kindsInPolicy []string, ctx *PolicyContex
 					}
 				}
 			} else { // Complete kind may be a subresource, for eg- 'PodExecOptions'
-				for _, subresourceInPolicy := range ctx.subresourcesInPolicy {
+				for _, subresourceInPolicy := range subresourcesInPolicy {
 					// Subresources which can be just specified by kind, for eg- 'PodExecOptions'
 					// have different kind than their parent resource. Otherwise for subresources which
 					// have same kind as parent resource, need to be specified as Kind/Subresource, eg - 'Pod/status'
@@ -48,9 +51,9 @@ func GetSubresourceGVKToAPIResourceMap(kindsInPolicy []string, ctx *PolicyContex
 					}
 				}
 			}
-		} else if ctx.client != nil {
+		} else if client != nil {
 			// find the resource from API client
-			apiResource, _, _, err := ctx.client.Discovery().FindResource(gv, k)
+			apiResource, _, _, err := client.Discovery().FindResource(gv, k)
 			if err == nil {
 				if kubeutils.IsSubresource(apiResource.Name) {
 					subresourceGVKToAPIResource[gvk] = apiResource

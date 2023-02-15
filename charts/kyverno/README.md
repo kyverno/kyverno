@@ -186,7 +186,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | initImage.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
-| initContainer.extraArgs | list | `["--loggingFormat=text","--exceptionNamespace={{ include \"kyverno.namespace\" . }}"]` | Extra arguments to give to the kyvernopre binary. |
+| initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
 | replicaCount | int | `nil` | Desired number of pods |
 | podLabels | object | `{}` | Additional labels to add to each pod |
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |
@@ -242,6 +242,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 | tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
+| sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
 | grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
 | grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
@@ -354,6 +355,56 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.metering.port | int | `8000` | Prometheus endpoint port |
 | reportsController.metering.collector | string | `""` | Otel collector endpoint |
 | reportsController.metering.creds | string | `""` | Otel collector credentials |
+| backgroundController.enabled | bool | `true` | Enable background controller. |
+| backgroundController.rbac.create | bool | `true` | Create RBAC resources |
+| backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
+| backgroundController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
+| backgroundController.image.registry | string | `nil` | Image registry |
+| backgroundController.image.repository | string | `"ghcr.io/kyverno/background-controller"` | Image repository |
+| backgroundController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| backgroundController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| backgroundController.image.pullSecrets | list | `[]` | Image pull secrets |
+| backgroundController.replicas | int | `nil` | Desired number of pods |
+| backgroundController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
+| backgroundController.priorityClassName | string | `""` | Optional priority class |
+| backgroundController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
+| backgroundController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
+| backgroundController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| backgroundController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
+| backgroundController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
+| backgroundController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| backgroundController.tolerations | list | `[]` | List of node taints to tolerate |
+| backgroundController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
+| backgroundController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
+| backgroundController.podAffinity | object | `{}` | Pod affinity constraints. |
+| backgroundController.nodeAffinity | object | `{}` | Node affinity constraints. |
+| backgroundController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
+| backgroundController.podSecurityContext | object | `{}` | Security context for the pod |
+| backgroundController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| backgroundController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
+| backgroundController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
+| backgroundController.metricsService.create | bool | `true` | Create service. |
+| backgroundController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
+| backgroundController.metricsService.type | string | `"ClusterIP"` | Service type. |
+| backgroundController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
+| backgroundController.metricsService.annotations | object | `{}` | Service annotations. |
+| backgroundController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| backgroundController.serviceMonitor.additionalLabels | string | `nil` | Additional labels |
+| backgroundController.serviceMonitor.namespace | string | `nil` | Override namespace (default is the same as kyverno) |
+| backgroundController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
+| backgroundController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
+| backgroundController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
+| backgroundController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| backgroundController.tracing.enabled | bool | `false` | Enable tracing |
+| backgroundController.tracing.address | string | `nil` | Traces receiver address |
+| backgroundController.tracing.port | string | `nil` | Traces receiver port |
+| backgroundController.tracing.creds | string | `""` | Traces receiver credentials |
+| backgroundController.logging.format | string | `"text"` | Logging format |
+| backgroundController.metering.disabled | bool | `false` | Disable metrics export |
+| backgroundController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
+| backgroundController.metering.port | int | `8000` | Prometheus endpoint port |
+| backgroundController.metering.collector | string | `""` | Otel collector endpoint |
+| backgroundController.metering.creds | string | `""` | Otel collector credentials |
 
 ## TLS Configuration
 
