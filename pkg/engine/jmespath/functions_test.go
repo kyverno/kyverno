@@ -611,7 +611,6 @@ func Test_JpToBoolean(t *testing.T) {
 		{1, nil, true},
 		{nil, nil, true},
 	}
-
 	for _, tc := range testCases {
 		res, err := jpToBoolean([]interface{}{tc.input})
 		if tc.err && err == nil {

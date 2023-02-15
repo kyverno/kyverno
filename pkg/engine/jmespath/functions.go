@@ -49,6 +49,7 @@ var (
 	regexMatch             = "regex_match"
 	patternMatch           = "pattern_match"
 	labelMatch             = "label_match"
+	ToBoolean              = "to_boolean"
 	add                    = "add"
 	subtract               = "subtract"
 	multiply               = "multiply"
@@ -737,9 +738,6 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 }
 
 func jpToBoolean(validateArg []interface{}) (interface{}, error) {
-	if len(validateArg) != 1 {
-		return nil, fmt.Errorf("jpToBoolean: expected 1 argument, got %d", len(validateArg))
-	}
 	str, ok := validateArg[0].(string)
 	if !ok {
 		return nil, fmt.Errorf("jpToBoolean: argument must be a string")
@@ -754,8 +752,8 @@ func jpToBoolean(validateArg []interface{}) (interface{}, error) {
 		return nil, err
 	}
 	return b, nil
-
 }
+
 func jpAdd(arguments []interface{}) (interface{}, error) {
 	op1, op2, err := ParseArithemticOperands(arguments, add)
 	if err != nil {
