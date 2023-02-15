@@ -51,8 +51,6 @@ type handlers struct {
 
 	// listers
 	nsLister    corev1listers.NamespaceLister
-	rbLister    rbacv1listers.RoleBindingLister
-	crbLister   rbacv1listers.ClusterRoleBindingLister
 	urLister    kyvernov1beta1listers.UpdateRequestNamespaceLister
 	polexLister engine.PolicyExceptionLister
 
@@ -91,8 +89,6 @@ func NewHandlers(
 		metricsConfig:    metricsConfig,
 		pCache:           pCache,
 		nsLister:         nsLister,
-		rbLister:         rbLister,
-		crbLister:        crbLister,
 		urLister:         urLister,
 		polexLister:      polexLister,
 		urGenerator:      urGenerator,
