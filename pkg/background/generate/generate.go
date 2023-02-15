@@ -328,7 +328,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			return nil, processExisting, err
 		}
 
-		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
+		if policy.GetSpec().IsGenerateExisting() || !processExisting {
 			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
 			if err != nil {
 				log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
@@ -339,7 +339,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			genResources = append(genResources, genResource...)
 		}
 
-		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
+		if policy.GetSpec().IsGenerateExisting() {
 			processExisting = false
 		}
 
@@ -460,7 +460,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 		label := newResource.GetLabels()
 
 		// Add background gen-rule label if generate rule applied on existing resource
-		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
+		if policy.GetSpec().IsGenerateExisting() {
 			label[LabelBackgroundGenRuleName] = rule.Name
 		}
 

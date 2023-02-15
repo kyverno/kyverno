@@ -427,8 +427,8 @@ func (pc *PolicyController) requeuePolicies() {
 func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("updateUR").WithName(policyKey)
 
-	if !policy.GetSpec().MutateExistingOnPolicyUpdate && !policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
-		logger.V(4).Info("skip policy application on policy event", "policyKey", policyKey, "mutateExiting", policy.GetSpec().MutateExistingOnPolicyUpdate, "generateExisting", policy.GetSpec().IsGenerateExistingOnPolicyUpdate())
+	if !policy.GetSpec().MutateExistingOnPolicyUpdate && !policy.GetSpec().IsGenerateExisting() {
+		logger.V(4).Info("skip policy application on policy event", "policyKey", policyKey, "mutateExiting", policy.GetSpec().MutateExistingOnPolicyUpdate, "generateExisting", policy.GetSpec().IsGenerateExisting())
 		return nil
 	}
 
@@ -470,7 +470,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 			}
 		}
 
-		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
+		if policy.GetSpec().IsGenerateExisting() {
 			ruleType = kyvernov1beta1.Generate
 			triggers := generateTriggers(pc.client, rule, pc.log)
 			for _, trigger := range triggers {
