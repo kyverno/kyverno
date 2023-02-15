@@ -21,6 +21,7 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
 
 // DebugModeOptions holds the options to configure debug mode
@@ -78,6 +79,8 @@ func NewServer(
 	vwcClient controllerutils.DeleteCollectionClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease],
 	runtime runtimeutils.Runtime,
+	rbLister rbacv1listers.RoleBindingLister,
+	crbLister rbacv1listers.ClusterRoleBindingLister,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -93,7 +96,7 @@ func NewServer(
 			return handler.
 				WithFilter(configuration).
 				WithProtection(toggle.ProtectManagedResources.Enabled()).
-				WithDump(debugModeOpts.DumpPayload).
+				WithDump(debugModeOpts.DumpPayload, rbLister, crbLister, configuration).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
 				WithAdmission(resourceLogger.WithName("mutate"))
@@ -108,7 +111,7 @@ func NewServer(
 			return handler.
 				WithFilter(configuration).
 				WithProtection(toggle.ProtectManagedResources.Enabled()).
-				WithDump(debugModeOpts.DumpPayload).
+				WithDump(debugModeOpts.DumpPayload, rbLister, crbLister, configuration).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
 				WithAdmission(resourceLogger.WithName("validate"))
 		},
@@ -117,7 +120,7 @@ func NewServer(
 		"POST",
 		config.PolicyMutatingWebhookServicePath,
 		handlers.FromAdmissionFunc("MUTATE", policyHandlers.Mutate).
-			WithDump(debugModeOpts.DumpPayload).
+			WithDump(debugModeOpts.DumpPayload, rbLister, crbLister, configuration).
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookMutating).
 			WithAdmission(policyLogger.WithName("mutate")).
 			ToHandlerFunc(),
@@ -126,7 +129,7 @@ func NewServer(
 		"POST",
 		config.PolicyValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
-			WithDump(debugModeOpts.DumpPayload).
+			WithDump(debugModeOpts.DumpPayload, rbLister, crbLister, configuration).
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
@@ -136,7 +139,7 @@ func NewServer(
 		"POST",
 		config.ExceptionValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", exceptionHandlers.Validate).
-			WithDump(debugModeOpts.DumpPayload).
+			WithDump(debugModeOpts.DumpPayload, rbLister, crbLister, configuration).
 			WithSubResourceFilter().
 			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(exceptionLogger.WithName("validate")).
