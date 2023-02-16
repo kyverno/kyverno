@@ -126,12 +126,12 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) ([]string, error) {
 	var warnings []string
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
+	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if !mock {
 		openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
 	}
@@ -145,8 +145,8 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		return warnings, err
 	}
 
-	if onPolicyUpdate {
-		err := ValidateOnPolicyUpdate(policy, onPolicyUpdate)
+	if mutateExistingOnPolicyUpdate {
+		err := ValidateOnPolicyUpdate(policy, mutateExistingOnPolicyUpdate)
 		if err != nil {
 			return warnings, err
 		}
@@ -432,6 +432,13 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			return warnings, err
 		}
 	}
+
+	if oldPolicy != nil {
+		if err := immutableGenerateFields(policy, oldPolicy); err != nil {
+			return warnings, err
+		}
+	}
+
 	return warnings, nil
 }
 
@@ -1381,4 +1388,31 @@ func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings 
 		msg := "You are matching on status but not including the status subresource in the policy."
 		*warnings = append(*warnings, msg)
 	}
+}
+
+func immutableGenerateFields(new, old kyvernov1.PolicyInterface) error {
+	if !new.GetSpec().HasGenerate() {
+		return nil
+	}
+
+	oldRuleNames := make(map[string]kyvernov1.ResourceSpec, len(old.GetSpec().Rules))
+	for _, rule := range old.GetSpec().Rules {
+		oldRuleNames[rule.Name] = rule.Generation.ResourceSpec
+	}
+
+	newRuleNames := make(map[string]kyvernov1.ResourceSpec, len(new.GetSpec().Rules))
+	for _, rule := range new.GetSpec().Rules {
+		newRuleNames[rule.Name] = rule.Generation.ResourceSpec
+	}
+
+	for oldName, oldDownstream := range oldRuleNames {
+		newDownstream, ok := newRuleNames[oldName]
+		if !ok {
+			return fmt.Errorf("rule name cannot be changed: %v", oldName)
+		}
+		if oldDownstream != newDownstream {
+			return fmt.Errorf("downstream cannot be changed: %v", oldDownstream.String())
+		}
+	}
+	return nil
 }
