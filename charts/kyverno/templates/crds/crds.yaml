@@ -30251,7 +30251,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec is the information to identify the trigger resource.
+            description: ResourceSpec is the information to identify the trigger resource.
             properties:
               context:
                 description: Context ...
@@ -30516,8 +30516,8 @@ spec:
                 - generate
                 type: string
               resource:
-                description: ResourceSpec is the information to identify the update
-                  request.
+                description: ResourceSpec is the information to identify the trigger
+                  resource.
                 properties:
                   apiVersion:
                     description: APIVersion specifies resource apiVersion.
