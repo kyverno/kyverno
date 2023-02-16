@@ -101,6 +101,7 @@ func ProcessCleanupResponse(ctx context.Context, m metrics.MetricsConfigManager,
 		resourceKind, resourceNamespace,
 		resourceRequestOperation,
 		cleanupResult,
+		policyResponse.DeletedObjects,
 	)
 	return nil
 }
@@ -113,11 +114,12 @@ func registerCleanupPolicyResultsMetric(
 	resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
 	cleanupResult metrics.CleanupResult,
+	deleted int,
 ) {
 	if policyType == metrics.Cluster {
 		policyNamespace = "-"
 	}
 	if m.Config().CheckNamespace(policyNamespace) {
-		m.RecordCleanupResults(ctx, policyType, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, cleanupResult)
+		m.RecordCleanupResults(ctx, policyType, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, cleanupResult, deleted)
 	}
 }

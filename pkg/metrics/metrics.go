@@ -44,7 +44,7 @@ type MetricsConfig struct {
 type MetricsConfigManager interface {
 	Config() kconfig.MetricsConfiguration
 	RecordPolicyResults(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause)
-	RecordCleanupResults(ctx context.Context, policyType PolicyType, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, cleanupResult CleanupResult)
+	RecordCleanupResults(ctx context.Context, policyType PolicyType, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, cleanupResult CleanupResult, deleted int)
 	RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
 	RecordPolicyExecutionDuration(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64)
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
@@ -193,7 +193,7 @@ func (m *MetricsConfig) RecordPolicyResults(ctx context.Context, policyValidatio
 	m.policyResultsMetric.Add(ctx, 1, commonLabels...)
 }
 
-func (m *MetricsConfig) RecordCleanupResults(ctx context.Context, policyType PolicyType, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, cleanupResult CleanupResult) {
+func (m *MetricsConfig) RecordCleanupResults(ctx context.Context, policyType PolicyType, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, cleanupResult CleanupResult, deleted int) {
 	commonLabels := []attribute.KeyValue{
 		attribute.String("policy_type", string(policyType)),
 		attribute.String("policy_namespace", policyNamespace),
@@ -202,6 +202,7 @@ func (m *MetricsConfig) RecordCleanupResults(ctx context.Context, policyType Pol
 		attribute.String("resource_namespace", resourceNamespace),
 		attribute.String("resource_request_operation", string(resourceRequestOperation)),
 		attribute.String("cleanup_result", string(cleanupResult)),
+		attribute.Int("deleted_objects", deleted),
 	}
 	m.policyResultsMetric.Add(ctx, 1, commonLabels...)
 }
