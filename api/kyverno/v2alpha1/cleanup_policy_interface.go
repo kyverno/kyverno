@@ -11,6 +11,7 @@ import (
 type CleanupPolicyInterface interface {
 	metav1.Object
 	GetSpec() *CleanupPolicySpec
+	IsNamespaced() bool
 	GetStatus() *CleanupPolicyStatus
 	Validate(sets.Set[string]) field.ErrorList
 	GetKind() string

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/metrics"
 )
@@ -75,4 +76,48 @@ func ProcessEngineResponse(ctx context.Context, m metrics.MetricsConfigManager, 
 		)
 	}
 	return nil
+}
+
+func ProcessCleanupResponse(ctx context.Context, m metrics.MetricsConfigManager, policy kyvernov2alpha1.CleanupPolicyInterface, cleanupResponse engineapi.CleanupResponse, resourceRequestOperation metrics.ResourceRequestOperation) error {
+	name := policy.GetName()
+	namespace := ""
+	policyType := metrics.Cluster
+	if policy.IsNamespaced() {
+		namespace = policy.GetNamespace()
+		policyType = metrics.Namespaced
+	}
+	policyResponse := cleanupResponse.PolicyResponse
+	resourceSpec := policyResponse.Resource
+	resourceKind := resourceSpec.GetKind()
+	resourceNamespace := resourceSpec.GetNamespace()
+
+	// TODO
+	var cleanupResult metrics.CleanupResult = ""
+	registerCleanupPolicyResultsMetric(
+		ctx,
+		m,
+		policyType,
+		namespace, name,
+		resourceKind, resourceNamespace,
+		resourceRequestOperation,
+		cleanupResult,
+	)
+	return nil
+}
+
+func registerCleanupPolicyResultsMetric(
+	ctx context.Context,
+	m metrics.MetricsConfigManager,
+	policyType metrics.PolicyType,
+	policyNamespace, policyName string,
+	resourceKind, resourceNamespace string,
+	resourceRequestOperation metrics.ResourceRequestOperation,
+	cleanupResult metrics.CleanupResult,
+) {
+	if policyType == metrics.Cluster {
+		policyNamespace = "-"
+	}
+	if m.Config().CheckNamespace(policyNamespace) {
+		m.RecordCleanupResults(ctx, policyType, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, cleanupResult)
+	}
 }

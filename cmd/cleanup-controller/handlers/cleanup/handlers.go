@@ -10,10 +10,13 @@ import (
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,6 +33,7 @@ type handlers struct {
 	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
 	recorder   record.EventRecorder
+	metrics    metrics.MetricsConfigManager
 }
 
 func New(
@@ -37,6 +41,7 @@ func New(
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister,
 	polLister kyvernov2alpha1listers.CleanupPolicyLister,
 	nsLister corev1listers.NamespaceLister,
+	metricsConfig metrics.MetricsConfigManager,
 ) *handlers {
 	return &handlers{
 		client:     client,
@@ -44,6 +49,7 @@ func New(
 		polLister:  polLister,
 		nsLister:   nsLister,
 		recorder:   event.NewRecorder(event.CleanupController, client.GetEventsInterface()),
+		metrics:    metricsConfig,
 	}
 }
 
@@ -74,6 +80,9 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 	kinds := sets.New(spec.MatchResources.GetKinds()...)
 	debug := logger.V(4)
 	var errs []error
+	cleanupResp := engineapi.CleanupResponse{}
+	resp := engineapi.CleanupPolicyResponse{}
+	cleanupResp.PolicyResponse = resp
 	for kind := range kinds {
 		debug := debug.WithValues("kind", kind)
 		debug.Info("processing...")
@@ -166,16 +175,19 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						}
 					}
 					logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
+					resp.Resource = resource
 					if err := h.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
 						debug.Error(err, "failed to delete resource")
 						errs = append(errs, err)
 						h.createEvent(policy, resource, err)
 					} else {
+						resp.DeletedObjects++
 						debug.Info("deleted")
 						h.createEvent(policy, resource, nil)
 					}
 				}
 			}
+			webhookutils.RegisterPolicyResultsMetricCleanUp(ctx, logger, h.metrics, "DELETE", policy, cleanupResp)
 		}
 	}
 	return multierr.Combine(errs...)

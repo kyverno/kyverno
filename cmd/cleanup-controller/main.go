@@ -193,7 +193,7 @@ func main() {
 	}
 	// create handlers
 	admissionHandlers := admissionhandlers.New(dClient)
-	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister, nsLister)
+	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister, nsLister, metricsConfig)
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {

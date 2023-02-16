@@ -44,6 +44,7 @@ type MetricsConfig struct {
 type MetricsConfigManager interface {
 	Config() kconfig.MetricsConfiguration
 	RecordPolicyResults(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause)
+	RecordCleanupResults(ctx context.Context, policyType PolicyType, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, cleanupResult CleanupResult)
 	RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
 	RecordPolicyExecutionDuration(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64)
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
@@ -188,6 +189,19 @@ func (m *MetricsConfig) RecordPolicyResults(ctx context.Context, policyValidatio
 		attribute.String("rule_result", string(ruleResult)),
 		attribute.String("rule_type", string(ruleType)),
 		attribute.String("rule_execution_cause", string(ruleExecutionCause)),
+	}
+	m.policyResultsMetric.Add(ctx, 1, commonLabels...)
+}
+
+func (m *MetricsConfig) RecordCleanupResults(ctx context.Context, policyType PolicyType, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, cleanupResult CleanupResult) {
+	commonLabels := []attribute.KeyValue{
+		attribute.String("policy_type", string(policyType)),
+		attribute.String("policy_namespace", policyNamespace),
+		attribute.String("policy_name", policyName),
+		attribute.String("resource_kind", resourceKind),
+		attribute.String("resource_namespace", resourceNamespace),
+		attribute.String("resource_request_operation", string(resourceRequestOperation)),
+		attribute.String("cleanup_result", string(cleanupResult)),
 	}
 	m.policyResultsMetric.Add(ctx, 1, commonLabels...)
 }

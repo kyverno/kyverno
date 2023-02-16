@@ -41,6 +41,15 @@ const (
 	Skip  RuleResult = "skip"
 )
 
+type CleanupResult string
+
+const (
+	CleanupPass  CleanupResult = "pass"
+	CleanupFail  CleanupResult = "fail"
+	CleanupError CleanupResult = "error"
+	CleanupSkip  CleanupResult = "skip"
+)
+
 type RuleExecutionCause string
 
 const (

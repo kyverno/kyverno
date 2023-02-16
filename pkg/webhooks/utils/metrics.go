@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	policyExecutionDuration "github.com/kyverno/kyverno/pkg/metrics/policyexecutionduration"
@@ -41,6 +42,12 @@ func RegisterPolicyResultsMetricValidation(ctx context.Context, logger logr.Logg
 func RegisterPolicyResultsMetricGeneration(ctx context.Context, logger logr.Logger, metricsConfig metrics.MetricsConfigManager, requestOperation string, policy kyvernov1.PolicyInterface, engineResponse engineapi.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
 		return policyResults.ProcessEngineResponse(ctx, metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
+	})
+}
+
+func RegisterPolicyResultsMetricCleanUp(ctx context.Context, logger logr.Logger, metricsConfig metrics.MetricsConfigManager, requestOperation string, policy kyvernov2alpha1.CleanupPolicyInterface, cleanupResponse engineapi.CleanupResponse) {
+	registerMetric(logger, "kyverno_cleanup_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return policyResults.ProcessCleanupResponse(ctx, metricsConfig, policy, cleanupResponse, op)
 	})
 }
 
