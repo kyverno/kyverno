@@ -32,8 +32,6 @@ import (
 )
 
 type GenerationHandler interface {
-	// TODO: why do we need to expose that ?
-	HandleUpdatesForGenerateRules(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface)
 	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time)
 }
 
@@ -127,12 +125,12 @@ func (h *generationHandler) Handle(
 	}
 
 	if request.Operation == admissionv1.Update {
-		h.HandleUpdatesForGenerateRules(ctx, request, policies)
+		h.handleUpdatesForGenerateRules(ctx, request, policies)
 	}
 }
 
-// HandleUpdatesForGenerateRules handles admission-requests for update
-func (h *generationHandler) HandleUpdatesForGenerateRules(ctx context.Context, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface) {
+// handleUpdatesForGenerateRules handles admission-requests for update
+func (h *generationHandler) handleUpdatesForGenerateRules(ctx context.Context, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface) {
 	if request.Operation != admissionv1.Update {
 		return
 	}

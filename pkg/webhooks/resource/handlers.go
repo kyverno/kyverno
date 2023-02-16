@@ -25,7 +25,6 @@ import (
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/webhooks"
-	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
@@ -113,11 +112,6 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 
 	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
-	}
-	if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
-		// handle generate source resource updates
-		gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.urGenerator, h.urUpdater, h.eventGen, h.metricsConfig)
-		go gh.HandleUpdatesForGenerateRules(context.TODO(), request, []kyvernov1.PolicyInterface{})
 	}
 
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
