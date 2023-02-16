@@ -7,10 +7,9 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"go.uber.org/multierr"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -63,7 +62,7 @@ func (pc *PolicyController) handleGenerate(policyKey string, policy kyvernov1.Po
 }
 
 func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
-	generateURs, err := pc.urLister.List(labels.SelectorFromSet(backgroundcommon.GenerateLabelsSet(policyKey, trigger)))
+	generateURs, err := pc.urLister.List(labels.SelectorFromSet(common.GenerateLabelsSet(policyKey, trigger)))
 	if err != nil {
 		pc.log.Error(err, "failed to list update request for generate policy")
 	}
@@ -86,13 +85,13 @@ func (pc *PolicyController) createUR(policy kyvernov1.PolicyInterface, rule kyve
 		labels := downstream.GetLabels()
 		trigger := TriggerFromLabels(labels)
 		ur := newUR(policy, trigger, kyvernov1beta1.Generate)
-		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, v1.CreateOptions{})
+		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
 		updated := created.DeepCopy()
 		updated.Status.State = kyvernov1beta1.Pending
-		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, v1.UpdateOptions{})
+		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
