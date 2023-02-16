@@ -10,6 +10,8 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -50,8 +52,10 @@ type handlers struct {
 	pCache policycache.Cache
 
 	// listers
-	nsLister corev1listers.NamespaceLister
-	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
+	nsLister   corev1listers.NamespaceLister
+	urLister   kyvernov1beta1listers.UpdateRequestNamespaceLister
+	cpolLister kyvernov1listers.ClusterPolicyLister
+	polLister  kyvernov1listers.PolicyLister
 
 	urGenerator    webhookgenerate.Generator
 	eventGen       event.Interface
@@ -74,6 +78,8 @@ func NewHandlers(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
+	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	polInformer kyvernov1informers.PolicyInformer,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	openApiManager openapi.ValidateInterface,
@@ -89,6 +95,8 @@ func NewHandlers(
 		pCache:           pCache,
 		nsLister:         nsLister,
 		urLister:         urLister,
+		cpolLister:       cpolInformer.Lister(),
+		polLister:        polInformer.Lister(),
 		urGenerator:      urGenerator,
 		eventGen:         eventGen,
 		openApiManager:   openApiManager,
@@ -135,7 +143,7 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 	}
 
 	defer h.handleDelete(logger, request)
-	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
+	go h.handleBackgroundApplies(ctx, logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }

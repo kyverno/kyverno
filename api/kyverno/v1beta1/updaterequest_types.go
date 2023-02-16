@@ -59,7 +59,7 @@ type UpdateRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Spec is the information to identify the update request.
+	// ResourceSpec is the information to identify the trigger resource.
 	Spec UpdateRequestSpec `json:"spec,omitempty"`
 
 	// Status contains statistics related to update request.
@@ -90,7 +90,7 @@ type UpdateRequestSpec struct {
 	// Optional. Defaults to "false" if not specified.
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
-	// ResourceSpec is the information to identify the update request.
+	// ResourceSpec is the information to identify the trigger resource.
 	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
 
 	// Context ...

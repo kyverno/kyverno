@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	gen "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -33,6 +34,7 @@ import (
 
 type GenerationHandler interface {
 	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time)
+	HandleNew(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext)
 }
 
 func NewGenerationHandler(
@@ -42,6 +44,8 @@ func NewGenerationHandler(
 	kyvernoClient versioned.Interface,
 	nsLister corev1listers.NamespaceLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
+	cpolLister kyvernov1listers.ClusterPolicyLister,
+	polLister kyvernov1listers.PolicyLister,
 	urGenerator webhookgenerate.Generator,
 	urUpdater webhookutils.UpdateRequestUpdater,
 	eventGen event.Interface,
@@ -54,6 +58,8 @@ func NewGenerationHandler(
 		kyvernoClient: kyvernoClient,
 		nsLister:      nsLister,
 		urLister:      urLister,
+		cpolLister:    cpolLister,
+		polLister:     polLister,
 		urGenerator:   urGenerator,
 		urUpdater:     urUpdater,
 		eventGen:      eventGen,
@@ -68,6 +74,8 @@ type generationHandler struct {
 	kyvernoClient versioned.Interface
 	nsLister      corev1listers.NamespaceLister
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
+	cpolLister    kyvernov1listers.ClusterPolicyLister
+	polLister     kyvernov1listers.PolicyLister
 	urGenerator   webhookgenerate.Generator
 	urUpdater     webhookutils.UpdateRequestUpdater
 	eventGen      event.Interface

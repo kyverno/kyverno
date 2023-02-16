@@ -30251,7 +30251,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec is the information to identify the update request.
+            description: Spec is the information to identify the trigger resource.
             properties:
               context:
                 description: Context ...

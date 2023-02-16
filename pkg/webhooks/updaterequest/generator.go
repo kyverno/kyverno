@@ -40,7 +40,7 @@ func NewGenerator(client versioned.Interface, urInformer kyvernov1beta1informers
 
 // Apply creates update request resource
 func (g *generator) Apply(ctx context.Context, ur kyvernov1beta1.UpdateRequestSpec, action admissionv1.Operation) error {
-	logger.V(4).Info("reconcile Update Request", "request", ur)
+	logger.V(4).Info("apply Update Request", "request", ur)
 	if action == admissionv1.Delete && ur.GetRequestType() == kyvernov1beta1.Generate {
 		return nil
 	}
