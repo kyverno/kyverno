@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
+	policyutil "github.com/kyverno/kyverno/pkg/policy"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -116,14 +117,9 @@ func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.
 	for _, rule := range policy.GetSpec().Rules {
 		if rule.Name == pRuleName && rule.Generation.Synchronize {
 			ur := kyvernov1beta1.UpdateRequestSpec{
-				Type:   kyvernov1beta1.Generate,
-				Policy: pKey,
-				Resource: kyvernov1.ResourceSpec{
-					Kind:       newLabels[common.GenerateTriggerKindLabel],
-					Namespace:  newLabels[common.GenerateTriggerNSLabel],
-					Name:       newLabels[common.GenerateTriggerNameLabel],
-					APIVersion: newLabels[common.GenerateTriggerAPIVersionLabel],
-				},
+				Type:     kyvernov1beta1.Generate,
+				Policy:   pKey,
+				Resource: policyutil.TriggerFromLabels(newLabels),
 				Context: kyvernov1beta1.UpdateRequestSpecContext{
 					UserRequestInfo: policyContext.Copy().AdmissionInfo(),
 					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
