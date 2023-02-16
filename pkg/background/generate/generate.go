@@ -614,7 +614,7 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name string, poli
 		return nil, Skip, fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName, err)
 	}
 
-	if err := updateSourceLabel(client, obj, policy, rule); err != nil {
+	if err := updateSourceLabel(client, obj, ur.Spec.Resource, policy, rule); err != nil {
 		log.Error(err, "failed to add labels to the source", "kind", obj.GetKind(), "namespace", obj.GetNamespace(), "name", obj.GetName())
 	}
 
@@ -700,7 +700,7 @@ func manageCloneList(log logr.Logger, namespace string, ur kyvernov1beta1.Update
 				return response
 			}
 
-			if err := updateSourceLabel(client, obj, policy, rule); err != nil {
+			if err := updateSourceLabel(client, obj, ur.Spec.Resource, policy, rule); err != nil {
 				log.Error(err, "failed to add labels to the source", "kind", obj.GetKind(), "namespace", obj.GetNamespace(), "name", obj.GetName())
 			}
 

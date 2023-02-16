@@ -9,16 +9,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func updateSourceLabel(client dclient.Interface, source *unstructured.Unstructured, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) error {
+func updateSourceLabel(client dclient.Interface, source *unstructured.Unstructured, trigger kyvernov1.ResourceSpec, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) error {
 	labels := source.GetLabels()
 	if labels == nil {
 		labels = make(map[string]string)
 	}
 
 	common.PolicyInfo(labels, policy, rule.Name)
-	common.TriggerInfo(labels, source)
+	common.TriggerInfo(labels, trigger)
 
 	source.SetLabels(labels)
-	_, err := client.UpdateResource(context.TODO(), source.GetAPIVersion(), source.GetKind(), source.GetNamespace(), source.GetName(), false)
+	_, err := client.UpdateResource(context.TODO(), source.GetAPIVersion(), source.GetKind(), source.GetNamespace(), source, false)
 	return err
 }
