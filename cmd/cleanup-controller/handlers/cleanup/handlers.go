@@ -10,10 +10,16 @@ import (
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/kyverno/kyverno/pkg/utils/match"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,6 +36,26 @@ type handlers struct {
 	polLister  kyvernov2alpha1listers.CleanupPolicyLister
 	nsLister   corev1listers.NamespaceLister
 	recorder   record.EventRecorder
+	metrics    cleanupMetrics
+}
+
+type cleanupMetrics struct {
+	controllerName      string
+	deletedObjectsTotal syncint64.Counter
+}
+
+func newCleanupMetrics(logger logr.Logger, controllerName string) *cleanupMetrics {
+	meter := global.MeterProvider().Meter(metrics.MeterName)
+	deletedObjectsTotal, err := meter.SyncInt64().Counter(
+		"cleanup_controller_deletedobjects",
+		instrument.WithDescription("can be used to track number of deleted objects."))
+	if err != nil {
+		logger.Error(err, "Failed to create instrument, cleanup_controller_deletedobjects_total")
+	}
+	return &cleanupMetrics{
+		controllerName:      controllerName,
+		deletedObjectsTotal: deletedObjectsTotal,
+	}
 }
 
 func New(
@@ -37,6 +63,7 @@ func New(
 	cpolLister kyvernov2alpha1listers.ClusterCleanupPolicyLister,
 	polLister kyvernov2alpha1listers.CleanupPolicyLister,
 	nsLister corev1listers.NamespaceLister,
+	logger logr.Logger,
 ) *handlers {
 	return &handlers{
 		client:     client,
@@ -44,6 +71,7 @@ func New(
 		polLister:  polLister,
 		nsLister:   nsLister,
 		recorder:   event.NewRecorder(event.CleanupController, client.GetEventsInterface()),
+		metrics:    *newCleanupMetrics(logger, cleanup.ControllerName),
 	}
 }
 
@@ -171,6 +199,9 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						errs = append(errs, err)
 						h.createEvent(policy, resource, err)
 					} else {
+						if h.metrics.deletedObjectsTotal != nil {
+							h.metrics.deletedObjectsTotal.Add(ctx, 1, attribute.String("controller_name", h.metrics.controllerName))
+						}
 						debug.Info("deleted")
 						h.createEvent(policy, resource, nil)
 					}
