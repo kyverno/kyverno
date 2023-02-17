@@ -330,13 +330,11 @@ func elementIsRemoved(patches [][]byte, list string, index int) bool {
 	for _, p := range patches {
 		var pI interface{}
 		err := json.Unmarshal(p, &pI)
-
 		if err != nil {
 			continue
 		}
 
 		patch := pI.(map[string]interface{})
-
 		if patch["op"] == "remove" {
 			if strings.HasSuffix(patch["path"].(string), currentElement) {
 				return true
