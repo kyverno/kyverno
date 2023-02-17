@@ -16,6 +16,8 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/images"
+	"github.com/kyverno/kyverno/pkg/notaryv2"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
@@ -29,6 +31,7 @@ type ImageVerifier struct {
 	rclient       registryclient.Client
 	policyContext engineapi.PolicyContext
 	rule          *kyvernov1.Rule
+	resp          *engineapi.EngineResponse
 	ivm           *engineapi.ImageVerificationMetadata
 }
 
@@ -285,8 +288,8 @@ func (iv *ImageVerifier) verifyAttestors(
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
 	predicateType string,
-) (*engineapi.RuleResponse, *cosign.Response) {
-	var cosignResponse *cosign.Response
+) (*engineapi.RuleResponse, *images.Response) {
+	var cosignResponse *images.Response
 	image := imageInfo.String()
 	for i, attestorSet := range attestors {
 		var err error
@@ -341,8 +344,8 @@ func (iv *ImageVerifier) verifyAttestations(
 
 			for _, a := range attestor.Entries {
 				entryPath := fmt.Sprintf("%s.entries[%d]", attestorPath, i)
-				opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, &imageVerify.Attestations[i])
-				cosignResp, err := cosign.FetchAttestations(ctx, iv.rclient, *opts)
+				v, opts, subPath := iv.buildVerifier(a, imageVerify, image, &imageVerify.Attestations[i])
+				cosignResp, err := v.FetchAttestations(ctx, *opts)
 				if err != nil {
 					iv.logger.Error(err, "failed to fetch attestations")
 					return iv.handleRegistryErrors(image, err), ""
@@ -386,7 +389,7 @@ func (iv *ImageVerifier) verifyAttestorSet(
 	imageVerify kyvernov1.ImageVerification,
 	imageInfo apiutils.ImageInfo,
 	path string,
-) (*cosign.Response, error) {
+) (*images.Response, error) {
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = ExpandStaticKeys(attestorSet)
@@ -395,7 +398,7 @@ func (iv *ImageVerifier) verifyAttestorSet(
 
 	for i, a := range attestorSet.Entries {
 		var entryError error
-		var cosignResp *cosign.Response
+		var cosignResp *images.Response
 		attestorPath := fmt.Sprintf("%s.entries[%d]", path, i)
 		iv.logger.V(4).Info("verifying attestorSet", "path", attestorPath)
 
@@ -408,8 +411,8 @@ func (iv *ImageVerifier) verifyAttestorSet(
 				cosignResp, entryError = iv.verifyAttestorSet(ctx, *nestedAttestorSet, imageVerify, imageInfo, attestorPath)
 			}
 		} else {
-			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image, nil)
-			cosignResp, entryError = cosign.VerifySignature(ctx, iv.rclient, *opts)
+			v, opts, subPath := iv.buildVerifier(a, imageVerify, image, nil)
+			cosignResp, entryError = v.VerifySignature(ctx, *opts)
 			if entryError != nil {
 				entryError = fmt.Errorf("%s: %w", attestorPath+subPath, entryError)
 			}
@@ -431,27 +434,49 @@ func (iv *ImageVerifier) verifyAttestorSet(
 	return nil, err
 }
 
-func (iv *ImageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageVerify kyvernov1.ImageVerification, image string, attestation *kyvernov1.Attestation) (*cosign.Options, string) {
-	path := ""
-	opts := &cosign.Options{
-		ImageRef:    image,
-		Repository:  imageVerify.Repository,
-		Annotations: imageVerify.Annotations,
+func (iv *ImageVerifier) buildVerifier(
+	attestor kyvernov1.Attestor,
+	imageVerify kyvernov1.ImageVerification,
+	image string,
+	attestation *kyvernov1.Attestation,
+) (images.ImageVerifier, *images.Options, string) {
+	switch imageVerify.Type {
+	case kyvernov1.NotaryV2:
+		return iv.buildNotaryV2Verifier(attestor, imageVerify, image)
+	default:
+		return iv.buildCosignVerifier(attestor, imageVerify, image, attestation)
 	}
+}
+
+func (iv *ImageVerifier) buildCosignVerifier(
+	attestor kyvernov1.Attestor,
+	imageVerify kyvernov1.ImageVerification,
+	image string,
+	attestation *kyvernov1.Attestation,
+) (images.ImageVerifier, *images.Options, string) {
+	path := ""
+	opts := &images.Options{
+		ImageRef:       image,
+		Repository:     imageVerify.Repository,
+		Annotations:    imageVerify.Annotations,
+		RegistryClient: iv.rclient,
+	}
+
 	if imageVerify.Roots != "" {
 		opts.Roots = imageVerify.Roots
 	}
+
 	if attestation != nil {
 		opts.PredicateType = attestation.PredicateType
 		opts.FetchAttestations = true
 	}
+
 	if attestor.Keys != nil {
 		path = path + ".keys"
 		if attestor.Keys.PublicKeys != "" {
 			opts.Key = attestor.Keys.PublicKeys
 		} else if attestor.Keys.Secret != nil {
-			opts.Key = fmt.Sprintf("k8s://%s/%s", attestor.Keys.Secret.Namespace,
-				attestor.Keys.Secret.Name)
+			opts.Key = fmt.Sprintf("k8s://%s/%s", attestor.Keys.Secret.Namespace, attestor.Keys.Secret.Name)
 		} else if attestor.Keys.KMS != "" {
 			opts.Key = attestor.Keys.KMS
 		}
@@ -471,18 +496,38 @@ func (iv *ImageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 		if attestor.Keyless.Rekor != nil {
 			opts.RekorURL = attestor.Keyless.Rekor.URL
 		}
+
 		opts.Roots = attestor.Keyless.Roots
 		opts.Issuer = attestor.Keyless.Issuer
 		opts.Subject = attestor.Keyless.Subject
 		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions
 	}
+
 	if attestor.Repository != "" {
 		opts.Repository = attestor.Repository
 	}
+
 	if attestor.Annotations != nil {
 		opts.Annotations = attestor.Annotations
 	}
-	return opts, path
+
+	return cosign.NewVerifier(), opts, path
+}
+
+func (iv *ImageVerifier) buildNotaryV2Verifier(
+	attestor kyvernov1.Attestor,
+	imageVerify kyvernov1.ImageVerification,
+	image string,
+) (images.ImageVerifier, *images.Options, string) {
+	path := ""
+	opts := &images.Options{
+		ImageRef:       image,
+		Cert:           attestor.Certificates.Certificate,
+		CertChain:      attestor.Certificates.CertificateChain,
+		RegistryClient: iv.rclient,
+	}
+
+	return notaryv2.NewVerifier(), opts, path
 }
 
 func (iv *ImageVerifier) verifyAttestation(statements []map[string]interface{}, attestation kyvernov1.Attestation, imageInfo apiutils.ImageInfo) error {
