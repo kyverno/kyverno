@@ -2,8 +2,10 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -254,6 +256,8 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		invertedElement(elements)
 	}
 
+	elementsRemovedCount := 0
+
 	for index, element := range elements {
 		if element == nil {
 			continue
@@ -263,7 +267,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		policyContext := f.policyContext.Copy()
 
 		falseVar := false
-		if err := addElementToContext(policyContext, element, index, f.nesting, &falseVar); err != nil {
+		if err := addElementToContext(policyContext, element, index-elementsRemovedCount, f.nesting, &falseVar); err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to add element to mutate.foreach[%d].context", index), err)
 		}
 
@@ -310,10 +314,37 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 		if len(mutateResp.Patches) > 0 {
 			patchedResource.unstructured = mutateResp.PatchedResource
 			allPatches = append(allPatches, mutateResp.Patches...)
+			if elementIsRemoved(mutateResp.Patches, foreach.List, index-elementsRemovedCount) {
+				elementsRemovedCount++
+			}
 		}
 	}
 
 	return mutate.NewResponse(engineapi.RuleStatusPass, patchedResource.unstructured, allPatches, "")
+}
+
+func elementIsRemoved(patches [][]byte, list string, index int) bool {
+	listArr := strings.Split(list, ".")
+	currentElement := strings.ReplaceAll(listArr[len(listArr)-1], "[]", "") + "/" + fmt.Sprint(index)
+
+	for _, p := range patches {
+		var pI interface{}
+		err := json.Unmarshal(p, &pI)
+
+		if err != nil {
+			continue
+		}
+
+		patch := pI.(map[string]interface{})
+
+		if patch["op"] == "remove" {
+			if strings.HasSuffix(patch["path"].(string), currentElement) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
