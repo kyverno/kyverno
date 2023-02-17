@@ -1,6 +1,6 @@
 ## Description
 
-This test makes sure that a Policy (Namespaced) with a generate rule, data type, and sync enabled, when the policy is deleted does NOT cause the downstream (generated) resource to also be deleted.
+This test makes sure that a Policy (Namespaced) with a generate rule, data type, and sync NOT enabled, when the policy is deleted does NOT cause the downstream (generated) resource to also be deleted.
 
 ## Expected Behavior
 
