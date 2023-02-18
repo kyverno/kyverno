@@ -31,7 +31,6 @@ type ImageVerifier struct {
 	rclient       registryclient.Client
 	policyContext engineapi.PolicyContext
 	rule          *kyvernov1.Rule
-	resp          *engineapi.EngineResponse
 	ivm           *engineapi.ImageVerificationMetadata
 }
 
