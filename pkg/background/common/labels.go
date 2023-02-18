@@ -50,7 +50,7 @@ func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	}
 	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
-		set[kyvernov1beta1.URMutateTriggerNameLabel] = trigger.GetName()
+		set[kyvernov1beta1.URMutateTriggerNameLabel] = truncateResourceName(trigger.GetName())
 		set[kyvernov1beta1.URMutateTriggerNSLabel] = trigger.GetNamespace()
 		set[kyvernov1beta1.URMutatetriggerKindLabel] = trigger.GetKind()
 		if trigger.GetAPIVersion() != "" {
@@ -68,7 +68,7 @@ func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 	}
 	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
-		set[kyvernov1beta1.URGenerateResourceNameLabel] = trigger.GetName()
+		set[kyvernov1beta1.URGenerateResourceNameLabel] = truncateResourceName(trigger.GetName())
 		set[kyvernov1beta1.URGenerateResourceNSLabel] = trigger.GetNamespace()
 		set[kyvernov1beta1.URGenerateResourceKindLabel] = trigger.GetKind()
 	}
@@ -114,4 +114,15 @@ func checkGeneratedBy(labels map[string]string, key, value string) {
 		// add label
 		labels[key] = value
 	}
+}
+
+func truncateResourceName(value string) string {
+	if len(value) > 63 {
+		v := value[0:63]
+		var sb strings.Builder
+		sb.WriteString(v[0:51])
+		sb.WriteString("...truncated")
+		return sb.String()
+	}
+	return value
 }
