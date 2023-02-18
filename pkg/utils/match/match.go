@@ -31,6 +31,7 @@ func CheckMatchesResources(
 	subresourceInAdmnReview string,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	excludeGroupRole []string,
+	mock bool,
 ) error {
 	var errs []error
 	if len(statement.Any) > 0 {
@@ -47,6 +48,7 @@ func CheckMatchesResources(
 				subresourceInAdmnReview,
 				admissionInfo,
 				excludeGroupRole,
+				mock,
 			)) == 0 {
 				oneMatched = true
 				break
@@ -68,6 +70,7 @@ func CheckMatchesResources(
 					subresourceInAdmnReview,
 					admissionInfo,
 					excludeGroupRole,
+					mock,
 				)...,
 			)
 		}
@@ -83,6 +86,7 @@ func checkResourceFilter(
 	subresourceInAdmnReview string,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	excludeGroupRole []string,
+	mock bool,
 ) []error {
 	var errs []error
 	// checking if the block is empty
@@ -96,6 +100,7 @@ func checkResourceFilter(
 		namespaceLabels,
 		subresourceGVKToAPIResource,
 		subresourceInAdmnReview,
+		mock,
 	)
 	userErrs := checkUserInfo(
 		statement.UserInfo,
@@ -140,11 +145,12 @@ func checkResourceDescription(
 	namespaceLabels map[string]string,
 	subresourceGVKToAPIResource map[string]*metav1.APIResource,
 	subresourceInAdmnReview string,
+	mock bool,
 ) []error {
 	var errs []error
 	if len(conditionBlock.Kinds) > 0 {
 		// Matching on ephemeralcontainers even when they are not explicitly specified is only applicable to policies.
-		if !CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview, false) {
+		if !CheckKind(subresourceGVKToAPIResource, conditionBlock.Kinds, resource.GroupVersionKind(), subresourceInAdmnReview, false, mock) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}

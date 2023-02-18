@@ -52,6 +52,13 @@ func matchesException(
 	if err != nil {
 		return nil, err
 	}
+	mock := false
+	if policyContext.JSONContext() != nil {
+		resource, err := policyContext.JSONContext().Query("isMock")
+		if err == nil && resource != nil {
+			mock = resource.(bool)
+		}
+	}
 	for _, candidate := range candidates {
 		err := matched.CheckMatchesResources(
 			policyContext.NewResource(),
@@ -61,6 +68,7 @@ func matchesException(
 			policyContext.SubResource(),
 			policyContext.AdmissionInfo(),
 			cfg.GetExcludedGroups(),
+			mock,
 		)
 		// if there's no error it means a match
 		if err == nil {

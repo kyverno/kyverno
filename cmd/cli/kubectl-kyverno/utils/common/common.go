@@ -477,6 +477,12 @@ OuterLoop:
 		store.ContextLoaderFactory(nil),
 		nil,
 	)
+
+	err = ctx.AddVariable("isMock", true)
+	if err != nil {
+		log.Log.Error(err, "failed to add variable to context")
+	}
+
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).

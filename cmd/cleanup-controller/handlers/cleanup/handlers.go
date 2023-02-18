@@ -155,6 +155,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						// we don't have user conditions in the policy rule
 						kyvernov1beta1.RequestInfo{},
 						nil,
+						false,
 					)
 					if matched != nil {
 						debug.Info("resource/match didn't match", "result", matched)
@@ -171,6 +172,7 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 							// we don't have user conditions in the policy rule
 							kyvernov1beta1.RequestInfo{},
 							nil,
+							false,
 						)
 						if excluded == nil {
 							debug.Info("resource/exclude matched")

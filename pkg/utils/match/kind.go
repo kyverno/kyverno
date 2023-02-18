@@ -11,14 +11,17 @@ import (
 // CheckKind checks if the resource kind matches the kinds in the policy. If the policy matches on subresources, then those resources are
 // present in the subresourceGVKToAPIResource map. Set allowEphemeralContainers to true to allow ephemeral containers to be matched even when the
 // policy does not explicitly match on ephemeral containers and only matches on pods.
-func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string, allowEphemeralContainers bool) bool {
+func CheckKind(subresourceGVKToAPIResource map[string]*metav1.APIResource, kinds []string, gvk schema.GroupVersionKind, subresourceInAdmnReview string, allowEphemeralContainers, mock bool) bool {
 	result := false
 	for _, k := range kinds {
 		if k != "*" {
 			gv, kind := kubeutils.GetKindFromGVK(k)
 			apiResource, ok := subresourceGVKToAPIResource[k]
 			if ok {
-				result = apiResource.Group == gvk.Group && (apiResource.Version == gvk.Version || strings.Contains(gv, "*")) && apiResource.Kind == gvk.Kind
+				result = apiResource.Group == gvk.Group &&
+					(apiResource.Version == gvk.Version || strings.Contains(gv, "*")) &&
+					apiResource.Kind == gvk.Kind &&
+					(mock || strings.Split(apiResource.Name, "/")[1] == subresourceInAdmnReview)
 			} else { // if the kind is not found in the subresourceGVKToAPIResource, then it is not a subresource
 				result = kind == gvk.Kind &&
 					(subresourceInAdmnReview == "" ||
