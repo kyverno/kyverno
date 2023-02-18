@@ -6,12 +6,11 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	notationregistry "github.com/notaryproject/notation-go/registry"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
-
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 func parseReference(ctx context.Context, ref string, registryClient registryclient.Client) (notationregistry.Repository, registry.Reference, error) {
