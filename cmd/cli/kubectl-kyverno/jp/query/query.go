@@ -111,7 +111,7 @@ func loadFile(file string) ([]byte, error) {
 
 func readQuery(cmd *cobra.Command) (string, error) {
 	fmt.Println("Reading from terminal input.")
-	fmt.Println("Enter a jmespatch expression and hit Ctrl+D.")
+	fmt.Println("Enter a jmespath expression and hit Ctrl+D.")
 	data, err := readFile(cmd.InOrStdin())
 	if err != nil {
 		return "", err
