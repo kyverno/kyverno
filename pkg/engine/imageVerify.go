@@ -13,7 +13,6 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -22,21 +21,17 @@ import (
 
 func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
-	resp := &engineapi.EngineResponse{}
-
 	policy := policyContext.Policy()
-	patchedResource := policyContext.NewResource()
-	logger := logging.WithName("EngineVerifyImages").WithValues("policy", policy.GetName(),
-		"kind", patchedResource.GetKind(), "namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
-
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	startTime := time.Now()
 	defer func() {
 		internal.BuildResponse(policyContext, resp, startTime)
 		logger.V(4).Info("processed image verification rules",
-			"time", resp.PolicyResponse.ProcessingTime.String(),
-			"applied", resp.PolicyResponse.RulesAppliedCount, "successful", resp.IsSuccessful())
+			"time", resp.PolicyResponse.Stats.ProcessingTime.String(),
+			"applied", resp.PolicyResponse.Stats.RulesAppliedCount, "successful", resp.IsSuccessful())
 	}()
 
 	policyContext.JSONContext().Checkpoint()
@@ -58,6 +53,7 @@ func (e *engine) verifyAndPatchImages(
 					return
 				}
 				startTime := time.Now()
+				logger := internal.LoggerWithRule(logger, rules[i])
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
 
@@ -72,7 +68,7 @@ func (e *engine) verifyAndPatchImages(
 					return
 				}
 
-				logger.V(3).Info("processing image verification rule", "ruleSelector", applyRules)
+				logger.V(3).Info("processing image verification rule")
 
 				ruleImages, imageRefs, err := e.extractMatchingImages(policyContext, rule)
 				if err != nil {
@@ -128,7 +124,7 @@ func (e *engine) verifyAndPatchImages(
 			},
 		)
 
-		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}

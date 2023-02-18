@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -50,10 +51,8 @@ type handlers struct {
 	pCache policycache.Cache
 
 	// listers
-	nsLister  corev1listers.NamespaceLister
-	rbLister  rbacv1listers.RoleBindingLister
-	crbLister rbacv1listers.ClusterRoleBindingLister
-	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
+	nsLister corev1listers.NamespaceLister
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 
 	urGenerator    webhookgenerate.Generator
 	eventGen       event.Interface
@@ -90,8 +89,6 @@ func NewHandlers(
 		metricsConfig:    metricsConfig,
 		pCache:           pCache,
 		nsLister:         nsLister,
-		rbLister:         rbLister,
-		crbLister:        crbLister,
 		urLister:         urLister,
 		urGenerator:      urGenerator,
 		eventGen:         eventGen,
@@ -204,14 +201,14 @@ func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.Admissi
 
 		resLabels := resource.GetLabels()
 		if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
-			urName := resLabels["policy.kyverno.io/gr-name"]
+			urName := resLabels[generate.LabelURName]
 			ur, err := h.urLister.Get(urName)
 			if err != nil {
 				logger.Error(err, "failed to get update request", "name", urName)
 				return
 			}
 
-			if ur.Spec.Type == kyvernov1beta1.Mutate {
+			if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate {
 				return
 			}
 			h.urUpdater.UpdateAnnotation(logger, ur.GetName())

@@ -275,7 +275,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		tf.enabled = false
 	}
 
-	openApiManager, err := openapi.NewManager()
+	openApiManager, err := openapi.NewManager(log.Log)
 	if err != nil {
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}
@@ -432,11 +432,11 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, resp := range engineResponses {
-		policyName := resp.PolicyResponse.Policy.Name
-		resourceName := resp.PolicyResponse.Resource.Name
-		resourceKind := resp.PolicyResponse.Resource.Kind
-		resourceNamespace := resp.PolicyResponse.Resource.Namespace
-		policyNamespace := resp.PolicyResponse.Policy.Namespace
+		policyName := resp.Policy.GetName()
+		resourceName := resp.Resource.GetName()
+		resourceKind := resp.Resource.GetKind()
+		resourceNamespace := resp.Resource.GetNamespace()
+		policyNamespace := resp.Policy.GetNamespace()
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {

@@ -3,6 +3,8 @@ package internal
 import (
 	"context"
 	"reflect"
+
+	"github.com/go-logr/logr"
 )
 
 type startable interface {
@@ -20,25 +22,31 @@ func StartInformers[T startable](ctx context.Context, informers ...T) {
 	}
 }
 
-func WaitForCacheSync(ctx context.Context, informers ...informer) bool {
+func WaitForCacheSync(ctx context.Context, logger logr.Logger, informers ...informer) bool {
 	ret := true
 	for i := range informers {
-		for _, result := range informers[i].WaitForCacheSync(ctx.Done()) {
+		for t, result := range informers[i].WaitForCacheSync(ctx.Done()) {
+			if !result {
+				logger.Error(nil, "failed to wait for cache sync", "type", t)
+			}
 			ret = ret && result
 		}
 	}
 	return ret
 }
 
-func CheckCacheSync[T comparable](status map[T]bool) bool {
+func CheckCacheSync[T comparable](logger logr.Logger, status map[T]bool) bool {
 	ret := true
-	for _, s := range status {
-		ret = ret && s
+	for t, result := range status {
+		if !result {
+			logger.Error(nil, "failed to wait for cache sync", "type", t)
+		}
+		ret = ret && result
 	}
 	return ret
 }
 
-func StartInformersAndWaitForCacheSync(ctx context.Context, informers ...informer) bool {
+func StartInformersAndWaitForCacheSync(ctx context.Context, logger logr.Logger, informers ...informer) bool {
 	StartInformers(ctx, informers...)
-	return WaitForCacheSync(ctx, informers...)
+	return WaitForCacheSync(ctx, logger, informers...)
 }
