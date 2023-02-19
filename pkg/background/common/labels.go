@@ -118,9 +118,8 @@ func checkGeneratedBy(labels map[string]string, key, value string) {
 
 func truncateResourceName(value string) string {
 	if len(value) > 63 {
-		v := value[0:63]
 		var sb strings.Builder
-		sb.WriteString(v[0:51])
+		sb.WriteString(value[0:51])
 		sb.WriteString("...truncated")
 		return sb.String()
 	}
