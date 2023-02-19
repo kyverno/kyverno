@@ -225,10 +225,6 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 
 func matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource map[string]*metav1.APIResource, rmr kyvernov1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string, subresourceInAdmnReview string) []error {
 	var errs []error
-	if reflect.DeepEqual(admissionInfo, kyvernov1beta1.RequestInfo{}) {
-		rmr.UserInfo = kyvernov1.UserInfo{}
-	}
-
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!reflect.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
