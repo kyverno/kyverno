@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -27,16 +28,14 @@ func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandle
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		// filter by username
 		for _, username := range c.GetExcludedUsernames() {
-			// TODO: wildcard
-			if request.UserInfo.Username == username {
+			if wildcard.Match(username, request.UserInfo.Username) {
 				return nil
 			}
 		}
 		// filter by groups
 		for _, group := range c.GetExcludedGroups() {
 			for _, candidate := range request.UserInfo.Groups {
-				// TODO: wildcard
-				if candidate == group {
+				if wildcard.Match(group, candidate) {
 					return nil
 				}
 			}
