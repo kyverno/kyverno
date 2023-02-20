@@ -91,36 +91,3 @@ func matchBindingSubjects(subjects []rbacv1.Subject, userInfo authenticationv1.U
 	}
 	return false
 }
-
-// // matchSubjectsMap checks if userInfo found in subject
-// // return true directly if found a match
-// // subject.kind can only be ServiceAccount, User and Group
-// func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo, namespace string) bool {
-// 	if strings.Contains(userInfo.Username, saPrefix) {
-// 		return matchServiceAccount(subject, userInfo, namespace)
-// 	}
-// 	return matchUserOrGroup(subject, userInfo)
-// }
-
-// // matchServiceAccount checks if userInfo sa matche the subject sa
-// // serviceaccount represents as saPrefix:namespace:name in userInfo
-// func matchServiceAccount(subject rbacv1.Subject, userInfo authenticationv1.UserInfo, namespace string) bool {
-// 	subjectServiceAccount := namespace + ":" + subject.Name
-// 	if userInfo.Username[len(saPrefix):] != subjectServiceAccount {
-// 		return false
-// 	}
-// 	logging.V(3).Info(fmt.Sprintf("found a matched service account not match: %s", subjectServiceAccount))
-// 	return true
-// }
-
-// // matchUserOrGroup checks if userInfo contains user or group info in a subject
-// func matchUserOrGroup(subject rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
-// 	keys := append(userInfo.Groups, userInfo.Username)
-// 	for _, key := range keys {
-// 		if subject.Name == key {
-// 			logging.V(3).Info(fmt.Sprintf("found a matched user/group '%v' in request userInfo: %v", subject.Name, keys))
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
