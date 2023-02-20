@@ -31,7 +31,7 @@ require (
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/mattbaird/jsonpatch v0.0.0-20200820163806-098863c1fc24
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.26.0
+	github.com/onsi/gomega v1.27.1
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/prometheus/client_golang v1.14.0
 	github.com/robfig/cron v1.2.0
@@ -311,7 +311,7 @@ require (
 	go.starlark.net v0.0.0-20230118143110-ddd531cdb2da // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/net v0.6.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
