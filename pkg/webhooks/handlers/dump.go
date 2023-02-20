@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -22,22 +21,20 @@ func (inner AdmissionHandler) WithDump(
 	enabled bool,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
-	configuration config.Configuration,
 ) AdmissionHandler {
 	if !enabled {
 		return inner
 	}
-	return inner.withDump(rbLister, crbLister, configuration).WithTrace("DUMP")
+	return inner.withDump(rbLister, crbLister).WithTrace("DUMP")
 }
 
 func (inner AdmissionHandler) withDump(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
-	configuration config.Configuration,
 ) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		response := inner(ctx, logger, request, startTime)
-		dumpPayload(logger, rbLister, crbLister, configuration, request, response)
+		dumpPayload(logger, rbLister, crbLister, request, response)
 		return response
 	}
 }
@@ -46,11 +43,10 @@ func dumpPayload(
 	logger logr.Logger,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
-	configuration config.Configuration,
 	request *admissionv1.AdmissionRequest,
 	response *admissionv1.AdmissionResponse,
 ) {
-	reqPayload, err := newAdmissionRequestPayload(request, rbLister, crbLister, configuration)
+	reqPayload, err := newAdmissionRequestPayload(request, rbLister, crbLister)
 	if err != nil {
 		logger.Error(err, "Failed to extract resources")
 	} else {
@@ -79,7 +75,11 @@ type admissionRequestPayload struct {
 	Options            unstructured.Unstructured    `json:"options,omitempty"`
 }
 
-func newAdmissionRequestPayload(request *admissionv1.AdmissionRequest, rbLister rbacv1listers.RoleBindingLister, crbLister rbacv1listers.ClusterRoleBindingLister, configuration config.Configuration) (*admissionRequestPayload, error) {
+func newAdmissionRequestPayload(
+	request *admissionv1.AdmissionRequest,
+	rbLister rbacv1listers.RoleBindingLister,
+	crbLister rbacv1listers.ClusterRoleBindingLister,
+) (*admissionRequestPayload, error) {
 	newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
 	if err != nil {
 		return nil, err
@@ -92,8 +92,8 @@ func newAdmissionRequestPayload(request *admissionv1.AdmissionRequest, rbLister 
 		}
 	}
 	var roles, clusterRoles []string
-	if rbLister != nil && crbLister != nil && configuration != nil {
-		if r, cr, err := userinfo.GetRoleRef(rbLister, crbLister, request, configuration); err != nil {
+	if rbLister != nil && crbLister != nil {
+		if r, cr, err := userinfo.GetRoleRef(rbLister, crbLister, request); err != nil {
 			return nil, err
 		} else {
 			roles = r

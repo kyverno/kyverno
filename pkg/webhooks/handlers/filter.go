@@ -25,14 +25,27 @@ func (inner AdmissionHandler) WithSubResourceFilter(subresources ...string) Admi
 
 func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			return nil
-		}
-		for _, username := range c.GetExcludeUsername() {
+		// filter by username
+		for _, username := range c.GetExcludedUsernames() {
+			// TODO: wildcard
 			if request.UserInfo.Username == username {
 				return nil
 			}
 		}
+		// filter by groups
+		for _, group := range c.GetExcludedGroups() {
+			for _, candidate := range request.UserInfo.Groups {
+				// TODO: wildcard
+				if candidate == group {
+					return nil
+				}
+			}
+		}
+		// filter by resource filters
+		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+			return nil
+		}
+		// filter kyverno resources
 		if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 			return nil
 		}
