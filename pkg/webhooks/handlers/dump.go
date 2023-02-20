@@ -54,7 +54,10 @@ func dumpPayload(
 	if err != nil {
 		logger.Error(err, "Failed to extract resources")
 	} else {
-		logger.Info("Logging admission request and response payload ", "AdmissionRequest", reqPayload, "AdmissionResponse", response)
+		if response != nil {
+			logger = logger.WithValues("AdmissionResponse", *response)
+		}
+		logger.Info("Logging admission request and response payload ", "AdmissionRequest", reqPayload)
 	}
 }
 
