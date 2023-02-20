@@ -158,7 +158,7 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
           - name: KYVERNO_DEPLOYMENT
-            value: {{ template "kyverno.fullname" . }}
+            value: {{ template "kyverno.admission-controller.name" . }}
         {{- with .Values.startupProbe }}
           startupProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}
