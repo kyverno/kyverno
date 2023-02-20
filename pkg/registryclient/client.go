@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
+	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -26,12 +27,7 @@ var (
 		authn.DefaultKeychain,
 		google.Keychain,
 		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))),
-
-		// TODO add option to allow explicit enable/disable of ACR helper
-		// Otherwise, default timeout of 30s applies for registries that allow
-		// anonymous image pull or have credentials provided via secrets
-		// authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
-
+		authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
 		github.Keychain,
 	)
 	defaultTransport = &http.Transport{
