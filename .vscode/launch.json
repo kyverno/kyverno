@@ -10,7 +10,7 @@
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
                 "--serverIP=<SERVER-IP>:9443",
-                "--v=2",
+                "-v=2",
             ],
         },
         {
