@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "kyverno.fullname" . }}
+  name: {{ template "kyverno.admission-controller.name" . }}
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
