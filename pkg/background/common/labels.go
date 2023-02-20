@@ -100,7 +100,7 @@ func generatedBy(labels map[string]string, triggerResource unstructured.Unstruct
 
 func checkGeneratedBy(labels map[string]string, key, value string) {
 	if len(value) > 63 {
-		value = value[0:63]
+		value = truncateResourceName(value)
 	}
 
 	val, ok := labels[key]
