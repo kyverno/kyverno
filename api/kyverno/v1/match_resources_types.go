@@ -10,7 +10,7 @@ import (
 type MatchResources struct {
 	// RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
 	// +optional
-	RequestTypes RequestTypes `json:"requestTypes,omitempty" yaml:"requestTypes,omitempty"`
+	Operations Operation `json:"requestTypes,omitempty" yaml:"requestTypes,omitempty"`
 	// Any allows specifying resources which will be ORed
 	// +optional
 	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
