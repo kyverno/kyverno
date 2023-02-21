@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-kps-alertmanager-db-alertmanager-kps-alertmanager-1
+  namespace: default
+data:
+  food: cheese
+  day: monday
+  color: red

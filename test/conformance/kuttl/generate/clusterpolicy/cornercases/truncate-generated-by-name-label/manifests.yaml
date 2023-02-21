@@ -1,0 +1,95 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app: kyverno
+  name: admin
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "namespaces", "secrets"]
+  verbs:
+  - create
+  - patch
+  - update
+  - delete
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno:generate-admin  
+subjects:
+- kind: ServiceAccount
+  name: kyverno-background-controller
+  namespace: kyverno
+roleRef:
+  kind: ClusterRole
+  name: admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: yinka-rolebinding
+spec:
+  rules:
+  - name: yinka-rolebinding
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      kind: RoleBinding
+      apiVersion: rbac.authorization.k8s.io/v1
+      name: yinka-rolebinding
+      namespace: "{{request.object.metadata.name}}"
+      data:  
+        subjects:
+        - kind: User
+          name: yinka
+          apiGroup: rbac.authorization.k8s.io
+        roleRef:
+          kind: ClusterRole
+          name: admin
+          apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bar
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: regcred
+  namespace: default
+type: Opaque
+---
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: generate-secret-truncate-name-label
+  namespace: default
+spec:
+  rules:
+  - name: generate-secret-truncate-name-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: newsecret
+      namespace: bar
+      synchronize: false
+      clone:
+        name: regcred
+        namespace: default
