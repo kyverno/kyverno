@@ -91,7 +91,7 @@ func (c *certRenewer) RenewCA(ctx context.Context) error {
 		logger.Error(err, "tls is not valid but certificates are not managed by kyverno, we can't renew them")
 		return err
 	}
-	if secret.Type != corev1.SecretTypeTLS {
+	if secret != nil && secret.Type != corev1.SecretTypeTLS {
 		logger.Info("CA secret type is not TLS, we're going to delete it and regenrate one")
 		err := c.client.Delete(ctx, secret.Name, metav1.DeleteOptions{})
 		if err != nil {
@@ -135,7 +135,7 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 		logger.Error(err, "tls is not valid but certificates are not managed by kyverno, we can't renew them")
 		return err
 	}
-	if secret.Type != corev1.SecretTypeTLS {
+	if secret != nil && secret.Type != corev1.SecretTypeTLS {
 		logger.Info("TLS secret type is not TLS, we're going to delete it and regenrate one")
 		err := c.client.Delete(ctx, secret.Name, metav1.DeleteOptions{})
 		if err != nil {
