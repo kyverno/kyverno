@@ -3653,6 +3653,16 @@ spec:
                         information (e.g. kind, name, namespace, labels) and admission
                         review request information like the name or role.
                       properties:
+                        admissionOperations:
+                          description: AdmissionOperations can contain values ["CREATE,
+                            "UPDATE", "CONNECT", "DELETE"], which are used to match
+                            a specific action.
+                          items:
+                            description: AdmissionOperation can have one of the values
+                              CREATE, UPDATE, CONNECT, DELETE, which are used to match
+                              a specific action.
+                            type: string
+                          type: array
                         all:
                           description: All allows specifying resources which will
                             be ANDed
@@ -4093,16 +4103,6 @@ spec:
                           description: ClusterRoles is the list of cluster-wide role
                             names for the user.
                           items:
-                            type: string
-                          type: array
-                        requestTypes:
-                          description: RequestTypes can contain values ["CREATE, "UPDATE",
-                            "CONNECT", "DELETE"], which are used to match a specific
-                            action.
-                          items:
-                            description: RequestType can have one of the values CREATE,
-                              UPDATE, CONNECT, DELETE, which are used to match a specific
-                              action.
                             type: string
                           type: array
                         resources:
@@ -4444,6 +4444,16 @@ spec:
                         request information like the user name or role. At least one
                         kind is required.
                       properties:
+                        admissionOperations:
+                          description: AdmissionOperations can contain values ["CREATE,
+                            "UPDATE", "CONNECT", "DELETE"], which are used to match
+                            a specific action.
+                          items:
+                            description: AdmissionOperation can have one of the values
+                              CREATE, UPDATE, CONNECT, DELETE, which are used to match
+                              a specific action.
+                            type: string
+                          type: array
                         all:
                           description: All allows specifying resources which will
                             be ANDed
@@ -4884,16 +4894,6 @@ spec:
                           description: ClusterRoles is the list of cluster-wide role
                             names for the user.
                           items:
-                            type: string
-                          type: array
-                        requestTypes:
-                          description: RequestTypes can contain values ["CREATE, "UPDATE",
-                            "CONNECT", "DELETE"], which are used to match a specific
-                            action.
-                          items:
-                            description: RequestType can have one of the values CREATE,
-                              UPDATE, CONNECT, DELETE, which are used to match a specific
-                              action.
                             type: string
                           type: array
                         resources:
@@ -6851,6 +6851,16 @@ spec:
                             and admission review request information like the name
                             or role.
                           properties:
+                            admissionOperations:
+                              description: AdmissionOperations can contain values
+                                ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are
+                                used to match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                type: string
+                              type: array
                             all:
                               description: All allows specifying resources which will
                                 be ANDed
@@ -7305,16 +7315,6 @@ spec:
                               description: ClusterRoles is the list of cluster-wide
                                 role names for the user.
                               items:
-                                type: string
-                              type: array
-                            requestTypes:
-                              description: RequestTypes can contain values ["CREATE,
-                                "UPDATE", "CONNECT", "DELETE"], which are used to
-                                match a specific action.
-                              items:
-                                description: RequestType can have one of the values
-                                  CREATE, UPDATE, CONNECT, DELETE, which are used
-                                  to match a specific action.
                                 type: string
                               type: array
                             resources:
@@ -7678,6 +7678,16 @@ spec:
                             review request information like the user name or role.
                             At least one kind is required.
                           properties:
+                            admissionOperations:
+                              description: AdmissionOperations can contain values
+                                ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are
+                                used to match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                type: string
+                              type: array
                             all:
                               description: All allows specifying resources which will
                                 be ANDed
@@ -8132,16 +8142,6 @@ spec:
                               description: ClusterRoles is the list of cluster-wide
                                 role names for the user.
                               items:
-                                type: string
-                              type: array
-                            requestTypes:
-                              description: RequestTypes can contain values ["CREATE,
-                                "UPDATE", "CONNECT", "DELETE"], which are used to
-                                match a specific action.
-                              items:
-                                description: RequestType can have one of the values
-                                  CREATE, UPDATE, CONNECT, DELETE, which are used
-                                  to match a specific action.
                                 type: string
                               type: array
                             resources:
@@ -13231,6 +13231,16 @@ spec:
                             and admission review request information like the name
                             or role.
                           properties:
+                            admissionOperations:
+                              description: AdmissionOperations can contain values
+                                ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are
+                                used to match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                type: string
+                              type: array
                             all:
                               description: All allows specifying resources which will
                                 be ANDed
@@ -13685,16 +13695,6 @@ spec:
                               description: ClusterRoles is the list of cluster-wide
                                 role names for the user.
                               items:
-                                type: string
-                              type: array
-                            requestTypes:
-                              description: RequestTypes can contain values ["CREATE,
-                                "UPDATE", "CONNECT", "DELETE"], which are used to
-                                match a specific action.
-                              items:
-                                description: RequestType can have one of the values
-                                  CREATE, UPDATE, CONNECT, DELETE, which are used
-                                  to match a specific action.
                                 type: string
                               type: array
                             resources:
@@ -14058,6 +14058,16 @@ spec:
                             review request information like the user name or role.
                             At least one kind is required.
                           properties:
+                            admissionOperations:
+                              description: AdmissionOperations can contain values
+                                ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are
+                                used to match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                type: string
+                              type: array
                             all:
                               description: All allows specifying resources which will
                                 be ANDed
@@ -14512,16 +14522,6 @@ spec:
                               description: ClusterRoles is the list of cluster-wide
                                 role names for the user.
                               items:
-                                type: string
-                              type: array
-                            requestTypes:
-                              description: RequestTypes can contain values ["CREATE,
-                                "UPDATE", "CONNECT", "DELETE"], which are used to
-                                match a specific action.
-                              items:
-                                description: RequestType can have one of the values
-                                  CREATE, UPDATE, CONNECT, DELETE, which are used
-                                  to match a specific action.
                                 type: string
                               type: array
                             resources:
@@ -16916,6 +16916,16 @@ spec:
                         information (e.g. kind, name, namespace, labels) and admission
                         review request information like the name or role.
                       properties:
+                        admissionOperations:
+                          description: AdmissionOperations can contain values ["CREATE,
+                            "UPDATE", "CONNECT", "DELETE"], which are used to match
+                            a specific action.
+                          items:
+                            description: AdmissionOperation can have one of the values
+                              CREATE, UPDATE, CONNECT, DELETE, which are used to match
+                              a specific action.
+                            type: string
+                          type: array
                         all:
                           description: All allows specifying resources which will
                             be ANDed
@@ -17356,16 +17366,6 @@ spec:
                           description: ClusterRoles is the list of cluster-wide role
                             names for the user.
                           items:
-                            type: string
-                          type: array
-                        requestTypes:
-                          description: RequestTypes can contain values ["CREATE, "UPDATE",
-                            "CONNECT", "DELETE"], which are used to match a specific
-                            action.
-                          items:
-                            description: RequestType can have one of the values CREATE,
-                              UPDATE, CONNECT, DELETE, which are used to match a specific
-                              action.
                             type: string
                           type: array
                         resources:
@@ -17707,6 +17707,16 @@ spec:
                         request information like the user name or role. At least one
                         kind is required.
                       properties:
+                        admissionOperations:
+                          description: AdmissionOperations can contain values ["CREATE,
+                            "UPDATE", "CONNECT", "DELETE"], which are used to match
+                            a specific action.
+                          items:
+                            description: AdmissionOperation can have one of the values
+                              CREATE, UPDATE, CONNECT, DELETE, which are used to match
+                              a specific action.
+                            type: string
+                          type: array
                         all:
                           description: All allows specifying resources which will
                             be ANDed
@@ -18147,16 +18157,6 @@ spec:
                           description: ClusterRoles is the list of cluster-wide role
                             names for the user.
                           items:
-                            type: string
-                          type: array
-                        requestTypes:
-                          description: RequestTypes can contain values ["CREATE, "UPDATE",
-                            "CONNECT", "DELETE"], which are used to match a specific
-                            action.
-                          items:
-                            description: RequestType can have one of the values CREATE,
-                              UPDATE, CONNECT, DELETE, which are used to match a specific
-                              action.
                             type: string
                           type: array
                         resources:
@@ -20115,6 +20115,16 @@ spec:
                             and admission review request information like the name
                             or role.
                           properties:
+                            admissionOperations:
+                              description: AdmissionOperations can contain values
+                                ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are
+                                used to match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                type: string
+                              type: array
                             all:
                               description: All allows specifying resources which will
                                 be ANDed
@@ -20569,16 +20579,6 @@ spec:
                               description: ClusterRoles is the list of cluster-wide
                                 role names for the user.
                               items:
-                                type: string
-                              type: array
-                            requestTypes:
-                              description: RequestTypes can contain values ["CREATE,
-                                "UPDATE", "CONNECT", "DELETE"], which are used to
-                                match a specific action.
-                              items:
-                                description: RequestType can have one of the values
-                                  CREATE, UPDATE, CONNECT, DELETE, which are used
-                                  to match a specific action.
                                 type: string
                               type: array
                             resources:
@@ -20942,6 +20942,16 @@ spec:
                             review request information like the user name or role.
                             At least one kind is required.
                           properties:
+                            admissionOperations:
+                              description: AdmissionOperations can contain values
+                                ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are
+                                used to match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                type: string
+                              type: array
                             all:
                               description: All allows specifying resources which will
                                 be ANDed
@@ -21396,16 +21406,6 @@ spec:
                               description: ClusterRoles is the list of cluster-wide
                                 role names for the user.
                               items:
-                                type: string
-                              type: array
-                            requestTypes:
-                              description: RequestTypes can contain values ["CREATE,
-                                "UPDATE", "CONNECT", "DELETE"], which are used to
-                                match a specific action.
-                              items:
-                                description: RequestType can have one of the values
-                                  CREATE, UPDATE, CONNECT, DELETE, which are used
-                                  to match a specific action.
                                 type: string
                               type: array
                             resources:
@@ -26496,6 +26496,16 @@ spec:
                             and admission review request information like the name
                             or role.
                           properties:
+                            admissionOperations:
+                              description: AdmissionOperations can contain values
+                                ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are
+                                used to match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                type: string
+                              type: array
                             all:
                               description: All allows specifying resources which will
                                 be ANDed
@@ -26950,16 +26960,6 @@ spec:
                               description: ClusterRoles is the list of cluster-wide
                                 role names for the user.
                               items:
-                                type: string
-                              type: array
-                            requestTypes:
-                              description: RequestTypes can contain values ["CREATE,
-                                "UPDATE", "CONNECT", "DELETE"], which are used to
-                                match a specific action.
-                              items:
-                                description: RequestType can have one of the values
-                                  CREATE, UPDATE, CONNECT, DELETE, which are used
-                                  to match a specific action.
                                 type: string
                               type: array
                             resources:
@@ -27323,6 +27323,16 @@ spec:
                             review request information like the user name or role.
                             At least one kind is required.
                           properties:
+                            admissionOperations:
+                              description: AdmissionOperations can contain values
+                                ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are
+                                used to match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                type: string
+                              type: array
                             all:
                               description: All allows specifying resources which will
                                 be ANDed
@@ -27777,16 +27787,6 @@ spec:
                               description: ClusterRoles is the list of cluster-wide
                                 role names for the user.
                               items:
-                                type: string
-                              type: array
-                            requestTypes:
-                              description: RequestTypes can contain values ["CREATE,
-                                "UPDATE", "CONNECT", "DELETE"], which are used to
-                                match a specific action.
-                              items:
-                                description: RequestType can have one of the values
-                                  CREATE, UPDATE, CONNECT, DELETE, which are used
-                                  to match a specific action.
                                 type: string
                               type: array
                             resources:
