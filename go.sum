@@ -1080,8 +1080,8 @@ github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLA
 github.com/nishanths/exhaustive v0.1.0/go.mod h1:S1j9110vxV1ECdCudXRkeMnFQ/DQk9ajLT0Uf2MYZQQ=
 github.com/nishanths/predeclared v0.0.0-20190419143655-18a43bb90ffc/go.mod h1:62PewwiQTlm/7Rj+cxVYqZvDIUc+JjZq6GHAC1fsObQ=
 github.com/nishanths/predeclared v0.2.1/go.mod h1:HvkGJcA3naj4lOwnFXFDkFxVtSqQMB9sbB1usJ+xjQE=
-github.com/notaryproject/notation-core-go v1.0.0-rc.1 h1:ACi0gr6mD1bzp9+gu3P0meJ/N6iWHlyM9zgtdnooNAA=
-github.com/notaryproject/notation-core-go v1.0.0-rc.1/go.mod h1:n8Gbvl9sKa00KptkKEL5XKUyMTIALe74QipKauE2rj4=
+github.com/notaryproject/notation-core-go v1.0.0-rc.2 h1:nNJuXa12jVNSSETjGNJEcZgv1NwY5ToYPo+c0P9syCI=
+github.com/notaryproject/notation-core-go v1.0.0-rc.2/go.mod h1:ASoc9KbJkSHLbKhO96lb0pIEWJRMZq9oprwBSZ0EAx0=
 github.com/notaryproject/notation-go v1.0.0-rc.1 h1:WobIGCUPcPUDCD2qGMCccTfLm2J5y1bsh4SFVsyMIaA=
 github.com/notaryproject/notation-go v1.0.0-rc.1/go.mod h1:xk4q0GXqGfEiy7WmyHi3Om3OM2dgHk0OHL6NIiJv5vA=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
@@ -1439,8 +1439,8 @@ github.com/valyala/quicktemplate v1.6.3/go.mod h1:fwPzK2fHuYEODzJ9pkw0ipCPNHZ2tD
 github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV9WzVtRmSR+PDvWpU/qWl4Wa5LApYYX4ZtKbio=
 github.com/vbatts/tar-split v0.11.2 h1:Via6XqJr0hceW4wff3QRzD5gAk/tatMw/4ZA7cTlIME=
 github.com/vbatts/tar-split v0.11.2/go.mod h1:vV3ZuO2yWSVsz+pfFzDG/upWH1JhjOiEaWq6kXyQ3VI=
-github.com/veraison/go-cose v1.0.0-rc.2 h1:zH3QmP4N5kwpdGauceIT3aJm8iUyV9OqpUOb+7CF7rQ=
-github.com/veraison/go-cose v1.0.0-rc.2/go.mod h1:7ziE85vSq4ScFTg6wyoMXjucIGOf4JkFEZi/an96Ct4=
+github.com/veraison/go-cose v1.0.0 h1:Jxirc0rl3gG7wUFgW+82tBQNeK8T8e2Bk1Vd298ob4A=
+github.com/veraison/go-cose v1.0.0/go.mod h1:7ziE85vSq4ScFTg6wyoMXjucIGOf4JkFEZi/an96Ct4=
 github.com/viki-org/dnscache v0.0.0-20130720023526-c70c1f23c5d8/go.mod h1:dniwbG03GafCjFohMDmz6Zc6oCuiqgH6tGNyXTkHzXE=
 github.com/vmihailenco/msgpack/v5 v5.3.5 h1:5gO0H1iULLWGhs2H5tbAHIZTV8/cYafcFOr9znI5mJU=
 github.com/vmihailenco/tagparser/v2 v2.0.0 h1:y09buUbR+b5aycVFQs/g70pqKVZNBmxwAhO7/IwNM9g=
