@@ -299,9 +299,11 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
 	if kind == "Pod" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.template.spec"))
 	}
 	if kind == "Cronjob" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.jobTemplate.spec.template.spec"))
 	}
 	obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
 	return obj
