@@ -128,6 +128,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 
 - Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
 
+- Admission controller `Deployment` name changed from `kyverno` to `kyverno-admission-controller`.
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:
