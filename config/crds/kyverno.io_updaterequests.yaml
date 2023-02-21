@@ -315,6 +315,10 @@ spec:
                         type: object
                     type: object
                 type: object
+              deleteDownstream:
+                description: DeleteDownstream represents whether the downstream needs
+                  to be deleted.
+                type: boolean
               policy:
                 description: Specifies the name of the policy.
                 type: string
@@ -350,6 +354,7 @@ spec:
                 type: boolean
             required:
             - context
+            - deleteDownstream
             - policy
             - resource
             - rule

@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/config"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -83,7 +84,7 @@ func (pc *PolicyController) createUR(policy kyvernov1.PolicyInterface, rule kyve
 		}
 
 		labels := downstream.GetLabels()
-		trigger := TriggerFromLabels(labels)
+		trigger := generateutils.TriggerFromLabels(labels)
 		ur := newUR(policy, trigger, kyvernov1beta1.Generate)
 		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
@@ -97,13 +98,4 @@ func (pc *PolicyController) createUR(policy kyvernov1.PolicyInterface, rule kyve
 		}
 	}
 	return nil
-}
-
-func TriggerFromLabels(labels map[string]string) kyvernov1.ResourceSpec {
-	return kyvernov1.ResourceSpec{
-		Kind:       labels[common.GenerateTriggerKindLabel],
-		Namespace:  labels[common.GenerateTriggerNSLabel],
-		Name:       labels[common.GenerateTriggerNameLabel],
-		APIVersion: labels[common.GenerateTriggerAPIVersionLabel],
-	}
 }

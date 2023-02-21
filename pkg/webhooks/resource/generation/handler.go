@@ -3,17 +3,19 @@ package generation
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
-	policyutil "github.com/kyverno/kyverno/pkg/policy"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func (h *generationHandler) HandleNew(
@@ -92,16 +94,21 @@ func (h *generationHandler) handleNonTrigger(
 func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.PolicyContext, request *admissionv1.AdmissionRequest) (err error) {
 	var policy kyvernov1.PolicyInterface
 	new := policyContext.NewResource()
-	newLabels := new.GetLabels()
+	labels := new.GetLabels()
 	old := policyContext.OldResource()
 	oldLabels := old.GetLabels()
-	if !compareLabels(newLabels, oldLabels) {
-		return fmt.Errorf("labels have been changed, new: %v, old: %v", newLabels, oldLabels)
+	if !compareLabels(labels, oldLabels) {
+		return fmt.Errorf("labels have been changed, new: %v, old: %v", labels, oldLabels)
 	}
 
-	pName := newLabels[common.GeneratePolicyLabel]
-	pNamespace := newLabels[common.GeneratePolicyNamespaceLabel]
-	pRuleName := newLabels[common.GenerateRuleLabel]
+	deleteDownstream := false
+	if reflect.DeepEqual(new, unstructured.Unstructured{}) {
+		deleteDownstream = true
+		labels = oldLabels
+	}
+	pName := labels[common.GeneratePolicyLabel]
+	pNamespace := labels[common.GeneratePolicyNamespaceLabel]
+	pRuleName := labels[common.GenerateRuleLabel]
 
 	if pNamespace != "" {
 		policy, err = h.polLister.Policies(pNamespace).Get(pName)
@@ -113,21 +120,16 @@ func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.
 		return err
 	}
 
-	pKey := policyKey(pName, pNamespace)
+	pKey := common.PolicyKey(pNamespace, pName)
 	for _, rule := range policy.GetSpec().Rules {
 		if rule.Name == pRuleName && rule.Generation.Synchronize {
 			ur := kyvernov1beta1.UpdateRequestSpec{
 				Type:     kyvernov1beta1.Generate,
 				Policy:   pKey,
-				Resource: policyutil.TriggerFromLabels(newLabels),
-				Context: kyvernov1beta1.UpdateRequestSpecContext{
-					UserRequestInfo: policyContext.Copy().AdmissionInfo(),
-					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
-						AdmissionRequest: request,
-						Operation:        request.Operation,
-					},
-				},
+				Rule:     rule.Name,
+				Resource: generateutils.TriggerFromLabels(labels),
 			}
+			ur.DeleteDownstream = deleteDownstream
 			if err := h.urGenerator.Apply(ctx, ur, admissionv1.Update); err != nil {
 				e := event.NewBackgroundFailedEvent(err, pKey, pRuleName, event.GeneratePolicyController, &new)
 				h.eventGen.Add(e...)
@@ -138,14 +140,10 @@ func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.
 	return nil
 }
 
-func policyKey(name, namespace string) string {
-	if namespace != "" {
-		return namespace + "/" + name
-	}
-	return name
-}
-
 func compareLabels(new, old map[string]string) bool {
+	if new == nil {
+		return true
+	}
 	if new[common.GeneratePolicyLabel] != old[common.GeneratePolicyLabel] ||
 		new[common.GeneratePolicyNamespaceLabel] != old[common.GeneratePolicyNamespaceLabel] ||
 		new[common.GenerateRuleLabel] != old[common.GenerateRuleLabel] ||

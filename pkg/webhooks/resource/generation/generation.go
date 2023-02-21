@@ -206,7 +206,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(ctx context.Conte
 		if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 			updatedRule, err := getGeneratedByResource(ctx, newRes, resLabels, h.client, rule, h.log)
 			if err != nil {
-				h.log.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
+				h.log.V(4).Info("skipping generate policy and resource pattern validation", "error", err)
 			} else {
 				data := updatedRule.Generation.DeepCopy().GetData()
 				if data != nil {

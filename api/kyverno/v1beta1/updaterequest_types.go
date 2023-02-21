@@ -86,6 +86,9 @@ type UpdateRequestSpec struct {
 	// Rule is the associate rule name of the current UR.
 	Rule string `json:"rule" yaml:"rule"`
 
+	// DeleteDownstream represents whether the downstream needs to be deleted.
+	DeleteDownstream bool `json:"deleteDownstream" yaml:"deleteDownstream"`
+
 	// Synchronize represents the sync behavior of the corresponding rule
 	// Optional. Defaults to "false" if not specified.
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`

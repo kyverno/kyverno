@@ -128,7 +128,6 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	// 2 - Apply the generate policy on the resource
 	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), c.nsLister, logger)
 	genResources, precreatedResource, err = c.applyGenerate(*resource, *ur, namespaceLabels)
-
 	if err != nil {
 		// Need not update the status when policy doesn't apply on resource, because all the update requests are removed by the cleanup controller
 		if strings.Contains(err.Error(), doesNotApply) {
@@ -166,7 +165,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		return nil, false, err
 	}
 
-	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, &policy, &resource, c.configuration, namespaceLabels, logger)
+	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, policy, &resource, c.configuration, namespaceLabels, logger)
 	if err != nil {
 		return nil, precreatedResource, err
 	}
@@ -236,31 +235,24 @@ func (c *GenerateController) cleanupClonedResource(targetSpec kyvernov1.Resource
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy
-func (c *GenerateController) getPolicySpec(ur kyvernov1beta1.UpdateRequest) (kyvernov1.ClusterPolicy, error) {
-	var policy kyvernov1.ClusterPolicy
-
+func (c *GenerateController) getPolicySpec(ur kyvernov1beta1.UpdateRequest) (kyvernov1.PolicyInterface, error) {
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
 	if err != nil {
-		return policy, err
+		return nil, err
 	}
 
 	if pNamespace == "" {
 		policyObj, err := c.policyLister.Get(pName)
 		if err != nil {
-			return policy, err
+			return nil, err
 		}
-		return *policyObj, err
+		return policyObj, err
 	}
 	npolicyObj, err := c.npolicyLister.Policies(pNamespace).Get(pName)
 	if err != nil {
-		return policy, err
+		return nil, err
 	}
-	return kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pName,
-		},
-		Spec: npolicyObj.Spec,
-	}, nil
+	return npolicyObj, nil
 }
 
 func updateStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec, precreatedResource bool) error {
@@ -326,6 +318,12 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
 			log.Error(err, "variable substitution failed for rule %s", rule.Name)
 			return nil, processExisting, err
+		}
+
+		if ur.Spec.DeleteDownstream {
+			pKey := common.PolicyKey(policy.GetNamespace(), policy.GetName())
+			err = c.deleteResource(pKey, rule, ur)
+			return nil, false, err
 		}
 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
@@ -819,4 +817,16 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 		return nil, err
 	}
 	return resource, nil
+}
+
+func (c *GenerateController) deleteResource(policyKey string, rule kyvernov1.Rule, ur kyvernov1beta1.UpdateRequest) error {
+	if policyKey != ur.Spec.Policy {
+		return nil
+	}
+
+	if rule.Name == ur.Spec.Rule {
+		return c.client.DeleteResource(context.TODO(), rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), rule.Generation.GetNamespace(), rule.Generation.GetName(), false)
+	}
+
+	return nil
 }
