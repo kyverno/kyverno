@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: newsecret
+  namespace: bar
+  labels:
+    kyverno.io/generated-by-name: alertmanager-kps-alertmanager-db-alertmanager-kps-a...truncated
