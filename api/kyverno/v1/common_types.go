@@ -614,14 +614,14 @@ type IgnoreFieldList []ObjectFieldBinding
 
 type ObjectFieldBinding k8smanifest.ObjectFieldBinding
 
-// RequestType can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.
-type Operation string
+// AdmissionOperation can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.
+type AdmissionOperation string
 
 const (
-	Create  Operation = "CREATE"
-	Connect Operation = "CONNECT"
-	Update  Operation = "UPDATE"
-	Delete  Operation = "DELETE"
+	Create  AdmissionOperation = "CREATE"
+	Connect AdmissionOperation = "CONNECT"
+	Update  AdmissionOperation = "UPDATE"
+	Delete  AdmissionOperation = "DELETE"
 )
 
-type Operations []Operation
+type AdmissionOperations []AdmissionOperation
