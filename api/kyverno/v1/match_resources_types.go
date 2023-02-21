@@ -10,7 +10,7 @@ import (
 type MatchResources struct {
 	// AdmissionOperations can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
 	// +optional
-	AdmissionOperations AdmissionOperations `json:"admissionoperation,omitempty" yaml:"admissionoperation,omitempty"`
+	AdmissionOperations AdmissionOperations `json:"admissionOperations,omitempty" yaml:"admissionOperations,omitempty"`
 	// Any allows specifying resources which will be ORed
 	// +optional
 	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
