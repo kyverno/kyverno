@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -541,6 +542,47 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	}
 
 	assert.DeepEqual(t, rulePatches, expectedPatches)
+}
+
+func TestUpdateGenRuleByte(t *testing.T) {
+	tests := []struct {
+		pbyte   []byte
+		kind    string
+		want    []byte
+		wantErr bool
+	}{
+		{
+			pbyte: []byte("request.object.spec"),
+			kind:  "Pod",
+			want:  []byte("request.object.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.oldObject.spec"),
+			kind:  "Pod",
+			want:  []byte("request.oldObject.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.object.spec"),
+			kind:  "Cronjob",
+			want:  []byte("request.object.spec.jobTemplate.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.oldObject.spec"),
+			kind:  "Cronjob",
+			want:  []byte("request.oldObject.spec.jobTemplate.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.object.metadata"),
+			kind:  "Pod",
+			want:  []byte("request.object.spec.template.metadata"),
+		},
+	}
+	for _, tt := range tests {
+		got := updateGenRuleByte(tt.pbyte, tt.kind)
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("updateGenRuleByte() = %v, want %v", string(got), string(tt.want))
+		}
+	}
 }
 
 func Test_UpdateVariablePath(t *testing.T) {
