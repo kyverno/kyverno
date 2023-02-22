@@ -77,6 +77,7 @@ func (e *engine) mutate(
 
 				logger.V(3).Info("processing mutate rule")
 				resource, err := policyContext.JSONContext().Query("request.object")
+				logger.Info("resource", "resource", resource)
 				policyContext.JSONContext().Reset()
 				if err == nil && resource != nil {
 					if err := enginectx.AddResource(resource.(map[string]interface{})); err != nil {
@@ -149,7 +150,7 @@ func (e *engine) mutate(
 					}
 
 					matchedResource = mutateResp.PatchedResource
-
+					logger.Info("matchedResource", "matchedResource", matchedResource)
 					if ruleResponse := buildRuleResponse(ruleCopy, mutateResp, patchedResource); ruleResponse != nil {
 						internal.AddRuleResponse(&resp.PolicyResponse, ruleResponse, startTime)
 					}
@@ -232,15 +233,18 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			if len(mutateResp.Patches) > 0 {
 				f.resource.unstructured = mutateResp.PatchedResource
 				allPatches = append(allPatches, mutateResp.Patches...)
+				if f.resource.unstructured.Object != nil {
+					if err := f.policyContext.JSONContext().AddResource(f.resource.unstructured.Object); err != nil {
+						f.log.Error(err, "unable to update resource object")
+					}
+				}
 			}
 		}
 	}
-
 	msg := fmt.Sprintf("%d elements processed", applyCount)
 	if applyCount == 0 {
 		return mutate.NewResponse(engineapi.RuleStatusSkip, f.resource.unstructured, allPatches, msg)
 	}
-
 	return mutate.NewResponse(engineapi.RuleStatusPass, f.resource.unstructured, allPatches, msg)
 }
 
