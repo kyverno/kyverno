@@ -170,6 +170,8 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
 	resource, _ := policyContext.JSONContext().Query("request.object")
+	logger.Info("resouuuurce", "resource", resource)
+
 	policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: resource.(map[string]interface{})})
 	mh := mutation.NewMutationHandler(logger, h.engine, h.eventGen, h.openApiManager, h.nsLister, h.metricsConfig)
 	mutatePatches, mutateWarnings, err := mh.HandleMutation(ctx, request, mutatePolicies, policyContext, startTime)
