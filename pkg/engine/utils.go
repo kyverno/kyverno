@@ -157,7 +157,7 @@ func MatchesResourceDescription(subresourceGVKToAPIResource map[string]*metav1.A
 
 	var reasonsForFailure []error
 	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {
-		return fmt.Errorf(" The policy and resource namespace are different. Therefore, policy skip this resource.")
+		return fmt.Errorf("policy and resource namespaces mismatch")
 	}
 
 	if len(rule.MatchResources.Any) > 0 {

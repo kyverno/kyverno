@@ -249,7 +249,7 @@ func TestValidateMap_AsteriskForMap(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
@@ -337,7 +337,7 @@ func TestValidateMap_AsteriskForArray(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
@@ -430,7 +430,7 @@ func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
@@ -521,7 +521,7 @@ func TestValidateMap_livenessProbeIsNull(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
@@ -613,7 +613,7 @@ func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
