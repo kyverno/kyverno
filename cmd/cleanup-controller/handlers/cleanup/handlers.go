@@ -40,8 +40,9 @@ type handlers struct {
 }
 
 type cleanupMetrics struct {
-	controllerName      string
-	deletedObjectsTotal syncint64.Counter
+	controllerName       string
+	deletedObjectsTotal  syncint64.Counter
+	cleanupFailuresTotal syncint64.Counter
 }
 
 func newCleanupMetrics(logger logr.Logger, controllerName string) *cleanupMetrics {
@@ -52,9 +53,16 @@ func newCleanupMetrics(logger logr.Logger, controllerName string) *cleanupMetric
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, cleanup_controller_deletedobjects_total")
 	}
+	cleanupFailuresTotal, err := meter.SyncInt64().Counter(
+		"cleanup_controller_errors",
+		instrument.WithDescription("can be used to track number of cleanup failures."))
+	if err != nil {
+		logger.Error(err, "Failed to create instrument, cleanup_controller_failures_total")
+	}
 	return &cleanupMetrics{
-		controllerName:      controllerName,
-		deletedObjectsTotal: deletedObjectsTotal,
+		controllerName:       controllerName,
+		deletedObjectsTotal:  deletedObjectsTotal,
+		cleanupFailuresTotal: cleanupFailuresTotal,
 	}
 }
 
@@ -193,14 +201,33 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 							continue
 						}
 					}
+					commonLabels := []attribute.KeyValue{
+						attribute.String("controller_name", h.metrics.controllerName),
+						attribute.String("policy_type", policy.GetKind()),
+						attribute.String("policy_namespace", policy.GetNamespace()),
+						attribute.String("policy_name", policy.GetName()),
+						attribute.String("resource_kind", name),
+						attribute.String("resource_namespace", namespace),
+						attribute.String("resource_request_operation", string(metrics.ResourceDeleted)),
+					}
 					logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
 					if err := h.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false); err != nil {
+						if h.metrics.cleanupFailuresTotal != nil {
+							commonLabels = append(commonLabels,
+								attribute.Bool("failed", true),
+								attribute.String("failure_reason", err.Error()),
+							)
+							h.metrics.cleanupFailuresTotal.Add(ctx, 1, commonLabels...)
+						}
 						debug.Error(err, "failed to delete resource")
 						errs = append(errs, err)
 						h.createEvent(policy, resource, err)
 					} else {
 						if h.metrics.deletedObjectsTotal != nil {
-							h.metrics.deletedObjectsTotal.Add(ctx, 1, attribute.String("controller_name", h.metrics.controllerName))
+							commonLabels = append(commonLabels,
+								attribute.Bool("failed", false),
+							)
+							h.metrics.deletedObjectsTotal.Add(ctx, 1, commonLabels...)
 						}
 						debug.Info("deleted")
 						h.createEvent(policy, resource, nil)
