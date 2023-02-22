@@ -59,7 +59,7 @@ type UpdateRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Spec is the information to identify the update request.
+	// ResourceSpec is the information to identify the trigger resource.
 	Spec UpdateRequestSpec `json:"spec,omitempty"`
 
 	// Status contains statistics related to update request.
@@ -86,11 +86,14 @@ type UpdateRequestSpec struct {
 	// Rule is the associate rule name of the current UR.
 	Rule string `json:"rule" yaml:"rule"`
 
+	// DeleteDownstream represents whether the downstream needs to be deleted.
+	DeleteDownstream bool `json:"deleteDownstream" yaml:"deleteDownstream"`
+
 	// Synchronize represents the sync behavior of the corresponding rule
 	// Optional. Defaults to "false" if not specified.
 	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
 
-	// ResourceSpec is the information to identify the update request.
+	// ResourceSpec is the information to identify the trigger resource.
 	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
 
 	// Context ...

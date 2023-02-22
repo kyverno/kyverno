@@ -65,3 +65,10 @@ func UpdateStatus(client versioned.Interface, urLister kyvernov1beta1listers.Upd
 	}
 	return ur, err
 }
+
+func PolicyKey(namespace, name string) string {
+	if namespace != "" {
+		return namespace + "/" + name
+	}
+	return name
+}

@@ -121,7 +121,7 @@ func applyUpdateRequest(
 	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	ruleType kyvernov1beta1.RequestType,
-	grGenerator updaterequest.Generator,
+	urGenerator updaterequest.Generator,
 	userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation,
 	engineResponses ...*engineapi.EngineResponse,
@@ -133,7 +133,7 @@ func applyUpdateRequest(
 
 	for _, er := range engineResponses {
 		ur := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
-		if err := grGenerator.Apply(ctx, ur, action); err != nil {
+		if err := urGenerator.Apply(ctx, ur, action); err != nil {
 			failedUpdateRequest = append(failedUpdateRequest, updateRequestResponse{ur: ur, err: err})
 		}
 	}
