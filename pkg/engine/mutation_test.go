@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -23,7 +22,7 @@ import (
 
 func testMutate(
 	ctx context.Context,
-	client dclient.Interface,
+	client client.Interface,
 	rclient registryclient.Client,
 	pContext *PolicyContext,
 	contextLoader engineapi.ContextLoaderFactory,
