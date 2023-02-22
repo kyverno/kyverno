@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/background/common"
 )
 
 func increaseRetryAnnotation(ur *kyvernov1beta1.UpdateRequest) (int, map[string]string, error) {
@@ -31,4 +33,13 @@ func increaseRetryAnnotation(ur *kyvernov1beta1.UpdateRequest) (int, map[string]
 	}
 
 	return retry, urAnnotations, nil
+}
+
+func TriggerFromLabels(labels map[string]string) kyvernov1.ResourceSpec {
+	return kyvernov1.ResourceSpec{
+		Kind:       labels[common.GenerateTriggerKindLabel],
+		Namespace:  labels[common.GenerateTriggerNSLabel],
+		Name:       labels[common.GenerateTriggerNameLabel],
+		APIVersion: labels[common.GenerateTriggerAPIVersionLabel],
+	}
 }
