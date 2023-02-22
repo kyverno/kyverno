@@ -1411,30 +1411,11 @@ func immutableGenerateFields(new, old kyvernov1.PolicyInterface) error {
 			continue
 		}
 
-		if newGenerate.ResourceSpec != oldGenerate.ResourceSpec {
-			return fmt.Errorf("downstream cannot be changed, new: %v, old: %v", newGenerate.ResourceSpec.String(), newGenerate.ResourceSpec.String())
-		}
+		oldGenerate.Synchronize = newGenerate.Synchronize
+		oldGenerate.SetData(newGenerate.GetData())
 
-		if newGenerate.Clone.Name != oldGenerate.Clone.Name ||
-			newGenerate.Clone.Namespace != oldGenerate.Clone.Namespace {
-			return fmt.Errorf("clone source cannot be changed, new: %s/%s, old: %s/%s",
-				newGenerate.Clone.Namespace, newGenerate.Clone.Name,
-				oldGenerate.Clone.Namespace, oldGenerate.Clone.Name)
-		}
-
-		if len(newGenerate.CloneList.Kinds) != 0 {
-			if newGenerate.CloneList.Namespace != oldGenerate.CloneList.Namespace {
-				return fmt.Errorf("clone list source namespace cannot be changed, new: %v, old: %v",
-					newGenerate.CloneList.Namespace, oldGenerate.CloneList.Namespace)
-			}
-			if !reflect.DeepEqual(newGenerate.CloneList.Kinds, oldGenerate.CloneList.Kinds) {
-				return fmt.Errorf("clone list source kinds cannot be changed, new: %v, old: %v",
-					newGenerate.CloneList.Kinds, oldGenerate.CloneList.Kinds)
-			}
-			if !reflect.DeepEqual(newGenerate.CloneList.Selector, oldGenerate.CloneList.Selector) {
-				return fmt.Errorf("clone list source selector cannot be changed, new: %v, old: %v",
-					newGenerate.CloneList.Selector, oldGenerate.CloneList.Selector)
-			}
+		if !reflect.DeepEqual(newGenerate, oldGenerate) {
+			return fmt.Errorf("cannot change downstream, or clone sources for a generate rule")
 		}
 	}
 	return nil
