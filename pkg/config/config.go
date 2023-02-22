@@ -139,7 +139,7 @@ type Configuration interface {
 	GetEnableDefaultRegistryMutation() bool
 	// ToFilter checks if the given resource is set to be filtered in the configuration
 	ToFilter(kind, namespace, name string) bool
-	// GetExcludedGroups return exclude roles
+	// GetExcludedGroups return exclude groups
 	GetExcludedGroups() []string
 	// GetExcludedUsernames return exclude username
 	GetExcludedUsernames() []string
