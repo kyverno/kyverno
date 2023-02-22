@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -25,14 +26,25 @@ func (inner AdmissionHandler) WithSubResourceFilter(subresources ...string) Admi
 
 func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
-			return nil
-		}
-		for _, username := range c.GetExcludeUsername() {
-			if request.UserInfo.Username == username {
+		// filter by username
+		for _, username := range c.GetExcludedUsernames() {
+			if wildcard.Match(username, request.UserInfo.Username) {
 				return nil
 			}
 		}
+		// filter by groups
+		for _, group := range c.GetExcludedGroups() {
+			for _, candidate := range request.UserInfo.Groups {
+				if wildcard.Match(group, candidate) {
+					return nil
+				}
+			}
+		}
+		// filter by resource filters
+		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+			return nil
+		}
+		// filter kyverno resources
 		if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 			return nil
 		}
