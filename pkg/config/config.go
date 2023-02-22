@@ -141,7 +141,7 @@ type Configuration interface {
 	ToFilter(kind, namespace, name string) bool
 	// GetExcludedGroups return exclude groups
 	GetExcludedGroups() []string
-	// GetExcludedUsernames return exclude username
+	// GetExcludedUsernames return exclude usernames
 	GetExcludedUsernames() []string
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
