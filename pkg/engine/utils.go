@@ -5,15 +5,19 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"golang.org/x/exp/slices"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -305,6 +309,11 @@ func EvaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	}
 
 	return l, nil
+}
+
+// runs internal.CheckPreconditions().
+func InternalCheckPrecondition(logger logr.Logger, ctx engineapi.PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
+	return internal.CheckPreconditions(logger, ctx, anyAllConditions)
 }
 
 // invertedElement inverted the order of element for patchStrategicMerge  policies as kustomize patch revering the order of patch resources.
