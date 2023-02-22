@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	engineinternal "github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -381,7 +382,7 @@ func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.Res
 	log := f.log
 	var newGenResources []kyvernov1.ResourceSpec
 
-	preconditionsPassed, err := engine.CheckPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
+	preconditionsPassed, err := engineinternal.CheckPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
 	if err != nil {
 		return newGenResources, err
 	}
@@ -431,11 +432,11 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 		}
 
 		for _, subResource := range foreach.GenerateSubResources {
-			if err := f.engine.ContextLoader(policyContext, f.rule.Name).Load(ctx, subResource.Context, f.policyContext.JSONContext()); err != nil {
+			if err := f.engine.ContextLoader(policyContext.Policy(), f.rule)(ctx, subResource.Context, f.policyContext.JSONContext()); err != nil {
 				return newGenResources, err
 			}
 
-			preconditionsPassed, err := engine.CheckPreconditions(f.log, policyContext, subResource.AnyAllConditions)
+			preconditionsPassed, err := engineinternal.CheckPreconditions(f.log, policyContext, subResource.AnyAllConditions)
 			if err != nil {
 				return newGenResources, err
 			}
