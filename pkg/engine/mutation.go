@@ -77,7 +77,6 @@ func (e *engine) mutate(
 
 				logger.V(3).Info("processing mutate rule")
 				resource, err := policyContext.JSONContext().Query("request.object")
-				logger.Info("resource", "resource", resource)
 				policyContext.JSONContext().Reset()
 				if err == nil && resource != nil {
 					if err := enginectx.AddResource(resource.(map[string]interface{})); err != nil {
@@ -150,7 +149,7 @@ func (e *engine) mutate(
 					}
 
 					matchedResource = mutateResp.PatchedResource
-					logger.Info("matchedResource", "matchedResource", matchedResource)
+
 					if ruleResponse := buildRuleResponse(ruleCopy, mutateResp, patchedResource); ruleResponse != nil {
 						internal.AddRuleResponse(&resp.PolicyResponse, ruleResponse, startTime)
 					}
