@@ -3,8 +3,6 @@ package userinfo
 import (
 	"fmt"
 
-	"github.com/kyverno/kyverno/pkg/config"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
