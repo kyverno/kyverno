@@ -76,7 +76,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if name != tls.GenerateTLSPairSecretName() && name != tls.GenerateRootCASecretName() {
 		return nil
 	}
-	return c.renewCertificates()
+	return c.renewCertificates(ctx)
 }
 
 func (c *controller) ticker(ctx context.Context, logger logr.Logger) {
@@ -101,11 +101,11 @@ func (c *controller) ticker(ctx context.Context, logger logr.Logger) {
 	}
 }
 
-func (c *controller) renewCertificates() error {
-	if err := retryutils.RetryFunc(context.TODO(), time.Second, 5*time.Second, logger, "failed to renew CA", c.renewer.RenewCA)(); err != nil {
+func (c *controller) renewCertificates(ctx context.Context) error {
+	if err := retryutils.RetryFunc(ctx, time.Second, 5*time.Second, logger, "failed to renew CA", c.renewer.RenewCA)(); err != nil {
 		return err
 	}
-	if err := retryutils.RetryFunc(context.TODO(), time.Second, 5*time.Second, logger, "failed to renew TLS", c.renewer.RenewTLS)(); err != nil {
+	if err := retryutils.RetryFunc(ctx, time.Second, 5*time.Second, logger, "failed to renew TLS", c.renewer.RenewTLS)(); err != nil {
 		return err
 	}
 	return nil

@@ -8,10 +8,25 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+// ImageVerificationType selects the type of verification algorithm
+// +kubebuilder:validation:Enum=Cosign;NotaryV2
+// +kubebuilder:default=Cosign
+type ImageVerificationType string
+
+const (
+	Cosign   ImageVerificationType = "Cosign"
+	NotaryV2 ImageVerificationType = "NotaryV2"
+)
+
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
+	// Type specifies the method of signature validation. The allowed options
+	// are Cosign and NotaryV2. By default Cosign is used if a type is not specified.
+	// +kubebuilder:validation:Optional
+	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
+
 	// Image is the image name consisting of the registry address, repository, image, and tag.
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// Deprecated. Use ImageReferences instead.
@@ -232,6 +247,14 @@ type Attestation struct {
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
 	// +kubebuilder:validation:Optional
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
+func (iv *ImageVerification) GetType() ImageVerificationType {
+	if iv.Type != "" {
+		return iv.Type
+	}
+
+	return Cosign
 }
 
 // Validate implements programmatic validation

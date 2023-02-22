@@ -60,7 +60,7 @@ func matchesException(
 			subresourceGVKToAPIResource,
 			policyContext.SubResource(),
 			policyContext.AdmissionInfo(),
-			cfg.GetExcludeGroupRole(),
+			cfg.GetExcludedGroups(),
 		)
 		// if there's no error it means a match
 		if err == nil {

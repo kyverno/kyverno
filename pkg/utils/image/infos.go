@@ -53,7 +53,7 @@ func (i *ImageInfo) ReferenceWithTag() string {
 func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 	logger.V(2).Info(
 		"Getting the image info",
-		image, "image",
+		"image", image,
 		"defaultRegistry", config.Configuration.GetDefaultRegistry(cfg),
 		"enableDefaultRegistryMutation", config.Configuration.GetEnableDefaultRegistryMutation(cfg),
 	)
