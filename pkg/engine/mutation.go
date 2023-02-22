@@ -57,8 +57,8 @@ func (e *engine) mutate(
 			func(ctx context.Context, span trace.Span) {
 				logger := internal.LoggerWithRule(logger, rule)
 				var excludeResource []string
-				if len(e.configuration.GetExcludeGroupRole()) > 0 {
-					excludeResource = e.configuration.GetExcludeGroupRole()
+				if len(e.configuration.GetExcludedGroups()) > 0 {
+					excludeResource = e.configuration.GetExcludedGroups()
 				}
 
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)

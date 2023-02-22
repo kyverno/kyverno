@@ -30315,7 +30315,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec is the information to identify the update request.
+            description: ResourceSpec is the information to identify the trigger resource.
             properties:
               context:
                 description: Context ...
@@ -30570,6 +30570,10 @@ spec:
                         type: object
                     type: object
                 type: object
+              deleteDownstream:
+                description: DeleteDownstream represents whether the downstream needs
+                  to be deleted.
+                type: boolean
               policy:
                 description: Specifies the name of the policy.
                 type: string
@@ -30580,8 +30584,8 @@ spec:
                 - generate
                 type: string
               resource:
-                description: ResourceSpec is the information to identify the update
-                  request.
+                description: ResourceSpec is the information to identify the trigger
+                  resource.
                 properties:
                   apiVersion:
                     description: APIVersion specifies resource apiVersion.
@@ -30605,6 +30609,7 @@ spec:
                 type: boolean
             required:
             - context
+            - deleteDownstream
             - policy
             - resource
             - rule
