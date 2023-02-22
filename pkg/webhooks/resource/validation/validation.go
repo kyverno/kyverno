@@ -165,7 +165,10 @@ func (v *validationHandler) buildAuditResponses(
 			fmt.Sprintf("POLICY %s/%s", policy.GetNamespace(), policy.GetName()),
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
-				responses = append(responses, v.engine.Validate(ctx, policyContext))
+				response := v.engine.Validate(ctx, policyContext)
+				responses = append(responses, response)
+				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), *response)
+				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), *response)
 			},
 		)
 	}
