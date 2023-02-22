@@ -12,11 +12,10 @@ metadata:
   namespace: default
 type: Opaque
 ---
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: generate-secret-truncate-name-label
-  namespace: default
 spec:
   rules:
   - name: generate-secret-truncate-name-label
