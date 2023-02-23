@@ -235,10 +235,12 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			}
 		}
 	}
+
 	msg := fmt.Sprintf("%d elements processed", applyCount)
 	if applyCount == 0 {
 		return mutate.NewResponse(engineapi.RuleStatusSkip, f.resource.unstructured, allPatches, msg)
 	}
+
 	return mutate.NewResponse(engineapi.RuleStatusPass, f.resource.unstructured, allPatches, msg)
 }
 
