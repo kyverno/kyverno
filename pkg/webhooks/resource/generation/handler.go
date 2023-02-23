@@ -5,18 +5,75 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
+
+type GenerationHandler interface {
+	HandleNew(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext)
+}
+
+func NewGenerationHandler(
+	log logr.Logger,
+	engine engineapi.Engine,
+	client dclient.Interface,
+	kyvernoClient versioned.Interface,
+	nsLister corev1listers.NamespaceLister,
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
+	cpolLister kyvernov1listers.ClusterPolicyLister,
+	polLister kyvernov1listers.PolicyLister,
+	urGenerator webhookgenerate.Generator,
+	urUpdater webhookutils.UpdateRequestUpdater,
+	eventGen event.Interface,
+	metrics metrics.MetricsConfigManager,
+) GenerationHandler {
+	return &generationHandler{
+		log:           log,
+		engine:        engine,
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		nsLister:      nsLister,
+		urLister:      urLister,
+		cpolLister:    cpolLister,
+		polLister:     polLister,
+		urGenerator:   urGenerator,
+		urUpdater:     urUpdater,
+		eventGen:      eventGen,
+		metrics:       metrics,
+	}
+}
+
+type generationHandler struct {
+	log           logr.Logger
+	engine        engineapi.Engine
+	client        dclient.Interface
+	kyvernoClient versioned.Interface
+	nsLister      corev1listers.NamespaceLister
+	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
+	cpolLister    kyvernov1listers.ClusterPolicyLister
+	polLister     kyvernov1listers.PolicyLister
+	urGenerator   webhookgenerate.Generator
+	urUpdater     webhookutils.UpdateRequestUpdater
+	eventGen      event.Interface
+	metrics       metrics.MetricsConfigManager
+}
 
 func (h *generationHandler) HandleNew(
 	ctx context.Context,
