@@ -1,5 +1,5 @@
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: Policy
 metadata:
   name: pol-sync-clone
 status:
