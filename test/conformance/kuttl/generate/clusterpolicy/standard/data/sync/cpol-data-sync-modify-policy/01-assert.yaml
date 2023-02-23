@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: cpol-data-sync-modify-downstream-policy
+  name: cpol-data-sync-modify-policy
 status:
   conditions:
   - reason: Succeeded
