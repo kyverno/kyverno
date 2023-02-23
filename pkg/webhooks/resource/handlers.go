@@ -10,6 +10,8 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -25,7 +27,6 @@ import (
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/webhooks"
-	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
@@ -51,10 +52,10 @@ type handlers struct {
 	pCache policycache.Cache
 
 	// listers
-	nsLister  corev1listers.NamespaceLister
-	rbLister  rbacv1listers.RoleBindingLister
-	crbLister rbacv1listers.ClusterRoleBindingLister
-	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
+	nsLister   corev1listers.NamespaceLister
+	urLister   kyvernov1beta1listers.UpdateRequestNamespaceLister
+	cpolLister kyvernov1listers.ClusterPolicyLister
+	polLister  kyvernov1listers.PolicyLister
 
 	urGenerator    webhookgenerate.Generator
 	eventGen       event.Interface
@@ -77,6 +78,8 @@ func NewHandlers(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
+	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	polInformer kyvernov1informers.PolicyInformer,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	openApiManager openapi.ValidateInterface,
@@ -91,9 +94,9 @@ func NewHandlers(
 		metricsConfig:    metricsConfig,
 		pCache:           pCache,
 		nsLister:         nsLister,
-		rbLister:         rbLister,
-		crbLister:        crbLister,
 		urLister:         urLister,
+		cpolLister:       cpolInformer.Lister(),
+		polLister:        polInformer.Lister(),
 		urGenerator:      urGenerator,
 		eventGen:         eventGen,
 		openApiManager:   openApiManager,
@@ -118,11 +121,6 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
 	}
-	if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
-		// handle generate source resource updates
-		gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.urGenerator, h.urUpdater, h.eventGen, h.metricsConfig)
-		go gh.HandleUpdatesForGenerateRules(context.TODO(), request, []kyvernov1.PolicyInterface{})
-	}
 
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
@@ -145,7 +143,7 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 	}
 
 	defer h.handleDelete(logger, request)
-	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
+	go h.handleBackgroundApplies(ctx, logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }

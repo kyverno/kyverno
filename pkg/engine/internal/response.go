@@ -52,12 +52,6 @@ func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 		}
 		resp.PatchedResource = resource
 	}
-	policy := ctx.Policy()
-	resp.PolicyResponse.ValidationFailureAction = policy.GetSpec().ValidationFailureAction
-	for _, v := range policy.GetSpec().ValidationFailureActionOverrides {
-		newOverrides := engineapi.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces, NamespaceSelector: v.NamespaceSelector}
-		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, newOverrides)
-	}
 	resp.PolicyResponse.Stats.ProcessingTime = time.Since(startTime)
 	resp.PolicyResponse.Stats.Timestamp = startTime.Unix()
 	return resp

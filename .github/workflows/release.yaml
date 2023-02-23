@@ -20,7 +20,7 @@ jobs:
         with:
           build-cache-key: release-images
       - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@cff3e9a7f62c41dd51975266d0ae235709e39c41 # v0.9.0
+        uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # v0.9.1
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -188,7 +188,7 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@978cc0c5b8b85a976edd7e457a09b0f4d1255390 # v0.39.0
+        uses: fluxcd/flux2/action@2cac6ce281d8205dc03a6d653064ff06dee257dd # v0.40.0
         with:
           version: 0.35.0
       - name: Install Cosign

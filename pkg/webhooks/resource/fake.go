@@ -49,8 +49,6 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		metricsConfig:  metricsConfig,
 		pCache:         policyCache,
 		nsLister:       informers.Core().V1().Namespaces().Lister(),
-		rbLister:       rbLister,
-		crbLister:      crbLister,
 		urLister:       urLister,
 		urGenerator:    updaterequest.NewFake(),
 		eventGen:       event.NewFake(),
