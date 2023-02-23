@@ -9,6 +9,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -89,9 +90,16 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, ctx context.Interfa
 		return NewResponse(engineapi.RuleStatusSkip, unstructured.Unstructured{}, nil, "no patches applied")
 	}
 
-	if err := ctx.AddResource(patchedResource.Object); err != nil {
+	r, _ := ctx.Query("request.object")
+	raw, _ := json.Marshal(r)
+	raw, _ = engineutils.ApplyPatches(raw, resp.Patches)
+	if err := context.AddResource(ctx, raw); err != nil {
 		return NewErrorResponse("failed to update patched resource in the JSON context", err)
 	}
+
+	// if err := ctx.AddResource(patchedResource.Object); err != nil {
+	// 	return NewErrorResponse("failed to update patched resource in the JSON context", err)
+	// }
 
 	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
 }

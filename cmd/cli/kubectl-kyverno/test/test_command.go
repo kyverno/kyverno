@@ -940,6 +940,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				RuleToCloneSourceResource: ruleToCloneSourceResource,
 				Client:                    dClient,
 				Subresources:              subresources,
+				PrintPatchResource:        true,
 			}
 			ers, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {

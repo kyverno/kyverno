@@ -26,6 +26,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
@@ -493,6 +494,10 @@ OuterLoop:
 		policyContext,
 	)
 	if mutateResponse != nil {
+		logging.Info("resource", "resource", mutateResponse.PatchedResource)
+		for _, patch := range mutateResponse.GetPatches() {
+			logging.Info("patch", "patch", string(patch))
+		}
 		engineResponses = append(engineResponses, mutateResponse)
 	}
 
