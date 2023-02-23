@@ -1,11 +1,12 @@
 ## Description
 
-This test ensures that creation of a multiple target resource created by a ClusterPolicy `generate.cloneList` rule. If it is not generated, the test fails.
+This test ensures that modification of the downstream (cloned/generated) resource used by a Policy `generate` rule with sync enabled using a data declaration causes those changes to be reverted and synchronized from the state of the upstream/source.
 
 ## Expected Behavior
 
-The cloned Secret and ConfigMap from the default namespace should exists in newly created namespace.
+After the downstream resource is modified, the changes should be reverted after synchronization occurs. If the downstream resource is synced with the state of the source resource, the test passes. If the downstream resource remains in a modified state, the test fails.
+
 
 ## Reference Issue(s)
 
-N/A
+https://github.com/kyverno/kyverno/issues/5764
