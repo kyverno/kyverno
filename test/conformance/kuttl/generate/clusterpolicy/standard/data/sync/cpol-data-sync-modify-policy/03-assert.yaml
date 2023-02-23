@@ -1,21 +1,3 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: cpol-data-sync-modify-policy
-spec:
-  rules:
-  - name: cpol-data-sync-modify-rule
-    generate:
-      data:
-        spec:
-          hard:
-            limits.cpu: '9'
-status:
-  conditions:
-  - reason: Succeeded
-    status: "True"
-    type: Ready
----
 apiVersion: v1
 kind: ResourceQuota
 metadata:
