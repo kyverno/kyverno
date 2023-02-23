@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: poltest
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-policy-foreach-data
+  namespace: poltest
+spec:
+  rules:
+    - name: foreach-gen-zk
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      generate:
+        foreach:
+        - list: "request.object.spec.containers"
+          generateResources:
+          - kind: ConfigMap
+            apiVersion: v1
+            name: "custom-created-configmap"
+            namespace: "{{request.object.metadata.namespace}}"
+            synchronize: true
+            data:
+              kind: ConfigMap
+              metadata:
+                labels:
+                  somekey: somevalue
+              data:
+                ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+                KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
