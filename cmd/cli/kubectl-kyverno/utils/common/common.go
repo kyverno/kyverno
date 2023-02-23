@@ -427,6 +427,10 @@ OuterLoop:
 		log.Log.Error(err, "failed to marshal resource")
 	}
 
+	updatedResource, err := kubeutils.BytesToUnstructured(resourceRaw)
+	if err != nil {
+		log.Log.Error(err, "unable to convert raw resource to unstructured")
+	}
 	ctx := engineContext.NewContext()
 
 	if operationIsDelete {
@@ -477,11 +481,9 @@ OuterLoop:
 		store.ContextLoaderFactory(nil),
 		nil,
 	)
-	resource, _ := ctx.Query("request.object")
-
 	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
 		WithPolicy(c.Policy).
-		WithNewResource(unstructured.Unstructured{Object: resource.(map[string]interface{})}).
+		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).
 		WithAdmissionInfo(c.UserInfo).
 		WithSubresourcesInPolicy(subresources)

@@ -232,11 +232,6 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			if len(mutateResp.Patches) > 0 {
 				f.resource.unstructured = mutateResp.PatchedResource
 				allPatches = append(allPatches, mutateResp.Patches...)
-				if f.resource.unstructured.Object != nil {
-					if err := f.policyContext.JSONContext().AddResource(f.resource.unstructured.Object); err != nil {
-						f.log.Error(err, "unable to update resource object")
-					}
-				}
 			}
 		}
 	}

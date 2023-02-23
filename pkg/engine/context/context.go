@@ -325,8 +325,13 @@ func (ctx *context) reset(remove bool) {
 	}
 	n := len(ctx.jsonRawCheckpoints) - 1
 	jsonRawCheckpoint := ctx.jsonRawCheckpoints[n]
-	ctx.jsonRaw = make([]byte, len(jsonRawCheckpoint))
-	copy(ctx.jsonRaw, jsonRawCheckpoint)
+	var current map[string]interface{}
+	var checkpoint map[string]interface{}
+	json.Unmarshal(ctx.jsonRaw, &current)
+	json.Unmarshal(jsonRawCheckpoint, &checkpoint)
+	checkpoint["request"] = current["request"]
+	raw, _ := json.Marshal(checkpoint)
+	ctx.jsonRaw = raw
 	if remove {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 	}
