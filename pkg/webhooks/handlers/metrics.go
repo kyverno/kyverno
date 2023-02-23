@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -91,7 +91,7 @@ func (inner HttpHandler) withMetrics(logger logr.Logger, attrs ...attribute.KeyV
 		startTime := time.Now()
 		attributes := []attribute.KeyValue{
 			semconv.HTTPRequestContentLengthKey.Int64(request.ContentLength),
-			semconv.HTTPHostKey.String(request.Host),
+			// semconv.HTTPHostKey.String(request.Host),
 			semconv.HTTPMethodKey.String(request.Method),
 			semconv.HTTPURLKey.String(request.RequestURI),
 		}
