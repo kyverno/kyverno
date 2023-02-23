@@ -143,8 +143,6 @@ type Configuration interface {
 	GetExcludeUsername() []string
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
-	// FilterNamespaces filters exclude namespace
-	FilterNamespaces(namespaces []string) []string
 	// GetWebhooks returns the webhook configs
 	GetWebhooks() []WebhookConfig
 	// Load loads configuration from a configmap
@@ -230,16 +228,6 @@ func (cd *configuration) GetGenerateSuccessEvents() bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.generateSuccessEvents
-}
-
-func (cd *configuration) FilterNamespaces(namespaces []string) []string {
-	var results []string
-	for _, ns := range namespaces {
-		if !cd.ToFilter("", ns, "") {
-			results = append(results, ns)
-		}
-	}
-	return results
 }
 
 func (cd *configuration) GetWebhooks() []WebhookConfig {
