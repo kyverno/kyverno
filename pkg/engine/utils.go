@@ -56,7 +56,7 @@ func checkNameSpace(namespaces []string, resource unstructured.Unstructured) boo
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (across & inside) attributes
-func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*metav1.APIResource, conditionBlock kyvernov1.ResourceDescription, userInfo kyvernov1.UserInfo, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string, subresourceInAdmnReview string) []error {
+func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*metav1.APIResource, conditionBlock kyvernov1.ResourceDescription, userInfo kyvernov1.UserInfo, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, namespaceLabels map[string]string, subresourceInAdmnReview string) []error {
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
@@ -125,22 +125,21 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 		}
 	}
 
-	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
 	var userInfoErrors []error
-	if len(userInfo.Roles) > 0 && !datautils.SliceContains(keys, dynamicConfig...) {
+	if len(userInfo.Roles) > 0 {
 		if !datautils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match roles for the given conditionBlock"))
 		}
 	}
 
-	if len(userInfo.ClusterRoles) > 0 && !datautils.SliceContains(keys, dynamicConfig...) {
+	if len(userInfo.ClusterRoles) > 0 {
 		if !datautils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
 		}
 	}
 
 	if len(userInfo.Subjects) > 0 {
-		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, dynamicConfig) {
+		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match subject for the given conditionBlock"))
 		}
 	}
@@ -148,8 +147,8 @@ func doesResourceMatchConditionBlock(subresourceGVKToAPIResource map[string]*met
 }
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
-func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo, dynamicConfig []string) bool {
-	return matchutils.CheckSubjects(ruleSubjects, userInfo, dynamicConfig)
+func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
+	return matchutils.CheckSubjects(ruleSubjects, userInfo)
 }
 
 // MatchesResourceDescription checks if the resource matches resource description of the rule or not
@@ -236,7 +235,7 @@ func matchesResourceDescriptionMatchHelper(subresourceGVKToAPIResource map[strin
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!reflect.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
-		matchErrs := doesResourceMatchConditionBlock(subresourceGVKToAPIResource, rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)
+		matchErrs := doesResourceMatchConditionBlock(subresourceGVKToAPIResource, rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, namespaceLabels, subresourceInAdmnReview)
 		errs = append(errs, matchErrs...)
 	} else {
 		errs = append(errs, fmt.Errorf("match cannot be empty"))
@@ -249,7 +248,7 @@ func matchesResourceDescriptionExcludeHelper(subresourceGVKToAPIResource map[str
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rer.ResourceDescription, kyvernov1.ResourceDescription{}) ||
 		!reflect.DeepEqual(rer.UserInfo, kyvernov1.UserInfo{}) {
-		excludeErrs := doesResourceMatchConditionBlock(subresourceGVKToAPIResource, rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels, subresourceInAdmnReview)
+		excludeErrs := doesResourceMatchConditionBlock(subresourceGVKToAPIResource, rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, namespaceLabels, subresourceInAdmnReview)
 		// it was a match so we want to exclude it
 		if len(excludeErrs) == 0 {
 			errs = append(errs, fmt.Errorf("resource excluded since one of the criteria excluded it"))
