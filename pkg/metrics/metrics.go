@@ -17,8 +17,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/instrument"
-	"go.opentelemetry.io/otel/metric/instrument/syncfloat64"
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
@@ -31,10 +29,10 @@ const (
 
 type MetricsConfig struct {
 	// instruments
-	policyChangesMetric           syncint64.Counter
-	policyResultsMetric           syncint64.Counter
-	policyExecutionDurationMetric syncfloat64.Histogram
-	clientQueriesMetric           syncint64.Counter
+	policyChangesMetric           instrument.Int64Counter
+	policyResultsMetric           instrument.Int64Counter
+	policyExecutionDurationMetric instrument.Float64Histogram
+	clientQueriesMetric           instrument.Int64Counter
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -56,22 +54,22 @@ func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
-	m.policyResultsMetric, err = meter.SyncInt64().Counter("kyverno_policy_results", instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"))
+	m.policyResultsMetric, err = meter.Int64Counter("kyverno_policy_results", instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_policy_results")
 		return err
 	}
-	m.policyChangesMetric, err = meter.SyncInt64().Counter("kyverno_policy_changes", instrument.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
+	m.policyChangesMetric, err = meter.Int64Counter("kyverno_policy_changes", instrument.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_policy_changes")
 		return err
 	}
-	m.policyExecutionDurationMetric, err = meter.SyncFloat64().Histogram("kyverno_policy_execution_duration_seconds", instrument.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"))
+	m.policyExecutionDurationMetric, err = meter.Float64Histogram("kyverno_policy_execution_duration_seconds", instrument.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_policy_execution_duration_seconds")
 		return err
 	}
-	m.clientQueriesMetric, err = meter.SyncInt64().Counter("kyverno_client_queries", instrument.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
+	m.clientQueriesMetric, err = meter.Int64Counter("kyverno_client_queries", instrument.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_client_queries")
 		return err
