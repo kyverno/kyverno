@@ -166,7 +166,7 @@ var policyMutateAndVerify = `
                                     "containers": [
                                         {
                                             "name": "{{ element.name }}",
-                                            "image": "{{ regex_replace_all_literal('.*(.*)/', '{{element.image}}', 'ghcr.io/kyverno/' )}}"
+                                            "image": "{{ regex_replace_all_literal('^([^/]+\\.[^/]+/)?(.*)$', '{{element.image}}', 'ghcr.io/kyverno/$2' )}}"
                                         }
                                     ]
                                 }
