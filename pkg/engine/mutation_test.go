@@ -329,7 +329,7 @@ func Test_chained_rules(t *testing.T) {
               "containers": [
                 {
                   "(name)": "*",
-                  "image": "{{regex_replace_all('^[^/]+','{{@}}','myregistry.corp.com')}}"
+                  "image": "{{regex_replace_all('^([^/]+\\.[^/]+/)?(.*)$','{{@}}','myregistry.corp.com/$2')}}"
                 }
               ]
             }
