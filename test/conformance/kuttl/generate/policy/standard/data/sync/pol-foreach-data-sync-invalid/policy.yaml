@@ -18,7 +18,7 @@ spec:
           - kind: ConfigMap
             apiVersion: v1
             name: "custom-created-configmap"
-            namespace: "{{request.object.metadata.namespace}}"
+            namespace: poltest
             synchronize: true
             data:
               kind: ConfigMap

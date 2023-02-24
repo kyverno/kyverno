@@ -1,0 +1,34 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: regcred
+  namespace: default
+type: Opaque
+---
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-foreach-clone-sync
+  namespace: default
+spec:
+  rules:
+  - name: pol-foreach-clone-sync-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - pod
+    generate:
+      foreach:
+      - list: "request.object.spec.containers"
+        generateResources:
+        - kind: Secret
+          apiVersion: v1
+          name: "newsecret"
+          namespace: "default"
+          synchronize: true
+          clone:
+            namespace: default
+            name: custom-created-secret
