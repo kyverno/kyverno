@@ -97,11 +97,11 @@ func NewController(
 		DeleteFunc: c.deleteUR,
 	})
 	_, _ = cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updatePolicy,
+		// UpdateFunc: c.updatePolicy,
 		DeleteFunc: c.deletePolicy,
 	})
 	_, _ = polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updatePolicy,
+		// UpdateFunc: c.updatePolicy,
 		DeleteFunc: c.deletePolicy,
 	})
 
