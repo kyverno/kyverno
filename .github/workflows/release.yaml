@@ -198,14 +198,14 @@ jobs:
       - name: Build yaml manifest
         run: make codegen-manifest-release
       - name: Upload install manifest
-        uses: svenstaro/upload-release-action@cc92c9093e5f785e23a3d654fe2671640b851b5f # 2.4.1
+        uses: svenstaro/upload-release-action@7319e4733ec7a184d739a6f412c40ffc339b69c7 # 2.5.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
       - name: Upload CRD manifest
-        uses: svenstaro/upload-release-action@cc92c9093e5f785e23a3d654fe2671640b851b5f # 2.4.1
+        uses: svenstaro/upload-release-action@7319e4733ec7a184d739a6f412c40ffc339b69c7 # 2.5.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: config/crds/*.yaml
