@@ -66,7 +66,9 @@ func (c *PolicyContext) Policy() kyvernov1.PolicyInterface {
 }
 
 func (c *PolicyContext) NewResource() unstructured.Unstructured {
-	return c.newResource
+	resource, _ := c.jsonContext.Query("request.object")
+	return unstructured.Unstructured{Object: resource.(map[string]interface{})}
+	// return c.newResource
 }
 
 func (c *PolicyContext) OldResource() unstructured.Unstructured {
