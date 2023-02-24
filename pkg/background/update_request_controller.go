@@ -97,11 +97,9 @@ func NewController(
 		DeleteFunc: c.deleteUR,
 	})
 	_, _ = cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		// UpdateFunc: c.updatePolicy,
 		DeleteFunc: c.deletePolicy,
 	})
 	_, _ = polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		// UpdateFunc: c.updatePolicy,
 		DeleteFunc: c.deletePolicy,
 	})
 
@@ -286,24 +284,6 @@ func (c *controller) enqueueUpdateRequest(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *controller) updatePolicy(_, obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		logger.Error(err, "failed to compute policy key")
-	} else {
-		logger.V(4).Info("updating policy", "key", key)
-		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(key)
-		if err != nil {
-			logger.Error(err, "failed to list update requests for policy", "key", key)
-			return
-		}
-		// re-evaluate the UR as the policy was updated
-		for _, ur := range urs {
-			c.enqueueUpdateRequest(ur)
-		}
-	}
-}
-
 func (c *controller) deletePolicy(obj interface{}) {
 	var p kyvernov1.PolicyInterface
 
@@ -419,8 +399,8 @@ func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
 func (c *controller) processDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, pName string) bool {
 	generatePolicyWithClone := false
 	for _, rule := range policy.GetSpec().Rules {
-		clone, sync := rule.GetCloneSyncForGenerate()
-		if !(clone && sync) {
+		t, sync := rule.GetGenerateTypeAndSync()
+		if !(t == kyvernov1.Clone && sync) {
 			continue
 		}
 		logger.V(4).Info("generate policy with clone, remove policy name from label of source resource")
