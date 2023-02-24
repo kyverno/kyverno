@@ -150,18 +150,11 @@ func (r *Rule) IsPodSecurity() bool {
 	return r.Validation.PodSecurity != nil
 }
 
-// IsCloneSyncGenerate checks if the generate rule has the clone block with sync=true
-func (r *Rule) GetCloneSyncForGenerate() (clone bool, sync bool) {
+func (r *Rule) GetGenerateTypeAndSync() (_ GenerateType, sync bool) {
 	if !r.HasGenerate() {
 		return
 	}
-
-	if r.Generation.Clone.Name != "" {
-		clone = true
-	}
-
-	sync = r.Generation.Synchronize
-	return
+	return r.Generation.GetTypeAndSync()
 }
 
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {

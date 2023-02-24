@@ -824,7 +824,7 @@ func (c *GenerateController) deleteResource(policyKey string, rule kyvernov1.Rul
 		return nil
 	}
 
-	if rule.Name == ur.Spec.Rule {
+	if ur.Spec.Rule == "" || rule.Name == ur.Spec.Rule {
 		return c.client.DeleteResource(context.TODO(), rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), rule.Generation.GetNamespace(), rule.Generation.GetName(), false)
 	}
 

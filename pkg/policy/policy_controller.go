@@ -231,15 +231,15 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 
 	logger.Info("policy deleted", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
 
-	// do not clean up UR on generate clone (sync=true) policy deletion
 	rules := autogen.ComputeRules(p)
 	for _, r := range rules {
-		clone, sync := r.GetCloneSyncForGenerate()
-		if clone && sync {
-			return
+		generateType, sync := r.GetGenerateTypeAndSync()
+		if sync && (generateType == kyvernov1.Data) {
+			if err := pc.createUR(p, r, true); err != nil {
+				logger.Error(err, "failed to create UR on policy deletion, clean up downstream resource may be failed")
+			}
 		}
 	}
-	pc.enqueuePolicy(p)
 }
 
 func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
@@ -425,7 +425,13 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		}
 
 		pc.log.V(2).Info("creating new UR for generate")
-		_, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		if err != nil {
+			return false, err
+		}
+		updated := created.DeepCopy()
+		updated.Status.State = kyvernov1beta1.Pending
+		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
