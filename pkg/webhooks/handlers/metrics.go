@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -22,14 +22,14 @@ func (inner AdmissionHandler) WithMetrics(logger logr.Logger, metricsConfig conf
 
 func (inner AdmissionHandler) withMetrics(logger logr.Logger, metricsConfig config.MetricsConfiguration, attrs ...attribute.KeyValue) AdmissionHandler {
 	meter := global.MeterProvider().Meter(metrics.MeterName)
-	requestsMetric, err := meter.SyncInt64().Counter(
+	requestsMetric, err := meter.Int64Counter(
 		"kyverno_admission_requests",
 		instrument.WithDescription("can be used to track the number of admission requests encountered by Kyverno in the cluster"),
 	)
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_admission_requests_total")
 	}
-	durationMetric, err := meter.SyncFloat64().Histogram(
+	durationMetric, err := meter.Float64Histogram(
 		"kyverno_admission_review_duration_seconds",
 		instrument.WithDescription("can be used to track the latencies (in seconds) associated with the entire individual admission review. For example, if an incoming request trigger, say, five policies, this metric will track the e2e latency associated with the execution of all those policies"),
 	)
@@ -73,14 +73,14 @@ func (inner HttpHandler) WithMetrics(logger logr.Logger, attrs ...attribute.KeyV
 
 func (inner HttpHandler) withMetrics(logger logr.Logger, attrs ...attribute.KeyValue) HttpHandler {
 	meter := global.MeterProvider().Meter(metrics.MeterName)
-	requestsMetric, err := meter.SyncInt64().Counter(
+	requestsMetric, err := meter.Int64Counter(
 		"kyverno_http_requests_total",
 		instrument.WithDescription("can be used to track the number of http requests"),
 	)
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_http_requests_total")
 	}
-	durationMetric, err := meter.SyncFloat64().Histogram(
+	durationMetric, err := meter.Float64Histogram(
 		"kyverno_http_requests_duration_seconds",
 		instrument.WithDescription("can be used to track the latencies (in seconds) associated with the entire individual http request."),
 	)
@@ -91,7 +91,7 @@ func (inner HttpHandler) withMetrics(logger logr.Logger, attrs ...attribute.KeyV
 		startTime := time.Now()
 		attributes := []attribute.KeyValue{
 			semconv.HTTPRequestContentLengthKey.Int64(request.ContentLength),
-			semconv.HTTPHostKey.String(request.Host),
+			// semconv.HTTPHostKey.String(request.Host),
 			semconv.HTTPMethodKey.String(request.Method),
 			semconv.HTTPURLKey.String(request.RequestURI),
 		}
