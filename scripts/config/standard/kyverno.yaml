@@ -27,6 +27,7 @@ backgroundController:
             - '*'
           resources:
             - configmaps
+            - resourcequotas
             - secrets
             - roles
             - rolebindings
