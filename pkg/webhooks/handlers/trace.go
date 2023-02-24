@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -24,7 +24,7 @@ func (inner HttpHandler) WithTrace(name string) HttpHandler {
 			},
 			trace.WithAttributes(
 				semconv.HTTPRequestContentLengthKey.Int64(request.ContentLength),
-				semconv.HTTPHostKey.String(tracing.StringValue(request.Host)),
+				// semconv.HTTPHostKey.String(tracing.StringValue(request.Host)),
 				semconv.HTTPMethodKey.String(tracing.StringValue(request.Method)),
 				semconv.HTTPURLKey.String(tracing.StringValue(request.RequestURI)),
 			),
