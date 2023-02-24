@@ -457,10 +457,6 @@ OuterLoop:
 		}
 	}
 
-	if err := engineContext.MutateResourceWithImageInfo(resourceRaw, ctx); err != nil {
-		log.Log.Error(err, "failed to add image variables to context")
-	}
-
 	subresources := make([]engineapi.SubResource, 0)
 
 	// If --cluster flag is not set, then we need to add subresources to the context
