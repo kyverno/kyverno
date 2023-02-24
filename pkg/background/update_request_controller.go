@@ -179,9 +179,6 @@ func (c *controller) syncUpdateRequest(key string) error {
 		if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate {
 			return c.handleMutatePolicyAbsence(ur)
 		}
-		if err := c.handleGeneratePolicyAbsence(ur); err != nil {
-			return err
-		}
 	}
 
 	if ur.Status.State == kyvernov1beta1.Pending {
@@ -249,7 +246,7 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 }
 
 func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
-	if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
+	if ur.Status.State == kyvernov1beta1.Completed {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 	return nil

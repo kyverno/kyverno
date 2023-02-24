@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleType kyvernov1beta1.RequestType, deleteDownstream bool) *kyvernov1beta1.UpdateRequest {
+func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleName string, ruleType kyvernov1beta1.RequestType, deleteDownstream bool) *kyvernov1beta1.UpdateRequest {
 	var policyNameNamespaceKey string
 
 	if policy.IsNamespaced() {
@@ -39,6 +39,7 @@ func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, rul
 		Spec: kyvernov1beta1.UpdateRequestSpec{
 			Type:   ruleType,
 			Policy: policyNameNamespaceKey,
+			Rule:   ruleName,
 			Resource: kyvernov1.ResourceSpec{
 				Kind:       trigger.GetKind(),
 				Namespace:  trigger.GetNamespace(),

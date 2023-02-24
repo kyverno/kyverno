@@ -153,6 +153,10 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	policy, err := c.getPolicySpec(ur)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
+			if err := c.handleGeneratePolicyRuleAbsence(&ur); err != nil {
+				return nil, false, nil
+			}
+
 			for _, e := range ur.Status.GeneratedResources {
 				if err := c.cleanupClonedResource(e); err != nil {
 					logger.Error(err, "failed to clean up cloned resource on policy deletion")
@@ -163,6 +167,11 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 
 		logger.Error(err, "error in fetching policy")
 		return nil, false, err
+	}
+	if ur.Spec.DeleteDownstream {
+		if err := c.handleGeneratePolicyRuleAbsence(&ur); err != nil {
+			return nil, false, nil
+		}
 	}
 
 	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, policy, &resource, c.configuration, namespaceLabels, logger)
@@ -318,12 +327,6 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		if rule, err = variables.SubstituteAllInRule(log, policyContext.JSONContext(), rule); err != nil {
 			log.Error(err, "variable substitution failed for rule %s", rule.Name)
 			return nil, processExisting, err
-		}
-
-		if ur.Spec.DeleteDownstream {
-			pKey := common.PolicyKey(policy.GetNamespace(), policy.GetName())
-			err = c.deleteResource(pKey, rule, ur)
-			return nil, false, err
 		}
 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
@@ -817,16 +820,4 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 		return nil, err
 	}
 	return resource, nil
-}
-
-func (c *GenerateController) deleteResource(policyKey string, rule kyvernov1.Rule, ur kyvernov1beta1.UpdateRequest) error {
-	if policyKey != ur.Spec.Policy {
-		return nil
-	}
-
-	if ur.Spec.Rule == "" || rule.Name == ur.Spec.Rule {
-		return c.client.DeleteResource(context.TODO(), rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), rule.Generation.GetNamespace(), rule.Generation.GetName(), false)
-	}
-
-	return nil
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -211,6 +210,12 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	}
 
 	logger.V(2).Info("updating policy", "name", oldP.GetName())
+	if deleted, ok := ruleDeletion(oldP, curP); ok {
+		err := pc.createURForDownstreamDeletion(deleted)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("failed to create UR on rule deletion, clean up downstream resource may be failed: %v", err))
+		}
+	}
 
 	pc.enqueuePolicy(curP)
 }
@@ -230,15 +235,9 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	}
 
 	logger.Info("policy deleted", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
-
-	rules := autogen.ComputeRules(p)
-	for _, r := range rules {
-		generateType, sync := r.GetGenerateTypeAndSync()
-		if sync && (generateType == kyvernov1.Data) {
-			if err := pc.createUR(p, r, true); err != nil {
-				logger.Error(err, "failed to create UR on policy deletion, clean up downstream resource may be failed")
-			}
-		}
+	err := pc.createURForDownstreamDeletion(p)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %v", err))
 	}
 }
 
