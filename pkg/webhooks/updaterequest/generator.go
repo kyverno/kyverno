@@ -117,7 +117,6 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 			return err
 		}
 		l.V(4).Info("successfully created UpdateRequest", "name", updated.GetName(), "namespace", ur.GetNamespace())
-
 	}
 	return nil
 }
