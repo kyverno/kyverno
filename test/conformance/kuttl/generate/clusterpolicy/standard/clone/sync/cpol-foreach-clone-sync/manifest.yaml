@@ -28,7 +28,7 @@ spec:
           apiVersion: v1
           name: "newsecret"
           namespace: "default"
-          synchronize: false
+          synchronize: true
           clone:
             namespace: default
             name: regcred

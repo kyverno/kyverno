@@ -10,11 +10,11 @@ type: Opaque
 apiVersion: kyverno.io/v2beta1
 kind: Policy
 metadata:
-  name: pol-foreach-clone-sync
+  name: pol-foreach-clone-nosync
   namespace: default
 spec:
   rules:
-  - name: pol-foreach-clone-sync-secret
+  - name: pol-foreach-clone-nosync-secret
     match:
       any:
       - resources:

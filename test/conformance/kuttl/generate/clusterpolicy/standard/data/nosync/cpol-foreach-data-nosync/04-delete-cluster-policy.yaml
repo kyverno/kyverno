@@ -3,5 +3,5 @@ kind: TestStep
 delete:
 - apiVersion: kyverno.io/v2beta1
   kind: ClusterPolicy
-  name: cpol-foreach-data-sync
+  name: cpol-foreach-data-nosync
   namespace: default

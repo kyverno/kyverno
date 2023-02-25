@@ -3,5 +3,5 @@ kind: TestStep
 delete:
 - apiVersion: kyverno.io/v2beta1
   kind: Policy
-  name: pol-foreach-clone-sync
+  name: pol-foreach-clone-nosync
   namespace: default
