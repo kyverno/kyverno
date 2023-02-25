@@ -31,4 +31,4 @@ spec:
           synchronize: true
           clone:
             namespace: default
-            name: custom-created-secret
+            name: regcred

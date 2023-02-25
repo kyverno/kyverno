@@ -1,6 +1,6 @@
 ## Description
 
-This test checks to ensure that deletion of a rule in a Policy (Namespaced) generate rule, clone declaration, with sync enabled, does NOT result in the downstream resource's deletion.
+This test checks to ensure that deletion of a rule in a Policy (Namespaced) generate rule, clone declaration, with sync disabled, does NOT result in the downstream resource's deletion.
 
 ## Expected Behavior
 
