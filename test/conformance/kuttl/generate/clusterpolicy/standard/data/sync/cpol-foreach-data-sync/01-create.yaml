@@ -3,4 +3,4 @@ kind: TestStep
 apply:
 - manifests.yaml
 assert:
-- policy-ready.yaml
+- cluster-policy-ready.yaml
