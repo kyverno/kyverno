@@ -256,6 +256,7 @@ KO_KYVERNOPRE_REPO  := $(PACKAGE)/$(KYVERNOPRE_DIR)
 KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
 KO_CLEANUP_REPO     := $(PACKAGE)/$(CLEANUP_DIR)
 KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
+KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
 
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
@@ -301,11 +302,6 @@ ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-clean
 ################
 
 REGISTRY_USERNAME   ?= dummy
-KO_KYVERNOPRE_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/kyverno-init
-KO_KYVERNO_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/kyverno
-KO_CLEANUP_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/cleanup-controller
-KO_REPORTS_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/reports-controller
-KO_BACKGROUND_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/background-controller
 PLATFORMS           := all
 KO_TAGS             := $(IMAGE_TAG_LATEST),$(IMAGE_TAG)
 KO_TAGS_DEV         := $(IMAGE_TAG_LATEST),$(IMAGE_TAG_DEV)
@@ -390,7 +386,7 @@ LOCAL_KYVERNOPRE_REPO  := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper
 LOCAL_KYVERNO_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_KYVERNO_REPO)
 LOCAL_CLEANUP_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_CLEANUP_REPO)
 LOCAL_REPORTS_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_REPORTS_REPO)
-LOCAL_BACKGROUND_IMAGE := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_BACKGROUND_IMAGE)
+LOCAL_BACKGROUND_REPO  := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_BACKGROUND_REPO)
 
 .PHONY: image-build-kyverno-init
 image-build-kyverno-init: $(BUILD_WITH)-build-kyverno-init
@@ -755,6 +751,18 @@ test-perf: $(PACKAGE_SHIM) ## Run perf tests
 		--v=2 \
 		--report-dir=.
 
+##########
+# DOCKER #
+##########
+
+.PHONY: docker-save-image-all
+docker-save-image-all: image-build-all
+	docker save $(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(IMAGE_TAG_DEV) 	| gzip > kyverno-init.tar.gz
+	docker save $(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(IMAGE_TAG_DEV) 		| gzip > kyverno.tar.gz
+	docker save $(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(IMAGE_TAG_DEV) 		| gzip > cleanup.tar.gz
+	docker save $(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(IMAGE_TAG_DEV) 		| gzip > reports.tar.gz
+	docker save $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(IMAGE_TAG_DEV) 	| gzip > background.tar.gz
+
 ########
 # KIND #
 ########
@@ -792,7 +800,7 @@ kind-load-reports-controller: $(KIND) image-build-reports-controller ## Build re
 .PHONY: kind-load-background-controller
 kind-load-background-controller: $(KIND) image-build-background-controller ## Build background controller image and load it in kind cluster
 	@echo Load background controller image... >&2
-	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_BACKGROUND_IMAGE):$(IMAGE_TAG_DEV)
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(IMAGE_TAG_DEV)
 
 .PHONY: kind-load-all
 kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller ## Build images and load them in kind cluster
@@ -813,7 +821,8 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set reportsController.image.registry=$(LOCAL_REGISTRY) \
 		--set reportsController.image.repository=$(LOCAL_REPORTS_REPO) \
 		--set reportsController.image.tag=$(IMAGE_TAG_DEV) \
-		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_IMAGE) \
+		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
+		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
 		--set backgroundController.image.tag=$(IMAGE_TAG_DEV) \
 		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
 
