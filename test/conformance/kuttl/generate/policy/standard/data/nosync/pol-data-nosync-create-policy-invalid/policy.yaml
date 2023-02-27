@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-data-nosync-create-policy-invalid-policy
+  namespace: indigiored
+spec:
+  rules:
+  - name: pol-data-nosync-create-policy-invalid-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - Secret
+    generate:
+      synchronize: false
+      apiVersion: v1
+      kind: ConfigMap
+      name: zk-kafka-address
+      namespace: kindbrown
+      data:
+        kind: ConfigMap
+        metadata:
+          labels:
+            somekey: somevalue
+        data:
+          ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+          KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
