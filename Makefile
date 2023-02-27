@@ -756,7 +756,7 @@ test-perf: $(PACKAGE_SHIM) ## Run perf tests
 ##########
 
 .PHONY: docker-save-image-all
-docker-save-image-all: image-build-all
+docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
 	docker save 														\
 		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(IMAGE_TAG_DEV) 	\
 		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(IMAGE_TAG_DEV) 		\
@@ -806,6 +806,11 @@ kind-load-background-controller: $(KIND) image-build-background-controller ## Bu
 
 .PHONY: kind-load-all
 kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller ## Build images and load them in kind cluster
+
+.PHONY: kind-load-image-archive
+kind-load-image-archive: $(KIND) ## Load docker images from archive
+	@echo Load image archive in kind cluster... >&2
+	@$(KIND) load image-archive kyverno.tar --name $(KIND_NAME)
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart

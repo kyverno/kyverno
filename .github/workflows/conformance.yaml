@@ -51,6 +51,8 @@ jobs:
         uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: kyverno.tar
+      - name: Load kyverno images archive in kind cluster
+        run: make kind-load-image-archive
       # - name: Wait for kyverno ready
       #   uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
