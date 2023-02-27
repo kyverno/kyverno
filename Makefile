@@ -835,24 +835,7 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
-	@echo Install kyverno chart... >&2
-	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
-		--set image.registry=$(LOCAL_REGISTRY) \
-		--set image.repository=$(LOCAL_KYVERNO_REPO) \
-		--set image.tag=$(IMAGE_TAG_DEV) \
-		--set initImage.registry=$(LOCAL_REGISTRY) \
-		--set initImage.repository=$(LOCAL_KYVERNOPRE_REPO) \
-		--set initImage.tag=$(IMAGE_TAG_DEV) \
-		--set cleanupController.image.registry=$(LOCAL_REGISTRY) \
-		--set cleanupController.image.repository=$(LOCAL_CLEANUP_REPO) \
-		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
-		--set reportsController.image.registry=$(LOCAL_REGISTRY) \
-		--set reportsController.image.repository=$(LOCAL_REPORTS_REPO) \
-		--set reportsController.image.tag=$(IMAGE_TAG_DEV) \
-		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
-		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
-		--set backgroundController.image.tag=$(IMAGE_TAG_DEV) \
-		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
+	$(MAKE) kind-install-kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
