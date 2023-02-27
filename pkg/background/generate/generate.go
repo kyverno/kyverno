@@ -151,25 +151,25 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	logger.V(3).Info("applying generate policy rule")
 
 	policy, err := c.getPolicySpec(ur)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if err := c.handleGeneratePolicyRuleAbsence(&ur); err != nil {
-				return nil, false, nil
-			}
-
-			for _, e := range ur.Status.GeneratedResources {
-				if err := c.cleanupClonedResource(e); err != nil {
-					logger.Error(err, "failed to clean up cloned resource on policy deletion")
-				}
-			}
-			return nil, false, nil
-		}
+	if err != nil && !apierrors.IsNotFound(err) {
+		// TODO(shuting): remove
+		// if apierrors.IsNotFound(err) {
+		// 	return nil, false, c.deleteDownstreamForData(&ur)
+		// }
+		// for _, e := range ur.Status.GeneratedResources {
+		// 	if err := c.cleanupClonedResource(e); err != nil {
+		// 		logger.Error(err, "failed to clean up cloned resource on policy deletion")
+		// 	}
+		// }
+		// return nil, false, nil
+		// }
 
 		logger.Error(err, "error in fetching policy")
 		return nil, false, err
 	}
+
 	if ur.Spec.DeleteDownstream {
-		if err := c.handleGeneratePolicyRuleAbsence(&ur); err != nil {
+		if err := c.deleteDownstream(policy, &ur); err != nil {
 			return nil, false, nil
 		}
 	}

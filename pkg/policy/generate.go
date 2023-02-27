@@ -40,7 +40,7 @@ func (pc *PolicyController) handleGenerate(policyKey string, policy kyvernov1.Po
 					continue
 				}
 
-				ur := newUR(policy, resourceSpecFromUnstructured(trigger), rule.Name, ruleType, false)
+				ur := newUR(policy, common.ResourceSpecFromUnstructured(trigger), rule.Name, ruleType, false)
 				skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
 					pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
@@ -93,13 +93,7 @@ func (pc *PolicyController) createUR(policy kyvernov1.PolicyInterface, rule kyve
 	}
 	var errorList []error
 	if generate.GetData() != nil {
-		selector := &metav1.LabelSelector{MatchLabels: map[string]string{
-			common.GeneratePolicyLabel:          policy.GetName(),
-			common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
-			common.GenerateRuleLabel:            rule.Name,
-		}}
-
-		downstreams, err := pc.client.ListResource(context.TODO(), generate.GetAPIVersion(), generate.GetKind(), "", selector)
+		downstreams, err := generateutils.FindDownstream(pc.client, policy, rule)
 		if err != nil {
 			return err
 		}

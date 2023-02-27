@@ -479,12 +479,3 @@ func updateUR(kyvernoClient versioned.Interface, urLister kyvernov1beta1listers.
 		}
 	}
 }
-
-func resourceSpecFromUnstructured(obj *unstructured.Unstructured) kyvernov1.ResourceSpec {
-	return kyvernov1.ResourceSpec{
-		APIVersion: obj.GetAPIVersion(),
-		Kind:       obj.GetKind(),
-		Namespace:  obj.GetNamespace(),
-		Name:       obj.GetName(),
-	}
-}
