@@ -674,7 +674,7 @@ test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-
 
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN)
-	@$(CLI_BIN) test https://github.com/eddycharly/policies/images
+	@$(CLI_BIN) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
 test-cli-local: $(CLI_BIN)
