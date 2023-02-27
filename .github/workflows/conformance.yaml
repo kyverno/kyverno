@@ -28,6 +28,7 @@ jobs:
           name: kyverno.tar
           path: kyverno.tar
           retention-days: 1
+          if-no-files-found: error
 
   run-conformance:
     strategy:
