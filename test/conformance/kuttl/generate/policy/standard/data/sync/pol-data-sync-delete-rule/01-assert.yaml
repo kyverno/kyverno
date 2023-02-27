@@ -1,7 +1,8 @@
 apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
-  name: pol-data-sync-delete-rule
+  name: multiple-gens
+  namespace: pol-data-sync-delete-rule
 status:
   conditions:
   - reason: Succeeded
