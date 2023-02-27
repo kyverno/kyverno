@@ -763,7 +763,7 @@ docker-save-image-all: image-build-all
 		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(IMAGE_TAG_DEV) 		\
 		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(IMAGE_TAG_DEV) 		\
 		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(IMAGE_TAG_DEV) 	\
-	| gzip > kyverno.tar.gz
+	> kyverno.tar
 
 ########
 # KIND #
