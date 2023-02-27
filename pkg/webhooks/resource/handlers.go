@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -163,10 +162,6 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
-	}
-	// update container images to a canonical form
-	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext()); err != nil {
-		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
 	mh := mutation.NewMutationHandler(logger, h.engine, h.eventGen, h.openApiManager, h.nsLister, h.metricsConfig)
 	mutatePatches, mutateWarnings, err := mh.HandleMutation(ctx, request, mutatePolicies, policyContext, startTime)
