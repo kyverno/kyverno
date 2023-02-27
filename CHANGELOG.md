@@ -6,6 +6,7 @@
 
 - Removed `GenerateRequest` CRD.
 - Refactored `kyverno` chart, migration instructions are available in chart `README.md`.
+- Image references in the json context are not mutated to canonical form anymore, do not assume a registry domain is always present.
 
 ## v1.9.0-rc.1
 
