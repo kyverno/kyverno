@@ -53,8 +53,10 @@ jobs:
           name: kyverno.tar
       - name: Load kyverno images archive in kind cluster
         run: make kind-load-image-archive
-      # - name: Wait for kyverno ready
-      #   uses: ./.github/actions/kyverno-wait-ready
+      - name: Install kyverno
+        run: make kind-install-kyverno
+      - name: Wait for kyverno ready
+        uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
         run: make test-kuttl
       - name: Debug failure
