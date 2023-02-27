@@ -30,7 +30,6 @@ func (e *engine) mutate(
 	policy := policyContext.Policy()
 	resp = engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	matchedResource := policyContext.NewResource()
-	enginectx := policyContext.JSONContext()
 	var skippedRules []string
 
 	logger.V(4).Info("start mutate policy processing", "startTime", startTime)
@@ -76,15 +75,6 @@ func (e *engine) mutate(
 				}
 
 				logger.V(3).Info("processing mutate rule")
-				resource, err := policyContext.JSONContext().Query("request.object")
-				policyContext.JSONContext().Reset()
-				if err == nil && resource != nil {
-					if err := enginectx.AddResource(resource.(map[string]interface{})); err != nil {
-						logger.Error(err, "unable to update resource object")
-					}
-				} else {
-					logger.Error(err, "failed to query resource object")
-				}
 
 				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
 					if _, ok := err.(gojmespath.NotFoundError); ok {
@@ -232,6 +222,10 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			if len(mutateResp.Patches) > 0 {
 				f.resource.unstructured = mutateResp.PatchedResource
 				allPatches = append(allPatches, mutateResp.Patches...)
+			}
+			f.log.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
+			if err := f.policyContext.JSONContext().AddResource(mutateResp.PatchedResource.Object); err != nil {
+				f.log.Error(err, "failed to update resource in context")
 			}
 		}
 	}
