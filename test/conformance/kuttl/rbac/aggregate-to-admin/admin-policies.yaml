@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kyverno:admin:policies
+  name: kyverno:rbac:admin:policies
   labels:
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
 rules:
