@@ -34,7 +34,7 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 				fmt.Sprintf("failed to clean up downstream resources on policy deletion: %v", multierr.Combine(errs...)),
 				failedDownstreams)
 		} else {
-			c.statusControl.Success(ur.GetName(), nil)
+			_, err = c.statusControl.Success(ur.GetName(), nil)
 		}
 		return
 	}
@@ -43,7 +43,7 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 	return c.deleteDownstreamForClone(policy, ur)
 }
 
-func (c *GenerateController) deleteDownstreamForClone(policy kyvernov1.PolicyInterface, ur *kyvernov1beta1.UpdateRequest) (err error) {
+func (c *GenerateController) deleteDownstreamForClone(policy kyvernov1.PolicyInterface, ur *kyvernov1beta1.UpdateRequest) error {
 	if !ur.Spec.DeleteDownstream {
 		return nil
 	}
@@ -62,7 +62,7 @@ func (c *GenerateController) deleteDownstreamForClone(policy kyvernov1.PolicyInt
 		failedDownstreams := []kyvernov1.ResourceSpec{}
 		for _, downstream := range downstreams.Items {
 			if err := c.client.DeleteResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
-				failedDownstreams = append(failedDownstreams, common.ResourceSpecFromUnstructured(&downstream))
+				failedDownstreams = append(failedDownstreams, common.ResourceSpecFromUnstructured(downstream))
 				errs = append(errs, err)
 			}
 		}
@@ -72,8 +72,9 @@ func (c *GenerateController) deleteDownstreamForClone(policy kyvernov1.PolicyInt
 				fmt.Sprintf("failed to clean up downstream resources on source deletion: %v", multierr.Combine(errs...)),
 				failedDownstreams)
 		} else {
-			c.statusControl.Success(ur.GetName(), nil)
+			_, err = c.statusControl.Success(ur.GetName(), nil)
 		}
+		return err
 	}
-	return
+	return nil
 }

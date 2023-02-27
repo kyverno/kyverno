@@ -40,7 +40,7 @@ func (pc *PolicyController) handleGenerate(policyKey string, policy kyvernov1.Po
 					continue
 				}
 
-				ur := newUR(policy, common.ResourceSpecFromUnstructured(trigger), rule.Name, ruleType, false)
+				ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
 				skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
 					pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,

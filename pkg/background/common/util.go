@@ -74,7 +74,7 @@ func PolicyKey(namespace, name string) string {
 	return name
 }
 
-func ResourceSpecFromUnstructured(obj *unstructured.Unstructured) kyvernov1.ResourceSpec {
+func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyvernov1.ResourceSpec {
 	return kyvernov1.ResourceSpec{
 		APIVersion: obj.GetAPIVersion(),
 		Kind:       obj.GetKind(),
