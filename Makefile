@@ -291,7 +291,7 @@ ko-build-reports-controller: $(KO) ## Build reports controller local image (with
 .PHONY: ko-build-background-controller
 ko-build-background-controller: $(KO) ## Build background controller local image (with ko)
 	@echo Build background controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local \
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
@@ -757,11 +757,13 @@ test-perf: $(PACKAGE_SHIM) ## Run perf tests
 
 .PHONY: docker-save-image-all
 docker-save-image-all: image-build-all
-	docker save $(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(IMAGE_TAG_DEV) 	| gzip > kyverno-init.tar.gz
-	docker save $(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(IMAGE_TAG_DEV) 		| gzip > kyverno.tar.gz
-	docker save $(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(IMAGE_TAG_DEV) 		| gzip > cleanup.tar.gz
-	docker save $(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(IMAGE_TAG_DEV) 		| gzip > reports.tar.gz
-	docker save $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(IMAGE_TAG_DEV) 	| gzip > background.tar.gz
+	docker save 														\
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(IMAGE_TAG_DEV) 	\
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(IMAGE_TAG_DEV) 		\
+		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(IMAGE_TAG_DEV) 		\
+		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(IMAGE_TAG_DEV) 		\
+		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(IMAGE_TAG_DEV) 	\
+	| gzip > kyverno.tar.gz
 
 ########
 # KIND #
