@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+assert:
+- generated-resources.yaml
+error:
+- fail-generated-resources.yaml
