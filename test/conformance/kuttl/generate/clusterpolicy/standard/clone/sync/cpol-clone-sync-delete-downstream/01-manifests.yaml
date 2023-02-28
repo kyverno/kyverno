@@ -1,3 +1,12 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: regcred
+  namespace: default
+type: Opaque
+---
 apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
@@ -19,12 +28,3 @@ spec:
       clone:
         namespace: default
         name: regcred
----
-apiVersion: v1
-data:
-  foo: YmFy
-kind: Secret
-metadata:
-  name: regcred
-  namespace: default
-type: Opaque
