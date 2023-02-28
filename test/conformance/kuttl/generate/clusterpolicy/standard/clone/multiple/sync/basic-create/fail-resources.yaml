@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  thisshouldnotbe: clonedanywhere
+kind: ConfigMap
+metadata:
+  name: forbidden
+  namespace: citrine

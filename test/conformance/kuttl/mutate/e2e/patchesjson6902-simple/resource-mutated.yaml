@@ -11,7 +11,7 @@ spec:
     - name: FOO
       value: bar
     - name: K8S_IMAGE
-      value: docker.io/busybox:1.11
+      value: busybox:1.11
     image: busybox:1.11
     name: busybox
     securityContext:
