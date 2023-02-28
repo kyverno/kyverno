@@ -168,10 +168,9 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		return nil, false, err
 	}
 
-	if ur.Spec.DeleteDownstream {
-		if err := c.deleteDownstream(policy, &ur); err != nil {
-			return nil, false, nil
-		}
+	if ur.Spec.DeleteDownstream || apierrors.IsNotFound(err) {
+		err = c.deleteDownstream(policy, &ur)
+		return nil, false, err
 	}
 
 	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, policy, &resource, c.configuration, namespaceLabels, logger)
