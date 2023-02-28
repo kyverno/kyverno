@@ -41,7 +41,7 @@ require (
 	github.com/robfig/cron v1.2.0
 	github.com/sigstore/cosign v1.13.1
 	github.com/sigstore/k8s-manifest-sigstore v0.4.4
-	github.com/sigstore/sigstore v1.5.2
+	github.com/sigstore/sigstore v1.6.0
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.2
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
@@ -262,7 +262,7 @@ require (
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sassoftware/relic v0.0.0-20210427151427-dfb082b79b74 // indirect
-	github.com/secure-systems-lab/go-securesystemslib v0.4.0 // indirect
+	github.com/secure-systems-lab/go-securesystemslib v0.5.0 // indirect
 	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
