@@ -17,7 +17,7 @@ func increaseRetryAnnotation(ur *kyvernov1beta1.UpdateRequest) (int, map[string]
 	urAnnotations := ur.Annotations
 	if len(urAnnotations) == 0 {
 		urAnnotations = map[string]string{
-			urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]: "1",
+			kyvernov1beta1.URGenerateRetryCountAnnotation: "1",
 		}
 	}
 
