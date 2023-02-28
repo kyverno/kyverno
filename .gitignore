@@ -18,3 +18,4 @@ cmd/background-controller/background-controller
 /config/.release
 .dist
 .manifest
+kyverno.tar.gz
