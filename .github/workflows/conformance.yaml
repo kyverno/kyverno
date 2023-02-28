@@ -40,18 +40,17 @@ jobs:
           - v1.26.0
         tests:
           - autogen
-          # - cleanup
-          # - events
-          # - exceptions
-          # - generate
-          # - kuttl-test.yaml
-          # - mutate
-          # - rangeoperators
-          # - rbac
-          # - reports
-          # - validate
-          # - verifyImages
-          # - webhooks
+          - cleanup
+          - events
+          - exceptions
+          - generate
+          - mutate
+          - rangeoperators
+          - rbac
+          - reports
+          - validate
+          - verifyImages
+          - webhooks
     runs-on: ubuntu-latest
     needs: prepare-images
     steps:
@@ -76,7 +75,6 @@ jobs:
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
-        # run: make test-kuttl
         run: |
           ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
             --config ./test/conformance/kuttl/_config/common.yaml
