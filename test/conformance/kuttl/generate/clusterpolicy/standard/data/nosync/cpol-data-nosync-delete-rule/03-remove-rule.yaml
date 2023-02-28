@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- policy-with-rule-removed.yaml
+assert:
+- both-resources-exist.yaml
