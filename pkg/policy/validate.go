@@ -243,16 +243,18 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				return warnings, validateMatchKindHelper(rule)
 			}
 		}
+
+		if oldPolicy != nil {
+			if err := immutableGenerateFields(policy, oldPolicy); err != nil {
+				return warnings, err
+			}
+		}
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
 		if namespaced {
 			return warnings, checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res)
 		}
 
-		// validate rule actions
-		// - Mutate
-		// - Validate
-		// - Generate
 		if err := validateActions(i, &rules[i], client, mock); err != nil {
 			return warnings, err
 		}
@@ -432,13 +434,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return warnings, err
 		}
 	}
-
-	if oldPolicy != nil {
-		if err := immutableGenerateFields(policy, oldPolicy); err != nil {
-			return warnings, err
-		}
-	}
-
 	return warnings, nil
 }
 
