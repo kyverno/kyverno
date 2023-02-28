@@ -39,6 +39,9 @@ func (c *GenerateController) deleteDownstream(policy kyvernov1.PolicyInterface, 
 		return
 	}
 
+	if policy == nil {
+		return nil
+	}
 	// handle clone source deletion
 	return c.deleteDownstreamForClone(policy, ur)
 }
