@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestSuite
+startKIND: false
+parallel: 1
+fullName: true
+skipTestRegex: '_.+'

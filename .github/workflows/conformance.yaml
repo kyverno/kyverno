@@ -77,7 +77,9 @@ jobs:
         uses: ./.github/actions/kyverno-wait-ready
       - name: Test with kuttl
         # run: make test-kuttl
-        run: ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }}
+        run: |
+          ./.tools/kubectl-kuttl test ./test/conformance/kuttl/${{ matrix.tests }} \
+            --config ./test/conformance/kuttl/_config/common.yaml
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno-logs
