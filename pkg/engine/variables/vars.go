@@ -221,7 +221,7 @@ func SubstituteAllForceMutate(log logr.Logger, ctx context.Interface, typedRule 
 	}
 
 	if ctx == nil {
-		rule = replaceSubstituteVariables(rule)
+		rule = replaceSubstituteVariables(rule, typedRule)
 	} else {
 		rule, err = substituteVars(log, ctx, rule, DefaultVariableResolver)
 		if err != nil {
@@ -574,32 +574,34 @@ func getValueFromReference(fullDocument interface{}, path string) (interface{}, 
 	return element, nil
 }
 
-func replaceSubstituteVariables(document interface{}) interface{} {
+func replaceSubstituteVariables(document interface{}, typedRule kyvernov1.Rule) interface{} {
 	rawDocument, err := json.Marshal(document)
 	if err != nil {
 		return document
 	}
-
 	for {
 		if len(regexElementIndex.FindAllSubmatch(rawDocument, -1)) == 0 {
 			break
 		}
-
 		rawDocument = regexElementIndex.ReplaceAll(rawDocument, []byte(`0`))
 	}
-
+	for _, entry := range typedRule.Context {
+		if entry.Variable != nil {
+			r := regexp.MustCompile(`"\{\{\s*` + entry.Name + `\s*\}\}"`)
+			rawDocument = r.ReplaceAll(rawDocument, entry.Variable.Value.Raw)
+		}
+	}
 	for {
 		if len(RegexVariables.FindAllSubmatch(rawDocument, -1)) == 0 {
 			break
 		}
-
 		rawDocument = RegexVariables.ReplaceAll(rawDocument, []byte(`${1}placeholderValue`))
 	}
 
 	var output interface{}
 	err = json.Unmarshal(rawDocument, &output)
 	if err != nil {
-		logging.Error(err, "failed to unmarshall JSON: %s", string(rawDocument))
+		logging.Error(err, "failed to unmarshall JSON", "document", string(rawDocument))
 		return document
 	}
 
