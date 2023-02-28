@@ -5,4 +5,4 @@ delete:
 - apiVersion: v1
   kind: ConfigMap
   name: zk-kafka-address
-  namespace: falcon-heavy
+  namespace: cpol-data-sync-delete-downstream-ns
