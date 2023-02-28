@@ -29,8 +29,8 @@ spec:
       apiVersion: v1
       kind: Secret
       name: newsecret
-      namespace: default
+      namespace: pol-clone-sync-delete-source
       synchronize: true
       clone:
-        namespace: default
+        namespace: pol-clone-sync-delete-source
         name: regcred
