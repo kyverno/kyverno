@@ -152,18 +152,6 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 
 	policy, err := c.getPolicySpec(ur)
 	if err != nil && !apierrors.IsNotFound(err) {
-		// TODO(shuting): remove
-		// if apierrors.IsNotFound(err) {
-		// 	return nil, false, c.deleteDownstreamForData(&ur)
-		// }
-		// for _, e := range ur.Status.GeneratedResources {
-		// 	if err := c.cleanupClonedResource(e); err != nil {
-		// 		logger.Error(err, "failed to clean up cloned resource on policy deletion")
-		// 	}
-		// }
-		// return nil, false, nil
-		// }
-
 		logger.Error(err, "error in fetching policy")
 		return nil, false, err
 	}
@@ -215,31 +203,6 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 
 	// Apply the generate rule on resource
 	return c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
-}
-
-// cleanupClonedResource deletes cloned resource if sync is not enabled for the clone policy
-func (c *GenerateController) cleanupClonedResource(targetSpec kyvernov1.ResourceSpec) error {
-	target, err := c.client.GetResource(context.TODO(), targetSpec.APIVersion, targetSpec.Kind, targetSpec.Namespace, targetSpec.Name)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to find generated resource %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
-		}
-	}
-
-	if target == nil {
-		return nil
-	}
-
-	labels := target.GetLabels()
-	syncEnabled := labels[LabelSynchronize] == "enable"
-	clone := labels[LabelClonePolicyName] != ""
-
-	if syncEnabled && !clone {
-		if err := c.client.DeleteResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), false); err != nil {
-			return fmt.Errorf("cloned resource is not deleted %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
-		}
-	}
-	return nil
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy
