@@ -160,9 +160,11 @@ func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.
 
 	managedBy := oldLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp
 	deleteDownstream := false
-	if reflect.DeepEqual(new, unstructured.Unstructured{}) && !managedBy {
-		deleteDownstream = true
+	if reflect.DeepEqual(new, unstructured.Unstructured{}) {
 		labels = oldLabels
+		if !managedBy {
+			deleteDownstream = true
+		}
 	}
 	pName := labels[common.GeneratePolicyLabel]
 	pNamespace := labels[common.GeneratePolicyNamespaceLabel]
