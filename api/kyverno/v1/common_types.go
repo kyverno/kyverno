@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -558,6 +559,20 @@ type CloneList struct {
 	// wildcard characters are not supported.
 	// +optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
+}
+
+func (g *Generation) Validate() error {
+	generateType, _ := g.GetTypeAndSync()
+	if generateType == Data {
+		return nil
+	}
+
+	newGeneration := Generation{
+		Clone:     g.Clone,
+		CloneList: g.CloneList,
+	}
+
+	return regex.ObjectHasVariables(newGeneration)
 }
 
 func (g *Generation) GetData() apiextensions.JSON {
