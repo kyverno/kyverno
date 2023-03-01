@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -23,7 +22,7 @@ import (
 
 func testMutate(
 	ctx context.Context,
-	client dclient.Interface,
+	client client.Interface,
 	rclient registryclient.Client,
 	pContext *PolicyContext,
 	contextLoader engineapi.ContextLoaderFactory,
@@ -330,7 +329,7 @@ func Test_chained_rules(t *testing.T) {
               "containers": [
                 {
                   "(name)": "*",
-                  "image": "{{regex_replace_all('^[^/]+','{{@}}','myregistry.corp.com')}}"
+                  "image": "{{regex_replace_all('^([^/]+\\.[^/]+/)?(.*)$','{{@}}','myregistry.corp.com/$2')}}"
                 }
               ]
             }
@@ -395,9 +394,6 @@ func Test_chained_rules(t *testing.T) {
 	}
 
 	err = ctx.AddImageInfos(resource, cfg)
-	assert.NilError(t, err)
-
-	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
@@ -674,9 +670,6 @@ func Test_foreach(t *testing.T) {
 	err = ctx.AddImageInfos(resource, cfg)
 	assert.NilError(t, err)
 
-	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
-	assert.NilError(t, err)
-
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
@@ -779,9 +772,6 @@ func Test_foreach_element_mutation(t *testing.T) {
 	}
 
 	err = ctx.AddImageInfos(resource, cfg)
-	assert.NilError(t, err)
-
-	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
@@ -905,9 +895,6 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	}
 
 	err = ctx.AddImageInfos(resource, cfg)
-	assert.NilError(t, err)
-
-	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
@@ -1055,9 +1042,6 @@ func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *eng
 	}
 
 	err = ctx.AddImageInfos(resource, cfg)
-	assert.NilError(t, err)
-
-	err = enginecontext.MutateResourceWithImageInfo(resourceRaw, ctx)
 	assert.NilError(t, err)
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)

@@ -54,7 +54,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 
 	err = ctx.AddResource(trigger.Object)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to load resource in contex: %w", err)
+		return nil, false, fmt.Errorf("failed to load resource in context: %w", err)
 	}
 
 	err = ctx.AddOldResource(old.Object)

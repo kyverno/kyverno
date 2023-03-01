@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- rule-modified.yaml
+assert:
+- downstream-untouched.yaml

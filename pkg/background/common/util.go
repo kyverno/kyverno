@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/util/retry"
 )
 
@@ -64,4 +65,20 @@ func UpdateStatus(client versioned.Interface, urLister kyvernov1beta1listers.Upd
 		logging.V(3).Info("updated update request status", "name", name, "status", string(state))
 	}
 	return ur, err
+}
+
+func PolicyKey(namespace, name string) string {
+	if namespace != "" {
+		return namespace + "/" + name
+	}
+	return name
+}
+
+func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyvernov1.ResourceSpec {
+	return kyvernov1.ResourceSpec{
+		APIVersion: obj.GetAPIVersion(),
+		Kind:       obj.GetKind(),
+		Namespace:  obj.GetNamespace(),
+		Name:       obj.GetName(),
+	}
 }

@@ -903,7 +903,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	for _, policy := range policies {
-		_, err := policy2.Validate(policy, nil, true, openApiManager)
+		_, err := policy2.Validate(policy, nil, nil, true, openApiManager)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
 			continue

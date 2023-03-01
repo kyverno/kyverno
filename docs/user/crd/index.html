@@ -1531,6 +1531,10 @@ Kubernetes apiextensions/v1.JSON
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.GenerateType">GenerateType
+(<code>string</code> alias)</p></h3>
+<p>
+</p>
 <h3 id="kyverno.io/v1.Generation">Generation
 </h3>
 <p>
@@ -1785,6 +1789,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
+<code>type</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageVerificationType">
+ImageVerificationType
+</a>
+</em>
+</td>
+<td>
+<p>Type specifies the method of signature validation. The allowed options
+are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>image</code><br/>
 <em>
 string
@@ -1962,6 +1980,15 @@ bool
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ImageVerificationType">ImageVerificationType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+<p>ImageVerificationType selects the type of verification algorithm</p>
+</p>
 <h3 id="kyverno.io/v1.KeylessAttestor">KeylessAttestor
 </h3>
 <p>
@@ -4357,7 +4384,7 @@ UpdateRequestSpec
 </em>
 </td>
 <td>
-<p>Spec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 <br/>
 <br/>
 <table class="table table-striped">
@@ -4398,6 +4425,17 @@ string
 </tr>
 <tr>
 <td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>synchronize</code><br/>
 <em>
 bool
@@ -4418,7 +4456,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ResourceSpec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 </td>
 </tr>
 <tr>
@@ -4620,6 +4658,17 @@ string
 </tr>
 <tr>
 <td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>synchronize</code><br/>
 <em>
 bool
@@ -4640,7 +4689,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ResourceSpec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 </td>
 </tr>
 <tr>
@@ -6072,6 +6121,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
+<code>type</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.ImageVerificationType">
+ImageVerificationType
+</a>
+</em>
+</td>
+<td>
+<p>Type specifies the method of signature validation. The allowed options
+are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>imageReferences</code><br/>
 <em>
 []string
@@ -6162,6 +6225,15 @@ bool
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2beta1.ImageVerificationType">ImageVerificationType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+<p>ImageVerificationType selects the type of verification algorithm</p>
+</p>
 <h3 id="kyverno.io/v2beta1.MatchResources">MatchResources
 </h3>
 <p>

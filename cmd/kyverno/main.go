@@ -495,6 +495,8 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
 		urgen,
 		eventGenerator,
 		openApiManager,
@@ -524,6 +526,8 @@ func main() {
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
 		runtime,
+		kubeInformer.Rbac().V1().RoleBindings().Lister(),
+		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers
