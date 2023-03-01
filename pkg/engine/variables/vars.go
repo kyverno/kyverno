@@ -595,7 +595,7 @@ func replaceSubstituteVariables(document interface{}) interface{} {
 	var output interface{}
 	err = json.Unmarshal(rawDocument, &output)
 	if err != nil {
-		logging.Error(err, "failed to unmarshall JSON: %s", string(rawDocument))
+		logging.Error(err, "failed to unmarshall JSON", "document", string(rawDocument))
 		return document
 	}
 
