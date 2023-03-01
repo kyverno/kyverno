@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: multiple-gens
+  namespace: pol-data-sync-delete-rule
+spec:
+  generateExistingOnPolicyUpdate: false
+  rules:
+  - name: super-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Secret
+          names:
+          - trigger-secret
+    generate:
+      synchronize: true
+      apiVersion: v1
+      kind: Secret
+      name: supersecret
+      namespace: pol-data-sync-delete-rule
+      data:
+        kind: Secret
+        type: Opaque
+        metadata:
+          labels:
+            somekey: somesecretvalue
+        data:
+          mysupersecretkey: bXlzdXBlcnNlY3JldHZhbHVl
