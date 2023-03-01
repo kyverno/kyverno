@@ -352,7 +352,7 @@ func Test_Validate_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -499,7 +499,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -901,7 +901,7 @@ func Test_Validate_Kind(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -950,7 +950,7 @@ func Test_Validate_Any_Kind(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1040,7 +1040,7 @@ func Test_Wildcards_Kind(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1090,7 +1090,7 @@ func Test_Namespced_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1268,7 +1268,7 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -1316,7 +1316,7 @@ func Test_deny_exec(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -1464,7 +1464,7 @@ func Test_SignatureAlgorithm(t *testing.T) {
 		assert.NilError(t, err)
 
 		openApiManager, _ := openapi.NewManager(logr.Discard())
-		_, err = Validate(policy, nil, true, openApiManager)
+		_, err = Validate(policy, nil, nil, true, openApiManager)
 		if testcase.expectedOutput {
 			assert.NilError(t, err)
 		} else {
@@ -1514,7 +1514,7 @@ func Test_existing_resource_policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -1570,7 +1570,7 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	res, err := Validate(policy, nil, true, openApiManager)
+	res, err := Validate(policy, nil, nil, true, openApiManager)
 	assert.NilError(t, err)
 	assert.Assert(t, res == nil)
 }
@@ -1627,7 +1627,7 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	warnings, err := Validate(policy, nil, true, openApiManager)
+	warnings, err := Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, warnings != nil)
 	assert.NilError(t, err)
 }
@@ -1684,7 +1684,7 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	warnings, err := Validate(policy, nil, true, openApiManager)
+	warnings, err := Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, warnings == nil)
 	assert.NilError(t, err)
 }
@@ -2238,7 +2238,7 @@ func Test_Any_wildcard_policy(t *testing.T) {
 	assert.NilError(t, err)
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -2296,6 +2296,1152 @@ func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
 	expectedErr := fmt.Errorf("path: spec.rules[0]: jmespath may not be used in an image extractor when mutating digests with verify images")
 
 	openApiManager, _ := openapi.NewManager(logr.Discard())
-	_, actualErr := Validate(policy, nil, true, openApiManager)
+	_, actualErr := Validate(policy, nil, nil, true, openApiManager)
 	assert.Equal(t, expectedErr.Error(), actualErr.Error())
+}
+
+func Test_ImmutableGenerateFields(t *testing.T) {
+	tests := []struct {
+		name        string
+		oldPolicy   []byte
+		newPolicy   []byte
+		expectedErr bool
+	}{
+		{
+			name: "update-rule-name",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}
+			`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "updated-rule-name",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: false,
+		},
+		{
+			name: "update-apiVersion",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "apps/v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-kind",
+			oldPolicy: []byte(`
+{
+    "apiVersion": "kyverno.io/v2beta1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "cpol-clone-sync-modify-source"
+    },
+    "spec": {
+        "rules": [
+            {
+                "name": "cpol-clone-sync-modify-source-secret",
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Namespace"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "generate": {
+                    "apiVersion": "v1",
+                    "kind": "Secret",
+                    "name": "regcred",
+                    "namespace": "{{request.object.metadata.name}}",
+                    "synchronize": true,
+                    "clone": {
+                        "namespace": "default",
+                        "name": "regcred"
+                    }
+                }
+            }
+        ]
+    }
+}`),
+			newPolicy: []byte(`
+{
+    "apiVersion": "kyverno.io/v2beta1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "cpol-clone-sync-modify-source"
+    },
+    "spec": {
+        "rules": [
+            {
+                "name": "cpol-clone-sync-modify-source-secret",
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Namespace"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "generate": {
+                    "apiVersion": "v1",
+                    "kind": "Configmap",
+                    "name": "regcred",
+                    "namespace": "{{request.object.metadata.name}}",
+                    "synchronize": true,
+                    "clone": {
+                        "namespace": "default",
+                        "name": "regcred"
+                    }
+                }
+            }
+        ]
+    }
+}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-namespace",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.labels.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-name",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "new-name",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-sync-flag",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": false,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: false,
+		},
+		{
+			name: "update-clone-name",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "modifed-name"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-clone-namespace",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "modifed-namespace",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-clone-namespace-unset-new",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "prod",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-cloneList-kinds",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExistingOnPolicyUpdate": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExistingOnPolicyUpdate": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-cloneList-namespace",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExistingOnPolicyUpdate": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExistingOnPolicyUpdate": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "prod",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-cloneList-selector",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExistingOnPolicyUpdate": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									],
+									"selector": {
+										"matchLabels": {
+											"allowedToBeCloned": "true"
+										}
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExistingOnPolicyUpdate": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									],
+									"selector": {
+										"matchLabels": {
+											"allowedToBeCloned": "false"
+										}
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-clone-List-selector-unset",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExistingOnPolicyUpdate": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									],
+									"selector": {
+										"matchLabels": {
+											"allowedToBeCloned": "true"
+										}
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExistingOnPolicyUpdate": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-cloneList-selector-nochange",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExistingOnPolicyUpdate": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									],
+									"selector": {
+										"matchLabels": {
+											"allowedToBeCloned": "true"
+										}
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExistingOnPolicyUpdate": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									],
+									"selector": {
+										"matchLabels": {
+											"allowedToBeCloned": "true"
+										}
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: false,
+		},
+	}
+
+	for _, test := range tests {
+		var old, new *kyverno.Policy
+		err := json.Unmarshal(test.oldPolicy, &old)
+		assert.NilError(t, err)
+		err = json.Unmarshal(test.newPolicy, &new)
+		assert.NilError(t, err)
+
+		err = immutableGenerateFields(new, old)
+		assert.Assert(t, (err != nil) == test.expectedErr, test.name, err)
+	}
 }

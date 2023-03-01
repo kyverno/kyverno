@@ -164,17 +164,13 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	logger.V(3).Info("applying generate policy rule")
 
 	policy, err := c.getPolicySpec(ur)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			for _, e := range ur.Status.GeneratedResources {
-				if err := c.cleanupClonedResource(e); err != nil {
-					logger.Error(err, "failed to clean up cloned resource on policy deletion")
-				}
-			}
-			return nil, false, nil
-		}
-
+	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "error in fetching policy")
+		return nil, false, err
+	}
+
+	if ur.Spec.DeleteDownstream || apierrors.IsNotFound(err) {
+		err = c.deleteDownstream(policy, &ur)
 		return nil, false, err
 	}
 
@@ -220,31 +216,6 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 
 	// Apply the generate rule on resource
 	return c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
-}
-
-// cleanupClonedResource deletes cloned resource if sync is not enabled for the clone policy
-func (c *GenerateController) cleanupClonedResource(targetSpec kyvernov1.ResourceSpec) error {
-	target, err := c.client.GetResource(context.TODO(), targetSpec.APIVersion, targetSpec.Kind, targetSpec.Namespace, targetSpec.Name)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to find generated resource %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
-		}
-	}
-
-	if target == nil {
-		return nil
-	}
-
-	labels := target.GetLabels()
-	syncEnabled := labels[LabelSynchronize] == "enable"
-	clone := labels[LabelClonePolicyName] != ""
-
-	if syncEnabled && !clone {
-		if err := c.client.DeleteResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), false); err != nil {
-			return fmt.Errorf("cloned resource is not deleted %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
-		}
-	}
-	return nil
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy
@@ -326,12 +297,6 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		if err := c.engine.ContextLoader(policyContext.Policy(), rule)(context.TODO(), rule.Context, policyContext.JSONContext()); err != nil {
 			log.Error(err, "cannot add configmaps to context")
 			return nil, processExisting, err
-		}
-
-		if ur.Spec.DeleteDownstream {
-			pKey := common.PolicyKey(policy.GetNamespace(), policy.GetName())
-			err = c.deleteResource(pKey, rule, ur)
-			return nil, false, err
 		}
 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
@@ -1145,16 +1110,4 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 		return nil, err
 	}
 	return resource, nil
-}
-
-func (c *GenerateController) deleteResource(policyKey string, rule kyvernov1.Rule, ur kyvernov1beta1.UpdateRequest) error {
-	if policyKey != ur.Spec.Policy {
-		return nil
-	}
-
-	if rule.Name == ur.Spec.Rule {
-		return c.client.DeleteResource(context.TODO(), rule.Generation.GetAPIVersion(), rule.Generation.GetKind(), rule.Generation.GetNamespace(), rule.Generation.GetName(), false)
-	}
-
-	return nil
 }

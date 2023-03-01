@@ -57,6 +57,19 @@ jobs:
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/kyverno-init
+      - name: Publish background-controller
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-background-controller
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: background-controller
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/background-controller
       - name: Publish cleanup-controller
         uses: ./.github/actions/publish-image
         with:
@@ -83,6 +96,19 @@ jobs:
           sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
           signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
           main-path: ./cmd/cli/kubectl-kyverno
+      - name: Publish reports-controller
+        uses: ./.github/actions/publish-image
+        with:
+          makefile-target: ko-publish-reports-controller
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.CR_PAT }}
+          repository: ${{ github.repository_owner }}
+          sign-image: true
+          sbom-name: reports-controller
+          sbom-repository: ghcr.io/${{ github.repository_owner }}/sbom
+          signature-repository: ghcr.io/${{ github.repository_owner }}/signatures
+          main-path: ./cmd/reports-controller
 
   generate-init-kyverno-provenance:
     needs: release-images
@@ -91,7 +117,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyvernopre
       digest: "${{ needs.release-init-kyverno.outputs.init-container-digest }}"
@@ -106,10 +132,25 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno
       digest: "${{ needs.release-kyverno.outputs.kyverno-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-background-controller-provenance:
+    needs: release-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/background-controller
+      digest: "${{ needs.release-background-controller.outputs.background-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
       registry-password: ${{ secrets.CR_PAT }}
@@ -121,7 +162,7 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/cleanup-controller
       digest: "${{ needs.release-cleanup-controller.outputs.cleanup-controller-digest }}"
@@ -136,10 +177,25 @@ jobs:
       packages: write   # To upload assets to release.
       actions: read     # To read the workflow path.
     # NOTE: The container generator workflow is not officially released as GA.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.5.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/kyverno-cli
       digest: "${{ needs.release-kyverno-cli.outputs.cli-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.CR_PAT }}
+
+  generate-reports-controller-provenance:
+    needs: release-images
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    # NOTE: The container generator workflow is not officially released as GA.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.4.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/reports-controller
+      digest: "${{ needs.release-reports-controller.outputs.reports-controller-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
       registry-password: ${{ secrets.CR_PAT }}
