@@ -30,7 +30,7 @@ func (pc *PolicyController) handleGenerate(policyKey string, policy kyvernov1.Po
 		}
 
 		var ruleType kyvernov1beta1.RequestType
-		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
+		if policy.GetSpec().IsGenerateExisting() {
 			ruleType = kyvernov1beta1.Generate
 			triggers := generateTriggers(pc.client, rule, pc.log)
 			for _, trigger := range triggers {
