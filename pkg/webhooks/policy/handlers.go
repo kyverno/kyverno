@@ -26,12 +26,12 @@ func NewHandlers(client dclient.Interface, openApiManager openapi.Manager) webho
 }
 
 func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	policy, _, err := admissionutils.GetPolicies(request)
+	policy, oldPolicy, err := admissionutils.GetPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	warnings, err := policyvalidate.Validate(policy, h.client, false, h.openApiManager)
+	warnings, err := policyvalidate.Validate(policy, oldPolicy, h.client, false, h.openApiManager)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 	}

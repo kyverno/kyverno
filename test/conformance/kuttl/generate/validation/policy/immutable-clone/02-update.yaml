@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: update-namespace.yaml
+  shouldFail: true
+- file: update-name.yaml
+  shouldFail: true
+
