@@ -126,12 +126,12 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) ([]string, error) {
 	var warnings []string
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
+	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if !mock {
 		openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
 	}
@@ -145,8 +145,8 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		return warnings, err
 	}
 
-	if onPolicyUpdate {
-		err := ValidateOnPolicyUpdate(policy, onPolicyUpdate)
+	if mutateExistingOnPolicyUpdate {
+		err := ValidateOnPolicyUpdate(policy, mutateExistingOnPolicyUpdate)
 		if err != nil {
 			return warnings, err
 		}
@@ -243,16 +243,18 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				return warnings, validateMatchKindHelper(rule)
 			}
 		}
+
+		if oldPolicy != nil {
+			if err := immutableGenerateFields(policy, oldPolicy); err != nil {
+				return warnings, err
+			}
+		}
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
 		if namespaced {
 			return warnings, checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res)
 		}
 
-		// validate rule actions
-		// - Mutate
-		// - Validate
-		// - Generate
 		if err := validateActions(i, &rules[i], client, mock); err != nil {
 			return warnings, err
 		}
@@ -1381,4 +1383,35 @@ func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings 
 		msg := "You are matching on status but not including the status subresource in the policy."
 		*warnings = append(*warnings, msg)
 	}
+}
+
+func immutableGenerateFields(new, old kyvernov1.PolicyInterface) error {
+	if !new.GetSpec().HasGenerate() {
+		return nil
+	}
+
+	oldRuleNames := make(map[string]kyvernov1.Generation, len(old.GetSpec().Rules))
+	for _, rule := range old.GetSpec().Rules {
+		oldRuleNames[rule.Name] = rule.Generation
+	}
+
+	newRuleNames := make(map[string]kyvernov1.Generation, len(new.GetSpec().Rules))
+	for _, rule := range new.GetSpec().Rules {
+		newRuleNames[rule.Name] = rule.Generation
+	}
+
+	for newRuleName, newGenerate := range newRuleNames {
+		oldGenerate, ok := oldRuleNames[newRuleName]
+		if !ok {
+			continue
+		}
+
+		oldGenerate.Synchronize = newGenerate.Synchronize
+		oldGenerate.SetData(newGenerate.GetData())
+
+		if !reflect.DeepEqual(newGenerate, oldGenerate) {
+			return fmt.Errorf("cannot change downstream, or clone sources for a generate rule")
+		}
+	}
+	return nil
 }
