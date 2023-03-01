@@ -2,4 +2,4 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: regcred
-  namespace: bar
+  namespace: cpol-clone-nosync-delete-downstream-ns
