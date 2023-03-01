@@ -105,12 +105,18 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 			},
 			Spec: urSpec,
 		}
-		if new, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(ctx, &ur, metav1.CreateOptions{}); err != nil {
+		created, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(ctx, &ur, metav1.CreateOptions{})
+		if err != nil {
 			l.V(4).Error(err, "failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
 			return err
-		} else {
-			l.V(4).Info("successfully created UpdateRequest", "name", new.GetName(), "namespace", ur.GetNamespace())
 		}
+		updated := created.DeepCopy()
+		updated.Status.State = kyvernov1beta1.Pending
+		_, err = g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		l.V(4).Info("successfully created UpdateRequest", "name", updated.GetName(), "namespace", ur.GetNamespace())
 	}
 	return nil
 }
