@@ -158,10 +158,13 @@ func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.
 		return fmt.Errorf("labels have been changed, new: %v, old: %v", labels, oldLabels)
 	}
 
+	managedBy := oldLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp
 	deleteDownstream := false
 	if reflect.DeepEqual(new, unstructured.Unstructured{}) {
-		deleteDownstream = true
 		labels = oldLabels
+		if !managedBy {
+			deleteDownstream = true
+		}
 	}
 	pName := labels[common.GeneratePolicyLabel]
 	pNamespace := labels[common.GeneratePolicyNamespaceLabel]
@@ -187,6 +190,7 @@ func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.
 				Resource: generateutils.TriggerFromLabels(labels),
 			}
 			ur.DeleteDownstream = deleteDownstream
+
 			if err := h.urGenerator.Apply(ctx, ur, admissionv1.Update); err != nil {
 				e := event.NewBackgroundFailedEvent(err, pKey, pRuleName, event.GeneratePolicyController, &new)
 				h.eventGen.Add(e...)

@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-sync-clone-delete-downstream
+  namespace: pol-sync-clone-delete-downstream
+spec:
+  rules:
+  - name: gen-zk
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: myclonedsecret
+      namespace: pol-sync-clone-delete-downstream
+      synchronize: true
+      clone:
+        namespace: pol-sync-clone-delete-downstream
+        name: regcred

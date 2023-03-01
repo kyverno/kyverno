@@ -3,7 +3,6 @@ package background
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -20,10 +19,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -95,14 +92,6 @@ func NewController(
 		AddFunc:    c.addUR,
 		UpdateFunc: c.updateUR,
 		DeleteFunc: c.deleteUR,
-	})
-	_, _ = cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updatePolicy,
-		DeleteFunc: c.deletePolicy,
-	})
-	_, _ = polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updatePolicy,
-		DeleteFunc: c.deletePolicy,
 	})
 
 	c.informersSynced = []cache.InformerSynced{cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced}
@@ -186,33 +175,12 @@ func (c *controller) syncUpdateRequest(key string) error {
 
 	// Deep-copy otherwise we are mutating our cache.
 	ur = ur.DeepCopy()
+	if _, err := c.getPolicy(ur.Spec.Policy); err != nil && apierrors.IsNotFound(err) {
+		if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate {
+			return c.handleMutatePolicyAbsence(ur)
+		}
+	}
 
-	// if not in any state, try to set it to pending
-	if ur.Status.State == "" {
-		ur.Status.State = kyvernov1beta1.Pending
-		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-		return err
-	}
-	// try to get the linked policy
-	if _, err := c.getPolicy(ur.Spec.Policy); err != nil {
-		if apierrors.IsNotFound(err) && ur.Spec.GetRequestType() == kyvernov1beta1.Mutate {
-			// here only takes care of mutateExisting policies
-			// generate cleanup controller handles policy deletion
-			selector := &metav1.LabelSelector{
-				MatchLabels: common.MutateLabelsSet(ur.Spec.Policy, nil),
-			}
-			return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).DeleteCollection(
-				context.TODO(),
-				metav1.DeleteOptions{},
-				metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)},
-			)
-		}
-		// check if cleanup is required in case policy is no longer exists
-		if err := c.checkIfCleanupRequired(ur); err != nil {
-			return err
-		}
-	}
-	// process pending URs
 	if ur.Status.State == kyvernov1beta1.Pending {
 		if err := c.processUR(ur); err != nil {
 			return fmt.Errorf("failed to process UR %s: %v", key, err)
@@ -223,59 +191,6 @@ func (c *controller) syncUpdateRequest(key string) error {
 	return err
 }
 
-func (c *controller) checkIfCleanupRequired(ur *kyvernov1beta1.UpdateRequest) error {
-	var err error
-	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
-	if err != nil {
-		return err
-	}
-
-	if pNamespace == "" {
-		_, err = c.cpolLister.Get(pName)
-	} else {
-		_, err = c.polLister.Policies(pNamespace).Get(pName)
-	}
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
-
-		logger.V(4).Info("policy no longer exists, deleting the update request and respective resource based on synchronize", "ur", ur.Name, "policy", ur.Spec.Policy)
-		for _, e := range ur.Status.GeneratedResources {
-			if err := c.cleanupDataResource(e); err != nil {
-				logger.Error(err, "failed to clean up data resource on policy deletion")
-			}
-		}
-		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.Name, metav1.DeleteOptions{})
-	}
-	return nil
-}
-
-// cleanupDataResource deletes resource if sync is enabled for data policy
-func (c *controller) cleanupDataResource(targetSpec kyvernov1.ResourceSpec) error {
-	target, err := c.client.GetResource(context.TODO(), targetSpec.APIVersion, targetSpec.Kind, targetSpec.Namespace, targetSpec.Name)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to find generated resource %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
-		}
-	}
-
-	if target == nil {
-		return nil
-	}
-
-	labels := target.GetLabels()
-	syncEnabled := labels[generate.LabelSynchronize] == "enable"
-	clone := labels[generate.LabelClonePolicyName] != ""
-
-	if syncEnabled && !clone {
-		if err := c.client.DeleteResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), false); err != nil {
-			return fmt.Errorf("failed to delete data resource %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
-		}
-	}
-	return nil
-}
-
 func (c *controller) enqueueUpdateRequest(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
@@ -284,74 +199,6 @@ func (c *controller) enqueueUpdateRequest(obj interface{}) {
 	}
 	logger.V(5).Info("enqueued update request", "ur", key)
 	c.queue.Add(key)
-}
-
-func (c *controller) updatePolicy(_, obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		logger.Error(err, "failed to compute policy key")
-	} else {
-		logger.V(4).Info("updating policy", "key", key)
-		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(key)
-		if err != nil {
-			logger.Error(err, "failed to list update requests for policy", "key", key)
-			return
-		}
-		// re-evaluate the UR as the policy was updated
-		for _, ur := range urs {
-			c.enqueueUpdateRequest(ur)
-		}
-	}
-}
-
-func (c *controller) deletePolicy(obj interface{}) {
-	var p kyvernov1.PolicyInterface
-
-	switch kubeutils.GetObjectWithTombstone(obj).(type) {
-	case *kyvernov1.ClusterPolicy:
-		p = kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
-	case *kyvernov1.Policy:
-		p = kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
-	default:
-		logger.Info("Failed to get deleted object", "obj", obj)
-		return
-	}
-
-	logger.V(4).Info("deleting policy", "name", p.GetName())
-	key, err := cache.MetaNamespaceKeyFunc(kubeutils.GetObjectWithTombstone(obj))
-	if err != nil {
-		logger.Error(err, "failed to compute policy key")
-	} else {
-		logger.V(4).Info("updating policy", "key", key)
-
-		// check if deleted policy is clone generate policy
-		generatePolicyWithClone := c.processDeletePolicyForCloneGenerateRule(p, p.GetName())
-
-		// get the generated resource name from update request
-		selector := labels.SelectorFromSet(labels.Set(map[string]string{
-			kyvernov1beta1.URGeneratePolicyLabel: p.GetName(),
-		}))
-
-		urList, err := c.urLister.List(selector)
-		if err != nil {
-			logger.Error(err, "failed to get update request for the resource", "label", kyvernov1beta1.URGeneratePolicyLabel)
-			return
-		}
-
-		if !generatePolicyWithClone {
-			// re-evaluate the UR as the policy was updated
-			for _, ur := range urList {
-				logger.V(4).Info("enqueue the ur for cleanup", "ur name", ur.Name)
-				c.enqueueUpdateRequest(ur)
-			}
-		} else {
-			for _, ur := range urList {
-				for _, generatedResource := range ur.Status.GeneratedResources {
-					logger.V(4).Info("retaining resource for cloned policy", "apiVersion", generatedResource.APIVersion, "kind", generatedResource.Kind, "name", generatedResource.Name, "namespace", generatedResource.Namespace)
-				}
-			}
-		}
-	}
 }
 
 func (c *controller) addUR(obj interface{}) {
@@ -399,7 +246,7 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 }
 
 func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
-	if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
+	if ur.Status.State == kyvernov1beta1.Completed {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
@@ -414,68 +261,4 @@ func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
 		return c.cpolLister.Get(name)
 	}
 	return c.polLister.Policies(namespace).Get(name)
-}
-
-func (c *controller) processDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, pName string) bool {
-	generatePolicyWithClone := false
-	for _, rule := range policy.GetSpec().Rules {
-		clone, sync := rule.GetCloneSyncForGenerate()
-		if !(clone && sync) {
-			continue
-		}
-		logger.V(4).Info("generate policy with clone, remove policy name from label of source resource")
-		generatePolicyWithClone = true
-		var retryCount int
-		for retryCount < 5 {
-			err := c.updateSourceResource(policy.GetName(), rule)
-			if err != nil {
-				logger.Error(err, "failed to update generate source resource labels")
-				if apierrors.IsConflict(err) {
-					retryCount++
-				} else {
-					break
-				}
-			}
-			break
-		}
-	}
-
-	return generatePolicyWithClone
-}
-
-func (c *controller) updateSourceResource(pName string, rule kyvernov1.Rule) error {
-	obj, err := c.client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
-	if err != nil {
-		return fmt.Errorf("source resource %s/%s/%s not found: %w", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name, err)
-	}
-
-	var update bool
-	labels := obj.GetLabels()
-	update, labels = removePolicyFromLabels(pName, labels)
-	if !update {
-		return nil
-	}
-
-	obj.SetLabels(labels)
-	_, err = c.client.UpdateResource(context.TODO(), obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
-	return err
-}
-
-func removePolicyFromLabels(pName string, labels map[string]string) (bool, map[string]string) {
-	if len(labels) == 0 {
-		return false, labels
-	}
-	if labels[generate.LabelClonePolicyName] != "" {
-		policyNames := labels[generate.LabelClonePolicyName]
-		if strings.Contains(policyNames, pName) {
-			desiredLabels := make(map[string]string, len(labels)-1)
-			for k, v := range labels {
-				if k != generate.LabelClonePolicyName {
-					desiredLabels[k] = v
-				}
-			}
-			return true, desiredLabels
-		}
-	}
-	return false, labels
 }

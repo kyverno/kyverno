@@ -568,6 +568,20 @@ func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
+type GenerateType string
+
+const (
+	Data  GenerateType = "Data"
+	Clone GenerateType = "Clone"
+)
+
+func (g *Generation) GetTypeAndSync() (GenerateType, bool) {
+	if g.RawData != nil {
+		return Data, g.Synchronize
+	}
+	return Clone, g.Synchronize
+}
+
 // CloneFrom provides the location of the source resource used to generate target resources.
 // The resource kind is derived from the match criteria.
 type CloneFrom struct {
