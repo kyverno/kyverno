@@ -1,0 +1,8 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+  - ns.yaml
+assert:
+  - resource-assert.yaml
+error:
+  - fail-resources.yaml

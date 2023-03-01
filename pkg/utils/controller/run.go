@@ -10,7 +10,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -22,26 +21,26 @@ type reconcileFunc func(ctx context.Context, logger logr.Logger, key string, nam
 
 type controllerMetrics struct {
 	controllerName string
-	reconcileTotal syncint64.Counter
-	requeueTotal   syncint64.Counter
-	queueDropTotal syncint64.Counter
+	reconcileTotal instrument.Int64Counter
+	requeueTotal   instrument.Int64Counter
+	queueDropTotal instrument.Int64Counter
 }
 
 func newControllerMetrics(logger logr.Logger, controllerName string) *controllerMetrics {
 	meter := global.MeterProvider().Meter(metrics.MeterName)
-	reconcileTotal, err := meter.SyncInt64().Counter(
+	reconcileTotal, err := meter.Int64Counter(
 		"kyverno_controller_reconcile",
 		instrument.WithDescription("can be used to track number of reconciliation cycles"))
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_controller_reconcile_total")
 	}
-	requeueTotal, err := meter.SyncInt64().Counter(
+	requeueTotal, err := meter.Int64Counter(
 		"kyverno_controller_requeue",
 		instrument.WithDescription("can be used to track number of reconciliation errors"))
 	if err != nil {
 		logger.Error(err, "Failed to create instrument, kyverno_controller_requeue_total")
 	}
-	queueDropTotal, err := meter.SyncInt64().Counter(
+	queueDropTotal, err := meter.Int64Counter(
 		"kyverno_controller_drop",
 		instrument.WithDescription("can be used to track number of queue drops"))
 	if err != nil {

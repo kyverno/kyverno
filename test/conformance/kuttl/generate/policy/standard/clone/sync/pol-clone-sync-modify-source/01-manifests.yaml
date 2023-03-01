@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: poltest
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: regcred
+  namespace: poltest
+type: Opaque
+---
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-sync-clone
+  namespace: poltest
+spec:
+  rules:
+  - name: gen-zk
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: myclonedsecret
+      namespace: poltest
+      synchronize: true
+      clone:
+        namespace: poltest
+        name: regcred
