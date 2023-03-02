@@ -139,6 +139,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `livenessProbe` has been replaced with `admissionController.livenessProbe`
 - `readinessProbe` has been replaced with `admissionController.readinessProbe`
 - `createSelfSignedCert` has been replaced with `admissionController.createSelfSignedCert`
+- `serviceMonitor` has been replaced with `admissionController.serviceMonitor`
+- `podSecurityContext` has been replaced with `admissionController.podSecurityContext`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -207,7 +209,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
 | podLabels | object | `{}` | Additional labels to add to each pod |
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |
-| podSecurityContext | object | `{}` | Security context for the pod |
 | securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
 | envVarsInit | object | `{}` | Env variables for initContainers. |
 | envVars | object | `{}` | Env variables for containers. |
@@ -230,13 +231,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | metricsService.type | string | `"ClusterIP"` | Service type. |
 | metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
 | metricsService.annotations | object | `{}` | Service annotations. |
-| serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
-| serviceMonitor.additionalLabels | string | `nil` | Additional labels |
-| serviceMonitor.namespace | string | `nil` | Override namespace (default is the same as kyverno) |
-| serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
-| serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
-| serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
-| serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
 | networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
@@ -263,8 +257,16 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.podAffinity | object | `{}` | Pod affinity constraints. |
 | admissionController.nodeAffinity | object | `{}` | Node affinity constraints. |
 | admissionController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
+| admissionController.podSecurityContext | object | `{}` | Security context for the pod |
 | admissionController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
 | admissionController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
+| admissionController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| admissionController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
+| admissionController.serviceMonitor.namespace | string | `nil` | Override namespace |
+| admissionController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
+| admissionController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
+| admissionController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
+| admissionController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
@@ -307,8 +309,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
 | cleanupController.metricsService.annotations | object | `{}` | Service annotations. |
 | cleanupController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
-| cleanupController.serviceMonitor.additionalLabels | string | `nil` | Additional labels |
-| cleanupController.serviceMonitor.namespace | string | `nil` | Override namespace (default is the same as kyverno) |
+| cleanupController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
+| cleanupController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | cleanupController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
 | cleanupController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
 | cleanupController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
@@ -357,8 +359,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
 | reportsController.metricsService.annotations | object | `{}` | Service annotations. |
 | reportsController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
-| reportsController.serviceMonitor.additionalLabels | string | `nil` | Additional labels |
-| reportsController.serviceMonitor.namespace | string | `nil` | Override namespace (default is the same as kyverno) |
+| reportsController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
+| reportsController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | reportsController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
 | reportsController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
 | reportsController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
@@ -407,8 +409,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | backgroundController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
 | backgroundController.metricsService.annotations | object | `{}` | Service annotations. |
 | backgroundController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
-| backgroundController.serviceMonitor.additionalLabels | string | `nil` | Additional labels |
-| backgroundController.serviceMonitor.namespace | string | `nil` | Override namespace (default is the same as kyverno) |
+| backgroundController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
+| backgroundController.serviceMonitor.namespace | string | `nil` | Override namespace |
 | backgroundController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
 | backgroundController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
 | backgroundController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
