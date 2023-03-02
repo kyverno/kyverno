@@ -1406,13 +1406,13 @@ func immutableGenerateFields(new, old kyvernov1.PolicyInterface) error {
 		if newRuleHashes.Equal(oldRuleHashes) {
 			return nil
 		} else {
-			return fmt.Errorf("change of immutable fields for a generate rule is denied")
+			return errors.New("change of immutable fields for a generate rule is denied")
 		}
 	case false:
 		if oldRuleHashes.IsSuperset(newRuleHashes) {
 			return nil
 		} else {
-			return fmt.Errorf("change of immutable fields for a generate rule is denied")
+			return errors.New("change of immutable fields for a generate rule is denied")
 		}
 
 	}
@@ -1433,7 +1433,7 @@ func buildHashes(rules []kyvernov1.Rule) (sets.Set[string], error) {
 		r := resetMutatbleFields(rule)
 		data, err := json.Marshal(r)
 		if err != nil {
-			return ruleHashes, fmt.Errorf("failed to create hash from the generate rule ", err)
+			return ruleHashes, fmt.Errorf("failed to create hash from the generate rule %v", err)
 		}
 		hash := md5.Sum(data) //nolint:gosec
 		ruleHashes.Insert(hex.EncodeToString(hash[:]))
