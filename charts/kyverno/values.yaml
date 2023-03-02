@@ -234,9 +234,6 @@ initContainer:
   extraArgs:
     - --loggingFormat=text
 
-# -- (int) Desired number of pods
-replicaCount: ~
-
 # -- Additional labels to add to each pod
 podLabels: {}
   # example.com/label: foo
@@ -510,6 +507,12 @@ grafana:
 
   # -- Grafana dashboard configmap annotations.
   annotations: {}
+
+# Admission controller configuration
+admissionController:
+
+  # -- (int) Desired number of pods
+  replicas: ~
 
 # Cleanup controller configuration
 cleanupController:
