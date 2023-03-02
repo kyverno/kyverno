@@ -191,18 +191,6 @@ test:
 # -- Additional labels
 customLabels: {}
 
-rbac:
-  # -- Create ClusterRoles, ClusterRoleBindings, and ServiceAccount
-  create: true
-  serviceAccount:
-    # -- Create a ServiceAccount
-    create: true
-    # -- The ServiceAccount name
-    name:
-    # -- Annotations for the ServiceAccount
-    annotations: {}
-      # example.com/annotation: value
-
 image:
   # -- Image registry
   registry: ghcr.io
@@ -510,6 +498,27 @@ grafana:
 
   # -- Grafana dashboard configmap annotations.
   annotations: {}
+
+# Admission controller configuration
+admissionController:
+
+  rbac:
+    # -- Create RBAC resources
+    create: true
+
+    serviceAccount:
+      # -- Service account name
+      name:
+
+    clusterRole:
+      # -- Extra resource permissions to add in the cluster role
+      extraResources: []
+      # - apiGroups:
+      #     - ''
+      #   resources:
+      #     - pods
+      #   verbs:
+      #     - '*'
 
 # Cleanup controller configuration
 cleanupController:

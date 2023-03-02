@@ -121,6 +121,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `testImage` has been replaced with `test.image`
 - `testResources` has been replaced with `test.resources`
 - `testSecurityContext` has been replaced with `test.securityContext`
+- `rbac` has been replaced with `admissionController.rbac`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -173,10 +174,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
 | customLabels | object | `{}` | Additional labels |
-| rbac.create | bool | `true` | Create ClusterRoles, ClusterRoleBindings, and ServiceAccount |
-| rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
-| rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
-| rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | image.registry | string | `"ghcr.io"` | Image registry |
 | image.repository | string | `"kyverno/kyverno"` | Image repository |
 | image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
@@ -247,6 +244,9 @@ The command removes all the Kubernetes components associated with the chart and 
 | grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
+| admissionController.rbac.create | bool | `true` | Create RBAC resources |
+| admissionController.rbac.serviceAccount.name | string | `nil` | Service account name |
+| admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |

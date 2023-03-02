@@ -65,12 +65,12 @@ rules:
     resources:
       {{- toYaml .resources | nindent 6 }}
     verbs:
-    - create
-    - update
-    - patch
-    - delete
-    - get
-    - list
+      - create
+      - update
+      - patch
+      - delete
+      - get
+      - list
   {{- end }}
 {{- end }}
 {{- end }}
