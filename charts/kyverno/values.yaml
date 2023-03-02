@@ -257,31 +257,6 @@ securityContext:
   seccompProfile:
     type: RuntimeDefault
 
-antiAffinity:
-  # -- Pod antiAffinities toggle.
-  # Enabled by default but can be disabled if you want to schedule pods to the same node.
-  enable: true
-
-# -- Pod anti affinity constraints.
-# @default -- See [values.yaml](values.yaml)
-podAntiAffinity:
-  preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: 1
-      podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-            - key: app.kubernetes.io/name
-              operator: In
-              values:
-                - '{{ template "kyverno.name" . }}'
-        topologyKey: kubernetes.io/hostname
-
-# -- Pod affinity constraints.
-podAffinity: {}
-
-# -- Node affinity constraints.
-nodeAffinity: {}
-
 # -- Env variables for initContainers.
 envVarsInit: {}
 
@@ -324,49 +299,6 @@ initResources:
   requests:
     cpu: 10m
     memory: 64Mi
-
-# -- Startup probe.
-# The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
-# ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-# @default -- See [values.yaml](values.yaml)
-startupProbe:
-  httpGet:
-    path: /health/liveness
-    port: 9443
-    scheme: HTTPS
-  failureThreshold: 20
-  initialDelaySeconds: 2
-  periodSeconds: 6
-
-# -- Liveness probe.
-# The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
-# ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-# @default -- See [values.yaml](values.yaml)
-livenessProbe:
-  httpGet:
-    path: /health/liveness
-    port: 9443
-    scheme: HTTPS
-  initialDelaySeconds: 15
-  periodSeconds: 30
-  timeoutSeconds: 5
-  failureThreshold: 2
-  successThreshold: 1
-
-# -- Readiness Probe.
-# The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
-# ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-# @default -- See [values.yaml](values.yaml)
-readinessProbe:
-  httpGet:
-    path: /health/readiness
-    port: 9443
-    scheme: HTTPS
-  initialDelaySeconds: 5
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 6
-  successThreshold: 1
 
 # -- Additional resources to be added to controller RBAC permissions.
 generatecontrollerExtraResources: []
@@ -497,11 +429,79 @@ admissionController:
   # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
   dnsPolicy: ClusterFirst
 
+  # -- Startup probe.
+  # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  startupProbe:
+    httpGet:
+      path: /health/liveness
+      port: 9443
+      scheme: HTTPS
+    failureThreshold: 20
+    initialDelaySeconds: 2
+    periodSeconds: 6
+
+  # -- Liveness probe.
+  # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  livenessProbe:
+    httpGet:
+      path: /health/liveness
+      port: 9443
+      scheme: HTTPS
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 2
+    successThreshold: 1
+
+  # -- Readiness Probe.
+  # The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  readinessProbe:
+    httpGet:
+      path: /health/readiness
+      port: 9443
+      scheme: HTTPS
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+
   # -- Node labels for pod assignment
   nodeSelector: {}
 
   # -- List of node taints to tolerate
   tolerations: []
+
+  antiAffinity:
+    # -- Pod antiAffinities toggle.
+    # Enabled by default but can be disabled if you want to schedule pods to the same node.
+    enabled: true
+
+  # -- Pod anti affinity constraints.
+  # @default -- See [values.yaml](values.yaml)
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - admission-controller
+          topologyKey: kubernetes.io/hostname
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
 
   # -- Topology spread constraints.
   topologySpreadConstraints: []

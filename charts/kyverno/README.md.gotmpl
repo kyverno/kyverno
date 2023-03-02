@@ -130,6 +130,14 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `tolerations` has been replaced with `admissionController.tolerations`
 - `topologySpreadConstraints` has been replaced with `admissionController.topologySpreadConstraints`
 - `podDisruptionBudget` has been replaced with `admissionController.podDisruptionBudget`
+- `antiAffinity` has been replaced with `admissionController.antiAffinity`
+- `antiAffinity.enable` has been replaced with `admissionController.antiAffinity.enabled`
+- `podAntiAffinity` has been replaced with `admissionController.podAntiAffinity`
+- `podAffinity` has been replaced with `admissionController.podAffinity`
+- `nodeAffinity` has been replaced with `admissionController.nodeAffinity`
+- `startupProbe` has been replaced with `admissionController.startupProbe`
+- `livenessProbe` has been replaced with `admissionController.livenessProbe`
+- `readinessProbe` has been replaced with `admissionController.readinessProbe`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 

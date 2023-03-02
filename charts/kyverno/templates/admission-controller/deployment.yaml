@@ -55,19 +55,19 @@ spec:
       {{- with .Values.admissionController.dnsPolicy }}
       dnsPolicy: {{ . }}
       {{- end }}
-      {{- if or .Values.antiAffinity.enable .Values.podAffinity .Values.nodeAffinity }}
+      {{- if or .Values.admissionController.antiAffinity.enable .Values.admissionController.podAffinity .Values.admissionController.nodeAffinity }}
       affinity:
-        {{- if .Values.antiAffinity.enable }}
-        {{- with .Values.podAntiAffinity }}
+        {{- if .Values.admissionController.antiAffinity.enabled }}
+        {{- with .Values.admissionController.podAntiAffinity }}
         podAntiAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
         {{- end }}
-        {{- with .Values.podAffinity }}
+        {{- with .Values.admissionController.podAffinity }}
         podAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
-        {{- with .Values.nodeAffinity }}
+        {{- with .Values.admissionController.nodeAffinity }}
         nodeAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
@@ -162,15 +162,18 @@ spec:
           {{- end }}
           - name: KYVERNO_DEPLOYMENT
             value: {{ template "kyverno.fullname" . }}
-        {{- with .Values.startupProbe }}
-          startupProbe: {{ tpl (toYaml .) $ | nindent 12 }}
-        {{- end }}
-        {{- with .Values.livenessProbe }}
-          livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
-        {{- end }}
-        {{- with .Values.readinessProbe }}
-          readinessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
-        {{- end }}
+          {{- with .Values.admissionController.startupProbe }}
+          startupProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.admissionController.livenessProbe }}
+          livenessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.admissionController.readinessProbe }}
+          readinessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - mountPath: {{ .Values.tufRootMountPath }}
               name: sigstore
