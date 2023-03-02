@@ -246,11 +246,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		if oldPolicy != nil {
-			if err := immutableGenerateFields(policy.CreateDeepCopy(), oldPolicy.CreateDeepCopy()); err != nil {
-				return warnings, err
-			}
+		if err := immutableGenerateFields(policy, oldPolicy); err != nil {
+			return warnings, err
 		}
+
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
 		if namespaced {
@@ -1388,6 +1387,10 @@ func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings 
 }
 
 func immutableGenerateFields(new, old kyvernov1.PolicyInterface) error {
+	if new == nil || old == nil {
+		return nil
+	}
+
 	if !new.GetSpec().HasGenerate() {
 		return nil
 	}
@@ -1406,20 +1409,20 @@ func immutableGenerateFields(new, old kyvernov1.PolicyInterface) error {
 		if newRuleHashes.Equal(oldRuleHashes) {
 			return nil
 		} else {
-			return errors.New("change of immutable fields for a generate rule is denied")
+			return errors.New("change of immutable fields for a generate rule is disallowed")
 		}
 	case false:
 		if oldRuleHashes.IsSuperset(newRuleHashes) {
 			return nil
 		} else {
-			return errors.New("change of immutable fields for a generate rule is denied")
+			return errors.New("rule deletion - change of immutable fields for a generate rule is disallowed")
 		}
 
 	}
 	return nil
 }
 
-func resetMutatbleFields(rule kyvernov1.Rule) *kyvernov1.Rule {
+func resetMutableFields(rule kyvernov1.Rule) *kyvernov1.Rule {
 	new := new(kyvernov1.Rule)
 	rule.DeepCopyInto(new)
 	new.Generation.Synchronize = true
@@ -1430,7 +1433,7 @@ func resetMutatbleFields(rule kyvernov1.Rule) *kyvernov1.Rule {
 func buildHashes(rules []kyvernov1.Rule) (sets.Set[string], error) {
 	ruleHashes := sets.New[string]()
 	for _, rule := range rules {
-		r := resetMutatbleFields(rule)
+		r := resetMutableFields(rule)
 		data, err := json.Marshal(r)
 		if err != nil {
 			return ruleHashes, fmt.Errorf("failed to create hash from the generate rule %v", err)
