@@ -257,9 +257,6 @@ securityContext:
   seccompProfile:
     type: RuntimeDefault
 
-# -- Optional priority class to be used for kyverno pods
-priorityClassName: ''
-
 antiAffinity:
   # -- Pod antiAffinities toggle.
   # Enabled by default but can be disabled if you want to schedule pods to the same node.
@@ -284,30 +281,6 @@ podAffinity: {}
 
 # -- Node affinity constraints.
 nodeAffinity: {}
-
-podDisruptionBudget:
-  # -- Configures the minimum available pods for kyverno disruptions.
-  # Cannot be used if `maxUnavailable` is set.
-  minAvailable: 1
-  # -- Configures the maximum unavailable pods for kyverno disruptions.
-  # Cannot be used if `minAvailable` is set.
-  maxUnavailable:
-
-# -- Node labels for pod assignment
-nodeSelector: {}
-
-# -- List of node taints to tolerate
-tolerations: []
-
-# -- Change `hostNetwork` to `true` when you want the kyverno's pod to share its host's network namespace.
-# Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
-# Update the `dnsPolicy` accordingly as well to suit the host network mode.
-hostNetwork: false
-
-# -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
-# In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
-# For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
-dnsPolicy: ClusterFirst
 
 # -- Env variables for initContainers.
 envVarsInit: {}
@@ -408,15 +381,6 @@ excludeKyvernoNamespace: true
 # Namespaces to exclude from the default resourceFilters
 resourceFiltersExcludeNamespaces: []
 
-# -- Deployment update strategy.
-# Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
-# @default -- See [values.yaml](values.yaml)
-updateStrategy:
-  rollingUpdate:
-    maxSurge: 1
-    maxUnavailable: 40%
-  type: RollingUpdate
-
 service:
   # -- Service port.
   port: 443
@@ -427,9 +391,6 @@ service:
   nodePort:
   # -- Service annotations.
   annotations: {}
-
-# -- Topology spread constraints.
-topologySpreadConstraints: []
 
 metricsService:
   # -- Create service.
@@ -513,6 +474,45 @@ admissionController:
 
   # -- (int) Desired number of pods
   replicas: ~
+
+  # -- Deployment update strategy.
+  # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+  # @default -- See [values.yaml](values.yaml)
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 40%
+    type: RollingUpdate
+
+  # -- Optional priority class
+  priorityClassName: ''
+
+  # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
+  # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
+  # Update the `dnsPolicy` accordingly as well to suit the host network mode.
+  hostNetwork: false
+
+  # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
+  # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
+  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
+  dnsPolicy: ClusterFirst
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  # -- Topology spread constraints.
+  topologySpreadConstraints: []
+
+  podDisruptionBudget:
+    # -- Configures the minimum available pods for disruptions.
+    # Cannot be used if `maxUnavailable` is set.
+    minAvailable: 1
+    # -- Configures the maximum unavailable pods for disruptions.
+    # Cannot be used if `minAvailable` is set.
+    maxUnavailable:
 
 # Cleanup controller configuration
 cleanupController:
