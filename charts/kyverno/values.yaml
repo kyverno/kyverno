@@ -87,7 +87,7 @@ config:
     - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
     - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}]'
     - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}-metrics]'
-    - '[ServiceMonitor,{{ if .Values.serviceMonitor.namespace }}{{ .Values.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.admission-controller.serviceName" . }}-service-monitor]'
+    - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.admission-controller.serviceName" . }}-service-monitor]'
     - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-*]'
 
   # -- Defines the `namespaceSelector` in the webhook configurations.
