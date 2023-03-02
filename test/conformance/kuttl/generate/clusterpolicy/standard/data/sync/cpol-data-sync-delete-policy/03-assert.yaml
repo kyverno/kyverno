@@ -7,4 +7,4 @@ metadata:
   labels:
     somekey: somevalue
   name: zk-kafka-address
-  namespace: bar
+  namespace: cpol-data-sync-delete-policy-ns

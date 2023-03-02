@@ -1530,6 +1530,10 @@ Kubernetes apiextensions/v1.JSON
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.GenerateType">GenerateType
+(<code>string</code> alias)</p></h3>
+<p>
+</p>
 <h3 id="kyverno.io/v1.Generation">Generation
 </h3>
 <p>
@@ -4379,7 +4383,7 @@ UpdateRequestSpec
 </em>
 </td>
 <td>
-<p>Spec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 <br/>
 <br/>
 <table class="table table-striped">
@@ -4420,6 +4424,17 @@ string
 </tr>
 <tr>
 <td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>synchronize</code><br/>
 <em>
 bool
@@ -4440,7 +4455,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ResourceSpec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 </td>
 </tr>
 <tr>
@@ -4642,6 +4657,17 @@ string
 </tr>
 <tr>
 <td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>synchronize</code><br/>
 <em>
 bool
@@ -4662,7 +4688,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ResourceSpec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 </td>
 </tr>
 <tr>

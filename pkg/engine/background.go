@@ -93,7 +93,7 @@ func (e *engine) filterRule(
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
 	ctx := policyContext.JSONContext()
-	excludeGroupRole := e.configuration.GetExcludeGroupRole()
+	excludeGroupRole := e.configuration.GetExcludedGroups()
 	namespaceLabels := policyContext.NamespaceLabels()
 
 	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err != nil {

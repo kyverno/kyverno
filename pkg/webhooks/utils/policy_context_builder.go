@@ -39,7 +39,7 @@ func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest) (*en
 	userRequestInfo := kyvernov1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
-	if roles, clusterRoles, err := userinfo.GetRoleRef(b.rbLister, b.crbLister, request, b.configuration); err != nil {
+	if roles, clusterRoles, err := userinfo.GetRoleRef(b.rbLister, b.crbLister, request); err != nil {
 		return nil, fmt.Errorf("failed to fetch RBAC information for request: %w", err)
 	} else {
 		userRequestInfo.Roles = roles

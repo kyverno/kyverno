@@ -7,14 +7,14 @@ metadata:
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 spec:
-  replicas: {{ template "kyverno.deployment.replicas" .Values.replicaCount }}
+  replicas: {{ template "kyverno.deployment.replicas" .Values.admissionController.replicas }}
+  {{- with .Values.admissionController.updateStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "kyverno.admission-controller.matchLabels" . | nindent 6 }}
-  {{- if .Values.updateStrategy }}
-  strategy:
-    {{ toYaml .Values.updateStrategy | nindent 4 | trim }}
-  {{- end }}
   template:
     metadata:
       labels:
@@ -34,42 +34,45 @@ spec:
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- if or .Values.antiAffinity.enable .Values.podAffinity .Values.nodeAffinity }}
+      {{- with .Values.admissionController.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.admissionController.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.admissionController.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.admissionController.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.admissionController.hostNetwork }}
+      hostNetwork: {{ . }}
+      {{- end }}
+      {{- with .Values.admissionController.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- if or .Values.admissionController.antiAffinity.enable .Values.admissionController.podAffinity .Values.admissionController.nodeAffinity }}
       affinity:
-        {{- if .Values.antiAffinity.enable }}
-        {{- with .Values.podAntiAffinity }}
+        {{- if .Values.admissionController.antiAffinity.enabled }}
+        {{- with .Values.admissionController.podAntiAffinity }}
         podAntiAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
         {{- end }}
-        {{- with .Values.podAffinity }}
+        {{- with .Values.admissionController.podAffinity }}
         podAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
-        {{- with .Values.nodeAffinity }}
+        {{- with .Values.admissionController.nodeAffinity }}
         nodeAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
       {{- end }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector: {{ tpl (toYaml .) $ | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations: {{ tpl (toYaml .) $ | nindent 8 }}
-      {{- end }}
-      {{- with .Values.topologySpreadConstraints }}
-      topologySpreadConstraints: {{ tpl (toYaml .) $ | nindent 8 }}
-      {{- end }}
       serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
-      {{- if .Values.priorityClassName }}
-      priorityClassName: {{ .Values.priorityClassName | quote }}
-      {{- end }}
-      {{- if .Values.hostNetwork }}
-      hostNetwork: {{ .Values.hostNetwork }}
-      {{- end }}
-      {{- if .Values.dnsPolicy }}
-      dnsPolicy: {{ .Values.dnsPolicy }}
-      {{- end }}
       initContainers:
       {{- if .Values.extraInitContainers }}
         {{- toYaml .Values.extraInitContainers | nindent 8 }}
@@ -159,15 +162,18 @@ spec:
           {{- end }}
           - name: KYVERNO_DEPLOYMENT
             value: {{ template "kyverno.fullname" . }}
-        {{- with .Values.startupProbe }}
-          startupProbe: {{ tpl (toYaml .) $ | nindent 12 }}
-        {{- end }}
-        {{- with .Values.livenessProbe }}
-          livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
-        {{- end }}
-        {{- with .Values.readinessProbe }}
-          readinessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
-        {{- end }}
+          {{- with .Values.admissionController.startupProbe }}
+          startupProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.admissionController.livenessProbe }}
+          livenessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.admissionController.readinessProbe }}
+          readinessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - mountPath: {{ .Values.tufRootMountPath }}
               name: sigstore

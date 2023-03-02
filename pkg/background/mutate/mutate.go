@@ -92,7 +92,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 
 		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, namespaceLabels, logger)
+		policyContext, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, namespaceLabels, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)

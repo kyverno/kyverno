@@ -457,10 +457,6 @@ OuterLoop:
 		}
 	}
 
-	if err := engineContext.MutateResourceWithImageInfo(resourceRaw, ctx); err != nil {
-		log.Log.Error(err, "failed to add image variables to context")
-	}
-
 	subresources := make([]engineapi.SubResource, 0)
 
 	// If --cluster flag is not set, then we need to add subresources to the context
@@ -1128,7 +1124,7 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		genResource, _, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.Name})
+		genResource, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.Name})
 		if err != nil {
 			rule.Status = engineapi.RuleStatusError
 			return nil, err
