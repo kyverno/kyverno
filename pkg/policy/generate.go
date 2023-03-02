@@ -21,11 +21,8 @@ func (pc *PolicyController) handleGenerate(policyKey string, policy kyvernov1.Po
 	logger := pc.log.WithName("handleGenerate").WithName(policyKey)
 	logger.Info("update URs on policy event")
 
-	generateURs := pc.listGenerateURs(policyKey, nil)
-	updateUR(pc.kyvernoClient, pc.urLister.UpdateRequests(config.KyvernoNamespace()), policyKey, generateURs, pc.log.WithName("updateUR"))
-
 	for _, rule := range policy.GetSpec().Rules {
-		if err := pc.createUR(policy, rule, false); err != nil {
+		if err := pc.createURForDataRule(policy, rule, false); err != nil {
 			logger.Error(err, "failed to create UR on policy event")
 		}
 
@@ -77,7 +74,7 @@ func (pc *PolicyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	for _, r := range rules {
 		generateType, sync := r.GetGenerateTypeAndSync()
 		if sync && (generateType == kyvernov1.Data) {
-			if err := pc.createUR(policy, r, true); err != nil {
+			if err := pc.createURForDataRule(policy, r, true); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -85,7 +82,7 @@ func (pc *PolicyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	return multierr.Combine(errs...)
 }
 
-func (pc *PolicyController) createUR(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, deleteDownstream bool) error {
+func (pc *PolicyController) createURForDataRule(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, deleteDownstream bool) error {
 	generate := rule.Generation
 	if !generate.Synchronize {
 		// no action for non-sync policy/rule
