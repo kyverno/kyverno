@@ -122,6 +122,14 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `testResources` has been replaced with `test.resources`
 - `testSecurityContext` has been replaced with `test.securityContext`
 - `replicaCount` has been replaced with `admissionController.replicas`
+- `updateStrategy` has been replaced with `admissionController.updateStrategy`
+- `priorityClassName` has been replaced with `admissionController.priorityClassName`
+- `hostNetwork` has been replaced with `admissionController.hostNetwork`
+- `dnsPolicy` has been replaced with `admissionController.dnsPolicy`
+- `nodeSelector` has been replaced with `admissionController.nodeSelector`
+- `tolerations` has been replaced with `admissionController.tolerations`
+- `topologySpreadConstraints` has been replaced with `admissionController.topologySpreadConstraints`
+- `podDisruptionBudget` has been replaced with `admissionController.podDisruptionBudget`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -192,17 +200,10 @@ The command removes all the Kubernetes components associated with the chart and 
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | podSecurityContext | object | `{}` | Security context for the pod |
 | securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| priorityClassName | string | `""` | Optional priority class to be used for kyverno pods |
 | antiAffinity.enable | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
 | podAffinity | object | `{}` | Pod affinity constraints. |
 | nodeAffinity | object | `{}` | Node affinity constraints. |
-| podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for kyverno disruptions. Cannot be used if `maxUnavailable` is set. |
-| podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for kyverno disruptions. Cannot be used if `minAvailable` is set. |
-| nodeSelector | object | `{}` | Node labels for pod assignment |
-| tolerations | list | `[]` | List of node taints to tolerate |
-| hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the kyverno's pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
-| dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
 | envVarsInit | object | `{}` | Env variables for initContainers. |
 | envVars | object | `{}` | Env variables for containers. |
 | extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the binary. |
@@ -218,12 +219,10 @@ The command removes all the Kubernetes components associated with the chart and 
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
 | excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
-| updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | service.port | int | `443` | Service port. |
 | service.type | string | `"ClusterIP"` | Service type. |
 | service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
 | service.annotations | object | `{}` | Service annotations. |
-| topologySpreadConstraints | list | `[]` | Topology spread constraints. |
 | metricsService.create | bool | `true` | Create service. |
 | metricsService.port | int | `8000` | Service port. Kyverno's metrics server will be exposed at this port. |
 | metricsService.type | string | `"ClusterIP"` | Service type. |
@@ -248,6 +247,15 @@ The command removes all the Kubernetes components associated with the chart and 
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
 | admissionController.replicas | int | `nil` | Desired number of pods |
+| admissionController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
+| admissionController.priorityClassName | string | `""` | Optional priority class |
+| admissionController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
+| admissionController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
+| admissionController.nodeSelector | object | `{}` | Node labels for pod assignment |
+| admissionController.tolerations | list | `[]` | List of node taints to tolerate |
+| admissionController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
+| admissionController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
+| admissionController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
