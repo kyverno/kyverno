@@ -129,6 +129,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `nodeSelector` has been replaced with `admissionController.nodeSelector`
 - `tolerations` has been replaced with `admissionController.tolerations`
 - `topologySpreadConstraints` has been replaced with `admissionController.topologySpreadConstraints`
+- `podDisruptionBudget` has been replaced with `admissionController.podDisruptionBudget`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -203,8 +204,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
 | podAffinity | object | `{}` | Pod affinity constraints. |
 | nodeAffinity | object | `{}` | Node affinity constraints. |
-| podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for kyverno disruptions. Cannot be used if `maxUnavailable` is set. |
-| podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for kyverno disruptions. Cannot be used if `minAvailable` is set. |
 | envVarsInit | object | `{}` | Env variables for initContainers. |
 | envVars | object | `{}` | Env variables for containers. |
 | extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the binary. |
@@ -255,6 +254,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.nodeSelector | object | `{}` | Node labels for pod assignment |
 | admissionController.tolerations | list | `[]` | List of node taints to tolerate |
 | admissionController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
+| admissionController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
+| admissionController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |

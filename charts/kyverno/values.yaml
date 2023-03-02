@@ -282,14 +282,6 @@ podAffinity: {}
 # -- Node affinity constraints.
 nodeAffinity: {}
 
-podDisruptionBudget:
-  # -- Configures the minimum available pods for kyverno disruptions.
-  # Cannot be used if `maxUnavailable` is set.
-  minAvailable: 1
-  # -- Configures the maximum unavailable pods for kyverno disruptions.
-  # Cannot be used if `minAvailable` is set.
-  maxUnavailable:
-
 # -- Env variables for initContainers.
 envVarsInit: {}
 
@@ -513,6 +505,14 @@ admissionController:
 
   # -- Topology spread constraints.
   topologySpreadConstraints: []
+
+  podDisruptionBudget:
+    # -- Configures the minimum available pods for disruptions.
+    # Cannot be used if `maxUnavailable` is set.
+    minAvailable: 1
+    # -- Configures the maximum unavailable pods for disruptions.
+    # Cannot be used if `minAvailable` is set.
+    maxUnavailable:
 
 # Cleanup controller configuration
 cleanupController:
