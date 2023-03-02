@@ -50,10 +50,10 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.36.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.13.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.13.0
-	go.opentelemetry.io/otel/exporters/prometheus v0.36.0
-	go.opentelemetry.io/otel/metric v0.36.0
+	go.opentelemetry.io/otel/exporters/prometheus v0.37.0
+	go.opentelemetry.io/otel/metric v0.37.0
 	go.opentelemetry.io/otel/sdk v1.14.0
-	go.opentelemetry.io/otel/sdk/metric v0.36.0
+	go.opentelemetry.io/otel/sdk/metric v0.37.0
 	go.opentelemetry.io/otel/trace v1.14.0
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/multierr v1.9.0
@@ -68,15 +68,15 @@ require (
 	k8s.io/api v0.26.2
 	k8s.io/apiextensions-apiserver v0.26.1
 	k8s.io/apimachinery v0.26.2
-	k8s.io/cli-runtime v0.26.1
-	k8s.io/client-go v0.26.1
-	k8s.io/klog/v2 v2.90.0
-	k8s.io/kube-aggregator v0.26.1
+	k8s.io/cli-runtime v0.26.2
+	k8s.io/client-go v0.26.2
+	k8s.io/klog/v2 v2.90.1
+	k8s.io/kube-aggregator v0.26.2
 	k8s.io/kube-openapi v0.0.0-20230217203603-ff9a8e8fa21d
 	k8s.io/pod-security-admission v0.26.1
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5
 	oras.land/oras-go/v2 v2.0.0
-	sigs.k8s.io/controller-runtime v0.14.4
+	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/kustomize/api v0.12.1
 	sigs.k8s.io/kustomize/kyaml v0.13.9
 	sigs.k8s.io/yaml v1.3.0
@@ -322,7 +322,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	k8s.io/component-base v0.26.1 // indirect
+	k8s.io/component-base v0.26.2 // indirect
 	k8s.io/kubectl v0.26.1 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/release-utils v0.7.3 // indirect
