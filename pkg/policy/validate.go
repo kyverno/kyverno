@@ -1406,7 +1406,7 @@ func immutableGenerateFields(new, old kyvernov1.PolicyInterface) error {
 
 	switch len(old.GetSpec().Rules) <= len(new.GetSpec().Rules) {
 	case true:
-		if newRuleHashes.Equal(oldRuleHashes) {
+		if newRuleHashes.IsSuperset(oldRuleHashes) {
 			return nil
 		} else {
 			return errors.New("change of immutable fields for a generate rule is disallowed")
