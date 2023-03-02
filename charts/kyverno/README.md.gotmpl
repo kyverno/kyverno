@@ -141,6 +141,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `createSelfSignedCert` has been replaced with `admissionController.createSelfSignedCert`
 - `serviceMonitor` has been replaced with `admissionController.serviceMonitor`
 - `podSecurityContext` has been replaced with `admissionController.podSecurityContext`
+- `tufRootMountPath` has been replaced with `admissionController.tufRootMountPath`
+- `sigstoreVolume` has been replaced with `admissionController.sigstoreVolume`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 

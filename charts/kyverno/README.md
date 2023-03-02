@@ -141,6 +141,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `createSelfSignedCert` has been replaced with `admissionController.createSelfSignedCert`
 - `serviceMonitor` has been replaced with `admissionController.serviceMonitor`
 - `podSecurityContext` has been replaced with `admissionController.podSecurityContext`
+- `tufRootMountPath` has been replaced with `admissionController.tufRootMountPath`
+- `sigstoreVolume` has been replaced with `admissionController.sigstoreVolume`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -235,8 +237,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
-| tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
-| sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
 | grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
 | grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
@@ -267,6 +267,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
 | admissionController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
 | admissionController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| admissionController.tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
+| admissionController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |

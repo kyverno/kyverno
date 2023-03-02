@@ -156,7 +156,7 @@ spec:
           - name: KYVERNO_SVC
             value: {{ template "kyverno.admission-controller.serviceName" . }}
           - name: TUF_ROOT
-            value: {{ .Values.tufRootMountPath }}
+            value: {{ .Values.admissionController.tufRootMountPath }}
           {{- with .Values.envVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
@@ -175,13 +175,13 @@ spec:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           volumeMounts:
-            - mountPath: {{ .Values.tufRootMountPath }}
+            - mountPath: {{ .Values.admissionController.tufRootMountPath }}
               name: sigstore
             - mountPath: /var/run/secrets/tokens
               name: api-token
       volumes:
       - name: sigstore
-        {{- toYaml (required "A valid .Values.sigstoreVolume entry is required" .Values.sigstoreVolume) | nindent 8 }}
+        {{- toYaml (required "A valid .Values.admissionController.sigstoreVolume entry is required" .Values.admissionController.sigstoreVolume) | nindent 8 }}
       - name: api-token
         projected:
           sources:

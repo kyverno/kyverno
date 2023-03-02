@@ -348,13 +348,6 @@ webhooksCleanup:
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
 
-# -- A writable volume to use for the TUF root initialization.
-tufRootMountPath: /.sigstore
-
-# -- Volume to be mounted in pods for TUF/cosign work.
-sigstoreVolume:
-  emptyDir: {}
-
 grafana:
   # -- Enable grafana dashboard creation.
   enabled: false
@@ -504,6 +497,13 @@ admissionController:
     secure: false
     # -- TLS Configuration for endpoint
     tlsConfig: {}
+
+  # -- A writable volume to use for the TUF root initialization.
+  tufRootMountPath: /.sigstore
+
+  # -- Volume to be mounted in pods for TUF/cosign work.
+  sigstoreVolume:
+    emptyDir: {}
 
 # Cleanup controller configuration
 cleanupController:
