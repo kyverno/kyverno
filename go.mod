@@ -45,7 +45,7 @@ require (
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.2
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.39.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
 	go.opentelemetry.io/otel v1.14.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.36.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.13.0
@@ -73,7 +73,7 @@ require (
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/kube-aggregator v0.26.2
 	k8s.io/kube-openapi v0.0.0-20230217203603-ff9a8e8fa21d
-	k8s.io/pod-security-admission v0.26.1
+	k8s.io/pod-security-admission v0.26.2
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5
 	oras.land/oras-go/v2 v2.0.0
 	sigs.k8s.io/controller-runtime v0.14.5
