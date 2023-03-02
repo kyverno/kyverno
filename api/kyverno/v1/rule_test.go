@@ -1008,7 +1008,7 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 			shouldFail: true,
 		},
 		{
-			name: "generate-downstream",
+			name: "generate-downstream-namespace",
 			rule: []byte(`
 			{
 				"name": "clone-secret",
@@ -1037,12 +1037,102 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 			}`),
 			shouldFail: false,
 		},
+		{
+			name: "generate-downstream-kind",
+			rule: []byte(`
+			{
+				"name": "clone-secret",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Namespace"
+								]
+							}
+						}
+					]
+				},
+				"generate": {
+					"apiVersion": "v1",
+					"kind": "{{request.object.metadata.kind}}",
+					"name": "regcred",
+					"namespace": "default",
+					"synchronize": true,
+					"clone": {
+						"namespace": "default",
+						"name": "regcred"
+					}
+				}
+			}`),
+			shouldFail: true,
+		},
+		{
+			name: "generate-downstream-apiversion",
+			rule: []byte(`
+			{
+				"name": "clone-secret",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Namespace"
+								]
+							}
+						}
+					]
+				},
+				"generate": {
+					"kind": "Secret",
+					"apiVersion": "{{request.object.metadata.apiVersion}}",
+					"name": "regcred",
+					"namespace": "default",
+					"synchronize": true,
+					"clone": {
+						"namespace": "default",
+						"name": "regcred"
+					}
+				}
+			}`),
+			shouldFail: true,
+		},
+		{
+			name: "generate-downstream-name",
+			rule: []byte(`
+			{
+				"name": "clone-secret",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Namespace"
+								]
+							}
+						}
+					]
+				},
+				"generate": {
+					"apiVersion": "v1",
+					"kind": "Secret",
+					"name": "{{request.object.metadata.name}}",
+					"namespace": "default",
+					"synchronize": true,
+					"clone": {
+						"namespace": "default",
+						"name": "regcred"
+					}
+				}
+			}`),
+			shouldFail: false,
+		},
 	}
 
 	for _, testcase := range testcases {
 		var rule *Rule
 		err := json.Unmarshal(testcase.rule, &rule)
-		assert.NilError(t, err)
+		assert.NilError(t, err, testcase.name)
 		errs := rule.ValidateGenerateVariables(path)
 		assert.Equal(t, len(errs) != 0, testcase.shouldFail, testcase.name)
 	}

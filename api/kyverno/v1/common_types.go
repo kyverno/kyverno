@@ -568,6 +568,10 @@ func (g *Generation) Validate() error {
 	}
 
 	newGeneration := Generation{
+		ResourceSpec: ResourceSpec{
+			Kind:       g.ResourceSpec.GetKind(),
+			APIVersion: g.ResourceSpec.GetAPIVersion(),
+		},
 		Clone:     g.Clone,
 		CloneList: g.CloneList,
 	}
