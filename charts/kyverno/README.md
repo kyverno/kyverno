@@ -121,6 +121,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `testImage` has been replaced with `test.image`
 - `testResources` has been replaced with `test.resources`
 - `testSecurityContext` has been replaced with `test.securityContext`
+- `replicaCount` has been replaced with `admissionController.replicas`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -187,7 +188,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
 | initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
-| replicaCount | int | `nil` | Desired number of pods |
 | podLabels | object | `{}` | Additional labels to add to each pod |
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | podSecurityContext | object | `{}` | Security context for the pod |
@@ -247,6 +247,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
+| admissionController.replicas | int | `nil` | Desired number of pods |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
