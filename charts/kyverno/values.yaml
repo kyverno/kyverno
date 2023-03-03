@@ -217,18 +217,6 @@ image:
   pullSecrets: []
   # - secretName
 
-initImage:
-  # -- Image registry
-  registry: ghcr.io
-  # -- Image repository
-  repository: kyverno/kyvernopre
-  # -- (string) Image tag
-  # If initImage.tag is missing, defaults to image.tag
-  tag: ~
-  # -- (string) Image pull policy
-  # If initImage.pullPolicy is missing, defaults to image.pullPolicy
-  pullPolicy: ~
-
 initContainer:
   # -- Extra arguments to give to the kyvernopre binary.
   extraArgs:
@@ -286,16 +274,6 @@ resources:
   requests:
     cpu: 100m
     memory: 128Mi
-
-initResources:
-  # -- Pod resource limits
-  limits:
-    cpu: 100m
-    memory: 256Mi
-  # -- Pod resource requests
-  requests:
-    cpu: 10m
-    memory: 64Mi
 
 # -- Additional resources to be added to controller RBAC permissions.
 generatecontrollerExtraResources: []
@@ -504,6 +482,30 @@ admissionController:
   # -- Volume to be mounted in pods for TUF/cosign work.
   sigstoreVolume:
     emptyDir: {}
+
+  initContainer:
+
+    image:
+      # -- Image registry
+      registry: ghcr.io
+      # -- Image repository
+      repository: kyverno/kyvernopre
+      # -- (string) Image tag
+      # If missing, defaults to image.tag
+      tag: ~
+      # -- (string) Image pull policy
+      # If missing, defaults to image.pullPolicy
+      pullPolicy: ~
+
+    resources:
+      # -- Pod resource limits
+      limits:
+        cpu: 100m
+        memory: 256Mi
+      # -- Pod resource requests
+      requests:
+        cpu: 10m
+        memory: 64Mi
 
 # Cleanup controller configuration
 cleanupController:
