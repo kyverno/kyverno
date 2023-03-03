@@ -267,8 +267,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
 | admissionController.initContainer.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.initContainer.image.repository | string | `"kyverno/kyvernopre"` | Image repository |
-| admissionController.initContainer.image.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
-| admissionController.initContainer.image.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
+| admissionController.initContainer.image.tag | string | `nil` | Image tag If missing, defaults to image.tag |
+| admissionController.initContainer.image.pullPolicy | string | `nil` | Image pull policy If missing, defaults to image.pullPolicy |
 | admissionController.initContainer.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | admissionController.initContainer.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |

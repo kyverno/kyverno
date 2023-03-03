@@ -491,10 +491,10 @@ admissionController:
       # -- Image repository
       repository: kyverno/kyvernopre
       # -- (string) Image tag
-      # If initImage.tag is missing, defaults to image.tag
+      # If missing, defaults to image.tag
       tag: ~
       # -- (string) Image pull policy
-      # If initImage.pullPolicy is missing, defaults to image.pullPolicy
+      # If missing, defaults to image.pullPolicy
       pullPolicy: ~
 
     resources:

@@ -522,7 +522,7 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 		--set templating.enabled=true \
 		--set templating.version=latest \
 		--set image.tag=latest \
-		--set initImage.tag=latest \
+		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
 		--set reportsController.image.tag=latest \
 		--set backgroundController.image.tag=latest \
@@ -538,7 +538,7 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 		--set templating.version=latest \
 		--set templating.debug=true \
 		--set image.tag=latest \
-		--set initImage.tag=latest \
+		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
 		--set reportsController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
@@ -553,7 +553,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 		--set templating.enabled=true \
 		--set templating.version=$(GIT_VERSION) \
 		--set image.tag=$(GIT_VERSION) \
-		--set initImage.tag=$(GIT_VERSION) \
+		--set admissionController.initContainer.image.tag=$(GIT_VERSION) \
 		--set cleanupController.image.tag=$(GIT_VERSION) \
 		--set reportsController.image.tag=$(GIT_VERSION) \
  		| $(SED) -e '/^#.*/d' \
@@ -819,9 +819,9 @@ kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 		--set image.registry=$(LOCAL_REGISTRY) \
 		--set image.repository=$(LOCAL_KYVERNO_REPO) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
-		--set initImage.registry=$(LOCAL_REGISTRY) \
-		--set initImage.repository=$(LOCAL_KYVERNOPRE_REPO) \
-		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set admissionController.initContainer.image.registry=$(LOCAL_REGISTRY) \
+		--set admissionController.initContainer.image.repository=$(LOCAL_KYVERNOPRE_REPO) \
+		--set admissionController.initContainer.image.tag=$(IMAGE_TAG_DEV) \
 		--set cleanupController.image.registry=$(LOCAL_REGISTRY) \
 		--set cleanupController.image.repository=$(LOCAL_CLEANUP_REPO) \
 		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
