@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: cpol-data-nosync-delete-rule-policy
 spec:
-  generateExistingOnPolicyUpdate: false
+  generateExisting: false
   rules:
   - name: cpol-data-nosync-delete-rule-ruletwo
     match:
