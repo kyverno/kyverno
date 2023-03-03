@@ -117,7 +117,7 @@ spec:
           imagePullPolicy: {{ .Values.admissionController.container.image.pullPolicy }}
           {{- if or .Values.extraArgs .Values.imagePullSecrets }}
           args:
-            - --servicePort={{ .Values.service.port }}
+            - --servicePort={{ .Values.admissionController.service.port }}
             {{- if .Values.extraArgs -}}
               {{ tpl (toYaml .Values.extraArgs) . | nindent 12 }}
             {{- end }}

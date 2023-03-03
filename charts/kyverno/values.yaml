@@ -265,31 +265,6 @@ excludeKyvernoNamespace: true
 # Namespaces to exclude from the default resourceFilters
 resourceFiltersExcludeNamespaces: []
 
-service:
-  # -- Service port.
-  port: 443
-  # -- Service type.
-  type: ClusterIP
-  # -- Service node port.
-  # Only used if `service.type` is `NodePort`.
-  nodePort:
-  # -- Service annotations.
-  annotations: {}
-
-metricsService:
-  # -- Create service.
-  create: true
-  # -- Service port.
-  # Kyverno's metrics server will be exposed at this port.
-  port: 8000
-  # -- Service type.
-  type: ClusterIP
-  # -- Service node port.
-  # Only used if `metricsService.type` is `NodePort`.
-  nodePort:
-  # -- Service annotations.
-  annotations: {}
-
 networkPolicy:
   # -- When true, use a NetworkPolicy to allow ingress to the webhook
   # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
@@ -509,6 +484,31 @@ admissionController:
       requests:
         cpu: 100m
         memory: 128Mi
+
+  service:
+    # -- Service port.
+    port: 443
+    # -- Service type.
+    type: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+    # -- Service annotations.
+    annotations: {}
+
+  metricsService:
+    # -- Create service.
+    create: true
+    # -- Service port.
+    # Kyverno's metrics server will be exposed at this port.
+    port: 8000
+    # -- Service type.
+    type: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+    # -- Service annotations.
+    annotations: {}
 
 # Cleanup controller configuration
 cleanupController:

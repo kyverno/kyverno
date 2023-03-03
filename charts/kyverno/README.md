@@ -148,6 +148,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `image` has been replaced with `admissionController.container.image`
 - `image.pullSecrets` has been replaced with `admissionController.pullSecrets`
 - `resources` has been replaced with `admissionController.container.resources`
+- `service` has been replaced with `admissionController.service`
+- `metricsService` has been replaced with `admissionController.metricsService`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -216,15 +218,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
 | excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
-| service.port | int | `443` | Service port. |
-| service.type | string | `"ClusterIP"` | Service type. |
-| service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
-| service.annotations | object | `{}` | Service annotations. |
-| metricsService.create | bool | `true` | Create service. |
-| metricsService.port | int | `8000` | Service port. Kyverno's metrics server will be exposed at this port. |
-| metricsService.type | string | `"ClusterIP"` | Service type. |
-| metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
-| metricsService.annotations | object | `{}` | Service annotations. |
 | networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
@@ -274,6 +267,15 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.container.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
+| admissionController.service.port | int | `443` | Service port. |
+| admissionController.service.type | string | `"ClusterIP"` | Service type. |
+| admissionController.service.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
+| admissionController.service.annotations | object | `{}` | Service annotations. |
+| admissionController.metricsService.create | bool | `true` | Create service. |
+| admissionController.metricsService.port | int | `8000` | Service port. Kyverno's metrics server will be exposed at this port. |
+| admissionController.metricsService.type | string | `"ClusterIP"` | Service type. |
+| admissionController.metricsService.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
+| admissionController.metricsService.annotations | object | `{}` | Service annotations. |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
