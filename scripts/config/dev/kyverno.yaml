@@ -9,11 +9,12 @@ extraArgs:
   - --tracingPort=4317
   - --enablePolicyException
 
-serviceMonitor:
-  enabled: true
-
 grafana:
   enabled: true
+
+admissionController:
+  serviceMonitor:
+    enabled: true
 
 cleanupController:
   rbac:
