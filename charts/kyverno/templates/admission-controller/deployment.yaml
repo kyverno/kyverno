@@ -78,14 +78,15 @@ spec:
         {{- toYaml .Values.extraInitContainers | nindent 8 }}
       {{- end }}
         - name: kyverno-pre
-          image: {{ include "kyverno.image" (dict "image" .Values.initImage "defaultTag" (default .Chart.AppVersion .Values.image.tag)) | quote }}
-          imagePullPolicy: {{ default .Values.image.pullPolicy .Values.initImage.pullPolicy }}
+          image: {{ include "kyverno.image" (dict "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.image.tag)) | quote }}
+          imagePullPolicy: {{ default .Values.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
           {{- if .Values.initContainer.extraArgs }}
           args:
               {{- tpl (toYaml .Values.initContainer.extraArgs) . | nindent 12 }}
           {{- end }}
-          {{- with .Values.initResources }}
-          resources: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- with .Values.admissionController.initContainer.resources }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.securityContext }}
           securityContext:
