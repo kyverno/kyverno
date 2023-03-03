@@ -1417,7 +1417,6 @@ func immutableGenerateFields(new, old kyvernov1.PolicyInterface) error {
 		} else {
 			return errors.New("rule deletion - change of immutable fields for a generate rule is disallowed")
 		}
-
 	}
 	return nil
 }
