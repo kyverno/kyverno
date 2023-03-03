@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: existing-basic-create-data-preconditions-policy
 spec:
-  generateExistingOnPolicyUpdate: true
+  generateExisting: true
   rules:
   - name: existing-basic-create-data-preconditions-rule
     match:
