@@ -4,7 +4,7 @@ metadata:
   name: zk-kafka-address
   namespace: pol-data-sync-modify-rule
 spec:
-  generateExistingOnPolicyUpdate: true
+  generateExisting: true
   rules:
   - name: k-kafka-address
     match:

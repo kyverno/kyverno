@@ -25,7 +25,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
@@ -99,7 +99,7 @@ type ApplyPolicyConfig struct {
 // HasVariables - check for variables in the policy
 func HasVariables(policy kyvernov1.PolicyInterface) [][]string {
 	policyRaw, _ := json.Marshal(policy)
-	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
+	matches := regex.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
 }
 
