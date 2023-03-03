@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: cpol-data-nosync-modify-downstream-policy
 spec:
-  generateExistingOnPolicyUpdate: false
+  generateExisting: false
   rules:
   - name: cpol-data-nosync-modify-downstream-rule
     match:
