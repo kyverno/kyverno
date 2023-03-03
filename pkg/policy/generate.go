@@ -12,54 +12,50 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 func (pc *PolicyController) handleGenerate(policyKey string, policy kyvernov1.PolicyInterface) error {
-	var errors []error
 	logger := pc.log.WithName("handleGenerate").WithName(policyKey)
 	logger.Info("update URs on policy event")
 
 	for _, rule := range policy.GetSpec().Rules {
 		if err := pc.createURForDataRule(policy, rule, false); err != nil {
 			logger.Error(err, "failed to create UR on policy event")
+			return err
 		}
 
-		var ruleType kyvernov1beta1.RequestType
 		if policy.GetSpec().IsGenerateExisting() {
-			ruleType = kyvernov1beta1.Generate
-			triggers := generateTriggers(pc.client, rule, pc.log)
-			for _, trigger := range triggers {
-				ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
-				skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
-				if err != nil {
-					pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
-					errors = append(errors, err)
-					continue
-				}
-
-				if skip {
-					continue
-				}
-
-				logger.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-					"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
+			if err := pc.handleGenerateForExisting(policy, rule); err != nil {
+				logger.Error(err, "failed to create UR for generateExisting")
+				return err
 			}
-			err := multierr.Combine(errors...)
-			return err
 		}
 	}
 	return nil
 }
 
-func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
-	generateURs, err := pc.urLister.List(labels.SelectorFromSet(common.GenerateLabelsSet(policyKey, trigger)))
-	if err != nil {
-		pc.log.Error(err, "failed to list update request for generate policy")
+func (pc *PolicyController) handleGenerateForExisting(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) error {
+	var errors []error
+	ruleType := kyvernov1beta1.Generate
+	triggers := generateTriggers(pc.client, rule, pc.log)
+	for _, trigger := range triggers {
+		ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
+		skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
+		if err != nil {
+			pc.log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+				"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
+			errors = append(errors, err)
+			continue
+		}
+
+		if skip {
+			continue
+		}
+
+		pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+			"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 	}
-	return generateURs
+	return multierr.Combine(errors...)
 }
 
 func (pc *PolicyController) createURForDownstreamDeletion(policy kyvernov1.PolicyInterface) error {
