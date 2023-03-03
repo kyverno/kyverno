@@ -7,6 +7,8 @@ image:
   registry: ko.local
   repository: github.com/kyverno/kyverno/cmd/kyverno
 
-initImage:
-  registry: ko.local
-  repository: github.com/kyverno/kyverno/cmd/initcontainer
+admissionController:
+  initContainer:
+    image:
+      registry: ko.local
+      repository: github.com/kyverno/kyverno/cmd/initcontainer
