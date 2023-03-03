@@ -31,12 +31,6 @@ func (pc *PolicyController) handleGenerate(policyKey string, policy kyvernov1.Po
 			ruleType = kyvernov1beta1.Generate
 			triggers := generateTriggers(pc.client, rule, pc.log)
 			for _, trigger := range triggers {
-				gurs := pc.listGenerateURs(policyKey, trigger)
-				if gurs != nil {
-					logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.GetNamespace()+"/"+trigger.GetName())
-					continue
-				}
-
 				ur := newUR(policy, common.ResourceSpecFromUnstructured(*trigger), rule.Name, ruleType, false)
 				skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
