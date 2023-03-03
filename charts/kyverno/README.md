@@ -145,6 +145,9 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `sigstoreVolume` has been replaced with `admissionController.sigstoreVolume`
 - `initImage` has been replaced with `admissionController.initContainer.image`
 - `initResources` has been replaced with `admissionController.initContainer.resources`
+- `image` has been replaced with `admissionController.container.image`
+- `image.pullSecrets` has been replaced with `admissionController.pullSecrets`
+- `resources` has been replaced with `admissionController.container.resources`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -201,11 +204,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
 | rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
-| image.registry | string | `"ghcr.io"` | Image registry |
-| image.repository | string | `"kyverno/kyverno"` | Image repository |
-| image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
-| image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| image.pullSecrets | list | `[]` | Image pull secrets |
 | initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
 | podLabels | object | `{}` | Additional labels to add to each pod |
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |
@@ -215,8 +213,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the binary. |
 | extraInitContainers | list | `[]` | Array of extra init containers |
 | extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
-| resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
-| resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
 | excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
@@ -265,12 +261,19 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
 | admissionController.tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
 | admissionController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
+| admissionController.pullSecrets | list | `[]` | Image pull secrets |
 | admissionController.initContainer.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.initContainer.image.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | admissionController.initContainer.image.tag | string | `nil` | Image tag If missing, defaults to image.tag |
 | admissionController.initContainer.image.pullPolicy | string | `nil` | Image pull policy If missing, defaults to image.pullPolicy |
 | admissionController.initContainer.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | admissionController.initContainer.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| admissionController.container.image.registry | string | `"ghcr.io"` | Image registry |
+| admissionController.container.image.repository | string | `"kyverno/kyverno"` | Image repository |
+| admissionController.container.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| admissionController.container.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
+| admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |

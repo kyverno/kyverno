@@ -203,20 +203,6 @@ rbac:
     annotations: {}
       # example.com/annotation: value
 
-image:
-  # -- Image registry
-  registry: ghcr.io
-  # -- Image repository
-  repository: kyverno/kyverno
-  # -- (string) Image tag
-  # Defaults to appVersion in Chart.yaml if omitted
-  tag: ~
-  # -- Image pull policy
-  pullPolicy: IfNotPresent
-  # -- Image pull secrets
-  pullSecrets: []
-  # - secretName
-
 initContainer:
   # -- Extra arguments to give to the kyvernopre binary.
   extraArgs:
@@ -265,15 +251,6 @@ extraContainers: []
 # - name: myapp-container
 #   image: busybox
 #   command: ['sh', '-c', 'echo Hello && sleep 3600']
-
-resources:
-  # -- Pod resource limits
-  limits:
-    memory: 384Mi
-  # -- Pod resource requests
-  requests:
-    cpu: 100m
-    memory: 128Mi
 
 # -- Additional resources to be added to controller RBAC permissions.
 generatecontrollerExtraResources: []
@@ -483,6 +460,10 @@ admissionController:
   sigstoreVolume:
     emptyDir: {}
 
+  # -- Image pull secrets
+  pullSecrets: []
+    # - secretName
+
   initContainer:
 
     image:
@@ -506,6 +487,28 @@ admissionController:
       requests:
         cpu: 10m
         memory: 64Mi
+
+  container:
+
+    image:
+      # -- Image registry
+      registry: ghcr.io
+      # -- Image repository
+      repository: kyverno/kyverno
+      # -- (string) Image tag
+      # Defaults to appVersion in Chart.yaml if omitted
+      tag: ~
+      # -- Image pull policy
+      pullPolicy: IfNotPresent
+
+    resources:
+      # -- Pod resource limits
+      limits:
+        memory: 384Mi
+      # -- Pod resource requests
+      requests:
+        cpu: 100m
+        memory: 128Mi
 
 # Cleanup controller configuration
 cleanupController:

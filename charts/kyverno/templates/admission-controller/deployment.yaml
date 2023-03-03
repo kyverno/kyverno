@@ -26,7 +26,7 @@ spec:
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
-      {{- with .Values.image.pullSecrets }}
+      {{- with .Values.admissionController.container.image.pullSecrets }}
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
@@ -78,8 +78,8 @@ spec:
         {{- toYaml .Values.extraInitContainers | nindent 8 }}
       {{- end }}
         - name: kyverno-pre
-          image: {{ include "kyverno.image" (dict "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.image.tag)) | quote }}
-          imagePullPolicy: {{ default .Values.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
+          image: {{ include "kyverno.image" (dict "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.admissionController.container.image.tag)) | quote }}
+          imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
           {{- if .Values.initContainer.extraArgs }}
           args:
               {{- tpl (toYaml .Values.initContainer.extraArgs) . | nindent 12 }}
@@ -113,8 +113,8 @@ spec:
         {{- toYaml .Values.extraContainers | nindent 8 }}
       {{- end }}
         - name: kyverno
-          image: {{ include "kyverno.image" (dict "image" .Values.image "defaultTag" .Chart.AppVersion) | quote }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: {{ include "kyverno.image" (dict "image" .Values.admissionController.container.image "defaultTag" .Chart.AppVersion) | quote }}
+          imagePullPolicy: {{ .Values.admissionController.container.image.pullPolicy }}
           {{- if or .Values.extraArgs .Values.imagePullSecrets }}
           args:
             - --servicePort={{ .Values.service.port }}
@@ -125,7 +125,7 @@ spec:
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
           {{- end }}
-          {{- with .Values.resources }}
+          {{- with .Values.admissionController.container.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.securityContext }}

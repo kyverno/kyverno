@@ -3,11 +3,12 @@ test:
     registry: docker.io
     repository: busybox
 
-image:
-  registry: ko.local
-  repository: github.com/kyverno/kyverno/cmd/kyverno
-
 admissionController:
+  container:
+    image:
+      registry: ko.local
+      repository: github.com/kyverno/kyverno/cmd/kyverno
+
   initContainer:
     image:
       registry: ko.local
