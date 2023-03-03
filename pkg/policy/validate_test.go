@@ -2940,7 +2940,7 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					"name": "sync-with-multi-clone"
 				},
 				"spec": {
-					"generateExistingOnPolicyUpdate": false,
+					"generateExisting": false,
 					"rules": [
 						{
 							"name": "sync-secret",
@@ -2978,7 +2978,7 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					"name": "sync-with-multi-clone"
 				},
 				"spec": {
-					"generateExistingOnPolicyUpdate": false,
+					"generateExisting": false,
 					"rules": [
 						{
 							"name": "sync-secret",
@@ -3019,7 +3019,7 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					"name": "sync-with-multi-clone"
 				},
 				"spec": {
-					"generateExistingOnPolicyUpdate": false,
+					"generateExisting": false,
 					"rules": [
 						{
 							"name": "sync-secret",
@@ -3056,7 +3056,7 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					"name": "sync-with-multi-clone"
 				},
 				"spec": {
-					"generateExistingOnPolicyUpdate": false,
+					"generateExisting": false,
 					"rules": [
 						{
 							"name": "sync-secret",
@@ -3098,7 +3098,7 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					"name": "sync-with-multi-clone"
 				},
 				"spec": {
-					"generateExistingOnPolicyUpdate": false,
+					"generateExisting": false,
 					"rules": [
 						{
 							"name": "sync-secret",
@@ -3141,7 +3141,7 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					"name": "sync-with-multi-clone"
 				},
 				"spec": {
-					"generateExistingOnPolicyUpdate": false,
+					"generateExisting": false,
 					"rules": [
 						{
 							"name": "sync-secret",
@@ -3188,7 +3188,7 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					"name": "sync-with-multi-clone"
 				},
 				"spec": {
-					"generateExistingOnPolicyUpdate": false,
+					"generateExisting": false,
 					"rules": [
 						{
 							"name": "sync-secret",
@@ -3231,7 +3231,7 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					"name": "sync-with-multi-clone"
 				},
 				"spec": {
-					"generateExistingOnPolicyUpdate": false,
+					"generateExisting": false,
 					"rules": [
 						{
 							"name": "sync-secret",
@@ -3273,7 +3273,7 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					"name": "sync-with-multi-clone"
 				},
 				"spec": {
-					"generateExistingOnPolicyUpdate": false,
+					"generateExisting": false,
 					"rules": [
 						{
 							"name": "sync-secret",
@@ -3316,7 +3316,7 @@ func Test_ImmutableGenerateFields(t *testing.T) {
 					"name": "sync-with-multi-clone"
 				},
 				"spec": {
-					"generateExistingOnPolicyUpdate": false,
+					"generateExisting": false,
 					"rules": [
 						{
 							"name": "sync-secret",
