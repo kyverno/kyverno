@@ -174,11 +174,23 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 }
 
+func (r *Rule) ValidateGenerateVariables(path *field.Path) (errs field.ErrorList) {
+	if !r.HasGenerate() {
+		return nil
+	}
+
+	if err := r.Generation.Validate(); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), fmt.Sprintf("Generation Rule Clone/CloneList \"%s\" should not have variables", r.Name)))
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+	errs = append(errs, r.ValidateGenerateVariables(path)...)
 	return errs
 }
