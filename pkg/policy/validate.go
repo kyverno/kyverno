@@ -22,6 +22,7 @@ import (
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
@@ -558,7 +559,7 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 // hasVariables - check for variables in the policy
 func hasVariables(policy kyvernov1.PolicyInterface) [][]string {
 	policyRaw, _ := json.Marshal(policy)
-	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
+	matches := regex.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
 }
 
@@ -579,7 +580,7 @@ func jsonPatchPathHasVariables(patch string) error {
 			return err
 		}
 
-		vars := variables.RegexVariables.FindAllString(path, -1)
+		vars := regex.RegexVariables.FindAllString(path, -1)
 		if len(vars) > 0 {
 			return errOperationForbidden
 		}
@@ -606,7 +607,7 @@ func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
 	for _, verifyImage := range verifyImages {
 		verifyImage = *verifyImage.Convert()
 		for _, imageRef := range verifyImage.ImageReferences {
-			matches := variables.RegexVariables.FindAllString(imageRef, -1)
+			matches := regex.RegexVariables.FindAllString(imageRef, -1)
 			if len(matches) > 0 {
 				return fmt.Errorf("variables are not allowed in image reference")
 			}
