@@ -10,6 +10,8 @@
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5327/badge)](https://bestpractices.coreinfrastructure.org/projects/5327)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/kyverno/kyverno/badge)](https://api.securityscorecards.dev/projects/github.com/kyverno/kyverno)
 [![codecov](https://codecov.io/gh/kyverno/kyverno/branch/main/graph/badge.svg)](https://app.codecov.io/gh/kyverno/kyverno/branch/main)
+[![Artifact HUB](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kyverno)](https://artifacthub.io/packages/search?repo=kyverno)
+
 
 
 
