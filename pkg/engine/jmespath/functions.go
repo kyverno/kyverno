@@ -230,13 +230,14 @@ func GetFunctions() []FunctionEntry {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: add,
 			Arguments: []argSpec{
-				{Types: []jpType{jpAny}},
-				{Types: []jpType{jpAny}},
+				// {Types: []jpType{jpAny}},
+			    // {Types: []jpType{jpAny}},
+				{Types: []jpType{jpArray}},
 			},
 			Handler: jpAdd,
 		},
 		ReturnType: []jpType{jpAny},
-		Note:       "does arithmetic addition of two specified values of numbers, quantities, and durations",
+		Note:       "does arithmetic addition of a specified array of numbers, quantities, and durations",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: subtract,
@@ -737,12 +738,22 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 }
 
 func jpAdd(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, add)
+	// fmt.Printf("%T\n", arguments)
+	
+	args, _ := arguments[0].([]interface{})
+	// fmt.Printf("arguments in jpAdd %+v and type is %T\n", args, args)
+	ops, err := ParseArithmeticOperandsArray(args, add)
+	//  op1, op2, err := ParseArithemticOperands(arguments, add)
+	//  fmt.Printf("op1 %T ", op1)
+	//  fmt.Printf("op2 %T ", op2)
+	//fmt.Printf("arguments in jpAdd %+v and type is %T\n", ops, ops[0])
 	if err != nil {
 		return nil, err
 	}
 
-	return op1.Add(op2)
+	//   return op1.Add(op2)
+
+	return addScalars(ops)
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {
