@@ -11,10 +11,14 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-type handlers struct{}
+type handlers struct {
+	validationOptions validation.ValidationOptions
+}
 
-func NewHandlers() webhooks.ExceptionHandlers {
-	return &handlers{}
+func NewHandlers(validationOptions validation.ValidationOptions) webhooks.ExceptionHandlers {
+	return &handlers{
+		validationOptions: validationOptions,
+	}
 }
 
 // Validate performs the validation check on policy exception resources
@@ -24,9 +28,9 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 		logger.Error(err, "failed to unmarshal policy exceptions from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	if err := validation.Validate(ctx, logger, polex); err != nil {
+	warnings, err := validation.Validate(ctx, logger, polex, h.validationOptions)
+	if err != nil {
 		logger.Error(err, "policy exception validation errors")
-		return admissionutils.Response(request.UID, err)
 	}
-	return nil
+	return admissionutils.Response(request.UID, err, warnings...)
 }

@@ -1,11 +1,11 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: zk-kafka-address
+  name: cpol-data-sync-delete-policy
 spec:
-  generateExistingOnPolicyUpdate: false
+  generateExisting: false
   rules:
-  - name: k-kafka-address
+  - name: cpol-data-sync-delete-rule
     match:
       any:
       - resources:

@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/pkg/errors"
 )
 
 type apiCall struct {
@@ -91,12 +90,12 @@ func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, er
 
 	req, err := a.buildHTTPRequest(service)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build HTTP request for APICall %s", a.entry.Name)
+		return nil, fmt.Errorf("failed to build HTTP request for APICall %s: %w", a.entry.Name, err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to execute HTTP request for APICall %s", a.entry.Name)
+		return nil, fmt.Errorf("failed to execute HTTP request for APICall %s: %w", a.entry.Name, err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -106,7 +105,7 @@ func (a *apiCall) executeServiceCall(service *kyvernov1.ServiceCall) ([]byte, er
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read data from APICall %s", a.entry.Name)
+		return nil, fmt.Errorf("failed to read data from APICall %s: %w", a.entry.Name, err)
 	}
 
 	a.log.Info("executed service APICall", "name", a.entry.Name, "len", len(body))
@@ -177,7 +176,7 @@ func (a *apiCall) buildPostData(data []kyvernov1.RequestData) (io.Reader, error)
 
 	buffer := new(bytes.Buffer)
 	if err := json.NewEncoder(buffer).Encode(dataMap); err != nil {
-		return nil, errors.Wrapf(err, "failed to encode HTTP POST data %v for APICall %s", dataMap, a.entry.Name)
+		return nil, fmt.Errorf("failed to encode HTTP POST data %v for APICall %s: %w", dataMap, a.entry.Name, err)
 	}
 
 	return buffer, nil
@@ -187,7 +186,7 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 	if a.entry.APICall.JMESPath == "" {
 		err := a.jsonCtx.AddContextEntry(a.entry.Name, jsonData)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to add resource data to context entry %s", a.entry.Name)
+			return nil, fmt.Errorf("failed to add resource data to context entry %s: %w", a.entry.Name, err)
 		}
 
 		return jsonData, nil
@@ -195,22 +194,22 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 
 	path, err := variables.SubstituteAll(a.log, a.jsonCtx, a.entry.APICall.JMESPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to substitute variables in context entry %s JMESPath %s", a.entry.Name, a.entry.APICall.JMESPath)
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", a.entry.Name, a.entry.APICall.JMESPath, err)
 	}
 
 	results, err := applyJMESPathJSON(path.(string), jsonData)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to apply JMESPath %s for context entry %s", path, a.entry.Name)
+		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, a.entry.Name, err)
 	}
 
 	contextData, err := json.Marshal(results)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to marshall APICall data for context entry %s", a.entry.Name)
+		return nil, fmt.Errorf("failed to marshall APICall data for context entry %s: %w", a.entry.Name, err)
 	}
 
 	err = a.jsonCtx.AddContextEntry(a.entry.Name, contextData)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to add APICall results for context entry %s", a.entry.Name)
+		return nil, fmt.Errorf("failed to add APICall results for context entry %s: %w", a.entry.Name, err)
 	}
 
 	a.log.V(4).Info("added context data", "name", a.entry.Name, "len", len(contextData))
@@ -221,7 +220,7 @@ func applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
 	var data interface{}
 	err := json.Unmarshal(jsonData, &data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %v", string(jsonData), err)
+		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %w", string(jsonData), err)
 	}
 
 	jp, err := jmespath.New(jmesPath)

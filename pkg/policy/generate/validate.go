@@ -8,8 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -79,7 +78,7 @@ func (g *Generate) Validate() (string, error) {
 	if target := rule.GetData(); target != nil {
 		// TODO: is this required ?? as anchors can only be on pattern and not resource
 		// we can add this check by not sure if its needed here
-		if path, err := common.ValidatePattern(target, "/", []commonAnchors.IsAnchor{}); err != nil {
+		if path, err := common.ValidatePattern(target, "/", nil); err != nil {
 			return fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
 		}
 	}
@@ -113,7 +112,7 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 
 	namespace := c.Namespace
 	// Skip if there is variable defined
-	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
+	if !regex.IsVariable(kind) && !regex.IsVariable(namespace) {
 		// GET
 		ok, err := g.authCheck.CanIGet(context.TODO(), kind, namespace)
 		if err != nil {
@@ -132,7 +131,7 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 func (g *Generate) canIGenerate(kind, namespace string) error {
 	// Skip if there is variable defined
 	authCheck := g.authCheck
-	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
+	if !regex.IsVariable(kind) && !regex.IsVariable(namespace) {
 		// CREATE
 		ok, err := authCheck.CanICreate(context.TODO(), kind, namespace)
 		if err != nil {

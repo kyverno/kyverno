@@ -2,52 +2,16 @@ package generation
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/background/generate"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-func getGeneratedByResource(ctx context.Context, newRes *unstructured.Unstructured, resLabels map[string]string, client dclient.Interface, rule kyvernov1.Rule, logger logr.Logger) (kyvernov1.Rule, error) {
-	var apiVersion, kind, name, namespace string
-	sourceRequest := &admissionv1.AdmissionRequest{}
-	kind = resLabels["kyverno.io/generated-by-kind"]
-	name = resLabels["kyverno.io/generated-by-name"]
-	if kind != "Namespace" {
-		namespace = resLabels["kyverno.io/generated-by-namespace"]
-	}
-	obj, err := client.GetResource(ctx, apiVersion, kind, namespace, name)
-	if err != nil {
-		logger.Error(err, "source resource not found.")
-		return rule, err
-	}
-	rawObj, err := json.Marshal(obj)
-	if err != nil {
-		logger.Error(err, "failed to marshal resource")
-		return rule, err
-	}
-	sourceRequest.Object.Raw = rawObj
-	sourceRequest.Operation = "CREATE"
-	enginectx := enginecontext.NewContext()
-	if err := enginectx.AddRequest(sourceRequest); err != nil {
-		logger.Error(err, "failed to load incoming request in context")
-		return rule, err
-	}
-	if rule, err = variables.SubstituteAllInRule(logger, enginectx, rule); err != nil {
-		logger.Error(err, "variable substitution failed for rule %s", rule.Name)
-		return rule, err
-	}
-	return rule, nil
-}
 
 // stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
 func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
@@ -59,7 +23,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 		}
 
 		if labels, found := metadata.(map[string]interface{})["labels"]; found {
-			delete(labels.(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
+			delete(labels.(map[string]interface{}), generate.LabelClonePolicyName)
 			requiredMetadataInObj["labels"] = labels
 		}
 		obj["metadata"] = requiredMetadataInObj
@@ -119,10 +83,10 @@ func applyUpdateRequest(
 	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	ruleType kyvernov1beta1.RequestType,
-	grGenerator updaterequest.Generator,
+	urGenerator updaterequest.Generator,
 	userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation,
-	engineResponses ...*response.EngineResponse,
+	engineResponses ...*engineapi.EngineResponse,
 ) (failedUpdateRequest []updateRequestResponse) {
 	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
 		AdmissionRequest: request,
@@ -131,7 +95,7 @@ func applyUpdateRequest(
 
 	for _, er := range engineResponses {
 		ur := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
-		if err := grGenerator.Apply(ctx, ur, action); err != nil {
+		if err := urGenerator.Apply(ctx, ur, action); err != nil {
 			failedUpdateRequest = append(failedUpdateRequest, updateRequestResponse{ur: ur, err: err})
 		}
 	}
@@ -139,22 +103,22 @@ func applyUpdateRequest(
 	return
 }
 
-func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *response.EngineResponse, ruleType kyvernov1beta1.RequestType) kyvernov1beta1.UpdateRequestSpec {
+func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *engineapi.EngineResponse, ruleType kyvernov1beta1.RequestType) kyvernov1beta1.UpdateRequestSpec {
 	var PolicyNameNamespaceKey string
-	if er.PolicyResponse.Policy.Namespace != "" {
-		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Namespace + "/" + er.PolicyResponse.Policy.Name
+	if er.Policy.GetNamespace() != "" {
+		PolicyNameNamespaceKey = er.Policy.GetNamespace() + "/" + er.Policy.GetName()
 	} else {
-		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Name
+		PolicyNameNamespaceKey = er.Policy.GetName()
 	}
 
 	ur := kyvernov1beta1.UpdateRequestSpec{
 		Type:   ruleType,
 		Policy: PolicyNameNamespaceKey,
 		Resource: kyvernov1.ResourceSpec{
-			Kind:       er.PolicyResponse.Resource.Kind,
-			Namespace:  er.PolicyResponse.Resource.Namespace,
-			Name:       er.PolicyResponse.Resource.Name,
-			APIVersion: er.PolicyResponse.Resource.APIVersion,
+			Kind:       er.Resource.GetKind(),
+			Namespace:  er.Resource.GetNamespace(),
+			Name:       er.Resource.GetName(),
+			APIVersion: er.Resource.GetAPIVersion(),
 		},
 		Context: kyvernov1beta1.UpdateRequestSpecContext{
 			UserRequestInfo:      userRequestInfo,

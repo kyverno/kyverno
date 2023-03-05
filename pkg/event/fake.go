@@ -6,5 +6,4 @@ func NewFake() Interface {
 
 type fakeEventGenerator struct{}
 
-func (f *fakeEventGenerator) Add(infoList ...Info) {
-}
+func (f *fakeEventGenerator) Add(infoList ...Info) {}

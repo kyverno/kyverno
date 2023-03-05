@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/google/gnostic/compiler"
 	openapiv2 "github.com/google/gnostic/openapiv2"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/logging"
 	cmap "github.com/orcaman/concurrent-map/v2"
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -48,6 +47,8 @@ type manager struct {
 
 	// kindToAPIVersions stores the Kind and all its available apiVersions, {kind: apiVersions}
 	kindToAPIVersions cmap.ConcurrentMap[string, apiVersions]
+
+	logger logr.Logger
 }
 
 // apiVersions stores all available gvks for a kind, a gvk is "/" separated string
@@ -57,11 +58,12 @@ type apiVersions struct {
 }
 
 // NewManager initializes a new instance of openapi schema manager
-func NewManager() (*manager, error) {
+func NewManager(logger logr.Logger) (*manager, error) {
 	mgr := &manager{
 		definitions:         cmap.New[*openapiv2.Schema](),
 		gvkToDefinitionName: cmap.New[string](),
 		kindToAPIVersions:   cmap.New[apiVersions](),
+		logger:              logger,
 	}
 
 	apiResourceLists, preferredAPIResourcesLists, err := getAPIResourceLists()
@@ -145,14 +147,14 @@ func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error
 		d, _ := o.definitions.Get(k)
 		resource, _ := o.generateEmptyResource(d).(map[string]interface{})
 		if len(resource) == 0 {
-			logging.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
+			o.logger.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
 			return nil
 		}
 
 		newResource := unstructured.Unstructured{Object: resource}
 		newResource.SetKind(kind)
 
-		patchedResource, err := engine.ForceMutate(nil, newPolicy, newResource)
+		patchedResource, err := engine.ForceMutate(nil, o.logger, newPolicy, newResource)
 		if err != nil {
 			return err
 		}
@@ -160,7 +162,7 @@ func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error
 		if kind != "*" {
 			err = o.ValidateResource(*patchedResource.DeepCopy(), "", kind)
 			if err != nil {
-				return errors.Wrapf(err, "mutate result violates resource schema")
+				return fmt.Errorf("mutate result violates resource schema: %w", err)
 			}
 		}
 	}
@@ -176,7 +178,7 @@ func (o *manager) UseOpenAPIDocument(doc *openapiv2.Document) error {
 
 		gvk, preferredGVK, err := o.getGVKByDefinitionName(definitionName)
 		if err != nil {
-			logging.V(5).Info("unable to cache OpenAPISchema", "definitionName", definitionName, "reason", err.Error())
+			o.logger.V(5).Info("unable to cache OpenAPISchema", "definitionName", definitionName, "reason", err.Error())
 			continue
 		}
 
@@ -241,13 +243,13 @@ func (c *manager) UpdateKindToAPIVersions(apiResourceLists, preferredAPIResource
 // For crd, we do not store definition in document
 func (o *manager) getCRDSchema(kind string) (proto.Schema, error) {
 	if kind == "" {
-		return nil, errors.New("invalid kind")
+		return nil, fmt.Errorf("invalid kind")
 	}
 
 	path := proto.NewPath(kind)
 	definition, _ := o.definitions.Get(kind)
 	if definition == nil {
-		return nil, errors.New("could not find definition")
+		return nil, fmt.Errorf("could not find definition")
 	}
 
 	// This was added so crd's can access
@@ -290,7 +292,7 @@ func (o *manager) generateEmptyResource(kindSchema *openapiv2.Schema) interface{
 		return getBoolValue(kindSchema)
 	}
 
-	logging.V(2).Info("unknown type", types[0])
+	o.logger.V(2).Info("unknown type", types[0])
 	return nil
 }
 
@@ -325,19 +327,19 @@ func (o *manager) ParseCRD(crd unstructured.Unstructured) {
 	}
 
 	if openV3schema == nil {
-		logging.V(4).Info("skip adding schema, CRD has no properties", "name", crdName)
+		o.logger.V(4).Info("skip adding schema, CRD has no properties", "name", crdName)
 		return
 	}
 
 	schemaRaw, _ := json.Marshal(openV3schema)
 	if len(schemaRaw) < 1 {
-		logging.V(4).Info("failed to parse crd schema", "name", crdName)
+		o.logger.V(4).Info("failed to parse crd schema", "name", crdName)
 		return
 	}
 
 	schemaRaw, err = addingDefaultFieldsToSchema(crdName, schemaRaw)
 	if err != nil {
-		logging.Error(err, "failed to parse crd schema", "name", crdName)
+		o.logger.Error(err, "failed to parse crd schema", "name", crdName)
 		return
 	}
 
@@ -348,7 +350,7 @@ func (o *manager) ParseCRD(crd unstructured.Unstructured) {
 	if err != nil {
 		v3valueFound := isOpenV3Error(err)
 		if !v3valueFound {
-			logging.Error(err, "failed to parse crd schema", "name", crdName)
+			o.logger.Error(err, "failed to parse crd schema", "name", crdName)
 		}
 		return
 	}

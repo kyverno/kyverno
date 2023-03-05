@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"gotest.tools/assert"
 )
@@ -72,7 +73,7 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 		},
 	}
 
-	o, _ := NewManager()
+	o, _ := NewManager(logr.Discard())
 
 	for i, tc := range tcs {
 		policy := v1.ClusterPolicy{}
@@ -196,7 +197,7 @@ func Test_matchGVK(t *testing.T) {
 // networking.k8s.io/v1beta1/Ingress
 // extensions/v1beta1/Ingress
 func Test_Ingress(t *testing.T) {
-	o, err := NewManager()
+	o, err := NewManager(logr.Discard())
 	assert.NilError(t, err)
 
 	versions, ok := o.kindToAPIVersions.Get("Ingress")

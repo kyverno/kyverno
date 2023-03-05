@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/engine/pattern"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"go.uber.org/multierr"
 )
@@ -44,7 +44,7 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 		}
 
 		// check if an anchor defined in the policy rule is missing in the resource
-		if ac.IsAnchorError() {
+		if ac.KeysAreMissing() {
 			logger.V(3).Info("missing anchor in resource")
 			return &PatternError{err, "", false}
 		}
@@ -57,18 +57,18 @@ func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
 
 func skip(err error) bool {
 	// if conditional or global anchors report errors, the rule does not apply to the resource
-	return anchor.IsConditionalAnchorError(err.Error()) || anchor.IsGlobalAnchorError(err.Error())
+	return anchor.IsConditionalAnchorError(err) || anchor.IsGlobalAnchorError(err)
 }
 
 func fail(err error) bool {
 	// if negation anchors report errors, the rule will fail
-	return anchor.IsNegationAnchorError(err.Error())
+	return anchor.IsNegationAnchorError(err)
 }
 
 // validateResourceElement detects the element type (map, array, nil, string, int, bool, float)
 // and calls corresponding handler
 // Pattern tree and resource tree can have different structure. In this case validation fails
-func validateResourceElement(log logr.Logger, resourceElement, patternElement, originPattern interface{}, path string, ac *anchor.AnchorKey) (string, error) {
+func validateResourceElement(log logr.Logger, resourceElement, patternElement, originPattern interface{}, path string, ac *anchor.AnchorMap) (string, error) {
 	switch typedPatternElement := patternElement.(type) {
 	// map
 	case map[string]interface{}:
@@ -95,13 +95,13 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		switch resource := resourceElement.(type) {
 		case []interface{}:
 			for _, res := range resource {
-				if !common.ValidateValueWithPattern(log, res, patternElement) {
+				if !pattern.Validate(log, res, patternElement) {
 					return path, fmt.Errorf("resource value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 				}
 			}
 			return "", nil
 		default:
-			if !common.ValidateValueWithPattern(log, resourceElement, patternElement) {
+			if !pattern.Validate(log, resourceElement, patternElement) {
 				return path, fmt.Errorf("resource value '%v' does not match '%v' at path %s", resourceElement, patternElement, path)
 			}
 		}
@@ -115,7 +115,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 
 // If validateResourceElement detects map element inside resource and pattern trees, it goes to validateMap
 // For each element of the map we must detect the type again, so we pass these elements to validateResourceElement
-func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string, ac *anchor.AnchorKey) (string, error) {
+func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}, origPattern interface{}, path string, ac *anchor.AnchorMap) (string, error) {
 	patternMap = wildcards.ExpandInMetadata(patternMap, resourceMap)
 	// check if there is anchor in pattern
 	// Phase 1 : Evaluate all the anchors
@@ -160,7 +160,7 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 	return "", nil
 }
 
-func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string, ac *anchor.AnchorKey) (string, error) {
+func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string, ac *anchor.AnchorMap) (string, error) {
 	if len(patternArray) == 0 {
 		return path, fmt.Errorf("pattern Array empty")
 	}
@@ -215,7 +215,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 
 // validateArrayOfMaps gets anchors from pattern array map element, applies anchors logic
 // and then validates each map due to the pattern
-func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string, ac *anchor.AnchorKey) (string, error) {
+func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patternMap map[string]interface{}, originPattern interface{}, path string, ac *anchor.AnchorMap) (string, error) {
 	applyCount := 0
 	skipErrors := make([]error, 0)
 	for i, resourceElement := range resourceMapArray {

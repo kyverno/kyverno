@@ -35,11 +35,11 @@ New attributes can be added to existing resources without impacting compatibilit
 
 ## Deleting an attribute
 
-Attributes cannot be deleted in an version. They should be marked for deprecation and removed after 3 minor releases.
+Attributes cannot be deleted in a version. They should be marked for deprecation and removed after 3 minor releases.
 
 ## Modifying an attribute
 
-Attributes cannot be modified in an version. The existing attribute should be marked for deprecation and a new attribute should be added following version compatibity guidelines.
+Attributes cannot be modified in a version. The existing attribute should be marked for deprecation and a new attribute should be added following version compatibity guidelines.
 
 
 ## Stable References

@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/go-logr/logr"
 	"github.com/mattbaird/jsonpatch"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
 )
 
 func Test_GeneratePatches(t *testing.T) {
-	out, err := strategicMergePatch(logging.GlobalLogger(), string(baseBytes), string(overlayBytes))
+	out, err := strategicMergePatch(logr.Discard(), string(baseBytes), string(overlayBytes))
 	assert.NilError(t, err)
 
 	expectedPatches := map[string]bool{

@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -97,7 +98,7 @@ func Test_updateRequestUpdater_updateAnnotation(t *testing.T) {
 			if tt.updated {
 				annotations := ur.GetAnnotations()
 				assert.NotNil(t, annotations)
-				assert.NotNil(t, annotations["generate.kyverno.io/updation-time"])
+				assert.NotNil(t, annotations[generate.AnnotationUpdateTime])
 			} else {
 				annotations := ur.GetAnnotations()
 				assert.Nil(t, annotations)

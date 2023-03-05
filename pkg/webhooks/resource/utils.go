@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
@@ -49,10 +49,10 @@ func applyUpdateRequest(
 	ctx context.Context,
 	request *admissionv1.AdmissionRequest,
 	ruleType kyvernov1beta1.RequestType,
-	grGenerator updaterequest.Generator,
+	urGenerator updaterequest.Generator,
 	userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation,
-	engineResponses ...*response.EngineResponse,
+	engineResponses ...*engineapi.EngineResponse,
 ) (failedUpdateRequest []updateRequestResponse) {
 	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
 		AdmissionRequest: request,
@@ -61,7 +61,7 @@ func applyUpdateRequest(
 
 	for _, er := range engineResponses {
 		ur := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
-		if err := grGenerator.Apply(ctx, ur, action); err != nil {
+		if err := urGenerator.Apply(ctx, ur, action); err != nil {
 			failedUpdateRequest = append(failedUpdateRequest, updateRequestResponse{ur: ur, err: err})
 		}
 	}
@@ -69,22 +69,22 @@ func applyUpdateRequest(
 	return
 }
 
-func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *response.EngineResponse, ruleType kyvernov1beta1.RequestType) kyvernov1beta1.UpdateRequestSpec {
+func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *engineapi.EngineResponse, ruleType kyvernov1beta1.RequestType) kyvernov1beta1.UpdateRequestSpec {
 	var PolicyNameNamespaceKey string
-	if er.PolicyResponse.Policy.Namespace != "" {
-		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Namespace + "/" + er.PolicyResponse.Policy.Name
+	if er.Policy.GetNamespace() != "" {
+		PolicyNameNamespaceKey = er.Policy.GetNamespace() + "/" + er.Policy.GetName()
 	} else {
-		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Name
+		PolicyNameNamespaceKey = er.Policy.GetName()
 	}
 
 	ur := kyvernov1beta1.UpdateRequestSpec{
 		Type:   ruleType,
 		Policy: PolicyNameNamespaceKey,
 		Resource: kyvernov1.ResourceSpec{
-			Kind:       er.PolicyResponse.Resource.Kind,
-			Namespace:  er.PolicyResponse.Resource.Namespace,
-			Name:       er.PolicyResponse.Resource.Name,
-			APIVersion: er.PolicyResponse.Resource.APIVersion,
+			Kind:       er.Resource.GetKind(),
+			Namespace:  er.Resource.GetNamespace(),
+			Name:       er.Resource.GetName(),
+			APIVersion: er.Resource.GetAPIVersion(),
 		},
 		Context: kyvernov1beta1.UpdateRequestSpecContext{
 			UserRequestInfo:      userRequestInfo,

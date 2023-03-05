@@ -15,7 +15,7 @@ func TestInitClientWithEmptyOptions(t *testing.T) {
 	c, err := New()
 	assert.NilError(t, err)
 	assert.Assert(t, defaultTransport == c.getTransport())
-	assert.Assert(t, c.getKeychain() != nil)
+	assert.Assert(t, c.Keychain() != nil)
 }
 
 func TestInitClientWithInsecureRegistryOption(t *testing.T) {
@@ -27,5 +27,5 @@ func TestInitClientWithInsecureRegistryOption(t *testing.T) {
 	gotInsecureSkipVerify := c.getTransport().(*http.Transport).TLSClientConfig.InsecureSkipVerify
 	assert.NilError(t, err)
 	assert.Assert(t, expInsecureSkipVerify == gotInsecureSkipVerify)
-	assert.Assert(t, c.getKeychain() != nil)
+	assert.Assert(t, c.Keychain() != nil)
 }

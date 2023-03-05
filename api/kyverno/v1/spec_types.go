@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -13,25 +14,35 @@ type ValidationFailureAction string
 
 // Policy Reporting Modes
 const (
+	// auditOld doesn't block the request on failure
+	// DEPRECATED: use Audit instead
+	auditOld ValidationFailureAction = "audit"
 	// enforceOld blocks the request on failure
-	// DEPRECATED: use enforce instead
+	// DEPRECATED: use Enforce instead
 	enforceOld ValidationFailureAction = "enforce"
-	// enforce blocks the request on failure
-	enforce ValidationFailureAction = "Enforce"
+	// Enforce blocks the request on failure
+	Enforce ValidationFailureAction = "Enforce"
+	// Audit doesn't block the request on failure
+	Audit ValidationFailureAction = "Audit"
 )
 
 func (a ValidationFailureAction) Enforce() bool {
-	return a == enforce || a == enforceOld
+	return a == Enforce || a == enforceOld
 }
 
 func (a ValidationFailureAction) Audit() bool {
 	return !a.Enforce()
 }
 
+func (a ValidationFailureAction) IsValid() bool {
+	return a == enforceOld || a == auditOld || a == Enforce || a == Audit
+}
+
 type ValidationFailureActionOverride struct {
 	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
-	Action     ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
-	Namespaces []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
+	Action            ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
+	Namespaces        []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
+	NamespaceSelector *metav1.LabelSelector   `json:"namespaceSelector,omitempty" yaml:"namespaceSelector,omitempty"`
 }
 
 // Spec contains a list of Rule instances and other policy controls.
@@ -90,11 +101,11 @@ type Spec struct {
 	// +optional
 	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
 
-	// GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+	// GenerateExisting controls whether to trigger generate rule in existing resources
 	// If is set to "true" generate rule will be triggered and applied to existing matched resources.
 	// Defaults to "false" if not specified.
 	// +optional
-	GenerateExistingOnPolicyUpdate bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
+	GenerateExisting bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -201,9 +212,9 @@ func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	return s.MutateExistingOnPolicyUpdate
 }
 
-// IsGenerateExistingOnPolicyUpdate return GenerateExistingOnPolicyUpdate set value
-func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
-	return s.GenerateExistingOnPolicyUpdate
+// IsGenerateExisting return GenerateExisting set value
+func (s *Spec) IsGenerateExisting() bool {
+	return s.GenerateExisting
 }
 
 // GetFailurePolicy returns the failure policy to be applied

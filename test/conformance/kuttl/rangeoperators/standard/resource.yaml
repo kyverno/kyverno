@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+data:
+  first_value: "3"
+  second_value: "4"
+  third_value: "98Mi"
+  fourth_value: "2.7"
+  fifth_value: "-15"
