@@ -203,19 +203,6 @@ rbac:
     annotations: {}
       # example.com/annotation: value
 
-initContainer:
-  # -- Extra arguments to give to the kyvernopre binary.
-  extraArgs:
-    - --loggingFormat=text
-
-# -- Additional labels to add to each pod
-podLabels: {}
-  # example.com/label: foo
-
-# -- Additional annotations to add to each pod
-podAnnotations: {}
-  # example.com/annotation: foo
-
 # -- Security context for the containers
 securityContext:
   runAsNonRoot: true
@@ -227,30 +214,6 @@ securityContext:
       - ALL
   seccompProfile:
     type: RuntimeDefault
-
-# -- Env variables for initContainers.
-envVarsInit: {}
-
-# -- Env variables for containers.
-envVars: {}
-
-# -- Extra arguments to give to the binary.
-extraArgs:
-  - --loggingFormat=text
-
-# -- Array of extra init containers
-extraInitContainers: []
-# Example:
-# - name: init-container
-#   image: busybox
-#   command: ['sh', '-c', 'echo Hello']
-
-# -- Array of extra containers to run alongside kyverno
-extraContainers: []
-# Example:
-# - name: myapp-container
-#   image: busybox
-#   command: ['sh', '-c', 'echo Hello && sleep 3600']
 
 # -- Additional resources to be added to controller RBAC permissions.
 generatecontrollerExtraResources: []
@@ -301,6 +264,14 @@ admissionController:
 
   # -- (int) Desired number of pods
   replicas: ~
+
+  # -- Additional labels to add to each pod
+  podLabels: {}
+    # example.com/label: foo
+
+  # -- Additional annotations to add to each pod
+  podAnnotations: {}
+    # example.com/annotation: foo
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
@@ -463,6 +434,13 @@ admissionController:
         cpu: 10m
         memory: 64Mi
 
+    # -- Additional container args.
+    extraArgs:
+      - --loggingFormat=text
+
+    # -- Additional container environment variables.
+    extraEnvVars: []
+
   container:
 
     image:
@@ -484,6 +462,25 @@ admissionController:
       requests:
         cpu: 100m
         memory: 128Mi
+
+    # -- Additional container args.
+    extraArgs:
+      - --loggingFormat=text
+
+    # -- Additional container environment variables.
+    extraEnvVars: []
+
+  # -- Array of extra init containers
+  extraInitContainers: []
+    # - name: init-container
+    #   image: busybox
+    #   command: ['sh', '-c', 'echo Hello']
+
+  # -- Array of extra containers to run alongside kyverno
+  extraContainers: []
+    # - name: myapp-container
+    #   image: busybox
+    #   command: ['sh', '-c', 'echo Hello && sleep 3600']
 
   service:
     # -- Service port.
