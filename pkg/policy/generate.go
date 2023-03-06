@@ -19,9 +19,16 @@ func (pc *PolicyController) handleGenerate(policyKey string, policy kyvernov1.Po
 	logger.Info("update URs on policy event")
 
 	for _, rule := range policy.GetSpec().Rules {
-		if err := pc.createURForDataRule(policy, rule, false); err != nil {
+		downstreamExist, err := pc.createURForDataRule(policy, rule, false)
+		if err != nil {
 			logger.Error(err, "failed to create UR on policy event")
 			return err
+		}
+
+		// if there's corresponding exist downstream resources, the rule has been applied
+		// no need to apply generateExisting again
+		if downstreamExist {
+			continue
 		}
 
 		if policy.GetSpec().IsGenerateExisting() {
@@ -64,7 +71,7 @@ func (pc *PolicyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	for _, r := range rules {
 		generateType, sync := r.GetGenerateTypeAndSync()
 		if sync && (generateType == kyvernov1.Data) {
-			if err := pc.createURForDataRule(policy, r, true); err != nil {
+			if _, err := pc.createURForDataRule(policy, r, true); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -72,19 +79,25 @@ func (pc *PolicyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 	return multierr.Combine(errs...)
 }
 
-func (pc *PolicyController) createURForDataRule(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, deleteDownstream bool) error {
+func (pc *PolicyController) createURForDataRule(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, deleteDownstream bool) (bool, error) {
+	var downstreamExist = false
 	generate := rule.Generation
 	if !generate.Synchronize {
 		// no action for non-sync policy/rule
-		return nil
+		return downstreamExist, nil
 	}
 	var errorList []error
 	if generate.GetData() != nil {
 		downstreams, err := generateutils.FindDownstream(pc.client, policy, rule)
 		if err != nil {
-			return err
+			return downstreamExist, err
 		}
 
+		if len(downstreams.Items) == 0 {
+			return downstreamExist, nil
+		}
+
+		downstreamExist = true
 		for _, downstream := range downstreams.Items {
 			labels := downstream.GetLabels()
 			trigger := generateutils.TriggerFromLabels(labels)
@@ -103,7 +116,7 @@ func (pc *PolicyController) createURForDataRule(policy kyvernov1.PolicyInterface
 			}
 		}
 	}
-	return multierr.Combine(errorList...)
+	return downstreamExist, multierr.Combine(errorList...)
 }
 
 // ruleDeletion returns true if any rule is deleted, along with deleted rules
