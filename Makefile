@@ -521,7 +521,7 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
-		--set image.tag=latest \
+		--set admissionController.container.image.tag=latest \
 		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
 		--set reportsController.image.tag=latest \
@@ -537,7 +537,7 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 		--set templating.enabled=true \
 		--set templating.version=latest \
 		--set templating.debug=true \
-		--set image.tag=latest \
+		--set admissionController.container.image.tag=latest \
 		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
 		--set reportsController.image.tag=latest \
@@ -552,7 +552,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=$(GIT_VERSION) \
-		--set image.tag=$(GIT_VERSION) \
+		--set admissionController.container.image.tag=$(GIT_VERSION) \
 		--set admissionController.initContainer.image.tag=$(GIT_VERSION) \
 		--set cleanupController.image.tag=$(GIT_VERSION) \
 		--set reportsController.image.tag=$(GIT_VERSION) \
@@ -816,9 +816,9 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
-		--set image.registry=$(LOCAL_REGISTRY) \
-		--set image.repository=$(LOCAL_KYVERNO_REPO) \
-		--set image.tag=$(IMAGE_TAG_DEV) \
+		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
+		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
+		--set admissionController.container.image.tag=$(IMAGE_TAG_DEV) \
 		--set admissionController.initContainer.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.initContainer.image.repository=$(LOCAL_KYVERNOPRE_REPO) \
 		--set admissionController.initContainer.image.tag=$(IMAGE_TAG_DEV) \
