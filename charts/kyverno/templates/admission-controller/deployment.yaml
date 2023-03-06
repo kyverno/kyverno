@@ -88,7 +88,7 @@ spec:
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- with .Values.securityContext }}
+          {{- with .Values.admissionController.initContainer.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -128,7 +128,7 @@ spec:
           {{- with .Values.admissionController.container.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- with .Values.securityContext }}
+          {{- with .Values.admissionController.container.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
