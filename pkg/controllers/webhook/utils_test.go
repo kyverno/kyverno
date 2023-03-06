@@ -6,17 +6,24 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"gotest.tools/assert"
 )
 
-// func Test_webhook_isEmpty(t *testing.T) {
-// 	empty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
-// 	assert.Equal(t, empty.isEmpty(), true)
-// 	notEmpty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
-// 	notEmpty.setWildcard()
-// 	assert.Equal(t, notEmpty.isEmpty(), false)
-// }
+func Test_webhook_isEmpty(t *testing.T) {
+	empty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
+	assert.Equal(t, empty.isEmpty(), true)
+	notEmpty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
+	notEmpty.setWildcard([]*metav1.APIResourceList{{
+		GroupVersion: "apps/v1",
+		APIResources: []metav1.APIResource{{
+			Name: "foo",
+		}},
+	}})
+	assert.Equal(t, notEmpty.isEmpty(), false)
+}
 
 var policy = `
 {
