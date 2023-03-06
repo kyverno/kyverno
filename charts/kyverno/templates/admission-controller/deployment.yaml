@@ -19,10 +19,10 @@ spec:
     metadata:
       labels:
         {{- include "kyverno.admission-controller.labels" . | nindent 8 }}
-        {{- range $key, $value := .Values.podLabels }}
+        {{- range $key, $value := .Values.admissionController.podLabels }}
         {{ $key }}: {{ $value }}
         {{- end }}
-      {{- with .Values.podAnnotations }}
+      {{- with .Values.admissionController.podAnnotations }}
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
@@ -74,15 +74,15 @@ spec:
       {{- end }}
       serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
       initContainers:
-      {{- if .Values.extraInitContainers }}
-        {{- toYaml .Values.extraInitContainers | nindent 8 }}
-      {{- end }}
+        {{- with .Values.admissionController.extraInitContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         - name: kyverno-pre
           image: {{ include "kyverno.image" (dict "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.admissionController.container.image.tag)) | quote }}
           imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
-          {{- if .Values.initContainer.extraArgs }}
+          {{- with .Values.admissionController.initContainer.extraArgs }}
           args:
-              {{- tpl (toYaml .Values.initContainer.extraArgs) . | nindent 12 }}
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.admissionController.initContainer.resources }}
           resources:
@@ -105,21 +105,21 @@ spec:
                 fieldPath: metadata.name
           - name: KYVERNO_DEPLOYMENT
             value: {{ template "kyverno.fullname" . }}
-          {{- with .Values.envVarsInit }}
+          {{- with .Values.admissionController.initContainer.extraEnvVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
       containers:
-      {{- if .Values.extraContainers }}
-        {{- toYaml .Values.extraContainers | nindent 8 }}
-      {{- end }}
+        {{- with .Values.admissionController.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         - name: kyverno
           image: {{ include "kyverno.image" (dict "image" .Values.admissionController.container.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.admissionController.container.image.pullPolicy }}
-          {{- if or .Values.extraArgs .Values.imagePullSecrets }}
+          {{- if or .Values.admissionController.container.extraArgs .Values.imagePullSecrets }}
           args:
             - --servicePort={{ .Values.admissionController.service.port }}
-            {{- if .Values.extraArgs -}}
-              {{ tpl (toYaml .Values.extraArgs) . | nindent 12 }}
+            {{- if .Values.admissionController.container.extraArgs -}}
+              {{ tpl (toYaml .Values.admissionController.container.extraArgs) . | nindent 12 }}
             {{- end }}
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
@@ -158,7 +158,7 @@ spec:
             value: {{ template "kyverno.admission-controller.serviceName" . }}
           - name: TUF_ROOT
             value: {{ .Values.admissionController.tufRootMountPath }}
-          {{- with .Values.envVars }}
+          {{- with .Values.admissionController.container.extraEnvVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
           - name: KYVERNO_DEPLOYMENT
