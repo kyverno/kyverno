@@ -9,7 +9,7 @@ GIT_VERSION_DEV      := $(shell git describe --match "[0-9].[0-9]-dev*")
 GIT_BRANCH           := $(shell git branch --show-current | cut -d ' ' -f2)
 GIT_HASH             := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 ifeq ($(GIT_BRANCH),)
-GIT_BRANCH           := $(shell git branch -a --contains $(git log -1 --format='%H') --list '*origin/release-*' | cut -d '/' -f3)
+GIT_BRANCH           := $(shell git branch -a --list '*origin/release-*' --contains $(git log -1 --format='%H') | cut -d '/' -f3)
 endif
 TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 VERSION              ?= $(shell git describe --match "v[0-9]*")
