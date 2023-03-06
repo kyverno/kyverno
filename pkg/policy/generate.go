@@ -80,7 +80,7 @@ func (pc *PolicyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 }
 
 func (pc *PolicyController) createURForDataRule(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, deleteDownstream bool) (bool, error) {
-	var downstreamExist = false
+	downstreamExist := false
 	generate := rule.Generation
 	if !generate.Synchronize {
 		// no action for non-sync policy/rule
