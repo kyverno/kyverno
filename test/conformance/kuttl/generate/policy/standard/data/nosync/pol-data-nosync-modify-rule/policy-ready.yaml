@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: pol-data-nosync-modify-rule-policy
+  namespace: hawksbill
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

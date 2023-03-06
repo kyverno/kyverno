@@ -22,6 +22,7 @@ import (
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
@@ -126,12 +127,12 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) ([]string, error) {
 	var warnings []string
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
+	mutateExistingOnPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if !mock {
 		openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
 	}
@@ -145,8 +146,8 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		return warnings, err
 	}
 
-	if onPolicyUpdate {
-		err := ValidateOnPolicyUpdate(policy, onPolicyUpdate)
+	if mutateExistingOnPolicyUpdate {
+		err := ValidateOnPolicyUpdate(policy, mutateExistingOnPolicyUpdate)
 		if err != nil {
 			return warnings, err
 		}
@@ -243,16 +244,18 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				return warnings, validateMatchKindHelper(rule)
 			}
 		}
+
+		if oldPolicy != nil {
+			if err := immutableGenerateFields(policy, oldPolicy); err != nil {
+				return warnings, err
+			}
+		}
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
 		if namespaced {
 			return warnings, checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res)
 		}
 
-		// validate rule actions
-		// - Mutate
-		// - Validate
-		// - Generate
 		if err := validateActions(i, &rules[i], client, mock); err != nil {
 			return warnings, err
 		}
@@ -556,7 +559,7 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 // hasVariables - check for variables in the policy
 func hasVariables(policy kyvernov1.PolicyInterface) [][]string {
 	policyRaw, _ := json.Marshal(policy)
-	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
+	matches := regex.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
 }
 
@@ -577,7 +580,7 @@ func jsonPatchPathHasVariables(patch string) error {
 			return err
 		}
 
-		vars := variables.RegexVariables.FindAllString(path, -1)
+		vars := regex.RegexVariables.FindAllString(path, -1)
 		if len(vars) > 0 {
 			return errOperationForbidden
 		}
@@ -604,7 +607,7 @@ func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
 	for _, verifyImage := range verifyImages {
 		verifyImage = *verifyImage.Convert()
 		for _, imageRef := range verifyImage.ImageReferences {
-			matches := variables.RegexVariables.FindAllString(imageRef, -1)
+			matches := regex.RegexVariables.FindAllString(imageRef, -1)
 			if len(matches) > 0 {
 				return fmt.Errorf("variables are not allowed in image reference")
 			}
@@ -1381,4 +1384,35 @@ func checkForStatusSubresource(ruleTypeJson []byte, allKinds []string, warnings 
 		msg := "You are matching on status but not including the status subresource in the policy."
 		*warnings = append(*warnings, msg)
 	}
+}
+
+func immutableGenerateFields(new, old kyvernov1.PolicyInterface) error {
+	if !new.GetSpec().HasGenerate() {
+		return nil
+	}
+
+	oldRuleNames := make(map[string]kyvernov1.Generation, len(old.GetSpec().Rules))
+	for _, rule := range old.GetSpec().Rules {
+		oldRuleNames[rule.Name] = rule.Generation
+	}
+
+	newRuleNames := make(map[string]kyvernov1.Generation, len(new.GetSpec().Rules))
+	for _, rule := range new.GetSpec().Rules {
+		newRuleNames[rule.Name] = rule.Generation
+	}
+
+	for newRuleName, newGenerate := range newRuleNames {
+		oldGenerate, ok := oldRuleNames[newRuleName]
+		if !ok {
+			continue
+		}
+
+		oldGenerate.Synchronize = newGenerate.Synchronize
+		oldGenerate.SetData(newGenerate.GetData())
+
+		if !reflect.DeepEqual(newGenerate, oldGenerate) {
+			return fmt.Errorf("cannot change downstream, or clone sources for a generate rule")
+		}
+	}
+	return nil
 }

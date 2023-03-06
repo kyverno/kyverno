@@ -384,7 +384,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 	skipInvalidPolicies.invalid = make([]string, 0)
 
 	for _, policy := range policies {
-		_, err := policy2.Validate(policy, nil, true, openApiManager)
+		_, err := policy2.Validate(policy, nil, nil, true, openApiManager)
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {

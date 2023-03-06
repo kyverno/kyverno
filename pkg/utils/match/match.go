@@ -127,7 +127,7 @@ func checkUserInfo(
 		}
 	}
 	if len(userInfo.Subjects) > 0 {
-		if !CheckSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, excludeGroupRole) {
+		if !CheckSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo) {
 			errs = append(errs, fmt.Errorf("user info does not match subject for the given conditionBlock"))
 		}
 	}
