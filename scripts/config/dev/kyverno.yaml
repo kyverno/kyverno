@@ -1,20 +1,21 @@
-initContainer:
-  extraArgs:
-    - --loggingFormat=json
-
-extraArgs:
-  - --loggingFormat=json
-  - --enableTracing
-  - --tracingAddress=tempo.monitoring
-  - --tracingPort=4317
-  - --enablePolicyException
-
 grafana:
   enabled: true
 
 admissionController:
   serviceMonitor:
     enabled: true
+
+  initContainer:
+    extraArgs:
+      - --loggingFormat=json
+
+  container:
+    extraArgs:
+      - --loggingFormat=json
+      - --enableTracing
+      - --tracingAddress=tempo.monitoring
+      - --tracingPort=4317
+      - --enablePolicyException
 
 cleanupController:
   rbac:

@@ -151,6 +151,15 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `service` has been replaced with `admissionController.service`
 - `metricsService` has been replaced with `admissionController.metricsService`
 
+- `initContainer.extraArgs` has been replaced with `admissionController.initContainer.extraArgs`
+- `envVarsInit` has been replaced with `admissionController.initContainer.extraEnvVars`
+- `envVars` has been replaced with `admissionController.container.extraEnvVars`
+- `extraArgs` has been replaced with `admissionController.container.extraArgs`
+- `extraInitContainers` has been replaced with `admissionController.extraInitContainers`
+- `extraContainers` has been replaced with `admissionController.extraContainers`
+- `podLabels` has been replaced with `admissionController.podLabels`
+- `podAnnotations` has been replaced with `admissionController.podAnnotations`
+
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
 - Image tags are now validated and must be strings, if you use image tags in the `1.35` form please add quotes around the tag value.
@@ -206,15 +215,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
 | rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
-| initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
-| podLabels | object | `{}` | Additional labels to add to each pod |
-| podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| envVarsInit | object | `{}` | Env variables for initContainers. |
-| envVars | object | `{}` | Env variables for containers. |
-| extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the binary. |
-| extraInitContainers | list | `[]` | Array of extra init containers |
-| extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
 | excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
@@ -228,6 +229,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | admissionController.replicas | int | `nil` | Desired number of pods |
+| admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
+| admissionController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | admissionController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | admissionController.priorityClassName | string | `""` | Optional priority class |
 | admissionController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
@@ -261,12 +264,18 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.initContainer.image.pullPolicy | string | `nil` | Image pull policy If missing, defaults to image.pullPolicy |
 | admissionController.initContainer.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | admissionController.initContainer.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| admissionController.initContainer.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
+| admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.container.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.container.image.repository | string | `"kyverno/kyverno"` | Image repository |
 | admissionController.container.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | admissionController.container.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
+| admissionController.container.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
+| admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
+| admissionController.extraInitContainers | list | `[]` | Array of extra init containers |
+| admissionController.extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
 | admissionController.service.port | int | `443` | Service port. |
 | admissionController.service.type | string | `"ClusterIP"` | Service type. |
 | admissionController.service.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
