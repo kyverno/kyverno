@@ -157,6 +157,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `extraArgs` has been replaced with `admissionController.container.extraArgs`
 - `extraInitContainers` has been replaced with `admissionController.extraInitContainers`
 - `extraContainers` has been replaced with `admissionController.extraContainers`
+- `podLabels` has been replaced with `admissionController.podLabels`
+- `podAnnotations` has been replaced with `admissionController.podAnnotations`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -213,8 +215,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
 | rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
-| podLabels | object | `{}` | Additional labels to add to each pod |
-| podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
 | excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
@@ -229,6 +229,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | admissionController.replicas | int | `nil` | Desired number of pods |
+| admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
+| admissionController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | admissionController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | admissionController.priorityClassName | string | `""` | Optional priority class |
 | admissionController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
