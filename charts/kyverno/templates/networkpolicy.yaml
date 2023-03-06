@@ -22,9 +22,9 @@ spec:
     - protocol: TCP
       port: 9443 # webhook access
   # Allow prometheus scrapes for metrics
-  {{- if .Values.metricsService.create }}
+  {{- if .Values.admissionController.metricsService.create }}
     - protocol: TCP
-      port: {{ .Values.metricsService.port }}
+      port: {{ .Values.admissionController.metricsService.port }}
   {{- end }}
   {{- else }}
   ingress:
