@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -14,10 +15,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
+	sautils "k8s.io/apiserver/pkg/authentication/serviceaccount"
 )
 
 // handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
 func (h *handlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
+	if skipKyvernoUpdates(policyContext.AdmissionInfo().AdmissionUserInfo.Username, "background-controller") {
+		return
+	}
 	go h.handleMutateExisting(ctx, logger, request, mutatePolicies, policyContext, ts)
 	h.handleGenerate(ctx, logger, request, generatePolicies, policyContext, ts)
 }
@@ -74,4 +79,18 @@ func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger,
 func (h *handlers) handleGenerate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, ts time.Time) {
 	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.urUpdater, h.eventGen, h.metricsConfig)
 	go gh.HandleNew(ctx, request, generatePolicies, policyContext)
+}
+
+func skipKyvernoUpdates(username string, kyvernoServiceAccount ...string) bool {
+	_, sa, err := sautils.SplitUsername(username)
+	if err != nil {
+		return false
+	}
+
+	for _, controller := range kyvernoServiceAccount {
+		if strings.HasSuffix(sa, controller) {
+			return true
+		}
+	}
+	return false
 }
