@@ -5,20 +5,20 @@ metadata:
   namespace: default
 spec:
   rules:
-  - name: cpol-foreach-data-nosync-secret
-    match:
-      any:
-      - resources:
-          kinds:
-          - pod
-    generate:
-      foreach:
-      - list: "request.object.spec.containers"
-        generateResources:
-        - kind: Secret
-          apiVersion: v1
-          name: "newsecret"
-          namespace: "default"
-          synchronize: false
-          data:
-            foo: YmFy
+    - name: cpol-foreach-data-nosync-secret
+      match:
+        any:
+          - resources:
+              kinds:
+                - pod
+      generate:
+        foreach:
+          - list: "request.object.spec.containers"
+            generateResources:
+              - kind: Secret
+                apiVersion: v1
+                name: "newsecret"
+                namespace: "default"
+                synchronize: false
+                data:
+                  foo: YmFy

@@ -14,21 +14,21 @@ metadata:
   namespace: default
 spec:
   rules:
-  - name: cpol-foreach-clone-sync-secret
-    match:
-      any:
-      - resources:
-          kinds:
-          - pod
-    generate:
-      foreach:
-      - list: "request.object.spec.containers"
-        generateResources:
-        - kind: Secret
-          apiVersion: v1
-          name: "newsecret"
-          namespace: "default"
-          synchronize: true
-          clone:
-            namespace: default
-            name: regcred
+    - name: cpol-foreach-clone-sync-secret
+      match:
+        any:
+          - resources:
+              kinds:
+                - pod
+      generate:
+        foreach:
+          - list: "request.object.spec.containers"
+            generateResources:
+              - kind: Secret
+                apiVersion: v1
+                name: "newsecret"
+                namespace: "default"
+                synchronize: true
+                clone:
+                  namespace: default
+                  name: regcred

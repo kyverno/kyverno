@@ -18,18 +18,18 @@ spec:
                 - Pod
       generate:
         foreach:
-        - list: "request.object.spec.containers"
-          generateResources:
-          - kind: ConfigMap
-            apiVersion: v1
-            name: "custom-created-configmap"
-            namespace: "poltest"
-            synchronize: true
-            data:
-              kind: ConfigMap
-              metadata:
-                labels:
-                  somekey: somevalue
-              data:
-                ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
-                KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
+          - list: "request.object.spec.containers"
+            generateResources:
+              - kind: ConfigMap
+                apiVersion: v1
+                name: "custom-created-configmap"
+                namespace: "poltest"
+                synchronize: true
+                data:
+                  kind: ConfigMap
+                  metadata:
+                    labels:
+                      somekey: somevalue
+                  data:
+                    ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+                    KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"
