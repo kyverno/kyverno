@@ -209,7 +209,7 @@ func Test_EqualFold(t *testing.T) {
 
 func Test_Replace(t *testing.T) {
 	// Can't use integer literals due to
-	// https://github.com/jmespath/go-jmespath/issues/27
+	// https://github.com/jmespath-community/go-jmespath/issues/27
 	//
 	// TODO: fix this in https://github.com/kyverno/go-jmespath
 	testCases := []struct {
@@ -730,7 +730,7 @@ func Test_PathCanonicalize(t *testing.T) {
 
 func Test_Truncate(t *testing.T) {
 	// Can't use integer literals due to
-	// https://github.com/jmespath/go-jmespath/issues/27
+	// https://github.com/jmespath-community/go-jmespath/issues/27
 	//
 	// TODO: fix this in https://github.com/kyverno/go-jmespath
 	testCases := []struct {

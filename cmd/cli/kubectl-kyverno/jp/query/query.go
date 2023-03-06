@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	gojmespath "github.com/jmespath/go-jmespath"
+	"github.com/jmespath-community/go-jmespath/pkg/parsing"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
@@ -168,7 +168,7 @@ func evaluate(input interface{}, query string) (interface{}, error) {
 	}
 	result, err := jp.Search(input)
 	if err != nil {
-		if syntaxError, ok := err.(gojmespath.SyntaxError); ok {
+		if syntaxError, ok := err.(parsing.SyntaxError); ok {
 			return nil, fmt.Errorf("%s\n%s", syntaxError, syntaxError.HighlightLocation())
 		}
 		return nil, fmt.Errorf("error evaluating JMESPath expression: %w", err)

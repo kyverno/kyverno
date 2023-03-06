@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -366,8 +365,8 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				substitutedVar, err := vr(ctx, variable)
 				if err != nil {
 					switch err.(type) {
-					case context.InvalidVariableError, gojmespath.NotFoundError:
-						return nil, err
+					// case context.InvalidVariableError, gojmespath.NotFoundError:
+					// 	return nil, err
 					default:
 						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
 					}

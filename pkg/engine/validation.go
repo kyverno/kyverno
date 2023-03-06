@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -345,11 +344,11 @@ func addElementToContext(ctx engineapi.PolicyContext, element interface{}, index
 
 func (v *validator) loadContext(ctx context.Context) error {
 	if err := v.contextLoader(ctx, v.contextEntries, v.policyContext.JSONContext()); err != nil {
-		if _, ok := err.(gojmespath.NotFoundError); ok {
-			v.log.V(3).Info("failed to load context", "reason", err.Error())
-		} else {
-			v.log.Error(err, "failed to load context")
-		}
+		// if _, ok := err.(gojmespath.NotFoundError); ok {
+		// 	v.log.V(3).Info("failed to load context", "reason", err.Error())
+		// } else {
+		// 	v.log.Error(err, "failed to load context")
+		// }
 
 		return err
 	}

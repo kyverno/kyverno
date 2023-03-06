@@ -1,16 +1,18 @@
 package jmespath
 
 import (
-	gojmespath "github.com/jmespath/go-jmespath"
+	gojmespath "github.com/jmespath-community/go-jmespath"
+	"github.com/jmespath-community/go-jmespath/pkg/functions"
 )
 
-func New(query string) (*gojmespath.JMESPath, error) {
-	jp, err := gojmespath.Compile(query)
+func New(query string) (gojmespath.JMESPath, error) {
+	var funcs []functions.FunctionEntry
+	for _, f := range GetFunctions() {
+		funcs = append(funcs, f.FunctionEntry)
+	}
+	jp, err := gojmespath.Compile(query, funcs...)
 	if err != nil {
 		return nil, err
-	}
-	for _, function := range GetFunctions() {
-		jp.Register(function.FunctionEntry)
 	}
 	return jp, nil
 }

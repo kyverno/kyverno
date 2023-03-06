@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	gojmespath "github.com/jmespath/go-jmespath"
+	gojmespath "github.com/jmespath-community/go-jmespath"
 )
 
 var (

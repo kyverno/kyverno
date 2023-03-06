@@ -6,7 +6,6 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
@@ -33,11 +32,11 @@ func (e *engine) processImageValidationRule(
 		return internal.RuleSkip(rule, engineapi.Validation, "image verified")
 	}
 	if err := internal.LoadContext(ctx, e, enginectx, *rule); err != nil {
-		if _, ok := err.(gojmespath.NotFoundError); ok {
-			log.V(3).Info("failed to load context", "reason", err.Error())
-		} else {
-			log.Error(err, "failed to load context")
-		}
+		// if _, ok := err.(gojmespath.NotFoundError); ok {
+		// 	log.V(3).Info("failed to load context", "reason", err.Error())
+		// } else {
+		// 	log.Error(err, "failed to load context")
+		// }
 
 		return internal.RuleError(rule, engineapi.Validation, "failed to load context", err)
 	}

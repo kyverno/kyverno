@@ -12,7 +12,7 @@ import (
 
 	"github.com/distribution/distribution/reference"
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/jmespath/go-jmespath"
+	"github.com/jmespath-community/go-jmespath/pkg/parsing"
 	"github.com/jmoiron/jsonq"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
@@ -1066,7 +1066,7 @@ func validateVariable(entry kyvernov1.ContextEntry) error {
 	// Skip validation if a variable is detected
 	jmesPath := variables.ReplaceAllVars(entry.Variable.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.Variable.JMESPath != "" {
-		if _, err := jmespath.NewParser().Parse(entry.Variable.JMESPath); err != nil {
+		if _, err := parsing.NewParser().Parse(entry.Variable.JMESPath); err != nil {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.Variable.JMESPath, err)
 		}
 	}
@@ -1099,7 +1099,7 @@ func validateAPICall(entry kyvernov1.ContextEntry) error {
 	jmesPath := variables.ReplaceAllVars(entry.APICall.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
 
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.APICall.JMESPath != "" {
-		if _, err := jmespath.NewParser().Parse(entry.APICall.JMESPath); err != nil {
+		if _, err := parsing.NewParser().Parse(entry.APICall.JMESPath); err != nil {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.APICall.JMESPath, err)
 		}
 	}
@@ -1128,7 +1128,7 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 	jmesPath := variables.ReplaceAllVars(entry.ImageRegistry.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
 
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.ImageRegistry.JMESPath != "" {
-		if _, err := jmespath.NewParser().Parse(entry.ImageRegistry.JMESPath); err != nil {
+		if _, err := parsing.NewParser().Parse(entry.ImageRegistry.JMESPath); err != nil {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.ImageRegistry.JMESPath, err)
 		}
 	}

@@ -20,7 +20,7 @@ import (
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
-	gojmespath "github.com/jmespath/go-jmespath"
+	gojmespath "github.com/jmespath-community/go-jmespath"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	regen "github.com/zach-klippenstein/goregen"
 	"golang.org/x/crypto/cryptobyte"

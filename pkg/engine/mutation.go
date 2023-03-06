@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -77,11 +76,11 @@ func (e *engine) mutate(
 				logger.V(3).Info("processing mutate rule")
 
 				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
-					if _, ok := err.(gojmespath.NotFoundError); ok {
-						logger.V(3).Info("failed to load context", "reason", err.Error())
-					} else {
-						logger.Error(err, "failed to load context")
-					}
+					// if _, ok := err.(gojmespath.NotFoundError); ok {
+					// 	logger.V(3).Info("failed to load context", "reason", err.Error())
+					// } else {
+					// 	logger.Error(err, "failed to load context")
+					// }
 					return
 				}
 
