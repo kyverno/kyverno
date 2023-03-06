@@ -1,3 +1,3 @@
 # Roadmap
 
-Project roadmap can be found in the associated [Kyverno project view](https://github.com/kyverno/kyverno/milestones?direction=asc&sort=due_date&state=open)
+Kyverno features are tracked via (Kyverno Design Proposals [KDP])[https://github.com/kyverno/KDP] and release milestones on GitHub [Kyverno project view](https://github.com/kyverno/kyverno/milestones?direction=asc&sort=due_date&state=open).
