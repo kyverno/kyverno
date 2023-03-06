@@ -143,6 +143,13 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `podSecurityContext` has been replaced with `admissionController.podSecurityContext`
 - `tufRootMountPath` has been replaced with `admissionController.tufRootMountPath`
 - `sigstoreVolume` has been replaced with `admissionController.sigstoreVolume`
+- `initImage` has been replaced with `admissionController.initContainer.image`
+- `initResources` has been replaced with `admissionController.initContainer.resources`
+- `image` has been replaced with `admissionController.container.image`
+- `image.pullSecrets` has been replaced with `admissionController.pullSecrets`
+- `resources` has been replaced with `admissionController.container.resources`
+- `service` has been replaced with `admissionController.service`
+- `metricsService` has been replaced with `admissionController.metricsService`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
