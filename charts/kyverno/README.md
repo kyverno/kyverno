@@ -159,6 +159,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `extraContainers` has been replaced with `admissionController.extraContainers`
 - `podLabels` has been replaced with `admissionController.podLabels`
 - `podAnnotations` has been replaced with `admissionController.podAnnotations`
+- `securityContext` has been replaced with `admissionController.admissionController.container.securityContext` and `admissionController.admissionController.initContainer.securityContext`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -215,7 +216,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
 | rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
-| securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
 | excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
@@ -264,6 +264,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.initContainer.image.pullPolicy | string | `nil` | Image pull policy If missing, defaults to image.pullPolicy |
 | admissionController.initContainer.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | admissionController.initContainer.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| admissionController.initContainer.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
 | admissionController.initContainer.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
 | admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.container.image.registry | string | `"ghcr.io"` | Image registry |
@@ -272,6 +273,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.container.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
+| admissionController.container.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
 | admissionController.container.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
 | admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.extraInitContainers | list | `[]` | Array of extra init containers |
