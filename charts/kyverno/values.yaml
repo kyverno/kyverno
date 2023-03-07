@@ -203,18 +203,6 @@ rbac:
     annotations: {}
       # example.com/annotation: value
 
-# -- Security context for the containers
-securityContext:
-  runAsNonRoot: true
-  privileged: false
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop:
-      - ALL
-  seccompProfile:
-    type: RuntimeDefault
-
 # -- Additional resources to be added to controller RBAC permissions.
 generatecontrollerExtraResources: []
 # - ResourceA
@@ -434,6 +422,18 @@ admissionController:
         cpu: 10m
         memory: 64Mi
 
+    # -- Container security context
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
     # -- Additional container args.
     extraArgs:
       - --loggingFormat=text
@@ -462,6 +462,18 @@ admissionController:
       requests:
         cpu: 100m
         memory: 128Mi
+
+    # -- Container security context
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
 
     # -- Additional container args.
     extraArgs:
