@@ -1079,7 +1079,7 @@ backgroundController:
               - key: app.kubernetes.io/component
                 operator: In
                 values:
-                  - reports-controller
+                  - background-controller
           topologyKey: kubernetes.io/hostname
 
   # -- Pod affinity constraints.
