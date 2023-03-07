@@ -203,33 +203,6 @@ rbac:
     annotations: {}
       # example.com/annotation: value
 
-image:
-  # -- Image registry
-  registry: ghcr.io
-  # -- Image repository
-  repository: kyverno/kyverno
-  # -- (string) Image tag
-  # Defaults to appVersion in Chart.yaml if omitted
-  tag: ~
-  # -- Image pull policy
-  pullPolicy: IfNotPresent
-  # -- Image pull secrets
-  pullSecrets: []
-  # - secretName
-
-initContainer:
-  # -- Extra arguments to give to the kyvernopre binary.
-  extraArgs:
-    - --loggingFormat=text
-
-# -- Additional labels to add to each pod
-podLabels: {}
-  # example.com/label: foo
-
-# -- Additional annotations to add to each pod
-podAnnotations: {}
-  # example.com/annotation: foo
-
 # -- Security context for the containers
 securityContext:
   runAsNonRoot: true
@@ -241,39 +214,6 @@ securityContext:
       - ALL
   seccompProfile:
     type: RuntimeDefault
-
-# -- Env variables for initContainers.
-envVarsInit: {}
-
-# -- Env variables for containers.
-envVars: {}
-
-# -- Extra arguments to give to the binary.
-extraArgs:
-  - --loggingFormat=text
-
-# -- Array of extra init containers
-extraInitContainers: []
-# Example:
-# - name: init-container
-#   image: busybox
-#   command: ['sh', '-c', 'echo Hello']
-
-# -- Array of extra containers to run alongside kyverno
-extraContainers: []
-# Example:
-# - name: myapp-container
-#   image: busybox
-#   command: ['sh', '-c', 'echo Hello && sleep 3600']
-
-resources:
-  # -- Pod resource limits
-  limits:
-    memory: 384Mi
-  # -- Pod resource requests
-  requests:
-    cpu: 100m
-    memory: 128Mi
 
 # -- Additional resources to be added to controller RBAC permissions.
 generatecontrollerExtraResources: []
@@ -287,31 +227,6 @@ excludeKyvernoNamespace: true
 # -- resourceFilter namespace exclude
 # Namespaces to exclude from the default resourceFilters
 resourceFiltersExcludeNamespaces: []
-
-service:
-  # -- Service port.
-  port: 443
-  # -- Service type.
-  type: ClusterIP
-  # -- Service node port.
-  # Only used if `service.type` is `NodePort`.
-  nodePort:
-  # -- Service annotations.
-  annotations: {}
-
-metricsService:
-  # -- Create service.
-  create: true
-  # -- Service port.
-  # Kyverno's metrics server will be exposed at this port.
-  port: 8000
-  # -- Service type.
-  type: ClusterIP
-  # -- Service node port.
-  # Only used if `metricsService.type` is `NodePort`.
-  nodePort:
-  # -- Service annotations.
-  annotations: {}
 
 networkPolicy:
   # -- When true, use a NetworkPolicy to allow ingress to the webhook
@@ -349,6 +264,14 @@ admissionController:
 
   # -- (int) Desired number of pods
   replicas: ~
+
+  # -- Additional labels to add to each pod
+  podLabels: {}
+    # example.com/label: foo
+
+  # -- Additional annotations to add to each pod
+  podAnnotations: {}
+    # example.com/annotation: foo
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
@@ -483,6 +406,10 @@ admissionController:
   sigstoreVolume:
     emptyDir: {}
 
+  # -- Image pull secrets
+  pullSecrets: []
+    # - secretName
+
   initContainer:
 
     image:
@@ -506,6 +433,79 @@ admissionController:
       requests:
         cpu: 10m
         memory: 64Mi
+
+    # -- Additional container args.
+    extraArgs:
+      - --loggingFormat=text
+
+    # -- Additional container environment variables.
+    extraEnvVars: []
+
+  container:
+
+    image:
+      # -- Image registry
+      registry: ghcr.io
+      # -- Image repository
+      repository: kyverno/kyverno
+      # -- (string) Image tag
+      # Defaults to appVersion in Chart.yaml if omitted
+      tag: ~
+      # -- Image pull policy
+      pullPolicy: IfNotPresent
+
+    resources:
+      # -- Pod resource limits
+      limits:
+        memory: 384Mi
+      # -- Pod resource requests
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+    # -- Additional container args.
+    extraArgs:
+      - --loggingFormat=text
+
+    # -- Additional container environment variables.
+    extraEnvVars: []
+
+  # -- Array of extra init containers
+  extraInitContainers: []
+    # - name: init-container
+    #   image: busybox
+    #   command: ['sh', '-c', 'echo Hello']
+
+  # -- Array of extra containers to run alongside kyverno
+  extraContainers: []
+    # - name: myapp-container
+    #   image: busybox
+    #   command: ['sh', '-c', 'echo Hello && sleep 3600']
+
+  service:
+    # -- Service port.
+    port: 443
+    # -- Service type.
+    type: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+    # -- Service annotations.
+    annotations: {}
+
+  metricsService:
+    # -- Create service.
+    create: true
+    # -- Service port.
+    # Kyverno's metrics server will be exposed at this port.
+    port: 8000
+    # -- Service type.
+    type: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+    # -- Service annotations.
+    annotations: {}
 
 # Cleanup controller configuration
 cleanupController:
