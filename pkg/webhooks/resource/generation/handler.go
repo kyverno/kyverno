@@ -161,7 +161,7 @@ func (h *generationHandler) applyGeneration(
 	}
 
 	pKey := common.PolicyKey(policy.GetNamespace(), policy.GetName())
-	trigger := policyContext.OldResource()
+	trigger := policyContext.NewResource()
 	triggerSpec := kyvernov1.ResourceSpec{
 		APIVersion: trigger.GetAPIVersion(),
 		Kind:       trigger.GetKind(),
