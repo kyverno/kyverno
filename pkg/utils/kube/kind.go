@@ -7,29 +7,32 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var versionRegex = regexp.MustCompile(`v\d((alpha|beta)\d)?`)
+var versionRegex = regexp.MustCompile(`^v\d((alpha|beta)\d)?|\*$`)
 
 // GetKindFromGVK - get kind and APIVersion from GVK
 func GetKindFromGVK(str string) (groupVersion string, kind string) {
 	parts := strings.Split(str, "/")
-	count := len(parts)
-
-	if count == 2 {
-		if versionRegex.MatchString(parts[0]) || parts[0] == "*" {
-			return parts[0], formatSubresource(parts[1])
-		} else {
+	switch len(parts) {
+	case 1:
+		return "", formatSubresource(str)
+	case 2:
+		if parts[0] == "*" && parts[1] == "*" {
 			return "", parts[0] + "/" + parts[1]
 		}
-	} else if count == 3 {
-		if versionRegex.MatchString(parts[0]) || parts[0] == "*" {
-			return parts[0], parts[1] + "/" + parts[2]
-		} else {
-			return parts[0] + "/" + parts[1], formatSubresource(parts[2])
+		if versionRegex.MatchString(parts[0]) {
+			return parts[0], formatSubresource(parts[1])
 		}
-	} else if count == 4 {
+		return "", parts[0] + "/" + parts[1]
+	case 3:
+		if versionRegex.MatchString(parts[0]) {
+			return parts[0], parts[1] + "/" + parts[2]
+		}
+		return parts[0] + "/" + parts[1], formatSubresource(parts[2])
+	case 4:
 		return parts[0] + "/" + parts[1], parts[2] + "/" + parts[3]
+	default:
+		return "", ""
 	}
-	return "", formatSubresource(str)
 }
 
 func formatSubresource(s string) string {
