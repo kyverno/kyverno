@@ -24,10 +24,12 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/exp/slices"
+	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -88,17 +90,12 @@ func NewGenerateController(
 func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var err error
-	var resource *unstructured.Unstructured
 	var genResources []kyvernov1.ResourceSpec
 	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
-	// 1 - Check if the trigger exists
-	resource, err = common.GetResource(c.client, ur.Spec, c.log)
+	trigger, err := c.getTrigger(ur.Spec)
 	if err != nil {
-		// Don't update status
-		// re-queueing the UR by updating the annotation
-		// retry - 5 times
-		logger.V(3).Info("resource does not exist or is pending creation, re-queueing", "details", err.Error())
+		logger.V(3).Info("the trigger resource does not exist or is pending creation, re-queueing", "details", err.Error())
 		retry, urAnnotations, err := increaseRetryAnnotation(ur)
 		if err != nil {
 			return err
@@ -109,24 +106,22 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 				logger.Error(err, "exceeds retry limit, failed to delete the UR", "update request", ur.Name, "retry", retry, "resourceVersion", ur.GetResourceVersion())
 				return err
 			}
-		}
-
-		ur.SetAnnotations(urAnnotations)
-		_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
-		if err != nil {
-			logger.Error(err, "failed to update annotation in update request for the resource", "update request", ur.Name, "resourceVersion", ur.GetResourceVersion(), "annotations", urAnnotations, "retry", retry)
-			return err
+		} else {
+			ur.SetAnnotations(urAnnotations)
+			_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error(err, "failed to update annotation in update request for the resource", "update request", ur.Name, "resourceVersion", ur.GetResourceVersion(), "annotations", urAnnotations, "retry", retry)
+				return err
+			}
 		}
 	}
 
-	// trigger resource is being terminated
-	if resource == nil {
+	if trigger == nil {
 		return nil
 	}
 
-	// 2 - Apply the generate policy on the resource
-	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), c.nsLister, logger)
-	genResources, err = c.applyGenerate(*resource, *ur, namespaceLabels)
+	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+	genResources, err = c.applyGenerate(*trigger, *ur, namespaceLabels)
 	if err != nil {
 		// Need not update the status when policy doesn't apply on resource, because all the update requests are removed by the cleanup controller
 		if strings.Contains(err.Error(), doesNotApply) {
@@ -134,16 +129,27 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 			return nil
 		}
 
-		// 3 - Report failure Events
-		events := event.NewBackgroundFailedEvent(err, ur.Spec.Policy, "", event.GeneratePolicyController, resource)
+		events := event.NewBackgroundFailedEvent(err, ur.Spec.Policy, "", event.GeneratePolicyController, trigger)
 		c.eventGen.Add(events...)
 	}
 
-	// 4 - Update Status
 	return updateStatus(c.statusControl, *ur, err, genResources)
 }
 
 const doesNotApply = "policy does not apply to resource"
+
+func (c *GenerateController) getTrigger(spec kyvernov1beta1.UpdateRequestSpec) (*unstructured.Unstructured, error) {
+	if spec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
+		request := spec.Context.AdmissionRequestInfo.AdmissionRequest
+		_, oldResource, err := admissionutils.ExtractResources(nil, request)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load resource from context: %w", err)
+		}
+		return &oldResource, nil
+	} else {
+		return common.GetResource(c.client, spec, c.log)
+	}
+}
 
 func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, ur kyvernov1beta1.UpdateRequest, namespaceLabels map[string]string) ([]kyvernov1.ResourceSpec, error) {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
