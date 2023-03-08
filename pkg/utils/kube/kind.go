@@ -7,11 +7,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+var versionRegex = regexp.MustCompile(`v\d((alpha|beta)\d)?`)
+
 // GetKindFromGVK - get kind and APIVersion from GVK
 func GetKindFromGVK(str string) (groupVersion string, kind string) {
 	parts := strings.Split(str, "/")
 	count := len(parts)
-	versionRegex := regexp.MustCompile(`v\d((alpha|beta)\d)?`)
 
 	if count == 2 {
 		if versionRegex.MatchString(parts[0]) || parts[0] == "*" {
