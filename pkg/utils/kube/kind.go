@@ -10,7 +10,7 @@ import (
 var versionRegex = regexp.MustCompile(`^v\d((alpha|beta)\d)?|\*$`)
 
 // GetKindFromGVK - get kind and APIVersion from GVK
-func GetKindFromGVK(str string) (groupVersion string, kind string) {
+func GetKindFromGVK(str string) (string, string) {
 	parts := strings.Split(str, "/")
 	switch len(parts) {
 	case 1:
