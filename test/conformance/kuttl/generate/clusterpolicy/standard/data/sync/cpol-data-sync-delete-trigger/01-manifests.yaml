@@ -12,7 +12,7 @@ metadata:
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: cpol-create-on-trigger-deletion
+  name: cpol-data-sync-delete-trigger
 spec:
   rules:
   - name: default-deny
