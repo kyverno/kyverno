@@ -174,6 +174,25 @@ func Test_Apply(t *testing.T) {
 				},
 			},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:     []string{"../../../../test/cli/apply/policies/policy2.yaml"},
+				ResourcePaths:   []string{"../../../../test/cli/apply/resource/resources2.yaml"},
+				VariablesString: "request.operation=UPDATE",
+				PolicyReport:    true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  2,
+						Fail:  0,
+						Skip:  4,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
 	}
 
 	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}, desc string) {
