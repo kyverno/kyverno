@@ -90,7 +90,7 @@ func (h *generationHandler) Handle(
 }
 
 func getAppliedRules(policy kyvernov1.PolicyInterface, applied []engineapi.RuleResponse) []kyvernov1.Rule {
-	rules := make([]kyvernov1.Rule, len(applied))
+	rules := []kyvernov1.Rule{}
 	for _, rule := range policy.GetSpec().Rules {
 		if !rule.HasGenerate() {
 			continue
@@ -110,7 +110,7 @@ func (h *generationHandler) handleTrigger(
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) {
-	h.log.V(4).Info("handle trigger resource operation for generate")
+	h.log.V(4).Info("handle trigger resource operation for generate", "policies", len(policies))
 	for _, policy := range policies {
 		var appliedRules, failedRules []engineapi.RuleResponse
 		policyContext := policyContext.WithPolicy(policy)
@@ -132,7 +132,6 @@ func (h *generationHandler) handleTrigger(
 		go webhookutils.RegisterPolicyResultsMetricGeneration(ctx, h.log, h.metrics, string(request.Operation), policy, *engineResponse)
 		go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(ctx, h.log, h.metrics, string(request.Operation), policy, *engineResponse)
 	}
-
 }
 
 func (h *generationHandler) handleNonTrigger(
@@ -210,7 +209,7 @@ func (h *generationHandler) syncTriggerAction(
 	for _, rule := range rules {
 		// fire generation on trigger deletion
 		if (request.Operation == admissionv1.Delete) && precondition(rule, kyvernov1.Condition{
-			RawKey:   kyvernov1.ToJSON("{{request.operation}}"),
+			RawKey:   kyvernov1.ToJSON("request.operation"),
 			Operator: "Equals",
 			RawValue: kyvernov1.ToJSON("DELETE"),
 		}) {
@@ -223,6 +222,7 @@ func (h *generationHandler) syncTriggerAction(
 					kyvernov1.ResourceSpec{Kind: policy.GetKind(), Namespace: policy.GetNamespace(), Name: policy.GetName()})
 				h.eventGen.Add(e)
 			}
+			continue
 		}
 
 		// delete downstream on trigger deletion
