@@ -145,6 +145,21 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `sigstoreVolume` has been replaced with `admissionController.sigstoreVolume`
 - `initImage` has been replaced with `admissionController.initContainer.image`
 - `initResources` has been replaced with `admissionController.initContainer.resources`
+- `image` has been replaced with `admissionController.container.image`
+- `image.pullSecrets` has been replaced with `admissionController.pullSecrets`
+- `resources` has been replaced with `admissionController.container.resources`
+- `service` has been replaced with `admissionController.service`
+- `metricsService` has been replaced with `admissionController.metricsService`
+
+- `initContainer.extraArgs` has been replaced with `admissionController.initContainer.extraArgs`
+- `envVarsInit` has been replaced with `admissionController.initContainer.extraEnvVars`
+- `envVars` has been replaced with `admissionController.container.extraEnvVars`
+- `extraArgs` has been replaced with `admissionController.container.extraArgs`
+- `extraInitContainers` has been replaced with `admissionController.extraInitContainers`
+- `extraContainers` has been replaced with `admissionController.extraContainers`
+- `podLabels` has been replaced with `admissionController.podLabels`
+- `podAnnotations` has been replaced with `admissionController.podAnnotations`
+- `securityContext` has been replaced with `admissionController.admissionController.container.securityContext` and `admissionController.admissionController.initContainer.securityContext`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -201,34 +216,9 @@ The command removes all the Kubernetes components associated with the chart and 
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
 | rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
-| image.registry | string | `"ghcr.io"` | Image registry |
-| image.repository | string | `"kyverno/kyverno"` | Image repository |
-| image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
-| image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| image.pullSecrets | list | `[]` | Image pull secrets |
-| initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
-| podLabels | object | `{}` | Additional labels to add to each pod |
-| podAnnotations | object | `{}` | Additional annotations to add to each pod |
-| securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
-| envVarsInit | object | `{}` | Env variables for initContainers. |
-| envVars | object | `{}` | Env variables for containers. |
-| extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the binary. |
-| extraInitContainers | list | `[]` | Array of extra init containers |
-| extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
-| resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
-| resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
 | excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
-| service.port | int | `443` | Service port. |
-| service.type | string | `"ClusterIP"` | Service type. |
-| service.nodePort | string | `nil` | Service node port. Only used if `service.type` is `NodePort`. |
-| service.annotations | object | `{}` | Service annotations. |
-| metricsService.create | bool | `true` | Create service. |
-| metricsService.port | int | `8000` | Service port. Kyverno's metrics server will be exposed at this port. |
-| metricsService.type | string | `"ClusterIP"` | Service type. |
-| metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
-| metricsService.annotations | object | `{}` | Service annotations. |
 | networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
@@ -239,6 +229,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | admissionController.replicas | int | `nil` | Desired number of pods |
+| admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
+| admissionController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | admissionController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | admissionController.priorityClassName | string | `""` | Optional priority class |
 | admissionController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
@@ -265,12 +257,36 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
 | admissionController.tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
 | admissionController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
+| admissionController.pullSecrets | list | `[]` | Image pull secrets |
 | admissionController.initContainer.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.initContainer.image.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | admissionController.initContainer.image.tag | string | `nil` | Image tag If missing, defaults to image.tag |
 | admissionController.initContainer.image.pullPolicy | string | `nil` | Image pull policy If missing, defaults to image.pullPolicy |
 | admissionController.initContainer.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | admissionController.initContainer.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| admissionController.initContainer.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
+| admissionController.initContainer.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
+| admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
+| admissionController.container.image.registry | string | `"ghcr.io"` | Image registry |
+| admissionController.container.image.repository | string | `"kyverno/kyverno"` | Image repository |
+| admissionController.container.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| admissionController.container.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
+| admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
+| admissionController.container.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
+| admissionController.container.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
+| admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
+| admissionController.extraInitContainers | list | `[]` | Array of extra init containers |
+| admissionController.extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
+| admissionController.service.port | int | `443` | Service port. |
+| admissionController.service.type | string | `"ClusterIP"` | Service type. |
+| admissionController.service.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
+| admissionController.service.annotations | object | `{}` | Service annotations. |
+| admissionController.metricsService.create | bool | `true` | Create service. |
+| admissionController.metricsService.port | int | `8000` | Service port. Kyverno's metrics server will be exposed at this port. |
+| admissionController.metricsService.type | string | `"ClusterIP"` | Service type. |
+| admissionController.metricsService.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
+| admissionController.metricsService.annotations | object | `{}` | Service annotations. |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
