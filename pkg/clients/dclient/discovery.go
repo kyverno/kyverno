@@ -326,7 +326,14 @@ func findResourceFromResourceName(gvr schema.GroupVersionResource, serverGroupsA
 		if gv.Group == gvr.Group && gv.Version == gvr.Version {
 			for _, resource := range list.APIResources {
 				if resource.Name == gvr.Resource {
-					return &resource, nil
+					// if the matched resource has group or version set we don't need to copy from the parent list
+					if resource.Group != "" || resource.Version != "" {
+						return &resource, nil
+					}
+					result := resource.DeepCopy()
+					result.Group = gv.Group
+					result.Version = gv.Version
+					return result, nil
 				}
 			}
 		}
