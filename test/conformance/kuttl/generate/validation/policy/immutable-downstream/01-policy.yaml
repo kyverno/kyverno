@@ -4,7 +4,7 @@ metadata:
   name: generate-update-downstream-rule
   namespace: default
 spec:
-  generateExistingOnPolicyUpdate: false
+  generateExisting: false
   rules:
   - name: k-kafka-address
     match:

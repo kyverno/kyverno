@@ -1,9 +1,9 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: existing-basic-create-data-policy
+  name: existing-basic-create-policy-data
 spec:
-  generateExistingOnPolicyUpdate: true
+  generateExisting: true
   rules:
   - name: existing-basic-create-rule
     match:

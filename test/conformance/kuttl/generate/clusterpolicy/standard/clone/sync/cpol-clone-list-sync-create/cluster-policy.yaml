@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: sync-with-multi-clone
 spec:
-  generateExistingOnPolicyUpdate: false
+  generateExisting: false
   rules:
   - name: sync-secret
     match:

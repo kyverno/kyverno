@@ -4,7 +4,7 @@ metadata:
   name: multiple-gens
   namespace: pol-data-sync-delete-rule
 spec:
-  generateExistingOnPolicyUpdate: false
+  generateExisting: false
   rules:
   - name: super-secret
     match:
