@@ -19,7 +19,7 @@ type IDiscovery interface {
 	FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error)
 	GetGVRFromKind(kind string) (schema.GroupVersionResource, error)
 	GetGVRFromAPIVersionKind(groupVersion string, kind string) schema.GroupVersionResource
-	GetGVKFromGVR(apiVersion, resourceName string) (schema.GroupVersionKind, error)
+	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
 	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	DiscoveryCache() discovery.CachedDiscoveryInterface
@@ -105,15 +105,15 @@ func (c serverResources) GetServerVersion() (*version.Info, error) {
 
 // GetGVKFromGVR returns the Group Version Kind from Group Version Resource. The groupVersion has to be specified properly
 // for example, for corev1.Pod, the groupVersion has to be specified as `v1`, specifying empty groupVersion won't work.
-func (c serverResources) GetGVKFromGVR(groupVersion, resourceName string) (schema.GroupVersionKind, error) {
-	gvk, err := c.findResourceFromResourceName(groupVersion, resourceName)
+func (c serverResources) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	gvk, err := c.findResourceFromResourceName(gvr)
 	if err == nil {
 		return gvk, nil
 	}
 
 	if !c.cachedClient.Fresh() {
 		c.cachedClient.Invalidate()
-		if gvk, err := c.findResourceFromResourceName(groupVersion, resourceName); err == nil {
+		if gvk, err := c.findResourceFromResourceName(gvr); err == nil {
 			return gvk, nil
 		}
 	}
@@ -122,19 +122,19 @@ func (c serverResources) GetGVKFromGVR(groupVersion, resourceName string) (schem
 }
 
 // findResourceFromResourceName returns the GVK for the a particular resourceName and groupVersion
-func (c serverResources) findResourceFromResourceName(groupVersion, resourceName string) (schema.GroupVersionKind, error) {
+func (c serverResources) findResourceFromResourceName(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			logDiscoveryErrors(err)
-		} else if isMetricsServerUnavailable(groupVersion, err) {
+		} else if isMetricsServerUnavailable(gvr.GroupVersion(), err) {
 			logger.V(3).Info("failed to find preferred resource version", "error", err.Error())
 		} else {
 			logger.Error(err, "failed to find preferred resource version")
 			return schema.GroupVersionKind{}, err
 		}
 	}
-	apiResource, err := findResourceFromResourceName(groupVersion, resourceName, serverGroupsAndResources)
+	apiResource, err := findResourceFromResourceName(gvr, serverGroupsAndResources)
 	if err != nil {
 		return schema.GroupVersionKind{}, err
 	}
@@ -170,8 +170,8 @@ func (c serverResources) findResource(groupVersion string, kind string) (apiReso
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			logDiscoveryErrors(err)
-		} else if isMetricsServerUnavailable(groupVersion, err) {
-			logger.V(3).Info("failed to find preferred resource version", "error", err.Error())
+			// } else if isMetricsServerUnavailable(groupVersion, err) {
+			// 	logger.V(3).Info("failed to find preferred resource version", "error", err.Error())
 		} else {
 			logger.Error(err, "failed to find preferred resource version")
 			return nil, nil, schema.GroupVersionResource{}, err
@@ -246,8 +246,14 @@ func findResource(groupVersion string, kind string, serverPreferredResources, se
 			Version:  matchingServerResource.Version,
 		}
 		logger.V(6).Info("gv with resource", "gvWithResource", groupVersionResource)
-
-		parentAPIResource, err := findResourceFromResourceName(apiResourceWithListGV.listGV, strings.Split(matchingServerResource.Name, "/")[0], serverPreferredResources)
+		gv, err := schema.ParseGroupVersion(apiResourceWithListGV.listGV)
+		if err != nil {
+			return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("failed to parse group version %s: %v", apiResourceWithListGV.listGV, err)
+		}
+		parentAPIResource, err := findResourceFromResourceName(
+			gv.WithResource(strings.Split(matchingServerResource.Name, "/")[0]),
+			serverPreferredResources,
+		)
 		if err != nil {
 			return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("failed to find parent resource for subresource %s: %v", matchingServerResource.Name, err)
 		}
@@ -311,20 +317,21 @@ func getMatchingServerResources(groupVersion string, kind string, serverGroupsAn
 }
 
 // findResourceFromResourceName finds an API resource that matches 'resourceName', in the given serverResourcesList
-func findResourceFromResourceName(groupVersion string, resourceName string, serverGroupsAndResources []*metav1.APIResourceList) (*metav1.APIResource, error) {
-	for _, serverResourceList := range serverGroupsAndResources {
-		for _, apiResource := range serverResourceList.APIResources {
-			serverResourceGroupVersion := getServerResourceGroupVersion(serverResourceList.GroupVersion, apiResource.Group, apiResource.Version)
-			if serverResourceGroupVersion == groupVersion && apiResource.Name == resourceName {
-				logger.V(6).Info("found preferred resource", "groupVersion", groupVersion, "resourceName", resourceName)
-				groupVersion, _ := schema.ParseGroupVersion(serverResourceGroupVersion)
-				apiResource.Group = groupVersion.Group
-				apiResource.Version = groupVersion.Version
-				return &apiResource, nil
+func findResourceFromResourceName(gvr schema.GroupVersionResource, serverGroupsAndResources []*metav1.APIResourceList) (*metav1.APIResource, error) {
+	for _, list := range serverGroupsAndResources {
+		gv, err := schema.ParseGroupVersion(list.GroupVersion)
+		if err != nil {
+			return nil, err
+		}
+		if gv.Group == gvr.Group && gv.Version == gvr.Version {
+			for _, resource := range list.APIResources {
+				if resource.Name == gvr.Resource {
+					return &resource, nil
+				}
 			}
 		}
 	}
-	return nil, fmt.Errorf("resource %s not found in group %s", resourceName, groupVersion)
+	return nil, fmt.Errorf("resource %s not found in group %s", gvr.Resource, gvr.GroupVersion())
 }
 
 // getServerResourceGroupVersion returns the groupVersion of the serverResource from the apiResourceMetadata

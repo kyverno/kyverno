@@ -189,14 +189,14 @@ func Test_findResourceFromResourceName(t *testing.T) {
 		},
 	}
 
-	apiResource, err := findResourceFromResourceName("v1", "pods", serverGroupsAndResources)
+	apiResource, err := findResourceFromResourceName(schema.GroupVersionResource{Version: "v1", Resource: "pods"}, serverGroupsAndResources)
 	assert.NilError(t, err)
 	assert.Equal(t, apiResource.Name, podAPIResource.Name)
 	assert.Equal(t, apiResource.Kind, podAPIResource.Kind)
 	assert.Equal(t, apiResource.Group, "")
 	assert.Equal(t, apiResource.Version, "v1")
 
-	apiResource, err = findResourceFromResourceName("policy/v1", "pods/eviction", serverGroupsAndResources)
+	apiResource, err = findResourceFromResourceName(schema.GroupVersionResource{Group: "policy", Version: "v1", Resource: "pods/eviction"}, serverGroupsAndResources)
 	assert.NilError(t, err)
 	assert.Equal(t, apiResource.Name, podEvictionAPIResource.Name)
 	assert.Equal(t, apiResource.Kind, podEvictionAPIResource.Kind)
