@@ -9,9 +9,9 @@ import (
 
 var versionRegex = regexp.MustCompile(`^v\d((alpha|beta)\d)?|\*$`)
 
-func ParseKindSelector(str string) (string, string, string, string) {
-	parts := strings.Split(str, "/")
-	if len(parts) > 1 {
+func ParseKindSelector(input string) (string, string, string, string) {
+	parts := strings.Split(input, "/")
+	if len(parts) > 0 {
 		parts = append(parts[:len(parts)-1], strings.Split(parts[len(parts)-1], ".")...)
 	}
 	switch len(parts) {
