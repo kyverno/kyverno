@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -13,7 +14,7 @@ import (
 
 // Discovery provides interface to mange Kind and GVR mapping
 type Discovery interface {
-	GetGVRFromKind(kind string) (schema.GroupVersionResource, error)
+	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
 }
 
 // CanIOptions provides utility to check if user has authorization for the given operation
@@ -57,7 +58,12 @@ func NewCanI(discovery Discovery, ssarClient authorizationv1client.SelfSubjectAc
 func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
-	gvr, err := o.discovery.GetGVRFromKind(o.kind)
+	apiVersion, kind := kubeutils.GetKindFromGVK(o.kind)
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse group/version %s", apiVersion)
+	}
+	gvr, err := o.discovery.GetGVRFromGVK(gv.WithKind(kind))
 	if err != nil {
 		return false, fmt.Errorf("failed to get GVR for kind %s", o.kind)
 	}

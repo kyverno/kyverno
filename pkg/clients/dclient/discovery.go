@@ -17,8 +17,8 @@ import (
 // IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
 	FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error)
-	GetGVRFromKind(kind string) (schema.GroupVersionResource, error)
-	GetGVRFromAPIVersionKind(groupVersion string, kind string) schema.GroupVersionResource
+	// TODO: there's no mapping from GVK tp GVR, this is very error prone
+	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
 	GetGVKFromGVR(apiVersion, resourceName string) (schema.GroupVersionKind, error)
 	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapiv2.Document, error)
@@ -72,30 +72,14 @@ func (c serverResources) OpenAPISchema() (*openapiv2.Document, error) {
 	return c.cachedClient.OpenAPISchema()
 }
 
-// GetGVRFromKind get the Group Version Resource from kind
-func (c serverResources) GetGVRFromKind(kind string) (schema.GroupVersionResource, error) {
-	if kind == "" {
-		return schema.GroupVersionResource{}, nil
-	}
-	gv, k := kubeutils.GetKindFromGVK(kind)
-	_, _, gvr, err := c.FindResource(gv, k)
+// GetGVRFromGVK get the Group Version Resource from APIVersion and kind
+func (c serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+	_, _, gvr, err := c.FindResource(gvk.GroupVersion().String(), gvk.Kind)
 	if err != nil {
-		logger.Info("schema not found", "kind", k)
+		logger.Error(err, "schema not found", "gvk", gvk)
 		return schema.GroupVersionResource{}, err
 	}
-
 	return gvr, nil
-}
-
-// GetGVRFromAPIVersionKind get the Group Version Resource from APIVersion and kind
-func (c serverResources) GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource {
-	_, _, gvr, err := c.FindResource(apiVersion, kind)
-	if err != nil {
-		logger.Info("schema not found", "kind", kind, "apiVersion", apiVersion, "error : ", err)
-		return schema.GroupVersionResource{}
-	}
-
-	return gvr
 }
 
 // GetServerVersion returns the server version of the cluster
