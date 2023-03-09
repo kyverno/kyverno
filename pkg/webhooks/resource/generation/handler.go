@@ -276,7 +276,6 @@ func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.
 	for _, rule := range policy.GetSpec().Rules {
 		if rule.Name == pRuleName && rule.Generation.Synchronize {
 			ur := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, generateutils.TriggerFromLabels(labels), deleteDownstream)
-			ur.Context = buildURContext(request, policyContext)
 			if err := h.urGenerator.Apply(ctx, ur); err != nil {
 				e := event.NewBackgroundFailedEvent(err, pKey, pRuleName, event.GeneratePolicyController, &new)
 				h.eventGen.Add(e...)

@@ -145,6 +145,11 @@ func (c *GenerateController) getTrigger(spec kyvernov1beta1.UpdateRequestSpec) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to load resource from context: %w", err)
 		}
+		labels := oldResource.GetLabels()
+		if labels[common.GeneratePolicyLabel] != "" {
+			// non-trigger deletion, get trigger from ur spec
+			return common.GetResource(c.client, spec, c.log)
+		}
 		return &oldResource, nil
 	} else {
 		return common.GetResource(c.client, spec, c.log)
@@ -330,7 +335,7 @@ func getResourceInfoForDataAndClone(rule kyvernov1.Rule) (kind, name, namespace,
 	return
 }
 
-func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, trigger unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
 	rdatas := []GenerateResponse{}
 	var cresp, dresp map[string]interface{}
 	var err error
@@ -402,7 +407,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 		}
 
 		newResource.SetAPIVersion(rdata.GenAPIVersion)
-		common.ManageLabels(newResource, resource, policy, rule.Name)
+		common.ManageLabels(newResource, trigger, policy, rule.Name)
 		// Add Synchronize label
 		label := newResource.GetLabels()
 
@@ -424,6 +429,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 			newResource.SetResourceVersion("")
 			newResource.SetLabels(label)
 
+			fmt.Println("=====rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace", rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace)
 			// Create the resource
 			_, err = client.CreateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 			if err != nil {
