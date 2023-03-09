@@ -123,100 +123,76 @@ func TestParseKindSelector(t *testing.T) {
 		name string
 		args args
 		want want
-	}{
-		{
-			args: args{"*"},
-			want: want{"*", "*", "*", ""},
-		},
-		{
-			args: args{"*.*"},
-			want: want{"*", "*", "*", "*"},
-		},
-		{
-			args: args{"*/*"},
-			want: want{"*", "*", "*", "*"},
-		},
-		{
-			args: args{"Pod"},
-			want: want{"*", "*", "Pod", ""},
-		},
-		{
-			args: args{"v1/Pod"},
-			want: want{"*", "v1", "Pod", ""},
-		},
-		{
-			args: args{"batch/*/CronJob"},
-			want: want{"batch", "*", "CronJob", ""},
-		},
-		{
-			args: args{"storage.k8s.io/v1/CSIDriver"},
-			want: want{"storage.k8s.io", "v1", "CSIDriver", ""},
-		},
-		{
-			args: args{"tekton.dev/v1beta1/TaskRun/status"},
-			want: want{"tekton.dev", "v1beta1", "TaskRun", "status"},
-		},
-		{
-			args: args{"v1/Pod.status"},
-			want: want{"*", "v1", "Pod", "status"},
-		},
-		{
-			args: args{"v1/Pod/status"},
-			want: want{"*", "v1", "Pod", "status"},
-		},
-		{
-			args: args{"Pod.status"},
-			want: want{"*", "*", "Pod", "status"},
-		},
-		{
-			args: args{"Pod/status"},
-			want: want{"*", "*", "Pod", "status"},
-		},
-		{
-			args: args{"apps/v1/Deployment/scale"},
-			want: want{"apps", "v1", "Deployment", "scale"},
-		},
-		{
-			args: args{"v1/ReplicationController/scale"},
-			want: want{"*", "v1", "ReplicationController", "scale"},
-		},
-		{
-			args: args{"*/ReplicationController/scale"},
-			want: want{"*", "*", "ReplicationController", "scale"},
-		},
-		{
-			args: args{"*/Deployment/scale"},
-			want: want{"*", "*", "Deployment", "scale"},
-		},
-		{
-			args: args{"*/Deployment.scale"},
-			want: want{"*", "*", "Deployment", "scale"},
-		},
-		{
-			args: args{"apps/v1/Deployment.scale"},
-			want: want{"apps", "v1", "Deployment", "scale"},
-		},
-		{
-			args: args{"*/scale"},
-			want: want{"*", "*", "*", "scale"},
-		},
-		{
-			args: args{"Pod/*"},
-			want: want{"*", "*", "Pod", "*"},
-		},
-		{
-			args: args{"*/*/*"},
-			want: want{"*", "*", "*", "*"},
-		},
-		{
-			args: args{"*/*/*/*"},
-			want: want{"*", "*", "*", "*"},
-		},
-		{
-			args: args{"*/*/*/*/*"},
-			want: want{"", "", "", ""},
-		},
-	}
+	}{{
+		args: args{"*"},
+		want: want{"*", "*", "*", ""},
+	}, {
+		args: args{"*.*"},
+		want: want{"*", "*", "*", "*"},
+	}, {
+		args: args{"*/*"},
+		want: want{"*", "*", "*", "*"},
+	}, {
+		args: args{"Pod"},
+		want: want{"*", "*", "Pod", ""},
+	}, {
+		args: args{"v1/Pod"},
+		want: want{"*", "v1", "Pod", ""},
+	}, {
+		args: args{"batch/*/CronJob"},
+		want: want{"batch", "*", "CronJob", ""},
+	}, {
+		args: args{"storage.k8s.io/v1/CSIDriver"},
+		want: want{"storage.k8s.io", "v1", "CSIDriver", ""},
+	}, {
+		args: args{"tekton.dev/v1beta1/TaskRun/status"},
+		want: want{"tekton.dev", "v1beta1", "TaskRun", "status"},
+	}, {
+		args: args{"v1/Pod.status"},
+		want: want{"*", "v1", "Pod", "status"},
+	}, {
+		args: args{"v1/Pod/status"},
+		want: want{"*", "v1", "Pod", "status"},
+	}, {
+		args: args{"Pod.status"},
+		want: want{"*", "*", "Pod", "status"},
+	}, {
+		args: args{"Pod/status"},
+		want: want{"*", "*", "Pod", "status"},
+	}, {
+		args: args{"apps/v1/Deployment/scale"},
+		want: want{"apps", "v1", "Deployment", "scale"},
+	}, {
+		args: args{"v1/ReplicationController/scale"},
+		want: want{"*", "v1", "ReplicationController", "scale"},
+	}, {
+		args: args{"*/ReplicationController/scale"},
+		want: want{"*", "*", "ReplicationController", "scale"},
+	}, {
+		args: args{"*/Deployment/scale"},
+		want: want{"*", "*", "Deployment", "scale"},
+	}, {
+		args: args{"*/Deployment.scale"},
+		want: want{"*", "*", "Deployment", "scale"},
+	}, {
+		args: args{"apps/v1/Deployment.scale"},
+		want: want{"apps", "v1", "Deployment", "scale"},
+	}, {
+		args: args{"*/scale"},
+		want: want{"*", "*", "*", "scale"},
+	}, {
+		args: args{"Pod/*"},
+		want: want{"*", "*", "Pod", "*"},
+	}, {
+		args: args{"*/*/*"},
+		want: want{"*", "*", "*", "*"},
+	}, {
+		args: args{"*/*/*/*"},
+		want: want{"*", "*", "*", "*"},
+	}, {
+		args: args{"*/*/*/*/*"},
+		want: want{"", "", "", ""},
+	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			group, version, kind, subresource := ParseKindSelector(tt.args.input)
