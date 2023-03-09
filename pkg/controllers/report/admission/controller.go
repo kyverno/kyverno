@@ -256,6 +256,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 			quit = true
 		}
 	}
+	// if one report was updated we can quit, reconcile will be triggered again because uid was queued
 	if quit {
 		return nil
 	}
