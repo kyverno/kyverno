@@ -100,7 +100,9 @@ spec:
             {{- end }}
             {{- end }}
             {{- range $key, $value := .Values.reportsController.extraArgs }}
+            {{- if $value }}
             - --{{ $key }}={{ $value }}
+            {{- end }}
             {{- end }}
           env:
           - name: METRICS_CONFIG
