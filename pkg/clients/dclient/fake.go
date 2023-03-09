@@ -77,7 +77,7 @@ func (c *fakeDiscoveryClient) GetGVRFromKind(kind string) (schema.GroupVersionRe
 	return c.getGVR(resource), nil
 }
 
-func (c *fakeDiscoveryClient) GetGVKFromGVR(apiVersion, resourceName string) (schema.GroupVersionKind, error) {
+func (c *fakeDiscoveryClient) GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	return schema.GroupVersionKind{}, nil
 }
 
