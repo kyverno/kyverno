@@ -148,6 +148,7 @@ func (c *GenerateController) getTrigger(spec kyvernov1beta1.UpdateRequestSpec) (
 		labels := oldResource.GetLabels()
 		if labels[common.GeneratePolicyLabel] != "" {
 			// non-trigger deletion, get trigger from ur spec
+			c.log.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
 			return common.GetResource(c.client, spec, c.log)
 		}
 		return &oldResource, nil
@@ -425,12 +426,8 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 				label[LabelSynchronize] = "disable"
 			}
 
-			// Reset resource version
 			newResource.SetResourceVersion("")
 			newResource.SetLabels(label)
-
-			fmt.Println("=====rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace", rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace)
-			// Create the resource
 			_, err = client.CreateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
