@@ -848,7 +848,6 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			gvkMap[gvk] = 1
 			// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
 			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
-			// gv, k := kubeutils.GetKindFromGVK(gvk)
 			gvrs, err := c.discoveryClient.FindResources(group, version, kind, subresource)
 			if err != nil {
 				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
