@@ -191,7 +191,6 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		if r.Status != engineapi.RuleStatusPass {
 			logger.V(4).Info("querying all update requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.Policy.GetName(),
 				kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.Resource.GetName(),
 				kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.Resource.GetKind(),
 				kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.Resource.GetNamespace(),
@@ -305,7 +304,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
 		}
 		if err != nil {
-			log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
+			log.Error(err, "failed to apply generate rule",
 				"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
 			return nil, err
 		}
@@ -492,11 +491,10 @@ func (f *forEachGenerator) forEach(subResource kyvernov1.GenerateSubResource) ([
 		label := newResource.GetLabels()
 
 		// Add background gen-rule label if generate rule applied on existing resource
-		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
+		if policy.GetSpec().IsGenerateExisting() {
 			label["kyverno.io/background-gen-rule"] = rule.Name
 		}
 
-		label["policy.kyverno.io/policy-name"] = policy.GetName()
 		label["policy.kyverno.io/gr-name"] = ur.Name
 		if rdata.Action == Create {
 			if subResource.Synchronize {
@@ -724,7 +722,6 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 			label[LabelBackgroundGenRuleName] = rule.Name
 		}
 
-		label[LabelDataPolicyName] = policy.GetName()
 		label[LabelURName] = ur.Name
 		if rdata.Action == Create {
 			if rule.Generation.Synchronize {
