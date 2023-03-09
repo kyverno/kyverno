@@ -17,7 +17,7 @@ import (
 // IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
 	FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error)
-	// TODO: there's no mapping from GVK tp GVR, this is very error prone
+	// TODO: there's no mapping from GVK to GVR, this is very error prone
 	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
 	GetGVKFromGVR(apiVersion, resourceName string) (schema.GroupVersionKind, error)
 	GetServerVersion() (*version.Info, error)
