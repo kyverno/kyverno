@@ -43,5 +43,5 @@ spec:
       namespace: "{{request.object.metadata.labels.downstream}}"
       synchronize: true
       clone:
-        namespace: default
+        namespace: cpol-clone-create-on-trigger-deletion-manifest-ns
         name: regcred
