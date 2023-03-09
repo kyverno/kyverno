@@ -3,6 +3,7 @@ package dclient
 import (
 	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 )
 
@@ -19,9 +20,9 @@ func logDiscoveryErrors(err error) {
 	}
 }
 
-func isMetricsServerUnavailable(groupVersion string, err error) bool {
+func isMetricsServerUnavailable(gv schema.GroupVersion, err error) bool {
 	// error message is defined at:
 	// https://github.com/kubernetes/apimachinery/blob/2456ebdaba229616fab2161a615148884b46644b/pkg/api/errors/errors.go#L432
-	return (strings.HasPrefix(groupVersion, "metrics.k8s.io/") || strings.HasPrefix(groupVersion, "custom.metrics.k8s.io/") || strings.HasPrefix(groupVersion, "external.metrics.k8s.io/")) &&
+	return (gv.Group == "metrics.k8s.io" || gv.Group == "custom.metrics.k8s.io" || gv.Group == "external.metrics.k8s.io") &&
 		strings.Contains(err.Error(), "the server is currently unable to handle the request")
 }
