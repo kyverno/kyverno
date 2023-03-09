@@ -376,7 +376,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.metricsService.create | bool | `true` | Create service. |
 | reportsController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
 | reportsController.metricsService.type | string | `"ClusterIP"` | Service type. |
-| reportsController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
+| reportsController.metricsService.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 | reportsController.metricsService.annotations | object | `{}` | Service annotations. |
 | reportsController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | reportsController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
@@ -388,13 +388,13 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.tracing.enabled | bool | `false` | Enable tracing |
 | reportsController.tracing.address | string | `nil` | Traces receiver address |
 | reportsController.tracing.port | string | `nil` | Traces receiver port |
-| reportsController.tracing.creds | string | `""` | Traces receiver credentials |
+| reportsController.tracing.creds | string | `nil` | Traces receiver credentials |
 | reportsController.logging.format | string | `"text"` | Logging format |
 | reportsController.metering.disabled | bool | `false` | Disable metrics export |
 | reportsController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | reportsController.metering.port | int | `8000` | Prometheus endpoint port |
-| reportsController.metering.collector | string | `""` | Otel collector endpoint |
-| reportsController.metering.creds | string | `""` | Otel collector credentials |
+| reportsController.metering.collector | string | `nil` | Otel collector endpoint |
+| reportsController.metering.creds | string | `nil` | Otel collector credentials |
 | backgroundController.enabled | bool | `true` | Enable background controller. |
 | backgroundController.rbac.create | bool | `true` | Create RBAC resources |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
