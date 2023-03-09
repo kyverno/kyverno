@@ -6,6 +6,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -35,6 +36,12 @@ func GetRoleRef(rbLister RoleBindingLister, crbLister ClusterRoleBindingLister, 
 		return nil, nil, fmt.Errorf("failed to list clusterrolebindings: %v", err)
 	}
 	crs = append(crs, getRoleRefByClusterRoleBindings(clusterroleBindings, userInfo)...)
+	if rs != nil {
+		rs = sets.List(sets.New(rs...))
+	}
+	if crs != nil {
+		crs = sets.List(sets.New(crs...))
+	}
 	return rs, crs, nil
 }
 

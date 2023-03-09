@@ -506,7 +506,7 @@ func TestGetRoleRef(t *testing.T) {
 					Username: "system:serviceaccount:ns-1:sa",
 				},
 			},
-			want:  []string{"ns-1:role-1", "ns-1:role-1", "ns-2:role-1"},
+			want:  []string{"ns-1:role-1", "ns-2:role-1"},
 			want1: []string{"role-1"},
 		}, {
 			args: args{
@@ -673,8 +673,8 @@ func TestGetRoleRef(t *testing.T) {
 					Username: "system:serviceaccount:foo:sa",
 				},
 			},
-			want:  []string{"foo:role-1", "foo:role-1", "ns-2:role-1"},
-			want1: []string{"role-1", "role-1"},
+			want:  []string{"foo:role-1", "ns-2:role-1"},
+			want1: []string{"role-1"},
 		},
 	}
 	for _, tt := range tests {
