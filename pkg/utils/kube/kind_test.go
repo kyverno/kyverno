@@ -12,6 +12,14 @@ func Test_GetKindFromGVK(t *testing.T) {
 	assert.Equal(t, "", apiVersion)
 	assert.Equal(t, "*", kind)
 
+	apiVersion, kind = GetKindFromGVK("*.*")
+	assert.Equal(t, "", apiVersion)
+	assert.Equal(t, "*/*", kind)
+
+	apiVersion, kind = GetKindFromGVK("*/*")
+	assert.Equal(t, "", apiVersion)
+	assert.Equal(t, "*/*", kind)
+
 	apiVersion, kind = GetKindFromGVK("Pod")
 	assert.Equal(t, "", apiVersion)
 	assert.Equal(t, "Pod", kind)
