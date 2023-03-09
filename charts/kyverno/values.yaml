@@ -825,7 +825,9 @@ reportsController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs: []
+  extraArgs:
+    clientRateLimitQPS: 300
+    clientRateLimitBurst: 100
 
   resources:
     # -- Pod resource limits

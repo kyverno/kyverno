@@ -26,7 +26,7 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers        = 2
+	Workers        = 10
 	ControllerName = "admission-report-controller"
 	maxRetries     = 10
 	deletionGrace  = time.Minute * 2
@@ -241,6 +241,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if !found {
 		return c.cleanupReports(ctx, "", "", reports...)
 	}
+	quit := false
 	// set orphan reports an owner
 	for _, report := range reports {
 		if len(report.GetOwnerReferences()) == 0 {
@@ -249,9 +250,14 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 				return err
 			}
 			controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
-			_, err = reportutils.UpdateReport(ctx, report, c.client)
-			return err
+			if _, err = reportutils.UpdateReport(ctx, report, c.client); err != nil {
+				return err
+			}
+			quit = true
 		}
+	}
+	if quit {
+		return nil
 	}
 	// build an aggregated report
 	return c.aggregateReports(ctx, uid, gvk, resource, reports...)
