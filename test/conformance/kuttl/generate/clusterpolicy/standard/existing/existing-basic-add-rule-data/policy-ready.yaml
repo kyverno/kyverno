@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: existing-basic-create-data-preconditions-policy
+  name: existing-basic-add-rule-data
 status:
   conditions:
   - reason: Succeeded

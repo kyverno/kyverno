@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-clone-sync-create-source-after-policy
+  namespace: pol-clone-sync-create-source-after-policy-ns
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
