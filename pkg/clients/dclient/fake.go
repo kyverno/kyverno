@@ -73,7 +73,7 @@ func (c *fakeDiscoveryClient) GetServerVersion() (*version.Info, error) {
 	return nil, nil
 }
 
-func (c *fakeDiscoveryClient) GetGVKFromGVR(apiVersion, resourceName string) (schema.GroupVersionKind, error) {
+func (c *fakeDiscoveryClient) GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	return schema.GroupVersionKind{}, nil
 }
 
