@@ -100,7 +100,7 @@ spec:
             {{- end }}
             {{- end }}
             {{- range $key, $value := .Values.reportsController.extraArgs }}
-            - --{{ $key }}={{ $value | quote }}
+            - --{{ $key }}={{ $value }}
             {{- end }}
           env:
           - name: METRICS_CONFIG
