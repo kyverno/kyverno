@@ -166,12 +166,16 @@ func (c serverResources) findResource(groupVersion string, kind string) (apiReso
 ) {
 	serverPreferredResources, _ := c.cachedClient.ServerPreferredResources()
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
-
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
+		gv, err := schema.ParseGroupVersion(groupVersion)
+		if err != nil {
+			logger.Error(err, "failed to parse group/version", "groupVersion", groupVersion)
+			return nil, nil, schema.GroupVersionResource{}, err
+		}
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			logDiscoveryErrors(err)
-			// } else if isMetricsServerUnavailable(groupVersion, err) {
-			// 	logger.V(3).Info("failed to find preferred resource version", "error", err.Error())
+		} else if isMetricsServerUnavailable(gv, err) {
+			logger.V(3).Info("failed to find preferred resource version", "error", err.Error())
 		} else {
 			logger.Error(err, "failed to find preferred resource version")
 			return nil, nil, schema.GroupVersionResource{}, err
