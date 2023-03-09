@@ -8,14 +8,17 @@ import (
 
 	openapiv2 "github.com/google/gnostic/openapiv2"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 )
 
 // IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
+	FindResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error)
 	FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error)
 	GetGVRFromKind(kind string) (schema.GroupVersionResource, error)
 	GetGVRFromAPIVersionKind(groupVersion string, kind string) schema.GroupVersionResource
@@ -159,6 +162,86 @@ func (c serverResources) FindResource(groupVersion string, kind string) (apiReso
 	}
 
 	return nil, nil, schema.GroupVersionResource{}, err
+}
+
+func (c serverResources) FindResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error) {
+	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
+	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
+		if discovery.IsGroupDiscoveryFailedError(err) {
+			logDiscoveryErrors(err)
+			// } else if isMetricsServerUnavailable(groupVersion, err) {
+			// 	logger.V(3).Info("failed to find preferred resource version", "error", err.Error())
+		} else {
+			logger.Error(err, "failed to find preferred resource version")
+			return nil, err
+		}
+	}
+	getGVK := func(gv schema.GroupVersion, group, version, kind string) schema.GroupVersionKind {
+		if group == "" {
+			group = gv.Group
+		}
+		if version == "" {
+			version = gv.Version
+		}
+		return schema.GroupVersionKind{
+			Group:   group,
+			Version: version,
+			Kind:    kind,
+		}
+	}
+	resources := sets.New[schema.GroupVersionResource]()
+	// first match resouces
+	for _, list := range serverGroupsAndResources {
+		gv, err := schema.ParseGroupVersion(list.GroupVersion)
+		if err != nil {
+			return nil, err
+		} else {
+			for _, resource := range list.APIResources {
+				if !strings.Contains(resource.Name, "/") {
+					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
+					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
+						resources.Insert(gvk.GroupVersion().WithResource(resource.Name))
+					}
+				}
+			}
+		}
+	}
+	// second match subresouces if necessary
+	subresources := sets.New[schema.GroupVersionResource]()
+	if subresource != "" {
+		for _, list := range serverGroupsAndResources {
+			for _, resource := range list.APIResources {
+				for parent := range resources {
+					if wildcard.Match(parent.Resource+"/"+subresource, resource.Name) {
+						subresources.Insert(parent.GroupVersion().WithResource(resource.Name))
+						break
+					}
+				}
+			}
+		}
+	}
+	// third if no resource matched, try again but consider subresources this time
+	if resources.Len() == 0 {
+		for _, list := range serverGroupsAndResources {
+			gv, err := schema.ParseGroupVersion(list.GroupVersion)
+			if err != nil {
+				return nil, err
+			} else {
+				for _, resource := range list.APIResources {
+					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
+					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
+						resources.Insert(gvk.GroupVersion().WithResource(resource.Name))
+					}
+				}
+			}
+		}
+	}
+	if kind == "*" && subresource == "*" {
+		return resources.Union(subresources).UnsortedList(), nil
+	} else if subresource != "" {
+		return subresources.UnsortedList(), nil
+	}
+	return resources.UnsortedList(), nil
 }
 
 func (c serverResources) findResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource,

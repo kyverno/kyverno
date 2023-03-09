@@ -9,6 +9,45 @@ import (
 
 var versionRegex = regexp.MustCompile(`^v\d((alpha|beta)\d)?|\*$`)
 
+func ParseKindSelector(str string) (string, string, string, string) {
+	parts := strings.Split(str, "/")
+	if len(parts) > 1 {
+		parts = append(parts[:len(parts)-1], strings.Split(parts[len(parts)-1], ".")...)
+	}
+	switch len(parts) {
+	case 1:
+		// we have only kind
+		return "*", "*", parts[0], ""
+	case 2:
+		// `*/*` means all resources and subresources
+		if parts[0] == "*" && parts[1] == "*" {
+			return "*", "*", "*", "*"
+		}
+		// detect the `*/subresource` case when part[1] is all lowercase
+		if parts[0] == "*" && strings.ToLower(parts[1]) == parts[1] {
+			return "*", "*", parts[0], parts[1]
+		}
+		// if the first part is `*` or a version we have version/kind
+		if versionRegex.MatchString(parts[0]) {
+			return "*", parts[0], parts[1], ""
+		}
+		// we have kind/subresource
+		return "*", "*", parts[0], parts[1]
+	case 3:
+		// if the first part is `*` or a version we have version/kind/subresource
+		if versionRegex.MatchString(parts[0]) {
+			return "*", parts[0], parts[1], parts[2]
+		}
+		// we have group/version/kind
+		return parts[0], parts[1], parts[2], ""
+	case 4:
+		// we have group/version/kind/subresource
+		return parts[0], parts[1], parts[2], parts[3]
+	default:
+		return "", "", "", ""
+	}
+}
+
 // GetKindFromGVK - get kind and APIVersion from GVK
 func GetKindFromGVK(str string) (string, string) {
 	parts := strings.Split(str, "/")

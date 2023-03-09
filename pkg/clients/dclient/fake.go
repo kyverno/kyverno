@@ -90,6 +90,10 @@ func (c *fakeDiscoveryClient) FindResource(groupVersion string, kind string) (ap
 	return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("not implemented")
 }
 
+func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {
 	return nil, nil
 }
