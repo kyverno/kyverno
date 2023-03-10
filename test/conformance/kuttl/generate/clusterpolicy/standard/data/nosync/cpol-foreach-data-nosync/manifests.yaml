@@ -10,7 +10,7 @@ spec:
         any:
           - resources:
               kinds:
-                - pod
+                - Pod
       generate:
         foreach:
           - list: "request.object.spec.containers"

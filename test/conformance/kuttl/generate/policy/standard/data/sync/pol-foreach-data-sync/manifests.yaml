@@ -1,20 +1,11 @@
-apiVersion: v1
-data:
-  foo: YmFy
-metadata:
-  name: regcred
-  namespace: default
-kind: Secret
-type: Opaque
----
 apiVersion: kyverno.io/v2beta1
-kind: ClusterPolicy
+kind: Policy
 metadata:
-  name: cpol-foreach-clone-sync
+  name: pol-foreach-data-sync
   namespace: default
 spec:
   rules:
-    - name: cpol-foreach-clone-sync-secret
+    - name: pol-foreach-data-sync-secret
       match:
         any:
           - resources:
@@ -29,6 +20,5 @@ spec:
                 name: "newsecret"
                 namespace: "default"
                 synchronize: true
-                clone:
-                  namespace: default
-                  name: regcred
+                data:
+                  foo: YmFy
