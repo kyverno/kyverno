@@ -434,11 +434,14 @@ func TestGetRoleRef(t *testing.T) {
 		crbLister ClusterRoleBindingLister
 		userInfo  authenticationv1.UserInfo
 	}
+	type want struct {
+		roles        []string
+		clusterRoles []string
+	}
 	tests := []struct {
 		name    string
 		args    args
-		want    []string
-		want1   []string
+		want    want
 		wantErr bool
 	}{
 		{
@@ -506,8 +509,10 @@ func TestGetRoleRef(t *testing.T) {
 					Username: "system:serviceaccount:ns-1:sa",
 				},
 			},
-			want:  []string{"ns-1:role-1", "ns-2:role-1"},
-			want1: []string{"role-1"},
+			want: want{
+				roles:        []string{"ns-1:role-1", "ns-2:role-1"},
+				clusterRoles: []string{"role-1"},
+			},
 		}, {
 			args: args{
 				rbLister: roleBindingLister{
@@ -579,7 +584,9 @@ func TestGetRoleRef(t *testing.T) {
 					Username: "system:serviceaccount:foo:sa",
 				},
 			},
-			want1: []string{"role-1"},
+			want: want{
+				clusterRoles: []string{"role-1"},
+			},
 		}, {
 			args: args{
 				rbLister: roleBindingLister{
@@ -673,22 +680,24 @@ func TestGetRoleRef(t *testing.T) {
 					Username: "system:serviceaccount:foo:sa",
 				},
 			},
-			want:  []string{"foo:role-1", "ns-2:role-1"},
-			want1: []string{"role-1"},
+			want: want{
+				roles:        []string{"foo:role-1", "ns-2:role-1"},
+				clusterRoles: []string{"role-1"},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := GetRoleRef(tt.args.rbLister, tt.args.crbLister, tt.args.userInfo)
+			roles, clusterRoles, err := GetRoleRef(tt.args.rbLister, tt.args.crbLister, tt.args.userInfo)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetRoleRef() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetRoleRef() got = %v, want %v", got, tt.want)
+			if !reflect.DeepEqual(roles, tt.want.roles) {
+				t.Errorf("GetRoleRef() roles = %v, want %v", roles, tt.want.roles)
 			}
-			if !reflect.DeepEqual(got1, tt.want1) {
-				t.Errorf("GetRoleRef() got1 = %v, want %v", got1, tt.want1)
+			if !reflect.DeepEqual(clusterRoles, tt.want.clusterRoles) {
+				t.Errorf("GetRoleRef() clusterRoles = %v, want %v", clusterRoles, tt.want.clusterRoles)
 			}
 		})
 	}
