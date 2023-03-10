@@ -4,4 +4,4 @@ data:
 kind: ConfigMap
 metadata:
   name: foo
-  namespace: poltest
+  namespace: pol-clone-sync-modify-downstream-ns
