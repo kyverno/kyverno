@@ -5,7 +5,7 @@ metadata:
     webhook.kyverno.io/managed-by: kyverno
   name: kyverno-resource-validating-webhook-cfg
 webhooks:
-- failurePolicy: Ignore
+- failurePolicy: Fail
   rules:
   - apiGroups:
     - '*'
