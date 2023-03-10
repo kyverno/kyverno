@@ -77,24 +77,6 @@ func ParseArithmeticOperandsArray(arguments []interface{}, operator string) ([]O
 // Scalar   +|- Scalar            -> Scalar
 // Scalar   +|- Quantity|Duration -> error
 
-func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
-	switch v := op2.(type) {
-	case Quantity:
-		op1.Quantity.Add(v.Quantity)
-		return op1.String(), nil
-	default:
-		return nil, formatError(typeMismatchError, add)
-	}
-}
-
-func (op1 Duration) Add(op2 interface{}) (interface{}, error) {
-	switch v := op2.(type) {
-	case Duration:
-		return (op1.Duration + v.Duration).String(), nil
-	default:
-		return nil, formatError(typeMismatchError, add)
-	}
-}
 
 func addScalars(scalars []Operand) (interface{}, error) {
 	if len(scalars) == 0 {
@@ -115,6 +97,64 @@ func addScalars(scalars []Operand) (interface{}, error) {
 
 }
 
+func addQuantities(quantities []Operand)(interface{}, error){
+	if len(quantities) == 0 {
+        return Quantity{}, fmt.Errorf("empty array")
+    }
+
+    result := quantities[0]
+    for i := 1; i < len(quantities); i++ {
+        res, err := result.Add(quantities[i])
+        if err != nil {
+            return Quantity{}, err
+        }
+        result = res.(Quantity)
+    }
+	return result, nil
+}
+
+func addDurations(durations []Operand)(interface{}, error){
+	if len(durations) == 0 {
+		return "", fmt.Errorf("empty array of durations")
+	}
+
+	// Start with the first duration in the array
+	result := durations[0]
+
+	// Add the remaining durations in the array to the result using the `Add` method
+	for i := 1; i < len(durations); i++ {
+		value, err := result.Add(durations[i])
+		if err != nil {
+			return "", err
+		}
+
+		result = Duration{value.(time.Duration)}
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return result, nil
+}
+
+func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
+	switch v := op2.(type) {
+	case Quantity:
+		op1.Quantity.Add(v.Quantity)
+		return op1, nil
+	default:
+		return nil, formatError(typeMismatchError, add)
+	}
+}
+
+func (op1 Duration) Add(op2 interface{}) (interface{}, error) {
+	switch v := op2.(type) {
+	case Duration:
+		return (op1.Duration + v.Duration), nil
+	default:
+		return nil, formatError(typeMismatchError, add)
+	}
+}
 
 func (op1 Scalar) Add(op2 interface{}) (interface{}, error) {
 	

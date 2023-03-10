@@ -746,14 +746,21 @@ func jpAdd(arguments []interface{}) (interface{}, error) {
 	//  op1, op2, err := ParseArithemticOperands(arguments, add)
 	//  fmt.Printf("op1 %T ", op1)
 	//  fmt.Printf("op2 %T ", op2)
-	//fmt.Printf("arguments in jpAdd %+v and type is %T\n", ops, ops[0])
 	if err != nil {
 		return nil, err
 	}
 
 	//   return op1.Add(op2)
-
-	return addScalars(ops)
+	switch ops[0].(type) {
+    case Scalar:
+        return addScalars(ops)
+	case Quantity:
+		return addQuantities(ops)
+	case Duration:
+		return addDurations(ops)
+    default:
+        return nil, formatError(typeMismatchError, add)
+    }
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {
