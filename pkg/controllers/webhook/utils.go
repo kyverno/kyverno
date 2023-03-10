@@ -17,30 +17,28 @@ import (
 type webhook struct {
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
-	rules             map[schema.GroupVersionResource]struct{}
+	rules             map[schema.GroupVersion]sets.Set[string]
 }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType) *webhook {
 	return &webhook{
 		maxWebhookTimeout: timeout,
 		failurePolicy:     failurePolicy,
-		rules:             map[schema.GroupVersionResource]struct{}{},
+		rules:             map[schema.GroupVersion]sets.Set[string]{},
 	}
 }
 
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
-	for gvr := range wh.rules {
-		resources := sets.New(gvr.Resource)
-		ephemeralContainersGVR := schema.GroupVersionResource{Resource: "pods/ephemeralcontainers", Group: "", Version: "v1"}
-		_, rulesContainEphemeralContainers := wh.rules[ephemeralContainersGVR]
-		if resources.Has("pods") && !rulesContainEphemeralContainers {
+	for gv, resources := range wh.rules {
+		// if we have pods, we add pods/ephemeralcontainers by default
+		if gv.Group == "" && gv.Version == "v1" && resources.Has("pods") {
 			resources.Insert("pods/ephemeralcontainers")
 		}
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{gvr.Group},
-				APIVersions: []string{gvr.Version},
+				APIGroups:   []string{gv.Group},
+				APIVersions: []string{gv.Version},
 				Resources:   sets.List(resources),
 			},
 			Operations: ops,
@@ -73,7 +71,13 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 }
 
 func (wh *webhook) set(gvr schema.GroupVersionResource) {
-	wh.rules[gvr] = struct{}{}
+	gv := gvr.GroupVersion()
+	resources := wh.rules[gv]
+	if resources == nil {
+		wh.rules[gv] = sets.New(gvr.Resource)
+	} else {
+		resources.Insert(gvr.Resource)
+	}
 }
 
 func (wh *webhook) isEmpty() bool {
@@ -81,8 +85,8 @@ func (wh *webhook) isEmpty() bool {
 }
 
 func (wh *webhook) setWildcard() {
-	wh.rules = map[schema.GroupVersionResource]struct{}{
-		{Group: "*", Version: "*", Resource: "*/*"}: {},
+	wh.rules = map[schema.GroupVersion]sets.Set[string]{
+		{Group: "*", Version: "*"}: sets.New("*/*"),
 	}
 }
 
