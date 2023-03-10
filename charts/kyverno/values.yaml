@@ -203,18 +203,6 @@ rbac:
     annotations: {}
       # example.com/annotation: value
 
-# -- Security context for the containers
-securityContext:
-  runAsNonRoot: true
-  privileged: false
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop:
-      - ALL
-  seccompProfile:
-    type: RuntimeDefault
-
 # -- Additional resources to be added to controller RBAC permissions.
 generatecontrollerExtraResources: []
 # - ResourceA
@@ -434,6 +422,18 @@ admissionController:
         cpu: 10m
         memory: 64Mi
 
+    # -- Container security context
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
     # -- Additional container args.
     extraArgs:
       - --loggingFormat=text
@@ -462,6 +462,18 @@ admissionController:
       requests:
         cpu: 100m
         memory: 128Mi
+
+    # -- Container security context
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
 
     # -- Additional container args.
     extraArgs:
@@ -813,7 +825,9 @@ reportsController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs: []
+  extraArgs:
+    clientRateLimitQPS: 300
+    clientRateLimitBurst: 100
 
   resources:
     # -- Pod resource limits
@@ -933,9 +947,9 @@ reportsController:
     port: 8000
     # -- Service type.
     type: ClusterIP
-    # -- Service node port.
-    # Only used if `metricsService.type` is `NodePort`.
-    nodePort:
+    # -- (string) Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort: ~
     # -- Service annotations.
     annotations: {}
 
@@ -946,7 +960,7 @@ reportsController:
     additionalLabels: {}
     # -- (string) Override namespace
     namespace: ~
-    # --  Interval to scrape metrics
+    # -- Interval to scrape metrics
     interval: 30s
     # -- Timeout if metrics can't be retrieved in given time interval
     scrapeTimeout: 25s
@@ -958,12 +972,12 @@ reportsController:
   tracing:
     # -- Enable tracing
     enabled: false
-    # -- Traces receiver address
-    address:
-    # -- Traces receiver port
-    port:
-    # -- Traces receiver credentials
-    creds: ''
+    # -- (string) Traces receiver address
+    address: ~
+    # -- (string) Traces receiver port
+    port: ~
+    # -- (string) Traces receiver credentials
+    creds: ~
 
   logging:
     # -- Logging format
@@ -976,10 +990,10 @@ reportsController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
-    # -- Otel collector endpoint
-    collector: ''
-    # -- Otel collector credentials
-    creds: ''
+    # -- (string) Otel collector endpoint
+    collector: ~
+    # -- (string) Otel collector credentials
+    creds: ~
 
 # Background controller configuration
 backgroundController:
