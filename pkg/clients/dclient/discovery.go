@@ -225,7 +225,7 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 				for _, resource := range list.APIResources {
 					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
 					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
-						resources.Insert(gvk.GroupVersion().WithResource(resource.Name))
+						resources.Insert(gv.WithResource(resource.Name))
 					}
 				}
 			}
