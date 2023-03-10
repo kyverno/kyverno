@@ -149,6 +149,17 @@ func (c serverResources) FindResource(groupVersion string, kind string) (apiReso
 }
 
 func (c serverResources) FindResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error) {
+	resources, err := c.findResources(group, version, kind, subresource)
+	if err != nil {
+		if !c.cachedClient.Fresh() {
+			c.cachedClient.Invalidate()
+			return c.findResources(group, version, kind, subresource)
+		}
+	}
+	return resources, err
+}
+
+func (c serverResources) findResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error) {
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
