@@ -20,7 +20,7 @@ cleanupController:
 
 reportsController:
   extraArgs:
-    - --enablePolicyException
+    enablePolicyException: true
 
 backgroundController:
   rbac:
