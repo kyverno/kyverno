@@ -1,6 +1,6 @@
 ## Description
 
-This test checks to ensure that updates a trigger that no longer matching the rule, with a generate data declaration and sync disabled, does not result in the downstream resource's deletion.
+This test checks to ensure that updates to a trigger which cause it to no longer match the rule, with a generate data declaration and sync disabled, does not result in the downstream resource's deletion.
 
 ## Expected Behavior
 
