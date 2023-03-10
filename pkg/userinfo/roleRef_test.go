@@ -1,12 +1,14 @@
 package userinfo
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
 )
 
 func Test_getRoleRefByRoleBindings(t *testing.T) {
@@ -403,6 +405,299 @@ func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if gotClusterRoles := getRoleRefByClusterRoleBindings(tt.args.clusterroleBindings, tt.args.userInfo); !reflect.DeepEqual(gotClusterRoles, tt.wantClusterRoles) {
 				t.Errorf("getRoleRefByClusterRoleBindings() = %v, want %v", gotClusterRoles, tt.wantClusterRoles)
+			}
+		})
+	}
+}
+
+type roleBindingLister struct {
+	ret []*rbacv1.RoleBinding
+	err error
+}
+
+func (l roleBindingLister) List(labels.Selector) ([]*rbacv1.RoleBinding, error) {
+	return l.ret, l.err
+}
+
+type clusterRoleBindingLister struct {
+	ret []*rbacv1.ClusterRoleBinding
+	err error
+}
+
+func (l clusterRoleBindingLister) List(labels.Selector) ([]*rbacv1.ClusterRoleBinding, error) {
+	return l.ret, l.err
+}
+
+func TestGetRoleRef(t *testing.T) {
+	type args struct {
+		rbLister  RoleBindingLister
+		crbLister ClusterRoleBindingLister
+		userInfo  authenticationv1.UserInfo
+	}
+	type want struct {
+		roles        []string
+		clusterRoles []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    want
+		wantErr bool
+	}{
+		{
+			args: args{
+				rbLister: roleBindingLister{
+					ret: []*rbacv1.RoleBinding{{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "same-ns",
+							Namespace: "ns-1",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind: "ServiceAccount",
+							Name: "sa",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "Role",
+							Name: "role-1",
+						},
+					}, {
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "same-ns",
+							Namespace: "ns-1",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "ns-1",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "Role",
+							Name: "role-1",
+						},
+					}, {
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "different-ns",
+							Namespace: "ns-2",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "ns-1",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "Role",
+							Name: "role-1",
+						},
+					}, {
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "different-ns",
+							Namespace: "ns-2",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "ns-1",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "ClusterRole",
+							Name: "role-1",
+						},
+					}},
+				},
+				crbLister: clusterRoleBindingLister{},
+				userInfo: authenticationv1.UserInfo{
+					Username: "system:serviceaccount:ns-1:sa",
+				},
+			},
+			want: want{
+				roles:        []string{"ns-1:role-1", "ns-2:role-1"},
+				clusterRoles: []string{"role-1"},
+			},
+		}, {
+			args: args{
+				rbLister: roleBindingLister{
+					err: errors.New("error"),
+				},
+				crbLister: clusterRoleBindingLister{},
+				userInfo: authenticationv1.UserInfo{
+					Username: "system:serviceaccount:ns-1:sa",
+				},
+			},
+			wantErr: true,
+		}, {
+			args: args{
+				rbLister: roleBindingLister{},
+				crbLister: clusterRoleBindingLister{
+					err: errors.New("error"),
+				},
+				userInfo: authenticationv1.UserInfo{
+					Username: "system:serviceaccount:ns-1:sa",
+				},
+			},
+			wantErr: true,
+		}, {
+			args: args{
+				rbLister: roleBindingLister{
+					err: errors.New("error"),
+				},
+				crbLister: clusterRoleBindingLister{
+					err: errors.New("error"),
+				},
+				userInfo: authenticationv1.UserInfo{
+					Username: "system:serviceaccount:ns-1:sa",
+				},
+			},
+			wantErr: true,
+		}, {
+			args: args{
+				rbLister: roleBindingLister{},
+				crbLister: clusterRoleBindingLister{
+					ret: []*rbacv1.ClusterRoleBinding{{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "cluster-role",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "foo",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "ClusterRole",
+							Name: "role-1",
+						},
+					}, {
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "cluster-role",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "bar",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "ClusterRole",
+							Name: "role-2",
+						},
+					}},
+				},
+				userInfo: authenticationv1.UserInfo{
+					Username: "system:serviceaccount:foo:sa",
+				},
+			},
+			want: want{
+				clusterRoles: []string{"role-1"},
+			},
+		}, {
+			args: args{
+				rbLister: roleBindingLister{
+					ret: []*rbacv1.RoleBinding{{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "same-ns",
+							Namespace: "foo",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind: "ServiceAccount",
+							Name: "sa",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "Role",
+							Name: "role-1",
+						},
+					}, {
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "same-ns",
+							Namespace: "foo",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "foo",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "Role",
+							Name: "role-1",
+						},
+					}, {
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "different-ns",
+							Namespace: "ns-2",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "foo",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "Role",
+							Name: "role-1",
+						},
+					}, {
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "different-ns",
+							Namespace: "ns-2",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "foo",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "ClusterRole",
+							Name: "role-1",
+						},
+					}},
+				},
+				crbLister: clusterRoleBindingLister{
+					ret: []*rbacv1.ClusterRoleBinding{{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "cluster-role",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "foo",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "ClusterRole",
+							Name: "role-1",
+						},
+					}, {
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "cluster-role",
+						},
+						Subjects: []rbacv1.Subject{{
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "bar",
+						}},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "ClusterRole",
+							Name: "role-2",
+						},
+					}},
+				},
+				userInfo: authenticationv1.UserInfo{
+					Username: "system:serviceaccount:foo:sa",
+				},
+			},
+			want: want{
+				roles:        []string{"foo:role-1", "ns-2:role-1"},
+				clusterRoles: []string{"role-1"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			roles, clusterRoles, err := GetRoleRef(tt.args.rbLister, tt.args.crbLister, tt.args.userInfo)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetRoleRef() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(roles, tt.want.roles) {
+				t.Errorf("GetRoleRef() roles = %v, want %v", roles, tt.want.roles)
+			}
+			if !reflect.DeepEqual(clusterRoles, tt.want.clusterRoles) {
+				t.Errorf("GetRoleRef() clusterRoles = %v, want %v", clusterRoles, tt.want.clusterRoles)
 			}
 		})
 	}

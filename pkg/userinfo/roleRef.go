@@ -3,11 +3,10 @@ package userinfo
 import (
 	"fmt"
 
-	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -15,24 +14,39 @@ const (
 	roleKind        = "Role"
 )
 
+type RoleBindingLister interface {
+	List(labels.Selector) ([]*rbacv1.RoleBinding, error)
+}
+
+type ClusterRoleBindingLister interface {
+	List(labels.Selector) ([]*rbacv1.ClusterRoleBinding, error)
+}
+
 // GetRoleRef gets the list of roles and cluster roles for the incoming api-request
-func GetRoleRef(rbLister rbacv1listers.RoleBindingLister, crbLister rbacv1listers.ClusterRoleBindingLister, request *admissionv1.AdmissionRequest) ([]string, []string, error) {
+func GetRoleRef(rbLister RoleBindingLister, crbLister ClusterRoleBindingLister, userInfo authenticationv1.UserInfo) ([]string, []string, error) {
 	// rolebindings
 	roleBindings, err := rbLister.List(labels.Everything())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list rolebindings: %v", err)
 	}
-	rs, crs := getRoleRefByRoleBindings(roleBindings, request.UserInfo)
+	rs, crs := getRoleRefByRoleBindings(roleBindings, userInfo)
 	// clusterrolebindings
 	clusterroleBindings, err := crbLister.List(labels.Everything())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list clusterrolebindings: %v", err)
 	}
-	crs = append(crs, getRoleRefByClusterRoleBindings(clusterroleBindings, request.UserInfo)...)
+	crs = append(crs, getRoleRefByClusterRoleBindings(clusterroleBindings, userInfo)...)
+	if rs != nil {
+		rs = sets.List(sets.New(rs...))
+	}
+	if crs != nil {
+		crs = sets.List(sets.New(crs...))
+	}
 	return rs, crs, nil
 }
 
-func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authenticationv1.UserInfo) (roles []string, clusterRoles []string) {
+func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authenticationv1.UserInfo) ([]string, []string) {
+	var roles, clusterRoles []string
 	for _, rolebinding := range roleBindings {
 		if matchBindingSubjects(rolebinding.Subjects, userInfo, rolebinding.Namespace) {
 			switch rolebinding.RoleRef.Kind {
@@ -46,7 +60,8 @@ func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authe
 	return roles, clusterRoles
 }
 
-func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBinding, userInfo authenticationv1.UserInfo) (clusterRoles []string) {
+func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBinding, userInfo authenticationv1.UserInfo) []string {
+	var clusterRoles []string
 	for _, clusterRoleBinding := range clusterroleBindings {
 		if matchBindingSubjects(clusterRoleBinding.Subjects, userInfo, "") {
 			if clusterRoleBinding.RoleRef.Kind == clusterroleKind {
