@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-clone-create-on-trigger-deletion
+  namespace: pol-clone-create-on-trigger-deletion-manifest-ns
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pol-clone-create-on-trigger-deletion-trigger
+  namespace: pol-clone-create-on-trigger-deletion-manifest-ns 
