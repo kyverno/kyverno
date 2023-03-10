@@ -1,8 +1,8 @@
 apiVersion: kyverno.io/v2beta1
 kind: Policy
 metadata:
-  name: pol-sync-clone
-  namespace: poltest
+  name: pol-clone-sync-modify-downstream-policy
+  namespace: pol-clone-sync-modify-downstream-ns
 status:
   conditions:
   - reason: Succeeded

@@ -7,8 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -24,7 +22,6 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
@@ -141,9 +138,7 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
 
-	defer h.handleDelete(logger, request)
 	go h.handleBackgroundApplies(ctx, logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
-
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
 
@@ -187,30 +182,6 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 	warnings = append(warnings, mutateWarnings...)
 	warnings = append(warnings, imageVerifyWarnings...)
 	return admissionutils.MutationResponse(request.UID, patch, warnings...)
-}
-
-func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.AdmissionRequest) {
-	if request.Operation == admissionv1.Delete {
-		resource, err := kubeutils.BytesToUnstructured(request.OldObject.Raw)
-		if err != nil {
-			logger.Error(err, "failed to convert object resource to unstructured format")
-		}
-
-		resLabels := resource.GetLabels()
-		if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
-			urName := resLabels[generate.LabelURName]
-			ur, err := h.urLister.Get(urName)
-			if err != nil {
-				logger.Error(err, "failed to get update request", "name", urName)
-				return
-			}
-
-			if ur.Spec.GetRequestType() == kyvernov1beta1.Mutate {
-				return
-			}
-			h.urUpdater.UpdateAnnotation(logger, ur.GetName())
-		}
-	}
 }
 
 func filterPolicies(failurePolicy string, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
