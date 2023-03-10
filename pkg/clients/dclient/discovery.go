@@ -164,8 +164,8 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			logDiscoveryErrors(err)
-			// } else if isMetricsServerUnavailable(groupVersion, err) {
-			// 	logger.V(3).Info("failed to find preferred resource version", "error", err.Error())
+		} else if isServerCurrentlyUnableToHandleRequest(err) {
+			logger.Error(err, "failed to find preferred resource version")
 		} else {
 			logger.Error(err, "failed to find preferred resource version")
 			return nil, err
