@@ -1,0 +1,13 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: update-rule-name.yaml
+  shouldFail: true
+- file: update-rule-match.yaml
+  shouldFail: true
+- file: update-rule-exclude.yaml
+  shouldFail: true
+- file: update-rule-preconditions.yaml
+  shouldFail: true
+- file: update-rule-generate-synchronize.yaml
+  shouldFail: false
