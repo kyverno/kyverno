@@ -182,19 +182,17 @@ func (v *validationHandler) handleAudit(
 	namespaceLabels map[string]string,
 	engineResponses ...*engineapi.EngineResponse,
 ) {
-	if !v.admissionReports {
-		return
-	}
+	createReport := v.admissionReports
 	if request.DryRun != nil && *request.DryRun {
-		return
+		createReport = false
 	}
 	// we don't need reports for deletions
 	if request.Operation == admissionv1.Delete {
-		return
+		createReport = false
 	}
 	// check if the resource supports reporting
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
-		return
+		createReport = false
 	}
 	tracing.Span(
 		context.Background(),
@@ -207,17 +205,19 @@ func (v *validationHandler) handleAudit(
 			}
 			events := webhookutils.GenerateEvents(responses, false)
 			v.eventGen.Add(events...)
-			responses = append(responses, engineResponses...)
-			report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
-			// if it's not a creation, the resource already exists, we can set the owner
-			if request.Operation != admissionv1.Create {
-				gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
-				controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
-			}
-			if len(report.GetResults()) > 0 {
-				_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
-				if err != nil {
-					v.log.Error(err, "failed to create report")
+			if createReport {
+				responses = append(responses, engineResponses...)
+				report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
+				// if it's not a creation, the resource already exists, we can set the owner
+				if request.Operation != admissionv1.Create {
+					gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
+					controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
+				}
+				if len(report.GetResults()) > 0 {
+					_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
+					if err != nil {
+						v.log.Error(err, "failed to create report")
+					}
 				}
 			}
 		},
