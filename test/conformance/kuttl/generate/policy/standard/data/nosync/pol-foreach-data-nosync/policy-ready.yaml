@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
-  name: pol-foreach-data-sync
+  name: pol-foreach-data-nosync
   namespace: default
 status:
   conditions:
