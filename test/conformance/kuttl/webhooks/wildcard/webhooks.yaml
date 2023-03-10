@@ -17,19 +17,6 @@ webhooks:
     - DELETE
     - CONNECT
     resources:
-    - '*/*'
-    scope: '*'
-- failurePolicy: Fail
-  rules:
-  - apiGroups:
     - '*'
-    apiVersions:
-    - '*'
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    - CONNECT
-    resources:
-    - '*/*'
+    - pods/ephemeralcontainers
     scope: '*'
