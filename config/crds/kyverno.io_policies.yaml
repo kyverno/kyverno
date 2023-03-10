@@ -30,9 +30,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -102,11 +102,11 @@ spec:
                 - Ignore
                 - Fail
                 type: string
-              generateExistingOnPolicyUpdate:
-                description: GenerateExistingOnPolicyUpdate controls whether to trigger
-                  generate rule in existing resources If is set to "true" generate
-                  rule will be triggered and applied to existing matched resources.
-                  Defaults to "false" if not specified.
+              generateExisting:
+                description: GenerateExisting controls whether to trigger generate
+                  rule in existing resources If is set to "true" generate rule will
+                  be triggered and applied to existing matched resources. Defaults
+                  to "false" if not specified.
                 type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
@@ -1006,6 +1006,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -1696,9 +1705,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -2030,10 +2039,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -3242,6 +3251,14 @@ spec:
                               signing, for example an email address Deprecated. Use
                               KeylessAttestor instead.
                             type: string
+                          type:
+                            description: Type specifies the method of signature validation.
+                              The allowed options are Cosign and NotaryV2. By default
+                              Cosign is used if a type is not specified.
+                            enum:
+                            - Cosign
+                            - NotaryV2
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -3284,6 +3301,54 @@ spec:
                       - Audit
                       - Enforce
                       type: string
+                    namespaceSelector:
+                      description: A label selector is a label query over a set of
+                        resources. The result of matchLabels and matchExpressions
+                        are ANDed. An empty label selector matches all objects. A
+                        null label selector matches no objects.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     namespaces:
                       items:
                         type: string
@@ -4240,6 +4305,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -4959,10 +5033,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -5309,10 +5383,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -6575,6 +6649,14 @@ spec:
                                   signing, for example an email address Deprecated.
                                   Use KeylessAttestor instead.
                                 type: string
+                              type:
+                                description: Type specifies the method of signature
+                                  validation. The allowed options are Cosign and NotaryV2.
+                                  By default Cosign is used if a type is not specified.
+                                enum:
+                                - Cosign
+                                - NotaryV2
+                                type: string
                               verifyDigest:
                                 default: true
                                 description: VerifyDigest validates that images have
@@ -6701,9 +6783,9 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -6772,11 +6854,11 @@ spec:
                 - Ignore
                 - Fail
                 type: string
-              generateExistingOnPolicyUpdate:
-                description: GenerateExistingOnPolicyUpdate controls whether to trigger
-                  generate rule in existing resources If is set to "true" generate
-                  rule will be triggered and applied to existing matched resources.
-                  Defaults to "false" if not specified.
+              generateExisting:
+                description: GenerateExisting controls whether to trigger generate
+                  rule in existing resources If is set to "true" generate rule will
+                  be triggered and applied to existing matched resources. Defaults
+                  to "false" if not specified.
                 type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
@@ -7468,6 +7550,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -7950,9 +8041,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -8452,10 +8543,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -9624,6 +9715,14 @@ spec:
                               i.e. have matched passed a signature or attestation
                               check.
                             type: boolean
+                          type:
+                            description: Type specifies the method of signature validation.
+                              The allowed options are Cosign and NotaryV2. By default
+                              Cosign is used if a type is not specified.
+                            enum:
+                            - Cosign
+                            - NotaryV2
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -9666,6 +9765,54 @@ spec:
                       - Audit
                       - Enforce
                       type: string
+                    namespaceSelector:
+                      description: A label selector is a label query over a set of
+                        resources. The result of matchLabels and matchExpressions
+                        are ANDed. An empty label selector matches all objects. A
+                        null label selector matches no objects.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     namespaces:
                       items:
                         type: string
@@ -10621,6 +10768,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -11340,10 +11496,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -11690,10 +11846,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -12955,6 +13111,14 @@ spec:
                                 description: Subject is the identity used for keyless
                                   signing, for example an email address Deprecated.
                                   Use KeylessAttestor instead.
+                                type: string
+                              type:
+                                description: Type specifies the method of signature
+                                  validation. The allowed options are Cosign and NotaryV2.
+                                  By default Cosign is used if a type is not specified.
+                                enum:
+                                - Cosign
+                                - NotaryV2
                                 type: string
                               verifyDigest:
                                 default: true

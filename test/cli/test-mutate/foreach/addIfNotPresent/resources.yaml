@@ -18,7 +18,7 @@ spec:
         runAsGroup: 65000
       containers:
         - name: pause
-          image: k8s.gcr.io/pause:3.3
+          image: registry.k8s.io/pause:3.3
           resources:
             limits:
               cpu: 10m

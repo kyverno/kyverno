@@ -7,27 +7,20 @@ on:
       - 'release-*'
 
 jobs:
-  checksecret:
-    runs-on: ubuntu-latest
-    outputs:
-      result: ${{ steps.check.outputs.result }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
-      - name: Check secret
-        id: check
-        uses: ./.github/actions/is-defined
-        with:
-          value: ${{ secrets.PR_UPDATE_TOKEN }}
-
   autoupdate:
-    needs: [checksecret]
-    if: needs.checksecret.outputs.result == 'true'
     permissions:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Check secret
+        id: checksecret
+        uses: ./.github/actions/is-defined
+        with:
+          value: ${{ secrets.PR_UPDATE_TOKEN }}
       - name: Automatically update PR
+        if: steps.checksecret.outputs.result == 'true'
         uses: adRise/update-pr-branch@437fab6e0ac7d2a668f2c479f64225edd7f303fd # v0.6.0
         with:
           token: ${{ secrets.PR_UPDATE_TOKEN }}

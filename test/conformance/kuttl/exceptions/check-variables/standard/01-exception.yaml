@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: exception-allowed.yaml
+- file: exception-rejected.yaml
+  shouldFail: true
+assert:
+- exception-allowed.yaml
+error:
+- exception-rejected.yaml

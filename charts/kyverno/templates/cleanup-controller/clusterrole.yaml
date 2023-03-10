@@ -3,7 +3,18 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.name" . }}:cleanup-controller
+  name: {{ template "kyverno.cleanup-controller.roleName" . }}
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
+aggregationRule:
+  clusterRoleSelectors:
+    - matchLabels:
+        {{- include "kyverno.cleanup-controller.matchLabels" . | nindent 8 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "kyverno.cleanup-controller.roleName" . }}:core
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
 rules:
@@ -53,7 +64,22 @@ rules:
       - list
       - update
       - watch
-  {{- with .Values.cleanupController.rbac.clusterRole.extraResources }}
+  - apiGroups:
+    - ""
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+{{- with .Values.cleanupController.rbac.clusterRole.extraResources }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "kyverno.cleanup-controller.roleName" $ }}:additional
+  labels:
+    {{- include "kyverno.cleanup-controller.labels" $ | nindent 4 }}
+rules:
   {{- range . }}
   - apiGroups:
       {{- toYaml .apiGroups | nindent 6 }}
@@ -63,6 +89,6 @@ rules:
       - delete
       - list
   {{- end }}
-  {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

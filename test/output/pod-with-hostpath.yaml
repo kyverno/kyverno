@@ -6,7 +6,7 @@ metadata:
     cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
 spec:
   containers:
-  - image: k8s.gcr.io/test-webserver
+  - image: registry.k8s.io/test-webserver
     name: test-container
     volumeMounts:
     - mountPath: /tmp/foo

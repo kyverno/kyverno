@@ -2,16 +2,31 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 
-	"github.com/pkg/errors"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+)
+
+// ImageVerificationType selects the type of verification algorithm
+// +kubebuilder:validation:Enum=Cosign;NotaryV2
+// +kubebuilder:default=Cosign
+type ImageVerificationType string
+
+const (
+	Cosign   ImageVerificationType = "Cosign"
+	NotaryV2 ImageVerificationType = "NotaryV2"
 )
 
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
+	// Type specifies the method of signature validation. The allowed options
+	// are Cosign and NotaryV2. By default Cosign is used if a type is not specified.
+	// +kubebuilder:validation:Optional
+	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
+
 	// Image is the image name consisting of the registry address, repository, image, and tag.
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// Deprecated. Use ImageReferences instead.
@@ -94,6 +109,13 @@ type AttestorSet struct {
 	// attributes for keyless verification, or a nested attestor declaration.
 	// +kubebuilder:validation:Optional
 	Entries []Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
+}
+
+func (as AttestorSet) RequiredCount() int {
+	if as.Count == nil || *as.Count == 0 {
+		return len(as.Entries)
+	}
+	return *as.Count
 }
 
 type Attestor struct {
@@ -227,6 +249,14 @@ type Attestation struct {
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
+func (iv *ImageVerification) GetType() ImageVerificationType {
+	if iv.Type != "" {
+		return iv.Type
+	}
+
+	return Cosign
+}
+
 // Validate implements programmatic validation
 func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 	copy := iv.Convert()
@@ -332,7 +362,7 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
 	var as AttestorSet
 	if err := json.Unmarshal(o.Raw, &as); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal attestor set %s", string(o.Raw))
+		return nil, fmt.Errorf("failed to unmarshal attestor set %s: %w", string(o.Raw), err)
 	}
 
 	return &as, nil

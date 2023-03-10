@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +16,11 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+const (
+	namespace = "default"
+	name      = "myconfigmap"
+)
+
 func newEmptyFakeClient() *kubefake.Clientset {
 	return kubefake.NewSimpleClientset()
 }
@@ -22,15 +28,15 @@ func newEmptyFakeClient() *kubefake.Clientset {
 func createConfigMaps(ctx context.Context, client *kubefake.Clientset, addLabel bool) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      TEST_CONFIGMAP,
-			Namespace: TEST_NAMESPACE,
+			Name:      name,
+			Namespace: namespace,
 		},
 		Data: map[string]string{"configmapkey": "key1"},
 	}
 	if addLabel {
 		cm.ObjectMeta.Labels = map[string]string{LabelCacheKey: "true"}
 	}
-	_, err := client.CoreV1().ConfigMaps(TEST_NAMESPACE).Create(
+	_, err := client.CoreV1().ConfigMaps(namespace).Create(
 		ctx, cm, metav1.CreateOptions{})
 	return err
 }
@@ -57,7 +63,7 @@ func Test_InformerCacheSuccess(t *testing.T) {
 	assert.NilError(t, err)
 	informer.Start(make(<-chan struct{}))
 	time.Sleep(10 * time.Second)
-	_, err = informerResolver.Get(ctx, TEST_NAMESPACE, TEST_CONFIGMAP)
+	_, err = informerResolver.Get(ctx, namespace, name)
 	assert.NilError(t, err, "informer didn't have expected configmap")
 }
 
@@ -71,7 +77,7 @@ func Test_InformerCacheFailure(t *testing.T) {
 	assert.NilError(t, err)
 	informer.Start(make(<-chan struct{}))
 	time.Sleep(10 * time.Second)
-	_, err = resolver.Get(ctx, TEST_NAMESPACE, TEST_CONFIGMAP)
+	_, err = resolver.Get(ctx, namespace, name)
 	assert.Equal(t, err.Error(), "configmap \"myconfigmap\" not found")
 }
 
@@ -82,7 +88,7 @@ func Test_ClientBasedResolver(t *testing.T) {
 	assert.NilError(t, err, "error while creating configmap")
 	resolver, err := NewClientBasedResolver(client)
 	assert.NilError(t, err)
-	_, err = resolver.Get(ctx, TEST_NAMESPACE, TEST_CONFIGMAP)
+	_, err = resolver.Get(ctx, namespace, name)
 	assert.NilError(t, err, "error while getting configmap from client")
 }
 
@@ -94,12 +100,12 @@ func Test_ResolverChainWithExistingConfigMap(t *testing.T) {
 	assert.NilError(t, err)
 	clientBasedResolver, err := NewClientBasedResolver(client)
 	assert.NilError(t, err)
-	resolvers, err := NewResolverChain(informerBasedResolver, clientBasedResolver)
+	resolvers, err := api.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
 	assert.NilError(t, err)
 	ctx := context.TODO()
 	err = createConfigMaps(ctx, client, true)
 	assert.NilError(t, err, "error while creating configmap")
-	_, err = resolvers.Get(ctx, TEST_NAMESPACE, TEST_CONFIGMAP)
+	_, err = resolvers.Get(ctx, namespace, name)
 	assert.NilError(t, err, "error while getting configmap")
 }
 
@@ -111,10 +117,10 @@ func Test_ResolverChainWithNonExistingConfigMap(t *testing.T) {
 	assert.NilError(t, err)
 	clientBasedResolver, err := NewClientBasedResolver(client)
 	assert.NilError(t, err)
-	resolvers, err := NewResolverChain(informerBasedResolver, clientBasedResolver)
+	resolvers, err := api.NewNamespacedResourceResolver(informerBasedResolver, clientBasedResolver)
 	assert.NilError(t, err)
 	ctx := context.TODO()
-	_, err = resolvers.Get(ctx, TEST_NAMESPACE, TEST_CONFIGMAP)
+	_, err = resolvers.Get(ctx, namespace, name)
 	assert.Error(t, err, "configmaps \"myconfigmap\" not found")
 }
 
@@ -128,7 +134,7 @@ func TestNewInformerBasedResolver(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    ConfigmapResolver
+		want    api.ConfigmapResolver
 		wantErr bool
 	}{{
 		name:    "nil shoud return an error",
@@ -160,7 +166,7 @@ func TestNewClientBasedResolver(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    ConfigmapResolver
+		want    api.ConfigmapResolver
 		wantErr bool
 	}{{
 		name:    "nil shoud return an error",
@@ -179,51 +185,6 @@ func TestNewClientBasedResolver(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewClientBasedResolver() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-type dummyResolver struct{}
-
-func (c dummyResolver) Get(context.Context, string, string) (*corev1.ConfigMap, error) {
-	return nil, nil
-}
-
-func TestNewResolverChain(t *testing.T) {
-	type args struct {
-		resolvers []ConfigmapResolver
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    ConfigmapResolver
-		wantErr bool
-	}{{
-		name:    "nil shoud return an error",
-		wantErr: true,
-	}, {
-		name:    "empty list shoud return an error",
-		args:    args{[]ConfigmapResolver{}},
-		wantErr: true,
-	}, {
-		name:    "one nil in the list shoud return an error",
-		args:    args{[]ConfigmapResolver{dummyResolver{}, nil}},
-		wantErr: true,
-	}, {
-		name: "no nil",
-		args: args{[]ConfigmapResolver{dummyResolver{}, dummyResolver{}, dummyResolver{}}},
-		want: resolverChain{dummyResolver{}, dummyResolver{}, dummyResolver{}},
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewResolverChain(tt.args.resolvers...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewResolverChain() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewResolverChain() = %v, want %v", got, tt.want)
 			}
 		})
 	}

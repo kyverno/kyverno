@@ -3,6 +3,7 @@ package pattern
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -137,7 +138,7 @@ func validateNilPattern(log logr.Logger, value interface{}) bool {
 	}
 }
 
-func validateMapPattern(log logr.Logger, value interface{}, typedPattern map[string]interface{}) bool {
+func validateMapPattern(log logr.Logger, value interface{}, _ map[string]interface{}) bool {
 	// verify the type of the resource value is map[string]interface,
 	// we only check for existence of object, not the equality of content and value
 	_, ok := value.(map[string]interface{})
@@ -176,19 +177,31 @@ func validateStringPattern(log logr.Logger, value interface{}, pattern string) b
 	if op == operator.InRange {
 		// Upon encountering InRange operator split the string by `-` and basically
 		// verify the result of (x >= leftEndpoint & x <= rightEndpoint)
-		endpoints := strings.Split(pattern, "-")
-		return validateStringPattern(log, value, fmt.Sprintf(">= %s", endpoints[0])) &&
-			validateStringPattern(log, value, fmt.Sprintf("<= %s", endpoints[1]))
+		if left, right, ok := split(pattern, operator.InRangeRegex); ok {
+			return validateStringPattern(log, value, fmt.Sprintf(">= %s", left)) &&
+				validateStringPattern(log, value, fmt.Sprintf("<= %s", right))
+		}
+		return false
 	} else if op == operator.NotInRange {
 		// Upon encountering NotInRange operator split the string by `!-` and basically
 		// verify the result of (x < leftEndpoint | x > rightEndpoint)
-		endpoints := strings.Split(pattern, "!-")
-		return validateStringPattern(log, value, fmt.Sprintf("< %s", endpoints[0])) ||
-			validateStringPattern(log, value, fmt.Sprintf("> %s", endpoints[1]))
+		if left, right, ok := split(pattern, operator.NotInRangeRegex); ok {
+			return validateStringPattern(log, value, fmt.Sprintf("< %s", left)) ||
+				validateStringPattern(log, value, fmt.Sprintf("> %s", right))
+		}
+		return false
 	} else {
 		pattern := strings.TrimSpace(pattern[len(op):])
 		return validateString(log, value, pattern, op)
 	}
+}
+
+func split(pattern string, r *regexp.Regexp) (string, string, bool) {
+	match := r.FindStringSubmatch(pattern)
+	if len(match) == 0 {
+		return "", "", false
+	}
+	return match[1], match[2], true
 }
 
 func validateString(log logr.Logger, value interface{}, pattern string, op operator.Operator) bool {
@@ -300,8 +313,6 @@ func convertNumberToString(value interface{}) (string, error) {
 		return strconv.FormatInt(typed, 10), nil
 	case int:
 		return strconv.Itoa(typed), nil
-	case nil:
-		return "", fmt.Errorf("got empty string, expect %v", value)
 	default:
 		return "", fmt.Errorf("could not convert %v to string", typed)
 	}

@@ -2,7 +2,9 @@ package jmespath
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
+	"time"
 
 	"gotest.tools/assert"
 )
@@ -179,6 +181,350 @@ func Test_TimeDiff(t *testing.T) {
 			assert.Assert(t, ok)
 
 			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
+
+func Test_getTimeArg(t *testing.T) {
+	mustParse := func(s string) time.Time {
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			panic(err)
+		}
+		return t
+	}
+	type args struct {
+		f         string
+		arguments []interface{}
+		index     int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    time.Time
+		wantErr bool
+	}{{
+		args: args{
+			f: "test",
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+			},
+			index: 0,
+		},
+		want: mustParse("2021-01-02T15:04:05-07:00"),
+	}, {
+		args: args{
+			f: "test",
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+			},
+			index: 1,
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			f: "test",
+			arguments: []interface{}{
+				1,
+			},
+			index: 0,
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			f: "test",
+			arguments: []interface{}{
+				"",
+			},
+			index: 0,
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getTimeArg(tt.args.f, tt.args.arguments, tt.args.index)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getTimeArg() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getTimeArg() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getDurationArg(t *testing.T) {
+	mustParse := func(s string) time.Duration {
+		t, err := time.ParseDuration(s)
+		if err != nil {
+			panic(err)
+		}
+		return t
+	}
+	type args struct {
+		f         string
+		arguments []interface{}
+		index     int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    time.Duration
+		wantErr bool
+	}{{
+		args: args{
+			f: "test",
+			arguments: []interface{}{
+				"20s",
+			},
+			index: 0,
+		},
+		want: mustParse("20s"),
+	}, {
+		args: args{
+			f: "test",
+			arguments: []interface{}{
+				"20s",
+			},
+			index: 1,
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			f: "test",
+			arguments: []interface{}{
+				1,
+			},
+			index: 0,
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			f: "test",
+			arguments: []interface{}{
+				"",
+			},
+			index: 0,
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getDurationArg(tt.args.f, tt.args.arguments, tt.args.index)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getDurationArg() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("getDurationArg() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpTimeBefore(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+				"2021-01-02T16:04:05-07:00",
+			},
+		},
+		want: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+				"2021-01-02T15:04:05-07:00",
+			},
+		},
+		want: false,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T16:04:05-07:00",
+				"2021-01-02T15:04:05-07:00",
+			},
+		},
+		want: false,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				1,
+				"2021-01-02T15:04:05-07:00",
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+				1,
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpTimeBefore(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpTimeBefore() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpTimeBefore() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpTimeAfter(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+				"2021-01-02T16:04:05-07:00",
+			},
+		},
+		want: false,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+				"2021-01-02T15:04:05-07:00",
+			},
+		},
+		want: false,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T16:04:05-07:00",
+				"2021-01-02T15:04:05-07:00",
+			},
+		},
+		want: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				1,
+				"2021-01-02T15:04:05-07:00",
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+				1,
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpTimeAfter(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpTimeAfter() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpTimeAfter() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_jpTimeBetween(t *testing.T) {
+	type args struct {
+		arguments []interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{{
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T17:04:05-07:00",
+				"2021-01-02T15:04:05-07:00",
+				"2021-01-02T18:04:05-07:00",
+			},
+		},
+		want: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+				"2021-01-02T15:04:05-07:00",
+				"2021-01-02T18:04:05-07:00",
+			},
+		},
+		want: false,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T18:04:05-07:00",
+				"2021-01-02T15:04:05-07:00",
+				"2021-01-02T18:04:05-07:00",
+			},
+		},
+		want: false,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				1,
+				"2021-01-02T15:04:05-07:00",
+				"2021-01-02T18:04:05-07:00",
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+				1,
+				"2021-01-02T18:04:05-07:00",
+			},
+		},
+		wantErr: true,
+	}, {
+		args: args{
+			arguments: []interface{}{
+				"2021-01-02T15:04:05-07:00",
+				"2021-01-02T18:04:05-07:00",
+				1,
+			},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpTimeBetween(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpTimeBetween() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("jpTimeBetween() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

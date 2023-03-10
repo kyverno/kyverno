@@ -5,7 +5,6 @@ linters:
     - bidichk
     - bodyclose
     - containedctx
-    - deadcode
     - decorder
     - dogsled
     - durationcheck
@@ -31,14 +30,12 @@ linters:
     - nosprintfhostport
     - paralleltest
     - staticcheck
-    - structcheck
     - tenv
     - thelper
     - tparallel
     - typecheck
     - unconvert
     - unused
-    - varcheck
     - wastedassign
     - whitespace
 

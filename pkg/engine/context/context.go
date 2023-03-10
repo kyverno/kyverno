@@ -12,7 +12,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -125,7 +124,7 @@ func (ctx *context) addJSON(dataRaw []byte) error {
 	defer ctx.mutex.Unlock()
 	json, err := jsonpatch.MergeMergePatches(ctx.jsonRaw, dataRaw)
 	if err != nil {
-		return errors.Wrap(err, "failed to merge JSON data")
+		return fmt.Errorf("failed to merge JSON data: %w", err)
 	}
 	ctx.jsonRaw = json
 	return nil
@@ -283,7 +282,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg confi
 func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov1.ImageExtractorConfigs, cfg config.Configuration) (map[string]map[string]apiutils.ImageInfo, error) {
 	images, err := apiutils.ExtractImagesFromResource(*resource, imageExtractorConfigs, cfg)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to extract images")
+		return nil, fmt.Errorf("failed to extract images: %w", err)
 	}
 
 	if len(images) == 0 {

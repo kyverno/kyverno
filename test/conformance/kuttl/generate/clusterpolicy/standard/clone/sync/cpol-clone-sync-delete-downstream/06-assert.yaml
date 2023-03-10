@@ -1,0 +1,6 @@
+### If this resource is found, the step should pass. We expect the downstream resource to be recreated.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: regcred
+  namespace: cpol-clone-sync-delete-downstream-ns

@@ -17,7 +17,9 @@ runs:
       run: |
         kubectl -n kyverno logs deploy/kyverno --all-containers -p || true
         kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers -p || true
+        kubectl -n kyverno logs deploy/kyverno-background-controller --all-containers -p || true
     - shell: bash
       run: |
         kubectl -n kyverno logs deploy/kyverno --all-containers
         kubectl -n kyverno logs deploy/kyverno-cleanup-controller --all-containers
+        kubectl -n kyverno logs deploy/kyverno-background-controller --all-containers

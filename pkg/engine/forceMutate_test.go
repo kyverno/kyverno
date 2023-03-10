@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -103,7 +104,7 @@ func Test_ForceMutateSubstituteVars(t *testing.T) {
 	err = context.AddResource(ctx, rawResource)
 	assert.NilError(t, err)
 
-	mutatedResource, err := ForceMutate(ctx, &policy, *resourceUnstructured)
+	mutatedResource, err := ForceMutate(ctx, logr.Discard(), &policy, *resourceUnstructured)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())
@@ -208,7 +209,7 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 	err = context.AddResource(ctx, rawResource)
 	assert.NilError(t, err)
 
-	mutatedResource, err := ForceMutate(ctx, &policy, *resourceUnstructured)
+	mutatedResource, err := ForceMutate(ctx, logr.Discard(), &policy, *resourceUnstructured)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedResource.UnstructuredContent(), mutatedResource.UnstructuredContent())
@@ -294,7 +295,7 @@ func Test_ForceMutateSubstituteVarsWithPatchStrategicMerge(t *testing.T) {
 	err = context.AddResource(ctx, rawResource)
 	assert.NilError(t, err)
 
-	mutatedResource, err := ForceMutate(ctx, &policy, *resourceUnstructured)
+	mutatedResource, err := ForceMutate(ctx, logr.Discard(), &policy, *resourceUnstructured)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())

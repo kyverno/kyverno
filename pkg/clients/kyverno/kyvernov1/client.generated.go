@@ -4,7 +4,6 @@ import (
 	"github.com/go-logr/logr"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	clusterpolicies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov1/clusterpolicies"
-	generaterequests "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov1/generaterequests"
 	policies "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov1/policies"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/client-go/rest"
@@ -35,10 +34,6 @@ func (c *withMetrics) ClusterPolicies() github_com_kyverno_kyverno_pkg_client_cl
 	recorder := metrics.ClusteredClientQueryRecorder(c.metrics, "ClusterPolicy", c.clientType)
 	return clusterpolicies.WithMetrics(c.inner.ClusterPolicies(), recorder)
 }
-func (c *withMetrics) GenerateRequests(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.GenerateRequestInterface {
-	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "GenerateRequest", c.clientType)
-	return generaterequests.WithMetrics(c.inner.GenerateRequests(namespace), recorder)
-}
 func (c *withMetrics) Policies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.PolicyInterface {
 	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "Policy", c.clientType)
 	return policies.WithMetrics(c.inner.Policies(namespace), recorder)
@@ -55,9 +50,6 @@ func (c *withTracing) RESTClient() rest.Interface {
 func (c *withTracing) ClusterPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.ClusterPolicyInterface {
 	return clusterpolicies.WithTracing(c.inner.ClusterPolicies(), c.client, "ClusterPolicy")
 }
-func (c *withTracing) GenerateRequests(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.GenerateRequestInterface {
-	return generaterequests.WithTracing(c.inner.GenerateRequests(namespace), c.client, "GenerateRequest")
-}
 func (c *withTracing) Policies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.PolicyInterface {
 	return policies.WithTracing(c.inner.Policies(namespace), c.client, "Policy")
 }
@@ -72,9 +64,6 @@ func (c *withLogging) RESTClient() rest.Interface {
 }
 func (c *withLogging) ClusterPolicies() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.ClusterPolicyInterface {
 	return clusterpolicies.WithLogging(c.inner.ClusterPolicies(), c.logger.WithValues("resource", "ClusterPolicies"))
-}
-func (c *withLogging) GenerateRequests(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.GenerateRequestInterface {
-	return generaterequests.WithLogging(c.inner.GenerateRequests(namespace), c.logger.WithValues("resource", "GenerateRequests").WithValues("namespace", namespace))
 }
 func (c *withLogging) Policies(namespace string) github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1.PolicyInterface {
 	return policies.WithLogging(c.inner.Policies(namespace), c.logger.WithValues("resource", "Policies").WithValues("namespace", namespace))

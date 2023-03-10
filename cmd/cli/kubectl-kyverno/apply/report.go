@@ -9,13 +9,13 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const clusterpolicyreport = "clusterpolicyreport"
@@ -89,7 +89,7 @@ func buildPolicyResults(infos []common.Info) map[string][]policyreportv1alpha2.P
 
 		for _, infoResult := range info.Results {
 			for _, rule := range infoResult.Rules {
-				if rule.Type != string(response.Validation) {
+				if rule.Type != string(engineapi.Validation) {
 					continue
 				}
 

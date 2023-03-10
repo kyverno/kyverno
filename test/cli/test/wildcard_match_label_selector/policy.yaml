@@ -24,7 +24,7 @@ spec:
     match:
       resources:
         kinds:
-        - pod
+        - Pod
         selector:
           matchLabels:
             protected: "*-test"
@@ -38,7 +38,7 @@ spec:
     match:
       resources:
         kinds:
-        - pod
+        - Pod
         selector:
           matchLabels:
             protected: "test-*"

@@ -32,6 +32,12 @@ type ImageExtractorConfig struct {
 	// Note - this field MUST be unique.
 	// +optional
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+	// JMESPath is an optional JMESPath expression to apply to the image value.
+	// This is useful when the extracted image begins with a prefix like 'docker://'.
+	// The 'trim_prefix' function may be used to trim the prefix: trim_prefix(@, 'docker://').
+	// Note - Image digest mutation may not be used when applying a JMESPAth to an image.
+	// +optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
 }
 
 // Rule defines a validation, mutation, or generation control for matching resources.
@@ -144,18 +150,11 @@ func (r *Rule) IsPodSecurity() bool {
 	return r.Validation.PodSecurity != nil
 }
 
-// IsCloneSyncGenerate checks if the generate rule has the clone block with sync=true
-func (r *Rule) GetCloneSyncForGenerate() (clone bool, sync bool) {
+func (r *Rule) GetGenerateTypeAndSync() (_ GenerateType, sync bool) {
 	if !r.HasGenerate() {
 		return
 	}
-
-	if r.Generation.Clone.Name != "" {
-		clone = true
-	}
-
-	sync = r.Generation.Synchronize
-	return
+	return r.Generation.GetTypeAndSync()
 }
 
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
@@ -396,6 +395,17 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
+func (r *Rule) ValidateGenerateVariables(path *field.Path) (errs field.ErrorList) {
+	if !r.HasGenerate() {
+		return nil
+	}
+
+	if err := r.Generation.Validate(); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), fmt.Sprintf("Generation Rule Clone/CloneList \"%s\" should not have variables", r.Name)))
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
@@ -404,5 +414,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
+	errs = append(errs, r.ValidateGenerateVariables(path)...)
 	return errs
 }
