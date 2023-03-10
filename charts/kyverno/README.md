@@ -359,7 +359,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.priorityClassName | string | `""` | Optional priority class |
 | reportsController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | reportsController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| reportsController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| reportsController.extraArgs | object | `{"clientRateLimitBurst":100,"clientRateLimitQPS":300}` | Extra arguments passed to the container on the command line |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | reportsController.nodeSelector | object | `{}` | Node labels for pod assignment |
@@ -376,7 +376,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.metricsService.create | bool | `true` | Create service. |
 | reportsController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
 | reportsController.metricsService.type | string | `"ClusterIP"` | Service type. |
-| reportsController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
+| reportsController.metricsService.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 | reportsController.metricsService.annotations | object | `{}` | Service annotations. |
 | reportsController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | reportsController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
@@ -388,13 +388,13 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.tracing.enabled | bool | `false` | Enable tracing |
 | reportsController.tracing.address | string | `nil` | Traces receiver address |
 | reportsController.tracing.port | string | `nil` | Traces receiver port |
-| reportsController.tracing.creds | string | `""` | Traces receiver credentials |
+| reportsController.tracing.creds | string | `nil` | Traces receiver credentials |
 | reportsController.logging.format | string | `"text"` | Logging format |
 | reportsController.metering.disabled | bool | `false` | Disable metrics export |
 | reportsController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
 | reportsController.metering.port | int | `8000` | Prometheus endpoint port |
-| reportsController.metering.collector | string | `""` | Otel collector endpoint |
-| reportsController.metering.creds | string | `""` | Otel collector credentials |
+| reportsController.metering.collector | string | `nil` | Otel collector endpoint |
+| reportsController.metering.creds | string | `nil` | Otel collector credentials |
 | backgroundController.enabled | bool | `true` | Enable background controller. |
 | backgroundController.rbac.create | bool | `true` | Create RBAC resources |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
