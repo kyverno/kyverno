@@ -2,6 +2,7 @@ package mutation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -146,6 +147,14 @@ func (v *mutationHandler) applyMutations(
 	}
 
 	logMutationResponse(patches, engineResponses, v.log)
+
+	p := jsonutils.NewPatchOperation("/metadata/managedFields/0/manager", "replace", "kyverno")
+	fieldManagerPatch, err := p.Marshal()
+	if err != nil {
+		v.log.Info("failed to add fieldmanager patch to list of patches")
+		return nil, nil, errors.New("failed to marshal fieldmanager patch")
+	}
+	patches = append(patches, fieldManagerPatch)
 
 	// patches holds all the successful patches, if no patch is created, it returns nil
 	return jsonutils.JoinPatches(patches...), engineResponses, nil
