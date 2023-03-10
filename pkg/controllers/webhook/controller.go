@@ -836,14 +836,13 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			gvkMap[gvk] = 1
 			// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
 			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
-			if kind == "*" {
-				if subresource == "*" {
-					gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"})
-				} else {
-					gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*"})
-				}
-			} else if subresource == "*" {
-				gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: kind + "/*"})
+			// if kind is `*` no need to lookup resources
+			if kind == "*" && subresource == "*" {
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"})
+			} else if kind == "*" && subresource == "" {
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*"})
+			} else if kind == "*" && subresource != "" {
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource})
 			} else {
 				gvrs, err := c.discoveryClient.FindResources(group, version, kind, subresource)
 				if err != nil {
