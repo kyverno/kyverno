@@ -46,7 +46,7 @@ spec:
       clone:
         name: regcred
         namespace: default
-  - name: pol-clone-nosync-delete-rule-lr
+  - name: pol-clone-sync-delete-rule-lr
     match:
       any:
       - resources:
@@ -57,7 +57,7 @@ spec:
       kind: LimitRange
       name: genlr
       namespace: default
-      synchronize: false
+      synchronize: true
       clone:
         name: sourcelr
         namespace: default
