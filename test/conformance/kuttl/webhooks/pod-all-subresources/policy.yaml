@@ -13,7 +13,7 @@ spec:
         any:
           - resources:
               kinds:
-                - Pod
+                - Pod/*
       validate:
         message: 'The label `team` is required.'
         pattern:
