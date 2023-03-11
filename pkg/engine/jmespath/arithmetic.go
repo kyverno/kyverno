@@ -134,7 +134,7 @@ func addDurations(durations []Operand)(interface{}, error){
 		}
 	}
 
-	return result, nil
+	return result.(Duration).String(), nil
 }
 
 func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
