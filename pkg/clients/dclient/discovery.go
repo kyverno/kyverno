@@ -16,9 +16,22 @@ import (
 	"k8s.io/client-go/discovery"
 )
 
+// GroupVersionResourceSubresource contains a group/version/resource/subresource reference
+type GroupVersionResourceSubresource struct {
+	schema.GroupVersionResource
+	SubResource string
+}
+
+func (gvrs GroupVersionResourceSubresource) ResourceSubresource() string {
+	if gvrs.SubResource == "" {
+		return gvrs.Resource
+	}
+	return gvrs.Resource + "/" + gvrs.SubResource
+}
+
 // IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
-	FindResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error)
+	FindResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error)
 	FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error)
 	// TODO: there's no mapping from GVK to GVR, this is very error prone
 	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
@@ -148,7 +161,7 @@ func (c serverResources) FindResource(groupVersion string, kind string) (apiReso
 	return nil, nil, schema.GroupVersionResource{}, err
 }
 
-func (c serverResources) FindResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error) {
+func (c serverResources) FindResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error) {
 	resources, err := c.findResources(group, version, kind, subresource)
 	if err != nil {
 		if !c.cachedClient.Fresh() {
@@ -159,7 +172,7 @@ func (c serverResources) FindResources(group, version, kind, subresource string)
 	return resources, err
 }
 
-func (c serverResources) findResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error) {
+func (c serverResources) findResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error) {
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
@@ -184,7 +197,7 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 			Kind:    kind,
 		}
 	}
-	resources := sets.New[schema.GroupVersionResource]()
+	resources := sets.New[GroupVersionResourceSubresource]()
 	// first match resouces
 	for _, list := range serverGroupsAndResources {
 		gv, err := schema.ParseGroupVersion(list.GroupVersion)
@@ -195,20 +208,26 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 				if !strings.Contains(resource.Name, "/") {
 					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
 					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
-						resources.Insert(gvk.GroupVersion().WithResource(resource.Name))
+						resources.Insert(GroupVersionResourceSubresource{
+							GroupVersionResource: gvk.GroupVersion().WithResource(resource.Name),
+						})
 					}
 				}
 			}
 		}
 	}
 	// second match subresouces if necessary
-	subresources := sets.New[schema.GroupVersionResource]()
+	subresources := sets.New[GroupVersionResourceSubresource]()
 	if subresource != "" {
 		for _, list := range serverGroupsAndResources {
 			for _, resource := range list.APIResources {
 				for parent := range resources {
 					if wildcard.Match(parent.Resource+"/"+subresource, resource.Name) {
-						subresources.Insert(parent.GroupVersion().WithResource(resource.Name))
+						parts := strings.Split(resource.Name, "/")
+						subresources.Insert(GroupVersionResourceSubresource{
+							GroupVersionResource: parent.GroupVersionResource,
+							SubResource:          parts[1],
+						})
 						break
 					}
 				}
@@ -225,7 +244,11 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 				for _, resource := range list.APIResources {
 					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
 					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
-						resources.Insert(gv.WithResource(resource.Name))
+						parts := strings.Split(resource.Name, "/")
+						resources.Insert(GroupVersionResourceSubresource{
+							GroupVersionResource: gv.WithResource(parts[0]),
+							SubResource:          parts[1],
+						})
 					}
 				}
 			}

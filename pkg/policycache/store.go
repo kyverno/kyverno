@@ -1,13 +1,12 @@
 package policycache
 
 import (
-	"strings"
 	"sync"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kcache "k8s.io/client-go/tools/cache"
 )
@@ -18,7 +17,7 @@ type store interface {
 	// unset removes a policy from the cache
 	unset(string)
 	// get finds policies that match a given type, gvr and namespace
-	get(PolicyType, schema.GroupVersionResource, string) []kyvernov1.PolicyInterface
+	get(PolicyType, dclient.GroupVersionResourceSubresource, string) []kyvernov1.PolicyInterface
 }
 
 type policyCache struct {
@@ -49,10 +48,10 @@ func (pc *policyCache) unset(key string) {
 	logger.V(4).Info("policy is removed from cache", "key", key)
 }
 
-func (pc *policyCache) get(pkey PolicyType, gvr schema.GroupVersionResource, nspace string) []kyvernov1.PolicyInterface {
+func (pc *policyCache) get(pkey PolicyType, gvrs dclient.GroupVersionResourceSubresource, nspace string) []kyvernov1.PolicyInterface {
 	pc.lock.RLock()
 	defer pc.lock.RUnlock()
-	return pc.store.get(pkey, gvr, nspace)
+	return pc.store.get(pkey, gvrs, nspace)
 }
 
 type policyMap struct {
@@ -60,13 +59,13 @@ type policyMap struct {
 	policies map[string]kyvernov1.PolicyInterface
 	// kindType stores names of policies ClusterPolicies and Namespaced Policies.
 	// They are accessed first by GVR then by PolicyType.
-	kindType map[schema.GroupVersionResource]map[PolicyType]sets.Set[string]
+	kindType map[dclient.GroupVersionResourceSubresource]map[PolicyType]sets.Set[string]
 }
 
 func newPolicyMap() *policyMap {
 	return &policyMap{
 		policies: map[string]kyvernov1.PolicyInterface{},
-		kindType: map[schema.GroupVersionResource]map[PolicyType]sets.Set[string]{},
+		kindType: map[dclient.GroupVersionResourceSubresource]map[PolicyType]sets.Set[string]{},
 	}
 }
 
@@ -96,27 +95,26 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 	type state struct {
 		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks, hasVerifyYAML bool
 	}
-	kindStates := map[schema.GroupVersionResource]state{}
+	kindStates := map[dclient.GroupVersionResourceSubresource]state{}
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, gvk := range rule.MatchResources.GetKinds() {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
-			gvrs, err := client.FindResources(group, version, kind, subresource)
+			gvrss, err := client.FindResources(group, version, kind, subresource)
 			if err != nil {
 				logger.Error(err, "failed to fetch resource group versions", "group", group, "version", version, "kind", kind)
 				// TODO: keep processing or return ?
 				return err
 			}
 			// TODO: account for pods/ephemeralcontainers
-			for _, gvr := range gvrs {
-				gvr.Resource = strings.Split(gvr.Resource, "/")[0]
-				entry := kindStates[gvr]
+			for _, gvrs := range gvrss {
+				entry := kindStates[gvrs]
 				entry.hasMutate = entry.hasMutate || rule.HasMutate()
 				entry.hasValidate = entry.hasValidate || rule.HasValidate()
 				entry.hasGenerate = entry.hasGenerate || rule.HasGenerate()
 				entry.hasVerifyImages = entry.hasVerifyImages || rule.HasVerifyImages()
 				entry.hasImagesValidationChecks = entry.hasImagesValidationChecks || rule.HasImagesValidationChecks()
 				// TODO: hasVerifyYAML
-				kindStates[gvr] = entry
+				kindStates[gvrs] = entry
 			}
 		}
 	}
@@ -152,9 +150,9 @@ func (m *policyMap) unset(key string) {
 	}
 }
 
-func (m *policyMap) get(key PolicyType, gvr schema.GroupVersionResource, namespace string) []kyvernov1.PolicyInterface {
+func (m *policyMap) get(key PolicyType, gvrs dclient.GroupVersionResourceSubresource, namespace string) []kyvernov1.PolicyInterface {
 	var result []kyvernov1.PolicyInterface
-	for policyName := range m.kindType[gvr][key] {
+	for policyName := range m.kindType[gvrs][key] {
 		ns, _, err := kcache.SplitMetaNamespaceKey(policyName)
 		if err != nil {
 			logger.Error(err, "failed to parse policy name", "policyName", policyName)

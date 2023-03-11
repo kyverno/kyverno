@@ -109,10 +109,14 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 	logger.V(4).Info("received an admission request in validating webhook")
 
 	// timestamp at which this admission request got triggered
-	policies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, schema.GroupVersionResource(request.Resource), request.Namespace)...)
-	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, schema.GroupVersionResource(request.Resource), request.Namespace)...)
-	generatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Generate, schema.GroupVersionResource(request.Resource), request.Namespace)...)
-	imageVerifyValidatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, schema.GroupVersionResource(request.Resource), request.Namespace)...)
+	gvrs := dclient.GroupVersionResourceSubresource{
+		GroupVersionResource: schema.GroupVersionResource(request.Resource),
+		SubResource:          request.SubResource,
+	}
+	policies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, gvrs, request.Namespace)...)
+	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvrs, request.Namespace)...)
+	generatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Generate, gvrs, request.Namespace)...)
+	imageVerifyValidatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, gvrs, request.Namespace)...)
 	policies = append(policies, imageVerifyValidatePolicies...)
 
 	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
@@ -147,8 +151,12 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request *admi
 	kind := request.Kind.Kind
 	logger = logger.WithValues("kind", kind)
 	logger.V(4).Info("received an admission request in mutating webhook")
-	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, schema.GroupVersionResource(request.Resource), request.Namespace)...)
-	verifyImagesPolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, schema.GroupVersionResource(request.Resource), request.Namespace)...)
+	gvrs := dclient.GroupVersionResourceSubresource{
+		GroupVersionResource: schema.GroupVersionResource(request.Resource),
+		SubResource:          request.SubResource,
+	}
+	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, gvrs, request.Namespace)...)
+	verifyImagesPolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, gvrs, request.Namespace)...)
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched mutate admission request")
 		return admissionutils.ResponseSuccess(request.UID)

@@ -28,7 +28,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	coordinationv1informers "k8s.io/client-go/informers/coordination/v1"
@@ -825,7 +824,7 @@ func (c *controller) getLease() (*coordinationv1.Lease, error) {
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
-	matchedGVK := make([]string, 0)
+	var matchedGVK []string
 	for _, rule := range autogen.ComputeRules(policy) {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
@@ -841,25 +840,18 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
 	}
-	gvkMap := make(map[string]int)
-	gvrList := make([]schema.GroupVersionResource, 0)
+	var gvrsList []dclient.GroupVersionResourceSubresource
 	for _, gvk := range matchedGVK {
-		if _, ok := gvkMap[gvk]; !ok {
-			gvkMap[gvk] = 1
-			// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
-			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
-			gvrs, err := c.discoveryClient.FindResources(group, version, kind, subresource)
-			if err != nil {
-				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
-				continue
-			}
-			for _, gvr := range gvrs {
-				logger.V(4).Info("configuring webhook", "GVK", gvk, "GVR", gvr)
-				gvrList = append(gvrList, gvr)
-			}
+		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
+		group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
+		gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
+		if err != nil {
+			logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+			continue
 		}
+		gvrsList = append(gvrsList, gvrss...)
 	}
-	for _, gvr := range gvrList {
+	for _, gvr := range gvrsList {
 		dst.set(gvr)
 	}
 	spec := policy.GetSpec()

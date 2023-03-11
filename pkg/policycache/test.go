@@ -3,6 +3,7 @@ package policycache
 import (
 	"fmt"
 
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -17,33 +18,43 @@ var (
 	cronjobsGVR               = schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
 	replicasetsGVR            = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
 	replicationcontrollersGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "replicationcontrollers"}
+
+	podsGVRS                   = dclient.GroupVersionResourceSubresource{GroupVersionResource: podsGVR}
+	namespacesGVRS             = dclient.GroupVersionResourceSubresource{GroupVersionResource: namespacesGVR}
+	clusterrolesGVRS           = dclient.GroupVersionResourceSubresource{GroupVersionResource: clusterrolesGVR}
+	deploymentsGVRS            = dclient.GroupVersionResourceSubresource{GroupVersionResource: deploymentsGVR}
+	statefulsetsGVRS           = dclient.GroupVersionResourceSubresource{GroupVersionResource: statefulsetsGVR}
+	daemonsetsGVRS             = dclient.GroupVersionResourceSubresource{GroupVersionResource: daemonsetsGVR}
+	jobsGVRS                   = dclient.GroupVersionResourceSubresource{GroupVersionResource: jobsGVR}
+	cronjobsGVRS               = dclient.GroupVersionResourceSubresource{GroupVersionResource: cronjobsGVR}
+	replicasetsGVRS            = dclient.GroupVersionResourceSubresource{GroupVersionResource: replicasetsGVR}
+	replicationcontrollersGVRS = dclient.GroupVersionResourceSubresource{GroupVersionResource: replicationcontrollersGVR}
 )
 
-type TestResourceFinder struct {
-}
+type TestResourceFinder struct{}
 
-func (TestResourceFinder) FindResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error) {
+func (TestResourceFinder) FindResources(group, version, kind, subresource string) ([]dclient.GroupVersionResourceSubresource, error) {
 	switch kind {
 	case "Pod":
-		return []schema.GroupVersionResource{podsGVR}, nil
+		return []dclient.GroupVersionResourceSubresource{podsGVRS}, nil
 	case "Namespace":
-		return []schema.GroupVersionResource{namespacesGVR}, nil
+		return []dclient.GroupVersionResourceSubresource{namespacesGVRS}, nil
 	case "ClusterRole":
-		return []schema.GroupVersionResource{clusterrolesGVR}, nil
+		return []dclient.GroupVersionResourceSubresource{clusterrolesGVRS}, nil
 	case "Deployment":
-		return []schema.GroupVersionResource{deploymentsGVR}, nil
+		return []dclient.GroupVersionResourceSubresource{deploymentsGVRS}, nil
 	case "StatefulSet":
-		return []schema.GroupVersionResource{statefulsetsGVR}, nil
+		return []dclient.GroupVersionResourceSubresource{statefulsetsGVRS}, nil
 	case "DaemonSet":
-		return []schema.GroupVersionResource{daemonsetsGVR}, nil
+		return []dclient.GroupVersionResourceSubresource{daemonsetsGVRS}, nil
 	case "ReplicaSet":
-		return []schema.GroupVersionResource{replicasetsGVR}, nil
+		return []dclient.GroupVersionResourceSubresource{replicasetsGVRS}, nil
 	case "Job":
-		return []schema.GroupVersionResource{jobsGVR}, nil
+		return []dclient.GroupVersionResourceSubresource{jobsGVRS}, nil
 	case "ReplicationController":
-		return []schema.GroupVersionResource{replicationcontrollersGVR}, nil
+		return []dclient.GroupVersionResourceSubresource{replicationcontrollersGVRS}, nil
 	case "CronJob":
-		return []schema.GroupVersionResource{cronjobsGVR}, nil
+		return []dclient.GroupVersionResourceSubresource{cronjobsGVRS}, nil
 	}
 	return nil, fmt.Errorf("not found: %s", kind)
 }
