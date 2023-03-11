@@ -6,7 +6,6 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -15,7 +14,7 @@ import (
 
 type store interface {
 	// set inserts a policy in the cache
-	set(string, kyvernov1.PolicyInterface, dclient.IDiscovery) error
+	set(string, kyvernov1.PolicyInterface, ResourceFinder) error
 	// unset removes a policy from the cache
 	unset(string)
 	// get finds policies that match a given type, gvr and namespace
@@ -33,7 +32,7 @@ func newPolicyCache() store {
 	}
 }
 
-func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface, client dclient.IDiscovery) error {
+func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
 	if err := pc.store.set(key, policy, client); err != nil {
@@ -91,7 +90,7 @@ func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 	}
 }
 
-func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client dclient.IDiscovery) error {
+func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	m.policies[key] = policy
 	type state struct {
@@ -104,6 +103,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client dcl
 			gvrs, err := client.FindResources(group, version, kind, subresource)
 			if err != nil {
 				logger.Error(err, "failed to fetch resource group versions", "group", group, "version", version, "kind", kind)
+				// TODO: keep processing or return ?
 				return err
 			}
 			for _, gvr := range gvrs {

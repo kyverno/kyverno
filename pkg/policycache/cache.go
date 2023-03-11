@@ -2,15 +2,18 @@ package policycache
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+type ResourceFinder interface {
+	FindResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error)
+}
+
 // Cache get method use for to get policy names and mostly use to test cache testcases
 type Cache interface {
 	// Set inserts a policy in the cache
-	Set(string, kyvernov1.PolicyInterface, dclient.IDiscovery) error
+	Set(string, kyvernov1.PolicyInterface, ResourceFinder) error
 	// Unset removes a policy from the cache
 	Unset(string)
 	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
@@ -29,7 +32,7 @@ func NewCache() Cache {
 	}
 }
 
-func (c *cache) Set(key string, policy kyvernov1.PolicyInterface, client dclient.IDiscovery) error {
+func (c *cache) Set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
 	return c.store.set(key, policy, client)
 }
 
