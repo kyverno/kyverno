@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-data-sync-delete-trigger
+  namespace: pol-data-sync-delete-trigger-ns
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-org
+  namespace: pol-data-sync-delete-trigger-ns
