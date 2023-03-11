@@ -827,7 +827,7 @@ reportsController:
   # -- Extra arguments passed to the container on the command line
   extraArgs:
     clientRateLimitQPS: 300
-    clientRateLimitBurst: 100
+    clientRateLimitBurst: 300
 
   resources:
     # -- Pod resource limits
