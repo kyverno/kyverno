@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	kcache "k8s.io/client-go/tools/cache"
 )
@@ -90,6 +91,7 @@ func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 }
 
 func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
+	var errs []error
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	m.policies[key] = policy
 	type state struct {
@@ -97,30 +99,42 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 	}
 	kindStates := map[dclient.GroupVersionResourceSubresource]state{}
 	for _, rule := range autogen.ComputeRules(policy) {
+		entries := sets.New[dclient.GroupVersionResourceSubresource]()
 		for _, gvk := range rule.MatchResources.GetKinds() {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
 			gvrss, err := client.FindResources(group, version, kind, subresource)
 			if err != nil {
 				logger.Error(err, "failed to fetch resource group versions", "group", group, "version", version, "kind", kind)
-				// TODO: keep processing or return ?
-				return err
+				errs = append(errs, err)
+			} else {
+				entries.Insert(gvrss...)
 			}
-			// TODO: account for pods/ephemeralcontainers
-			for _, gvrs := range gvrss {
+		}
+		if entries.Len() > 0 {
+			// account for pods/ephemeralcontainers special case
+			if entries.Has(podsGVRS) {
+				entries.Insert(podsGVRS.WithSubResource("ephemeralcontainers"))
+			}
+			hasMutate := rule.HasMutate()
+			hasValidate := rule.HasValidate()
+			hasGenerate := rule.HasGenerate()
+			hasVerifyImages := rule.HasVerifyImages()
+			hasImagesValidationChecks := rule.HasImagesValidationChecks()
+			for gvrs := range entries {
 				entry := kindStates[gvrs]
-				entry.hasMutate = entry.hasMutate || rule.HasMutate()
-				entry.hasValidate = entry.hasValidate || rule.HasValidate()
-				entry.hasGenerate = entry.hasGenerate || rule.HasGenerate()
-				entry.hasVerifyImages = entry.hasVerifyImages || rule.HasVerifyImages()
-				entry.hasImagesValidationChecks = entry.hasImagesValidationChecks || rule.HasImagesValidationChecks()
-				// TODO: hasVerifyYAML
+				entry.hasMutate = entry.hasMutate || hasMutate
+				entry.hasValidate = entry.hasValidate || hasValidate
+				entry.hasGenerate = entry.hasGenerate || hasGenerate
+				entry.hasVerifyImages = entry.hasVerifyImages || hasVerifyImages
+				entry.hasImagesValidationChecks = entry.hasImagesValidationChecks || hasImagesValidationChecks
+				// TODO: hasVerifyYAML ?
 				kindStates[gvrs] = entry
 			}
 		}
 	}
-	for gvr, state := range kindStates {
-		if m.kindType[gvr] == nil {
-			m.kindType[gvr] = map[PolicyType]sets.Set[string]{
+	for gvrs, state := range kindStates {
+		if m.kindType[gvrs] == nil {
+			m.kindType[gvrs] = map[PolicyType]sets.Set[string]{
 				Mutate:               sets.New[string](),
 				ValidateEnforce:      sets.New[string](),
 				ValidateAudit:        sets.New[string](),
@@ -130,15 +144,15 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 				VerifyYAML:           sets.New[string](),
 			}
 		}
-		m.kindType[gvr][Mutate] = set(m.kindType[gvr][Mutate], key, state.hasMutate)
-		m.kindType[gvr][ValidateEnforce] = set(m.kindType[gvr][ValidateEnforce], key, state.hasValidate && enforcePolicy)
-		m.kindType[gvr][ValidateAudit] = set(m.kindType[gvr][ValidateAudit], key, state.hasValidate && !enforcePolicy)
-		m.kindType[gvr][Generate] = set(m.kindType[gvr][Generate], key, state.hasGenerate)
-		m.kindType[gvr][VerifyImagesMutate] = set(m.kindType[gvr][VerifyImagesMutate], key, state.hasVerifyImages)
-		m.kindType[gvr][VerifyImagesValidate] = set(m.kindType[gvr][VerifyImagesValidate], key, state.hasVerifyImages && state.hasImagesValidationChecks)
-		m.kindType[gvr][VerifyYAML] = set(m.kindType[gvr][VerifyYAML], key, state.hasVerifyYAML)
+		m.kindType[gvrs][Mutate] = set(m.kindType[gvrs][Mutate], key, state.hasMutate)
+		m.kindType[gvrs][ValidateEnforce] = set(m.kindType[gvrs][ValidateEnforce], key, state.hasValidate && enforcePolicy)
+		m.kindType[gvrs][ValidateAudit] = set(m.kindType[gvrs][ValidateAudit], key, state.hasValidate && !enforcePolicy)
+		m.kindType[gvrs][Generate] = set(m.kindType[gvrs][Generate], key, state.hasGenerate)
+		m.kindType[gvrs][VerifyImagesMutate] = set(m.kindType[gvrs][VerifyImagesMutate], key, state.hasVerifyImages)
+		m.kindType[gvrs][VerifyImagesValidate] = set(m.kindType[gvrs][VerifyImagesValidate], key, state.hasVerifyImages && state.hasImagesValidationChecks)
+		m.kindType[gvrs][VerifyYAML] = set(m.kindType[gvrs][VerifyYAML], key, state.hasVerifyYAML)
 	}
-	return nil
+	return multierr.Combine(errs...)
 }
 
 func (m *policyMap) unset(key string) {

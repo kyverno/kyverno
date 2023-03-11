@@ -29,6 +29,11 @@ func (gvrs GroupVersionResourceSubresource) ResourceSubresource() string {
 	return gvrs.Resource + "/" + gvrs.SubResource
 }
 
+func (gvrs GroupVersionResourceSubresource) WithSubResource(subresource string) GroupVersionResourceSubresource {
+	gvrs.SubResource = subresource
+	return gvrs
+}
+
 // IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
 	FindResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error)
