@@ -2,18 +2,20 @@ package policycache
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // Cache get method use for to get policy names and mostly use to test cache testcases
 type Cache interface {
 	// Set inserts a policy in the cache
-	Set(string, kyvernov1.PolicyInterface, map[string]string)
+	Set(string, kyvernov1.PolicyInterface, dclient.IDiscovery) error
 	// Unset removes a policy from the cache
 	Unset(string)
 	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
 	// If the namespace is empty, only cluster-wide policies are returned
-	GetPolicies(PolicyType, string, string) []kyvernov1.PolicyInterface
+	GetPolicies(PolicyType, schema.GroupVersionResource, string) []kyvernov1.PolicyInterface
 }
 
 type cache struct {
@@ -27,37 +29,32 @@ func NewCache() Cache {
 	}
 }
 
-func (c *cache) Set(key string, policy kyvernov1.PolicyInterface, subresourceGVKToKind map[string]string) {
-	c.store.set(key, policy, subresourceGVKToKind)
+func (c *cache) Set(key string, policy kyvernov1.PolicyInterface, client dclient.IDiscovery) error {
+	return c.store.set(key, policy, client)
 }
 
 func (c *cache) Unset(key string) {
 	c.store.unset(key)
 }
 
-func (c *cache) GetPolicies(pkey PolicyType, kind, nspace string) []kyvernov1.PolicyInterface {
+func (c *cache) GetPolicies(pkey PolicyType, resource schema.GroupVersionResource, nspace string) []kyvernov1.PolicyInterface {
 	var result []kyvernov1.PolicyInterface
-	result = append(result, c.store.get(pkey, kind, "")...)
-	result = append(result, c.store.get(pkey, "*", "")...)
+	result = append(result, c.store.get(pkey, resource, "")...)
 	if nspace != "" {
-		result = append(result, c.store.get(pkey, kind, nspace)...)
-		result = append(result, c.store.get(pkey, "*", nspace)...)
+		result = append(result, c.store.get(pkey, resource, nspace)...)
 	}
-
-	if pkey == ValidateAudit { // also get policies with ValidateEnforce
-		result = append(result, c.store.get(ValidateEnforce, kind, "")...)
-		result = append(result, c.store.get(ValidateEnforce, "*", "")...)
+	// also get policies with ValidateEnforce
+	if pkey == ValidateAudit {
+		result = append(result, c.store.get(ValidateEnforce, resource, "")...)
 	}
-
 	if pkey == ValidateAudit || pkey == ValidateEnforce {
-		result = filterPolicies(pkey, result, nspace, kind)
+		result = filterPolicies(pkey, result, nspace)
 	}
-
 	return result
 }
 
 // Filter cluster policies using validationFailureAction override
-func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace, kind string) []kyvernov1.PolicyInterface {
+func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace string) []kyvernov1.PolicyInterface {
 	var policies []kyvernov1.PolicyInterface
 	for _, policy := range result {
 		keepPolicy := true
@@ -67,7 +64,8 @@ func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace,
 		case ValidateEnforce:
 			keepPolicy = checkValidationFailureActionOverrides(true, nspace, policy)
 		}
-		if keepPolicy { // add policy to result
+		// add policy to result
+		if keepPolicy {
 			policies = append(policies, policy)
 		}
 	}

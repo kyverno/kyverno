@@ -152,7 +152,7 @@ func (v *validationHandler) buildAuditResponses(
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
 ) ([]*engineapi.EngineResponse, error) {
-	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
+	policies := v.pCache.GetPolicies(policycache.ValidateAudit, schema.GroupVersionResource(request.Resource), request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
 		return nil, err
