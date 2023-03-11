@@ -2,45 +2,14 @@ package policycache
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubecache "k8s.io/client-go/tools/cache"
 )
-
-type resourceFinder struct {
-}
-
-func (resourceFinder) FindResources(group, version, kind, subresource string) ([]schema.GroupVersionResource, error) {
-	switch kind {
-	case "Pod":
-		return []schema.GroupVersionResource{podsGVR}, nil
-	case "Namespace":
-		return []schema.GroupVersionResource{namespacesGVR}, nil
-	case "ClusterRole":
-		return []schema.GroupVersionResource{clusterrolesGVR}, nil
-	case "Deployment":
-		return []schema.GroupVersionResource{deploymentsGVR}, nil
-	case "StatefulSet":
-		return []schema.GroupVersionResource{statefulsetsGVR}, nil
-	case "DaemonSet":
-		return []schema.GroupVersionResource{daemonsetsGVR}, nil
-	case "ReplicaSet":
-		return []schema.GroupVersionResource{replicasetsGVR}, nil
-	case "Job":
-		return []schema.GroupVersionResource{jobsGVR}, nil
-	case "ReplicationController":
-		return []schema.GroupVersionResource{replicationcontrollersGVR}, nil
-	case "CronJob":
-		return []schema.GroupVersionResource{cronjobsGVR}, nil
-	}
-	return nil, fmt.Errorf("not found: %s", kind)
-}
 
 func setPolicy(t *testing.T, store store, policy kyvernov1.PolicyInterface, finder ResourceFinder) {
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
@@ -53,23 +22,10 @@ func unsetPolicy(store store, policy kyvernov1.PolicyInterface) {
 	store.unset(key)
 }
 
-var (
-	podsGVR                   = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
-	namespacesGVR             = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
-	clusterrolesGVR           = schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"}
-	deploymentsGVR            = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
-	statefulsetsGVR           = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
-	daemonsetsGVR             = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
-	jobsGVR                   = schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
-	cronjobsGVR               = schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
-	replicasetsGVR            = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
-	replicationcontrollersGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "replicationcontrollers"}
-)
-
 func Test_All(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
 	for _, rule := range autogen.ComputeRules(policy) {
@@ -104,7 +60,7 @@ func Test_All(t *testing.T) {
 func Test_Add_Duplicate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
@@ -135,7 +91,7 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 func Test_Add_Validate_Audit(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	policy.Spec.ValidationFailureAction = "audit"
@@ -164,7 +120,7 @@ func Test_Add_Validate_Audit(t *testing.T) {
 func Test_Add_Remove(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy, finder)
 	validateEnforce := pCache.get(ValidateEnforce, podsGVR, "")
 	if len(validateEnforce) != 1 {
@@ -188,7 +144,7 @@ func Test_Add_Remove(t *testing.T) {
 func Test_Add_Remove_Any(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newAnyPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy, finder)
 	validateEnforce := pCache.get(ValidateEnforce, podsGVR, "")
 	if len(validateEnforce) != 1 {
@@ -934,7 +890,7 @@ func newValidateEnforcePolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 func Test_Ns_All(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
 	nspace := policy.GetNamespace()
@@ -969,7 +925,7 @@ func Test_Ns_All(t *testing.T) {
 func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
@@ -1000,7 +956,7 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 func Test_Ns_Add_Validate_Audit(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	nspace := policy.GetNamespace()
@@ -1030,7 +986,7 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 func Test_Ns_Add_Remove(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	nspace := policy.GetNamespace()
 	setPolicy(t, pCache, policy, finder)
 	validateEnforce := pCache.get(ValidateEnforce, podsGVR, nspace)
@@ -1047,7 +1003,7 @@ func Test_Ns_Add_Remove(t *testing.T) {
 func Test_GVk_Cache(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newGVKPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
 	for _, rule := range autogen.ComputeRules(policy) {
@@ -1068,7 +1024,7 @@ func Test_GVk_Cache(t *testing.T) {
 func Test_GVK_Add_Remove(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newGVKPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy, finder)
 	generate := pCache.get(Generate, clusterrolesGVR, "")
 	if len(generate) != 1 {
@@ -1085,7 +1041,7 @@ func Test_Add_Validate_Enforce(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newUserTestPolicy(t)
 	nspace := policy.GetNamespace()
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
 	for _, rule := range autogen.ComputeRules(policy) {
@@ -1107,7 +1063,7 @@ func Test_Ns_Add_Remove_User(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newUserTestPolicy(t)
 	nspace := policy.GetNamespace()
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	// kind := "Deployment"
 	setPolicy(t, pCache, policy, finder)
 	validateEnforce := pCache.get(ValidateEnforce, deploymentsGVR, nspace)
@@ -1124,7 +1080,7 @@ func Test_Ns_Add_Remove_User(t *testing.T) {
 func Test_Mutate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newMutatePolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
@@ -1148,7 +1104,7 @@ func Test_Mutate_Policy(t *testing.T) {
 func Test_Generate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newGeneratePolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
 	for _, rule := range autogen.ComputeRules(policy) {
@@ -1171,7 +1127,7 @@ func Test_NsMutate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newMutatePolicy(t)
 	nspolicy := newNsMutatePolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	//add
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, nspolicy, finder)
@@ -1194,7 +1150,7 @@ func Test_Validate_Enforce_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy1 := newValidateAuditPolicy(t)
 	policy2 := newValidateEnforcePolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy1, finder)
 	setPolicy(t, pCache, policy2, finder)
 	validateEnforce := pCache.get(ValidateEnforce, podsGVR, "")
@@ -1220,7 +1176,7 @@ func Test_Validate_Enforce_Policy(t *testing.T) {
 func Test_Get_Policies(t *testing.T) {
 	cache := NewCache()
 	policy := newPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
 	cache.Set(key, policy, finder)
 	validateAudit := cache.GetPolicies(ValidateAudit, namespacesGVR, "")
@@ -1248,7 +1204,7 @@ func Test_Get_Policies(t *testing.T) {
 func Test_Get_Policies_Ns(t *testing.T) {
 	cache := NewCache()
 	policy := newNsPolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
 	cache.Set(key, policy, finder)
 	nspace := policy.GetNamespace()
@@ -1274,7 +1230,7 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 	cache := NewCache()
 	policy1 := newValidateAuditPolicy(t)
 	policy2 := newValidateEnforcePolicy(t)
-	finder := resourceFinder{}
+	finder := TestResourceFinder{}
 	key1, _ := kubecache.MetaNamespaceKeyFunc(policy1)
 	cache.Set(key1, policy1, finder)
 	key2, _ := kubecache.MetaNamespaceKeyFunc(policy2)

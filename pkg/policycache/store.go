@@ -106,6 +106,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 				// TODO: keep processing or return ?
 				return err
 			}
+			// TODO: account for pods/ephemeralcontainers
 			for _, gvr := range gvrs {
 				gvr.Resource = strings.Split(gvr.Resource, "/")[0]
 				entry := kindStates[gvr]
