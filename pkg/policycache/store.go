@@ -59,7 +59,7 @@ type policyMap struct {
 	// policies maps names to policy interfaces
 	policies map[string]kyvernov1.PolicyInterface
 	// kindType stores names of policies ClusterPolicies and Namespaced Policies.
-	// They are accessed first by GVR then by PolicyType.
+	// They are accessed first by GVRS then by PolicyType.
 	kindType map[dclient.GroupVersionResourceSubresource]map[PolicyType]sets.Set[string]
 }
 
@@ -157,9 +157,9 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 
 func (m *policyMap) unset(key string) {
 	delete(m.policies, key)
-	for gvr := range m.kindType {
-		for policyType := range m.kindType[gvr] {
-			m.kindType[gvr][policyType] = m.kindType[gvr][policyType].Delete(key)
+	for gvrs := range m.kindType {
+		for policyType := range m.kindType[gvrs] {
+			m.kindType[gvrs][policyType] = m.kindType[gvrs][policyType].Delete(key)
 		}
 	}
 }
