@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jupiter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-lb
+  namespace: jupiter
+spec:
+  ports:
+  - name: web
+    port: 80
+    protocol: TCP
+    targetPort: web
+  selector:
+    app.kubernetes.io/instance: jupiter-foobar
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: venus
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: redis
+  name: venus-clusterip-svc
+  namespace: venus
+spec:
+  ports:
+  - name: tcp-redis
+    port: 6379
+    protocol: TCP
+    targetPort: 6379
+  selector:
+    app.kubernetes.io/name: venus-redis
+  type: ClusterIP
