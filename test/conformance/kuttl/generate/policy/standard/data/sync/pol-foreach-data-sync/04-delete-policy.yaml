@@ -2,6 +2,6 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 delete:
   - apiVersion: kyverno.io/v2beta1
-    kind: ClusterPolicy
+    kind: Policy
     name: pol-foreach-data-sync
     namespace: default
