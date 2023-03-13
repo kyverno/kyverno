@@ -367,20 +367,20 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return warnings, fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
 
-		// add label to source mentioned in policy
-		if !mock && rule.Generation.Clone.Name != "" {
-			obj, err := client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
-			if err != nil {
-				logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
-				continue
-			}
-			err = UpdateSourceResource(client, rule.Generation.Kind, rule.Generation.Clone.Namespace, policy.GetName(), obj)
-			if err != nil {
-				logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-				continue
-			}
-			logging.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-		}
+		// // add label to source mentioned in policy
+		// if !mock && rule.Generation.Clone.Name != "" {
+		// 	obj, err := client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+		// 	if err != nil {
+		// 		logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+		// 		continue
+		// 	}
+		// 	err = UpdateSourceResource(client, rule.Generation.Kind, rule.Generation.Clone.Namespace, policy.GetName(), obj)
+		// 	if err != nil {
+		// 		logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+		// 		continue
+		// 	}
+		// 	logging.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+		// }
 		if !mock && len(rule.Generation.CloneList.Kinds) != 0 {
 			for _, kind := range rule.Generation.CloneList.Kinds {
 				apiVersion, kind := kubeutils.GetKindFromGVK(kind)
