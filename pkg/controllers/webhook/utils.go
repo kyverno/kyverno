@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"golang.org/x/exp/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -17,30 +18,28 @@ import (
 type webhook struct {
 	maxWebhookTimeout int32
 	failurePolicy     admissionregistrationv1.FailurePolicyType
-	rules             map[schema.GroupVersionResource]struct{}
+	rules             map[schema.GroupVersion]sets.Set[string]
 }
 
 func newWebhook(timeout int32, failurePolicy admissionregistrationv1.FailurePolicyType) *webhook {
 	return &webhook{
 		maxWebhookTimeout: timeout,
 		failurePolicy:     failurePolicy,
-		rules:             map[schema.GroupVersionResource]struct{}{},
+		rules:             map[schema.GroupVersion]sets.Set[string]{},
 	}
 }
 
 func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
 	var rules []admissionregistrationv1.RuleWithOperations
-	for gvr := range wh.rules {
-		resources := sets.New(gvr.Resource)
-		ephemeralContainersGVR := schema.GroupVersionResource{Resource: "pods/ephemeralcontainers", Group: "", Version: "v1"}
-		_, rulesContainEphemeralContainers := wh.rules[ephemeralContainersGVR]
-		if resources.Has("pods") && !rulesContainEphemeralContainers {
+	for gv, resources := range wh.rules {
+		// if we have pods, we add pods/ephemeralcontainers by default
+		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
 			resources.Insert("pods/ephemeralcontainers")
 		}
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
 			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{gvr.Group},
-				APIVersions: []string{gvr.Version},
+				APIGroups:   []string{gv.Group},
+				APIVersions: []string{gv.Version},
 				Resources:   sets.List(resources),
 			},
 			Operations: ops,
@@ -72,30 +71,18 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 	return rules
 }
 
-func (wh *webhook) set(gvr schema.GroupVersionResource) {
-	wh.rules[gvr] = struct{}{}
+func (wh *webhook) set(gvrs dclient.GroupVersionResourceSubresource) {
+	gv := gvrs.GroupVersion()
+	resources := wh.rules[gv]
+	if resources == nil {
+		wh.rules[gv] = sets.New(gvrs.ResourceSubresource())
+	} else {
+		resources.Insert(gvrs.ResourceSubresource())
+	}
 }
 
 func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
-}
-
-func (wh *webhook) setWildcard() {
-	wh.rules = map[schema.GroupVersionResource]struct{}{
-		{Group: "*", Version: "*", Resource: "*/*"}: {},
-	}
-}
-
-func hasWildcard(policies ...kyvernov1.PolicyInterface) bool {
-	for _, policy := range policies {
-		spec := policy.GetSpec()
-		for _, rule := range spec.Rules {
-			if kinds := rule.MatchResources.GetKinds(); slices.Contains(kinds, "*") {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {

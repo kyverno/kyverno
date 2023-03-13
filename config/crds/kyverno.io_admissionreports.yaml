@@ -20,15 +20,15 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.ownerReferences[0].apiVersion
+    - jsonPath: .spec.owner.apiVersion
       name: ApiVersion
       priority: 1
       type: string
-    - jsonPath: .metadata.ownerReferences[0].kind
+    - jsonPath: .spec.owner.kind
       name: Kind
       priority: 1
       type: string
-    - jsonPath: .metadata.ownerReferences[0].name
+    - jsonPath: .spec.owner.name
       name: Subject
       priority: 1
       type: string

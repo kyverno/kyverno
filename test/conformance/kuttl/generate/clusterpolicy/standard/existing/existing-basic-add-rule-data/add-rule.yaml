@@ -5,7 +5,7 @@ metadata:
 spec:
   generateExisting: true
   rules:
-  - name: existing-basic-create-rule-data
+  - name: existing-basic-create-rule
     match:
       any:
       - resources:
