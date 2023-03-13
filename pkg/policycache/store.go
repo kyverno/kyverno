@@ -58,7 +58,7 @@ func (pc *policyCache) get(pkey PolicyType, gvrs dclient.GroupVersionResourceSub
 type policyMap struct {
 	// policies maps names to policy interfaces
 	policies map[string]kyvernov1.PolicyInterface
-	// kindType stores names of policies ClusterPolicies and Namespaced Policies.
+	// kindType stores names of ClusterPolicies and Namespaced Policies.
 	// They are accessed first by GVRS then by PolicyType.
 	kindType map[dclient.GroupVersionResourceSubresource]map[PolicyType]sets.Set[string]
 }
