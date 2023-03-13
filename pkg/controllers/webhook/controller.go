@@ -813,7 +813,7 @@ func (c *controller) getLease() (*coordinationv1.Lease, error) {
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
-	matchedGVK := make([]string, 0)
+	var matchedGVK []string
 	for _, rule := range autogen.ComputeRules(policy) {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
@@ -829,34 +829,35 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
 	}
-	gvkMap := make(map[string]int)
-	gvrList := make([]schema.GroupVersionResource, 0)
+	var gvrsList []dclient.GroupVersionResourceSubresource
 	for _, gvk := range matchedGVK {
-		if _, ok := gvkMap[gvk]; !ok {
-			gvkMap[gvk] = 1
-			// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
-			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
-			// if kind is `*` no need to lookup resources
-			if kind == "*" && subresource == "*" {
-				gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"})
-			} else if kind == "*" && subresource == "" {
-				gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*"})
-			} else if kind == "*" && subresource != "" {
-				gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource})
-			} else {
-				gvrs, err := c.discoveryClient.FindResources(group, version, kind, subresource)
-				if err != nil {
-					logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
-					continue
-				}
-				for _, gvr := range gvrs {
-					logger.V(4).Info("configuring webhook", "GVK", gvk, "GVR", gvr)
-					gvrList = append(gvrList, gvr)
-				}
+		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
+		group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
+		// if kind is `*` no need to lookup resources
+		if kind == "*" && subresource == "*" {
+			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
+				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
+				SubResource:          "*",
+			})
+		} else if kind == "*" && subresource == "" {
+			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
+				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
+			})
+		} else if kind == "*" && subresource != "" {
+			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
+				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
+				SubResource:          subresource,
+			})
+		} else {
+			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
+			if err != nil {
+				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+				continue
 			}
+			gvrsList = append(gvrsList, gvrss...)
 		}
 	}
-	for _, gvr := range gvrList {
+	for _, gvr := range gvrsList {
 		dst.set(gvr)
 	}
 	spec := policy.GetSpec()
