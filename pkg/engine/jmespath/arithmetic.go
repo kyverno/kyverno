@@ -86,10 +86,11 @@ func addScalars(scalars []Operand) (interface{}, error) {
 	for i := 1; i < len(scalars); i++ {
 	
 		res, err := result.Add(scalars[i])
-		result = Scalar{float64: res.(float64)}
+		
 		if err != nil {
 			return nil, err
 		}
+		result = Scalar{float64: res.(float64)}
 	}
 
 	return result.(Scalar).float64, nil
@@ -101,7 +102,7 @@ func addQuantities(quantities []Operand)(interface{}, error){
         return Quantity{}, fmt.Errorf("empty array")
     }
 
-    result := quantities[0]
+    result := quantities[0].(Quantity)
     for i := 1; i < len(quantities); i++ {
         res, err := result.Add(quantities[i])
         if err != nil {
@@ -109,7 +110,7 @@ func addQuantities(quantities []Operand)(interface{}, error){
         }
         result = res.(Quantity)
     }
-	return result, nil
+	return result.String(), nil
 }
 
 func addDurations(durations []Operand)(interface{}, error){

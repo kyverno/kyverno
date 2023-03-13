@@ -17,66 +17,66 @@ func Test_Add(t *testing.T) {
 	}{
 		// Scalar
 		{
-			name:           "Scalar + Scalar -> Scalar",
-			test:           "add(`12`, `13`)",
+			name:           "add(Scalar[]) -> Scalar",
+			test:           "add([`12`, `13`])",
 			expectedResult: 25.0,
 			retFloat:       true,
 		},
 		{
-			name: "Scalar + Duration -> error",
-			test: "add('12', '13s')",
+			name: "add(Scalar[Scalar, Duration, ..]) -> error",
+			test: "add(['12', '13s'])",
 			err:  true,
 		},
 		{
-			name: "Scalar + Quantity -> error",
-			test: "add(`12`, '13Ki')",
+			name: "add(Scalar[Scalar, Quantity, ..]) -> error",
+			test: "add([`12`, '13Ki'])",
 			err:  true,
 		},
 		{
-			name: "Scalar + Quantity -> error",
-			test: "add(`12`, '13')",
+			name: "add(Scalar[Scalar, Quatity, ..]) -> error",
+			test: "add([`12`, '13'])",
 			err:  true,
 		},
 		// Quantity
 		{
-			name:           "Quantity + Quantity -> Quantity",
-			test:           "add('12Ki', '13Ki')",
+			name:           "add(Quantity[]) -> Quantity",
+			test:           "add(['12Ki', '13Ki'])",
 			expectedResult: `25Ki`,
 		},
 		{
-			name:           "Quantity + Quantity -> Quantity",
-			test:           "add('12Ki', '13')",
+			name:           "add(Quantity[]) -> Quantity",
+			test:           "add(['12Ki', '13'])",
 			expectedResult: `12301`,
 		},
 		{
-			name: "Quantity + Duration -> error",
-			test: "add('12Ki', '13s')",
+			name: "add(Quantity[Quantity, Duration, ..]) -> error",
+			test: "add(['12Ki', '13s'])",
 			err:  true,
 		},
 		{
-			name: "Quantity + Scalar -> error",
-			test: "add('12Ki', `13`)",
+			name: "add(Quantity[Quantity, Scalar, ..]) -> error",
+			test: "add(['12Ki', `13`])",
 			err:  true,
 		},
 		// Duration
 		{
-			name:           "Duration + Duration -> Duration",
-			test:           "add('12s', '13s')",
+			name:           "add(Duration[]) -> Duration",
+			test:           "add(['12s', '13s'])",
 			expectedResult: `25s`,
 		},
 		{
-			name: "Duration + Scalar -> error",
-			test: "add('12s', `13`)",
+			name: "add(Duration[Duration, Scalar, ..]) -> error",
+			test: "add(['12s', `13`])",
 			err:  true,
 		},
 		{
-			name: "Duration + Quantity -> error",
-			test: "add('12s', '13Ki')",
+			name: "add(Duration[Duration, Quantity, ..]) -> error",
+			test: "add(['12s', '13Ki'])",
 			err:  true,
 		},
 		{
-			name: "Duration + Quantity -> error",
-			test: "add('12s', '13')",
+			name: "add(Duration[Duration, Quantity, ..]) -> error",
+			test: "add(['12s', '13'])",
 			err:  true,
 		},
 	}
