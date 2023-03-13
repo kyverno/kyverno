@@ -381,28 +381,28 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		// 	}
 		// 	logging.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
 		// }
-		if !mock && len(rule.Generation.CloneList.Kinds) != 0 {
-			for _, kind := range rule.Generation.CloneList.Kinds {
-				apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-				resources, err := client.ListResource(context.TODO(), apiVersion, kind, rule.Generation.CloneList.Namespace, rule.Generation.CloneList.Selector)
-				if err != nil {
-					logging.Error(err, fmt.Sprintf("failed to list resources %s/%s.", kind, rule.Generation.CloneList.Namespace))
-					continue
-				}
-				for _, rName := range resources.Items {
-					obj, err := client.GetResource(context.TODO(), apiVersion, kind, rule.Generation.CloneList.Namespace, rName.GetName())
-					if err != nil {
-						logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
-						continue
-					}
-					err = UpdateSourceResource(client, kind, rule.Generation.CloneList.Namespace, policy.GetName(), obj)
-					if err != nil {
-						logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-						continue
-					}
-				}
-			}
-		}
+		// if !mock && len(rule.Generation.CloneList.Kinds) != 0 {
+		// 	for _, kind := range rule.Generation.CloneList.Kinds {
+		// 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
+		// 		resources, err := client.ListResource(context.TODO(), apiVersion, kind, rule.Generation.CloneList.Namespace, rule.Generation.CloneList.Selector)
+		// 		if err != nil {
+		// 			logging.Error(err, fmt.Sprintf("failed to list resources %s/%s.", kind, rule.Generation.CloneList.Namespace))
+		// 			continue
+		// 		}
+		// 		for _, rName := range resources.Items {
+		// 			obj, err := client.GetResource(context.TODO(), apiVersion, kind, rule.Generation.CloneList.Namespace, rName.GetName())
+		// 			if err != nil {
+		// 				logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+		// 				continue
+		// 			}
+		// 			err = UpdateSourceResource(client, kind, rule.Generation.CloneList.Namespace, policy.GetName(), obj)
+		// 			if err != nil {
+		// 				logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+		// 				continue
+		// 			}
+		// 		}
+		// 	}
+		// }
 
 		matchKinds := match.GetKinds()
 		excludeKinds := exclude.GetKinds()
