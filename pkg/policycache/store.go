@@ -107,7 +107,9 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 				logger.Error(err, "failed to fetch resource group versions", "group", group, "version", version, "kind", kind)
 				errs = append(errs, err)
 			} else {
-				entries.Insert(gvrss...)
+				for gvrs := range gvrss {
+					entries.Insert(gvrs)
+				}
 			}
 		}
 		if entries.Len() > 0 {

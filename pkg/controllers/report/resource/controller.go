@@ -54,7 +54,7 @@ const (
 type EventHandler func(EventType, types.UID, schema.GroupVersionKind, Resource)
 
 type MetadataCache interface {
-	GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool)
+	GetResourceHash(types.UID, ...schema.GroupVersionKind) (Resource, schema.GroupVersionKind, bool)
 	GetAllResourceKeys() []string
 	AddEventHandler(EventHandler)
 	Warmup(ctx context.Context) error
@@ -113,12 +113,19 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	c.stopDynamicWatchers()
 }
 
-func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {
+func (c *controller) GetResourceHash(uid types.UID, gvks ...schema.GroupVersionKind) (Resource, schema.GroupVersionKind, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	for _, watcher := range c.dynamicWatchers {
 		if resource, exists := watcher.hashes[uid]; exists {
-			return resource, watcher.gvk, true
+			if len(gvks) == 0 {
+				return resource, watcher.gvk, true
+			}
+			for _, gvk := range gvks {
+				if gvk == watcher.gvk {
+					return resource, watcher.gvk, true
+				}
+			}
 		}
 	}
 	return Resource{}, schema.GroupVersionKind{}, false
@@ -192,6 +199,7 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			go func(gvr schema.GroupVersionResource) {
 				defer logger.Info("watcher stopped")
 				for event := range watchInterface.ResultChan() {
+					logger.Info("event", "type", event.Type, "gvr", gvr)
 					switch event.Type {
 					case watch.Added:
 						c.updateHash(Added, event.Object.(*unstructured.Unstructured), gvr)
@@ -221,27 +229,31 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		return err
 	}
 	kinds := utils.BuildKindSet(logger, utils.RemoveNonValidationPolicies(append(clusterPolicies, policies...)...)...)
-	gvrs := map[schema.GroupVersionKind]schema.GroupVersionResource{}
-	for _, kind := range sets.List(kinds) {
-		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-		apiResource, _, gvr, err := c.client.Discovery().FindResource(apiVersion, kind)
+	gvkToGvr := map[schema.GroupVersionKind]schema.GroupVersionResource{}
+	for _, policyKind := range sets.List(kinds) {
+		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)
+		gvrss, err := c.client.Discovery().FindResources(group, version, kind, subresource)
 		if err != nil {
 			logger.Error(err, "failed to get gvr from kind", "kind", kind)
 		} else {
-			gvk := schema.GroupVersionKind{Group: apiResource.Group, Version: apiResource.Version, Kind: apiResource.Kind}
-			if !reportutils.IsGvkSupported(gvk) {
-				logger.Info("kind is not supported", "gvk", gvk)
-			} else {
-				if slices.Contains(apiResource.Verbs, "list") && slices.Contains(apiResource.Verbs, "watch") {
-					gvrs[gvk] = gvr
-				} else {
-					logger.Info("list/watch not supported for kind", "kind", kind)
+			for gvrs, api := range gvrss {
+				if gvrs.SubResource == "" {
+					gvk := schema.GroupVersionKind{Group: gvrs.Group, Version: gvrs.Version, Kind: policyKind}
+					if !reportutils.IsGvkSupported(gvk) {
+						logger.Info("kind is not supported", "gvk", gvk)
+					} else {
+						if slices.Contains(api.Verbs, "list") && slices.Contains(api.Verbs, "watch") {
+							gvkToGvr[gvk] = gvrs.GroupVersionResource
+						} else {
+							logger.Info("list/watch not supported for kind", "kind", kind)
+						}
+					}
 				}
 			}
 		}
 	}
 	dynamicWatchers := map[schema.GroupVersionResource]*watcher{}
-	for gvk, gvr := range gvrs {
+	for gvk, gvr := range gvkToGvr {
 		logger := logger.WithValues("gvr", gvr, "gvk", gvk)
 		// if we already have one, transfer it to the new map
 		if c.dynamicWatchers[gvr] != nil {
@@ -296,6 +308,7 @@ func (c *controller) updateHash(eventType EventType, obj *unstructured.Unstructu
 				Namespace: obj.GetNamespace(),
 				Name:      obj.GetName(),
 			}
+			logger.Info("hash", "hash", hash, "gvk", watcher.gvk)
 			c.notify(eventType, uid, watcher.gvk, watcher.hashes[uid])
 		}
 	}

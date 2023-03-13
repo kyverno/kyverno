@@ -1296,7 +1296,7 @@ func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidation
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s", k)
 			}
 			if backgroundScanningEnabled {
-				for _, gvr := range gvrs {
+				for gvr := range gvrs {
 					if strings.Contains(gvr.Resource, "/") {
 						return fmt.Errorf("background scan enabled with subresource %s", subresource)
 					}

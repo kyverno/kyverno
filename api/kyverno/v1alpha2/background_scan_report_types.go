@@ -66,6 +66,10 @@ func (r *BackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyRep
 	r.Spec.Summary = summary
 }
 
+func (r *BackgroundScanReport) GetOwner() metav1.OwnerReference {
+	return r.ObjectMeta.OwnerReferences[0]
+}
+
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -100,6 +104,10 @@ func (r *ClusterBackgroundScanReport) SetResults(results []policyreportv1alpha2.
 
 func (r *ClusterBackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
 	r.Spec.Summary = summary
+}
+
+func (r *ClusterBackgroundScanReport) GetOwner() metav1.OwnerReference {
+	return r.ObjectMeta.OwnerReferences[0]
 }
 
 // +kubebuilder:object:root=true

@@ -26,6 +26,7 @@ import (
 // ReportInterface abstracts the concrete report change request type
 type ReportInterface interface {
 	metav1.Object
+	GetOwner() metav1.OwnerReference
 	GetResults() []policyreportv1alpha2.PolicyReportResult
 	SetResults([]policyreportv1alpha2.PolicyReportResult)
 	SetSummary(policyreportv1alpha2.PolicyReportSummary)

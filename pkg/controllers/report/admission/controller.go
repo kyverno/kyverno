@@ -152,16 +152,25 @@ func mergeReports(accumulator map[string]policyreportv1alpha2.PolicyReportResult
 	}
 }
 
-func (c *controller) aggregateReports(ctx context.Context, uid types.UID, gvk schema.GroupVersionKind, res resource.Resource, reports ...metav1.Object) error {
+func (c *controller) aggregateReports(ctx context.Context, uid types.UID,
+	gvk schema.GroupVersionKind, res resource.Resource,
+	reports ...metav1.Object) error {
 	before, err := c.fetchReport(ctx, res.Namespace, string(uid))
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
 		before = reportutils.NewAdmissionReport(res.Namespace, string(uid), res.Name, uid, metav1.GroupVersionKind(gvk))
+		controllerutils.SetLabel(before, reportutils.LabelResourceHash, res.Hash)
+		controllerutils.SetLabel(before, reportutils.LabelAggregatedReport, res.Hash)
+	} else {
+		owner := before.GetOwner()
+		res, gvk, _ = c.metadataCache.GetResourceHash(uid, schema.FromAPIVersionAndKind(owner.APIVersion, owner.Kind))
 	}
 	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
 	for _, report := range reports {
+		owner := report.GetOwnerReferences()[0]
+		res, _, _ := c.metadataCache.GetResourceHash(uid, schema.FromAPIVersionAndKind(owner.APIVersion, owner.Kind))
 		if reportutils.GetResourceHash(report) == res.Hash {
 			if report.GetName() == string(uid) {
 				mergeReports(merged, before)
@@ -206,14 +215,33 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID, gvk sc
 			}
 		}
 	}
-	return c.cleanupReports(ctx, uid, res.Hash, reports...)
+	return c.cleanupReports(ctx, uid, reports...)
 }
 
-func (c *controller) cleanupReports(ctx context.Context, uid types.UID, hash string, reports ...metav1.Object) error {
+func (c *controller) cleanupReports(ctx context.Context, uid types.UID, reports ...metav1.Object) error {
 	var toDelete []metav1.Object
 	for _, report := range reports {
 		if report.GetName() != string(uid) {
-			if reportutils.GetResourceHash(report) == hash || report.GetCreationTimestamp().Add(deletionGrace).Before(time.Now()) {
+			shouldBeDeleted := false
+			outOfGrace := report.GetCreationTimestamp().Add(deletionGrace).Before(time.Now())
+			if len(report.GetOwnerReferences()) == 0 {
+				if outOfGrace {
+					shouldBeDeleted = true
+				}
+			} else {
+				owner := report.GetOwnerReferences()[0]
+				resource, _, found := c.metadataCache.GetResourceHash(uid, schema.FromAPIVersionAndKind(owner.APIVersion, owner.Kind))
+				if !found {
+					if outOfGrace {
+						shouldBeDeleted = true
+					}
+				} else if reportutils.GetResourceHash(report) == resource.Hash {
+					shouldBeDeleted = true
+				} else if outOfGrace {
+					shouldBeDeleted = true
+				}
+			}
+			if shouldBeDeleted {
 				toDelete = append(toDelete, report)
 			} else {
 				c.queue.AddAfter(cache.ExplicitKey(uid), deletionGrace)
@@ -239,7 +267,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	// is the resource known
 	resource, gvk, found := c.metadataCache.GetResourceHash(uid)
 	if !found {
-		return c.cleanupReports(ctx, "", "", reports...)
+		return c.cleanupReports(ctx, uid, reports...)
 	}
 	quit := false
 	// set orphan reports an owner
@@ -249,7 +277,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 			if err != nil {
 				return err
 			}
-			controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
+			owner := report.GetOwner()
+			controllerutils.SetOwner(report, owner.APIVersion, owner.Kind, owner.Name, owner.UID)
 			if _, err = reportutils.UpdateReport(ctx, report, c.client); err != nil {
 				return err
 			}
