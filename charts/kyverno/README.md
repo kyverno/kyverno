@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: 2.7.1](https://img.shields.io/badge/Version-2.7.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.9.1](https://img.shields.io/badge/AppVersion-v1.9.1-informational?style=flat-square)
+![Version: 2.7.2-rc.1](https://img.shields.io/badge/Version-2.7.2--rc.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.9.2-rc.1](https://img.shields.io/badge/AppVersion-v1.9.2--rc.1-informational?style=flat-square)
 
 ## About
 
