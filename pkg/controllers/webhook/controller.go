@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	coordinationv1informers "k8s.io/client-go/informers/coordination/v1"
@@ -832,12 +833,29 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 	for _, gvk := range matchedGVK {
 		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
 		group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
-		gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
-		if err != nil {
-			logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
-			continue
+		// if kind is `*` no need to lookup resources
+		if kind == "*" && subresource == "*" {
+			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
+				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
+				SubResource:          "*",
+			})
+		} else if kind == "*" && subresource == "" {
+			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
+				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
+			})
+		} else if kind == "*" && subresource != "" {
+			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
+				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
+				SubResource:          subresource,
+			})
+		} else {
+			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
+			if err != nil {
+				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+				continue
+			}
+			gvrsList = append(gvrsList, gvrss...)
 		}
-		gvrsList = append(gvrsList, gvrss...)
 	}
 	for _, gvr := range gvrsList {
 		dst.set(gvr)
