@@ -629,19 +629,13 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 			return nil, err
 		}
 		c.recordPolicyState(config.MutatingWebhookConfigurationName, policies...)
-		// TODO: shouldn't be per failure policy, depending of the policy/rules that apply ?
-		if hasWildcard(policies...) {
-			ignore.setWildcard()
-			fail.setWildcard()
-		} else {
-			for _, p := range policies {
-				spec := p.GetSpec()
-				if spec.HasMutate() || spec.HasVerifyImages() {
-					if spec.GetFailurePolicy() == kyvernov1.Ignore {
-						c.mergeWebhook(ignore, p, false)
-					} else {
-						c.mergeWebhook(fail, p, false)
-					}
+		for _, p := range policies {
+			spec := p.GetSpec()
+			if spec.HasMutate() || spec.HasVerifyImages() {
+				if spec.GetFailurePolicy() == kyvernov1.Ignore {
+					c.mergeWebhook(ignore, p, false)
+				} else {
+					c.mergeWebhook(fail, p, false)
 				}
 			}
 		}
@@ -736,19 +730,13 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 			return nil, err
 		}
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
-		// TODO: shouldn't be per failure policy, depending of the policy/rules that apply ?
-		if hasWildcard(policies...) {
-			ignore.setWildcard()
-			fail.setWildcard()
-		} else {
-			for _, p := range policies {
-				spec := p.GetSpec()
-				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() || spec.HasYAMLSignatureVerify() {
-					if spec.GetFailurePolicy() == kyvernov1.Ignore {
-						c.mergeWebhook(ignore, p, true)
-					} else {
-						c.mergeWebhook(fail, p, true)
-					}
+		for _, p := range policies {
+			spec := p.GetSpec()
+			if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() || spec.HasYAMLSignatureVerify() {
+				if spec.GetFailurePolicy() == kyvernov1.Ignore {
+					c.mergeWebhook(ignore, p, true)
+				} else {
+					c.mergeWebhook(fail, p, true)
 				}
 			}
 		}
@@ -848,14 +836,23 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			gvkMap[gvk] = 1
 			// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
 			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
-			gvrs, err := c.discoveryClient.FindResources(group, version, kind, subresource)
-			if err != nil {
-				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
-				continue
-			}
-			for _, gvr := range gvrs {
-				logger.V(4).Info("configuring webhook", "GVK", gvk, "GVR", gvr)
-				gvrList = append(gvrList, gvr)
+			// if kind is `*` no need to lookup resources
+			if kind == "*" && subresource == "*" {
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"})
+			} else if kind == "*" && subresource == "" {
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*"})
+			} else if kind == "*" && subresource != "" {
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource})
+			} else {
+				gvrs, err := c.discoveryClient.FindResources(group, version, kind, subresource)
+				if err != nil {
+					logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
+					continue
+				}
+				for _, gvr := range gvrs {
+					logger.V(4).Info("configuring webhook", "GVK", gvk, "GVR", gvr)
+					gvrList = append(gvrList, gvr)
+				}
 			}
 		}
 	}

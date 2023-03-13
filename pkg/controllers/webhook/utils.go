@@ -32,7 +32,7 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 	var rules []admissionregistrationv1.RuleWithOperations
 	for gv, resources := range wh.rules {
 		// if we have pods, we add pods/ephemeralcontainers by default
-		if gv.Group == "" && gv.Version == "v1" && resources.Has("pods") {
+		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
 			resources.Insert("pods/ephemeralcontainers")
 		}
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
@@ -82,24 +82,6 @@ func (wh *webhook) set(gvr schema.GroupVersionResource) {
 
 func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
-}
-
-func (wh *webhook) setWildcard() {
-	wh.rules = map[schema.GroupVersion]sets.Set[string]{
-		{Group: "*", Version: "*"}: sets.New("*/*"),
-	}
-}
-
-func hasWildcard(policies ...kyvernov1.PolicyInterface) bool {
-	for _, policy := range policies {
-		spec := policy.GetSpec()
-		for _, rule := range spec.Rules {
-			if kinds := rule.MatchResources.GetKinds(); slices.Contains(kinds, "*") {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
