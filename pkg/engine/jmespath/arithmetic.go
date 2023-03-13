@@ -51,6 +51,24 @@ func ParseArithemticOperands(arguments []interface{}, operator string) (Operand,
 	return op[0], op[1], nil
 }
 
+func ParseArithmeticOperandsArray(arguments []interface{}, operator string) ([]Operand, error) {
+    op := make([]Operand, len(arguments))
+    for i := range arguments {
+		if tmp, err := validateArg(divide, arguments, i, reflect.Float64); err == nil {
+			var sc Scalar
+			sc.float64 = tmp.Float()
+			op[i] = sc
+		} else if tmp, err = validateArg(divide, arguments, i, reflect.String); err == nil {
+			if q, err := resource.ParseQuantity(tmp.String()); err == nil {
+				op[i] = Quantity{Quantity: q}
+			} else if d, err := time.ParseDuration(tmp.String()); err == nil {
+				op[i] = Duration{Duration: d}
+			}
+		}
+    }
+    return op, nil
+}
+
 // Quantity +|- Quantity          -> Quantity
 // Quantity +|- Duration|Scalar   -> error
 // Duration +|- Duration          -> Duration
@@ -58,11 +76,71 @@ func ParseArithemticOperands(arguments []interface{}, operator string) (Operand,
 // Scalar   +|- Scalar            -> Scalar
 // Scalar   +|- Quantity|Duration -> error
 
+
+func addScalars(scalars []Operand) (interface{}, error) {
+	if len(scalars) == 0 {
+		return nil, fmt.Errorf("empty array")
+	}
+
+	result := scalars[0]
+	for i := 1; i < len(scalars); i++ {
+	
+		res, err := result.Add(scalars[i])
+		result = Scalar{float64: res.(float64)}
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return result.(Scalar).float64, nil
+
+}
+
+func addQuantities(quantities []Operand)(interface{}, error){
+	if len(quantities) == 0 {
+        return Quantity{}, fmt.Errorf("empty array")
+    }
+
+    result := quantities[0]
+    for i := 1; i < len(quantities); i++ {
+        res, err := result.Add(quantities[i])
+        if err != nil {
+            return Quantity{}, err
+        }
+        result = res.(Quantity)
+    }
+	return result, nil
+}
+
+func addDurations(durations []Operand)(interface{}, error){
+	if len(durations) == 0 {
+		return "", fmt.Errorf("empty array of durations")
+	}
+
+	// Start with the first duration in the array
+	result := durations[0]
+
+	// Add the remaining durations in the array to the result using the `Add` method
+	for i := 1; i < len(durations); i++ {
+		value, err := result.Add(durations[i])
+		if err != nil {
+			return "", err
+		}
+
+		result = Duration{value.(time.Duration)}
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return result.(Duration).String(), nil
+}
+
 func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
 		op1.Quantity.Add(v.Quantity)
-		return op1.String(), nil
+		return op1, nil
 	default:
 		return nil, formatError(typeMismatchError, add)
 	}
@@ -71,7 +149,7 @@ func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
 func (op1 Duration) Add(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Duration:
-		return (op1.Duration + v.Duration).String(), nil
+		return (op1.Duration + v.Duration), nil
 	default:
 		return nil, formatError(typeMismatchError, add)
 	}
