@@ -230,7 +230,7 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 					if wildcard.Match(parent.Resource+"/"+subresource, resource.Name) {
 						parts := strings.Split(resource.Name, "/")
 						gvrs := parent.WithSubResource(parts[1])
-						resources[gvrs] = resource
+						subresources[gvrs] = resource
 						break
 					}
 				}
