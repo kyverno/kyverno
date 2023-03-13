@@ -9,13 +9,14 @@ import (
 
 	"gotest.tools/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func Test_webhook_isEmpty(t *testing.T) {
 	empty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
 	assert.Equal(t, empty.isEmpty(), true)
 	notEmpty := newWebhook(DefaultWebhookTimeout, admissionregistrationv1.Ignore)
-	notEmpty.setWildcard()
+	notEmpty.set(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"})
 	assert.Equal(t, notEmpty.isEmpty(), false)
 }
 
