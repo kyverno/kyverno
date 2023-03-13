@@ -5,20 +5,6 @@ metadata:
     webhook.kyverno.io/managed-by: kyverno
   name: kyverno-resource-validating-webhook-cfg
 webhooks:
-- failurePolicy: Ignore
-  rules:
-  - apiGroups:
-    - '*'
-    apiVersions:
-    - '*'
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    - CONNECT
-    resources:
-    - '*/*'
-    scope: '*'
 - failurePolicy: Fail
   rules:
   - apiGroups:
@@ -31,5 +17,6 @@ webhooks:
     - DELETE
     - CONNECT
     resources:
-    - '*/*'
+    - '*'
+    - pods/ephemeralcontainers
     scope: '*'
