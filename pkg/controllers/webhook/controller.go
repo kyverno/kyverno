@@ -436,10 +436,12 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 			return err
 		}
 		ready := true
-		for _, set := range c.policyState {
-			if !set.Has(policyKey) {
-				ready = false
-				break
+		if c.autoUpdateWebhooks {
+			for _, set := range c.policyState {
+				if !set.Has(policyKey) {
+					ready = false
+					break
+				}
 			}
 		}
 		status := policy.GetStatus()
@@ -627,19 +629,13 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 			return nil, err
 		}
 		c.recordPolicyState(config.MutatingWebhookConfigurationName, policies...)
-		// TODO: shouldn't be per failure policy, depending of the policy/rules that apply ?
-		if hasWildcard(policies...) {
-			ignore.setWildcard()
-			fail.setWildcard()
-		} else {
-			for _, p := range policies {
-				spec := p.GetSpec()
-				if spec.HasMutate() || spec.HasVerifyImages() {
-					if spec.GetFailurePolicy() == kyvernov1.Ignore {
-						c.mergeWebhook(ignore, p, false)
-					} else {
-						c.mergeWebhook(fail, p, false)
-					}
+		for _, p := range policies {
+			spec := p.GetSpec()
+			if spec.HasMutate() || spec.HasVerifyImages() {
+				if spec.GetFailurePolicy() == kyvernov1.Ignore {
+					c.mergeWebhook(ignore, p, false)
+				} else {
+					c.mergeWebhook(fail, p, false)
 				}
 			}
 		}
@@ -734,19 +730,13 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 			return nil, err
 		}
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
-		// TODO: shouldn't be per failure policy, depending of the policy/rules that apply ?
-		if hasWildcard(policies...) {
-			ignore.setWildcard()
-			fail.setWildcard()
-		} else {
-			for _, p := range policies {
-				spec := p.GetSpec()
-				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() || spec.HasYAMLSignatureVerify() {
-					if spec.GetFailurePolicy() == kyvernov1.Ignore {
-						c.mergeWebhook(ignore, p, true)
-					} else {
-						c.mergeWebhook(fail, p, true)
-					}
+		for _, p := range policies {
+			spec := p.GetSpec()
+			if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() || spec.HasYAMLSignatureVerify() {
+				if spec.GetFailurePolicy() == kyvernov1.Ignore {
+					c.mergeWebhook(ignore, p, true)
+				} else {
+					c.mergeWebhook(fail, p, true)
 				}
 			}
 		}
@@ -823,7 +813,7 @@ func (c *controller) getLease() (*coordinationv1.Lease, error) {
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
 func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
-	matchedGVK := make([]string, 0)
+	var matchedGVK []string
 	for _, rule := range autogen.ComputeRules(policy) {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
@@ -839,34 +829,35 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
 	}
-	gvkMap := make(map[string]int)
-	gvrList := make([]schema.GroupVersionResource, 0)
+	var gvrsList []dclient.GroupVersionResourceSubresource
 	for _, gvk := range matchedGVK {
-		if _, ok := gvkMap[gvk]; !ok {
-			gvkMap[gvk] = 1
-			// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
-			gv, k := kubeutils.GetKindFromGVK(gvk)
-			_, parentAPIResource, gvr, err := c.discoveryClient.FindResource(gv, k)
+		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
+		group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
+		// if kind is `*` no need to lookup resources
+		if kind == "*" && subresource == "*" {
+			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
+				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
+				SubResource:          "*",
+			})
+		} else if kind == "*" && subresource == "" {
+			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
+				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
+			})
+		} else if kind == "*" && subresource != "" {
+			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
+				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
+				SubResource:          subresource,
+			})
+		} else {
+			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
 			if err != nil {
-				logger.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
+				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
 				continue
 			}
-			if parentAPIResource != nil {
-				gvr = schema.GroupVersionResource{
-					Group:    parentAPIResource.Group,
-					Version:  parentAPIResource.Version,
-					Resource: gvr.Resource,
-				}
-			}
-			if strings.Contains(gvk, "*") {
-				gvrList = append(gvrList, schema.GroupVersionResource{Group: gvr.Group, Version: "*", Resource: gvr.Resource})
-			} else {
-				logger.V(4).Info("configuring webhook", "GVK", gvk, "GVR", gvr)
-				gvrList = append(gvrList, gvr)
-			}
+			gvrsList = append(gvrsList, gvrss...)
 		}
 	}
-	for _, gvr := range gvrList {
+	for _, gvr := range gvrsList {
 		dst.set(gvr)
 	}
 	spec := policy.GetSpec()

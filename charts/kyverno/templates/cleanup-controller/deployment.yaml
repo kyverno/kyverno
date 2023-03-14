@@ -4,9 +4,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "kyverno.cleanup-controller.name" . }}
+  namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
-  namespace: {{ template "kyverno.namespace" . }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.cleanupController.replicas }}
   {{- with .Values.cleanupController.updateStrategy }}

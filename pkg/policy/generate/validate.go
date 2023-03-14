@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -112,7 +112,7 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 
 	namespace := c.Namespace
 	// Skip if there is variable defined
-	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
+	if !regex.IsVariable(kind) && !regex.IsVariable(namespace) {
 		// GET
 		ok, err := g.authCheck.CanIGet(context.TODO(), kind, namespace)
 		if err != nil {
@@ -131,7 +131,7 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 func (g *Generate) canIGenerate(kind, namespace string) error {
 	// Skip if there is variable defined
 	authCheck := g.authCheck
-	if !variables.IsVariable(kind) && !variables.IsVariable(namespace) {
+	if !regex.IsVariable(kind) && !regex.IsVariable(namespace) {
 		// CREATE
 		ok, err := authCheck.CanICreate(context.TODO(), kind, namespace)
 		if err != nil {

@@ -86,7 +86,7 @@ func loadExpressions(cmd *cobra.Command, args []string, files []string) ([]strin
 	}
 	if len(expressions) == 0 {
 		fmt.Println("Reading from terminal input.")
-		fmt.Println("Enter a jmespatch expression and hit Ctrl+D.")
+		fmt.Println("Enter a jmespath expression and hit Ctrl+D.")
 		data, err := readFile(cmd.InOrStdin())
 		if err != nil {
 			return nil, fmt.Errorf("failed to read file STDIN: %v", err)
