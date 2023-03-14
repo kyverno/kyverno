@@ -1285,20 +1285,20 @@ func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule)
 // and found in the cache, returns error if not found. It also returns an error if background scanning
 // is enabled for a subresource.
 func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidationPolicy bool, client dclient.Interface) error {
-	for _, k := range kinds {
-		if !mock {
+	if !mock {
+		for _, k := range kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(k)
-			gvrs, err := client.Discovery().FindResources(group, version, kind, subresource)
+			gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", k, err)
 			}
-			if len(gvrs) == 0 {
+			if len(gvrss) == 0 {
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s", k)
 			}
 			if backgroundScanningEnabled {
-				for _, gvr := range gvrs {
-					if strings.Contains(gvr.Resource, "/") {
-						return fmt.Errorf("background scan enabled with subresource %s", subresource)
+				for _, gvrs := range gvrss {
+					if gvrs.SubResource != "" {
+						return fmt.Errorf("background scan enabled with subresource %s", k)
 					}
 				}
 			}
