@@ -123,11 +123,16 @@ func GetResourceUid(report metav1.Object) types.UID {
 }
 
 func GetResourceGVR(report metav1.Object) schema.GroupVersionResource {
-	gvr, _ := schema.ParseResourceArg(controllerutils.GetLabel(report, LabelResourceGVR))
-	if gvr == nil {
-		return schema.GroupVersionResource{}
+	arg := controllerutils.GetLabel(report, LabelResourceGVR)
+	dots := strings.Count(arg, ".")
+	if dots >= 2 {
+		s := strings.SplitN(arg, ".", 3)
+		return schema.GroupVersionResource{Group: s[2], Version: s[1], Resource: s[0]}
+	} else if dots == 1 {
+		s := strings.SplitN(arg, ".", 2)
+		return schema.GroupVersionResource{Version: s[1], Resource: s[0]}
 	}
-	return *gvr
+	return schema.GroupVersionResource{Resource: arg}
 }
 
 func GetResourceNamespaceAndName(report kyvernov1alpha2.ReportInterface) (string, string) {
