@@ -1,6 +1,0 @@
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl delete ConfigMap test-configmap -n test-validate-e2e-adding-key-to-config-map --force --wait=true --ignore-not-found=true
-  - command: kubectl delete pol configmap-policy -n test-validate-e2e-adding-key-to-config-map --force --wait=true --ignore-not-found=true
-  - command: kubectl delete ns test-validate-e2e-adding-key-to-config-map --force --ignore-not-found=true
