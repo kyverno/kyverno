@@ -12,7 +12,7 @@ spec:
     any:
       - resources:
           kinds:
-            - pod
+            - Pod
   conditions:
     all:
       - key: "{{ target.metadata.name }}"
