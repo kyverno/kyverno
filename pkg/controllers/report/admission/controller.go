@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -103,22 +104,58 @@ func (c *controller) getReports(uid types.UID) ([]metav1.Object, error) {
 	return results, nil
 }
 
+func (c *controller) fetchReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+	if namespace == "" {
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
+	} else {
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
+	}
+}
+
 func (c *controller) fetchReports(ctx context.Context, uid types.UID) ([]kyvernov1alpha2.ReportInterface, error) {
-	if selector, err := reportutils.SelectorResourceUidEquals(uid); err != nil {
-		return nil, err
-	} else if cadmrs, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{LabelSelector: selector.String()}); err != nil {
-		return nil, err
-	} else if admrs, err := c.client.KyvernoV1alpha2().AdmissionReports(metav1.NamespaceAll).List(ctx, metav1.ListOptions{LabelSelector: selector.String()}); err != nil {
+	var results []kyvernov1alpha2.ReportInterface
+	ns := sets.New[string]()
+	if reports, err := c.getReports(uid); err != nil {
 		return nil, err
 	} else {
-		var reports []kyvernov1alpha2.ReportInterface
-		for i := range admrs.Items {
-			reports = append(reports, &admrs.Items[i])
+		// TODO: threshold here ?
+		if len(reports) < 5 {
+			for _, report := range reports {
+				if result, err := c.fetchReport(ctx, report.GetNamespace(), report.GetName()); err != nil {
+					return nil, err
+				} else {
+					results = append(results, result)
+				}
+			}
+			return results, nil
 		}
-		for i := range cadmrs.Items {
-			reports = append(reports, &cadmrs.Items[i])
+		for _, report := range reports {
+			ns.Insert(report.GetNamespace())
 		}
-		return reports, nil
+	}
+	if selector, err := reportutils.SelectorResourceUidEquals(uid); err != nil {
+		return nil, err
+	} else {
+		for n := range ns {
+			if n == "" {
+				cadmrs, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+				if err != nil {
+					return nil, err
+				}
+				for i := range cadmrs.Items {
+					results = append(results, &cadmrs.Items[i])
+				}
+			} else {
+				admrs, err := c.client.KyvernoV1alpha2().AdmissionReports(n).List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
+				if err != nil {
+					return nil, err
+				}
+				for i := range admrs.Items {
+					results = append(results, &admrs.Items[i])
+				}
+			}
+		}
+		return results, nil
 	}
 }
 
