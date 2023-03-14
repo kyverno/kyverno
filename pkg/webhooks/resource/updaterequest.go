@@ -79,5 +79,5 @@ func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger,
 
 func (h *handlers) handleGenerate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, ts time.Time) {
 	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.urUpdater, h.eventGen, h.metricsConfig)
-	go gh.HandleNew(ctx, request, generatePolicies, policyContext)
+	go gh.Handle(ctx, request, generatePolicies, policyContext)
 }

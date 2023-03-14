@@ -1,6 +1,6 @@
 ## Description
 
-This test ensures that modification of the downstream rseource defined in a generate ClusterPolicy is disallowed.
+This test ensures that modification of the downstream resource defined in a generate ClusterPolicy is disallowed.
 
 ## Expected Behavior
 
