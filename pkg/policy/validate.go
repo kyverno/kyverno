@@ -1285,16 +1285,22 @@ func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule)
 // and found in the cache, returns error if not found. It also returns an error if background scanning
 // is enabled for a subresource.
 func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidationPolicy bool, client dclient.Interface) error {
-	for _, kind := range kinds {
-		if !mock && !strings.Contains(kind, "*") {
-			gv, k := kubeutils.GetKindFromGVK(kind)
-			_, _, gvr, err := client.Discovery().FindResource(gv, k)
+	for _, k := range kinds {
+		if !mock {
+			group, version, kind, subresource := kubeutils.ParseKindSelector(k)
+			gvrs, err := client.Discovery().FindResources(group, version, kind, subresource)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", k, err)
 			}
-			_, subresource := kubeutils.SplitSubresource(gvr.Resource)
-			if subresource != "" && isValidationPolicy && backgroundScanningEnabled {
-				return fmt.Errorf("background scan enabled with subresource %s", subresource)
+			if len(gvrs) == 0 {
+				return fmt.Errorf("unable to convert GVK to GVR for kinds %s", k)
+			}
+			if backgroundScanningEnabled {
+				for _, gvr := range gvrs {
+					if strings.Contains(gvr.Resource, "/") {
+						return fmt.Errorf("background scan enabled with subresource %s", subresource)
+					}
+				}
 			}
 		}
 	}
@@ -1310,7 +1316,6 @@ func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) 
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
 	}
-
 	pat1, pat2, notOk := wildcard.MatchPatterns(auditW, enforceW...)
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
@@ -1319,7 +1324,6 @@ func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) 
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
 	}
-
 	return nil
 }
 
