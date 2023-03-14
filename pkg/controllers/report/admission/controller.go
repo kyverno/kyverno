@@ -163,15 +163,12 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 	// if we dont, try to fetch the associated resource
 	if aggregated == nil || len(aggregated.GetOwnerReferences()) == 0 {
 		var res *unstructured.Unstructured
+		var gvr schema.GroupVersionResource
 		for _, report := range reports {
 			// fetch resource using labels recorded on individual reports
-			group := report.GetLabels()["group"]
-			version := report.GetLabels()["version"]
-			resource := report.GetLabels()["resource"]
-			gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+			gvr = reportutils.GetResourceGVR(report)
 			dyn := c.dclient.GetDynamicInterface().Resource(gvr)
-			namespace := report.GetLabels()["namespace"]
-			name := report.GetLabels()["name"]
+			namespace, name := reportutils.GetResourceNamespaceAndName(report)
 			var iface dynamic.ResourceInterface
 			if namespace == "" {
 				iface = dyn
@@ -185,23 +182,12 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 		}
 		// if we found the resource, build an aggregated report for it
 		if res != nil {
-			gvk := res.GroupVersionKind()
 			if aggregated == nil {
-				aggregated = reportutils.NewAdmissionReport(
-					res.GetNamespace(),
-					string(uid),
-					res.GetName(),
-					uid,
-					metav1.GroupVersionKind(gvk),
-				)
+				aggregated = reportutils.NewAdmissionReport(res.GetNamespace(), string(uid), gvr, *res)
 			}
+			gvk := res.GroupVersionKind()
 			controllerutils.SetOwner(aggregated, gvk.GroupVersion().String(), gvk.Kind, res.GetName(), uid)
 			controllerutils.SetLabel(aggregated, reportutils.LabelAggregatedReport, string(uid))
-			// controllerutils.SetLabel(aggregated, "group", group)
-			// controllerutils.SetLabel(aggregated, "version", request.Resource.Version)
-			// controllerutils.SetLabel(aggregated, "resource", request.Resource.Resource)
-			controllerutils.SetLabel(aggregated, "namespace", res.GetNamespace())
-			controllerutils.SetLabel(aggregated, "name", res.GetName())
 		}
 	}
 	// if we have an aggregated report available, compute results

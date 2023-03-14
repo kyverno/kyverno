@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
@@ -216,18 +215,8 @@ func (v *validationHandler) handleAudit(
 			v.eventGen.Add(events...)
 			if createReport {
 				responses = append(responses, engineResponses...)
-				report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
-				// if it's not a creation, the resource already exists, we can set the owner
-				if request.Operation != admissionv1.Create {
-					gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
-					controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
-				}
+				report := reportutils.BuildAdmissionReport(resource, request, responses...)
 				if len(report.GetResults()) > 0 {
-					controllerutils.SetLabel(report, "group", request.Resource.Group)
-					controllerutils.SetLabel(report, "version", request.Resource.Version)
-					controllerutils.SetLabel(report, "resource", request.Resource.Resource)
-					controllerutils.SetLabel(report, "namespace", resource.GetNamespace())
-					controllerutils.SetLabel(report, "name", resource.GetName())
 					_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
 					if err != nil {
 						v.log.Error(err, "failed to create report")
