@@ -6,14 +6,12 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	pcache "github.com/kyverno/kyverno/pkg/policycache"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -72,8 +70,7 @@ func (c *controller) WarmUp() error {
 		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
 			return err
 		} else {
-			subresourceGVKToKind := getSubresourceGVKToKindMap(policy, c.client)
-			c.cache.Set(key, policy, subresourceGVKToKind)
+			return c.cache.Set(key, policy, c.client.Discovery())
 		}
 	}
 	cpols, err := c.cpolLister.List(labels.Everything())
@@ -84,8 +81,7 @@ func (c *controller) WarmUp() error {
 		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
 			return err
 		} else {
-			subresourceGVKToKind := getSubresourceGVKToKindMap(policy, c.client)
-			c.cache.Set(key, policy, subresourceGVKToKind)
+			return c.cache.Set(key, policy, c.client.Discovery())
 		}
 	}
 	return nil
@@ -103,10 +99,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	// TODO: check resource version ?
-	subresourceGVKToKind := getSubresourceGVKToKindMap(policy, c.client)
-	c.cache.Set(key, policy, subresourceGVKToKind)
-	return nil
+	return c.cache.Set(key, policy, c.client.Discovery())
 }
 
 func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {
@@ -115,23 +108,4 @@ func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterfa
 	} else {
 		return c.polLister.Policies(namespace).Get(name)
 	}
-}
-
-func getSubresourceGVKToKindMap(policy kyvernov1.PolicyInterface, client dclient.Interface) map[string]string {
-	subresourceGVKToKind := make(map[string]string)
-	for _, rule := range autogen.ComputeRules(policy) {
-		for _, gvk := range rule.MatchResources.GetKinds() {
-			gv, k := kubeutils.GetKindFromGVK(gvk)
-			_, subresource := kubeutils.SplitSubresource(k)
-			if subresource != "" {
-				apiResource, _, _, err := client.Discovery().FindResource(gv, k)
-				if err != nil {
-					logger.Error(err, "failed to fetch resource group versions", "gv", gv, "kind", k)
-					continue
-				}
-				subresourceGVKToKind[gvk] = apiResource.Kind
-			}
-		}
-	}
-	return subresourceGVKToKind
 }
