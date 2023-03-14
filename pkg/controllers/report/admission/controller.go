@@ -184,10 +184,9 @@ func (c *controller) aggregateReports(ctx context.Context, uid types.UID) (kyver
 		if res != nil {
 			if aggregated == nil {
 				aggregated = reportutils.NewAdmissionReport(res.GetNamespace(), string(uid), gvr, *res)
+				controllerutils.SetOwner(aggregated, res.GetAPIVersion(), res.GetKind(), res.GetName(), uid)
+				controllerutils.SetLabel(aggregated, reportutils.LabelAggregatedReport, string(uid))
 			}
-			gvk := res.GroupVersionKind()
-			controllerutils.SetOwner(aggregated, gvk.GroupVersion().String(), gvk.Kind, res.GetName(), uid)
-			controllerutils.SetLabel(aggregated, reportutils.LabelAggregatedReport, string(uid))
 		}
 	}
 	// if we have an aggregated report available, compute results
@@ -256,11 +255,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	}
 	// try to aggregate reports for the given uid
 	aggregate, reports, err := c.aggregateReports(ctx, uid)
+	var errs []error
 	if err != nil {
-		return err
+		errs = append(errs, err)
 	}
 	// if we created an aggregated report, delete individual ones
-	var errs []error
 	if aggregate != nil {
 		for _, report := range reports {
 			if aggregate != report {
