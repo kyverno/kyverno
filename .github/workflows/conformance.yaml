@@ -45,6 +45,7 @@ jobs:
           - exceptions
           - generate
           - mutate
+          - policy-validation
           - rangeoperators
           - rbac
           - reports
