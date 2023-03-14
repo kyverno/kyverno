@@ -95,7 +95,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	m.policies[key] = policy
 	type state struct {
-		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks, hasVerifyYAML bool
+		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks bool
 	}
 	kindStates := map[dclient.GroupVersionResourceSubresource]state{}
 	for _, rule := range autogen.ComputeRules(policy) {
@@ -129,7 +129,6 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 				entry.hasGenerate = entry.hasGenerate || hasGenerate
 				entry.hasVerifyImages = entry.hasVerifyImages || hasVerifyImages
 				entry.hasImagesValidationChecks = entry.hasImagesValidationChecks || hasImagesValidationChecks
-				// TODO: hasVerifyYAML ?
 				kindStates[gvrs] = entry
 			}
 		}
@@ -143,7 +142,6 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 				Generate:             sets.New[string](),
 				VerifyImagesMutate:   sets.New[string](),
 				VerifyImagesValidate: sets.New[string](),
-				VerifyYAML:           sets.New[string](),
 			}
 		}
 		m.kindType[gvrs][Mutate] = set(m.kindType[gvrs][Mutate], key, state.hasMutate)
@@ -152,7 +150,6 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 		m.kindType[gvrs][Generate] = set(m.kindType[gvrs][Generate], key, state.hasGenerate)
 		m.kindType[gvrs][VerifyImagesMutate] = set(m.kindType[gvrs][VerifyImagesMutate], key, state.hasVerifyImages)
 		m.kindType[gvrs][VerifyImagesValidate] = set(m.kindType[gvrs][VerifyImagesValidate], key, state.hasVerifyImages && state.hasImagesValidationChecks)
-		m.kindType[gvrs][VerifyYAML] = set(m.kindType[gvrs][VerifyYAML], key, state.hasVerifyYAML)
 	}
 	return multierr.Combine(errs...)
 }
