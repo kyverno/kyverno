@@ -11,7 +11,6 @@ apiVersion: kyverno.io/v2beta1
 kind: ClusterPolicy
 metadata:
   name: cpol-foreach-clone-nosync
-  namespace: default
 spec:
   rules:
     - name: cpol-foreach-clone-nosync-secret
