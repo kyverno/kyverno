@@ -37,6 +37,10 @@ spec:
       name: Subject
       priority: 1
       type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.uid']
+      name: UID
+      priority: 1
+      type: string
     - jsonPath: .spec.summary.pass
       name: Pass
       type: integer

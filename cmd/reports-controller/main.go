@@ -117,8 +117,8 @@ func createReportControllers(
 				admissionreportcontroller.ControllerName,
 				admissionreportcontroller.NewController(
 					kyvernoClient,
+					client,
 					metadataFactory,
-					resourceReportController,
 				),
 				admissionreportcontroller.Workers,
 			))

@@ -199,6 +199,10 @@ func (v *validationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		createReport = false
 	}
+	// if the underlying resource has no UID don't create a report
+	if resource.GetUID() == "" {
+		createReport = false
+	}
 	tracing.Span(
 		context.Background(),
 		"",
@@ -219,6 +223,11 @@ func (v *validationHandler) handleAudit(
 					controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
 				}
 				if len(report.GetResults()) > 0 {
+					controllerutils.SetLabel(report, "group", request.Resource.Group)
+					controllerutils.SetLabel(report, "version", request.Resource.Version)
+					controllerutils.SetLabel(report, "resource", request.Resource.Resource)
+					controllerutils.SetLabel(report, "namespace", resource.GetNamespace())
+					controllerutils.SetLabel(report, "name", resource.GetName())
 					_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
 					if err != nil {
 						v.log.Error(err, "failed to create report")
