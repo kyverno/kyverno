@@ -143,6 +143,8 @@ type Configuration interface {
 	GetExcludedGroups() []string
 	// GetExcludedUsernames return exclude usernames
 	GetExcludedUsernames() []string
+	// GetExcludedBackgroundUsernames return exclude usernames for mutateExisting and generate policies
+	GetExcludedBackgroundUsernames() []string
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
 	// GetWebhooks returns the webhook configs
@@ -159,6 +161,7 @@ type configuration struct {
 	enableDefaultRegistryMutation bool
 	excludedGroups                []string
 	excludedUsernames             []string
+	excludeBackgroundUsernames    []string
 	filters                       []filter
 	generateSuccessEvents         bool
 	webhooks                      []WebhookConfig
@@ -222,6 +225,12 @@ func (cd *configuration) GetExcludedUsernames() []string {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.excludedUsernames
+}
+
+func (cd *configuration) GetExcludedBackgroundUsernames() []string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.excludeBackgroundUsernames
 }
 
 func (cd *configuration) GetExcludedGroups() []string {
@@ -308,6 +317,13 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		logger.V(6).Info("configuration: No excludeUsername defined in ConfigMap")
 	} else {
 		cd.excludedUsernames = parseRbac(excludedUsernames)
+	}
+	// load excludeBackgroundUsernames
+	excludeBackgroundUsernames, ok := cm.Data["excludeBackgroundUsernames"]
+	if !ok {
+		logger.V(6).Info("configuration: No excludeBackgroundUsernames defined in ConfigMap")
+	} else {
+		cd.excludeBackgroundUsernames = parseRbac(excludeBackgroundUsernames)
 	}
 	// load generateSuccessEvents
 	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]

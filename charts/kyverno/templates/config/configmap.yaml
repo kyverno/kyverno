@@ -19,6 +19,13 @@ data:
   {{- with .Values.config.excludeGroupRole }}
   excludeGroupRole: {{ join "," . | quote }}
   {{- end -}}
+  {{- $backgroundUsernames := (printf "system:serviceaccount:%s:%s" (include "kyverno.namespace" .) (include "kyverno.background-controller.serviceAccountName" .)) }}
+  {{- if .Values.config.excludeBackgroundUsernames }}
+  {{- $backgroundUsernames = prepend .Values.config.excludeBackgroundUsernames $backgroundUsernames}}
+  excludeBackgroundUsernames: {{ join "," $backgroundUsernames | quote }}
+  {{- else }}
+  excludeBackgroundUsernames: {{ $backgroundUsernames }}
+  {{- end -}} 
   {{- with .Values.config.excludeUsername }}
   excludeUsername: {{ join "," . | quote }}
   {{- end -}}
