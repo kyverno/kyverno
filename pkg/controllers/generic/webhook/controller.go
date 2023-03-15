@@ -40,8 +40,9 @@ type controller struct {
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 
 	// listers
-	vwcLister    admissionregistrationv1listers.ValidatingWebhookConfigurationLister
-	secretLister corev1listers.SecretNamespaceLister
+	vwcLister       admissionregistrationv1listers.ValidatingWebhookConfigurationLister
+	secretLister    corev1listers.SecretNamespaceLister
+	configMapLister corev1listers.ConfigMapLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -63,6 +64,7 @@ func NewController(
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	secretInformer corev1informers.SecretInformer,
+	configMapInformer corev1informers.ConfigMapInformer,
 	webhookName string,
 	path string,
 	server string,
@@ -73,19 +75,20 @@ func NewController(
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
-		vwcClient:      vwcClient,
-		vwcLister:      vwcInformer.Lister(),
-		secretLister:   secretInformer.Lister().Secrets(config.KyvernoNamespace()),
-		queue:          queue,
-		controllerName: controllerName,
-		logger:         logging.ControllerLogger(controllerName),
-		webhookName:    webhookName,
-		path:           path,
-		server:         server,
-		servicePort:    servicePort,
-		rules:          rules,
-		failurePolicy:  failurePolicy,
-		sideEffects:    sideEffects,
+		vwcClient:       vwcClient,
+		vwcLister:       vwcInformer.Lister(),
+		secretLister:    secretInformer.Lister().Secrets(config.KyvernoNamespace()),
+		configMapLister: configMapInformer.Lister(),
+		queue:           queue,
+		controllerName:  controllerName,
+		logger:          logging.ControllerLogger(controllerName),
+		webhookName:     webhookName,
+		path:            path,
+		server:          server,
+		servicePort:     servicePort,
+		rules:           rules,
+		failurePolicy:   failurePolicy,
+		sideEffects:     sideEffects,
 	}
 	controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
@@ -106,6 +109,24 @@ func NewController(
 			}
 		},
 	)
+	controllerutils.AddEventHandlersT(
+		configMapInformer.Informer(),
+		func(obj *corev1.ConfigMap) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
+				c.enqueue()
+			}
+		},
+		func(_, obj *corev1.ConfigMap) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
+				c.enqueue()
+			}
+		},
+		func(obj *corev1.ConfigMap) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
+				c.enqueue()
+			}
+		},
+	)
 	return &c
 }
 
@@ -118,6 +139,15 @@ func (c *controller) enqueue() {
 	c.queue.Add(c.webhookName)
 }
 
+func (c *controller) loadConfig() config.Configuration {
+	cfg := config.NewDefaultConfiguration()
+	cm, err := c.configMapLister.ConfigMaps(config.KyvernoNamespace()).Get(config.KyvernoConfigMapName())
+	if err == nil {
+		cfg.Load(cm)
+	}
+	return cfg
+}
+
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
 	if key != c.webhookName {
 		return nil
@@ -126,7 +156,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	if err != nil {
 		return err
 	}
-	desired, err := c.build(caData)
+	desired, err := c.build(c.loadConfig(), caData)
 	if err != nil {
 		return err
 	}
@@ -140,6 +170,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	}
 	_, err = controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 		w.Labels = desired.Labels
+		w.Annotations = desired.Annotations
 		w.OwnerReferences = desired.OwnerReferences
 		w.Webhooks = desired.Webhooks
 		return nil
@@ -147,19 +178,20 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 	return err
 }
 
-func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+func objectMeta(name string, annotations map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
 			utils.ManagedByLabel: kyvernov1.ValueKyvernoApp,
 		},
+		Annotations:     annotations,
 		OwnerReferences: owner,
 	}
 }
 
-func (c *controller) build(caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-			ObjectMeta: objectMeta(c.webhookName),
+			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 				Name:                    fmt.Sprintf("%s.%s.svc", config.KyvernoServiceName(), config.KyvernoNamespace()),
 				ClientConfig:            c.clientConfig(caBundle),

@@ -49,6 +49,9 @@ config:
   # -- Exclude username
   excludeUsername: []
 
+  # -- Exclude usernames for mutateExisting and generate policies
+  excludeBackgroundUsernames: []
+
   # -- Generate success events.
   generateSuccessEvents: false
 
@@ -108,6 +111,11 @@ config:
     #     matchExpressions:
     #     - key: webhooks.kyverno.io/exclude
     #       operator: DoesNotExist
+
+  # -- Defines annotations to set on webhook configurations.
+  webhookAnnotations: {}
+    # Example to disable admission enforcer on AKS:
+    # 'admissions.enforcer/disabled': 'true'
 
 # Metrics configuration
 metricsConfig:
@@ -191,18 +199,6 @@ test:
 # -- Additional labels
 customLabels: {}
 
-rbac:
-  # -- Create ClusterRoles, ClusterRoleBindings, and ServiceAccount
-  create: true
-  serviceAccount:
-    # -- Create a ServiceAccount
-    create: true
-    # -- The ServiceAccount name
-    name:
-    # -- Annotations for the ServiceAccount
-    annotations: {}
-      # example.com/annotation: value
-
 # -- Additional resources to be added to controller RBAC permissions.
 generatecontrollerExtraResources: []
 # - ResourceA
@@ -245,6 +241,30 @@ grafana:
 
 # Admission controller configuration
 admissionController:
+
+  rbac:
+    # -- Create RBAC resources
+    create: true
+
+    serviceAccount:
+      # -- The ServiceAccount name
+      name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
+
+    clusterRole:
+      # -- Extra resource permissions to add in the cluster role
+      extraResources: []
+      # - apiGroups:
+      #     - ''
+      #   resources:
+      #     - pods
+      #   verbs:
+      #     - create
+      #     - update
+      #     - delete
 
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.
@@ -1093,7 +1113,7 @@ backgroundController:
               - key: app.kubernetes.io/component
                 operator: In
                 values:
-                  - reports-controller
+                  - background-controller
           topologyKey: kubernetes.io/hostname
 
   # -- Pod affinity constraints.
