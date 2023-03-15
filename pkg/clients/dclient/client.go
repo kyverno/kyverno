@@ -119,11 +119,20 @@ func (c *client) getResourceInterface(apiVersion string, kind string, namespace 
 // Keep this a stateful as the resource list will be based on the kubernetes version we connect to
 func (c *client) getGroupVersionMapper(apiVersion string, kind string) schema.GroupVersionResource {
 	if apiVersion == "" {
-		gvr, _ := c.disco.GetGVRFromKind(kind)
-		return gvr
+		if kind == "" {
+			return schema.GroupVersionResource{}
+		}
+		apiVersion, kind = kubeutils.GetKindFromGVK(kind)
 	}
-
-	return c.disco.GetGVRFromAPIVersionKind(apiVersion, kind)
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return schema.GroupVersionResource{}
+	}
+	gvr, err := c.disco.GetGVRFromGVK(gv.WithKind(kind))
+	if err != nil {
+		return schema.GroupVersionResource{}
+	}
+	return gvr
 }
 
 // GetResource returns the resource in unstructured/json format

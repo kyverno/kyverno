@@ -1,6 +1,7 @@
 package dclient
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -59,35 +60,34 @@ type fakeDiscoveryClient struct {
 	registeredResources []schema.GroupVersionResource
 }
 
-func (c *fakeDiscoveryClient) getGVR(resource string) schema.GroupVersionResource {
+func (c *fakeDiscoveryClient) getGVR(resource string) (schema.GroupVersionResource, error) {
 	for _, gvr := range c.registeredResources {
 		if gvr.Resource == resource {
-			return gvr
+			return gvr, nil
 		}
 	}
-	return schema.GroupVersionResource{}
+	return schema.GroupVersionResource{}, errors.New("no found")
 }
 
 func (c *fakeDiscoveryClient) GetServerVersion() (*version.Info, error) {
 	return nil, nil
 }
 
-func (c *fakeDiscoveryClient) GetGVRFromKind(kind string) (schema.GroupVersionResource, error) {
-	resource := strings.ToLower(kind) + "s"
-	return c.getGVR(resource), nil
-}
-
 func (c *fakeDiscoveryClient) GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	return schema.GroupVersionKind{}, nil
 }
 
-func (c *fakeDiscoveryClient) GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource {
-	resource := strings.ToLower(kind) + "s"
+func (c *fakeDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+	resource := strings.ToLower(gvk.Kind) + "s"
 	return c.getGVR(resource)
 }
 
 func (c *fakeDiscoveryClient) FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error) {
 	return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("not implemented")
+}
+
+func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {

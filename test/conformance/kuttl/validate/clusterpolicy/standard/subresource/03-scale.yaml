@@ -1,0 +1,17 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    if kubectl scale deployment nginx-deployment --replicas 2
+    then 
+      exit 0
+    else 
+      exit 1
+    fi
+- script: |
+    if kubectl scale sts nginx-sts --replicas 2
+    then 
+      exit 1
+    else 
+      exit 0
+    fi
