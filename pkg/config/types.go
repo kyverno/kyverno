@@ -32,6 +32,14 @@ func parseRbac(in string) []string {
 	return out
 }
 
+func parseWebhookAnnotations(in string) (map[string]string, error) {
+	var out map[string]string
+	if err := json.Unmarshal([]byte(in), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type namespacesConfig struct {
 	IncludeNamespaces []string `json:"include,omitempty"`
 	ExcludeNamespaces []string `json:"exclude,omitempty"`

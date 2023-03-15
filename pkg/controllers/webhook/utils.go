@@ -85,12 +85,13 @@ func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
 }
 
-func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+func objectMeta(name string, annotations map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
 			utils.ManagedByLabel: kyvernov1.ValueKyvernoApp,
 		},
+		Annotations:     annotations,
 		OwnerReferences: owner,
 	}
 }
