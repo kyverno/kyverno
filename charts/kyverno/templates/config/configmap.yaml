@@ -28,7 +28,7 @@ data:
   {{- end -}} 
   {{- with .Values.config.excludeUsername }}
   excludeUsername: {{ join "," . | quote }}
-  {{- end -}} 
+  {{- end -}}
   {{- if .Values.config.resourceFilters }}
   resourceFilters: {{ include "kyverno.config.resourceFilters" . | quote }}
   {{- end -}}
