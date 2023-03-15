@@ -99,8 +99,10 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
-            {{- range .Values.backgroundController.extraArgs }}
-            - {{ . }}
+            {{- range $key, $value := .Values.backgroundController.extraArgs }}
+            {{- if $value }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
             {{- end }}
           env:
           - name: METRICS_CONFIG

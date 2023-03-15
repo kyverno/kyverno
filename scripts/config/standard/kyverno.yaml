@@ -2,12 +2,12 @@ admissionController:
 
   initContainer:
     extraArgs:
-      - --loggingFormat=json
+      loggingFormat: json
 
   container:
     extraArgs:
-      - --loggingFormat=json
-      - --enablePolicyException
+      loggingFormat: json
+      enablePolicyException: true
 
 cleanupController:
   rbac:
