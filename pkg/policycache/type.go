@@ -11,5 +11,4 @@ const (
 	Generate
 	VerifyImagesMutate
 	VerifyImagesValidate
-	VerifyYAML
 )
