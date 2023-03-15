@@ -103,8 +103,19 @@ func getTargets(client dclient.Interface, target kyvernov1.ResourceSpec, ctx eng
 			}
 			targetObjects = append(targetObjects, resourceInfo{unstructured: *obj, subresource: gvrs.SubResource, parentResourceGVR: metav1.GroupVersionResource(gvrs.GroupVersionResource)})
 		} else {
-			// we need to use `LIST` / `GET`
-			if gvrs.SubResource != "" {
+			// we can use `LIST`
+			if gvrs.SubResource == "" {
+				list, err := dyn.List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					return nil, err
+				}
+				for _, obj := range list.Items {
+					if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
+						targetObjects = append(targetObjects, resourceInfo{unstructured: obj})
+					}
+				}
+			} else {
+				// we need to use `LIST` / `GET`
 				list, err := dyn.List(context.TODO(), metav1.ListOptions{})
 				if err != nil {
 					return nil, err
@@ -127,16 +138,6 @@ func getTargets(client dclient.Interface, target kyvernov1.ResourceSpec, ctx eng
 						return nil, err
 					}
 					targetObjects = append(targetObjects, resourceInfo{unstructured: *obj, subresource: gvrs.SubResource, parentResourceGVR: metav1.GroupVersionResource(gvrs.GroupVersionResource)})
-				}
-			} else {
-				list, err := dyn.List(context.TODO(), metav1.ListOptions{})
-				if err != nil {
-					return nil, err
-				}
-				for _, obj := range list.Items {
-					if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
-						targetObjects = append(targetObjects, resourceInfo{unstructured: obj})
-					}
 				}
 			}
 		}
