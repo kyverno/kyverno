@@ -3,12 +3,6 @@ kind: Namespace
 metadata:
   name: pol-data-sync-delete-trigger-ns
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: test-org
-  namespace: pol-data-sync-delete-trigger-ns
----
 apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
@@ -34,3 +28,9 @@ spec:
           policyTypes:
           - Ingress
           - Egress
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-org
+  namespace: pol-data-sync-delete-trigger-ns
