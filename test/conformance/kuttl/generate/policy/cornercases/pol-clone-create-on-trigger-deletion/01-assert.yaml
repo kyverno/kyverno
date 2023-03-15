@@ -1,4 +1,4 @@
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: pol-clone-create-on-trigger-deletion
@@ -13,4 +13,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: pol-clone-create-on-trigger-deletion-trigger
-  namespace: pol-clone-create-on-trigger-deletion-manifest-ns 
+  namespace: pol-clone-create-on-trigger-deletion-manifest-ns
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: regcred
+  namespace: pol-clone-create-on-trigger-deletion-manifest-ns

@@ -1,6 +1,6 @@
 ## Description
 
-This is a corner case test to ensure a generate data rule can be triggered on the deletion of the trigger resource.
+This is a corner case test to ensure a generate data rule, with sync enabled, can be triggered on the deletion of the trigger resource.
 
 ## Expected Behavior
 

@@ -1,6 +1,6 @@
 ## Description
 
-This is a corner case test to ensure a generate clone rule can be triggered on the deletion of the trigger resource.
+This is a corner case test to ensure a generate clone rule, with sync enabled, can be triggered on the deletion of the trigger resource.
 
 ## Expected Behavior
 
