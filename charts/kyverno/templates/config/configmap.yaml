@@ -19,6 +19,13 @@ data:
   {{- with .Values.config.excludeGroupRole }}
   excludeGroupRole: {{ join "," . | quote }}
   {{- end -}}
+  {{- $backgroundUsernames := (printf "system:serviceaccount:%s:%s" (include "kyverno.namespace" .) (include "kyverno.background-controller.serviceAccountName" .)) }}
+  {{- if .Values.config.excludeBackgroundUsernames }}
+  {{- $backgroundUsernames = prepend .Values.config.excludeBackgroundUsernames $backgroundUsernames}}
+  excludeBackgroundUsernames: {{ join "," $backgroundUsernames | quote }}
+  {{- else }}
+  excludeBackgroundUsernames: {{ $backgroundUsernames }}
+  {{- end -}} 
   {{- with .Values.config.excludeUsername }}
   excludeUsername: {{ join "," . | quote }}
   {{- end -}}
@@ -32,4 +39,7 @@ data:
   {{- else if .Values.excludeKyvernoNamespace }}
   webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include "kyverno.namespace" . }}"]}]}}]'
   {{- end -}}
+  {{- with .Values.config.webhookAnnotations }}
+  webhookAnnotations: {{ toJson . | quote }}
+  {{- end }}
 {{- end -}}
