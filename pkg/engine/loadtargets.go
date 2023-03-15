@@ -92,11 +92,7 @@ func getTargets(client dclient.Interface, target kyvernov1.ResourceSpec, ctx eng
 		if namespace != "" && name != "" && !wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
 			var obj *unstructured.Unstructured
 			var err error
-			if namespace == "" {
-				obj, err = dyn.Get(context.TODO(), name, metav1.GetOptions{}, sub...)
-			} else {
-				obj, err = dyn.Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{}, sub...)
-			}
+			obj, err = dyn.Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{}, sub...)
 			if err != nil {
 				return nil, err
 			}
