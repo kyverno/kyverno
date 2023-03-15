@@ -7,7 +7,7 @@ import (
 
 	valid "github.com/asaskevich/govalidator"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -149,6 +149,8 @@ type Configuration interface {
 	GetGenerateSuccessEvents() bool
 	// GetWebhooks returns the webhook configs
 	GetWebhooks() []WebhookConfig
+	// GetWebhookAnnotations returns annotations to set on webhook configs
+	GetWebhookAnnotations() map[string]string
 	// Load loads configuration from a configmap
 	Load(cm *corev1.ConfigMap)
 }
@@ -162,8 +164,9 @@ type configuration struct {
 	excludeBackgroundUsernames    []string
 	filters                       []filter
 	generateSuccessEvents         bool
-	mux                           sync.RWMutex
 	webhooks                      []WebhookConfig
+	webhookAnnotations            map[string]string
+	mux                           sync.RWMutex
 }
 
 // NewDefaultConfiguration ...
@@ -246,6 +249,12 @@ func (cd *configuration) GetWebhooks() []WebhookConfig {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.webhooks
+}
+
+func (cd *configuration) GetWebhookAnnotations() map[string]string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.webhookAnnotations
 }
 
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
@@ -336,6 +345,16 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			cd.webhooks = webhooks
 		}
 	}
+	// load webhook annotations
+	webhookAnnotations, ok := cm.Data["webhookAnnotations"]
+	if ok {
+		webhookAnnotations, err := parseWebhookAnnotations(webhookAnnotations)
+		if err != nil {
+			logger.Error(err, "failed to parse webhook annotations")
+		} else {
+			cd.webhookAnnotations = webhookAnnotations
+		}
+	}
 }
 
 func (cd *configuration) unload() {
@@ -348,6 +367,7 @@ func (cd *configuration) unload() {
 	cd.excludedGroups = []string{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
+	cd.webhookAnnotations = nil
 	cd.excludedGroups = append(cd.excludedGroups, defaultExcludedGroups...)
 	cd.excludedUsernames = append(cd.excludedUsernames, defaultExcludedUsernames...)
 }
