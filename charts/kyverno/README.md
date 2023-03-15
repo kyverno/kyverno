@@ -150,7 +150,6 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `resources` has been replaced with `admissionController.container.resources`
 - `service` has been replaced with `admissionController.service`
 - `metricsService` has been replaced with `admissionController.metricsService`
-
 - `initContainer.extraArgs` has been replaced with `admissionController.initContainer.extraArgs`
 - `envVarsInit` has been replaced with `admissionController.initContainer.extraEnvVars`
 - `envVars` has been replaced with `admissionController.container.extraEnvVars`
@@ -159,7 +158,9 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `extraContainers` has been replaced with `admissionController.extraContainers`
 - `podLabels` has been replaced with `admissionController.podLabels`
 - `podAnnotations` has been replaced with `admissionController.podAnnotations`
-- `securityContext` has been replaced with `admissionController.admissionController.container.securityContext` and `admissionController.admissionController.initContainer.securityContext`
+- `securityContext` has been replaced with `admissionController.container.securityContext` and `admissionController.initContainer.securityContext`
+- `rbac` has been replaced with `admissionController.rbac`
+- `generatecontrollerExtraResources` has been replaced with `admissionController.rbac.clusterRole.extraResources`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -214,10 +215,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
 | customLabels | object | `{}` | Additional labels |
-| rbac.create | bool | `true` | Create ClusterRoles, ClusterRoleBindings, and ServiceAccount |
-| rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
-| rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
-| rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
 | excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
 | resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
@@ -229,6 +226,10 @@ The command removes all the Kubernetes components associated with the chart and 
 | grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
 | grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
+| admissionController.rbac.create | bool | `true` | Create RBAC resources |
+| admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
+| admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | admissionController.replicas | int | `nil` | Desired number of pods |
 | admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
