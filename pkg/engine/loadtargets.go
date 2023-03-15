@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -25,31 +24,22 @@ type resourceInfo struct {
 	parentResourceGVR metav1.GroupVersionResource
 }
 
-func loadTargets(
-	client dclient.Interface,
-	targets []kyvernov1.ResourceSpec,
-	ctx engineapi.PolicyContext,
-	logger logr.Logger,
-) ([]resourceInfo, error) {
+func loadTargets(client dclient.Interface, targets []kyvernov1.ResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	var errors []error
-
 	for i := range targets {
 		spec, err := resolveSpec(i, targets[i], ctx, logger)
 		if err != nil {
 			errors = append(errors, err)
 			continue
 		}
-
 		objs, err := getTargets(client, spec, ctx)
 		if err != nil {
 			errors = append(errors, err)
 			continue
 		}
-
 		targetObjects = append(targetObjects, objs...)
 	}
-
 	return targetObjects, multierr.Combine(errors...)
 }
 
@@ -58,22 +48,18 @@ func resolveSpec(i int, target kyvernov1.ResourceSpec, ctx engineapi.PolicyConte
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s: %v", i, target.Kind, err)
 	}
-
 	apiversion, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.APIVersion)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].APIVersion %s: %v", i, target.APIVersion, err)
 	}
-
 	namespace, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Namespace)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Namespace %s: %v", i, target.Namespace, err)
 	}
-
 	name, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Name)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Name %s: %v", i, target.Name, err)
 	}
-
 	return kyvernov1.ResourceSpec{
 		APIVersion: apiversion.(string),
 		Kind:       kind.(string),
@@ -82,99 +68,79 @@ func resolveSpec(i int, target kyvernov1.ResourceSpec, ctx engineapi.PolicyConte
 	}, nil
 }
 
-func getTargets(
-	client dclient.Interface,
-	target kyvernov1.ResourceSpec,
-	ctx engineapi.PolicyContext,
-) ([]resourceInfo, error) {
+func getTargets(client dclient.Interface, target kyvernov1.ResourceSpec, ctx engineapi.PolicyContext) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	namespace := target.Namespace
 	name := target.Name
 	policy := ctx.Policy()
-
 	// if it's namespaced policy, targets has to be loaded only from the policy's namespace
 	if policy.IsNamespaced() {
 		namespace = policy.GetNamespace()
 	}
-	apiResource, parentAPIResource, _, err := client.Discovery().FindResource(target.APIVersion, target.Kind)
+	gvk := target.APIVersion + "/" + target.Kind
+	group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
+	gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
 		return nil, err
 	}
-
-	if namespace != "" && name != "" &&
-		!wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
-		// If the target resource is a subresource
-		var obj *unstructured.Unstructured
-		var parentResourceGVR metav1.GroupVersionResource
-		subresourceName := ""
-		if kubeutils.IsSubresource(apiResource.Name) {
-			apiVersion := metav1.GroupVersion{
-				Group:   parentAPIResource.Group,
-				Version: parentAPIResource.Version,
-			}.String()
-			subresourceName = strings.Split(apiResource.Name, "/")[1]
-			obj, err = client.GetResource(context.TODO(), apiVersion, parentAPIResource.Kind, namespace, name, subresourceName)
-			parentResourceGVR = metav1.GroupVersionResource{
-				Group:    parentAPIResource.Group,
-				Version:  parentAPIResource.Version,
-				Resource: parentAPIResource.Name,
+	for _, gvrs := range gvrss {
+		dyn := client.GetDynamicInterface().Resource(gvrs.GroupVersionResource)
+		var sub []string
+		if gvrs.SubResource != "" {
+			sub = []string{gvrs.SubResource}
+		}
+		// we can use `GET` directly
+		if namespace != "" && name != "" && !wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
+			var obj *unstructured.Unstructured
+			var err error
+			if namespace == "" {
+				obj, err = dyn.Get(context.TODO(), name, metav1.GetOptions{}, sub...)
+			} else {
+				obj, err = dyn.Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{}, sub...)
 			}
-		} else {
-			obj, err = client.GetResource(context.TODO(), target.APIVersion, target.Kind, namespace, name)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to get target %s/%s %s/%s : %v", target.APIVersion, target.Kind, namespace, name, err)
-		}
-
-		return []resourceInfo{{unstructured: *obj, subresource: subresourceName, parentResourceGVR: parentResourceGVR}}, nil
-	}
-
-	if kubeutils.IsSubresource(apiResource.Name) {
-		apiVersion := metav1.GroupVersion{
-			Group:   parentAPIResource.Group,
-			Version: parentAPIResource.Version,
-		}.String()
-		objList, err := client.ListResource(context.TODO(), apiVersion, parentAPIResource.Kind, "", nil)
-		if err != nil {
-			return nil, err
-		}
-		var parentObjects []unstructured.Unstructured
-		for i := range objList.Items {
-			obj := objList.Items[i].DeepCopy()
-			if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
-				parentObjects = append(parentObjects, *obj)
-			}
-		}
-
-		for i := range parentObjects {
-			parentObj := parentObjects[i]
-			subresourceName := strings.Split(apiResource.Name, "/")[1]
-			obj, err := client.GetResource(context.TODO(), parentObj.GetAPIVersion(), parentAPIResource.Kind, parentObj.GetNamespace(), parentObj.GetName(), subresourceName)
 			if err != nil {
 				return nil, err
 			}
-			parentResourceGVR := metav1.GroupVersionResource{
-				Group:    parentAPIResource.Group,
-				Version:  parentAPIResource.Version,
-				Resource: parentAPIResource.Name,
-			}
-			targetObjects = append(targetObjects, resourceInfo{unstructured: *obj, subresource: subresourceName, parentResourceGVR: parentResourceGVR})
-		}
-	} else {
-		// list all targets if wildcard is specified
-		objList, err := client.ListResource(context.TODO(), target.APIVersion, target.Kind, "", nil)
-		if err != nil {
-			return nil, err
-		}
-
-		for i := range objList.Items {
-			obj := objList.Items[i].DeepCopy()
-			if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
-				targetObjects = append(targetObjects, resourceInfo{unstructured: *obj})
+			targetObjects = append(targetObjects, resourceInfo{unstructured: *obj, subresource: gvrs.SubResource, parentResourceGVR: metav1.GroupVersionResource(gvrs.GroupVersionResource)})
+		} else {
+			// we need to use `LIST` / `GET`
+			if gvrs.SubResource != "" {
+				list, err := dyn.List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					return nil, err
+				}
+				var parentObjects []unstructured.Unstructured
+				for _, obj := range list.Items {
+					if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
+						parentObjects = append(parentObjects, obj)
+					}
+				}
+				for _, parentObject := range parentObjects {
+					var obj *unstructured.Unstructured
+					var err error
+					if parentObject.GetNamespace() == "" {
+						obj, err = dyn.Get(context.TODO(), name, metav1.GetOptions{}, sub...)
+					} else {
+						obj, err = dyn.Namespace(parentObject.GetNamespace()).Get(context.TODO(), name, metav1.GetOptions{}, sub...)
+					}
+					if err != nil {
+						return nil, err
+					}
+					targetObjects = append(targetObjects, resourceInfo{unstructured: *obj, subresource: gvrs.SubResource, parentResourceGVR: metav1.GroupVersionResource(gvrs.GroupVersionResource)})
+				}
+			} else {
+				list, err := dyn.List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					return nil, err
+				}
+				for _, obj := range list.Items {
+					if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
+						targetObjects = append(targetObjects, resourceInfo{unstructured: obj})
+					}
+				}
 			}
 		}
 	}
-
 	return targetObjects, nil
 }
 
@@ -190,6 +156,5 @@ func match(namespacePattern, namePattern, namespace, name string) bool {
 			return true
 		}
 	}
-
 	return false
 }
