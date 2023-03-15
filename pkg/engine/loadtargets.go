@@ -77,8 +77,7 @@ func getTargets(client dclient.Interface, target kyvernov1.ResourceSpec, ctx eng
 	if policy.IsNamespaced() {
 		namespace = policy.GetNamespace()
 	}
-	gvk := target.APIVersion + "/" + target.Kind
-	group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
+	group, version, kind, subresource := kubeutils.ParseKindSelector(target.APIVersion + "/" + target.Kind)
 	gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
 		return nil, err
