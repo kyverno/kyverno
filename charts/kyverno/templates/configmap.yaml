@@ -31,4 +31,7 @@ data:
   {{- if .Values.config.generateSuccessEvents }}
   generateSuccessEvents: {{ .Values.config.generateSuccessEvents | quote }}
   {{- end -}}
+  {{- with .Values.config.webhookAnnotations }}
+  webhookAnnotations: {{ toJson . | quote }}
+  {{- end }}
 {{- end -}}
