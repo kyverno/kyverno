@@ -160,6 +160,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `podAnnotations` has been replaced with `admissionController.podAnnotations`
 - `securityContext` has been replaced with `admissionController.container.securityContext` and `admissionController.initContainer.securityContext`
 - `rbac` has been replaced with `admissionController.rbac`
+- `generatecontrollerExtraResources` has been replaced with `admissionController.rbac.clusterRole.extraResources`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -228,6 +229,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.rbac.create | bool | `true` | Create RBAC resources |
 | admissionController.rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | admissionController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| admissionController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | admissionController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | admissionController.replicas | int | `nil` | Desired number of pods |
 | admissionController.podLabels | object | `{}` | Additional labels to add to each pod |
