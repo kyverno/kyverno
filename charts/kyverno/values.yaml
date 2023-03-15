@@ -109,6 +109,9 @@ config:
     #     - key: webhooks.kyverno.io/exclude
     #       operator: DoesNotExist
 
+  # -- Defines annotations to set on webhook configurations.
+  webhookAnnotations: {}
+
 # Metrics configuration
 metricsConfig:
 
