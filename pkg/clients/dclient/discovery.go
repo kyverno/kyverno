@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 )
 
@@ -41,7 +40,6 @@ type IDiscovery interface {
 	// TODO: there's no mapping from GVK to GVR, this is very error prone
 	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
 	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
-	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	DiscoveryCache() discovery.CachedDiscoveryInterface
 	DiscoveryInterface() discovery.DiscoveryInterface
@@ -101,11 +99,6 @@ func (c serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.Grou
 		return schema.GroupVersionResource{}, err
 	}
 	return gvr, nil
-}
-
-// GetServerVersion returns the server version of the cluster
-func (c serverResources) GetServerVersion() (*version.Info, error) {
-	return c.cachedClient.ServerVersion()
 }
 
 // GetGVKFromGVR returns the Group Version Kind from Group Version Resource. The groupVersion has to be specified properly
