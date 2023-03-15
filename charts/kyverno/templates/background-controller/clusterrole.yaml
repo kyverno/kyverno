@@ -51,39 +51,39 @@ rules:
       - delete
       - deletecollection
   - apiGroups:
-    - networking.k8s.io
-    resources:
-    - ingresses
-    - ingressclasses
-    - networkpolicies
-    verbs:
-    - create
-    - update
-    - patch
-    - delete
+      - networking.k8s.io
+      resources:
+      - ingresses
+      - ingressclasses
+      - networkpolicies
+      verbs:
+      - create
+      - update
+      - patch
+      - delete
   - apiGroups:
-    - ""
-    resources:
-    - namespaces
-    - configmaps
-    - secrets
-    - resourcequotas
-    - limitranges
-    verbs:
-    - create
-    - update
-    - patch
-    - delete
+      - ""
+      resources:
+      - namespaces
+      - configmaps
+      - secrets
+      - resourcequotas
+      - limitranges
+      verbs:
+      - create
+      - update
+      - patch
+      - delete
   - apiGroups:
-    - rbac.authorization.k8s.io
-    resources:
-    - rolebindings
-    - roles
-    verbs:
-    - create
-    - update
-    - patch
-    - delete
+      - rbac.authorization.k8s.io
+      resources:
+      - rolebindings
+      - roles
+      verbs:
+      - create
+      - update
+      - patch
+      - delete
 {{- with .Values.backgroundController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
