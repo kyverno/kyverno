@@ -191,18 +191,6 @@ test:
 # -- Additional labels
 customLabels: {}
 
-rbac:
-  # -- Create ClusterRoles, ClusterRoleBindings, and ServiceAccount
-  create: true
-  serviceAccount:
-    # -- Create a ServiceAccount
-    create: true
-    # -- The ServiceAccount name
-    name:
-    # -- Annotations for the ServiceAccount
-    annotations: {}
-      # example.com/annotation: value
-
 # -- Additional resources to be added to controller RBAC permissions.
 generatecontrollerExtraResources: []
 # - ResourceA
@@ -245,6 +233,18 @@ grafana:
 
 # Admission controller configuration
 admissionController:
+
+  rbac:
+    # -- Create RBAC resources
+    create: true
+
+    serviceAccount:
+      # -- The ServiceAccount name
+      name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.
