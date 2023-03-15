@@ -112,6 +112,11 @@ config:
     #     - key: webhooks.kyverno.io/exclude
     #       operator: DoesNotExist
 
+  # -- Defines annotations to set on webhook configurations.
+  webhookAnnotations: {}
+    # Example to disable admission enforcer on AKS:
+    # 'admissions.enforcer/disabled': 'true'
+
 # Metrics configuration
 metricsConfig:
 

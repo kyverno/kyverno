@@ -21,6 +21,14 @@ func parseWebhooks(webhooks string) ([]WebhookConfig, error) {
 	return webhookCfgs, nil
 }
 
+func parseWebhookAnnotations(in string) (map[string]string, error) {
+	var out map[string]string
+	if err := json.Unmarshal([]byte(in), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func parseRbac(list string) []string {
 	return strings.Split(list, ",")
 }
