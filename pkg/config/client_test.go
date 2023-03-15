@@ -110,7 +110,6 @@ func Test_CreateCustomClientConfig_WithContext(t *testing.T) {
 	currentContext := "dev"
 	createCustomKubeConfig(t, customKubeConfig, hosts, currentContext)
 	defer os.Remove(customKubeConfig)
-
 	testCases := []struct {
 		testName   string
 		kubeConfig string
@@ -135,7 +134,6 @@ func Test_CreateCustomClientConfig_WithContext(t *testing.T) {
 			host:       hosts["qa"],
 		},
 	}
-
 	for _, test := range testCases {
 		restConfig, err := config.CreateClientConfigWithContext(test.kubeConfig, test.context)
 		assert.NilError(t, err, fmt.Sprintf("test %s failed", test.testName))
@@ -143,7 +141,6 @@ func Test_CreateCustomClientConfig_WithContext(t *testing.T) {
 			assert.Equal(t, restConfig.Host, test.host, fmt.Sprintf("test %s failed", test.testName))
 		}
 	}
-
 	t.Setenv("KUBECONFIG", customKubeConfig) // use custom kubeconfig instead of ~/.kube/config
 	newCustomKubeConfig := pwd + "/newkubeConfig"
 	newHosts := map[string]string{
@@ -177,7 +174,6 @@ func Test_CreateCustomClientConfig_WithContext(t *testing.T) {
 			host:       newHosts["qa"],
 		},
 	}
-
 	for _, test := range testCases {
 		restConfig, err := config.CreateClientConfigWithContext(test.kubeConfig, test.context)
 		assert.NilError(t, err, fmt.Sprintf("test %s failed", test.testName))
