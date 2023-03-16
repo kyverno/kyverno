@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"gotest.tools/assert"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -345,12 +347,12 @@ func Test_Validate_Policy(t *testing.T) {
 		}
 	 }`)
 
-	openApiManager, _ := openapi.NewManager()
+	openApiManager, _ := openapi.NewManager(logr.Discard())
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	_, err = Validate(policy, nil, true, openApiManager)
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -496,8 +498,8 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	_, err = Validate(policy, nil, true, openApiManager)
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -898,8 +900,8 @@ func Test_Validate_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	_, err = Validate(policy, nil, true, openApiManager)
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -947,47 +949,9 @@ func Test_Validate_Any_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	_, err = Validate(policy, nil, true, openApiManager)
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
-}
-
-func Test_checkAutoGenRules(t *testing.T) {
-	testCases := []struct {
-		name           string
-		policy         []byte
-		expectedResult bool
-	}{
-		{
-			name:           "rule-missing-autogen-cronjob",
-			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"Deployment,CronJob"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}},{"match":{"resources":{"kinds":["Deployment"]}},"name":"autogen-block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"spec":{"template":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}}}]}}`),
-			expectedResult: true,
-		},
-		{
-			name:           "rule-missing-autogen-deployment",
-			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"Deployment,CronJob"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}},{"match":{"resources":{"kinds":["CronJob"]}},"name":"autogen-cronjob-block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}}}}}]}}`),
-			expectedResult: true,
-		},
-		{
-			name:           "rule-missing-autogen-all",
-			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"Deployment,CronJob,StatefulSet,Job,DaemonSet"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}]}}`),
-			expectedResult: true,
-		},
-		{
-			name:           "rule-with-autogen-disabled",
-			policy:         []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test","annotations":{"pod-policies.kyverno.io/autogen-controllers":"none"}},"spec":{"rules":[{"match":{"resources":{"kinds":["Pod"]}},"name":"block-old-flux","validate":{"message":"CannotuseoldFluxv1annotation.","pattern":{"metadata":{"=(annotations)":{"X(fluxcd.io/*)":"*?"}}}}}]}}`),
-			expectedResult: false,
-		},
-	}
-
-	for _, test := range testCases {
-		var policy kyverno.ClusterPolicy
-		err := json.Unmarshal(test.policy, &policy)
-		assert.NilError(t, err)
-
-		res := missingAutoGenRules(&policy, logging.GlobalLogger())
-		assert.Equal(t, test.expectedResult, res, fmt.Sprintf("test %s failed", test.name))
-	}
 }
 
 func Test_Validate_ApiCall(t *testing.T) {
@@ -1075,8 +1039,8 @@ func Test_Wildcards_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	_, err = Validate(policy, nil, true, openApiManager)
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1125,9 +1089,139 @@ func Test_Namespced_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	_, err = Validate(policy, nil, true, openApiManager)
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
+}
+
+func Test_Namespaced_Generate_Policy(t *testing.T) {
+	testcases := []struct {
+		description     string
+		rule            []byte
+		policyNamespace string
+		expectedError   error
+	}{
+		{
+			description: "Only generate resource where the policy exists",
+			rule: []byte(`
+			{"name": "gen-zk",
+                "generate": {
+                    "synchronize": false,
+                    "apiVersion": "v1",
+                    "kind": "ConfigMap",
+                    "name": "zk",
+                    "namespace": "default",
+                    "data": {
+                        "kind": "ConfigMap",
+                        "metadata": {
+                            "labels": {
+                                "somekey": "somevalue"
+                            }
+                        },
+                        "data": {
+                            "ZK_ADDRESS": "192.168.10.10:2181",
+                            "KAFKA_ADDRESS": "192.168.10.13:9092"
+                        }
+                    }
+                }
+					}`),
+			policyNamespace: "poltest",
+			expectedError:   errors.New("path: spec.rules[gen-zk]: a namespaced policy cannot generate resources in other namespaces, expected: poltest, received: default"),
+		},
+		{
+			description: "Not allowed to clone resource outside the policy namespace",
+			rule: []byte(`
+        {
+            "name": "sync-image-pull-secret",
+            "generate": {
+                "apiVersion": "v1",
+                "kind": "Secret",
+                "name": "secret-basic-auth-gen",
+                "namespace": "poltest",
+                "synchronize": true,
+                "clone": {
+                    "namespace": "default",
+                    "name": "secret-basic-auth"
+                }
+            }
+        }`),
+			policyNamespace: "poltest",
+			expectedError:   errors.New("path: spec.rules[sync-image-pull-secret]: a namespaced policy cannot clone resources to or from other namespaces, expected: poltest, received: default"),
+		},
+		{
+			description: "Do not mention the namespace to generate cluster scoped resource",
+			rule: []byte(`
+        {
+            "name": "sync-clone",
+            "generate": {
+                "apiVersion": "storage.k8s.io/v1",
+                "kind": "StorageClass",
+                "name": "local-class",
+                "namespace": "poltest",
+                "synchronize": true,
+                "clone": {
+                    "name": "pv-class"
+                }
+            }
+        }`),
+			policyNamespace: "poltest",
+			expectedError:   errors.New("path: spec.rules[sync-clone]: do not mention the namespace to generate a non namespaced resource"),
+		},
+		{
+			description: "Not allowed to clone cluster scoped resource",
+			rule: []byte(`
+        {
+            "name": "sync-clone",
+            "generate": {
+                "apiVersion": "storage.k8s.io/v1",
+                "kind": "StorageClass",
+                "name": "local-class",
+                "synchronize": true,
+                "clone": {
+                    "name": "pv-class"
+                }
+            }
+        }`),
+			policyNamespace: "poltest",
+			expectedError:   errors.New("path: spec.rules[sync-clone]: a namespaced policy cannot generate cluster-wide resources"),
+		},
+		{
+			description: "Not allowed to multi clone cluster scoped resource",
+			rule: []byte(`
+    {
+        "name": "sync-multi-clone",
+        "generate": {
+            "namespace": "staging",
+            "synchronize": true,
+            "cloneList": {
+                "namespace": "staging",
+                "kinds": [
+                    "storage.k8s.io/v1/StorageClass"
+                ],
+                "selector": {
+                    "matchLabels": {
+                        "allowedToBeCloned": "true"
+                    }
+                }
+            }
+        }
+    }`),
+			policyNamespace: "staging",
+			expectedError:   errors.New("path: spec.rules[sync-multi-clone]: a namespaced policy cannot generate cluster-wide resources"),
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.description, func(t *testing.T) {
+			var rule kyverno.Rule
+			_ = json.Unmarshal(tc.rule, &rule)
+			err := checkClusterResourceInMatchAndExclude(rule, sets.New[string](), tc.policyNamespace, false, testResourceList())
+			if tc.expectedError != nil {
+				assert.Error(t, err, tc.expectedError.Error())
+			} else {
+				assert.NilError(t, err)
+			}
+		})
+	}
 }
 
 func Test_patchesJson6902_Policy(t *testing.T) {
@@ -1173,8 +1267,8 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	_, err = Validate(policy, nil, true, openApiManager)
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -1221,8 +1315,8 @@ func Test_deny_exec(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	_, err = Validate(policy, nil, true, openApiManager)
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -1369,8 +1463,8 @@ func Test_SignatureAlgorithm(t *testing.T) {
 		err := json.Unmarshal(testcase.policy, &policy)
 		assert.NilError(t, err)
 
-		openApiManager, _ := openapi.NewManager()
-		_, err = Validate(policy, nil, true, openApiManager)
+		openApiManager, _ := openapi.NewManager(logr.Discard())
+		_, err = Validate(policy, nil, nil, true, openApiManager)
 		if testcase.expectedOutput {
 			assert.NilError(t, err)
 		} else {
@@ -1419,8 +1513,8 @@ func Test_existing_resource_policy(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	_, err = Validate(policy, nil, true, openApiManager)
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	_, err = Validate(policy, nil, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -1436,7 +1530,7 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	  }
 	},
 	"spec": {
-	  "validationFailureAction": "enforce",
+	  "validationFailureAction": "Enforce",
 	  "background": false,
 	  "rules": [
 		{
@@ -1475,8 +1569,8 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	res, err := Validate(policy, nil, true, openApiManager)
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	res, err := Validate(policy, nil, nil, true, openApiManager)
 	assert.NilError(t, err)
 	assert.Assert(t, res == nil)
 }
@@ -1493,7 +1587,7 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	  }
 	},
 	"spec": {
-	  "validationFailureAction": "enforce",
+	  "validationFailureAction": "Enforce",
 	  "background": false,
 	  "rules": [
 		{
@@ -1532,11 +1626,9 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	res, err := Validate(policy, nil, true, openApiManager)
-	if res != nil {
-		assert.Assert(t, res.Warnings != nil)
-	}
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	warnings, err := Validate(policy, nil, nil, true, openApiManager)
+	assert.Assert(t, warnings != nil)
 	assert.NilError(t, err)
 }
 
@@ -1552,7 +1644,7 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	  }
 	},
 	"spec": {
-	  "validationFailureAction": "enforce",
+	  "validationFailureAction": "Enforce",
 	  "background": false,
 	  "rules": [
 		{
@@ -1591,11 +1683,9 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openApiManager, _ := openapi.NewManager()
-	res, err := Validate(policy, nil, true, openApiManager)
-	if res != nil {
-		assert.Assert(t, res.Warnings != nil)
-	}
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	warnings, err := Validate(policy, nil, nil, true, openApiManager)
+	assert.Assert(t, warnings == nil)
 	assert.NilError(t, err)
 }
 
@@ -1604,7 +1694,7 @@ func Test_ValidateJSON6902(t *testing.T) {
   op: addition
   value: "nginx"`
 	err := validateJSONPatch(patch, 0)
-	assert.Error(t, err, "Unexpected kind: spec.rules[0]: addition")
+	assert.Error(t, err, "unexpected kind: spec.rules[0]: addition")
 
 	patch = `- path: "/metadata/labels/img"
   op: add
@@ -1640,17 +1730,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc1",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -1672,17 +1762,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc2",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -1703,17 +1793,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc3",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default*",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -1735,17 +1825,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc4",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"*",
 						},
@@ -1767,17 +1857,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc5",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"?*",
 						},
@@ -1799,17 +1889,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc6",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default?",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default1",
 						},
@@ -1831,17 +1921,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc7",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default*",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"?*",
 						},
@@ -1863,16 +1953,16 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc8",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"*",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"?*",
 						},
@@ -1894,17 +1984,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc9",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default*",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 							"test*",
@@ -1927,17 +2017,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc10",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"*efault",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -1959,17 +2049,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc11",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default-*",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -1990,16 +2080,16 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc12",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default*?",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 							"test*",
@@ -2021,16 +2111,16 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc13",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default?",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -2059,5 +2149,1220 @@ func Test_ValidateNamespace(t *testing.T) {
 				assert.NilError(t, err)
 			}
 		})
+	}
+}
+
+func testResourceList() []*metav1.APIResourceList {
+	return []*metav1.APIResourceList{
+		{
+			GroupVersion: "v1",
+			APIResources: []metav1.APIResource{
+				{Name: "pods", Namespaced: true, Kind: "Pod"},
+				{Name: "services", Namespaced: true, Kind: "Service"},
+				{Name: "replicationcontrollers", Namespaced: true, Kind: "ReplicationController"},
+				{Name: "componentstatuses", Namespaced: false, Kind: "ComponentStatus"},
+				{Name: "nodes", Namespaced: false, Kind: "Node"},
+				{Name: "secrets", Namespaced: true, Kind: "Secret"},
+				{Name: "configmaps", Namespaced: true, Kind: "ConfigMap"},
+				{Name: "namespacedtype", Namespaced: true, Kind: "NamespacedType"},
+				{Name: "namespaces", Namespaced: false, Kind: "Namespace"},
+				{Name: "resourcequotas", Namespaced: true, Kind: "ResourceQuota"},
+			},
+		},
+		{
+			GroupVersion: "apps/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "deployments", Namespaced: true, Kind: "Deployment"},
+				{Name: "replicasets", Namespaced: true, Kind: "ReplicaSet"},
+			},
+		},
+		{
+			GroupVersion: "storage.k8s.io/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "storageclasses", Namespaced: false, Kind: "StorageClass"},
+			},
+		},
+	}
+}
+
+func Test_Any_wildcard_policy(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "verify-image"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"background": false,
+			"rules": [
+				{
+					"name": "verify-image",
+					"match": {
+						"any": [
+							{
+								"resources": {
+									"kinds": [
+										"*"
+									]
+								}
+							}
+						]
+					},
+					"verifyImages": [
+						{
+							"imageReferences": [
+								"ghcr.io/kyverno/test-verify-image:*"
+							],
+							"mutateDigest": true,
+							"attestors": [
+								{
+									"entries": [
+										{
+											"keys": {
+												"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----                \n"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	}`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	_, err = Validate(policy, nil, nil, true, openApiManager)
+	assert.Assert(t, err != nil)
+}
+
+func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "jmes-path-and-mutate-digest"
+		},
+		"spec": {
+			"rules": [
+				{
+					"match": {
+						"resources": {
+							"kinds": [
+								"CRD"
+							]
+						}
+					},
+					"imageExtractors": {
+						"CRD": [
+							{
+								"path": "/path/to/image/prefixed/with/scheme",
+								"jmesPath": "trim_prefix(@, 'docker://')"
+							}
+						]
+					},
+					"verifyImages": [
+						{
+							"mutateDigest": true,
+							"attestors": [
+								{
+									"count": 1,
+									"entries": [
+										{
+											"keys": {
+												"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	}`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	expectedErr := fmt.Errorf("path: spec.rules[0]: jmespath may not be used in an image extractor when mutating digests with verify images")
+
+	openApiManager, _ := openapi.NewManager(logr.Discard())
+	_, actualErr := Validate(policy, nil, nil, true, openApiManager)
+	assert.Equal(t, expectedErr.Error(), actualErr.Error())
+}
+
+func Test_ImmutableGenerateFields(t *testing.T) {
+	tests := []struct {
+		name        string
+		oldPolicy   []byte
+		newPolicy   []byte
+		expectedErr bool
+	}{
+		{
+			name: "update-apiVersion",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "apps/v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-kind",
+			oldPolicy: []byte(`
+{
+    "apiVersion": "kyverno.io/v2beta1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "cpol-clone-sync-modify-source"
+    },
+    "spec": {
+        "rules": [
+            {
+                "name": "cpol-clone-sync-modify-source-secret",
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Namespace"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "generate": {
+                    "apiVersion": "v1",
+                    "kind": "Secret",
+                    "name": "regcred",
+                    "namespace": "{{request.object.metadata.name}}",
+                    "synchronize": true,
+                    "clone": {
+                        "namespace": "default",
+                        "name": "regcred"
+                    }
+                }
+            }
+        ]
+    }
+}`),
+			newPolicy: []byte(`
+{
+    "apiVersion": "kyverno.io/v2beta1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "cpol-clone-sync-modify-source"
+    },
+    "spec": {
+        "rules": [
+            {
+                "name": "cpol-clone-sync-modify-source-secret",
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Namespace"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "generate": {
+                    "apiVersion": "v1",
+                    "kind": "Configmap",
+                    "name": "regcred",
+                    "namespace": "{{request.object.metadata.name}}",
+                    "synchronize": true,
+                    "clone": {
+                        "namespace": "default",
+                        "name": "regcred"
+                    }
+                }
+            }
+        ]
+    }
+}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-namespace",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.labels.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-name",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "new-name",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-sync-flag",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": false,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: false,
+		},
+		{
+			name: "update-clone-name",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "modifed-name"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-clone-namespace",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "default",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "modifed-namespace",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-clone-namespace-unset-new",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"namespace": "prod",
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v2beta1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "cpol-clone-sync-modify-source"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "cpol-clone-sync-modify-source-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "Secret",
+								"name": "regcred",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"clone": {
+									"name": "regcred"
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-cloneList-kinds",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExisting": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExisting": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-cloneList-namespace",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExisting": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExisting": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "prod",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-cloneList-selector",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExisting": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									],
+									"selector": {
+										"matchLabels": {
+											"allowedToBeCloned": "true"
+										}
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExisting": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									],
+									"selector": {
+										"matchLabels": {
+											"allowedToBeCloned": "false"
+										}
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-clone-List-selector-unset",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExisting": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									],
+									"selector": {
+										"matchLabels": {
+											"allowedToBeCloned": "true"
+										}
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExisting": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: true,
+		},
+		{
+			name: "update-cloneList-selector-nochange",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExisting": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									],
+									"selector": {
+										"matchLabels": {
+											"allowedToBeCloned": "true"
+										}
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "sync-with-multi-clone"
+				},
+				"spec": {
+					"generateExisting": false,
+					"rules": [
+						{
+							"name": "sync-secret",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"cloneList": {
+									"namespace": "default",
+									"kinds": [
+										"v1/Secret",
+										"v1/ConfigMap"
+									],
+									"selector": {
+										"matchLabels": {
+											"allowedToBeCloned": "true"
+										}
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr: false,
+		},
+	}
+
+	for _, test := range tests {
+		var old, new *kyverno.Policy
+		err := json.Unmarshal(test.oldPolicy, &old)
+		assert.NilError(t, err)
+		err = json.Unmarshal(test.newPolicy, &new)
+		assert.NilError(t, err)
+
+		err = immutableGenerateFields(new, old)
+		assert.Assert(t, (err != nil) == test.expectedErr, test.name, err)
 	}
 }

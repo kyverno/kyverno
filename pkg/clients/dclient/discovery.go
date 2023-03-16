@@ -8,45 +8,71 @@ import (
 
 	openapiv2 "github.com/google/gnostic/openapiv2"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 )
 
+// GroupVersionResourceSubresource contains a group/version/resource/subresource reference
+type GroupVersionResourceSubresource struct {
+	schema.GroupVersionResource
+	SubResource string
+}
+
+func (gvrs GroupVersionResourceSubresource) ResourceSubresource() string {
+	if gvrs.SubResource == "" {
+		return gvrs.Resource
+	}
+	return gvrs.Resource + "/" + gvrs.SubResource
+}
+
+func (gvrs GroupVersionResourceSubresource) WithSubResource(subresource string) GroupVersionResourceSubresource {
+	gvrs.SubResource = subresource
+	return gvrs
+}
+
 // IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
-	FindResource(apiVersion string, kind string) (*metav1.APIResource, schema.GroupVersionResource, error)
-	GetGVRFromKind(kind string) (schema.GroupVersionResource, error)
-	GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource
-	GetServerVersion() (*version.Info, error)
+	FindResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error)
+	FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error)
+	// TODO: there's no mapping from GVK to GVR, this is very error prone
+	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
+	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	DiscoveryCache() discovery.CachedDiscoveryInterface
 	DiscoveryInterface() discovery.DiscoveryInterface
 }
 
-// serverPreferredResources stores the cachedClient instance for discovery client
-type serverPreferredResources struct {
+// apiResourceWithListGV is a wrapper for metav1.APIResource with the group-version of its metav1.APIResourceList
+type apiResourceWithListGV struct {
+	apiResource metav1.APIResource
+	listGV      string
+}
+
+// serverResources stores the cachedClient instance for discovery client
+type serverResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
 }
 
 // DiscoveryCache gets the discovery client cache
-func (c serverPreferredResources) DiscoveryCache() discovery.CachedDiscoveryInterface {
+func (c serverResources) DiscoveryCache() discovery.CachedDiscoveryInterface {
 	return c.cachedClient
 }
 
 // DiscoveryInterface gets the discovery client
-func (c serverPreferredResources) DiscoveryInterface() discovery.DiscoveryInterface {
+func (c serverResources) DiscoveryInterface() discovery.DiscoveryInterface {
 	return c.cachedClient
 }
 
 // Poll will keep invalidate the local cache
-func (c serverPreferredResources) Poll(ctx context.Context, resync time.Duration) {
+func (c serverResources) Poll(ctx context.Context, resync time.Duration) {
 	logger := logger.WithName("Poll")
 	// start a ticker
 	ticker := time.NewTicker(resync)
 	defer func() { ticker.Stop() }()
-	logger.V(4).Info("starting registered resources sync", "period", resync)
+	logger.V(6).Info("starting registered resources sync", "period", resync)
 	for {
 		select {
 		case <-ctx.Done():
@@ -61,119 +87,370 @@ func (c serverPreferredResources) Poll(ctx context.Context, resync time.Duration
 }
 
 // OpenAPISchema returns the API server OpenAPI schema document
-func (c serverPreferredResources) OpenAPISchema() (*openapiv2.Document, error) {
+func (c serverResources) OpenAPISchema() (*openapiv2.Document, error) {
 	return c.cachedClient.OpenAPISchema()
 }
 
-// GetGVRFromKind get the Group Version Resource from kind
-func (c serverPreferredResources) GetGVRFromKind(kind string) (schema.GroupVersionResource, error) {
-	if kind == "" {
-		return schema.GroupVersionResource{}, nil
-	}
-	_, k := kubeutils.GetKindFromGVK(kind)
-	_, gvr, err := c.FindResource("", k)
+// GetGVRFromGVK get the Group Version Resource from APIVersion and kind
+func (c serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+	_, _, gvr, err := c.FindResource(gvk.GroupVersion().String(), gvk.Kind)
 	if err != nil {
-		logger.Info("schema not found", "kind", k)
+		logger.Error(err, "schema not found", "gvk", gvk)
 		return schema.GroupVersionResource{}, err
 	}
-
 	return gvr, nil
 }
 
-// GetGVRFromAPIVersionKind get the Group Version Resource from APIVersion and kind
-func (c serverPreferredResources) GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource {
-	_, gvr, err := c.FindResource(apiVersion, kind)
-	if err != nil {
-		logger.Info("schema not found", "kind", kind, "apiVersion", apiVersion, "error : ", err)
-		return schema.GroupVersionResource{}
-	}
-
-	return gvr
-}
-
-// GetServerVersion returns the server version of the cluster
-func (c serverPreferredResources) GetServerVersion() (*version.Info, error) {
-	return c.cachedClient.ServerVersion()
-}
-
-// FindResource finds an API resource that matches 'kind'. If the resource is not
-// found and the Cache is not fresh, the cache is invalidated and a retry is attempted
-func (c serverPreferredResources) FindResource(apiVersion string, kind string) (*metav1.APIResource, schema.GroupVersionResource, error) {
-	r, gvr, err := c.findResource(apiVersion, kind)
+// GetGVKFromGVR returns the Group Version Kind from Group Version Resource. The groupVersion has to be specified properly
+// for example, for corev1.Pod, the groupVersion has to be specified as `v1`, specifying empty groupVersion won't work.
+func (c serverResources) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	gvk, err := c.findResourceFromResourceName(gvr)
 	if err == nil {
-		return r, gvr, nil
+		return gvk, nil
 	}
 
 	if !c.cachedClient.Fresh() {
 		c.cachedClient.Invalidate()
-		if r, gvr, err = c.findResource(apiVersion, kind); err == nil {
-			return r, gvr, nil
+		if gvk, err := c.findResourceFromResourceName(gvr); err == nil {
+			return gvk, nil
 		}
 	}
 
-	return nil, schema.GroupVersionResource{}, err
+	return schema.GroupVersionKind{}, err
 }
 
-func (c serverPreferredResources) findResource(apiVersion string, kind string) (*metav1.APIResource, schema.GroupVersionResource, error) {
-	var serverResources []*metav1.APIResourceList
-	var err error
-	if apiVersion == "" {
-		serverResources, err = c.cachedClient.ServerPreferredResources()
-	} else {
-		_, serverResources, err = c.cachedClient.ServerGroupsAndResources()
-	}
-
+// findResourceFromResourceName returns the GVK for the a particular resourceName and groupVersion
+func (c serverResources) findResourceFromResourceName(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
-			logDiscoveryErrors(err, c)
-		} else if isMetricsServerUnavailable(kind, err) {
+			logDiscoveryErrors(err)
+		} else if isMetricsServerUnavailable(gvr.GroupVersion(), err) {
 			logger.V(3).Info("failed to find preferred resource version", "error", err.Error())
 		} else {
 			logger.Error(err, "failed to find preferred resource version")
-			return nil, schema.GroupVersionResource{}, err
+			return schema.GroupVersionKind{}, err
+		}
+	}
+	apiResource, err := findResourceFromResourceName(gvr, serverGroupsAndResources)
+	if err != nil {
+		return schema.GroupVersionKind{}, err
+	}
+	return schema.GroupVersionKind{Group: apiResource.Group, Version: apiResource.Version, Kind: apiResource.Kind}, err
+}
+
+// FindResource finds an API resource that matches 'kind'. For finding subresources that have the same kind as the parent
+// resource, kind has to be specified as 'ParentKind/SubresourceName'. For matching status subresource of Pod, kind has
+// to be specified as `Pod/status`. If the resource is not found and the Cache is not fresh, the cache is invalidated
+// and a retry is attempted
+func (c serverResources) FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error) {
+	r, pr, gvr, err := c.findResource(groupVersion, kind)
+	if err == nil {
+		return r, pr, gvr, nil
+	}
+
+	if !c.cachedClient.Fresh() {
+		c.cachedClient.Invalidate()
+		if r, pr, gvr, err = c.findResource(groupVersion, kind); err == nil {
+			return r, pr, gvr, nil
 		}
 	}
 
-	k, subresource := kubeutils.SplitSubresource(kind)
+	return nil, nil, schema.GroupVersionResource{}, err
+}
+
+func (c serverResources) FindResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error) {
+	resources, err := c.findResources(group, version, kind, subresource)
+	if err != nil {
+		if !c.cachedClient.Fresh() {
+			c.cachedClient.Invalidate()
+			return c.findResources(group, version, kind, subresource)
+		}
+	}
+	return resources, err
+}
+
+func (c serverResources) findResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error) {
+	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
+	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
+		if discovery.IsGroupDiscoveryFailedError(err) {
+			logDiscoveryErrors(err)
+		} else if isServerCurrentlyUnableToHandleRequest(err) {
+			logger.Error(err, "failed to find preferred resource version")
+		} else {
+			logger.Error(err, "failed to find preferred resource version")
+			return nil, err
+		}
+	}
+	getGVK := func(gv schema.GroupVersion, group, version, kind string) schema.GroupVersionKind {
+		if group == "" {
+			group = gv.Group
+		}
+		if version == "" {
+			version = gv.Version
+		}
+		return schema.GroupVersionKind{
+			Group:   group,
+			Version: version,
+			Kind:    kind,
+		}
+	}
+	resources := sets.New[GroupVersionResourceSubresource]()
+	// first match resouces
+	for _, list := range serverGroupsAndResources {
+		gv, err := schema.ParseGroupVersion(list.GroupVersion)
+		if err != nil {
+			return nil, err
+		} else {
+			for _, resource := range list.APIResources {
+				if !strings.Contains(resource.Name, "/") {
+					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
+					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
+						resources.Insert(GroupVersionResourceSubresource{
+							GroupVersionResource: gvk.GroupVersion().WithResource(resource.Name),
+						})
+					}
+				}
+			}
+		}
+	}
+	// second match subresouces if necessary
+	subresources := sets.New[GroupVersionResourceSubresource]()
 	if subresource != "" {
-		kind = k
+		for _, list := range serverGroupsAndResources {
+			for _, resource := range list.APIResources {
+				for parent := range resources {
+					if wildcard.Match(parent.Resource+"/"+subresource, resource.Name) {
+						parts := strings.Split(resource.Name, "/")
+						subresources.Insert(parent.WithSubResource(parts[1]))
+						break
+					}
+				}
+			}
+		}
+	}
+	// third if no resource matched, try again but consider subresources this time
+	if resources.Len() == 0 {
+		for _, list := range serverGroupsAndResources {
+			gv, err := schema.ParseGroupVersion(list.GroupVersion)
+			if err != nil {
+				return nil, err
+			} else {
+				for _, resource := range list.APIResources {
+					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
+					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
+						parts := strings.Split(resource.Name, "/")
+						resources.Insert(GroupVersionResourceSubresource{
+							GroupVersionResource: gv.WithResource(parts[0]),
+							SubResource:          parts[1],
+						})
+					}
+				}
+			}
+		}
+	}
+	if kind == "*" && subresource == "*" {
+		return resources.Union(subresources).UnsortedList(), nil
+	} else if subresource != "" {
+		return subresources.UnsortedList(), nil
+	}
+	return resources.UnsortedList(), nil
+}
+
+func (c serverResources) findResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource,
+	gvr schema.GroupVersionResource, err error,
+) {
+	serverPreferredResources, _ := c.cachedClient.ServerPreferredResources()
+	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
+	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
+		gv, err := schema.ParseGroupVersion(groupVersion)
+		if err != nil {
+			logger.Error(err, "failed to parse group/version", "groupVersion", groupVersion)
+			return nil, nil, schema.GroupVersionResource{}, err
+		}
+		if discovery.IsGroupDiscoveryFailedError(err) {
+			logDiscoveryErrors(err)
+		} else if isMetricsServerUnavailable(gv, err) {
+			logger.V(3).Info("failed to find preferred resource version", "error", err.Error())
+		} else {
+			logger.Error(err, "failed to find preferred resource version")
+			return nil, nil, schema.GroupVersionResource{}, err
+		}
 	}
 
-	for _, serverResource := range serverResources {
-		if apiVersion != "" && serverResource.GroupVersion != apiVersion {
-			continue
-		}
+	kindWithoutSubresource, subresource := kubeutils.SplitSubresource(kind)
 
-		for _, resource := range serverResource.APIResources {
-			if resourceMatches(resource, kind, subresource) {
-				logger.V(4).Info("matched API resource to kind", "apiResource", resource, "kind", kind)
-				gv, err := schema.ParseGroupVersion(serverResource.GroupVersion)
-				if err != nil {
-					logger.Error(err, "failed to parse GV", "groupVersion", serverResource.GroupVersion)
-					return nil, schema.GroupVersionResource{}, err
+	if subresource != "" {
+		parentApiResource, _, _, err := c.findResource(groupVersion, kindWithoutSubresource)
+		if err != nil {
+			logger.Error(err, "Unable to find parent resource", "kind", kind)
+			return nil, nil, schema.GroupVersionResource{}, err
+		}
+		parentResourceName := parentApiResource.Name
+		resource, gvr, err := findSubresource(groupVersion, parentResourceName, subresource, kind, serverGroupsAndResources)
+		return resource, parentApiResource, gvr, err
+	}
+
+	return findResource(groupVersion, kind, serverPreferredResources, serverGroupsAndResources)
+}
+
+// findSubresource finds the subresource for the given parent resource, groupVersion and serverResourcesList
+func findSubresource(groupVersion, parentResourceName, subresource, kind string, serverResourcesList []*metav1.APIResourceList) (
+	apiResource *metav1.APIResource, gvr schema.GroupVersionResource, err error,
+) {
+	for _, serverResourceList := range serverResourcesList {
+		if groupVersion == "" || kubeutils.GroupVersionMatches(groupVersion, serverResourceList.GroupVersion) {
+			for _, serverResource := range serverResourceList.APIResources {
+				if serverResource.Name == parentResourceName+"/"+strings.ToLower(subresource) {
+					logger.V(6).Info("matched API resource to kind", "apiResource", serverResource, "kind", kind)
+
+					serverResourceGv := getServerResourceGroupVersion(serverResourceList.GroupVersion, serverResource.Group, serverResource.Version)
+					gv, _ := schema.ParseGroupVersion(serverResourceGv)
+
+					serverResource.Group = gv.Group
+					serverResource.Version = gv.Version
+
+					groupVersionResource := gv.WithResource(serverResource.Name)
+					logger.V(6).Info("gv with resource", "gvWithResource", groupVersionResource)
+					return &serverResource, groupVersionResource, nil
 				}
-				// We potentially need to fix Group and Version with what the list is for
-				if resource.Group == "" {
-					resource.Group = gv.Group
-				}
-				if resource.Version == "" {
-					resource.Version = gv.Version
-				}
-				return &resource, gv.WithResource(resource.Name), nil
 			}
 		}
 	}
 
-	return nil, schema.GroupVersionResource{}, fmt.Errorf("kind '%s' not found in apiVersion '%s'", kind, apiVersion)
+	return nil, schema.GroupVersionResource{}, fmt.Errorf("resource not found for kind %s", kind)
 }
 
-// resourceMatches checks the resource Kind, Name, SingularName and a subresource if specified
-// e.g. &apiResource{Name: "taskruns/status", Kind: "TaskRun"} will match "kind=TaskRun, subresource=Status"
-func resourceMatches(resource metav1.APIResource, kind, subresource string) bool {
-	if resource.Kind == kind || resource.Name == kind || resource.SingularName == kind {
-		_, s := kubeutils.SplitSubresource(resource.Name)
-		return strings.EqualFold(s, subresource)
+// findResource finds an API resource that matches 'groupVersion', 'kind', in the given serverResourcesList
+func findResource(groupVersion string, kind string, serverPreferredResources, serverGroupsAndResources []*metav1.APIResourceList) (
+	apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error,
+) {
+	matchingServerResources := getMatchingServerResources(groupVersion, kind, serverGroupsAndResources)
+
+	onlySubresourcePresentInMatchingResources := len(matchingServerResources) > 0
+	for _, matchingServerResource := range matchingServerResources {
+		if !kubeutils.IsSubresource(matchingServerResource.apiResource.Name) {
+			onlySubresourcePresentInMatchingResources = false
+			break
+		}
 	}
 
-	return false
+	if onlySubresourcePresentInMatchingResources {
+		apiResourceWithListGV := matchingServerResources[0]
+		matchingServerResource := apiResourceWithListGV.apiResource
+		logger.V(6).Info("matched API resource to kind", "apiResource", matchingServerResource, "kind", kind)
+
+		groupVersionResource := schema.GroupVersionResource{
+			Resource: matchingServerResource.Name,
+			Group:    matchingServerResource.Group,
+			Version:  matchingServerResource.Version,
+		}
+		logger.V(6).Info("gv with resource", "gvWithResource", groupVersionResource)
+		gv, err := schema.ParseGroupVersion(apiResourceWithListGV.listGV)
+		if err != nil {
+			return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("failed to parse group version %s: %v", apiResourceWithListGV.listGV, err)
+		}
+		parentAPIResource, err := findResourceFromResourceName(
+			gv.WithResource(strings.Split(matchingServerResource.Name, "/")[0]),
+			serverPreferredResources,
+		)
+		if err != nil {
+			return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("failed to find parent resource for subresource %s: %v", matchingServerResource.Name, err)
+		}
+		logger.V(6).Info("parent API resource", "parentAPIResource", parentAPIResource)
+
+		return &matchingServerResource, parentAPIResource, groupVersionResource, nil
+	}
+
+	if groupVersion == "" && len(matchingServerResources) > 0 {
+		for _, serverResourceList := range serverPreferredResources {
+			for _, serverResource := range serverResourceList.APIResources {
+				serverResourceGv := getServerResourceGroupVersion(serverResourceList.GroupVersion, serverResource.Group, serverResource.Version)
+				if serverResource.Kind == kind || serverResource.SingularName == kind {
+					gv, _ := schema.ParseGroupVersion(serverResourceGv)
+					serverResource.Group = gv.Group
+					serverResource.Version = gv.Version
+					groupVersionResource := gv.WithResource(serverResource.Name)
+
+					logger.V(6).Info("matched API resource to kind", "apiResource", serverResource, "kind", kind)
+					return &serverResource, nil, groupVersionResource, nil
+				}
+			}
+		}
+	} else {
+		for _, apiResourceWithListGV := range matchingServerResources {
+			matchingServerResource := apiResourceWithListGV.apiResource
+			if !kubeutils.IsSubresource(matchingServerResource.Name) {
+				logger.V(6).Info("matched API resource to kind", "apiResource", matchingServerResource, "kind", kind)
+
+				groupVersionResource := schema.GroupVersionResource{
+					Resource: matchingServerResource.Name,
+					Group:    matchingServerResource.Group,
+					Version:  matchingServerResource.Version,
+				}
+				logger.V(6).Info("gv with resource", "groupVersionResource", groupVersionResource)
+				return &matchingServerResource, nil, groupVersionResource, nil
+			}
+		}
+	}
+
+	return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("kind '%s' not found in groupVersion '%s'", kind, groupVersion)
+}
+
+// getMatchingServerResources returns a list of API resources that match the given groupVersion and kind
+func getMatchingServerResources(groupVersion string, kind string, serverGroupsAndResources []*metav1.APIResourceList) []apiResourceWithListGV {
+	matchingServerResources := make([]apiResourceWithListGV, 0)
+	for _, serverResourceList := range serverGroupsAndResources {
+		for _, serverResource := range serverResourceList.APIResources {
+			serverResourceGv := getServerResourceGroupVersion(serverResourceList.GroupVersion, serverResource.Group, serverResource.Version)
+			if groupVersion == "" || kubeutils.GroupVersionMatches(groupVersion, serverResourceGv) {
+				if serverResource.Kind == kind || serverResource.SingularName == kind {
+					gv, _ := schema.ParseGroupVersion(serverResourceGv)
+					serverResource.Group = gv.Group
+					serverResource.Version = gv.Version
+					matchingServerResources = append(matchingServerResources, apiResourceWithListGV{apiResource: serverResource, listGV: serverResourceList.GroupVersion})
+				}
+			}
+		}
+	}
+	return matchingServerResources
+}
+
+// findResourceFromResourceName finds an API resource that matches 'resourceName', in the given serverResourcesList
+func findResourceFromResourceName(gvr schema.GroupVersionResource, serverGroupsAndResources []*metav1.APIResourceList) (*metav1.APIResource, error) {
+	for _, list := range serverGroupsAndResources {
+		gv, err := schema.ParseGroupVersion(list.GroupVersion)
+		if err != nil {
+			return nil, err
+		}
+		if gv.Group == gvr.Group && gv.Version == gvr.Version {
+			for _, resource := range list.APIResources {
+				if resource.Name == gvr.Resource {
+					// if the matched resource has group or version set we don't need to copy from the parent list
+					if resource.Group != "" || resource.Version != "" {
+						return &resource, nil
+					}
+					result := resource.DeepCopy()
+					result.Group = gv.Group
+					result.Version = gv.Version
+					return result, nil
+				}
+			}
+		}
+	}
+	return nil, fmt.Errorf("resource %s not found in group %s", gvr.Resource, gvr.GroupVersion())
+}
+
+// getServerResourceGroupVersion returns the groupVersion of the serverResource from the apiResourceMetadata
+func getServerResourceGroupVersion(apiResourceListGroupVersion, apiResourceGroup, apiResourceVersion string) string {
+	var serverResourceGroupVersion string
+	if apiResourceGroup == "" && apiResourceVersion == "" {
+		serverResourceGroupVersion = apiResourceListGroupVersion
+	} else {
+		serverResourceGroupVersion = schema.GroupVersion{
+			Group:   apiResourceGroup,
+			Version: apiResourceVersion,
+		}.String()
+	}
+	return serverResourceGroupVersion
 }

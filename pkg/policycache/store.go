@@ -5,18 +5,20 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/policy"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	kcache "k8s.io/client-go/tools/cache"
 )
 
 type store interface {
 	// set inserts a policy in the cache
-	set(string, kyvernov1.PolicyInterface)
+	set(string, kyvernov1.PolicyInterface, ResourceFinder) error
 	// unset removes a policy from the cache
 	unset(string)
-	// get finds policies that match a given type, gvk and namespace
-	get(PolicyType, string, string) []kyvernov1.PolicyInterface
+	// get finds policies that match a given type, gvr and namespace
+	get(PolicyType, dclient.GroupVersionResourceSubresource, string) []kyvernov1.PolicyInterface
 }
 
 type policyCache struct {
@@ -30,11 +32,14 @@ func newPolicyCache() store {
 	}
 }
 
-func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface) {
+func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
-	pc.store.set(key, policy)
+	if err := pc.store.set(key, policy, client); err != nil {
+		return err
+	}
 	logger.V(4).Info("policy is added to cache", "key", key)
+	return nil
 }
 
 func (pc *policyCache) unset(key string) {
@@ -44,48 +49,40 @@ func (pc *policyCache) unset(key string) {
 	logger.V(4).Info("policy is removed from cache", "key", key)
 }
 
-func (pc *policyCache) get(pkey PolicyType, kind, nspace string) []kyvernov1.PolicyInterface {
+func (pc *policyCache) get(pkey PolicyType, gvrs dclient.GroupVersionResourceSubresource, nspace string) []kyvernov1.PolicyInterface {
 	pc.lock.RLock()
 	defer pc.lock.RUnlock()
-	return pc.store.get(pkey, kind, nspace)
+	return pc.store.get(pkey, gvrs, nspace)
 }
 
 type policyMap struct {
 	// policies maps names to policy interfaces
 	policies map[string]kyvernov1.PolicyInterface
 	// kindType stores names of ClusterPolicies and Namespaced Policies.
-	// Since both the policy name use same type (i.e. string), Both policies can be differentiated based on
-	// "namespace". namespace policy get stored with policy namespace with policy name"
-	// kindDataMap {"kind": {{"policytype" : {"policyName","nsname/policyName}}},"kind2": {{"policytype" : {"nsname/policyName" }}}}
-	kindType map[string]map[PolicyType]sets.String
+	// They are accessed first by GVRS then by PolicyType.
+	kindType map[dclient.GroupVersionResourceSubresource]map[PolicyType]sets.Set[string]
 }
 
 func newPolicyMap() *policyMap {
 	return &policyMap{
 		policies: map[string]kyvernov1.PolicyInterface{},
-		kindType: map[string]map[PolicyType]sets.String{},
+		kindType: map[dclient.GroupVersionResourceSubresource]map[PolicyType]sets.Set[string]{},
 	}
-}
-
-func computeKind(gvk string) string {
-	_, k := kubeutils.GetKindFromGVK(gvk)
-	kind, _ := kubeutils.SplitSubresource(k)
-	return kind
 }
 
 func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
-	if spec.GetValidationFailureAction() == kyvernov1.Enforce {
+	if spec.ValidationFailureAction.Enforce() {
 		return true
 	}
 	for _, k := range spec.ValidationFailureActionOverrides {
-		if k.Action == kyvernov1.Enforce {
+		if k.Action.Enforce() {
 			return true
 		}
 	}
 	return false
 }
 
-func set(set sets.String, item string, value bool) sets.String {
+func set(set sets.Set[string], item string, value bool) sets.Set[string] {
 	if value {
 		return set.Insert(item)
 	} else {
@@ -93,61 +90,85 @@ func set(set sets.String, item string, value bool) sets.String {
 	}
 }
 
-func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
+func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
+	var errs []error
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	m.policies[key] = policy
 	type state struct {
-		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks, hasVerifyYAML bool
+		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks bool
 	}
-	kindStates := map[string]state{}
+	kindStates := map[dclient.GroupVersionResourceSubresource]state{}
 	for _, rule := range autogen.ComputeRules(policy) {
+		entries := sets.New[dclient.GroupVersionResourceSubresource]()
 		for _, gvk := range rule.MatchResources.GetKinds() {
-			kind := computeKind(gvk)
-			entry := kindStates[kind]
-			entry.hasMutate = (entry.hasMutate || rule.HasMutate())
-			entry.hasValidate = (entry.hasValidate || rule.HasValidate())
-			entry.hasGenerate = (entry.hasGenerate || rule.HasGenerate())
-			entry.hasVerifyImages = (entry.hasVerifyImages || rule.HasVerifyImages())
-			entry.hasImagesValidationChecks = (entry.hasImagesValidationChecks || rule.HasImagesValidationChecks())
-			kindStates[kind] = entry
-		}
-	}
-	for kind, state := range kindStates {
-		if m.kindType[kind] == nil {
-			m.kindType[kind] = map[PolicyType]sets.String{
-				Mutate:               sets.NewString(),
-				ValidateEnforce:      sets.NewString(),
-				ValidateAudit:        sets.NewString(),
-				Generate:             sets.NewString(),
-				VerifyImagesMutate:   sets.NewString(),
-				VerifyImagesValidate: sets.NewString(),
-				VerifyYAML:           sets.NewString(),
+			group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
+			gvrss, err := client.FindResources(group, version, kind, subresource)
+			if err != nil {
+				logger.Error(err, "failed to fetch resource group versions", "group", group, "version", version, "kind", kind)
+				errs = append(errs, err)
+			} else {
+				entries.Insert(gvrss...)
 			}
 		}
-		m.kindType[kind][Mutate] = set(m.kindType[kind][Mutate], key, state.hasMutate)
-		m.kindType[kind][ValidateEnforce] = set(m.kindType[kind][ValidateEnforce], key, state.hasValidate && enforcePolicy)
-		m.kindType[kind][ValidateAudit] = set(m.kindType[kind][ValidateAudit], key, state.hasValidate && !enforcePolicy)
-		m.kindType[kind][Generate] = set(m.kindType[kind][Generate], key, state.hasGenerate)
-		m.kindType[kind][VerifyImagesMutate] = set(m.kindType[kind][VerifyImagesMutate], key, state.hasVerifyImages)
-		m.kindType[kind][VerifyImagesValidate] = set(m.kindType[kind][VerifyImagesValidate], key, state.hasVerifyImages && state.hasImagesValidationChecks)
-		m.kindType[kind][VerifyYAML] = set(m.kindType[kind][VerifyYAML], key, state.hasVerifyYAML)
+		if entries.Len() > 0 {
+			// account for pods/ephemeralcontainers special case
+			if entries.Has(podsGVRS) {
+				entries.Insert(podsGVRS.WithSubResource("ephemeralcontainers"))
+			}
+			hasMutate := rule.HasMutate()
+			hasValidate := rule.HasValidate()
+			hasGenerate := rule.HasGenerate()
+			hasVerifyImages := rule.HasVerifyImages()
+			hasImagesValidationChecks := rule.HasImagesValidationChecks()
+			for gvrs := range entries {
+				entry := kindStates[gvrs]
+				entry.hasMutate = entry.hasMutate || hasMutate
+				entry.hasValidate = entry.hasValidate || hasValidate
+				entry.hasGenerate = entry.hasGenerate || hasGenerate
+				entry.hasVerifyImages = entry.hasVerifyImages || hasVerifyImages
+				entry.hasImagesValidationChecks = entry.hasImagesValidationChecks || hasImagesValidationChecks
+				kindStates[gvrs] = entry
+			}
+		}
 	}
+	for gvrs, state := range kindStates {
+		if m.kindType[gvrs] == nil {
+			m.kindType[gvrs] = map[PolicyType]sets.Set[string]{
+				Mutate:               sets.New[string](),
+				ValidateEnforce:      sets.New[string](),
+				ValidateAudit:        sets.New[string](),
+				Generate:             sets.New[string](),
+				VerifyImagesMutate:   sets.New[string](),
+				VerifyImagesValidate: sets.New[string](),
+			}
+		}
+		m.kindType[gvrs][Mutate] = set(m.kindType[gvrs][Mutate], key, state.hasMutate)
+		m.kindType[gvrs][ValidateEnforce] = set(m.kindType[gvrs][ValidateEnforce], key, state.hasValidate && enforcePolicy)
+		m.kindType[gvrs][ValidateAudit] = set(m.kindType[gvrs][ValidateAudit], key, state.hasValidate && !enforcePolicy)
+		m.kindType[gvrs][Generate] = set(m.kindType[gvrs][Generate], key, state.hasGenerate)
+		m.kindType[gvrs][VerifyImagesMutate] = set(m.kindType[gvrs][VerifyImagesMutate], key, state.hasVerifyImages)
+		m.kindType[gvrs][VerifyImagesValidate] = set(m.kindType[gvrs][VerifyImagesValidate], key, state.hasVerifyImages && state.hasImagesValidationChecks)
+	}
+	return multierr.Combine(errs...)
 }
 
 func (m *policyMap) unset(key string) {
 	delete(m.policies, key)
-	for kind := range m.kindType {
-		for policyType := range m.kindType[kind] {
-			m.kindType[kind][policyType] = m.kindType[kind][policyType].Delete(key)
+	for gvrs := range m.kindType {
+		for policyType := range m.kindType[gvrs] {
+			m.kindType[gvrs][policyType] = m.kindType[gvrs][policyType].Delete(key)
 		}
 	}
 }
 
-func (m *policyMap) get(key PolicyType, gvk, namespace string) []kyvernov1.PolicyInterface {
-	kind := computeKind(gvk)
+func (m *policyMap) get(key PolicyType, gvrs dclient.GroupVersionResourceSubresource, namespace string) []kyvernov1.PolicyInterface {
 	var result []kyvernov1.PolicyInterface
-	for policyName := range m.kindType[kind][key] {
-		ns, _, isNamespacedPolicy := policy.ParseNamespacedPolicy(policyName)
+	for policyName := range m.kindType[gvrs][key] {
+		ns, _, err := kcache.SplitMetaNamespaceKey(policyName)
+		if err != nil {
+			logger.Error(err, "failed to parse policy name", "policyName", policyName)
+		}
+		isNamespacedPolicy := ns != ""
 		policy := m.policies[policyName]
 		if policy == nil {
 			logger.Info("nil policy in the cache, this should not happen")

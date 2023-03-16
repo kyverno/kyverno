@@ -3,8 +3,10 @@ package jsonutils
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
-	"github.com/kyverno/kyverno/pkg/utils"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	"golang.org/x/exp/slices"
 )
 
 // ActionData represents data available for action on current element
@@ -69,13 +71,13 @@ func (t *Traversal) traverseJSON(element interface{}, path string) (interface{},
 	// traverse further
 	switch typed := element.(type) {
 	case map[string]interface{}:
-		return t.traverseObject(utils.CopyMap(typed), path)
+		return t.traverseObject(datautils.CopyMap(typed), path)
 
 	case []interface{}:
-		return t.traverseList(utils.CopySlice(typed), path)
+		return t.traverseList(slices.Clone(typed), path)
 
 	case []map[string]interface{}:
-		return t.traverseList(utils.CopySliceOfMaps(typed), path)
+		return t.traverseList(datautils.CopySliceOfMaps(typed), path)
 
 	case Key:
 		return typed.Key, nil
@@ -101,7 +103,7 @@ func (t *Traversal) traverseObject(object map[string]interface{}, path string) (
 			}
 		}
 
-		value, err := t.traverseJSON(element, path+"/"+key)
+		value, err := t.traverseJSON(element, path+"/"+strings.ReplaceAll(key, "/", `\/`))
 		if err != nil {
 			return nil, err
 		}

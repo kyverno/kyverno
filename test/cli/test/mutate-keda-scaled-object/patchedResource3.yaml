@@ -1,0 +1,12 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: service-3
+  namespace: default
+spec:
+  triggers:
+    - type: "aws-sqs-queue"
+      metadata:
+        queueURL: https://sqs.eu-west-1.amazonaws.com/account_id/QueueName
+        queueLength: "5"
+        awsRegion: "eu-west-1"

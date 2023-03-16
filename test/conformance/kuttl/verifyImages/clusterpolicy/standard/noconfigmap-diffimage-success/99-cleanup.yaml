@@ -1,0 +1,4 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete -f policy.yaml,good-pod.yaml,pod-with-configmap.yaml,namespace.yaml --force --wait=true --ignore-not-found=true

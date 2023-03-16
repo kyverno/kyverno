@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: ./modify-resource-filters.sh removeNode
+  - script: ./send-request-to-status-subresource.sh

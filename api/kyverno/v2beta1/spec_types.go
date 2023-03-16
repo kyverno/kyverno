@@ -30,10 +30,10 @@ type Spec struct {
 	// ValidationFailureAction defines if a validation policy rule violation should block
 	// the admission review request (enforce), or allow (audit) the admission review request
 	// and report an error in a policy report. Optional.
-	// Allowed values are audit or enforce. The default value is "audit".
+	// Allowed values are audit or enforce. The default value is "Audit".
 	// +optional
-	// +kubebuilder:validation:Enum=audit;enforce
-	// +kubebuilder:default=audit
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
+	// +kubebuilder:default=Audit
 	ValidationFailureAction kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
@@ -48,7 +48,7 @@ type Spec struct {
 	// +kubebuilder:default=true
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
 
-	// SchemaValidation skips policy validation checks.
+	// SchemaValidation skips validation checks for policies as well as patched resources.
 	// Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.
 	// +optional
 	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
@@ -63,11 +63,11 @@ type Spec struct {
 	// +optional
 	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
 
-	// GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+	// GenerateExisting controls whether to trigger generate rule in existing resources
 	// If is set to "true" generate rule will be triggered and applied to existing matched resources.
 	// Defaults to "false" if not specified.
 	// +optional
-	GenerateExistingOnPolicyUpdate bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
+	GenerateExisting bool `json:"generateExisting,omitempty" yaml:"generateExisting,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -174,9 +174,9 @@ func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	return s.MutateExistingOnPolicyUpdate
 }
 
-// IsGenerateExistingOnPolicyUpdate return GenerateExistingOnPolicyUpdate set value
-func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
-	return s.GenerateExistingOnPolicyUpdate
+// IsGenerateExisting return GenerateExisting set value
+func (s *Spec) IsGenerateExisting() bool {
+	return s.GenerateExisting
 }
 
 // GetFailurePolicy returns the failure policy to be applied
@@ -185,15 +185,6 @@ func (s *Spec) GetFailurePolicy() kyvernov1.FailurePolicyType {
 		return kyvernov1.Fail
 	}
 	return *s.FailurePolicy
-}
-
-// GetValidationFailureAction returns the validation failure action to be applied
-func (s *Spec) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
-	if s.ValidationFailureAction == "" {
-		return kyvernov1.Audit
-	}
-
-	return s.ValidationFailureAction
 }
 
 // GetFailurePolicy returns the failure policy to be applied
@@ -206,7 +197,7 @@ func (s *Spec) GetApplyRules() kyvernov1.ApplyRulesType {
 
 // ValidateRuleNames checks if the rule names are unique across a policy
 func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
-	names := sets.NewString()
+	names := sets.New[string]()
 	for i, rule := range s.Rules {
 		rulePath := path.Index(i)
 		if names.Has(rule.Name) {
@@ -218,7 +209,7 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 }
 
 // ValidateRules implements programmatic validation of Rules
-func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
+func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
 	for i, rule := range s.Rules {
 		errs = append(errs, rule.Validate(path.Index(i), namespaced, clusterResources)...)
@@ -227,7 +218,7 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources
 }
 
 // Validate implements programmatic validation
-func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
+func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
 		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))

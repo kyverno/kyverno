@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -97,13 +98,13 @@ func Test_ForceMutateSubstituteVars(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
 	err = context.AddResource(ctx, rawResource)
 	assert.NilError(t, err)
 
-	mutatedResource, err := ForceMutate(ctx, &policy, *resourceUnstructured)
+	mutatedResource, err := ForceMutate(ctx, logr.Discard(), &policy, *resourceUnstructured)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())
@@ -202,13 +203,13 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
 	err = context.AddResource(ctx, rawResource)
 	assert.NilError(t, err)
 
-	mutatedResource, err := ForceMutate(ctx, &policy, *resourceUnstructured)
+	mutatedResource, err := ForceMutate(ctx, logr.Discard(), &policy, *resourceUnstructured)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedResource.UnstructuredContent(), mutatedResource.UnstructuredContent())
@@ -288,13 +289,13 @@ func Test_ForceMutateSubstituteVarsWithPatchStrategicMerge(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
 	err = context.AddResource(ctx, rawResource)
 	assert.NilError(t, err)
 
-	mutatedResource, err := ForceMutate(ctx, &policy, *resourceUnstructured)
+	mutatedResource, err := ForceMutate(ctx, logr.Discard(), &policy, *resourceUnstructured)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())

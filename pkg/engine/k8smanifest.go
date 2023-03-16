@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/x509"
 	_ "embed"
@@ -18,8 +19,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/pkg/errors"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -34,45 +35,60 @@ const (
 //go:embed resources/default-config.yaml
 var defaultConfigBytes []byte
 
-func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+func processYAMLValidationRule(
+	client dclient.Interface,
+	log logr.Logger,
+	ctx engineapi.PolicyContext,
+	rule *kyvernov1.Rule,
+) *engineapi.RuleResponse {
 	if isDeleteRequest(ctx) {
 		return nil
 	}
-	ruleResp := handleVerifyManifest(ctx, rule, log)
+	ruleResp := handleVerifyManifest(client, ctx, rule, log)
 	return ruleResp
 }
 
-func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *response.RuleResponse {
-	verified, reason, err := verifyManifest(ctx, *rule.Validation.Manifests, logger)
+func handleVerifyManifest(
+	client dclient.Interface,
+	ctx engineapi.PolicyContext,
+	rule *kyvernov1.Rule,
+	logger logr.Logger,
+) *engineapi.RuleResponse {
+	verified, reason, err := verifyManifest(client, ctx, *rule.Validation.Manifests, logger)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
-		return ruleError(rule, response.Validation, "error occurred during manifest verification", err)
+		return internal.RuleError(rule, engineapi.Validation, "error occurred during manifest verification", err)
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {
-		return ruleResponse(*rule, response.Validation, reason, response.RuleStatusFail, nil)
+		return internal.RuleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusFail)
 	}
-	return ruleResponse(*rule, response.Validation, reason, response.RuleStatusPass, nil)
+	return internal.RulePass(rule, engineapi.Validation, reason)
 }
 
-func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
+func verifyManifest(
+	client dclient.Interface,
+	policyContext engineapi.PolicyContext,
+	verifyRule kyvernov1.Manifests,
+	logger logr.Logger,
+) (bool, string, error) {
 	// load AdmissionRequest
-	request, err := policyContext.JSONContext.Query("request")
+	request, err := policyContext.JSONContext().Query("request")
 	if err != nil {
-		return false, "", errors.Wrapf(err, "failed to get a request from policyContext")
+		return false, "", fmt.Errorf("failed to get a request from policyContext: %w", err)
 	}
 	reqByte, _ := json.Marshal(request)
 	var adreq *admissionv1.AdmissionRequest
 	err = json.Unmarshal(reqByte, &adreq)
 	if err != nil {
-		return false, "", errors.Wrapf(err, "failed to unmarshal a request from requestByte")
+		return false, "", fmt.Errorf("failed to unmarshal a request from requestByte: %w", err)
 	}
 	// unmarshal admission request object
 	var resource unstructured.Unstructured
 	objectBytes := adreq.Object.Raw
 	err = json.Unmarshal(objectBytes, &resource)
 	if err != nil {
-		return false, "", errors.Wrapf(err, "failed to Unmarshal a requested object")
+		return false, "", fmt.Errorf("failed to Unmarshal a requested object: %w", err)
 	}
 
 	logger.V(4).Info("verifying manifest", "namespace", adreq.Namespace, "kind", adreq.Kind.Kind,
@@ -101,17 +117,23 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 	if verifyRule.DryRunOption.Namespace != "" {
 		vo.DryRunNamespace = verifyRule.DryRunOption.Namespace
 	} else {
-		vo.DryRunNamespace = config.KyvernoNamespace()
+		vo.DryRunNamespace = config.KyvernoDryRunNamespace()
 	}
 	if !vo.DisableDryRun {
 		// check if kyverno can 'create' dryrun resource
-		ok, err := checkDryRunPermission(policyContext.Client, adreq.Kind.Kind, vo.DryRunNamespace)
+		ok, err := checkDryRunPermission(client, adreq.Kind.Kind, vo.DryRunNamespace)
 		if err != nil {
 			logger.V(1).Info("failed to check permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind, "error", err.Error())
 			vo.DisableDryRun = true
 		}
 		if !ok {
 			logger.V(1).Info("kyverno does not have permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind)
+			vo.DisableDryRun = true
+		}
+		// check if kyverno namespace is not used for dryrun
+		ok = checkDryRunNamespace(vo.DryRunNamespace)
+		if !ok {
+			logger.V(1).Info("an inappropriate dryrun namespace is set; set a namespace other than kyverno.", "dryrun namespace", vo.DryRunNamespace)
 			vo.DisableDryRun = true
 		}
 	}
@@ -147,8 +169,8 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 
 func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
 	verifiedCount := 0
-	attestorSet = expandStaticKeys(attestorSet)
-	requiredCount := getRequiredCount(attestorSet)
+	attestorSet = internal.ExpandStaticKeys(attestorSet)
+	requiredCount := attestorSet.RequiredCount()
 	errorList := []error{}
 	verifiedMessageList := []string{}
 	failedMessageList := []string{}
@@ -161,12 +183,12 @@ func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet k
 		if a.Attestor != nil {
 			nestedAttestorSet, err := kyvernov1.AttestorSetUnmarshal(a.Attestor)
 			if err != nil {
-				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
+				entryError = fmt.Errorf("failed to unmarshal nested attestor %s: %w", attestorPath, err)
 			} else {
 				attestorPath += ".attestor"
 				verified, reason, err = verifyManifestAttestorSet(resource, *nestedAttestorSet, vo, attestorPath, uid, logger)
 				if err != nil {
-					entryError = errors.Wrapf(err, "failed to verify signature; %s", attestorPath)
+					entryError = fmt.Errorf("failed to verify signature; %s: %w", attestorPath, err)
 				}
 			}
 		} else {
@@ -220,7 +242,7 @@ func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor,
 	defer cleanEnvVariables(envVariables)
 	if err != nil {
 		logger.V(4).Info("failed to build verify option", err.Error())
-		return false, "", errors.Wrapf(err, attestorPath+subPath)
+		return false, "", fmt.Errorf("%s: %w", attestorPath+subPath, err)
 	}
 
 	logger.V(4).Info("verifying resource by k8s-manifest-sigstore")
@@ -236,7 +258,7 @@ func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor,
 			failReason := fmt.Sprintf("%s: %s", attestorPath+subPath, err.Error())
 			return false, failReason, nil
 		} else {
-			return false, "", errors.Wrapf(err, attestorPath+subPath)
+			return false, "", fmt.Errorf("%s: %w", attestorPath+subPath, err)
 		}
 	} else {
 		resBytes, _ := json.Marshal(result)
@@ -272,7 +294,7 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 			err := os.Setenv(pubkeyEnv, Key)
 			envVariables = append(envVariables, pubkeyEnv)
 			if err != nil {
-				entryError = errors.Wrapf(err, "failed to set env variable; %s", pubkeyEnv)
+				entryError = fmt.Errorf("failed to set env variable; %s: %w", pubkeyEnv, err)
 			} else {
 				keyPath := fmt.Sprintf("env://%s", pubkeyEnv)
 				vo.KeyPath = keyPath
@@ -293,7 +315,7 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 			err := os.Setenv(certEnv, Cert)
 			envVariables = append(envVariables, certEnv)
 			if err != nil {
-				entryError = errors.Wrapf(err, "failed to set env variable; %s", certEnv)
+				entryError = fmt.Errorf("failed to set env variable; %s: %w", certEnv, err)
 			} else {
 				certPath := fmt.Sprintf("env://%s", certEnv)
 				vo.Certificate = certPath
@@ -306,7 +328,7 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 			err := os.Setenv(certChainEnv, CertChain)
 			envVariables = append(envVariables, certChainEnv)
 			if err != nil {
-				entryError = errors.Wrapf(err, "failed to set env variable; %s", certChainEnv)
+				entryError = fmt.Errorf("failed to set env variable; %s: %w", certChainEnv, err)
 			} else {
 				certChainPath := fmt.Sprintf("env://%s", certChainEnv)
 				vo.CertificateChain = certChainPath
@@ -326,7 +348,7 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 			Roots := a.Keyless.Roots
 			cp, err := loadCertPool([]byte(Roots))
 			if err != nil {
-				entryError = errors.Wrap(err, "failed to load Root certificates")
+				entryError = fmt.Errorf("failed to load Root certificates: %w", err)
 			} else {
 				vo.RootCerts = cp
 			}
@@ -392,10 +414,19 @@ func checkManifestAnnotations(mnfstAnnotations map[string]string, annotations ma
 }
 
 func checkDryRunPermission(dclient dclient.Interface, kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(dclient, kind, namespace, "create")
-	ok, err := canI.RunAccessCheck()
+	canI := auth.NewCanI(dclient.Discovery(), dclient.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "create", "")
+	ok, err := canI.RunAccessCheck(context.TODO())
 	if err != nil {
 		return false, err
 	}
 	return ok, nil
+}
+
+func checkDryRunNamespace(namespace string) bool {
+	// should not use kyverno namespace for dryrun
+	if namespace != config.KyvernoNamespace() {
+		return true
+	} else {
+		return false
+	}
 }

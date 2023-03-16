@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	pcache "github.com/kyverno/kyverno/pkg/policycache"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -39,14 +40,18 @@ type controller struct {
 
 	// queue
 	queue workqueue.RateLimitingInterface
+
+	// client
+	client dclient.Interface
 }
 
-func NewController(pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) Controller {
+func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) Controller {
 	c := controller{
 		cache:      pcache,
 		cpolLister: cpolInformer.Lister(),
 		polLister:  polInformer.Lister(),
 		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
+		client:     client,
 	}
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
@@ -65,7 +70,7 @@ func (c *controller) WarmUp() error {
 		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
 			return err
 		} else {
-			c.cache.Set(key, policy)
+			return c.cache.Set(key, policy, c.client.Discovery())
 		}
 	}
 	cpols, err := c.cpolLister.List(labels.Everything())
@@ -76,7 +81,7 @@ func (c *controller) WarmUp() error {
 		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
 			return err
 		} else {
-			c.cache.Set(key, policy)
+			return c.cache.Set(key, policy, c.client.Discovery())
 		}
 	}
 	return nil
@@ -94,9 +99,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	// TODO: check resource version ?
-	c.cache.Set(key, policy)
-	return nil
+	return c.cache.Set(key, policy, c.client.Discovery())
 }
 
 func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {

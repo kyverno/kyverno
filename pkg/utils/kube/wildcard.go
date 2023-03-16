@@ -6,9 +6,11 @@ import (
 )
 
 func LabelSelectorContainsWildcard(v *metav1.LabelSelector) bool {
-	for k, v := range v.MatchLabels {
-		if wildcard.ContainsWildcard(k) || wildcard.ContainsWildcard(v) {
-			return true
+	if v != nil {
+		for k, v := range v.MatchLabels {
+			if wildcard.ContainsWildcard(k) || wildcard.ContainsWildcard(v) {
+				return true
+			}
 		}
 	}
 	return false

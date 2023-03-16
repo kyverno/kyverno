@@ -5,6 +5,9 @@ kind: ClusterPolicy
 metadata:
   name: {{ $name }}
   annotations:
+    {{- with .Values.autogenControllers }}
+    pod-policies.kyverno.io/autogen-controllers: {{ . }}
+    {{- end }}
     policies.kyverno.io/title: Disallow procMount
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     {{- if .Values.podSecuritySeverity }}
@@ -18,6 +21,7 @@ metadata:
       ensures nothing but the default procMount can be specified. Note that in order for users
       to deviate from the `Default` procMount requires setting a feature gate at the API
       server.
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   {{- with index .Values "validationFailureActionByPolicy" $name }}
   validationFailureAction: {{ toYaml . }}

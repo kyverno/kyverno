@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/admission/v1"
@@ -614,8 +615,8 @@ func Test_VerifyManifest_SignedYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, signed_resource, "")
 	var request *v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(signed_adreq), &request)
-	policyContext.JSONContext.AddRequest(request)
-	policyContext.Policy.SetName("test-policy")
+	policyContext.jsonContext.AddRequest(request)
+	policyContext.policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
 	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
 		Entries: []kyvernov1.Attestor{
@@ -626,8 +627,8 @@ func Test_VerifyManifest_SignedYAML(t *testing.T) {
 			},
 		},
 	})
-	logger := buildLogger(policyContext)
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	logger := logr.Discard()
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }
@@ -636,8 +637,8 @@ func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, unsigned_resource, "")
 	var request *v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(unsigned_adreq), &request)
-	policyContext.JSONContext.AddRequest(request)
-	policyContext.Policy.SetName("test-policy")
+	policyContext.jsonContext.AddRequest(request)
+	policyContext.policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
 	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
 		Entries: []kyvernov1.Attestor{
@@ -648,8 +649,8 @@ func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 			},
 		},
 	})
-	logger := buildLogger(policyContext)
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	logger := logr.Discard()
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, false)
 }
@@ -658,8 +659,8 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, invalid_resource, "")
 	var request *v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(invalid_adreq), &request)
-	policyContext.JSONContext.AddRequest(request)
-	policyContext.Policy.SetName("test-policy")
+	policyContext.jsonContext.AddRequest(request)
+	policyContext.policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
 	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
 		Entries: []kyvernov1.Attestor{
@@ -670,8 +671,8 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 			},
 		},
 	})
-	logger := buildLogger(policyContext)
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	logger := logr.Discard()
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, false)
 }
@@ -680,8 +681,8 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, multi_sig_resource, "")
 	var request *v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
-	policyContext.JSONContext.AddRequest(request)
-	policyContext.Policy.SetName("test-policy")
+	policyContext.jsonContext.AddRequest(request)
+	policyContext.policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
 	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
 		Entries: []kyvernov1.Attestor{
@@ -697,8 +698,8 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 			},
 		},
 	})
-	logger := buildLogger(policyContext)
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	logger := logr.Discard()
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	errMsg := `.attestors[0].entries[1].keys: failed to verify signature: verification failed for 1 signature. all trials: ["[publickey 1/1] [signature 1/1] error: cosign.VerifyBlobCmd() returned an error: invalid signature when validating ASN.1 encoded signature"]`
 	assert.Error(t, err, errMsg)
 	assert.Equal(t, verified, false)
@@ -708,8 +709,8 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, multi_sig2_resource, "")
 	var request *v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig2_adreq), &request)
-	policyContext.JSONContext.AddRequest(request)
-	policyContext.Policy.SetName("test-policy")
+	policyContext.jsonContext.AddRequest(request)
+	policyContext.policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
 	count := 3
 	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
@@ -730,8 +731,8 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 			},
 		},
 	})
-	logger := buildLogger(policyContext)
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	logger := logr.Discard()
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }
@@ -740,8 +741,8 @@ func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 	policyContext := buildContext(t, test_policy, multi_sig_resource, "")
 	var request *v1.AdmissionRequest
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
-	policyContext.JSONContext.AddRequest(request)
-	policyContext.Policy.SetName("test-policy")
+	policyContext.jsonContext.AddRequest(request)
+	policyContext.policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
 	count := 1
 	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
@@ -759,8 +760,8 @@ func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 			},
 		},
 	})
-	logger := buildLogger(policyContext)
-	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	logger := logr.Discard()
+	verified, _, err := verifyManifest(nil, policyContext, verifyRule, logger)
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }

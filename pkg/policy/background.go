@@ -31,8 +31,8 @@ func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) er
 	}
 	for _, s := range vars {
 		for _, banned := range forbidden {
-			if banned.Match([]byte(s[1])) {
-				return fmt.Errorf("variable %s is not allowed", s[1])
+			if banned.Match([]byte(s[2])) {
+				return fmt.Errorf("variable %s is not allowed", s[2])
 			}
 		}
 	}

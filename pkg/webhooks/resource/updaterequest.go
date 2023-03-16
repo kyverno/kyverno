@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -8,51 +9,49 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-// createUpdateRequests applies generate and mutateExisting policies, and creates update requests for background reconcile
-func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
-	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
-	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
-	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
-
-	gh := generation.NewGenerationHandler(logger, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.urGenerator, h.urUpdater, h.eventGen)
-	go h.handleMutateExisting(logger, request, mutatePolicies, policyContext, ts)
-	go gh.Handle(h.metricsConfig, request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
-
-	go webhookutils.RegisterAdmissionReviewDurationMetricGenerate(logger, h.metricsConfig, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
-	go webhookutils.RegisterAdmissionRequestsMetricGenerate(logger, h.metricsConfig, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+// handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
+func (h *handlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
+	for _, username := range h.configuration.GetExcludedBackgroundUsernames() {
+		if wildcard.Match(username, policyContext.AdmissionInfo().AdmissionUserInfo.Username) {
+			return
+		}
+	}
+	go h.handleMutateExisting(ctx, logger, request, mutatePolicies, policyContext, ts)
+	h.handleGenerate(ctx, logger, request, generatePolicies, policyContext, ts)
 }
 
-func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp time.Time) {
-	logger.V(4).Info("update request")
-
+func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp time.Time) {
 	if request.Operation == admissionv1.Delete {
-		policyContext.NewResource = policyContext.OldResource
+		policyContext = policyContext.WithNewResource(policyContext.OldResource())
 	}
 
-	if request.Operation == admissionv1.Update && policyContext.NewResource.GetDeletionTimestamp() != nil {
+	resource := policyContext.NewResource()
+	if request.Operation == admissionv1.Update && resource.GetDeletionTimestamp() != nil {
 		logger.V(4).Info("skip creating UR for the trigger resource that is in termination")
 		return
 	}
 
-	var engineResponses []*response.EngineResponse
+	var engineResponses []*engineapi.EngineResponse
 	for _, policy := range policies {
 		if !policy.GetSpec().IsMutateExisting() {
 			continue
 		}
+		logger.V(4).Info("update request for mutateExisting policy")
 
-		var rules []response.RuleResponse
-		policyContext.Policy = policy
-		engineResponse := engine.ApplyBackgroundChecks(policyContext)
+		var rules []engineapi.RuleResponse
+		policyContext := policyContext.WithPolicy(policy)
+		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 
 		for _, rule := range engineResponse.PolicyResponse.Rules {
-			if rule.Status == response.RuleStatusPass {
+			if rule.Status == engineapi.RuleStatusPass {
 				rules = append(rules, rule)
 			}
 		}
@@ -63,20 +62,22 @@ func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1
 		}
 
 		// registering the kyverno_policy_results_total metric concurrently
-		go webhookutils.RegisterPolicyResultsMetricMutation(logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
 		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
 	}
 
-	if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Mutate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
+	if failedResponse := applyUpdateRequest(ctx, request, kyvernov1beta1.Mutate, h.urGenerator, policyContext.AdmissionInfo(), request.Operation, engineResponses...); failedResponse != nil {
 		for _, failedUR := range failedResponse {
 			err := fmt.Errorf("failed to create update request: %v", failedUR.err)
-			events := event.NewBackgroundFailedEvent(err, failedUR.ur.Policy, "", event.GeneratePolicyController, &policyContext.NewResource)
+			resource := policyContext.NewResource()
+			events := event.NewBackgroundFailedEvent(err, failedUR.ur.Policy, "", event.GeneratePolicyController, &resource)
 			h.eventGen.Add(events...)
 		}
 	}
+}
 
-	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
-	go webhookutils.RegisterAdmissionReviewDurationMetricMutate(logger, h.metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-	go webhookutils.RegisterAdmissionRequestsMetricMutate(logger, h.metricsConfig, string(request.Operation), engineResponses)
+func (h *handlers) handleGenerate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, ts time.Time) {
+	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.urUpdater, h.eventGen, h.metricsConfig)
+	go gh.Handle(ctx, request, generatePolicies, policyContext)
 }

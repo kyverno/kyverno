@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+  name: image-verify-polset
+spec:
+  background: false
+  failurePolicy: Fail
+  rules:
+    - context:
+        - configMap:
+            name: myconfigmap1
+            namespace: mynamespace
+          name: myconfigmap1
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      name: image-verify-pol1
+      verifyImages:
+        - imageReferences:
+            - ghcr.io/*
+          mutateDigest: false
+          verifyDigest: false
+          attestors:
+            - entries:
+                - keys:
+                    publicKeys: '{{myconfigmap1.data.configmapkey}}'
+  validationFailureAction: Audit
+  webhookTimeoutSeconds: 30

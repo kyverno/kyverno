@@ -2,16 +2,15 @@ package metrics
 
 import (
 	"github.com/kyverno/kyverno/pkg/config"
-	"k8s.io/client-go/kubernetes"
+	"go.opentelemetry.io/otel/metric/global"
 	"k8s.io/klog/v2"
 )
 
-func NewFakeMetricsConfig(client kubernetes.Interface) *MetricsConfig {
+func NewFakeMetricsConfig() *MetricsConfig {
 	mc := &MetricsConfig{
-		Config: config.NewFakeMetricsConfig(client),
+		config: config.NewDefaultMetricsConfiguration(),
 		Log:    klog.NewKlogr(),
 	}
-
-	mc, _ = initializeMetrics(mc)
+	_ = mc.initializeMetrics(global.MeterProvider())
 	return mc
 }

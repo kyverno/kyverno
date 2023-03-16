@@ -6,7 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/utils"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -51,7 +51,7 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if !reflect.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
 	}
-	kyvernoAnyAllConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.GetAnyAllConditions())
+	kyvernoAnyAllConditions, _ := apiutils.ApiextensionsJsonToKyvernoConditions(rule.GetAnyAllConditions())
 	switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		if !reflect.DeepEqual(typedAnyAllConditions, kyvernov1.AnyAllConditions{}) {
@@ -106,7 +106,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		return rule
 	}
 	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
-		var newForeachMutation []kyvernov1.ForEachMutation
+		var newForEachMutation []kyvernov1.ForEachMutation
 		for _, foreach := range rule.Mutation.ForEachMutation {
 			temp := kyvernov1.ForEachMutation{
 				List:             foreach.List,
@@ -120,10 +120,10 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 					},
 				},
 			)
-			newForeachMutation = append(newForeachMutation, temp)
+			newForEachMutation = append(newForEachMutation, temp)
 		}
 		rule.Mutation = kyvernov1.Mutation{
-			ForEachMutation: newForeachMutation,
+			ForEachMutation: newForEachMutation,
 		}
 		return rule
 	}
@@ -227,10 +227,10 @@ func getAnyAllAutogenRule(v kyvernov1.ResourceFilters, match string, kinds []str
 
 func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyvernov1.Rule {
 	if isAutogenRuleName(rule.Name) || controllers == "" {
-		logger.V(5).Info("skip generateRuleForControllers")
+		debug.Info("skip generateRuleForControllers")
 		return nil
 	}
-	logger.V(3).Info("processing rule", "rulename", rule.Name)
+	debug.Info("processing rule", "rulename", rule.Name)
 	match, exclude := rule.MatchResources, rule.ExcludeResources
 	matchKinds, excludeKinds := match.GetKinds(), exclude.GetKinds()
 	if !kubeutils.ContainsKind(matchKinds, "Pod") || (len(excludeKinds) != 0 && !kubeutils.ContainsKind(excludeKinds, "Pod")) {
@@ -242,7 +242,14 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 	if controllers == "all" {
 		skipAutoGeneration = true
 	} else if controllers != "none" && controllers != "all" {
-		controllersList := map[string]int{"DaemonSet": 1, "Deployment": 1, "Job": 1, "StatefulSet": 1}
+		controllersList := map[string]int{
+			"DaemonSet":             1,
+			"Deployment":            1,
+			"Job":                   1,
+			"StatefulSet":           1,
+			"ReplicaSet":            1,
+			"ReplicationController": 1,
+		}
 		for _, value := range strings.Split(controllers, ",") {
 			if _, ok := controllersList[value]; ok {
 				controllersValidated = append(controllersValidated, value)
@@ -254,7 +261,7 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 	}
 	if skipAutoGeneration {
 		if controllers == "all" {
-			controllers = "DaemonSet,Deployment,Job,StatefulSet"
+			controllers = "DaemonSet,Deployment,Job,StatefulSet,ReplicaSet,ReplicationController"
 		} else {
 			controllers = strings.Join(controllersValidated, ",")
 		}
@@ -276,7 +283,7 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 	if !hasCronJob {
 		return nil
 	}
-	logger.V(3).Info("generating rule for cronJob")
+	debug.Info("generating rule for cronJob")
 	return generateRule(
 		getAutogenRuleName("autogen-cronjob", rule.Name),
 		generateRuleForControllers(rule, controllers),
@@ -292,9 +299,11 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
 	if kind == "Pod" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.template.spec"))
 	}
 	if kind == "Cronjob" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
+		obj = []byte(strings.ReplaceAll(string(obj), "request.oldObject.spec", "request.oldObject.spec.jobTemplate.spec.template.spec"))
 	}
 	obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
 	return obj

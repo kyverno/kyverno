@@ -5,7 +5,6 @@ linters:
     - bidichk
     - bodyclose
     - containedctx
-    - deadcode
     - decorder
     - dogsled
     - durationcheck
@@ -31,20 +30,19 @@ linters:
     - nosprintfhostport
     - paralleltest
     - staticcheck
-    - structcheck
     - tenv
     - thelper
     - tparallel
     - typecheck
     - unconvert
     - unused
-    - varcheck
     - wastedassign
     - whitespace
 
 run:
   timeout: 10m
   skip-files:
+    - ".+\\.generated.go"
     - ".+_test.go"
     - ".+_test_.+.go"
 

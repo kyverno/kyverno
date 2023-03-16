@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -343,8 +343,8 @@ func TestEvaluate(t *testing.T) {
 		{kyverno.Condition{RawKey: kyverno.ToJSON(5), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{1, 2, 3})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON(5.5), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{1, 1.5, 2, 3})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON("5"), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1", "2", "3"})}, true},
-		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "4.4.4.4"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, true},
-		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "4.4.4.4"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3", "1.1.1.1"})}, true},
+		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "4.4.4.4"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, false},
+		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "4.4.4.4"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3", "1.1.1.1"})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"1.1.1.1", "4.4.4.4", "1.1.1.1"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3", "1.1.1.1", "4.4.4.4"})}, false},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"5.5.5.5", "4.4.4.4"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, true},
 		{kyverno.Condition{RawKey: kyverno.ToJSON([]interface{}{"7*", "6*", "5*"}), Operator: kyverno.ConditionOperators["AllNotIn"], RawValue: kyverno.ToJSON([]interface{}{"1.1.1.1", "2.2.2.2", "3.3.3.3"})}, true},
@@ -378,7 +378,7 @@ func TestEvaluate(t *testing.T) {
 
 	ctx := context.NewContext()
 	for _, tc := range testCases {
-		if Evaluate(logging.GlobalLogger(), ctx, tc.Condition) != tc.Result {
+		if Evaluate(logr.Discard(), ctx, tc.Condition) != tc.Result {
 			t.Errorf("%v - expected result to be %v", tc.Condition, tc.Result)
 		}
 	}
@@ -419,13 +419,13 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 	err = json.Unmarshal(conditionJSON, &conditionMap)
 	assert.Nil(t, err)
 
-	conditionWithResolvedVars, _ := SubstituteAllInPreconditions(logging.GlobalLogger(), ctx, conditionMap)
+	conditionWithResolvedVars, _ := SubstituteAllInPreconditions(logr.Discard(), ctx, conditionMap)
 	conditionJSON, err = json.Marshal(conditionWithResolvedVars)
 	assert.Nil(t, err)
 
 	err = json.Unmarshal(conditionJSON, &condition)
 	assert.Nil(t, err)
-	assert.True(t, Evaluate(logging.GlobalLogger(), ctx, condition))
+	assert.True(t, Evaluate(logr.Discard(), ctx, condition))
 }
 
 func Test_Eval_Equal_Var_Fail(t *testing.T) {
@@ -454,7 +454,7 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 		RawValue: kyverno.ToJSON("temp1"),
 	}
 
-	if Evaluate(logging.GlobalLogger(), ctx, condition) {
+	if Evaluate(logr.Discard(), ctx, condition) {
 		t.Error("expected to fail")
 	}
 }

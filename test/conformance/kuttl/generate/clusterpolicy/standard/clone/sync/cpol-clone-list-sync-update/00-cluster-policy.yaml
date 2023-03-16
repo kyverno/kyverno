@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- manifests.yaml
+- cluster-policy.yaml
+assert:
+- cluster-policy-ready.yaml

@@ -11,7 +11,7 @@ import (
 func Command() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Shows current version of kyverno",
+		Short: "Shows current version of kyverno.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("Version: %s\n", version.BuildVersion)
 			fmt.Printf("Time: %s\n", version.BuildTime)

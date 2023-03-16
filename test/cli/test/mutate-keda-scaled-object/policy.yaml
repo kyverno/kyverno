@@ -1,0 +1,37 @@
+apiVersion : kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: keda-prometheus-serveraddress
+  annotations:
+    policies.kyverno.io/title: Set KEDA Prometheus Scaler ServerAddress
+    policies.kyverno.io/subject: KedaPrometheusScaler
+    policies.kyverno.io/description: >-
+      The KEDA Prometheus Scaler requires the serverAddress attribute.
+spec:
+  background: false
+  rules:
+    - name: keda-prometheus-serveraddress
+      match:
+        all:
+          - resources:
+              kinds:
+                - keda.sh/v1alpha1/ScaledObject
+      preconditions:
+        all:
+          - key: "{{request.operation}}"
+            operator: In
+            value:
+              - CREATE
+              - UPDATE
+      mutate:
+        foreach:
+          - list: "request.object.spec.triggers"
+            preconditions:
+              all:
+                - key: "{{element.type || ''}}"
+                  operator: Equals
+                  value: "prometheus"
+            patchesJson6902: |-
+              - path: /spec/triggers/{{elementIndex}}/metadata/serverAddress
+                op: add
+                value: "http://prometheus.local/"

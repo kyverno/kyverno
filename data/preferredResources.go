@@ -1225,26 +1225,6 @@ const PreferredAPIResourceLists = `
         "storageVersionHash": "vgwy0+LsB2g="
       },
       {
-        "name": "generaterequests",
-        "singularName": "generaterequest",
-        "namespaced": true,
-        "kind": "GenerateRequest",
-        "verbs": [
-          "delete",
-          "deletecollection",
-          "get",
-          "list",
-          "patch",
-          "create",
-          "update",
-          "watch"
-        ],
-        "shortNames": [
-          "gr"
-        ],
-        "storageVersionHash": "TeMup732PSY="
-      },
-      {
         "name": "clusterpolicies",
         "singularName": "clusterpolicy",
         "namespaced": false,

@@ -1,0 +1,7 @@
+# This clean-up stage is necessary because of https://github.com/kyverno/kyverno/issues/5101
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      kubectl delete ur -A --all
+      kubectl delete -f cloned-secret.yaml,cloned-limitrange.yaml --ignore-not-found=true

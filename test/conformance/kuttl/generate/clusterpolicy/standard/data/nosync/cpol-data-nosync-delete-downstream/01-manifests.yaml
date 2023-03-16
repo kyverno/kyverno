@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: zk-kafka-address
+spec:
+  generateExisting: true
+  rules:
+  - name: k-kafka-address
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - default
+          - kube-public
+          - kyverno
+    generate:
+      synchronize: false
+      apiVersion: v1
+      kind: ConfigMap
+      name: zk-kafka-address
+      namespace: "{{request.object.metadata.name}}"
+      data:
+        kind: ConfigMap
+        metadata:
+          labels:
+            somekey: somevalue
+        data:
+          ZK_ADDRESS: "192.168.10.10:2181,192.168.10.11:2181,192.168.10.12:2181"
+          KAFKA_ADDRESS: "192.168.10.13:9092,192.168.10.14:9092,192.168.10.15:9092"

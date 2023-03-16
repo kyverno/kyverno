@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mycm
+  namespace: default
+data:
+  food: cheese
+  day: monday
+  color: red

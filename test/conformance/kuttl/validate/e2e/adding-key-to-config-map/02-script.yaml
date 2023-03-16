@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      if kubectl patch ConfigMap test-configmap -n test-validate-e2e-adding-key-to-config-map --type='json' -p="[{\"op\": \"add\", \"path\": \"/data/lock\", \"value\":""admin""}]" 2>&1 | grep -q 'validation error: Configmap key must be "abc"' 
+      then 
+        echo "Test succeeded. Resource was blocked from adding key."
+        exit 0
+      else 
+        echo "Tested failed. Resource was not blocked from adding key."
+        exit 1 
+      fi

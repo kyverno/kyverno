@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    meta.helm.sh/release-name: app-my-release
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: service-public-pass
+spec:
+  type: LoadBalancer
+  loadBalancerSourceRanges:
+  - 3.224.166.65/32
+  - 3.210.193.151/32
+  - 3.226.136.65/32
+  ports:
+  - name: http
+    nodePort: 31207
+    port: 80
+    protocol: TCP
+    targetPort: 3000
+  - name: https
+    nodePort: 30400
+    port: 443
+    protocol: TCP
+    targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: sg-01d2131dfgs45645
+  labels:
+    app.kubernetes.io/instance: app-hello-node-test
+  name: service-public-2-pass
+spec:
+  type: LoadBalancer
+  clusterIP: 100.67.234.84
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: hello-node-public-test.[REDACTED]
+    meta.helm.sh/release-name: app-hello-node-test
+    meta.helm.sh/release-namespace: app-hello-node-test
+    service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Environment=test,ops_environment=test,ops_costcenter=220,service=hello-node,kubernetesManager=true,region=us-east-1,elb_name=public
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+    service.beta.kubernetes.io/aws-load-balancer-connection-draining-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-connection-draining-timeout: "60"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: "2"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "5"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: "2"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: "2"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: service-public-fail
+spec:
+  type: LoadBalancer
+  clusterIP: 100.67.234.84
+  clusterIPs:
+  - 100.67.234.84
+  externalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 31207
+    port: 80
+    protocol: TCP
+    targetPort: 3000
+  - name: https
+    nodePort: 30400
+    port: 443
+    protocol: TCP
+    targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: service-clusterip-skip
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 3000

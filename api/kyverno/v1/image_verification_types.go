@@ -2,16 +2,31 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 
-	"github.com/pkg/errors"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+)
+
+// ImageVerificationType selects the type of verification algorithm
+// +kubebuilder:validation:Enum=Cosign;NotaryV2
+// +kubebuilder:default=Cosign
+type ImageVerificationType string
+
+const (
+	Cosign   ImageVerificationType = "Cosign"
+	NotaryV2 ImageVerificationType = "NotaryV2"
 )
 
 // ImageVerification validates that images that match the specified pattern
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
+	// Type specifies the method of signature validation. The allowed options
+	// are Cosign and NotaryV2. By default Cosign is used if a type is not specified.
+	// +kubebuilder:validation:Optional
+	Type ImageVerificationType `json:"type,omitempty" yaml:"type,omitempty"`
+
 	// Image is the image name consisting of the registry address, repository, image, and tag.
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// Deprecated. Use ImageReferences instead.
@@ -96,6 +111,13 @@ type AttestorSet struct {
 	Entries []Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
 }
 
+func (as AttestorSet) RequiredCount() int {
+	if as.Count == nil || *as.Count == 0 {
+		return len(as.Entries)
+	}
+	return *as.Count
+}
+
 type Attestor struct {
 	// Keys specifies one or more public keys
 	// +kubebuilder:validation:Optional
@@ -127,9 +149,12 @@ type Attestor struct {
 type StaticKeyAttestor struct {
 	// Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 	// specified or can be a variable reference to a key specified in a ConfigMap (see
-	// https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each
-	// key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
-	// attestors and the count is applied across the keys.
+	// https://kyverno.io/docs/writing-policies/variables/), or reference a standard Kubernetes Secret
+	// elsewhere in the cluster by specifying it in the format "k8s://<namespace>/<secret_name>".
+	// The named Secret must specify a key `cosign.pub` containing the public key used for
+	// verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+	// When multiple keys are specified each key is processed as a separate staticKey entry
+	// (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
 	// Specify signature algorithm for public keys. Supported values are sha256 and sha512
@@ -151,10 +176,10 @@ type StaticKeyAttestor struct {
 }
 
 type SecretReference struct {
-	// name of the secret
+	// Name of the secret. The provided secret must contain a key named cosign.pub.
 	Name string `json:"name" yaml:"name"`
 
-	// namespace name in which secret is created
+	// Namespace name where the Secret exists.
 	Namespace string `json:"namespace" yaml:"namespace"`
 }
 
@@ -211,12 +236,25 @@ type CTLog struct {
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
 	// PredicateType defines the type of Predicate contained within the Statement.
-	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
+	// +kubebuilder:validation:Required
+	PredicateType string `json:"predicateType" yaml:"predicateType"`
+
+	// Attestors specify the required attestors (i.e. authorities)
+	// +kubebuilder:validation:Optional
+	Attestors []AttestorSet `json:"attestors" yaml:"attestors"`
 
 	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
-	// +optional
+	// +kubebuilder:validation:Optional
 	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
+func (iv *ImageVerification) GetType() ImageVerificationType {
+	if iv.Type != "" {
+		return iv.Type
+	}
+
+	return Cosign
 }
 
 // Validate implements programmatic validation
@@ -227,11 +265,10 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))
 	}
 
-	hasAttestors := len(copy.Attestors) > 0
-	hasAttestations := len(copy.Attestations) > 0
-
-	if hasAttestations && !hasAttestors {
-		errs = append(errs, field.Invalid(path, iv, "An attestor is required"))
+	asPath := path.Child("attestations")
+	for i, attestation := range copy.Attestations {
+		attestationErrors := attestation.Validate(asPath.Index(i))
+		errs = append(errs, attestationErrors...)
 	}
 
 	attestorsPath := path.Child("attestors")
@@ -240,6 +277,19 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, attestorErrors...)
 	}
 
+	return errs
+}
+
+func (a *Attestation) Validate(path *field.Path) (errs field.ErrorList) {
+	if len(a.Attestors) == 0 {
+		return
+	}
+
+	attestorsPath := path.Child("attestors")
+	for i, as := range a.Attestors {
+		attestorErrors := as.Validate(attestorsPath.Index(i))
+		errs = append(errs, attestorErrors...)
+	}
 	return errs
 }
 
@@ -256,8 +306,6 @@ func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorLis
 
 	if len(as.Entries) == 0 {
 		errs = append(errs, field.Invalid(path, as, "An entry is required"))
-	} else if len(as.Entries) > 1 {
-		errs = append(errs, field.Invalid(path, as, "Only one entry is currently supported"))
 	}
 
 	entriesPath := path.Child("entries")
@@ -314,7 +362,7 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
 	var as AttestorSet
 	if err := json.Unmarshal(o.Raw, &as); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal attestor set %s", string(o.Raw))
+		return nil, fmt.Errorf("failed to unmarshal attestor set %s: %w", string(o.Raw), err)
 	}
 
 	return &as, nil
@@ -384,7 +432,13 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		}
 
 		attestorSet.Entries = append(attestorSet.Entries, attestor)
-		copy.Attestors = append(copy.Attestors, attestorSet)
+		if len(iv.Attestations) > 0 {
+			for i := range iv.Attestations {
+				copy.Attestations[i].Attestors = append(copy.Attestations[i].Attestors, attestorSet)
+			}
+		} else {
+			copy.Attestors = append(copy.Attestors, attestorSet)
+		}
 	}
 
 	copy.Attestations = iv.Attestations

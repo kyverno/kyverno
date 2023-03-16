@@ -48,7 +48,7 @@ type ResourceDescription struct {
 }
 
 // Validate implements programmatic validation
-func (r *ResourceDescription) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
+func (r *ResourceDescription) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	if len(r.Names) > 0 {
 		errs = append(errs, field.Invalid(path, r, "Both name and names can not be specified together"))
 	}

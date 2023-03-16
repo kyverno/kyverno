@@ -1,0 +1,11 @@
+subresources:
+  - subresource:
+      name: "deployments/scale"
+      kind: "Scale"
+      group: "autoscaling"
+      version: "v1"
+    parentResource:
+      name: "deployments"
+      kind: "Deployment"
+      group: "apps"
+      version: "v1"

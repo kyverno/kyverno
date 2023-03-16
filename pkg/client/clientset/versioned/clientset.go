@@ -25,6 +25,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2alpha1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -34,18 +35,19 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	KyvernoV1() kyvernov1.KyvernoV1Interface
-	KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface
 	KyvernoV1alpha2() kyvernov1alpha2.KyvernoV1alpha2Interface
+	KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface
+	KyvernoV2alpha1() kyvernov2alpha1.KyvernoV2alpha1Interface
 	Wgpolicyk8sV1alpha2() wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface
 }
 
-// Clientset contains the clients for groups. Each group has exactly one
-// version included in a Clientset.
+// Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
 	kyvernoV1           *kyvernov1.KyvernoV1Client
-	kyvernoV1beta1      *kyvernov1beta1.KyvernoV1beta1Client
 	kyvernoV1alpha2     *kyvernov1alpha2.KyvernoV1alpha2Client
+	kyvernoV1beta1      *kyvernov1beta1.KyvernoV1beta1Client
+	kyvernoV2alpha1     *kyvernov2alpha1.KyvernoV2alpha1Client
 	wgpolicyk8sV1alpha2 *wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Client
 }
 
@@ -54,14 +56,19 @@ func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
 	return c.kyvernoV1
 }
 
+// KyvernoV1alpha2 retrieves the KyvernoV1alpha2Client
+func (c *Clientset) KyvernoV1alpha2() kyvernov1alpha2.KyvernoV1alpha2Interface {
+	return c.kyvernoV1alpha2
+}
+
 // KyvernoV1beta1 retrieves the KyvernoV1beta1Client
 func (c *Clientset) KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface {
 	return c.kyvernoV1beta1
 }
 
-// KyvernoV1alpha2 retrieves the KyvernoV1alpha2Client
-func (c *Clientset) KyvernoV1alpha2() kyvernov1alpha2.KyvernoV1alpha2Interface {
-	return c.kyvernoV1alpha2
+// KyvernoV2alpha1 retrieves the KyvernoV2alpha1Client
+func (c *Clientset) KyvernoV2alpha1() kyvernov2alpha1.KyvernoV2alpha1Interface {
+	return c.kyvernoV2alpha1
 }
 
 // Wgpolicyk8sV1alpha2 retrieves the Wgpolicyk8sV1alpha2Client
@@ -117,11 +124,15 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.kyvernoV1alpha2, err = kyvernov1alpha2.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.kyvernoV1beta1, err = kyvernov1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
-	cs.kyvernoV1alpha2, err = kyvernov1alpha2.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.kyvernoV2alpha1, err = kyvernov2alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +162,9 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.kyvernoV1 = kyvernov1.New(c)
-	cs.kyvernoV1beta1 = kyvernov1beta1.New(c)
 	cs.kyvernoV1alpha2 = kyvernov1alpha2.New(c)
+	cs.kyvernoV1beta1 = kyvernov1beta1.New(c)
+	cs.kyvernoV2alpha1 = kyvernov2alpha1.New(c)
 	cs.wgpolicyk8sV1alpha2 = wgpolicyk8sv1alpha2.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

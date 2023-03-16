@@ -5,6 +5,9 @@ kind: ClusterPolicy
 metadata:
   name: {{ $name }}
   annotations:
+    {{- with .Values.autogenControllers }}
+    pod-policies.kyverno.io/autogen-controllers: {{ . }}
+    {{- end }}
     policies.kyverno.io/title: Restrict Seccomp
     policies.kyverno.io/category: Pod Security Standards (Baseline)
     {{- if .Values.podSecuritySeverity }}
@@ -17,6 +20,7 @@ metadata:
       The seccomp profile must not be explicitly set to Unconfined. This policy,
       requiring Kubernetes v1.19 or later, ensures that seccomp is unset or
       set to `RuntimeDefault` or `Localhost`.
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
 spec:
   background: {{ .Values.background }}
   {{- with index .Values "validationFailureActionByPolicy" $name }}

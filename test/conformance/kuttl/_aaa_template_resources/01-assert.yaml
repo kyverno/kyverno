@@ -1,0 +1,11 @@
+# An assert file can be a partial representation of an object. What is specified MUST be present for the check to pass and the test to proceed.
+# If the specified timeout is reached and the assert does not evaluate to true, the test fails and halts.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-labels
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

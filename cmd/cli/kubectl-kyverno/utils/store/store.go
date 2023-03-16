@@ -2,74 +2,7 @@ package store
 
 import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
-
-var (
-	Mock           bool
-	RegistryAccess bool
-	AllowApiCalls  bool
-	ContextVar     Context
-	ForeachElement int
-	Subjects       Subject
-)
-
-func SetMock(mock bool) {
-	Mock = mock
-}
-
-func GetMock() bool {
-	return Mock
-}
-
-func SetForeachElement(foreachElement int) {
-	ForeachElement = foreachElement
-}
-
-func GetForeachElement() int {
-	return ForeachElement
-}
-
-func SetRegistryAccess(access bool) {
-	if access {
-		registryclient.DefaultClient.UseLocalKeychain()
-	}
-	RegistryAccess = access
-}
-
-func GetRegistryAccess() bool {
-	return RegistryAccess
-}
-
-func SetContext(context Context) {
-	ContextVar = context
-}
-
-func GetContext() Context {
-	return ContextVar
-}
-
-func GetPolicyFromContext(policyName string) *Policy {
-	for _, policy := range ContextVar.Policies {
-		if policy.Name == policyName {
-			return &policy
-		}
-	}
-	return nil
-}
-
-func GetPolicyRuleFromContext(policyName string, ruleName string) *Rule {
-	for _, policy := range ContextVar.Policies {
-		if policy.Name == policyName {
-			for _, rule := range policy.Rules {
-				if rule.Name == ruleName {
-					return &rule
-				}
-			}
-		}
-	}
-	return nil
-}
 
 type Context struct {
 	Policies []Policy `json:"policies"`
@@ -83,25 +16,81 @@ type Policy struct {
 type Rule struct {
 	Name          string                   `json:"name"`
 	Values        map[string]interface{}   `json:"values"`
-	ForeachValues map[string][]interface{} `json:"foreachValues"`
+	ForEachValues map[string][]interface{} `json:"foreachValues"`
 }
 
-func SetSubjects(subjects Subject) {
-	Subjects = subjects
+var (
+	mock           bool
+	registryClient registryclient.Client
+	allowApiCalls  bool
+	policies       []Policy
+	foreachElement int
+)
+
+func SetMock(m bool) {
+	mock = m
 }
 
-func GetSubjects() Subject {
-	return Subjects
+func IsMock() bool {
+	return mock
 }
 
-type Subject struct {
-	Subject rbacv1.Subject `json:"subject,omitempty" yaml:"subject,omitempty"`
+func SetForEachElement(element int) {
+	foreachElement = element
+}
+
+func GetForeachElement() int {
+	return foreachElement
+}
+
+func SetRegistryAccess(access bool) {
+	if access {
+		registryClient = registryclient.NewOrDie(registryclient.WithLocalKeychain())
+	}
+}
+
+func GetRegistryAccess() bool {
+	return registryClient != nil
+}
+
+func GetRegistryClient() registryclient.Client {
+	return registryClient
+}
+
+func SetPolicies(p ...Policy) {
+	policies = p
+}
+
+func HasPolicies() bool {
+	return len(policies) != 0
+}
+
+func GetPolicy(policyName string) *Policy {
+	for _, policy := range policies {
+		if policy.Name == policyName {
+			return &policy
+		}
+	}
+	return nil
+}
+
+func GetPolicyRule(policyName string, ruleName string) *Rule {
+	for _, policy := range policies {
+		if policy.Name == policyName {
+			for _, rule := range policy.Rules {
+				if rule.Name == ruleName {
+					return &rule
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func AllowApiCall(allow bool) {
-	AllowApiCalls = allow
+	allowApiCalls = allow
 }
 
-func IsAllowApiCall() bool {
-	return AllowApiCalls
+func IsApiCallAllowed() bool {
+	return allowApiCalls
 }

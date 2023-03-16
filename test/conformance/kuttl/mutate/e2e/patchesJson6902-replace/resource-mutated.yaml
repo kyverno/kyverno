@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kuard-v1
+  namespace: default
+  labels:
+    app: kuard
+spec:
+  rules:
+  - host: kuard.mycompany.com
+    http:
+      paths:
+      - backend:
+          service: 
+            name: kuard
+            port: 
+              number: 8080
+        path: /
+        pathType: ImplementationSpecific
+  tls:
+  - hosts:
+    - kuard

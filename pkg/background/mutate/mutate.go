@@ -1,6 +1,7 @@
 package mutate
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -11,14 +12,16 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/response"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/utils"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	cache "k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
@@ -27,10 +30,12 @@ type MutateExistingController struct {
 	// clients
 	client        dclient.Interface
 	statusControl common.StatusControlInterface
+	engine        engineapi.Engine
 
 	// listers
 	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
+	nsLister      corev1listers.NamespaceLister
 
 	configuration config.Configuration
 	eventGen      event.Interface
@@ -42,8 +47,10 @@ type MutateExistingController struct {
 func NewMutateExistingController(
 	client dclient.Interface,
 	statusControl common.StatusControlInterface,
+	engine engineapi.Engine,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
+	nsLister corev1listers.NamespaceLister,
 	dynamicConfig config.Configuration,
 	eventGen event.Interface,
 	log logr.Logger,
@@ -51,8 +58,10 @@ func NewMutateExistingController(
 	c := MutateExistingController{
 		client:        client,
 		statusControl: statusControl,
+		engine:        engine,
 		policyLister:  policyLister,
 		npolicyLister: npolicyLister,
+		nsLister:      nsLister,
 		configuration: dynamicConfig,
 		eventGen:      eventGen,
 		log:           log,
@@ -61,7 +70,7 @@ func NewMutateExistingController(
 }
 
 func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
-	logger := c.log.WithValues("name", ur.Name, "policy", ur.Spec.Policy, "kind", ur.Spec.Resource.Kind, "apiVersion", ur.Spec.Resource.APIVersion, "namespace", ur.Spec.Resource.Namespace, "name", ur.Spec.Resource.Name)
+	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
 	policy, err := c.getPolicy(ur.Spec.Policy)
@@ -76,34 +85,36 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 
 		trigger, err := common.GetResource(c.client, ur.Spec, c.log)
-		if err != nil {
+		if err != nil || trigger == nil {
 			logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 			errs = append(errs, err)
 			continue
 		}
 
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, nil, logger)
+		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+		policyContext, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, namespaceLabels, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
 			continue
 		}
 
-		er := engine.Mutate(policyContext)
+		er := c.engine.Mutate(context.TODO(), policyContext)
 		for _, r := range er.PolicyResponse.Rules {
 			patched := r.PatchedTarget
+			patchedTargetSubresourceName := r.PatchedTargetSubresourceName
 			switch r.Status {
-			case response.RuleStatusFail, response.RuleStatusError, response.RuleStatusWarn:
+			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
 				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status, r.Message)
 				logger.Error(err, "")
 				errs = append(errs, err)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
-			case response.RuleStatusSkip:
+			case engineapi.RuleStatusSkip:
 				logger.Info("mutate existing rule skipped", "rule", r.Name, "message", r.Message)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
-			case response.RuleStatusPass:
+			case engineapi.RuleStatusPass:
 
 				patchedNew, err := addAnnotation(policy, patched, r)
 				if err != nil {
@@ -117,9 +128,24 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 					continue
 				}
 
-				if r.Status == response.RuleStatusPass {
-					patchedNew.SetResourceVersion("")
-					_, updateErr := c.client.UpdateResource(patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+				if r.Status == engineapi.RuleStatusPass {
+					patchedNew.SetResourceVersion(patched.GetResourceVersion())
+					var updateErr error
+					if patchedTargetSubresourceName == "status" {
+						_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+					} else if patchedTargetSubresourceName != "" {
+						parentResourceGVR := r.PatchedTargetParentResourceGVR
+						parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
+						parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
+						if err != nil {
+							logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR)
+							errs = append(errs, err)
+							continue
+						}
+						_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedTargetSubresourceName)
+					} else {
+						_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+					}
 					if updateErr != nil {
 						errs = append(errs, updateErr)
 						logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
@@ -154,7 +180,7 @@ func (c *MutateExistingController) report(err error, policy, rule string, target
 	var events []event.Info
 
 	if target == nil {
-		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule, "err", err.Error())
+		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule)
 	}
 
 	if err != nil {
@@ -179,7 +205,7 @@ func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1bet
 	return nil
 }
 
-func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstructured, r response.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {
+func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstructured, r engineapi.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {
 	if patched == nil {
 		return
 	}

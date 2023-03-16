@@ -117,11 +117,6 @@ func Test_ImageVerification(t *testing.T) {
 					},
 				},
 			},
-			errors: func(i *ImageVerification) field.ErrorList {
-				return field.ErrorList{
-					field.Invalid(path, i, "An attestor is required"),
-				}
-			},
 		},
 	}
 

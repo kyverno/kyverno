@@ -1,0 +1,13 @@
+## Checks that the manifests.yaml file CAN be successfully created. If it can not, fail the test as this is incorrect.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    if kubectl apply -f policy.yaml
+    then
+      echo "Test succeeded. Policy was created as intended."
+      exit 0 
+    else 
+      echo "Tested failed. Policy was not created when it should have been."
+      exit 1
+    fi

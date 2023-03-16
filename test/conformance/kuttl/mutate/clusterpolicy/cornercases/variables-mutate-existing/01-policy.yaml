@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: reload
+spec:
+  mutateExistingOnPolicyUpdate: false
+  rules:
+  - name: trigger
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          selector:
+            matchLabels:
+              kyverno.io/watch: "true"
+    preconditions:
+      all:
+      - key: "{{ request.operation }}"
+        operator: Equals
+        value: UPDATE
+    mutate:
+      targets:
+        - apiVersion: v1
+          kind: Pod
+          namespace: "{{ request.namespace }}"
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            corp.org/random: "{{ request.object.data.fookey }}"
+        spec:
+          volumes:
+          - configMap:
+              <(name): "{{ request.object.metadata.name }}"

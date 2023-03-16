@@ -21,7 +21,7 @@ fi
 pwd=$(pwd)
 cd "$pwd"/config
 echo "Installing kustomize"
-curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/56d82a8378dfc8dc3b3b1085e5a6e67b82966bd7/hack/install_kustomize.sh"  | bash  # v4.5.7
 kustomize edit set image ghcr.io/kyverno/kyverno:"$hash"
 kustomize edit set image ghcr.io/kyverno/kyvernopre:"$hash"
 kustomize build "$pwd"/config/ -o "$pwd"/config/install.yaml

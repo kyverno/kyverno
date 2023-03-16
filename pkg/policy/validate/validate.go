@@ -2,10 +2,9 @@ package validate
 
 import (
 	"fmt"
-	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 )
 
@@ -31,7 +30,13 @@ func (v *Validate) Validate() (string, error) {
 	}
 
 	if target := v.rule.GetPattern(); target != nil {
-		if path, err := common.ValidatePattern(target, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
+		if path, err := common.ValidatePattern(target, "/", func(a anchor.Anchor) bool {
+			return anchor.IsCondition(a) ||
+				anchor.IsExistence(a) ||
+				anchor.IsEquality(a) ||
+				anchor.IsNegation(a) ||
+				anchor.IsGlobal(a)
+		}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
 	}
@@ -42,7 +47,13 @@ func (v *Validate) Validate() (string, error) {
 			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
 		}
 		for i, pattern := range anyPattern {
-			if path, err := common.ValidatePattern(pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
+			if path, err := common.ValidatePattern(pattern, "/", func(a anchor.Anchor) bool {
+				return anchor.IsCondition(a) ||
+					anchor.IsExistence(a) ||
+					anchor.IsEquality(a) ||
+					anchor.IsNegation(a) ||
+					anchor.IsGlobal(a)
+			}); err != nil {
 				return fmt.Sprintf("anyPattern[%d].%s", i, path), err
 			}
 		}
@@ -110,17 +121,13 @@ func (v *Validate) validateForEach(foreach kyvernov1.ForEachValidation) error {
 		return fmt.Errorf("foreach.list is required")
 	}
 
-	if !strings.HasPrefix(foreach.List, "request.object") && !strings.HasPrefix(foreach.List, "request.userInfo") {
-		return fmt.Errorf("foreach.list must start with either 'request.object' or 'request.userInfo', e.g. 'request.object.spec.containers', 'request.userInfo.groups'")
-	}
-
 	count := foreachElemCount(foreach)
 	if count == 0 {
-		return fmt.Errorf("one of pattern, anyPattern, deny must be specified")
+		return fmt.Errorf("one of pattern, anyPattern, deny, or a nested foreach must be specified")
 	}
 
 	if count > 1 {
-		return fmt.Errorf("only one of pattern, anyPattern, deny can be specified")
+		return fmt.Errorf("only one of pattern, anyPattern, deny, or a nested foreach can be specified")
 	}
 
 	return nil
@@ -137,6 +144,10 @@ func foreachElemCount(foreach kyvernov1.ForEachValidation) int {
 	}
 
 	if foreach.Deny != nil {
+		count++
+	}
+
+	if foreach.ForEachValidation != nil {
 		count++
 	}
 

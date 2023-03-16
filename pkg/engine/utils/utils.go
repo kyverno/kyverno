@@ -2,14 +2,13 @@ package utils
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/logging"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
 
 // ApplyPatches patches given resource with given patches and returns patched document
@@ -50,50 +49,21 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	return patchedResource, err
 }
 
-// ConvertToUnstructured converts the resource to unstructured format
-func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
-	resource := &unstructured.Unstructured{}
-	err := resource.UnmarshalJSON(data)
+func TransformConditions(original apiextensions.JSON) (interface{}, error) {
+	// conditions are currently in the form of []interface{}
+	oldConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(original)
 	if err != nil {
 		return nil, err
 	}
-	return resource, nil
-}
-
-// GetAnchorsFromMap gets the conditional anchor map
-func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	for key, value := range anchorsMap {
-		if commonAnchor.IsConditionAnchor(key) {
-			result[key] = value
+	switch typedValue := oldConditions.(type) {
+	case kyvernov1.AnyAllConditions:
+		return *typedValue.DeepCopy(), nil
+	case []kyvernov1.Condition: // backwards compatibility
+		var copies []kyvernov1.Condition
+		for _, condition := range typedValue {
+			copies = append(copies, *condition.DeepCopy())
 		}
+		return copies, nil
 	}
-
-	return result
-}
-
-func JsonPointerToJMESPath(jsonPointer string) string {
-	var sb strings.Builder
-	tokens := strings.Split(jsonPointer, "/")
-	i := 0
-	for _, t := range tokens {
-		if t == "" {
-			continue
-		}
-
-		if _, err := strconv.Atoi(t); err == nil {
-			sb.WriteString(fmt.Sprintf("[%s]", t))
-			continue
-		}
-
-		if i > 0 {
-			sb.WriteString(".")
-		}
-
-		sb.WriteString(t)
-		i++
-	}
-
-	return sb.String()
+	return nil, fmt.Errorf("invalid preconditions")
 }

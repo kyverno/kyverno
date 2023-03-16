@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -27,8 +28,10 @@ func Test_getAutogenRuleName(t *testing.T) {
 		{"truncated-cronjob", "too-long-this-rule-name-will-be-truncated-to-63-characters", "autogen-cronjob", "autogen-cronjob-too-long-this-rule-name-will-be-truncated-to-63"},
 	}
 	for _, test := range testCases {
-		res := getAutogenRuleName(test.prefix, test.ruleName)
-		assert.Equal(t, test.expected, res)
+		t.Run(test.name, func(t *testing.T) {
+			res := getAutogenRuleName(test.prefix, test.ruleName)
+			assert.Equal(t, test.expected, res)
+		})
 	}
 }
 
@@ -45,8 +48,10 @@ func Test_isAutogenRule(t *testing.T) {
 		{"truncated-cronjob", "autogen-cronjob-too-long-this-rule-name-will-be-truncated-to-63", true},
 	}
 	for _, test := range testCases {
-		res := isAutogenRuleName(test.ruleName)
-		assert.Equal(t, test.expected, res)
+		t.Run(test.name, func(t *testing.T) {
+			res := isAutogenRuleName(test.ruleName)
+			assert.Equal(t, test.expected, res)
+		})
 	}
 }
 
@@ -139,15 +144,17 @@ func Test_CanAutoGen(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		var policy kyverno.ClusterPolicy
-		err := json.Unmarshal(test.policy, &policy)
-		assert.NilError(t, err)
+		t.Run(test.name, func(t *testing.T) {
+			var policy kyverno.ClusterPolicy
+			err := json.Unmarshal(test.policy, &policy)
+			assert.NilError(t, err)
 
-		applyAutoGen, controllers := CanAutoGen(&policy.Spec)
-		if !applyAutoGen {
-			controllers = "none"
-		}
-		assert.Equal(t, test.expectedControllers, controllers, fmt.Sprintf("test %s failed", test.name))
+			applyAutoGen, controllers := CanAutoGen(&policy.Spec)
+			if !applyAutoGen {
+				controllers = "none"
+			}
+			assert.Equal(t, test.expectedControllers, controllers, fmt.Sprintf("test %s failed", test.name))
+		})
 	}
 }
 
@@ -240,18 +247,20 @@ func Test_GetSupportedControllers(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		var policy kyverno.ClusterPolicy
-		err := json.Unmarshal(test.policy, &policy)
-		assert.NilError(t, err)
+		t.Run(test.name, func(t *testing.T) {
+			var policy kyverno.ClusterPolicy
+			err := json.Unmarshal(test.policy, &policy)
+			assert.NilError(t, err)
 
-		controllers := GetSupportedControllers(&policy.Spec)
+			controllers := GetSupportedControllers(&policy.Spec)
 
-		var expectedControllers []string
-		if test.expectedControllers != "none" {
-			expectedControllers = strings.Split(test.expectedControllers, ",")
-		}
+			var expectedControllers []string
+			if test.expectedControllers != "none" {
+				expectedControllers = strings.Split(test.expectedControllers, ",")
+			}
 
-		assert.DeepEqual(t, expectedControllers, controllers)
+			assert.DeepEqual(t, expectedControllers, controllers)
+		})
 	}
 }
 
@@ -294,8 +303,10 @@ func Test_GetRequestedControllers(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		controllers := GetRequestedControllers(&test.meta)
-		assert.DeepEqual(t, test.expectedControllers, controllers)
+		t.Run(test.name, func(t *testing.T) {
+			controllers := GetRequestedControllers(&test.meta)
+			assert.DeepEqual(t, test.expectedControllers, controllers)
+		})
 	}
 }
 
@@ -327,7 +338,7 @@ func Test_Any(t *testing.T) {
 		t.Log(errs)
 	}
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-validate-hostPath","match":{"any":[{"resources":{"kinds":["CronJob"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}}}`),
 	}
 
@@ -366,7 +377,7 @@ func Test_All(t *testing.T) {
 	}
 
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"all":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"all":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-validate-hostPath","match":{"all":[{"resources":{"kinds":["CronJob"]}}],"resources":{"kinds":["Pod"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}}}`),
 	}
 
@@ -399,7 +410,7 @@ func Test_Exclude(t *testing.T) {
 	}
 
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-validate-hostPath","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-validate-hostPath","match":{"resources":{"kinds":["CronJob"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"validate":{"message":"Host path volumes are not allowed","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"=(volumes)":[{"X(hostPath)":"null"}]}}}}}}}}}`),
 	}
 
@@ -463,7 +474,7 @@ func Test_ForEachPod(t *testing.T) {
 	}
 
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-resolve-image-containers","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"preconditions":{"all":[{"key":"{{request.operation}}","operator":"In","value":["CREATE","UPDATE"]}]},"mutate":{"foreach":[{"list":"request.object.spec.template.spec.containers","context":[{"name":"dictionary","configMap":{"name":"some-config-map","namespace":"some-namespace"}}],"patchStrategicMerge":{"spec":{"template":{"spec":{"containers":[{"image":"{{ dictionary.data.image }}","name":"{{ element.name }}"}]}}}}}]}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-resolve-image-containers","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"preconditions":{"all":[{"key":"{{request.operation}}","operator":"In","value":["CREATE","UPDATE"]}]},"mutate":{"foreach":[{"list":"request.object.spec.template.spec.containers","context":[{"name":"dictionary","configMap":{"name":"some-config-map","namespace":"some-namespace"}}],"patchStrategicMerge":{"spec":{"template":{"spec":{"containers":[{"image":"{{ dictionary.data.image }}","name":"{{ element.name }}"}]}}}}}]}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-resolve-image-containers","match":{"resources":{"kinds":["CronJob"]}},"exclude":{"resources":{"namespaces":["fake-namespce"]}},"preconditions":{"all":[{"key":"{{request.operation}}","operator":"In","value":["CREATE","UPDATE"]}]},"mutate":{"foreach":[{"list":"request.object.spec.jobTemplate.spec.template.spec.containers","context":[{"name":"dictionary","configMap":{"name":"some-config-map","namespace":"some-namespace"}}],"patchStrategicMerge":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"image":"{{ dictionary.data.image }}","name":"{{ element.name }}"}]}}}}}}}]}}}`),
 	}
 
@@ -543,6 +554,47 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	assert.DeepEqual(t, rulePatches, expectedPatches)
 }
 
+func TestUpdateGenRuleByte(t *testing.T) {
+	tests := []struct {
+		pbyte   []byte
+		kind    string
+		want    []byte
+		wantErr bool
+	}{
+		{
+			pbyte: []byte("request.object.spec"),
+			kind:  "Pod",
+			want:  []byte("request.object.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.oldObject.spec"),
+			kind:  "Pod",
+			want:  []byte("request.oldObject.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.object.spec"),
+			kind:  "Cronjob",
+			want:  []byte("request.object.spec.jobTemplate.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.oldObject.spec"),
+			kind:  "Cronjob",
+			want:  []byte("request.oldObject.spec.jobTemplate.spec.template.spec"),
+		},
+		{
+			pbyte: []byte("request.object.metadata"),
+			kind:  "Pod",
+			want:  []byte("request.object.spec.template.metadata"),
+		},
+	}
+	for _, tt := range tests {
+		got := updateGenRuleByte(tt.pbyte, tt.kind)
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("updateGenRuleByte() = %v, want %v", string(got), string(tt.want))
+		}
+	}
+}
+
 func Test_UpdateVariablePath(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
@@ -563,7 +615,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 		t.Log(errs)
 	}
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-select-secrets-from-volumes","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}},"context":[{"name":"volsecret","apiCall":{"urlPath":"/api/v1/namespaces/{{request.object.spec.template.metadata.namespace}}/secrets/{{request.object.spec.template.spec.volumes[0].secret.secretName}}","jmesPath":"metadata.labels.foo"}}],"preconditions":[{"key":"{{ request.operation }}","operator":"Equals","value":"CREATE"}],"validate":{"message":"The Secret named {{request.object.spec.template.spec.volumes[0].secret.secretName}} is restricted and may not be used.","pattern":{"spec":{"template":{"spec":{"containers":[{"image":"registry.domain.com/*"}]}}}}}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-select-secrets-from-volumes","match":{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}},"context":[{"name":"volsecret","apiCall":{"urlPath":"/api/v1/namespaces/{{request.object.spec.template.metadata.namespace}}/secrets/{{request.object.spec.template.spec.volumes[0].secret.secretName}}","jmesPath":"metadata.labels.foo"}}],"preconditions":[{"key":"{{ request.operation }}","operator":"Equals","value":"CREATE"}],"validate":{"message":"The Secret named {{request.object.spec.template.spec.volumes[0].secret.secretName}} is restricted and may not be used.","pattern":{"spec":{"template":{"spec":{"containers":[{"image":"registry.domain.com/*"}]}}}}}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-select-secrets-from-volumes","match":{"resources":{"kinds":["CronJob"]}},"context":[{"name":"volsecret","apiCall":{"urlPath":"/api/v1/namespaces/{{request.object.spec.template.metadata.namespace}}/secrets/{{request.object.spec.jobTemplate.spec.template.spec.volumes[0].secret.secretName}}","jmesPath":"metadata.labels.foo"}}],"preconditions":[{"key":"{{ request.operation }}","operator":"Equals","value":"CREATE"}],"validate":{"message":"The Secret named {{request.object.spec.jobTemplate.spec.template.spec.volumes[0].secret.secretName}} is restricted and may not be used.","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"image":"registry.domain.com/*"}]}}}}}}}}}`),
 	}
 
@@ -601,7 +653,7 @@ func Test_Deny(t *testing.T) {
 		t.Log(errs)
 	}
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet","ReplicaSet","ReplicationController"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["CronJob"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.jobTemplate.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
 	}
 
@@ -709,7 +761,7 @@ kA==
 				Name: "autogen-check-image",
 				MatchResources: kyverno.MatchResources{
 					ResourceDescription: kyverno.ResourceDescription{
-						Kinds: []string{"DaemonSet", "Deployment", "Job", "StatefulSet"},
+						Kinds: []string{"DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController"},
 					},
 				},
 				VerifyImages: []kyverno.ImageVerification{{
@@ -788,11 +840,13 @@ kA==
 	}
 
 	for _, test := range testCases {
-		policies, err := yamlutils.GetPolicy([]byte(test.policy))
-		assert.NilError(t, err)
-		assert.Equal(t, 1, len(policies))
-		rules := computeRules(policies[0])
-		assert.DeepEqual(t, test.expectedRules, rules)
+		t.Run(test.name, func(t *testing.T) {
+			policies, err := yamlutils.GetPolicy([]byte(test.policy))
+			assert.NilError(t, err)
+			assert.Equal(t, 1, len(policies))
+			rules := computeRules(policies[0])
+			assert.DeepEqual(t, test.expectedRules, rules)
+		})
 	}
 }
 

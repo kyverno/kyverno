@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
   name: policies.kyverno.io
 spec:
@@ -11,7 +11,6 @@ spec:
   names:
     categories:
     - kyverno
-    - all
     kind: Policy
     listKind: PolicyList
     plural: policies
@@ -31,12 +30,28 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v1
     schema:
       openAPIV3Schema:
@@ -87,11 +102,11 @@ spec:
                 - Ignore
                 - Fail
                 type: string
-              generateExistingOnPolicyUpdate:
-                description: GenerateExistingOnPolicyUpdate controls whether to trigger
-                  generate rule in existing resources If is set to "true" generate
-                  rule will be triggered and applied to existing matched resources.
-                  Defaults to "false" if not specified.
+              generateExisting:
+                description: GenerateExisting controls whether to trigger generate
+                  rule in existing resources If is set to "true" generate rule will
+                  be triggered and applied to existing matched resources. Defaults
+                  to "false" if not specified.
                 type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
@@ -115,19 +130,63 @@ spec:
                           must be provided.
                         properties:
                           apiCall:
-                            description: APICall defines an HTTP request to the Kubernetes
-                              API server. The JSON data retrieved is stored in the
-                              context.
+                            description: APICall is an HTTP request to the Kubernetes
+                              API server, or other JSON web service. The data returned
+                              is stored in the context with the name for the context
+                              entry.
                             properties:
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the JSON response
-                                  returned from the API server. For example a JMESPath
+                                  returned from the server. For example a JMESPath
                                   of "items | length(@)" applied to the API server
-                                  response to the URLPath "/apis/apps/v1/deployments"
+                                  response for the URLPath "/apis/apps/v1/deployments"
                                   will return the total count of deployments across
                                   all namespaces.
                                 type: string
+                              service:
+                                description: Service is an API call to a JSON web
+                                  service
+                                properties:
+                                  caBundle:
+                                    description: CABundle is a PEM encoded CA bundle
+                                      which will be used to validate the server certificate.
+                                    type: string
+                                  data:
+                                    description: Data specifies the POST data sent
+                                      to the server.
+                                    items:
+                                      description: RequestData contains the HTTP POST
+                                        data
+                                      properties:
+                                        key:
+                                          description: Key is a unique identifier
+                                            for the data value
+                                          type: string
+                                        value:
+                                          description: Value is the data value
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      required:
+                                      - key
+                                      - value
+                                      type: object
+                                    type: array
+                                  requestType:
+                                    default: GET
+                                    description: Method is the HTTP request type (GET
+                                      or POST).
+                                    enum:
+                                    - GET
+                                    - POST
+                                    type: string
+                                  urlPath:
+                                    description: URL is the JSON web service URL.
+                                      The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                    type: string
+                                required:
+                                - requestType
+                                - urlPath
+                                type: object
                               urlPath:
                                 description: URLPath is the URL path to be used in
                                   the HTTP GET request to the Kubernetes API server
@@ -135,8 +194,6 @@ spec:
                                   The format required is the same format used by the
                                   `kubectl get --raw` command.
                                 type: string
-                            required:
-                            - urlPath
                             type: object
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
@@ -939,6 +996,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -1619,9 +1685,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -1633,20 +1699,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -1655,8 +1767,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -1715,6 +1825,9 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -1906,10 +2019,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -1925,20 +2038,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -1947,8 +2106,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -2028,6 +2185,9 @@ spec:
                                   scope within the foreach block to allow referencing
                                   other elements in the subtree.
                                 type: boolean
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -2281,7 +2441,13 @@ spec:
                                                 The keys can be directly specified
                                                 or can be a variable reference to
                                                 a key specified in a ConfigMap (see
-                                                https://kyverno.io/docs/writing-policies/variables/).
+                                                https://kyverno.io/docs/writing-policies/variables/),
+                                                or reference a standard Kubernetes
+                                                Secret elsewhere in the cluster by
+                                                specifying it in the format "k8s://<namespace>/<secret_name>".
+                                                The named Secret must specify a key
+                                                `cosign.pub` containing the public
+                                                key used for verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
                                                 When multiple keys are specified each
                                                 key is processed as a separate staticKey
                                                 entry (.attestors[*].entries.keys)
@@ -2309,11 +2475,13 @@ spec:
                                                 that contains a public key
                                               properties:
                                                 name:
-                                                  description: name of the secret
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
                                                   type: string
                                                 namespace:
-                                                  description: namespace name in which
-                                                    secret is created
+                                                  description: Namespace name where
+                                                    the Secret exists.
                                                   type: string
                                               required:
                                               - name
@@ -2495,6 +2663,206 @@ spec:
                                 signed attestations from the OCI registry and decodes
                                 them into a list of Statements.
                               properties:
+                                attestors:
+                                  description: Attestors specify the required attestors
+                                    (i.e. authorities)
+                                  items:
+                                    properties:
+                                      count:
+                                        description: Count specifies the required
+                                          number of entries that must match. If the
+                                          count is null, all entries must match (a
+                                          logical AND). If the count is 1, at least
+                                          one entry must match (a logical OR). If
+                                          the count contains a value N, then N must
+                                          be less than or equal to the size of entries,
+                                          and at least N entries must match.
+                                        minimum: 1
+                                        type: integer
+                                      entries:
+                                        description: Entries contains the available
+                                          attestors. An attestor can be a static key,
+                                          attributes for keyless verification, or
+                                          a nested attestor declaration.
+                                        items:
+                                          properties:
+                                            annotations:
+                                              additionalProperties:
+                                                type: string
+                                              description: Annotations are used for
+                                                image verification. Every specified
+                                                key-value pair must exist and match
+                                                in the verified payload. The payload
+                                                may contain other key-value pairs.
+                                              type: object
+                                            attestor:
+                                              description: Attestor is a nested AttestorSet
+                                                used to specify a more complex set
+                                                of match authorities
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            certificates:
+                                              description: Certificates specifies
+                                                one or more certificates
+                                              properties:
+                                                cert:
+                                                  description: Certificate is an optional
+                                                    PEM encoded public certificate.
+                                                  type: string
+                                                certChain:
+                                                  description: CertificateChain is
+                                                    an optional PEM encoded set of
+                                                    certificates used to verify
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration
+                                                    for the Rekor transparency log
+                                                    service. If the value is nil,
+                                                    Rekor is not checked. If an empty
+                                                    object is provided the public
+                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address
+                                                        of the transparency log. Defaults
+                                                        to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                              type: object
+                                            keyless:
+                                              description: Keyless is a set of attribute
+                                                used to verify a Sigstore keyless
+                                                attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                              properties:
+                                                additionalExtensions:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: AdditionalExtensions
+                                                    are certificate-extensions used
+                                                    for keyless signing.
+                                                  type: object
+                                                issuer:
+                                                  description: Issuer is the certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration
+                                                    for the Rekor transparency log
+                                                    service. If the value is nil,
+                                                    Rekor is not checked and a root
+                                                    certificate chain is expected
+                                                    instead. If an empty object is
+                                                    provided the public instance of
+                                                    Rekor (https://rekor.sigstore.dev)
+                                                    is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address
+                                                        of the transparency log. Defaults
+                                                        to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                roots:
+                                                  description: Roots is an optional
+                                                    set of PEM encoded trusted root
+                                                    certificates. If not provided,
+                                                    the system roots are used.
+                                                  type: string
+                                                subject:
+                                                  description: Subject is the verified
+                                                    identity used for keyless signing,
+                                                    for example the email address
+                                                  type: string
+                                              type: object
+                                            keys:
+                                              description: Keys specifies one or more
+                                                public keys
+                                              properties:
+                                                kms:
+                                                  description: 'KMS provides the URI
+                                                    to the public key stored in a
+                                                    Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                  type: string
+                                                publicKeys:
+                                                  description: Keys is a set of X.509
+                                                    public keys used to verify image
+                                                    signatures. The keys can be directly
+                                                    specified or can be a variable
+                                                    reference to a key specified in
+                                                    a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/),
+                                                    or reference a standard Kubernetes
+                                                    Secret elsewhere in the cluster
+                                                    by specifying it in the format
+                                                    "k8s://<namespace>/<secret_name>".
+                                                    The named Secret must specify
+                                                    a key `cosign.pub` containing
+                                                    the public key used for verification,
+                                                    (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                    When multiple keys are specified
+                                                    each key is processed as a separate
+                                                    staticKey entry (.attestors[*].entries.keys)
+                                                    within the set of attestors and
+                                                    the count is applied across the
+                                                    keys.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration
+                                                    for the Rekor transparency log
+                                                    service. If the value is nil,
+                                                    Rekor is not checked. If an empty
+                                                    object is provided the public
+                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address
+                                                        of the transparency log. Defaults
+                                                        to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                secret:
+                                                  description: Reference to a Secret
+                                                    resource that contains a public
+                                                    key
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name
+                                                        where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha256 and sha512
+                                                  type: string
+                                              type: object
+                                            repository:
+                                              description: Repository is an optional
+                                                alternate OCI repository to use for
+                                                signatures and attestations that match
+                                                this rule. If specified Repository
+                                                will override other OCI image repository
+                                                locations for this Attestor.
+                                              type: string
+                                          type: object
+                                        type: array
+                                    type: object
+                                  type: array
                                 conditions:
                                   description: Conditions are used to verify attributes
                                     within a Predicate. If no Conditions are specified
@@ -2616,6 +2984,8 @@ spec:
                                   description: PredicateType defines the type of Predicate
                                     contained within the Statement.
                                   type: string
+                              required:
+                              - predicateType
                               type: object
                             type: array
                           attestors:
@@ -2742,7 +3112,13 @@ spec:
                                               keys used to verify image signatures.
                                               The keys can be directly specified or
                                               can be a variable reference to a key
-                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/),
+                                              or reference a standard Kubernetes Secret
+                                              elsewhere in the cluster by specifying
+                                              it in the format "k8s://<namespace>/<secret_name>".
+                                              The named Secret must specify a key
+                                              `cosign.pub` containing the public key
+                                              used for verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
                                               When multiple keys are specified each
                                               key is processed as a separate staticKey
                                               entry (.attestors[*].entries.keys) within
@@ -2770,11 +3146,13 @@ spec:
                                               that contains a public key
                                             properties:
                                               name:
-                                                description: name of the secret
+                                                description: Name of the secret. The
+                                                  provided secret must contain a key
+                                                  named cosign.pub.
                                                 type: string
                                               namespace:
-                                                description: namespace name in which
-                                                  secret is created
+                                                description: Namespace name where
+                                                  the Secret exists.
                                                 type: string
                                             required:
                                             - name
@@ -2853,6 +3231,14 @@ spec:
                               signing, for example an email address Deprecated. Use
                               KeylessAttestor instead.
                             type: string
+                          type:
+                            description: Type specifies the method of signature validation.
+                              The allowed options are Cosign and NotaryV2. By default
+                              Cosign is used if a type is not specified.
+                            enum:
+                            - Cosign
+                            - NotaryV2
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -2863,20 +3249,22 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy
@@ -2890,7 +3278,57 @@ spec:
                       enum:
                       - audit
                       - enforce
+                      - Audit
+                      - Enforce
                       type: string
+                    namespaceSelector:
+                      description: A label selector is a label query over a set of
+                        resources. The result of matchLabels and matchExpressions
+                        are ANDed. An empty label selector matches all objects. A
+                        null label selector matches no objects.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     namespaces:
                       items:
                         type: string
@@ -2931,19 +3369,64 @@ spec:
                               APILookup must be provided.
                             properties:
                               apiCall:
-                                description: APICall defines an HTTP request to the
-                                  Kubernetes API server. The JSON data retrieved is
-                                  stored in the context.
+                                description: APICall is an HTTP request to the Kubernetes
+                                  API server, or other JSON web service. The data
+                                  returned is stored in the context with the name
+                                  for the context entry.
                                 properties:
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
-                                      JSON response returned from the API server.
-                                      For example a JMESPath of "items | length(@)"
-                                      applied to the API server response to the URLPath
-                                      "/apis/apps/v1/deployments" will return the
-                                      total count of deployments across all namespaces.
+                                      JSON response returned from the server. For
+                                      example a JMESPath of "items | length(@)" applied
+                                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                                      will return the total count of deployments across
+                                      all namespaces.
                                     type: string
+                                  service:
+                                    description: Service is an API call to a JSON
+                                      web service
+                                    properties:
+                                      caBundle:
+                                        description: CABundle is a PEM encoded CA
+                                          bundle which will be used to validate the
+                                          server certificate.
+                                        type: string
+                                      data:
+                                        description: Data specifies the POST data
+                                          sent to the server.
+                                        items:
+                                          description: RequestData contains the HTTP
+                                            POST data
+                                          properties:
+                                            key:
+                                              description: Key is a unique identifier
+                                                for the data value
+                                              type: string
+                                            value:
+                                              description: Value is the data value
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          required:
+                                          - key
+                                          - value
+                                          type: object
+                                        type: array
+                                      requestType:
+                                        default: GET
+                                        description: Method is the HTTP request type
+                                          (GET or POST).
+                                        enum:
+                                        - GET
+                                        - POST
+                                        type: string
+                                      urlPath:
+                                        description: URL is the JSON web service URL.
+                                          The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                        type: string
+                                    required:
+                                    - requestType
+                                    - urlPath
+                                    type: object
                                   urlPath:
                                     description: URLPath is the URL path to be used
                                       in the HTTP GET request to the Kubernetes API
@@ -2951,8 +3434,6 @@ spec:
                                       The format required is the same format used
                                       by the `kubectl get --raw` command.
                                     type: string
-                                required:
-                                - urlPath
                                 type: object
                               configMap:
                                 description: ConfigMap is the ConfigMap reference.
@@ -3794,6 +4275,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -4503,10 +4993,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -4517,21 +5007,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -4540,8 +5079,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -4604,6 +5141,10 @@ spec:
                                           type: object
                                       type: object
                                     type: array
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -4802,10 +5343,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -4821,21 +5362,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -4844,8 +5434,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -4929,6 +5517,10 @@ spec:
                                       as the validation scope within the foreach block
                                       to allow referencing other elements in the subtree.
                                     type: boolean
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -5189,7 +5781,15 @@ spec:
                                                     signatures. The keys can be directly
                                                     specified or can be a variable
                                                     reference to a key specified in
-                                                    a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                                    a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/),
+                                                    or reference a standard Kubernetes
+                                                    Secret elsewhere in the cluster
+                                                    by specifying it in the format
+                                                    "k8s://<namespace>/<secret_name>".
+                                                    The named Secret must specify
+                                                    a key `cosign.pub` containing
+                                                    the public key used for verification,
+                                                    (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
                                                     When multiple keys are specified
                                                     each key is processed as a separate
                                                     staticKey entry (.attestors[*].entries.keys)
@@ -5220,11 +5820,13 @@ spec:
                                                     key
                                                   properties:
                                                     name:
-                                                      description: name of the secret
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
                                                       type: string
                                                     namespace:
-                                                      description: namespace name
-                                                        in which secret is created
+                                                      description: Namespace name
+                                                        where the Secret exists.
                                                       type: string
                                                   required:
                                                   - name
@@ -5410,6 +6012,223 @@ spec:
                                     fetches signed attestations from the OCI registry
                                     and decodes them into a list of Statements.
                                   properties:
+                                    attestors:
+                                      description: Attestors specify the required
+                                        attestors (i.e. authorities)
+                                      items:
+                                        properties:
+                                          count:
+                                            description: Count specifies the required
+                                              number of entries that must match. If
+                                              the count is null, all entries must
+                                              match (a logical AND). If the count
+                                              is 1, at least one entry must match
+                                              (a logical OR). If the count contains
+                                              a value N, then N must be less than
+                                              or equal to the size of entries, and
+                                              at least N entries must match.
+                                            minimum: 1
+                                            type: integer
+                                          entries:
+                                            description: Entries contains the available
+                                              attestors. An attestor can be a static
+                                              key, attributes for keyless verification,
+                                              or a nested attestor declaration.
+                                            items:
+                                              properties:
+                                                annotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: Annotations are used
+                                                    for image verification. Every
+                                                    specified key-value pair must
+                                                    exist and match in the verified
+                                                    payload. The payload may contain
+                                                    other key-value pairs.
+                                                  type: object
+                                                attestor:
+                                                  description: Attestor is a nested
+                                                    AttestorSet used to specify a
+                                                    more complex set of match authorities
+                                                  x-kubernetes-preserve-unknown-fields: true
+                                                certificates:
+                                                  description: Certificates specifies
+                                                    one or more certificates
+                                                  properties:
+                                                    cert:
+                                                      description: Certificate is
+                                                        an optional PEM encoded public
+                                                        certificate.
+                                                      type: string
+                                                    certChain:
+                                                      description: CertificateChain
+                                                        is an optional PEM encoded
+                                                        set of certificates used to
+                                                        verify
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides
+                                                        configuration for the Rekor
+                                                        transparency log service.
+                                                        If the value is nil, Rekor
+                                                        is not checked. If an empty
+                                                        object is provided the public
+                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the
+                                                            address of the transparency
+                                                            log. Defaults to the public
+                                                            log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                  type: object
+                                                keyless:
+                                                  description: Keyless is a set of
+                                                    attribute used to verify a Sigstore
+                                                    keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                  properties:
+                                                    additionalExtensions:
+                                                      additionalProperties:
+                                                        type: string
+                                                      description: AdditionalExtensions
+                                                        are certificate-extensions
+                                                        used for keyless signing.
+                                                      type: object
+                                                    issuer:
+                                                      description: Issuer is the certificate
+                                                        issuer used for keyless signing.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides
+                                                        configuration for the Rekor
+                                                        transparency log service.
+                                                        If the value is nil, Rekor
+                                                        is not checked and a root
+                                                        certificate chain is expected
+                                                        instead. If an empty object
+                                                        is provided the public instance
+                                                        of Rekor (https://rekor.sigstore.dev)
+                                                        is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the
+                                                            address of the transparency
+                                                            log. Defaults to the public
+                                                            log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    roots:
+                                                      description: Roots is an optional
+                                                        set of PEM encoded trusted
+                                                        root certificates. If not
+                                                        provided, the system roots
+                                                        are used.
+                                                      type: string
+                                                    subject:
+                                                      description: Subject is the
+                                                        verified identity used for
+                                                        keyless signing, for example
+                                                        the email address
+                                                      type: string
+                                                  type: object
+                                                keys:
+                                                  description: Keys specifies one
+                                                    or more public keys
+                                                  properties:
+                                                    kms:
+                                                      description: 'KMS provides the
+                                                        URI to the public key stored
+                                                        in a Key Management System.
+                                                        See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                      type: string
+                                                    publicKeys:
+                                                      description: Keys is a set of
+                                                        X.509 public keys used to
+                                                        verify image signatures. The
+                                                        keys can be directly specified
+                                                        or can be a variable reference
+                                                        to a key specified in a ConfigMap
+                                                        (see https://kyverno.io/docs/writing-policies/variables/),
+                                                        or reference a standard Kubernetes
+                                                        Secret elsewhere in the cluster
+                                                        by specifying it in the format
+                                                        "k8s://<namespace>/<secret_name>".
+                                                        The named Secret must specify
+                                                        a key `cosign.pub` containing
+                                                        the public key used for verification,
+                                                        (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                        When multiple keys are specified
+                                                        each key is processed as a
+                                                        separate staticKey entry (.attestors[*].entries.keys)
+                                                        within the set of attestors
+                                                        and the count is applied across
+                                                        the keys.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides
+                                                        configuration for the Rekor
+                                                        transparency log service.
+                                                        If the value is nil, Rekor
+                                                        is not checked. If an empty
+                                                        object is provided the public
+                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the
+                                                            address of the transparency
+                                                            log. Defaults to the public
+                                                            log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    secret:
+                                                      description: Reference to a
+                                                        Secret resource that contains
+                                                        a public key
+                                                      properties:
+                                                        name:
+                                                          description: Name of the
+                                                            secret. The provided secret
+                                                            must contain a key named
+                                                            cosign.pub.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace name
+                                                            where the Secret exists.
+                                                          type: string
+                                                      required:
+                                                      - name
+                                                      - namespace
+                                                      type: object
+                                                    signatureAlgorithm:
+                                                      default: sha256
+                                                      description: Specify signature
+                                                        algorithm for public keys.
+                                                        Supported values are sha256
+                                                        and sha512
+                                                      type: string
+                                                  type: object
+                                                repository:
+                                                  description: Repository is an optional
+                                                    alternate OCI repository to use
+                                                    for signatures and attestations
+                                                    that match this rule. If specified
+                                                    Repository will override other
+                                                    OCI image repository locations
+                                                    for this Attestor.
+                                                  type: string
+                                              type: object
+                                            type: array
+                                        type: object
+                                      type: array
                                     conditions:
                                       description: Conditions are used to verify attributes
                                         within a Predicate. If no Conditions are specified
@@ -5534,6 +6353,8 @@ spec:
                                       description: PredicateType defines the type
                                         of Predicate contained within the Statement.
                                       type: string
+                                  required:
+                                  - predicateType
                                   type: object
                                 type: array
                               attestors:
@@ -5664,7 +6485,14 @@ spec:
                                                   signatures. The keys can be directly
                                                   specified or can be a variable reference
                                                   to a key specified in a ConfigMap
-                                                  (see https://kyverno.io/docs/writing-policies/variables/).
+                                                  (see https://kyverno.io/docs/writing-policies/variables/),
+                                                  or reference a standard Kubernetes
+                                                  Secret elsewhere in the cluster
+                                                  by specifying it in the format "k8s://<namespace>/<secret_name>".
+                                                  The named Secret must specify a
+                                                  key `cosign.pub` containing the
+                                                  public key used for verification,
+                                                  (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
                                                   When multiple keys are specified
                                                   each key is processed as a separate
                                                   staticKey entry (.attestors[*].entries.keys)
@@ -5694,11 +6522,13 @@ spec:
                                                   key
                                                 properties:
                                                   name:
-                                                    description: name of the secret
+                                                    description: Name of the secret.
+                                                      The provided secret must contain
+                                                      a key named cosign.pub.
                                                     type: string
                                                   namespace:
-                                                    description: namespace name in
-                                                      which secret is created
+                                                    description: Namespace name where
+                                                      the Secret exists.
                                                     type: string
                                                 required:
                                                 - name
@@ -5778,6 +6608,14 @@ spec:
                                 description: Subject is the identity used for keyless
                                   signing, for example an email address Deprecated.
                                   Use KeylessAttestor instead.
+                                type: string
+                              type:
+                                description: Type specifies the method of signature
+                                  validation. The allowed options are Cosign and NotaryV2.
+                                  By default Cosign is used if a type is not specified.
+                                enum:
+                                - Cosign
+                                - NotaryV2
                                 type: string
                               verifyDigest:
                                 default: true
@@ -5863,6 +6701,27 @@ spec:
                 description: Ready indicates if the policy is ready to serve the admission
                   request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -5884,12 +6743,28 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .status.conditions[?(@.type == "Ready")].status
       name: Ready
-      type: boolean
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -5939,11 +6814,11 @@ spec:
                 - Ignore
                 - Fail
                 type: string
-              generateExistingOnPolicyUpdate:
-                description: GenerateExistingOnPolicyUpdate controls whether to trigger
-                  generate rule in existing resources If is set to "true" generate
-                  rule will be triggered and applied to existing matched resources.
-                  Defaults to "false" if not specified.
+              generateExisting:
+                description: GenerateExisting controls whether to trigger generate
+                  rule in existing resources If is set to "true" generate rule will
+                  be triggered and applied to existing matched resources. Defaults
+                  to "false" if not specified.
                 type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
@@ -5967,19 +6842,63 @@ spec:
                           must be provided.
                         properties:
                           apiCall:
-                            description: APICall defines an HTTP request to the Kubernetes
-                              API server. The JSON data retrieved is stored in the
-                              context.
+                            description: APICall is an HTTP request to the Kubernetes
+                              API server, or other JSON web service. The data returned
+                              is stored in the context with the name for the context
+                              entry.
                             properties:
                               jmesPath:
                                 description: JMESPath is an optional JSON Match Expression
                                   that can be used to transform the JSON response
-                                  returned from the API server. For example a JMESPath
+                                  returned from the server. For example a JMESPath
                                   of "items | length(@)" applied to the API server
-                                  response to the URLPath "/apis/apps/v1/deployments"
+                                  response for the URLPath "/apis/apps/v1/deployments"
                                   will return the total count of deployments across
                                   all namespaces.
                                 type: string
+                              service:
+                                description: Service is an API call to a JSON web
+                                  service
+                                properties:
+                                  caBundle:
+                                    description: CABundle is a PEM encoded CA bundle
+                                      which will be used to validate the server certificate.
+                                    type: string
+                                  data:
+                                    description: Data specifies the POST data sent
+                                      to the server.
+                                    items:
+                                      description: RequestData contains the HTTP POST
+                                        data
+                                      properties:
+                                        key:
+                                          description: Key is a unique identifier
+                                            for the data value
+                                          type: string
+                                        value:
+                                          description: Value is the data value
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      required:
+                                      - key
+                                      - value
+                                      type: object
+                                    type: array
+                                  requestType:
+                                    default: GET
+                                    description: Method is the HTTP request type (GET
+                                      or POST).
+                                    enum:
+                                    - GET
+                                    - POST
+                                    type: string
+                                  urlPath:
+                                    description: URL is the JSON web service URL.
+                                      The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                    type: string
+                                required:
+                                - requestType
+                                - urlPath
+                                type: object
                               urlPath:
                                 description: URLPath is the URL path to be used in
                                   the HTTP GET request to the Kubernetes API server
@@ -5987,8 +6906,6 @@ spec:
                                   The format required is the same format used by the
                                   `kubectl get --raw` command.
                                 type: string
-                            required:
-                            - urlPath
                             type: object
                           configMap:
                             description: ConfigMap is the ConfigMap reference.
@@ -6593,6 +7510,15 @@ spec:
                       additionalProperties:
                         items:
                           properties:
+                            jmesPath:
+                              description: 'JMESPath is an optional JMESPath expression
+                                to apply to the image value. This is useful when the
+                                extracted image begins with a prefix like ''docker://''.
+                                The ''trim_prefix'' function may be used to trim the
+                                prefix: trim_prefix(@, ''docker://''). Note - Image
+                                digest mutation may not be used when applying a JMESPAth
+                                to an image.'
+                              type: string
                             key:
                               description: Key is an optional name of the field within
                                 'path' that will be used to uniquely identify an image.
@@ -7075,9 +8001,9 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies mutation rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
+                            description: ForEachMutation applies mutation rules to
+                              a list of sub-elements by creating a context for each
+                              entry in the list and looping over it to apply the specified
                               logic.
                             properties:
                               context:
@@ -7089,20 +8015,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -7111,8 +8083,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -7171,6 +8141,9 @@ spec:
                                       type: object
                                   type: object
                                 type: array
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -7341,7 +8314,7 @@ spec:
                             rule execution. This is useful for finer control of when
                             an rule is applied. A condition can reference object data
                             using JMESPath notation. Here, all of the conditions need
-                            to pass
+                            to pass.
                           items:
                             properties:
                               key:
@@ -7382,7 +8355,7 @@ spec:
                             rule execution. This is useful for finer control of when
                             an rule is applied. A condition can reference object data
                             using JMESPath notation. Here, at least one of the conditions
-                            need to pass
+                            need to pass.
                           items:
                             properties:
                               key:
@@ -7442,7 +8415,7 @@ spec:
                                     conditional rule execution. This is useful for
                                     finer control of when an rule is applied. A condition
                                     can reference object data using JMESPath notation.
-                                    Here, all of the conditions need to pass
+                                    Here, all of the conditions need to pass.
                                   items:
                                     properties:
                                       key:
@@ -7485,7 +8458,7 @@ spec:
                                     conditional rule execution. This is useful for
                                     finer control of when an rule is applied. A condition
                                     can reference object data using JMESPath notation.
-                                    Here, at least one of the conditions need to pass
+                                    Here, at least one of the conditions need to pass.
                                   items:
                                     properties:
                                       key:
@@ -7530,10 +8503,10 @@ spec:
                             sub-elements by creating a context for each entry in the
                             list and looping over it to apply the specified logic.
                           items:
-                            description: ForEach applies validate rules to a list
-                              of sub-elements by creating a context for each entry
-                              in the list and looping over it to apply the specified
-                              logic.
+                            description: ForEachValidation applies validate rules
+                              to a list of sub-elements by creating a context for
+                              each entry in the list and looping over it to apply
+                              the specified logic.
                             properties:
                               anyPattern:
                                 description: AnyPattern specifies list of validation
@@ -7549,20 +8522,66 @@ spec:
                                     reference or a APILookup must be provided.
                                   properties:
                                     apiCall:
-                                      description: APICall defines an HTTP request
-                                        to the Kubernetes API server. The JSON data
-                                        retrieved is stored in the context.
+                                      description: APICall is an HTTP request to the
+                                        Kubernetes API server, or other JSON web service.
+                                        The data returned is stored in the context
+                                        with the name for the context entry.
                                       properties:
                                         jmesPath:
                                           description: JMESPath is an optional JSON
                                             Match Expression that can be used to transform
-                                            the JSON response returned from the API
-                                            server. For example a JMESPath of "items
-                                            | length(@)" applied to the API server
-                                            response to the URLPath "/apis/apps/v1/deployments"
+                                            the JSON response returned from the server.
+                                            For example a JMESPath of "items | length(@)"
+                                            applied to the API server response for
+                                            the URLPath "/apis/apps/v1/deployments"
                                             will return the total count of deployments
                                             across all namespaces.
                                           type: string
+                                        service:
+                                          description: Service is an API call to a
+                                            JSON web service
+                                          properties:
+                                            caBundle:
+                                              description: CABundle is a PEM encoded
+                                                CA bundle which will be used to validate
+                                                the server certificate.
+                                              type: string
+                                            data:
+                                              description: Data specifies the POST
+                                                data sent to the server.
+                                              items:
+                                                description: RequestData contains
+                                                  the HTTP POST data
+                                                properties:
+                                                  key:
+                                                    description: Key is a unique identifier
+                                                      for the data value
+                                                    type: string
+                                                  value:
+                                                    description: Value is the data
+                                                      value
+                                                    x-kubernetes-preserve-unknown-fields: true
+                                                required:
+                                                - key
+                                                - value
+                                                type: object
+                                              type: array
+                                            requestType:
+                                              default: GET
+                                              description: Method is the HTTP request
+                                                type (GET or POST).
+                                              enum:
+                                              - GET
+                                              - POST
+                                              type: string
+                                            urlPath:
+                                              description: URL is the JSON web service
+                                                URL. The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                              type: string
+                                          required:
+                                          - requestType
+                                          - urlPath
+                                          type: object
                                         urlPath:
                                           description: URLPath is the URL path to
                                             be used in the HTTP GET request to the
@@ -7571,8 +8590,6 @@ spec:
                                             format required is the same format used
                                             by the `kubectl get --raw` command.
                                           type: string
-                                      required:
-                                      - urlPath
                                       type: object
                                     configMap:
                                       description: ConfigMap is the ConfigMap reference.
@@ -7652,6 +8669,9 @@ spec:
                                   scope within the foreach block to allow referencing
                                   other elements in the subtree.
                                 type: boolean
+                              foreach:
+                                description: Foreach declares a nested foreach iterator
+                                x-kubernetes-preserve-unknown-fields: true
                               list:
                                 description: List specifies a JMESPath expression
                                   that results in one or more elements to which the
@@ -7905,7 +8925,13 @@ spec:
                                                 The keys can be directly specified
                                                 or can be a variable reference to
                                                 a key specified in a ConfigMap (see
-                                                https://kyverno.io/docs/writing-policies/variables/).
+                                                https://kyverno.io/docs/writing-policies/variables/),
+                                                or reference a standard Kubernetes
+                                                Secret elsewhere in the cluster by
+                                                specifying it in the format "k8s://<namespace>/<secret_name>".
+                                                The named Secret must specify a key
+                                                `cosign.pub` containing the public
+                                                key used for verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
                                                 When multiple keys are specified each
                                                 key is processed as a separate staticKey
                                                 entry (.attestors[*].entries.keys)
@@ -7933,11 +8959,13 @@ spec:
                                                 that contains a public key
                                               properties:
                                                 name:
-                                                  description: name of the secret
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
                                                   type: string
                                                 namespace:
-                                                  description: namespace name in which
-                                                    secret is created
+                                                  description: Namespace name where
+                                                    the Secret exists.
                                                   type: string
                                               required:
                                               - name
@@ -8104,6 +9132,206 @@ spec:
                                 signed attestations from the OCI registry and decodes
                                 them into a list of Statements.
                               properties:
+                                attestors:
+                                  description: Attestors specify the required attestors
+                                    (i.e. authorities)
+                                  items:
+                                    properties:
+                                      count:
+                                        description: Count specifies the required
+                                          number of entries that must match. If the
+                                          count is null, all entries must match (a
+                                          logical AND). If the count is 1, at least
+                                          one entry must match (a logical OR). If
+                                          the count contains a value N, then N must
+                                          be less than or equal to the size of entries,
+                                          and at least N entries must match.
+                                        minimum: 1
+                                        type: integer
+                                      entries:
+                                        description: Entries contains the available
+                                          attestors. An attestor can be a static key,
+                                          attributes for keyless verification, or
+                                          a nested attestor declaration.
+                                        items:
+                                          properties:
+                                            annotations:
+                                              additionalProperties:
+                                                type: string
+                                              description: Annotations are used for
+                                                image verification. Every specified
+                                                key-value pair must exist and match
+                                                in the verified payload. The payload
+                                                may contain other key-value pairs.
+                                              type: object
+                                            attestor:
+                                              description: Attestor is a nested AttestorSet
+                                                used to specify a more complex set
+                                                of match authorities
+                                              x-kubernetes-preserve-unknown-fields: true
+                                            certificates:
+                                              description: Certificates specifies
+                                                one or more certificates
+                                              properties:
+                                                cert:
+                                                  description: Certificate is an optional
+                                                    PEM encoded public certificate.
+                                                  type: string
+                                                certChain:
+                                                  description: CertificateChain is
+                                                    an optional PEM encoded set of
+                                                    certificates used to verify
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration
+                                                    for the Rekor transparency log
+                                                    service. If the value is nil,
+                                                    Rekor is not checked. If an empty
+                                                    object is provided the public
+                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address
+                                                        of the transparency log. Defaults
+                                                        to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                              type: object
+                                            keyless:
+                                              description: Keyless is a set of attribute
+                                                used to verify a Sigstore keyless
+                                                attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                              properties:
+                                                additionalExtensions:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: AdditionalExtensions
+                                                    are certificate-extensions used
+                                                    for keyless signing.
+                                                  type: object
+                                                issuer:
+                                                  description: Issuer is the certificate
+                                                    issuer used for keyless signing.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration
+                                                    for the Rekor transparency log
+                                                    service. If the value is nil,
+                                                    Rekor is not checked and a root
+                                                    certificate chain is expected
+                                                    instead. If an empty object is
+                                                    provided the public instance of
+                                                    Rekor (https://rekor.sigstore.dev)
+                                                    is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address
+                                                        of the transparency log. Defaults
+                                                        to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                roots:
+                                                  description: Roots is an optional
+                                                    set of PEM encoded trusted root
+                                                    certificates. If not provided,
+                                                    the system roots are used.
+                                                  type: string
+                                                subject:
+                                                  description: Subject is the verified
+                                                    identity used for keyless signing,
+                                                    for example the email address
+                                                  type: string
+                                              type: object
+                                            keys:
+                                              description: Keys specifies one or more
+                                                public keys
+                                              properties:
+                                                kms:
+                                                  description: 'KMS provides the URI
+                                                    to the public key stored in a
+                                                    Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                  type: string
+                                                publicKeys:
+                                                  description: Keys is a set of X.509
+                                                    public keys used to verify image
+                                                    signatures. The keys can be directly
+                                                    specified or can be a variable
+                                                    reference to a key specified in
+                                                    a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/),
+                                                    or reference a standard Kubernetes
+                                                    Secret elsewhere in the cluster
+                                                    by specifying it in the format
+                                                    "k8s://<namespace>/<secret_name>".
+                                                    The named Secret must specify
+                                                    a key `cosign.pub` containing
+                                                    the public key used for verification,
+                                                    (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                    When multiple keys are specified
+                                                    each key is processed as a separate
+                                                    staticKey entry (.attestors[*].entries.keys)
+                                                    within the set of attestors and
+                                                    the count is applied across the
+                                                    keys.
+                                                  type: string
+                                                rekor:
+                                                  description: Rekor provides configuration
+                                                    for the Rekor transparency log
+                                                    service. If the value is nil,
+                                                    Rekor is not checked. If an empty
+                                                    object is provided the public
+                                                    instance of Rekor (https://rekor.sigstore.dev)
+                                                    is used.
+                                                  properties:
+                                                    url:
+                                                      description: URL is the address
+                                                        of the transparency log. Defaults
+                                                        to the public log https://rekor.sigstore.dev.
+                                                      type: string
+                                                  required:
+                                                  - url
+                                                  type: object
+                                                secret:
+                                                  description: Reference to a Secret
+                                                    resource that contains a public
+                                                    key
+                                                  properties:
+                                                    name:
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
+                                                      type: string
+                                                    namespace:
+                                                      description: Namespace name
+                                                        where the Secret exists.
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha256 and sha512
+                                                  type: string
+                                              type: object
+                                            repository:
+                                              description: Repository is an optional
+                                                alternate OCI repository to use for
+                                                signatures and attestations that match
+                                                this rule. If specified Repository
+                                                will override other OCI image repository
+                                                locations for this Attestor.
+                                              type: string
+                                          type: object
+                                        type: array
+                                    type: object
+                                  type: array
                                 conditions:
                                   description: Conditions are used to verify attributes
                                     within a Predicate. If no Conditions are specified
@@ -8225,6 +9453,8 @@ spec:
                                   description: PredicateType defines the type of Predicate
                                     contained within the Statement.
                                   type: string
+                              required:
+                              - predicateType
                               type: object
                             type: array
                           attestors:
@@ -8351,7 +9581,13 @@ spec:
                                               keys used to verify image signatures.
                                               The keys can be directly specified or
                                               can be a variable reference to a key
-                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/),
+                                              or reference a standard Kubernetes Secret
+                                              elsewhere in the cluster by specifying
+                                              it in the format "k8s://<namespace>/<secret_name>".
+                                              The named Secret must specify a key
+                                              `cosign.pub` containing the public key
+                                              used for verification, (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
                                               When multiple keys are specified each
                                               key is processed as a separate staticKey
                                               entry (.attestors[*].entries.keys) within
@@ -8379,11 +9615,13 @@ spec:
                                               that contains a public key
                                             properties:
                                               name:
-                                                description: name of the secret
+                                                description: Name of the secret. The
+                                                  provided secret must contain a key
+                                                  named cosign.pub.
                                                 type: string
                                               namespace:
-                                                description: namespace name in which
-                                                  secret is created
+                                                description: Namespace name where
+                                                  the Secret exists.
                                                 type: string
                                             required:
                                             - name
@@ -8437,6 +9675,14 @@ spec:
                               i.e. have matched passed a signature or attestation
                               check.
                             type: boolean
+                          type:
+                            description: Type specifies the method of signature validation.
+                              The allowed options are Cosign and NotaryV2. By default
+                              Cosign is used if a type is not specified.
+                            enum:
+                            - Cosign
+                            - NotaryV2
+                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -8447,20 +9693,22 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
-                default: audit
+                default: Audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
                   in a policy report. Optional. Allowed values are audit or enforce.
-                  The default value is "audit".
+                  The default value is "Audit".
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy
@@ -8474,7 +9722,57 @@ spec:
                       enum:
                       - audit
                       - enforce
+                      - Audit
+                      - Enforce
                       type: string
+                    namespaceSelector:
+                      description: A label selector is a label query over a set of
+                        resources. The result of matchLabels and matchExpressions
+                        are ANDed. An empty label selector matches all objects. A
+                        null label selector matches no objects.
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                      x-kubernetes-map-type: atomic
                     namespaces:
                       items:
                         type: string
@@ -8514,19 +9812,64 @@ spec:
                               APILookup must be provided.
                             properties:
                               apiCall:
-                                description: APICall defines an HTTP request to the
-                                  Kubernetes API server. The JSON data retrieved is
-                                  stored in the context.
+                                description: APICall is an HTTP request to the Kubernetes
+                                  API server, or other JSON web service. The data
+                                  returned is stored in the context with the name
+                                  for the context entry.
                                 properties:
                                   jmesPath:
                                     description: JMESPath is an optional JSON Match
                                       Expression that can be used to transform the
-                                      JSON response returned from the API server.
-                                      For example a JMESPath of "items | length(@)"
-                                      applied to the API server response to the URLPath
-                                      "/apis/apps/v1/deployments" will return the
-                                      total count of deployments across all namespaces.
+                                      JSON response returned from the server. For
+                                      example a JMESPath of "items | length(@)" applied
+                                      to the API server response for the URLPath "/apis/apps/v1/deployments"
+                                      will return the total count of deployments across
+                                      all namespaces.
                                     type: string
+                                  service:
+                                    description: Service is an API call to a JSON
+                                      web service
+                                    properties:
+                                      caBundle:
+                                        description: CABundle is a PEM encoded CA
+                                          bundle which will be used to validate the
+                                          server certificate.
+                                        type: string
+                                      data:
+                                        description: Data specifies the POST data
+                                          sent to the server.
+                                        items:
+                                          description: RequestData contains the HTTP
+                                            POST data
+                                          properties:
+                                            key:
+                                              description: Key is a unique identifier
+                                                for the data value
+                                              type: string
+                                            value:
+                                              description: Value is the data value
+                                              x-kubernetes-preserve-unknown-fields: true
+                                          required:
+                                          - key
+                                          - value
+                                          type: object
+                                        type: array
+                                      requestType:
+                                        default: GET
+                                        description: Method is the HTTP request type
+                                          (GET or POST).
+                                        enum:
+                                        - GET
+                                        - POST
+                                        type: string
+                                      urlPath:
+                                        description: URL is the JSON web service URL.
+                                          The typical format is `https://{service}.{namespace}:{port}/{path}`.
+                                        type: string
+                                    required:
+                                    - requestType
+                                    - urlPath
+                                    type: object
                                   urlPath:
                                     description: URLPath is the URL path to be used
                                       in the HTTP GET request to the Kubernetes API
@@ -8534,8 +9877,6 @@ spec:
                                       The format required is the same format used
                                       by the `kubectl get --raw` command.
                                     type: string
-                                required:
-                                - urlPath
                                 type: object
                               configMap:
                                 description: ConfigMap is the ConfigMap reference.
@@ -9377,6 +10718,15 @@ spec:
                           additionalProperties:
                             items:
                               properties:
+                                jmesPath:
+                                  description: 'JMESPath is an optional JMESPath expression
+                                    to apply to the image value. This is useful when
+                                    the extracted image begins with a prefix like
+                                    ''docker://''. The ''trim_prefix'' function may
+                                    be used to trim the prefix: trim_prefix(@, ''docker://'').
+                                    Note - Image digest mutation may not be used when
+                                    applying a JMESPAth to an image.'
+                                  type: string
                                 key:
                                   description: Key is an optional name of the field
                                     within 'path' that will be used to uniquely identify
@@ -10086,10 +11436,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies mutation rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachMutation applies mutation rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   context:
                                     description: Context defines variables and data
@@ -10100,21 +11450,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -10123,8 +11522,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -10187,6 +11584,10 @@ spec:
                                           type: object
                                       type: object
                                     type: array
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -10385,10 +11786,10 @@ spec:
                                 in the list and looping over it to apply the specified
                                 logic.
                               items:
-                                description: ForEach applies validate rules to a list
-                                  of sub-elements by creating a context for each entry
-                                  in the list and looping over it to apply the specified
-                                  logic.
+                                description: ForEachValidation applies validate rules
+                                  to a list of sub-elements by creating a context
+                                  for each entry in the list and looping over it to
+                                  apply the specified logic.
                                 properties:
                                   anyPattern:
                                     description: AnyPattern specifies list of validation
@@ -10404,21 +11805,70 @@ spec:
                                         reference or a APILookup must be provided.
                                       properties:
                                         apiCall:
-                                          description: APICall defines an HTTP request
-                                            to the Kubernetes API server. The JSON
-                                            data retrieved is stored in the context.
+                                          description: APICall is an HTTP request
+                                            to the Kubernetes API server, or other
+                                            JSON web service. The data returned is
+                                            stored in the context with the name for
+                                            the context entry.
                                           properties:
                                             jmesPath:
                                               description: JMESPath is an optional
                                                 JSON Match Expression that can be
                                                 used to transform the JSON response
-                                                returned from the API server. For
-                                                example a JMESPath of "items | length(@)"
+                                                returned from the server. For example
+                                                a JMESPath of "items | length(@)"
                                                 applied to the API server response
-                                                to the URLPath "/apis/apps/v1/deployments"
+                                                for the URLPath "/apis/apps/v1/deployments"
                                                 will return the total count of deployments
                                                 across all namespaces.
                                               type: string
+                                            service:
+                                              description: Service is an API call
+                                                to a JSON web service
+                                              properties:
+                                                caBundle:
+                                                  description: CABundle is a PEM encoded
+                                                    CA bundle which will be used to
+                                                    validate the server certificate.
+                                                  type: string
+                                                data:
+                                                  description: Data specifies the
+                                                    POST data sent to the server.
+                                                  items:
+                                                    description: RequestData contains
+                                                      the HTTP POST data
+                                                    properties:
+                                                      key:
+                                                        description: Key is a unique
+                                                          identifier for the data
+                                                          value
+                                                        type: string
+                                                      value:
+                                                        description: Value is the
+                                                          data value
+                                                        x-kubernetes-preserve-unknown-fields: true
+                                                    required:
+                                                    - key
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                requestType:
+                                                  default: GET
+                                                  description: Method is the HTTP
+                                                    request type (GET or POST).
+                                                  enum:
+                                                  - GET
+                                                  - POST
+                                                  type: string
+                                                urlPath:
+                                                  description: URL is the JSON web
+                                                    service URL. The typical format
+                                                    is `https://{service}.{namespace}:{port}/{path}`.
+                                                  type: string
+                                              required:
+                                              - requestType
+                                              - urlPath
+                                              type: object
                                             urlPath:
                                               description: URLPath is the URL path
                                                 to be used in the HTTP GET request
@@ -10427,8 +11877,6 @@ spec:
                                                 The format required is the same format
                                                 used by the `kubectl get --raw` command.
                                               type: string
-                                          required:
-                                          - urlPath
                                           type: object
                                         configMap:
                                           description: ConfigMap is the ConfigMap
@@ -10512,6 +11960,10 @@ spec:
                                       as the validation scope within the foreach block
                                       to allow referencing other elements in the subtree.
                                     type: boolean
+                                  foreach:
+                                    description: Foreach declares a nested foreach
+                                      iterator
+                                    x-kubernetes-preserve-unknown-fields: true
                                   list:
                                     description: List specifies a JMESPath expression
                                       that results in one or more elements to which
@@ -10772,7 +12224,15 @@ spec:
                                                     signatures. The keys can be directly
                                                     specified or can be a variable
                                                     reference to a key specified in
-                                                    a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                                    a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/),
+                                                    or reference a standard Kubernetes
+                                                    Secret elsewhere in the cluster
+                                                    by specifying it in the format
+                                                    "k8s://<namespace>/<secret_name>".
+                                                    The named Secret must specify
+                                                    a key `cosign.pub` containing
+                                                    the public key used for verification,
+                                                    (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
                                                     When multiple keys are specified
                                                     each key is processed as a separate
                                                     staticKey entry (.attestors[*].entries.keys)
@@ -10803,11 +12263,13 @@ spec:
                                                     key
                                                   properties:
                                                     name:
-                                                      description: name of the secret
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
                                                       type: string
                                                     namespace:
-                                                      description: namespace name
-                                                        in which secret is created
+                                                      description: Namespace name
+                                                        where the Secret exists.
                                                       type: string
                                                   required:
                                                   - name
@@ -10993,6 +12455,223 @@ spec:
                                     fetches signed attestations from the OCI registry
                                     and decodes them into a list of Statements.
                                   properties:
+                                    attestors:
+                                      description: Attestors specify the required
+                                        attestors (i.e. authorities)
+                                      items:
+                                        properties:
+                                          count:
+                                            description: Count specifies the required
+                                              number of entries that must match. If
+                                              the count is null, all entries must
+                                              match (a logical AND). If the count
+                                              is 1, at least one entry must match
+                                              (a logical OR). If the count contains
+                                              a value N, then N must be less than
+                                              or equal to the size of entries, and
+                                              at least N entries must match.
+                                            minimum: 1
+                                            type: integer
+                                          entries:
+                                            description: Entries contains the available
+                                              attestors. An attestor can be a static
+                                              key, attributes for keyless verification,
+                                              or a nested attestor declaration.
+                                            items:
+                                              properties:
+                                                annotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  description: Annotations are used
+                                                    for image verification. Every
+                                                    specified key-value pair must
+                                                    exist and match in the verified
+                                                    payload. The payload may contain
+                                                    other key-value pairs.
+                                                  type: object
+                                                attestor:
+                                                  description: Attestor is a nested
+                                                    AttestorSet used to specify a
+                                                    more complex set of match authorities
+                                                  x-kubernetes-preserve-unknown-fields: true
+                                                certificates:
+                                                  description: Certificates specifies
+                                                    one or more certificates
+                                                  properties:
+                                                    cert:
+                                                      description: Certificate is
+                                                        an optional PEM encoded public
+                                                        certificate.
+                                                      type: string
+                                                    certChain:
+                                                      description: CertificateChain
+                                                        is an optional PEM encoded
+                                                        set of certificates used to
+                                                        verify
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides
+                                                        configuration for the Rekor
+                                                        transparency log service.
+                                                        If the value is nil, Rekor
+                                                        is not checked. If an empty
+                                                        object is provided the public
+                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the
+                                                            address of the transparency
+                                                            log. Defaults to the public
+                                                            log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                  type: object
+                                                keyless:
+                                                  description: Keyless is a set of
+                                                    attribute used to verify a Sigstore
+                                                    keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                                  properties:
+                                                    additionalExtensions:
+                                                      additionalProperties:
+                                                        type: string
+                                                      description: AdditionalExtensions
+                                                        are certificate-extensions
+                                                        used for keyless signing.
+                                                      type: object
+                                                    issuer:
+                                                      description: Issuer is the certificate
+                                                        issuer used for keyless signing.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides
+                                                        configuration for the Rekor
+                                                        transparency log service.
+                                                        If the value is nil, Rekor
+                                                        is not checked and a root
+                                                        certificate chain is expected
+                                                        instead. If an empty object
+                                                        is provided the public instance
+                                                        of Rekor (https://rekor.sigstore.dev)
+                                                        is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the
+                                                            address of the transparency
+                                                            log. Defaults to the public
+                                                            log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    roots:
+                                                      description: Roots is an optional
+                                                        set of PEM encoded trusted
+                                                        root certificates. If not
+                                                        provided, the system roots
+                                                        are used.
+                                                      type: string
+                                                    subject:
+                                                      description: Subject is the
+                                                        verified identity used for
+                                                        keyless signing, for example
+                                                        the email address
+                                                      type: string
+                                                  type: object
+                                                keys:
+                                                  description: Keys specifies one
+                                                    or more public keys
+                                                  properties:
+                                                    kms:
+                                                      description: 'KMS provides the
+                                                        URI to the public key stored
+                                                        in a Key Management System.
+                                                        See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                      type: string
+                                                    publicKeys:
+                                                      description: Keys is a set of
+                                                        X.509 public keys used to
+                                                        verify image signatures. The
+                                                        keys can be directly specified
+                                                        or can be a variable reference
+                                                        to a key specified in a ConfigMap
+                                                        (see https://kyverno.io/docs/writing-policies/variables/),
+                                                        or reference a standard Kubernetes
+                                                        Secret elsewhere in the cluster
+                                                        by specifying it in the format
+                                                        "k8s://<namespace>/<secret_name>".
+                                                        The named Secret must specify
+                                                        a key `cosign.pub` containing
+                                                        the public key used for verification,
+                                                        (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
+                                                        When multiple keys are specified
+                                                        each key is processed as a
+                                                        separate staticKey entry (.attestors[*].entries.keys)
+                                                        within the set of attestors
+                                                        and the count is applied across
+                                                        the keys.
+                                                      type: string
+                                                    rekor:
+                                                      description: Rekor provides
+                                                        configuration for the Rekor
+                                                        transparency log service.
+                                                        If the value is nil, Rekor
+                                                        is not checked. If an empty
+                                                        object is provided the public
+                                                        instance of Rekor (https://rekor.sigstore.dev)
+                                                        is used.
+                                                      properties:
+                                                        url:
+                                                          description: URL is the
+                                                            address of the transparency
+                                                            log. Defaults to the public
+                                                            log https://rekor.sigstore.dev.
+                                                          type: string
+                                                      required:
+                                                      - url
+                                                      type: object
+                                                    secret:
+                                                      description: Reference to a
+                                                        Secret resource that contains
+                                                        a public key
+                                                      properties:
+                                                        name:
+                                                          description: Name of the
+                                                            secret. The provided secret
+                                                            must contain a key named
+                                                            cosign.pub.
+                                                          type: string
+                                                        namespace:
+                                                          description: Namespace name
+                                                            where the Secret exists.
+                                                          type: string
+                                                      required:
+                                                      - name
+                                                      - namespace
+                                                      type: object
+                                                    signatureAlgorithm:
+                                                      default: sha256
+                                                      description: Specify signature
+                                                        algorithm for public keys.
+                                                        Supported values are sha256
+                                                        and sha512
+                                                      type: string
+                                                  type: object
+                                                repository:
+                                                  description: Repository is an optional
+                                                    alternate OCI repository to use
+                                                    for signatures and attestations
+                                                    that match this rule. If specified
+                                                    Repository will override other
+                                                    OCI image repository locations
+                                                    for this Attestor.
+                                                  type: string
+                                              type: object
+                                            type: array
+                                        type: object
+                                      type: array
                                     conditions:
                                       description: Conditions are used to verify attributes
                                         within a Predicate. If no Conditions are specified
@@ -11117,6 +12796,8 @@ spec:
                                       description: PredicateType defines the type
                                         of Predicate contained within the Statement.
                                       type: string
+                                  required:
+                                  - predicateType
                                   type: object
                                 type: array
                               attestors:
@@ -11247,7 +12928,14 @@ spec:
                                                   signatures. The keys can be directly
                                                   specified or can be a variable reference
                                                   to a key specified in a ConfigMap
-                                                  (see https://kyverno.io/docs/writing-policies/variables/).
+                                                  (see https://kyverno.io/docs/writing-policies/variables/),
+                                                  or reference a standard Kubernetes
+                                                  Secret elsewhere in the cluster
+                                                  by specifying it in the format "k8s://<namespace>/<secret_name>".
+                                                  The named Secret must specify a
+                                                  key `cosign.pub` containing the
+                                                  public key used for verification,
+                                                  (see https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret).
                                                   When multiple keys are specified
                                                   each key is processed as a separate
                                                   staticKey entry (.attestors[*].entries.keys)
@@ -11277,11 +12965,13 @@ spec:
                                                   key
                                                 properties:
                                                   name:
-                                                    description: name of the secret
+                                                    description: Name of the secret.
+                                                      The provided secret must contain
+                                                      a key named cosign.pub.
                                                     type: string
                                                   namespace:
-                                                    description: namespace name in
-                                                      which secret is created
+                                                    description: Namespace name where
+                                                      the Secret exists.
                                                     type: string
                                                 required:
                                                 - name
@@ -11361,6 +13051,14 @@ spec:
                                 description: Subject is the identity used for keyless
                                   signing, for example an email address Deprecated.
                                   Use KeylessAttestor instead.
+                                type: string
+                              type:
+                                description: Type specifies the method of signature
+                                  validation. The allowed options are Cosign and NotaryV2.
+                                  By default Cosign is used if a type is not specified.
+                                enum:
+                                - Cosign
+                                - NotaryV2
                                 type: string
                               verifyDigest:
                                 default: true
@@ -11446,6 +13144,27 @@ spec:
                 description: Ready indicates if the policy is ready to serve the admission
                   request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object

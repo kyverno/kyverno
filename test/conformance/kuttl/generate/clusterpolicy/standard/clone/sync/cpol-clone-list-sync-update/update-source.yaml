@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bootstrap-config
+  namespace: default
+  labels:
+    allowedToBeCloned:  "true"
+data:
+  initial_lives: "50"

@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-policy
+spec:
+  rules:
+  - name: gen-role
+    match:
+      any:
+      - resources:
+          kinds:
+            - ConfigMap
+    context:
+    - name: labelValue
+      apiCall:
+        urlPath: "/api/v1/namespaces/{{ request.object.metadata.namespace }}/configmaps"
+        jmesPath: "items[?metadata.name == 'source'].metadata.labels.\"kyverno.key/copy-me\" | [0]"
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            +(kyverno.key/copy-me): "{{ labelValue }}"

@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -25,6 +26,8 @@ const (
 	TextFormat = "text"
 	// LogLevelController is the log level to use for controllers plumbing.
 	LogLevelController = 3
+	// LogLevelClient is the log level to use for clients.
+	LogLevelClient = 3
 )
 
 // Initially, globalLog comes from controller-runtime/log with logger created earlier by controller-runtime.
@@ -33,7 +36,7 @@ const (
 // All loggers created after logging.Setup won't be subject to the call depth limitation and will work if the underlying sink supports it.
 var globalLog = log.Log
 
-func Init(flags *flag.FlagSet) {
+func InitFlags(flags *flag.FlagSet) {
 	// clear flags initialized in static dependencies
 	if flag.CommandLine.Lookup("log_dir") != nil {
 		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
@@ -43,19 +46,22 @@ func Init(flags *flag.FlagSet) {
 
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
-func Setup(logFormat string) error {
+func Setup(logFormat string, level int) error {
 	switch logFormat {
 	case TextFormat:
 		// in text mode we use FormatSerialize format
 		globalLog = klogr.New()
 	case JSONFormat:
-		zapLog, err := zap.NewProduction()
+		zc := zap.NewProductionConfig()
+		// Zap's levels get more and less verbose as the number gets smaller and higher respectively (DebugLevel is -1, InfoLevel is 0, WarnLevel is 1, and so on).
+		zc.Level = zap.NewAtomicLevelAt(zapcore.Level(-1 * level))
+		zapLog, err := zc.Build()
 		if err != nil {
 			return err
 		}
-		klog.SetLogger(zapr.NewLogger(zapLog))
-		// in json mode we use FormatKlog format
-		globalLog = klog.NewKlogr()
+		globalLog = zapr.NewLogger(zapLog)
+		// in json mode we configure klog and global logger to use zapr
+		klog.SetLogger(globalLog.WithName("klog"))
 	default:
 		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}
@@ -71,6 +77,11 @@ func GlobalLogger() logr.Logger {
 // ControllerLogger returns a logr.Logger to be used by controllers.
 func ControllerLogger(name string) logr.Logger {
 	return globalLog.WithName(name).V(LogLevelController)
+}
+
+// ClientLogger returns a logr.Logger to be used by clients.
+func ClientLogger(name string) logr.Logger {
+	return globalLog.WithName(name).V(LogLevelClient)
 }
 
 // WithName returns a new logr.Logger instance with the specified name element added to the Logger's name.

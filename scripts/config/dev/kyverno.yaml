@@ -1,0 +1,50 @@
+grafana:
+  enabled: true
+
+admissionController:
+  serviceMonitor:
+    enabled: true
+
+  initContainer:
+    extraArgs:
+      - --loggingFormat=json
+
+  container:
+    extraArgs:
+      - --loggingFormat=json
+      - --enableTracing
+      - --tracingAddress=tempo.monitoring
+      - --tracingPort=4317
+      - --enablePolicyException
+
+cleanupController:
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - ''
+          resources:
+            - pods
+
+  serviceMonitor:
+    enabled: true
+
+  tracing:
+    enabled: true
+    address: tempo.monitoring
+    port: 4317
+
+  logging:
+    format: json
+
+reportsController:
+  serviceMonitor:
+    enabled: true
+
+  tracing:
+    enabled: true
+    address: tempo.monitoring
+    port: 4317
+
+  logging:
+    format: json

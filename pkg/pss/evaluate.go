@@ -5,7 +5,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
-	"github.com/kyverno/kyverno/pkg/utils"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/pod-security-admission/api"
@@ -126,18 +126,18 @@ func GetPodWithMatchingContainers(exclude kyvernov1.PodSecurityStandard, pod *co
 		},
 	}
 	for _, container := range pod.Spec.Containers {
-		if utils.ContainsWildcardPatterns(matchingImages, container.Image) {
+		if wildcard.CheckPatterns(matchingImages, container.Image) {
 			matching.Spec.Containers = append(matching.Spec.Containers, container)
 		}
 	}
 	for _, container := range pod.Spec.InitContainers {
-		if utils.ContainsWildcardPatterns(matchingImages, container.Image) {
+		if wildcard.CheckPatterns(matchingImages, container.Image) {
 			matching.Spec.InitContainers = append(matching.Spec.InitContainers, container)
 		}
 	}
 
 	for _, container := range pod.Spec.EphemeralContainers {
-		if utils.ContainsWildcardPatterns(matchingImages, container.Image) {
+		if wildcard.CheckPatterns(matchingImages, container.Image) {
 			matching.Spec.EphemeralContainers = append(matching.Spec.EphemeralContainers, container)
 		}
 	}

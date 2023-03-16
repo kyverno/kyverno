@@ -27,6 +27,9 @@ background-color: #1589dd;
 <a href="#kyverno.io%2fv1beta1"><b style="color: white">kyverno.io/v1beta1</b></a>
 </li>
 <li>
+<a href="#kyverno.io%2fv2alpha1"><b style="color: white">kyverno.io/v2alpha1</b></a>
+</li>
+<li>
 <a href="#kyverno.io%2fv2beta1"><b style="color: white">kyverno.io/v2beta1</b></a>
 </li>
 <li>
@@ -38,8 +41,6 @@ background-color: #1589dd;
 Resource Types:
 <ul><li>
 <a href="#kyverno.io/v1.ClusterPolicy">ClusterPolicy</a>
-</li><li>
-<a href="#kyverno.io/v1.GenerateRequest">GenerateRequest</a>
 </li><li>
 <a href="#kyverno.io/v1.Policy">Policy</a>
 </li></ul>
@@ -164,7 +165,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -205,7 +206,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>SchemaValidation skips policy validation checks.
+<p>SchemaValidation skips validation checks for policies as well as patched resources.
 Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
 </td>
 </tr>
@@ -237,14 +238,14 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
-<code>generateExistingOnPolicyUpdate</code><br/>
+<code>generateExisting</code><br/>
 <em>
 bool
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -264,121 +265,6 @@ PolicyStatus
 <td>
 <em>(Optional)</em>
 <p>Status contains policy runtime data.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.GenerateRequest">GenerateRequest
-</h3>
-<p>
-<p>GenerateRequest is a request to process generate rule.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code><br/>
-string</td>
-<td>
-<code>
-kyverno.io/v1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code><br/>
-string
-</td>
-<td><code>GenerateRequest</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v1.GenerateRequestSpec">
-GenerateRequestSpec
-</a>
-</em>
-</td>
-<td>
-<p>Spec is the information to identify the generate request.</p>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>policy</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Specifies the name of the policy.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resource</code><br/>
-<em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
-</a>
-</em>
-</td>
-<td>
-<p>ResourceSpec is the information to identify the generate request.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>context</code><br/>
-<em>
-<a href="#kyverno.io/v1.GenerateRequestContext">
-GenerateRequestContext
-</a>
-</em>
-</td>
-<td>
-<p>Context &hellip;</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code><br/>
-<em>
-<a href="#kyverno.io/v1.GenerateRequestStatus">
-GenerateRequestStatus
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Status contains statistics related to generate request.</p>
 </td>
 </tr>
 </tbody>
@@ -505,7 +391,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -546,7 +432,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>SchemaValidation skips policy validation checks.
+<p>SchemaValidation skips validation checks for policies as well as patched resources.
 Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
 </td>
 </tr>
@@ -578,14 +464,14 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
-<code>generateExistingOnPolicyUpdate</code><br/>
+<code>generateExisting</code><br/>
 <em>
 bool
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -618,10 +504,6 @@ Deprecated. Policy metrics are available via the metrics endpoint</p>
 <a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>)
 </p>
 <p>
-<p>APICall defines an HTTP request to the Kubernetes API server. The JSON
-data retrieved is stored in the context. An APICall contains a URLPath
-used to perform the HTTP GET request and an optional JMESPath used to
-transform the retrieved JSON data.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -646,62 +528,30 @@ The format required is the same format used by the <code>kubectl get --raw</code
 </tr>
 <tr>
 <td>
+<code>service</code><br/>
+<em>
+<a href="#kyverno.io/v1.ServiceCall">
+ServiceCall
+</a>
+</em>
+</td>
+<td>
+<p>Service is an API call to a JSON web service</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>jmesPath</code><br/>
 <em>
 string
 </em>
 </td>
 <td>
-<em>(Optional)</em>
 <p>JMESPath is an optional JSON Match Expression that can be used to
-transform the JSON response returned from the API server. For example
+transform the JSON response returned from the server. For example
 a JMESPath of &ldquo;items | length(@)&rdquo; applied to the API server response
-to the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
+for the URLPath &ldquo;/apis/apps/v1/deployments&rdquo; will return the total count
 of deployments across all namespaces.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.AdmissionRequestInfoObject">AdmissionRequestInfoObject
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.GenerateRequestContext">GenerateRequestContext</a>)
-</p>
-<p>
-<p>AdmissionRequestInfoObject stores the admission request and operation details</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>admissionRequest</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>operation</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#operation-v1-admission">
-Kubernetes admission/v1.Operation
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
 </td>
 </tr>
 </tbody>
@@ -808,6 +658,19 @@ string
 </tr>
 <tr>
 <td>
+<code>attestors</code><br/>
+<em>
+<a href="#kyverno.io/v1.AttestorSet">
+[]AttestorSet
+</a>
+</em>
+</td>
+<td>
+<p>Attestors specify the required attestors (i.e. authorities)</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>conditions</code><br/>
 <em>
 <a href="#kyverno.io/v1.AnyAllConditions">
@@ -816,7 +679,6 @@ string
 </em>
 </td>
 <td>
-<em>(Optional)</em>
 <p>Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 the attestation check is satisfied as long there are predicates that match the predicate type.</p>
 </td>
@@ -925,6 +787,7 @@ If specified Repository will override other OCI image repository locations for t
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.Attestation">Attestation</a>, 
 <a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
 <a href="#kyverno.io/v1.Manifests">Manifests</a>, 
 <a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
@@ -1304,8 +1167,8 @@ APICall
 </em>
 </td>
 <td>
-<p>APICall defines an HTTP request to the Kubernetes API server. The JSON
-data retrieved is stored in the context.</p>
+<p>APICall is an HTTP request to the Kubernetes API server, or other JSON web service.
+The data returned is stored in the context with the name for the context entry.</p>
 </td>
 </tr>
 <tr>
@@ -1435,7 +1298,7 @@ string
 <a href="#kyverno.io/v1.Mutation">Mutation</a>)
 </p>
 <p>
-<p>ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
+<p>ForEachMutation applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -1516,6 +1379,20 @@ string
 See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rfc6902</a> and <a href="https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/">https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/</a>.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>foreach</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Foreach declares a nested foreach iterator</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1527,7 +1404,7 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <a href="#kyverno.io/v2beta1.Validation">Validation</a>)
 </p>
 <p>
-<p>ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
+<p>ForEachValidation applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -1636,180 +1513,27 @@ Deny
 <p>Deny defines conditions used to pass or fail a validation rule.</p>
 </td>
 </tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.GenerateRequestContext">GenerateRequestContext
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec</a>)
-</p>
-<p>
-<p>GenerateRequestContext stores the context to be shared.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
 <tr>
 <td>
-<code>userInfo</code><br/>
+<code>foreach</code><br/>
 <em>
-<a href="#kyverno.io/v1.RequestInfo">
-RequestInfo
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>admissionRequestInfo</code><br/>
-<em>
-<a href="#kyverno.io/v1.AdmissionRequestInfoObject">
-AdmissionRequestInfoObject
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
+<p>Foreach declares a nested foreach iterator</p>
 </td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.GenerateRequest">GenerateRequest</a>)
-</p>
-<p>
-<p>GenerateRequestSpec stores the request specification.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>policy</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Specifies the name of the policy.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resource</code><br/>
-<em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
-</a>
-</em>
-</td>
-<td>
-<p>ResourceSpec is the information to identify the generate request.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>context</code><br/>
-<em>
-<a href="#kyverno.io/v1.GenerateRequestContext">
-GenerateRequestContext
-</a>
-</em>
-</td>
-<td>
-<p>Context &hellip;</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.GenerateRequestState">GenerateRequestState
+<h3 id="kyverno.io/v1.GenerateType">GenerateType
 (<code>string</code> alias)</p></h3>
 <p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus</a>)
 </p>
-<p>
-<p>GenerateRequestState defines the state of request.</p>
-</p>
-<h3 id="kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.GenerateRequest">GenerateRequest</a>)
-</p>
-<p>
-<p>GenerateRequestStatus stores the status of generated request.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>state</code><br/>
-<em>
-<a href="#kyverno.io/v1.GenerateRequestState">
-GenerateRequestState
-</a>
-</em>
-</td>
-<td>
-<p>State represents state of the generate request.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>message</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Specifies request status message.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>generatedResources</code><br/>
-<em>
-<a href="#kyverno.io/v1.ResourceSpec">
-[]ResourceSpec
-</a>
-</em>
-</td>
-<td>
-<p>This will track the resources that are generated by the generate Policy.
-Will be used during clean up resources.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.Generation">Generation
 </h3>
 <p>
@@ -1969,6 +1693,21 @@ string
 Note - this field MUST be unique.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>jmesPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>JMESPath is an optional JMESPath expression to apply to the image value.
+This is useful when the extracted image begins with a prefix like &lsquo;docker://&rsquo;.
+The &lsquo;trim_prefix&rsquo; function may be used to trim the prefix: trim_prefix(@, &lsquo;docker://&rsquo;).
+Note - Image digest mutation may not be used when applying a JMESPAth to an image.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2047,6 +1786,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageVerificationType">
+ImageVerificationType
+</a>
+</em>
+</td>
+<td>
+<p>Type specifies the method of signature validation. The allowed options
+are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>image</code><br/>
@@ -2226,6 +1979,15 @@ bool
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ImageVerificationType">ImageVerificationType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+<p>ImageVerificationType selects the type of verification algorithm</p>
+</p>
 <h3 id="kyverno.io/v1.KeylessAttestor">KeylessAttestor
 </h3>
 <p>
@@ -2472,6 +2234,15 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.Method">Method
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
+</p>
+<p>
+<p>Method is a HTTP request type.</p>
+</p>
 <h3 id="kyverno.io/v1.Mutation">Mutation
 </h3>
 <p>
@@ -2759,17 +2530,31 @@ AutogenStatus
 <p>Autogen contains autogen status information</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>rulecount</code><br/>
+<em>
+<a href="#kyverno.io/v1.RuleCountStatus">
+RuleCountStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RuleCount describes total number of rules in a policy</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.RequestInfo">RequestInfo
+<h3 id="kyverno.io/v1.RequestData">RequestData
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.GenerateRequestContext">GenerateRequestContext</a>)
+<a href="#kyverno.io/v1.ServiceCall">ServiceCall</a>)
 </p>
 <p>
-<p>RequestInfo contains permission info carried in an admission request.</p>
+<p>RequestData contains the HTTP POST data</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -2781,40 +2566,26 @@ AutogenStatus
 <tbody>
 <tr>
 <td>
-<code>roles</code><br/>
+<code>key</code><br/>
 <em>
-[]string
+string
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>Roles is a list of possible role send the request.</p>
+<p>Key is a unique identifier for the data value</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>clusterRoles</code><br/>
+<code>value</code><br/>
 <em>
-[]string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ClusterRoles is a list of possible clusterRoles send the request.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>userInfo</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#userinfo-v1-authentication">
-Kubernetes authentication/v1.UserInfo
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
 </a>
 </em>
 </td>
 <td>
-<em>(Optional)</em>
-<p>UserInfo is the userInfo carried in the admission request.</p>
+<p>Value is the data value</p>
 </td>
 </tr>
 </tbody>
@@ -2999,8 +2770,6 @@ ResourceDescription
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec</a>, 
-<a href="#kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus</a>, 
 <a href="#kyverno.io/v1.Generation">Generation</a>, 
 <a href="#kyverno.io/v1.Mutation">Mutation</a>, 
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">UpdateRequestSpec</a>, 
@@ -3235,6 +3004,71 @@ Generation
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.RuleCountStatus">RuleCountStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.PolicyStatus">PolicyStatus</a>)
+</p>
+<p>
+<p>RuleCountStatus contains four variables which describes counts for
+validate, generate, mutate and verify images rules</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>validate</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Count for validate rules in policy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generate</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Count for generate rules in policy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mutate</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Count for mutate rules in policy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>verifyimages</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Count for verify image rules in policy</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.SecretReference">SecretReference
 </h3>
 <p>
@@ -3259,7 +3093,7 @@ string
 </em>
 </td>
 <td>
-<p>name of the secret</p>
+<p>Name of the secret. The provided secret must contain a key named cosign.pub.</p>
 </td>
 </tr>
 <tr>
@@ -3270,7 +3104,76 @@ string
 </em>
 </td>
 <td>
-<p>namespace name in which secret is created</p>
+<p>Namespace name where the Secret exists.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ServiceCall">ServiceCall
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.APICall">APICall</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>urlPath</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>URL is the JSON web service URL.
+The typical format is <code>https://{service}.{namespace}:{port}/{path}</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>caBundle</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>CABundle is a PEM encoded CA bundle which will be used to validate
+the server certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>requestType</code><br/>
+<em>
+<a href="#kyverno.io/v1.Method">
+Method
+</a>
+</em>
+</td>
+<td>
+<p>Method is the HTTP request type (GET or POST).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>data</code><br/>
+<em>
+<a href="#kyverno.io/v1.RequestData">
+[]RequestData
+</a>
+</em>
+</td>
+<td>
+<p>Data specifies the POST data sent to the server.</p>
 </td>
 </tr>
 </tbody>
@@ -3356,7 +3259,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -3397,7 +3300,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>SchemaValidation skips policy validation checks.
+<p>SchemaValidation skips validation checks for policies as well as patched resources.
 Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
 </td>
 </tr>
@@ -3429,14 +3332,14 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
-<code>generateExistingOnPolicyUpdate</code><br/>
+<code>generateExisting</code><br/>
 <em>
 bool
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -3470,9 +3373,12 @@ string
 <td>
 <p>Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 specified or can be a variable reference to a key specified in a ConfigMap (see
-<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>. When multiple keys are specified each
-key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
-attestors and the count is applied across the keys.</p>
+<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>, or reference a standard Kubernetes Secret
+elsewhere in the cluster by specifying it in the format &ldquo;k8s://<namespace>/<secret_name>&rdquo;.
+The named Secret must specify a key <code>cosign.pub</code> containing the public key used for
+verification, (see <a href="https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret">https://github.com/sigstore/cosign/blob/main/KMS.md#kubernetes-secret</a>).
+When multiple keys are specified each key is processed as a separate staticKey entry
+(.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.</p>
 </td>
 </tr>
 <tr>
@@ -3752,6 +3658,18 @@ ValidationFailureAction
 <code>namespaces</code><br/>
 <em>
 []string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespaceSelector</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
+Kubernetes meta/v1.LabelSelector
+</a>
 </em>
 </td>
 <td>
@@ -4404,7 +4322,7 @@ PolicyReportSummary
 </p>
 <h2 id="kyverno.io/v1beta1">kyverno.io/v1beta1</h2>
 <p>
-<p>Package v1beta1 contains API Schema definitions for the policy v1alpha1 API group</p>
+<p>Package v1beta1 contains API Schema definitions for the policy v1beta1 API group</p>
 </p>
 Resource Types:
 <ul><li>
@@ -4465,7 +4383,7 @@ UpdateRequestSpec
 </em>
 </td>
 <td>
-<p>Spec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 <br/>
 <br/>
 <table class="table table-striped">
@@ -4495,6 +4413,40 @@ string
 </tr>
 <tr>
 <td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Rule is the associate rule name of the current UR.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>resource</code><br/>
 <em>
 <a href="#kyverno.io/v1.ResourceSpec">
@@ -4503,7 +4455,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ResourceSpec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 </td>
 </tr>
 <tr>
@@ -4694,6 +4646,40 @@ string
 </tr>
 <tr>
 <td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Rule is the associate rule name of the current UR.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>resource</code><br/>
 <em>
 <a href="#kyverno.io/v1.ResourceSpec">
@@ -4702,7 +4688,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ResourceSpec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 </td>
 </tr>
 <tr>
@@ -4801,7 +4787,8 @@ string
 </em>
 </td>
 <td>
-<p>Handler represents the instance ID that handles the UR</p>
+<p>Handler represents the instance ID that handles the UR
+Deprecated</p>
 </td>
 </tr>
 <tr>
@@ -4841,6 +4828,611 @@ string
 <td>
 <p>This will track the resources that are updated by the generate Policy.
 Will be used during clean up resources.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="kyverno.io/v2alpha1">kyverno.io/v2alpha1</h2>
+<p>
+</p>
+Resource Types:
+<ul><li>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>
+</li><li>
+<a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>
+</li></ul>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy
+</h3>
+<p>
+<p>CleanupPolicy defines a rule for resource cleanup.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>CleanupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">
+CleanupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicyStatus">
+CleanupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy
+</h3>
+<p>
+<p>ClusterCleanupPolicy defines rule for resource cleanup.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ClusterCleanupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">
+CleanupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicyStatus">
+CleanupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Status contains policy runtime data.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.PolicyException">PolicyException
+</h3>
+<p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>PolicyException</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">
+PolicyExceptionSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+<p>Exceptions is a list policy/rules to be excluded</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CleanupPolicyInterface">CleanupPolicyInterface
+</h3>
+<p>
+<p>CleanupPolicyInterface abstracts the concrete policy type (Policy vs ClusterPolicy)</p>
+</p>
+<h3 id="kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
+</p>
+<p>
+<p>CleanupPolicySpec stores specifications for selecting resources that the user needs to delete
+and schedule when the matching resources needs deleted.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>MatchResources defines when cleanuppolicy should be applied. The match
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the user name or role.
+At least one kind is required.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeResources defines when cleanuppolicy should not be applied. The exclude
+criteria can include resource information (e.g. kind, name, namespace, labels)
+and admission review request information like the name or role.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>schedule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The schedule in Cron format</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions defines the conditions used to select the resources which will be cleaned up.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.CleanupPolicyStatus">CleanupPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicy">CleanupPolicy</a>, 
+<a href="#kyverno.io/v2alpha1.ClusterCleanupPolicy">ClusterCleanupPolicy</a>)
+</p>
+<p>
+<p>CleanupPolicyStatus stores the status of the policy.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.Exception">Exception
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
+</p>
+<p>
+<p>Exception stores infos about a policy and rules</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policyName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>PolicyName identifies the policy to which the exception is applied.
+The policy name uses the format <namespace>/<name> unless it
+references a ClusterPolicy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ruleNames</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>RuleNames identifies the rules to which the exception is applied.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.PolicyException">PolicyException</a>)
+</p>
+<p>
+<p>PolicyExceptionSpec stores policy exception spec</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>background</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Background controls if exceptions are applied to existing policies during a background scan.
+Optional. Default value is &ldquo;true&rdquo;. The value must be set to &ldquo;false&rdquo; if the policy rule
+uses variables that are only available in the admission review request (e.g. user name).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>match</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+<p>Match defines match clause used to check if a resource applies to the exception</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2alpha1.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+<p>Exceptions is a list policy/rules to be excluded</p>
 </td>
 </tr>
 </tbody>
@@ -4973,7 +5565,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -5014,7 +5606,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>SchemaValidation skips policy validation checks.
+<p>SchemaValidation skips validation checks for policies as well as patched resources.
 Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
 </td>
 </tr>
@@ -5046,14 +5638,14 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
-<code>generateExistingOnPolicyUpdate</code><br/>
+<code>generateExisting</code><br/>
 <em>
 bool
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -5198,7 +5790,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -5239,7 +5831,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>SchemaValidation skips policy validation checks.
+<p>SchemaValidation skips validation checks for policies as well as patched resources.
 Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
 </td>
 </tr>
@@ -5271,14 +5863,14 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
-<code>generateExistingOnPolicyUpdate</code><br/>
+<code>generateExisting</code><br/>
 <em>
 bool
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -5307,6 +5899,7 @@ PolicyStatus
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
 <a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
@@ -5334,7 +5927,7 @@ PolicyStatus
 <p>AnyConditions enable variable-based conditional rule execution. This is useful for
 finer control of when an rule is applied. A condition can reference object data
 using JMESPath notation.
-Here, at least one of the conditions need to pass</p>
+Here, at least one of the conditions need to pass.</p>
 </td>
 </tr>
 <tr>
@@ -5351,7 +5944,7 @@ Here, at least one of the conditions need to pass</p>
 <p>AllConditions enable variable-based conditional rule execution. This is useful for
 finer control of when an rule is applied. A condition can reference object data
 using JMESPath notation.
-Here, all of the conditions need to pass</p>
+Here, all of the conditions need to pass.</p>
 </td>
 </tr>
 </tbody>
@@ -5485,6 +6078,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
+<code>type</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.ImageVerificationType">
+ImageVerificationType
+</a>
+</em>
+</td>
+<td>
+<p>Type specifies the method of signature validation. The allowed options
+are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>imageReferences</code><br/>
 <em>
 []string
@@ -5575,10 +6182,21 @@ bool
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2beta1.ImageVerificationType">ImageVerificationType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+<p>ImageVerificationType selects the type of verification algorithm</p>
+</p>
 <h3 id="kyverno.io/v2beta1.MatchResources">MatchResources
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v2alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
+<a href="#kyverno.io/v2alpha1.PolicyExceptionSpec">PolicyExceptionSpec</a>, 
 <a href="#kyverno.io/v2beta1.Rule">Rule</a>)
 </p>
 <p>
@@ -6025,7 +6643,7 @@ ValidationFailureAction
 <p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
 and report an error in a policy report. Optional.
-Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
+Allowed values are audit or enforce. The default value is &ldquo;Audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -6066,7 +6684,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>SchemaValidation skips policy validation checks.
+<p>SchemaValidation skips validation checks for policies as well as patched resources.
 Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldquo;false&rdquo; to disable the validation checks.</p>
 </td>
 </tr>
@@ -6098,14 +6716,14 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
-<code>generateExistingOnPolicyUpdate</code><br/>
+<code>generateExisting</code><br/>
 <em>
 bool
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>

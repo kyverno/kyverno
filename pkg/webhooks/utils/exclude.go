@@ -14,7 +14,7 @@ func ExcludeKyvernoResources(kind string) bool {
 		return true
 	case "ClusterBackgroundScanReport":
 		return true
-	case "GenerateRequest":
+	case "UpdateRequest":
 		return true
 	default:
 		return false

@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: busybox
+  namespace: default
+  annotations:
+    structured-logs: "true"
+    fluentbit.io/exclude-busybox: "true"
+  labels:
+    color: red
+    animal: bear
+    food: pizza
+    car: jeep
+    env: qa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: busybox
+  template:
+    metadata:
+      labels:
+        app: busybox
+    spec:
+      containers:
+      - image: busybox:1.28
+        name: busybox
+        command: ["sleep", "9999"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 10Mi
+          limits:
+            cpu: 100m
+            memory: 10Mi
+      - image: busybox:1.28
+        name: busybox1
+        command: ["sleep", "9999"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 10Mi
+          limits:
+            cpu: 100m
+            memory: 20Mi

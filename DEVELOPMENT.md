@@ -10,11 +10,9 @@ It contains instructions to build, run, and test Kyverno.
   - [Building kyverno locally](#building-kyverno-locally)
   - [Building cli locally](#building-cli-locally)
 - [Building local images](#building-local-images)
-  - [Building local images with docker](#building-local-images-with-docker)
   - [Building local images with ko](#building-local-images-with-ko)
-  - [Switching between docker and ko](#switching-between-docker-and-ko)
 - [Pushing images](#pushing-images)
-  - [Pushing images with docker](#pushing-images-with-docker)
+  - [Images tagging strategy](#images-tagging-strategy)
   - [Pushing images with ko](#pushing-images-with-ko)
 - [Deploying a local build](#deploying-a-local-build)
   - [Create a local cluster](#create-a-local-cluster)
@@ -66,10 +64,10 @@ The Kyverno repository contains code for three different binaries:
 
 To build `kyvernopre` binary on your local system, run:
 ```console
-make build-kyvernopre
+make build-kyverno-init
 ```
 
-The binary should be created at `./cmd/initContainer/kyvernopre`.
+The binary should be created at `./cmd/kyverno-init/kyvernopre`.
 
 ### Building kyverno locally
 
@@ -93,20 +91,7 @@ The binary should be created at `./cmd/cli/kubectl-kyverno/kubectl-kyverno`.
 
 In the same spirit as [building local binaries](#building-local-binaries), you can build local docker images instead of local binaries.
 
-Currently, we are supporting two build systems:
-- [Building local images with docker](#building-local-images-with-docker)
-- [Building local images with ko](#building-local-images-with-ko)
-
-> **Note**: We started with `docker` and are progressively moving to `ko`.
-
-As the `ko` based build system matures, we will deprecate and remove `docker` based builds.
-
-Choosing between `docker` and `ko` boils down to a prefix when invoking `make` targets. 
-For example:
-- `make docker-build-kyverno` creates a docker image using the `docker` build system
-- `make ko-build-kyverno` creates a docker image using the `ko` build system
-
-It is also possible to [switch between docker and ko](#switching-between-docker-and-ko) build systems easily.
+`ko` is used to build images, please refer to [Building local images with ko](#building-local-images-with-ko).
 
 ### Image tags
 
@@ -116,39 +101,6 @@ Building images uses repository tags. To fetch repository tags into your fork ru
 git remote add upstream  https://github.com/kyverno/kyverno
 git fetch upstream --tags
 ```
-
-### Building local images with docker
-
-When building local images with docker you can specify the registry used to create the image names by setting the `REGISTRY` environment variable (default value is `ghcr.io`).
-
-> **Note**: You can build all local images at once by running `make docker-build-all`.
-
-#### Building kyvernopre image locally
-
-To build `kyvernopre` image on your local system, run:
-```console
-make docker-build-kyvernopre
-```
-
-The resulting image should be available locally, named `ghcr.io/kyverno/kyvernopre` (by default, if `REGISTRY` environment variable was not set).
-
-#### Building kyverno image locally
-
-To build `kyverno` image on your local system, run:
-```console
-make docker-build-kyverno
-```
-
-The resulting image should be available locally, named `ghcr.io/kyverno/kyverno` (by default, if `REGISTRY` environment variable was not set).
-
-#### Building cli image locally
-
-To build `cli` image on your local system, run:
-```console
-make docker-build-cli
-```
-
-The resulting image should be available locally, named `ghcr.io/kyverno/kyverno-cli` (by default, if `REGISTRY` environment variable was not set).
 
 ### Building local images with ko
 
@@ -160,7 +112,7 @@ When building local images with ko you can't specify the registry used to create
 
 To build `kyvernopre` image on your local system, run:
 ```console
-make ko-build-kyvernopre
+make ko-build-kyverno-init
 ```
 
 The resulting image should be available locally, named `ko.local/github.com/kyverno/kyverno/cmd/initcontainer`.
@@ -183,89 +135,20 @@ make ko-build-cli
 
 The resulting image should be available locally, named `ko.local/github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno`.
 
-### Switching between docker and ko
-
-The sections above cover building images with `docker` or `ko` by prefixing build commands (`docker-build-*` or `ko-build-*`).
-
-You can achieve the same results by setting the `BUILD_WITH` environment variable, and invoke a generic `image-build-*` target:
-```console
-# build kyverno image with ko
-BUILD_WITH=ko     make image-build-kyverno
-# build kyverno image with docker
-BUILD_WITH=docker make image-build-kyverno
-```
-
-Depending on the `BUILD_WITH` environment variable (default value is `ko`), the resulting images will be the same as noted in sections
-[building local images with docker](#building-local-images-with-docker) and [building local images with ko](#building-local-images-with-ko).
-
 ## Pushing images
 
 Pushing images is very similar to [building local images](#building-local-images), except that built images will be published on a remote image registry.
 
-Currently, we are supporting two build systems:
-- [Pushing images with docker](#pushing-images-with-docker)
-- [Pushing images with ko](#pushing-images-with-ko)
-
-> **Note**: We started with `docker` and are progressively moving to `ko`.
-
-As the `ko` based build system matures, we will deprecate and remove `docker` based builds.
+`ko` is used to build and publish images, please refer to [Pushing images with ko](#pushing-images-with-ko).
 
 When pushing images you can specify the registry you want to publish images to by setting the `REGISTRY` environment variable (default value is `ghcr.io`).
 
-<!-- TODO: explain the way images are tagged. -->
+### Images tagging strategy
 
-### Pushing images with docker
-
-Authenticating to the remote registry is not done automatically in the `Makefile`.
-
-You need to be authenticated before invoking targets responsible for pushing images.
-
-> **Note**: You can push all images at once by running `make docker-publish-all` or `make docker-publish-all-dev`.
-
-#### Pushing kyvernopre image
-
-To push `kyvernopre` image on a remote registry, run:
-```console
-# push stable image
-make docker-publish-kyvernopre
-```
-or
-```console
-# push dev image
-make docker-publish-kyvernopre-dev
-```
-
-The resulting image should be available remotely, named `ghcr.io/kyverno/kyvernopre` (by default, if `REGISTRY` environment variable was not set).
-
-#### Pushing kyverno image
-
-To push `kyverno` image on a remote registry, run:
-```console
-# push stable image
-make docker-publish-kyverno
-```
-or
-```console
-# push dev image
-make docker-publish-kyverno-dev
-```
-
-The resulting image should be available remotely, named `ghcr.io/kyverno/kyverno` (by default, if `REGISTRY` environment variable was not set).
-
-#### Pushing cli image
-
-To push `cli` image on a remote registry, run:
-```console
-# push stable image
-make docker-publish-cli
-```
-or
-```console
-# push dev image
-make docker-publish-cli-dev
-```
-
-The resulting image should be available remotely, named `ghcr.io/kyverno/kyverno-cli` (by default, if `REGISTRY` environment variable was not set).
+When publishing images, we are using the following strategy:
+- All published images are tagged with `latest`. Images tagged with `latest` should not be considered stable and can come from multiple release branches or main.
+- In addition to `latest`, dev images are tagged with the following pattern `<major>.<minor>-dev-N-<git hash>` where `N` is a two-digit number beginning at one for the major-minor combination and incremented by one on each subsequent tagged image.
+- In addition to `latest`, release images are tagged with the following pattern `<major>.<minor>.<patch>-<pre release>`. The pre release part is optional and only applies to pre releases (`-beta.1`, `-rc.2`, ...).
 
 ### Pushing images with ko
 
@@ -280,12 +163,12 @@ To allow authentication you will need to set `REGISTRY_USERNAME` and `REGISTRY_P
 To push `kyvernopre` image on a remote registry, run:
 ```console
 # push stable image
-make ko-publish-kyvernopre
+make ko-publish-kyverno-init
 ```
 or
 ```console
 # push dev image
-make ko-publish-kyvernopre-dev
+make ko-publish-kyverno-init-dev
 ```
 
 The resulting image should be available remotely, named `ghcr.io/kyverno/kyvernopre` (by default, if `REGISTRY` environment variable was not set).
@@ -347,7 +230,7 @@ You can also override the KinD cluster name by setting the `KIND_NAME` environme
 To build local images and load them on a local KinD cluster, run:
 ```console
 # build kyvernopre image and load it in KinD cluster
-make kind-load-kyvernopre
+make kind-load-kyverno-init
 ```
 or
 ```console
@@ -361,13 +244,6 @@ make kind-load-all
 ```
 
 You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
-
-In any case, you can choose the build system (`docker` or `ko`) by setting the `BUILD_WITH` environment variable:
-> **Note**: See [switching between docker and ko](#switching-between-docker-and-ko).
-```console
-# build kyvernopre and kyverno images and load them in KinD cluster (with docker)
-BUILD_WITH=docker make kind-load-all
-```
 
 ### Deploy with helm
 
@@ -390,13 +266,6 @@ make kind-deploy-all
 This will build local images, load built images in every node of the KinD cluster, and deploy `kyverno` and/or `kyverno-policies` helm charts in the cluster (overriding image repositories and tags).
 
 You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
-
-In any case, you can choose the build system (`docker` or `ko`) by setting the `BUILD_WITH` environment variable:
-> **Note**: See [switching between docker and ko](#switching-between-docker-and-ko).
-```console
-# build images, load them in KinD cluster and deploy helm charts (with docker)
-BUILD_WITH=docker make kind-deploy-all
-```
 
 ## Code generation
 
@@ -521,7 +390,7 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
 1. Create a local cluster
     - You can create a simple cluster with [KinD](https://kind.sigs.k8s.io/) with `make kind-create-cluster`
 1. Deploy Kyverno manifests except the Kyverno `Deployment`
-    - Kyverno is going to run on your local machine so it should not run in cluster at the same time
+    - Kyverno is going to run on your local machine, so it should not run in cluster at the same time
     - You can deploy the manifests by running `make debug-deploy`
 1. To run Kyverno locally against the remote cluster you will need to provide `--kubeconfig` and `--serverIP` arguments:
     - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)

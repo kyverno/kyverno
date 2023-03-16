@@ -9,8 +9,18 @@ results:
     resource: signed
     kind: Pod
     status: pass
-  - policy:  check-image
+  - policy: check-image
     rule: verify-signature
     resource: unsigned
     kind: Pod
+    status: fail
+  - policy: check-data-volume-image
+    rule: verify-signature
+    resource: signed-registry-image-datavolume
+    kind: DataVolume
+    status: pass
+  - policy: check-data-volume-image
+    rule: verify-signature
+    resource: unsigned-registry-image-datavolume
+    kind: DataVolume
     status: fail

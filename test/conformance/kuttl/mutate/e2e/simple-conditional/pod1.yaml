@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foo
+  namespace: default
+  labels:
+    app: foo
+spec:
+  containers:
+  - image: abc:1.28
+    name: busybox
