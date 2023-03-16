@@ -7,28 +7,71 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// GetKindFromGVK - get kind and APIVersion from GVK
-func GetKindFromGVK(str string) (groupVersion string, kind string) {
-	parts := strings.Split(str, "/")
-	count := len(parts)
-	versionRegex := regexp.MustCompile(`v\d((alpha|beta)\d)?`)
+var versionRegex = regexp.MustCompile(`^v\d((alpha|beta)\d)?|\*$`)
 
-	if count == 2 {
-		if versionRegex.MatchString(parts[0]) || parts[0] == "*" {
-			return parts[0], formatSubresource(parts[1])
-		} else {
+func ParseKindSelector(input string) (string, string, string, string) {
+	parts := strings.Split(input, "/")
+	if len(parts) > 0 {
+		parts = append(parts[:len(parts)-1], strings.Split(parts[len(parts)-1], ".")...)
+	}
+	switch len(parts) {
+	case 1:
+		// we have only kind
+		return "*", "*", parts[0], ""
+	case 2:
+		// `*/*` means all resources and subresources
+		if parts[0] == "*" && parts[1] == "*" {
+			return "*", "*", "*", "*"
+		}
+		// detect the `*/subresource` case when part[1] is all lowercase
+		if parts[0] == "*" && strings.ToLower(parts[1]) == parts[1] {
+			return "*", "*", parts[0], parts[1]
+		}
+		// if the first part is `*` or a version we have version/kind
+		if versionRegex.MatchString(parts[0]) {
+			return "*", parts[0], parts[1], ""
+		}
+		// we have kind/subresource
+		return "*", "*", parts[0], parts[1]
+	case 3:
+		// if the first part is `*` or a version we have version/kind/subresource
+		if versionRegex.MatchString(parts[0]) {
+			return "*", parts[0], parts[1], parts[2]
+		}
+		// we have group/version/kind
+		return parts[0], parts[1], parts[2], ""
+	case 4:
+		// we have group/version/kind/subresource
+		return parts[0], parts[1], parts[2], parts[3]
+	default:
+		return "", "", "", ""
+	}
+}
+
+// GetKindFromGVK - get kind and APIVersion from GVK
+func GetKindFromGVK(str string) (string, string) {
+	parts := strings.Split(str, "/")
+	switch len(parts) {
+	case 1:
+		return "", formatSubresource(str)
+	case 2:
+		if parts[0] == "*" && parts[1] == "*" {
 			return "", parts[0] + "/" + parts[1]
 		}
-	} else if count == 3 {
-		if versionRegex.MatchString(parts[0]) || parts[0] == "*" {
-			return parts[0], parts[1] + "/" + parts[2]
-		} else {
-			return parts[0] + "/" + parts[1], formatSubresource(parts[2])
+		if versionRegex.MatchString(parts[0]) {
+			return parts[0], formatSubresource(parts[1])
 		}
-	} else if count == 4 {
+		return "", parts[0] + "/" + parts[1]
+	case 3:
+		if versionRegex.MatchString(parts[0]) {
+			return parts[0], parts[1] + "/" + parts[2]
+		}
+		return parts[0] + "/" + parts[1], formatSubresource(parts[2])
+	case 4:
 		return parts[0] + "/" + parts[1], parts[2] + "/" + parts[3]
+	default:
+		return "", ""
 	}
-	return "", formatSubresource(str)
 }
 
 func formatSubresource(s string) string {

@@ -9,19 +9,6 @@ admissionController:
       - --loggingFormat=json
       - --enablePolicyException
 
-cleanupController:
-  rbac:
-    clusterRole:
-      extraResources:
-        - apiGroups:
-            - ''
-          resources:
-            - pods
-
-reportsController:
-  extraArgs:
-    - --enablePolicyException
-
 backgroundController:
   rbac:
     clusterRole:
@@ -40,3 +27,16 @@ backgroundController:
             - nodes
             - nodes/status
             - pods
+
+cleanupController:
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - ''
+          resources:
+            - pods
+
+reportsController:
+  extraArgs:
+    enablePolicyException: true

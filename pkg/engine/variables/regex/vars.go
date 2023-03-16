@@ -16,4 +16,6 @@ var (
 	RegexVariableInit = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
 	RegexElementIndex = regexp.MustCompile(`{{\s*elementIndex\d*\s*}}`)
+
+	RegexVariableKey = regexp.MustCompile(`\{{(.*?)\}}`)
 )

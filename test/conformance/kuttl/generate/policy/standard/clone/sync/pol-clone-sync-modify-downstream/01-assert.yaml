@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: poltest
+  name: pol-clone-sync-modify-downstream-ns
 ---
 apiVersion: v1
 data:
@@ -9,5 +9,5 @@ data:
 kind: Secret
 metadata:
   name: regcred
-  namespace: poltest
+  namespace: pol-clone-sync-modify-downstream-ns
 type: Opaque

@@ -95,6 +95,7 @@ func (e *engine) filterRule(
 	ctx := policyContext.JSONContext()
 	excludeGroupRole := e.configuration.GetExcludedGroups()
 	namespaceLabels := policyContext.NamespaceLabels()
+	policy := policyContext.Policy()
 
 	mock := false
 	if policyContext.JSONContext() != nil {
@@ -103,11 +104,10 @@ func (e *engine) filterRule(
 			mock = resource.(bool)
 		}
 	}
-
-	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource(), mock); err != nil {
+	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), policyContext.SubResource(), mock); err != nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource(), mock); err == nil {
+			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), policyContext.SubResource(), mock); err == nil {
 				return &engineapi.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,

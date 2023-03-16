@@ -11,14 +11,13 @@ import (
 	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
-	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
 // Generator provides interface to manage update requests
 type Generator interface {
-	Apply(context.Context, kyvernov1beta1.UpdateRequestSpec, admissionv1.Operation) error
+	Apply(context.Context, kyvernov1beta1.UpdateRequestSpec) error
 }
 
 // generator defines the implementation to manage update request resource
@@ -39,11 +38,8 @@ func NewGenerator(client versioned.Interface, urInformer kyvernov1beta1informers
 }
 
 // Apply creates update request resource
-func (g *generator) Apply(ctx context.Context, ur kyvernov1beta1.UpdateRequestSpec, action admissionv1.Operation) error {
+func (g *generator) Apply(ctx context.Context, ur kyvernov1beta1.UpdateRequestSpec) error {
 	logger.V(4).Info("apply Update Request", "request", ur)
-	if action == admissionv1.Delete && ur.GetRequestType() == kyvernov1beta1.Generate {
-		return nil
-	}
 	go g.applyResource(context.TODO(), ur)
 	return nil
 }

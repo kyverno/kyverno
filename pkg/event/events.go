@@ -149,6 +149,17 @@ func NewPolicyExceptionEvents(engineResponse *engineapi.EngineResponse, ruleResp
 	return []Info{policyEvent, exceptionEvent}
 }
 
+func NewFailedEvent(err error, policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
+	return Info{
+		Kind:      resource.GetKind(),
+		Namespace: resource.GetNamespace(),
+		Name:      resource.GetName(),
+		Source:    source,
+		Reason:    PolicyError,
+		Message:   fmt.Sprintf("policy %s/%s error: %v", policy, rule, err),
+	}
+}
+
 func resourceKey(resource unstructured.Unstructured) string {
 	if resource.GetNamespace() != "" {
 		return strings.Join([]string{resource.GetKind(), resource.GetNamespace(), resource.GetName()}, "/")
