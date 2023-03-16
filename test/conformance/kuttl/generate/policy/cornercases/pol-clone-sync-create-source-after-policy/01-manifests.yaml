@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pol-clone-sync-create-source-after-policy-ns
+---
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-clone-sync-create-source-after-policy
+  namespace: pol-clone-sync-create-source-after-policy-ns
+spec:
+  rules:
+  - name: clone-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: mynewsecret
+      namespace: pol-clone-sync-create-source-after-policy-ns
+      synchronize: true
+      clone:
+        namespace: pol-clone-sync-create-source-after-policy-ns
+        name: regcred
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: regcred
+  namespace: pol-clone-sync-create-source-after-policy-ns
+type: Opaque

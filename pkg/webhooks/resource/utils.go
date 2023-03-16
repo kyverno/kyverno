@@ -61,7 +61,7 @@ func applyUpdateRequest(
 
 	for _, er := range engineResponses {
 		ur := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
-		if err := urGenerator.Apply(ctx, ur, action); err != nil {
+		if err := urGenerator.Apply(ctx, ur); err != nil {
 			failedUpdateRequest = append(failedUpdateRequest, updateRequestResponse{ur: ur, err: err})
 		}
 	}
