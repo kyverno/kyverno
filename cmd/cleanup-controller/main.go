@@ -191,6 +191,7 @@ func main() {
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 	// log policy changes
 	genericloggingcontroller.NewController(logger.WithName("cleanup-policy"), "CleanupPolicy", kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies())
+	genericloggingcontroller.NewController(logger.WithName("cluster-cleanup-policy"), "ClusterCleanupPolicy", kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies())
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
