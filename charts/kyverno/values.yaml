@@ -49,6 +49,9 @@ config:
   # -- Exclude username
   excludeUsername: []
 
+  # -- Exclude usernames for mutateExisting and generate policies
+  excludeBackgroundUsernames: []
+
   # -- Generate success events.
   generateSuccessEvents: false
 
@@ -108,6 +111,11 @@ config:
     #     matchExpressions:
     #     - key: webhooks.kyverno.io/exclude
     #       operator: DoesNotExist
+
+  # -- Defines annotations to set on webhook configurations.
+  webhookAnnotations: {}
+    # Example to disable admission enforcer on AKS:
+    # 'admissions.enforcer/disabled': 'true'
 
 # Metrics configuration
 metricsConfig:
@@ -191,23 +199,6 @@ test:
 # -- Additional labels
 customLabels: {}
 
-rbac:
-  # -- Create ClusterRoles, ClusterRoleBindings, and ServiceAccount
-  create: true
-  serviceAccount:
-    # -- Create a ServiceAccount
-    create: true
-    # -- The ServiceAccount name
-    name:
-    # -- Annotations for the ServiceAccount
-    annotations: {}
-      # example.com/annotation: value
-
-# -- Additional resources to be added to controller RBAC permissions.
-generatecontrollerExtraResources: []
-# - ResourceA
-# - ResourceB
-
 # -- Exclude Kyverno namespace
 # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
 excludeKyvernoNamespace: true
@@ -215,13 +206,6 @@ excludeKyvernoNamespace: true
 # -- resourceFilter namespace exclude
 # Namespaces to exclude from the default resourceFilters
 resourceFiltersExcludeNamespaces: []
-
-networkPolicy:
-  # -- When true, use a NetworkPolicy to allow ingress to the webhook
-  # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
-  enabled: false
-  # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
-  ingressFrom: []
 
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
@@ -245,6 +229,30 @@ grafana:
 
 # Admission controller configuration
 admissionController:
+
+  rbac:
+    # -- Create RBAC resources
+    create: true
+
+    serviceAccount:
+      # -- The ServiceAccount name
+      name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
+
+    clusterRole:
+      # -- Extra resource permissions to add in the cluster role
+      extraResources: []
+      # - apiGroups:
+      #     - ''
+      #   resources:
+      #     - pods
+      #   verbs:
+      #     - create
+      #     - update
+      #     - delete
 
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.
@@ -519,6 +527,15 @@ admissionController:
     # -- Service annotations.
     annotations: {}
 
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
 # Cleanup controller configuration
 cleanupController:
 
@@ -532,6 +549,10 @@ cleanupController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -721,6 +742,15 @@ cleanupController:
     # -- Service annotations.
     annotations: {}
 
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
@@ -776,6 +806,10 @@ reportsController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -953,6 +987,15 @@ reportsController:
     # -- Service annotations.
     annotations: {}
 
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
@@ -1008,6 +1051,10 @@ backgroundController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1093,7 +1140,7 @@ backgroundController:
               - key: app.kubernetes.io/component
                 operator: In
                 values:
-                  - reports-controller
+                  - background-controller
           topologyKey: kubernetes.io/hostname
 
   # -- Pod affinity constraints.
@@ -1141,6 +1188,15 @@ backgroundController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
 
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
