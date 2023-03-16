@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
+	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -188,6 +189,8 @@ func main() {
 	cpolLister := kyvernoInformer.Kyverno().V2alpha1().ClusterCleanupPolicies().Lister()
 	polLister := kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies().Lister()
 	nsLister := kubeInformer.Core().V1().Namespaces().Lister()
+	// log policy changes
+	genericloggingcontroller.NewController(logger.WithName("cleanup-policy"), "CleanupPolicy", kyvernoInformer.Kyverno().V2alpha1().CleanupPolicies())
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, logger, kubeKyvernoInformer, kubeInformer, kyvernoInformer) {
 		os.Exit(1)
