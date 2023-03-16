@@ -23,10 +23,10 @@
 {{- end -}}
 
 {{- define "kyverno.admission-controller.serviceAccountName" -}}
-{{- if .Values.rbac.serviceAccount.create -}}
-    {{ default (include "kyverno.admission-controller.name" .) .Values.rbac.serviceAccount.name }}
+{{- if .Values.admissionController.rbac.create -}}
+    {{ default (include "kyverno.admission-controller.name" .) .Values.admissionController.rbac.serviceAccount.name }}
 {{- else -}}
-    {{ default "default" .Values.rbac.serviceAccount.name }}
+    {{ required "A service account name is required when `rbac.create` is set to `false`" .Values.admissionController.rbac.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
 

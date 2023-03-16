@@ -21,15 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
         with:
           build-cache-key: verify-codegen
       - name: Verify generated code is up to date
         run: make verify-codegen
-      - name: Upload install manifest
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        with:
-          path: .manifest/install.yaml
-          if-no-files-found: error
