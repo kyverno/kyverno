@@ -596,6 +596,7 @@ func Test_LabelMatch(t *testing.T) {
 		})
 	}
 }
+
 func Test_JpToBoolean(t *testing.T) {
 	testCases := []struct {
 		input    interface{}
@@ -624,6 +625,7 @@ func Test_JpToBoolean(t *testing.T) {
 		}
 	}
 }
+
 func Test_Base64Decode(t *testing.T) {
 	jp, err := New("base64_decode('SGVsbG8sIHdvcmxkIQ==')")
 	assert.NilError(t, err)
