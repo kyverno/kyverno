@@ -4,5 +4,5 @@ data:
 kind: Secret
 metadata:
   name: myclonedsecret
-  namespace: poltest
+  namespace: pol-clone-sync-modify-downstream-ns
 type: Opaque

@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -18,6 +19,11 @@ import (
 
 // handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
 func (h *handlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
+	for _, username := range h.configuration.GetExcludedBackgroundUsernames() {
+		if wildcard.Match(username, policyContext.AdmissionInfo().AdmissionUserInfo.Username) {
+			return
+		}
+	}
 	go h.handleMutateExisting(ctx, logger, request, mutatePolicies, policyContext, ts)
 	h.handleGenerate(ctx, logger, request, generatePolicies, policyContext, ts)
 }
@@ -73,5 +79,5 @@ func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger,
 
 func (h *handlers) handleGenerate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, ts time.Time) {
 	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.urUpdater, h.eventGen, h.metricsConfig)
-	go gh.HandleNew(ctx, request, generatePolicies, policyContext)
+	go gh.Handle(ctx, request, generatePolicies, policyContext)
 }

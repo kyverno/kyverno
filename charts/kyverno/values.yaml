@@ -49,6 +49,9 @@ config:
   # -- Exclude username
   excludeUsername: []
 
+  # -- Exclude usernames for mutateExisting and generate policies
+  excludeBackgroundUsernames: []
+
   # -- Generate success events.
   generateSuccessEvents: false
 
@@ -108,6 +111,11 @@ config:
     #     matchExpressions:
     #     - key: webhooks.kyverno.io/exclude
     #       operator: DoesNotExist
+
+  # -- Defines annotations to set on webhook configurations.
+  webhookAnnotations: {}
+    # Example to disable admission enforcer on AKS:
+    # 'admissions.enforcer/disabled': 'true'
 
 # Metrics configuration
 metricsConfig:
@@ -191,72 +199,6 @@ test:
 # -- Additional labels
 customLabels: {}
 
-rbac:
-  # -- Create ClusterRoles, ClusterRoleBindings, and ServiceAccount
-  create: true
-  serviceAccount:
-    # -- Create a ServiceAccount
-    create: true
-    # -- The ServiceAccount name
-    name:
-    # -- Annotations for the ServiceAccount
-    annotations: {}
-      # example.com/annotation: value
-
-initContainer:
-  # -- Extra arguments to give to the kyvernopre binary.
-  extraArgs:
-    - --loggingFormat=text
-
-# -- Additional labels to add to each pod
-podLabels: {}
-  # example.com/label: foo
-
-# -- Additional annotations to add to each pod
-podAnnotations: {}
-  # example.com/annotation: foo
-
-# -- Security context for the containers
-securityContext:
-  runAsNonRoot: true
-  privileged: false
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop:
-      - ALL
-  seccompProfile:
-    type: RuntimeDefault
-
-# -- Env variables for initContainers.
-envVarsInit: {}
-
-# -- Env variables for containers.
-envVars: {}
-
-# -- Extra arguments to give to the binary.
-extraArgs:
-  - --loggingFormat=text
-
-# -- Array of extra init containers
-extraInitContainers: []
-# Example:
-# - name: init-container
-#   image: busybox
-#   command: ['sh', '-c', 'echo Hello']
-
-# -- Array of extra containers to run alongside kyverno
-extraContainers: []
-# Example:
-# - name: myapp-container
-#   image: busybox
-#   command: ['sh', '-c', 'echo Hello && sleep 3600']
-
-# -- Additional resources to be added to controller RBAC permissions.
-generatecontrollerExtraResources: []
-# - ResourceA
-# - ResourceB
-
 # -- Exclude Kyverno namespace
 # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
 excludeKyvernoNamespace: true
@@ -295,12 +237,44 @@ grafana:
 # Admission controller configuration
 admissionController:
 
+  rbac:
+    # -- Create RBAC resources
+    create: true
+
+    serviceAccount:
+      # -- The ServiceAccount name
+      name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
+
+    clusterRole:
+      # -- Extra resource permissions to add in the cluster role
+      extraResources: []
+      # - apiGroups:
+      #     - ''
+      #   resources:
+      #     - pods
+      #   verbs:
+      #     - create
+      #     - update
+      #     - delete
+
   # -- Create self-signed certificates at deployment time.
   # The certificates won't be automatically renewed if this is set to `true`.
   createSelfSignedCert: false
 
   # -- (int) Desired number of pods
   replicas: ~
+
+  # -- Additional labels to add to each pod
+  podLabels: {}
+    # example.com/label: foo
+
+  # -- Additional annotations to add to each pod
+  podAnnotations: {}
+    # example.com/annotation: foo
 
   # -- Deployment update strategy.
   # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
@@ -463,6 +437,25 @@ admissionController:
         cpu: 10m
         memory: 64Mi
 
+    # -- Container security context
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    # -- Additional container args.
+    extraArgs:
+      - --loggingFormat=text
+
+    # -- Additional container environment variables.
+    extraEnvVars: []
+
   container:
 
     image:
@@ -484,6 +477,37 @@ admissionController:
       requests:
         cpu: 100m
         memory: 128Mi
+
+    # -- Container security context
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    # -- Additional container args.
+    extraArgs:
+      - --loggingFormat=text
+
+    # -- Additional container environment variables.
+    extraEnvVars: []
+
+  # -- Array of extra init containers
+  extraInitContainers: []
+    # - name: init-container
+    #   image: busybox
+    #   command: ['sh', '-c', 'echo Hello']
+
+  # -- Array of extra containers to run alongside kyverno
+  extraContainers: []
+    # - name: myapp-container
+    #   image: busybox
+    #   command: ['sh', '-c', 'echo Hello && sleep 3600']
 
   service:
     # -- Service port.
@@ -523,6 +547,10 @@ cleanupController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -768,6 +796,10 @@ reportsController:
       # -- Service account name
       name:
 
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
+
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []
@@ -816,7 +848,9 @@ reportsController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs: []
+  extraArgs:
+    clientRateLimitQPS: 300
+    clientRateLimitBurst: 300
 
   resources:
     # -- Pod resource limits
@@ -936,9 +970,9 @@ reportsController:
     port: 8000
     # -- Service type.
     type: ClusterIP
-    # -- Service node port.
-    # Only used if `metricsService.type` is `NodePort`.
-    nodePort:
+    # -- (string) Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort: ~
     # -- Service annotations.
     annotations: {}
 
@@ -949,7 +983,7 @@ reportsController:
     additionalLabels: {}
     # -- (string) Override namespace
     namespace: ~
-    # --  Interval to scrape metrics
+    # -- Interval to scrape metrics
     interval: 30s
     # -- Timeout if metrics can't be retrieved in given time interval
     scrapeTimeout: 25s
@@ -961,12 +995,12 @@ reportsController:
   tracing:
     # -- Enable tracing
     enabled: false
-    # -- Traces receiver address
-    address:
-    # -- Traces receiver port
-    port:
-    # -- Traces receiver credentials
-    creds: ''
+    # -- (string) Traces receiver address
+    address: ~
+    # -- (string) Traces receiver port
+    port: ~
+    # -- (string) Traces receiver credentials
+    creds: ~
 
   logging:
     # -- Logging format
@@ -979,10 +1013,10 @@ reportsController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
-    # -- Otel collector endpoint
-    collector: ''
-    # -- Otel collector credentials
-    creds: ''
+    # -- (string) Otel collector endpoint
+    collector: ~
+    # -- (string) Otel collector credentials
+    creds: ~
 
 # Background controller configuration
 backgroundController:
@@ -997,6 +1031,10 @@ backgroundController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1082,7 +1120,7 @@ backgroundController:
               - key: app.kubernetes.io/component
                 operator: In
                 values:
-                  - reports-controller
+                  - background-controller
           topologyKey: kubernetes.io/hostname
 
   # -- Pod affinity constraints.
