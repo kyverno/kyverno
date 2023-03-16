@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jmespath-community/go-jmespath/pkg/parsing"
+	"github.com/jmespath-community/go-jmespath"
 	"github.com/spf13/cobra"
 )
 
@@ -99,10 +99,10 @@ func loadExpressions(cmd *cobra.Command, args []string, files []string) ([]strin
 // The following function has been adapted from
 // https://github.com/jmespath/jp/blob/54882e03bd277fc4475a677fab1d35eaa478b839/jp.go
 func printAst(expression string) error {
-	parser := parsing.NewParser()
+	parser := jmespath.NewParser()
 	parsed, err := parser.Parse(expression)
 	if err != nil {
-		if syntaxError, ok := err.(parsing.SyntaxError); ok {
+		if syntaxError, ok := err.(jmespath.SyntaxError); ok {
 			return fmt.Errorf("%w\n%s", syntaxError, syntaxError.HighlightLocation())
 		}
 		return err

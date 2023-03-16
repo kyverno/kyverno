@@ -24,7 +24,7 @@ require (
 	github.com/google/go-containerregistry v0.14.0
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230310164735-e94d40893b2d
 	github.com/in-toto/in-toto-golang v0.6.0
-	github.com/jmespath-community/go-jmespath v1.1.1-0.20230303112710-b051c0d4c61f
+	github.com/jmespath-community/go-jmespath v1.1.1-0.20230316090331-46c049439f43
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
@@ -59,7 +59,7 @@ require (
 	go.uber.org/multierr v1.10.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.7.0
-	golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0
+	golang.org/x/exp v0.0.0-20230314191032-db074128a8ec
 	google.golang.org/grpc v1.53.0
 	gopkg.in/inf.v0 v0.9.1
 	gopkg.in/yaml.v2 v2.4.0
