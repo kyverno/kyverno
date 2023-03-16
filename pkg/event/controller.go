@@ -9,7 +9,6 @@ import (
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/controllers"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,8 +48,8 @@ type generator struct {
 
 // Controller interface to generate event
 type Controller interface {
-	controllers.Controller
 	Interface
+	Run(context.Context, int, *sync.WaitGroup)
 }
 
 // Interface to generate event

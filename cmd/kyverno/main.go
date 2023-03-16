@@ -331,6 +331,7 @@ func main() {
 		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)
 	}
+	var wg sync.WaitGroup
 	certRenewer := tls.NewCertRenewer(
 		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 		secretLister,
@@ -347,10 +348,11 @@ func main() {
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
-	policyMetricsController := policymetricscontroller.NewController(
+	policymetricscontroller.NewController(
 		metricsConfig,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		&wg,
 	)
 	runtime := runtimeutils.NewRuntime(
 		logger.WithName("runtime-checks"),
@@ -459,14 +461,11 @@ func main() {
 		os.Exit(1)
 	}
 	// start non leader controllers
-	var wg sync.WaitGroup
 	for _, controller := range nonLeaderControllers {
 		controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 	}
 	// start event generator
 	go eventGenerator.Run(signalCtx, 3, &wg)
-	// start policy metrics controller
-	go policyMetricsController.Run(signalCtx, &wg)
 	// start leader election
 	go func() {
 		select {
