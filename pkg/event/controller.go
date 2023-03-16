@@ -83,16 +83,17 @@ func NewEventGenerator(
 
 // Add queues an event for generation
 func (gen *generator) Add(infos ...Info) {
-	if gen.queue.Len() > gen.maxQueuedEvents {
-		gen.log.V(5).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
+	logger := gen.log
+	logger.V(3).Info("generating events", "count", len(infos))
+	if gen.maxQueuedEvents == 0 || gen.queue.Len() > gen.maxQueuedEvents {
+		logger.V(2).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
 		return
 	}
-
 	for _, info := range infos {
 		if info.Name == "" {
 			// dont create event for resources with generateName
 			// as the name is not generated yet
-			gen.log.V(4).Info("not creating an event as the resource has not been assigned a name yet", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
+			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
 		gen.queue.Add(info)
@@ -101,8 +102,9 @@ func (gen *generator) Add(infos ...Info) {
 
 // Run begins generator
 func (gen *generator) Run(ctx context.Context, workers int, waitGroup *sync.WaitGroup) {
-	gen.log.Info("start")
-	defer gen.log.Info("shutting down")
+	logger := gen.log
+	logger.Info("start")
+	defer logger.Info("shutting down")
 	waitGroup.Add(1)
 	defer waitGroup.Done()
 	defer utilruntime.HandleCrash()
@@ -119,22 +121,22 @@ func (gen *generator) runWorker(ctx context.Context) {
 }
 
 func (gen *generator) handleErr(err error, key interface{}) {
+	logger := gen.log
 	if err == nil {
 		gen.queue.Forget(key)
 		return
 	}
 	// This controller retries if something goes wrong. After that, it stops trying.
 	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		gen.log.V(4).Info("retrying event generation", "key", key, "reason", err.Error())
+		logger.V(4).Info("retrying event generation", "key", key, "reason", err.Error())
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		gen.queue.AddRateLimited(key)
 		return
 	}
-
 	gen.queue.Forget(key)
 	if !errors.IsNotFound(err) {
-		gen.log.Error(err, "failed to generate event", "key", key)
+		logger.Error(err, "failed to generate event", "key", key)
 	}
 }
 
@@ -143,7 +145,6 @@ func (gen *generator) processNextWorkItem() bool {
 	if shutdown {
 		return false
 	}
-
 	defer gen.queue.Done(obj)
 	var key Info
 	var ok bool
@@ -154,7 +155,6 @@ func (gen *generator) processNextWorkItem() bool {
 	}
 	err := gen.syncHandler(key)
 	gen.handleErr(err, obj)
-
 	return true
 }
 
