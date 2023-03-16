@@ -410,6 +410,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 		newResource.SetAPIVersion(rdata.GenAPIVersion)
 		common.ManageLabels(newResource, trigger, policy, rule.Name)
 		if rdata.Action == Create {
+			newResource.SetResourceVersion("")
 			_, err = client.CreateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
