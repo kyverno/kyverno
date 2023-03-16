@@ -120,7 +120,6 @@ func (er EngineResponse) GetFailedRules() []string {
 // GetFailedRulesWithErrors returns failed rules with corresponding error messages
 func (er EngineResponse) GetFailedRulesWithErrors() []string {
 	return er.getRulesWithErrors(func(rule RuleResponse) bool { return rule.HasStatus(RuleStatusFail, RuleStatusError) })
-
 }
 
 // GetSuccessRules returns success rules
