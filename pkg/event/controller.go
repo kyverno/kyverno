@@ -105,12 +105,14 @@ func (gen *generator) Run(ctx context.Context, workers int, waitGroup *sync.Wait
 	logger := gen.log
 	logger.Info("start")
 	defer logger.Info("shutting down")
-	waitGroup.Add(1)
-	defer waitGroup.Done()
 	defer utilruntime.HandleCrash()
 	defer gen.queue.ShutDown()
 	for i := 0; i < workers; i++ {
-		go wait.UntilWithContext(ctx, gen.runWorker, time.Second)
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			wait.UntilWithContext(ctx, gen.runWorker, time.Second)
+		}()
 	}
 	<-ctx.Done()
 }
