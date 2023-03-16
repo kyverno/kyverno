@@ -194,7 +194,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	}
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Failted to substitute var {{request.object.metadata.name1}}"))
 }
 
 func Test_variableSubstitutionCLI(t *testing.T) {

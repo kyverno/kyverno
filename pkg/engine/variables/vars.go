@@ -365,11 +365,13 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				substitutedVar, err := vr(ctx, variable)
 				if err != nil {
 					switch err.(type) {
-					// case context.InvalidVariableError, gojmespath.NotFoundError:
-					// 	return nil, err
+					case context.InvalidVariableError /*, gojmespath.NotFoundError*/ :
+						return nil, err
 					default:
 						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
 					}
+				} else if substitutedVar == nil {
+					return nil, fmt.Errorf("Failted to substitute var %s in path %s", data.Element, data.Path)
 				}
 
 				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
