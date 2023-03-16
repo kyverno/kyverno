@@ -1,0 +1,8 @@
+# Specifying the kind as `TestStep` performs certain behaviors like this delete operation.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+- apiVersion: v1
+  kind: ConfigMap
+  name: test-org
+  namespace: cpol-clone-sync-delete-trigger-ns

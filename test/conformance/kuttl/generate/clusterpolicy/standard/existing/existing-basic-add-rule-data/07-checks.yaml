@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+assert:
+- netpol-blue.yaml
+- netpol-yellow.yaml
+error:
+- netpol-summer.yaml

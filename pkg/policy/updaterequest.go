@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured, ruleType kyvernov1beta1.RequestType) *kyvernov1beta1.UpdateRequest {
+func newUR(policy kyvernov1.PolicyInterface, trigger kyvernov1.ResourceSpec, ruleName string, ruleType kyvernov1beta1.RequestType, deleteDownstream bool) *kyvernov1beta1.UpdateRequest {
 	var policyNameNamespaceKey string
 
 	if policy.IsNamespaced() {
@@ -27,6 +27,10 @@ func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured,
 	}
 
 	return &kyvernov1beta1.UpdateRequest{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: kyvernov1beta1.SchemeGroupVersion.String(),
+			Kind:       "UpdateRequest",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "ur-",
 			Namespace:    config.KyvernoNamespace(),
@@ -35,11 +39,27 @@ func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured,
 		Spec: kyvernov1beta1.UpdateRequestSpec{
 			Type:   ruleType,
 			Policy: policyNameNamespaceKey,
+			Rule:   ruleName,
 			Resource: kyvernov1.ResourceSpec{
 				Kind:       trigger.GetKind(),
 				Namespace:  trigger.GetNamespace(),
 				Name:       trigger.GetName(),
 				APIVersion: trigger.GetAPIVersion(),
+			},
+			DeleteDownstream: deleteDownstream,
+		},
+	}
+}
+
+func newURStatus(downstream unstructured.Unstructured) kyvernov1beta1.UpdateRequestStatus {
+	return kyvernov1beta1.UpdateRequestStatus{
+		State: kyvernov1beta1.Pending,
+		GeneratedResources: []kyvernov1.ResourceSpec{
+			{
+				APIVersion: downstream.GetAPIVersion(),
+				Kind:       downstream.GetKind(),
+				Namespace:  downstream.GetNamespace(),
+				Name:       downstream.GetName(),
 			},
 		},
 	}

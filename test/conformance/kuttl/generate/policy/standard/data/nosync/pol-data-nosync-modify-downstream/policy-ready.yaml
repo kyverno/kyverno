@@ -1,0 +1,10 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: pol-data-nosync-modify-downstream-policy
+  namespace: lionfish
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

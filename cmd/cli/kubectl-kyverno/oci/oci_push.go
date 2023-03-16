@@ -47,7 +47,7 @@ kyverno oci push -p policies. -i <imgref>`,
 				return fmt.Errorf("creating openapi manager: %v", err)
 			}
 			for _, policy := range policies {
-				if _, err := policyvalidation.Validate(policy, nil, true, openApiManager); err != nil {
+				if _, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager); err != nil {
 					return fmt.Errorf("validating policy %s: %v", policy.GetName(), err)
 				}
 			}

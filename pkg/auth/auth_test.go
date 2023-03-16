@@ -42,7 +42,7 @@ func TestNewCanI(t *testing.T) {
 
 type discovery struct{}
 
-func (d *discovery) GetGVRFromKind(kind string) (schema.GroupVersionResource, error) {
+func (d *discovery) GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error) {
 	return schema.GroupVersionResource{}, errors.New("dummy")
 }
 
