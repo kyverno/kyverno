@@ -5,23 +5,23 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
-  {{- with .Values.service.annotations }}
+  {{- with .Values.admissionController.service.annotations }}
   annotations: {{ tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
 spec:
   ports:
-  - port: {{ .Values.service.port }}
+  - port: {{ .Values.admissionController.service.port }}
     targetPort: https
     protocol: TCP
     name: https
-    {{- if and (eq .Values.service.type "NodePort") (not (empty .Values.service.nodePort)) }}
-    nodePort: {{ .Values.service.nodePort }}
+    {{- if and (eq .Values.admissionController.service.type "NodePort") (not (empty .Values.admissionController.service.nodePort)) }}
+    nodePort: {{ .Values.admissionController.service.nodePort }}
     {{- end }}
   selector:
     {{- include "kyverno.admission-controller.matchLabels" . | nindent 4 }}
-  type: {{ .Values.service.type }}
+  type: {{ .Values.admissionController.service.type }}
 ---
-{{- if .Values.metricsService.create }}
+{{- if .Values.admissionController.metricsService.create }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -29,19 +29,19 @@ metadata:
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
-  {{- with .Values.metricsService.annotations }}
+  {{- with .Values.admissionController.metricsService.annotations }}
   annotations: {{ tpl (toYaml .) $ | nindent 4 }}
   {{- end }}
 spec:
   ports:
-  - port: {{ .Values.metricsService.port }}
+  - port: {{ .Values.admissionController.metricsService.port }}
     targetPort: 8000
     protocol: TCP
     name: metrics-port
-    {{- if and (eq .Values.metricsService.type "NodePort") (not (empty .Values.metricsService.nodePort)) }}
-    nodePort: {{ .Values.metricsService.nodePort }}
+    {{- if and (eq .Values.admissionController.metricsService.type "NodePort") (not (empty .Values.admissionController.metricsService.nodePort)) }}
+    nodePort: {{ .Values.admissionController.metricsService.nodePort }}
     {{- end }}
   selector:
     {{- include "kyverno.admission-controller.matchLabels" . | nindent 4 }}
-  type: {{ .Values.metricsService.type }}
+  type: {{ .Values.admissionController.metricsService.type }}
 {{- end -}}

@@ -123,6 +123,7 @@ func main() {
 					kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 					kubeKyvernoInformer.Core().V1().Secrets(),
+					kubeKyvernoInformer.Core().V1().ConfigMaps(),
 					config.CleanupValidatingWebhookConfigurationName,
 					config.CleanupValidatingWebhookServicePath,
 					serverIP,
@@ -193,7 +194,7 @@ func main() {
 	}
 	// create handlers
 	admissionHandlers := admissionhandlers.New(dClient)
-	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister, nsLister)
+	cleanupHandlers := cleanuphandlers.New(dClient, cpolLister, polLister, nsLister, logger.WithName("cleanup-handler"))
 	// create server
 	server := NewServer(
 		func() ([]byte, []byte, error) {

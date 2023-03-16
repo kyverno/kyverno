@@ -92,7 +92,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 
 		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, namespaceLabels, logger)
+		policyContext, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, namespaceLabels, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
@@ -136,7 +136,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 					} else if patchedTargetSubresourceName != "" {
 						parentResourceGVR := r.PatchedTargetParentResourceGVR
 						parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
-						parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.String(), parentResourceGVR.Resource)
+						parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
 						if err != nil {
 							logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR)
 							errs = append(errs, err)

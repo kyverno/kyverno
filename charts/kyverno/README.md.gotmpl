@@ -121,6 +121,46 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `testImage` has been replaced with `test.image`
 - `testResources` has been replaced with `test.resources`
 - `testSecurityContext` has been replaced with `test.securityContext`
+- `replicaCount` has been replaced with `admissionController.replicas`
+- `updateStrategy` has been replaced with `admissionController.updateStrategy`
+- `priorityClassName` has been replaced with `admissionController.priorityClassName`
+- `hostNetwork` has been replaced with `admissionController.hostNetwork`
+- `dnsPolicy` has been replaced with `admissionController.dnsPolicy`
+- `nodeSelector` has been replaced with `admissionController.nodeSelector`
+- `tolerations` has been replaced with `admissionController.tolerations`
+- `topologySpreadConstraints` has been replaced with `admissionController.topologySpreadConstraints`
+- `podDisruptionBudget` has been replaced with `admissionController.podDisruptionBudget`
+- `antiAffinity` has been replaced with `admissionController.antiAffinity`
+- `antiAffinity.enable` has been replaced with `admissionController.antiAffinity.enabled`
+- `podAntiAffinity` has been replaced with `admissionController.podAntiAffinity`
+- `podAffinity` has been replaced with `admissionController.podAffinity`
+- `nodeAffinity` has been replaced with `admissionController.nodeAffinity`
+- `startupProbe` has been replaced with `admissionController.startupProbe`
+- `livenessProbe` has been replaced with `admissionController.livenessProbe`
+- `readinessProbe` has been replaced with `admissionController.readinessProbe`
+- `createSelfSignedCert` has been replaced with `admissionController.createSelfSignedCert`
+- `serviceMonitor` has been replaced with `admissionController.serviceMonitor`
+- `podSecurityContext` has been replaced with `admissionController.podSecurityContext`
+- `tufRootMountPath` has been replaced with `admissionController.tufRootMountPath`
+- `sigstoreVolume` has been replaced with `admissionController.sigstoreVolume`
+- `initImage` has been replaced with `admissionController.initContainer.image`
+- `initResources` has been replaced with `admissionController.initContainer.resources`
+- `image` has been replaced with `admissionController.container.image`
+- `image.pullSecrets` has been replaced with `admissionController.pullSecrets`
+- `resources` has been replaced with `admissionController.container.resources`
+- `service` has been replaced with `admissionController.service`
+- `metricsService` has been replaced with `admissionController.metricsService`
+- `initContainer.extraArgs` has been replaced with `admissionController.initContainer.extraArgs`
+- `envVarsInit` has been replaced with `admissionController.initContainer.extraEnvVars`
+- `envVars` has been replaced with `admissionController.container.extraEnvVars`
+- `extraArgs` has been replaced with `admissionController.container.extraArgs`
+- `extraInitContainers` has been replaced with `admissionController.extraInitContainers`
+- `extraContainers` has been replaced with `admissionController.extraContainers`
+- `podLabels` has been replaced with `admissionController.podLabels`
+- `podAnnotations` has been replaced with `admissionController.podAnnotations`
+- `securityContext` has been replaced with `admissionController.container.securityContext` and `admissionController.initContainer.securityContext`
+- `rbac` has been replaced with `admissionController.rbac`
+- `generatecontrollerExtraResources` has been replaced with `admissionController.rbac.clusterRole.extraResources`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -142,9 +182,9 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ## TLS Configuration
 
-If `createSelfSignedCert` is `true`, Helm will take care of the steps of creating an external self-signed certificate described in option 2 of the [installation documentation](https://kyverno.io/docs/installation/#option-2-use-your-own-ca-signed-certificate)
+If `admissionController.createSelfSignedCert` is `true`, Helm will take care of the steps of creating an external self-signed certificate described in option 2 of the [installation documentation](https://kyverno.io/docs/installation/#option-2-use-your-own-ca-signed-certificate)
 
-If `createSelfSignedCert` is `false`, Kyverno will generate a self-signed CA and a certificate, or you can provide your own TLS CA and signed-key pair and create the secret yourself as described in the [documentation](https://kyverno.io/docs/installation/#customize-the-installation-of-kyverno).
+If `admissionController.createSelfSignedCert` is `false`, Kyverno will generate a self-signed CA and a certificate, or you can provide your own TLS CA and signed-key pair and create the secret yourself as described in the [documentation](https://kyverno.io/docs/installation/#customize-the-installation-of-kyverno).
 
 ## Default resource filters
 

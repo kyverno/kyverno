@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -560,12 +561,44 @@ type CloneList struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
+func (g *Generation) Validate() error {
+	generateType, _ := g.GetTypeAndSync()
+	if generateType == Data {
+		return nil
+	}
+
+	newGeneration := Generation{
+		ResourceSpec: ResourceSpec{
+			Kind:       g.ResourceSpec.GetKind(),
+			APIVersion: g.ResourceSpec.GetAPIVersion(),
+		},
+		Clone:     g.Clone,
+		CloneList: g.CloneList,
+	}
+
+	return regex.ObjectHasVariables(newGeneration)
+}
+
 func (g *Generation) GetData() apiextensions.JSON {
 	return FromJSON(g.RawData)
 }
 
 func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
+}
+
+type GenerateType string
+
+const (
+	Data  GenerateType = "Data"
+	Clone GenerateType = "Clone"
+)
+
+func (g *Generation) GetTypeAndSync() (GenerateType, bool) {
+	if g.RawData != nil {
+		return Data, g.Synchronize
+	}
+	return Clone, g.Synchronize
 }
 
 // CloneFrom provides the location of the source resource used to generate target resources.
