@@ -4,9 +4,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "kyverno.background-controller.name" . }}
+  namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
-  namespace: {{ template "kyverno.namespace" . }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.backgroundController.replicas }}
   {{- with .Values.backgroundController.updateStrategy }}

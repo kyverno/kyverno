@@ -163,6 +163,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `securityContext` has been replaced with `admissionController.container.securityContext` and `admissionController.initContainer.securityContext`
 - `rbac` has been replaced with `admissionController.rbac`
 - `generatecontrollerExtraResources` has been replaced with `admissionController.rbac.clusterRole.extraResources`
+- `networkPolicy` has been replaced with `admissionController.networkPolicy`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -219,8 +220,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
 | customLabels | object | `{}` | Additional labels |
-| networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
-| networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 | grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
@@ -291,6 +290,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | admissionController.metricsService.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 | admissionController.metricsService.annotations | object | `{}` | Service annotations. |
+| admissionController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
+| admissionController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
@@ -333,6 +334,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | cleanupController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
 | cleanupController.metricsService.annotations | object | `{}` | Service annotations. |
+| cleanupController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
+| cleanupController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | cleanupController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | cleanupController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | cleanupController.serviceMonitor.namespace | string | `nil` | Override namespace |
@@ -384,6 +387,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | reportsController.metricsService.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 | reportsController.metricsService.annotations | object | `{}` | Service annotations. |
+| reportsController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
+| reportsController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | reportsController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | reportsController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | reportsController.serviceMonitor.namespace | string | `nil` | Override namespace |
@@ -435,6 +440,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | backgroundController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | backgroundController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
 | backgroundController.metricsService.annotations | object | `{}` | Service annotations. |
+| backgroundController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
+| backgroundController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | backgroundController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | backgroundController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | backgroundController.serviceMonitor.namespace | string | `nil` | Override namespace |

@@ -207,13 +207,6 @@ test:
 # -- Additional labels
 customLabels: {}
 
-networkPolicy:
-  # -- When true, use a NetworkPolicy to allow ingress to the webhook
-  # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
-  enabled: false
-  # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
-  ingressFrom: []
-
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
   enabled: false
@@ -534,6 +527,15 @@ admissionController:
     # -- Service annotations.
     annotations: {}
 
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
 # Cleanup controller configuration
 cleanupController:
 
@@ -739,6 +741,15 @@ cleanupController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
 
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
@@ -976,6 +987,15 @@ reportsController:
     # -- Service annotations.
     annotations: {}
 
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
@@ -1168,6 +1188,15 @@ backgroundController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
 
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
