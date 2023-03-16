@@ -747,21 +747,19 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 	return true, nil
 }
 
-func jpToBoolean(validateArg []interface{}) (interface{}, error) {
-	str, ok := validateArg[0].(string)
-	if !ok {
-		return nil, fmt.Errorf("jpToBoolean: argument must be a string")
-	}
-	lowerStr := strings.ToLower(str)
-
-	if lowerStr != "true" && lowerStr != "false" {
-		return nil, fmt.Errorf("jpToBoolean: argument must be 'true' or 'false'")
-	}
-	b, err := strconv.ParseBool(lowerStr)
-	if err != nil {
+func jpToBoolean(arguments []interface{}) (interface{}, error) {
+	if input, err := validateArg(toBoolean, arguments, 0, reflect.String); err != nil {
 		return nil, err
+	} else {
+		switch strings.ToLower(input.String()) {
+		case "true":
+			return true, nil
+		case "false":
+			return false, nil
+		default:
+			return nil, formatError(genericError, toBoolean, fmt.Sprintf("lowercase argument must be 'true' or 'false' (provided: '%s')", input.String()))
+		}
 	}
-	return b, nil
 }
 
 func jpAdd(arguments []interface{}) (interface{}, error) {
