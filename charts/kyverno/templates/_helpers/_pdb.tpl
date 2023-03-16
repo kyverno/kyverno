@@ -10,7 +10,7 @@ policy/v1beta1
 
 {{- define "kyverno.pdb.spec" -}}
 {{- if and .minAvailable .maxUnavailable -}}
-    {{- fail "Cannot set both .minAvailable and .maxUnavailable" -}}
+  {{- fail "Cannot set both .minAvailable and .maxUnavailable" -}}
 {{- end -}}
 {{- if not .maxUnavailable }}
 minAvailable: {{ default 1 .minAvailable }}
