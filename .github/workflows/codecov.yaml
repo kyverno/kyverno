@@ -27,7 +27,7 @@ jobs:
         with:
           build-cache-key: codecov
       - name: Generate Code Coverage Report
-        run: make code-cov-report
+        run: go test ./... -cover -coverpkg ./... -race -coverprofile=coverage.out -covermode=atomic
       - name: Upload Report to Codecov
         uses: codecov/codecov-action@d9f34f8cd5cb3b3eb79b3e4b5dae3a16df499a70 # v3.1.1
         with:
