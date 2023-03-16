@@ -199,11 +199,6 @@ test:
 # -- Additional labels
 customLabels: {}
 
-# -- Additional resources to be added to controller RBAC permissions.
-generatecontrollerExtraResources: []
-# - ResourceA
-# - ResourceB
-
 # -- Exclude Kyverno namespace
 # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
 excludeKyvernoNamespace: true
@@ -553,6 +548,10 @@ cleanupController:
       # -- Service account name
       name:
 
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
+
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []
@@ -797,6 +796,10 @@ reportsController:
       # -- Service account name
       name:
 
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
+
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []
@@ -1028,6 +1031,10 @@ backgroundController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
