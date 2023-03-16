@@ -199,11 +199,6 @@ test:
 # -- Additional labels
 customLabels: {}
 
-# -- Additional resources to be added to controller RBAC permissions.
-generatecontrollerExtraResources: []
-# - ResourceA
-# - ResourceB
-
 # -- Exclude Kyverno namespace
 # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
 excludeKyvernoNamespace: true
