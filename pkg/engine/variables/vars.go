@@ -346,7 +346,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 
 				if variable == "@" {
 					pathPrefix := "target"
-					if _, err := ctx.Query("target"); err != nil {
+					if data, err := ctx.Query("target"); err != nil || data == nil {
 						pathPrefix = "request.object"
 					}
 
