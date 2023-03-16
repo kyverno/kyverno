@@ -69,8 +69,6 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 		queryLabels = common.GenerateLabelsSet(urSpec.Policy, urSpec.GetResource())
 	}
 
-	// TODO(shuting): remove
-	// if len(urList) == 0 || urSpec.DeleteDownstream {
 	l.V(4).Info("creating new UpdateRequest")
 	ur := kyvernov1beta1.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
@@ -92,6 +90,5 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov1beta1.
 		return err
 	}
 	l.V(4).Info("successfully created UpdateRequest", "name", updated.GetName(), "namespace", ur.GetNamespace())
-	// }
 	return nil
 }
