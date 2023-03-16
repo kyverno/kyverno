@@ -7,17 +7,29 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type Predicate = func(metav1.Object, metav1.Object) bool
+
+func CheckVersion(old, obj metav1.Object) bool {
+	return old.GetResourceVersion() != obj.GetResourceVersion()
+}
+
+func CheckGeneration(old, obj metav1.Object) bool {
+	return old.GetGeneration() != obj.GetGeneration()
+}
+
 type controller struct {
-	logger logr.Logger
+	logger     logr.Logger
+	predicates []Predicate
 }
 
 type informer interface {
 	Informer() cache.SharedIndexInformer
 }
 
-func NewController(logger logr.Logger, objectType string, informer informer) {
+func NewController(logger logr.Logger, objectType string, informer informer, predicates ...Predicate) {
 	c := controller{
-		logger: logger.WithValues("type", objectType),
+		logger:     logger.WithValues("type", objectType),
+		predicates: predicates,
 	}
 	controllerutils.AddEventHandlersT(informer.Informer(), c.add, c.update, c.delete)
 }
@@ -32,14 +44,17 @@ func (c *controller) add(obj metav1.Object) {
 }
 
 func (c *controller) update(old, obj metav1.Object) {
-	if old.GetResourceVersion() != obj.GetResourceVersion() {
-		name, err := cache.MetaNamespaceKeyFunc(obj)
-		if err != nil {
-			c.logger.Error(err, "failed to extract name", "object", obj)
-			name = "unknown"
+	for _, predicate := range c.predicates {
+		if !predicate(old, obj) {
+			return
 		}
-		c.logger.Info("resource updated", "name", name)
 	}
+	name, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		c.logger.Error(err, "failed to extract name", "object", obj)
+		name = "unknown"
+	}
+	c.logger.Info("resource updated", "name", name)
 }
 
 func (c *controller) delete(obj metav1.Object) {

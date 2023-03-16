@@ -355,8 +355,18 @@ func main() {
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
 	// log policy changes
-	genericloggingcontroller.NewController(logger.WithName("policy"), "Policy", kyvernoInformer.Kyverno().V1().Policies())
-	genericloggingcontroller.NewController(logger.WithName("cluster-policy"), "ClusterPolicy", kyvernoInformer.Kyverno().V1().ClusterPolicies())
+	genericloggingcontroller.NewController(
+		logger.WithName("policy"),
+		"Policy",
+		kyvernoInformer.Kyverno().V1().Policies(),
+		genericloggingcontroller.CheckGeneration,
+	)
+	genericloggingcontroller.NewController(
+		logger.WithName("cluster-policy"),
+		"ClusterPolicy",
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		genericloggingcontroller.CheckGeneration,
+	)
 	runtime := runtimeutils.NewRuntime(
 		logger.WithName("runtime-checks"),
 		serverIP,
