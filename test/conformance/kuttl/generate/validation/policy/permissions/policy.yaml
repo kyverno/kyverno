@@ -7,7 +7,7 @@ apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: pol-validate-create-sa-permission
-  namespace: pol-validate-create-sa-permission-nss
+  namespace: pol-validate-create-sa-permission-ns
 spec:
   rules:
   - name: clone-secret
@@ -20,8 +20,8 @@ spec:
       apiVersion: v1
       kind: ServiceAccount
       name: cpol-validate-create-sa-permission-sa
-      namespace: pol-validate-create-sa-permission-nss
+      namespace: pol-validate-create-sa-permission-ns
       synchronize: true
       clone:
-        namespace: pol-validate-create-sa-permission-nss
+        namespace: pol-validate-create-sa-permission-ns
         name: regcred
