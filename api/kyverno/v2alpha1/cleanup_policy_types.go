@@ -180,6 +180,8 @@ type CleanupPolicyStatus struct {
 
 // Validate implements programmatic validation
 func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set[string], namespaced bool) (errs field.ErrorList) {
+	// Write context validation code here by following other validations.
+	errs = append(errs, ValidateContext(path.Child("context"), p.Context)...)
 	errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
 	if userInfoErrs := p.MatchResources.ValidateNoUserInfo(path.Child("match")); len(userInfoErrs) != 0 {
 		errs = append(errs, userInfoErrs...)
@@ -194,6 +196,19 @@ func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set
 		}
 	}
 	errs = append(errs, p.ValidateMatchExcludeConflict(path)...)
+	return errs
+}
+
+func ValidateContext(path *field.Path, context []kyvernov1.ContextEntry) (errs field.ErrorList) {
+	if context != nil {
+		for _, entry := range context {
+			if entry.ImageRegistry != nil {
+				errs = append(errs, field.Invalid(path, context, "ImageRegistry is not allowed in CleanUp Policy"))
+			} else if entry.ConfigMap != nil {
+				errs = append(errs, field.Invalid(path, context, "ConfigMap is not allowed in CleanUp Policy"))
+			}
+		}
+	}
 	return errs
 }
 
