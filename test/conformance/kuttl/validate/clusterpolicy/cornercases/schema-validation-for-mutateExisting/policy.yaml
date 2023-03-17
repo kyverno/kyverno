@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-cm-for-kube-state-metrics-crds
+  annotations:
+    policies.kyverno.io/description: >-
+      This policy generates and synchronizes a configmap for custom resource kube-state-metrics.
+spec:
+  generateExisting: true
+  mutateExistingOnPolicyUpdate: true
+  rules:
+    - name: restart-kube-state-metrics-on-cm-change
+      match:
+        any:
+          - resources:
+              kinds:
+                - ConfigMap
+              names:
+                - "kube-state-metrics-crds"
+              namespaces:
+                - "kube-state-metrics"
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.labels.\"kubestatemetrics.platform.example\" || '' }}"
+            operator: NotEquals
+            value: source
+      mutate:
+        targets:
+          - apiVersion: apps/v1
+            kind: Deployment
+            name: kube-state-metrics
+            namespace: kube-state-metrics
+        patchStrategicMerge:
+          spec:
+            template:
+              metadata:
+                annotations:
+                  platform.cloud.allianz/triggerrestart: "{{request.object.metadata.resourceVersion}}"

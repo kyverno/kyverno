@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
+	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
@@ -331,6 +332,7 @@ func main() {
 		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)
 	}
+	var wg sync.WaitGroup
 	certRenewer := tls.NewCertRenewer(
 		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 		secretLister,
@@ -352,6 +354,20 @@ func main() {
 		metricsConfig,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		&wg,
+	)
+	// log policy changes
+	genericloggingcontroller.NewController(
+		logger.WithName("policy"),
+		"Policy",
+		kyvernoInformer.Kyverno().V1().Policies(),
+		genericloggingcontroller.CheckGeneration,
+	)
+	genericloggingcontroller.NewController(
+		logger.WithName("cluster-policy"),
+		"ClusterPolicy",
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		genericloggingcontroller.CheckGeneration,
 	)
 	runtime := runtimeutils.NewRuntime(
 		logger.WithName("runtime-checks"),
@@ -401,7 +417,7 @@ func main() {
 		}
 	}
 	// start event generator
-	go eventGenerator.Run(signalCtx, 3)
+	go eventGenerator.Run(signalCtx, 3, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
@@ -462,7 +478,6 @@ func main() {
 		os.Exit(1)
 	}
 	// start non leader controllers
-	var wg sync.WaitGroup
 	for _, controller := range nonLeaderControllers {
 		controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 	}
