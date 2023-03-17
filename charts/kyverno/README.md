@@ -114,6 +114,8 @@ spec:
 In `v3` chart values changed significantly, please read the instructions below to migrate your values:
 
 - `config.metricsConfig` is now `metricsConfig`
+- `resourceFiltersExcludeNamespaces` has been replaced with `config.resourceFiltersExcludeNamespaces`
+- `excludeKyvernoNamespace` has been replaced with `config.excludeKyvernoNamespace`
 - `config.existingConfig` has been replaced with `config.create` and `config.name` to __support bring your own config__
 - `config.existingMetricsConfig` has been replaced with `metricsConfig.create` and `metricsConfig.name` to __support bring your own config__
 - `namespace` has been renamed `namespaceOverride`
@@ -161,6 +163,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `securityContext` has been replaced with `admissionController.container.securityContext` and `admissionController.initContainer.securityContext`
 - `rbac` has been replaced with `admissionController.rbac`
 - `generatecontrollerExtraResources` has been replaced with `admissionController.rbac.clusterRole.extraResources`
+- `networkPolicy` has been replaced with `admissionController.networkPolicy`
+- all `extraArgs` now use objects instead of arrays
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -199,6 +203,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
 | config.webhooks | list | `[]` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
 | config.webhookAnnotations | object | `{}` | Defines annotations to set on webhook configurations. |
+| config.excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
+| config.resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
 | metricsConfig.create | bool | `true` | Create the configmap. |
 | metricsConfig.name | string | `nil` | The configmap name (required if `create` is `false`). |
 | metricsConfig.annotations | object | `{}` | Additional annotations to add to the configmap. |
@@ -215,11 +221,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
 | customLabels | object | `{}` | Additional labels |
-| generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
-| excludeKyvernoNamespace | bool | `true` | Exclude Kyverno namespace Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters |
-| resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
-| networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
-| networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 | grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
@@ -268,7 +269,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.initContainer.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | admissionController.initContainer.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | admissionController.initContainer.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
-| admissionController.initContainer.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
+| admissionController.initContainer.extraArgs | object | `{"loggingFormat":"text"}` | Additional container args. |
 | admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.container.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.container.image.repository | string | `"kyverno/kyverno"` | Image repository |
@@ -277,7 +278,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | admissionController.container.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
-| admissionController.container.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
+| admissionController.container.extraArgs | object | `{"loggingFormat":"text"}` | Additional container args. |
 | admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.extraInitContainers | list | `[]` | Array of extra init containers |
 | admissionController.extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
@@ -290,9 +291,12 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | admissionController.metricsService.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 | admissionController.metricsService.annotations | object | `{}` | Service annotations. |
+| admissionController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
+| admissionController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
+| cleanupController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | cleanupController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | cleanupController.createSelfSignedCert | bool | `false` | Create self-signed certificates at deployment time. The certificates won't be automatically renewed if this is set to `true`. |
 | cleanupController.image.registry | string | `"ghcr.io"` | Image registry |
@@ -305,7 +309,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.priorityClassName | string | `""` | Optional priority class |
 | cleanupController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | cleanupController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| cleanupController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| cleanupController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | cleanupController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | cleanupController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
@@ -331,6 +335,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | cleanupController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
 | cleanupController.metricsService.annotations | object | `{}` | Service annotations. |
+| cleanupController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
+| cleanupController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | cleanupController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | cleanupController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | cleanupController.serviceMonitor.namespace | string | `nil` | Override namespace |
@@ -351,6 +357,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.enabled | bool | `true` | Enable reports controller. |
 | reportsController.rbac.create | bool | `true` | Create RBAC resources |
 | reportsController.rbac.serviceAccount.name | string | `nil` | Service account name |
+| reportsController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | reportsController.image.registry | string | `"ghcr.io"` | Image registry |
 | reportsController.image.repository | string | `"kyverno/reports-controller"` | Image repository |
@@ -381,6 +388,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | reportsController.metricsService.nodePort | string | `nil` | Service node port. Only used if `type` is `NodePort`. |
 | reportsController.metricsService.annotations | object | `{}` | Service annotations. |
+| reportsController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
+| reportsController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | reportsController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | reportsController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | reportsController.serviceMonitor.namespace | string | `nil` | Override namespace |
@@ -401,6 +410,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | backgroundController.enabled | bool | `true` | Enable background controller. |
 | backgroundController.rbac.create | bool | `true` | Create RBAC resources |
 | backgroundController.rbac.serviceAccount.name | string | `nil` | Service account name |
+| backgroundController.rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
 | backgroundController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
 | backgroundController.image.registry | string | `nil` | Image registry |
 | backgroundController.image.repository | string | `"ghcr.io/kyverno/background-controller"` | Image repository |
@@ -412,7 +422,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | backgroundController.priorityClassName | string | `""` | Optional priority class |
 | backgroundController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | backgroundController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| backgroundController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| backgroundController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | backgroundController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | backgroundController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | backgroundController.nodeSelector | object | `{}` | Node labels for pod assignment |
@@ -431,6 +441,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | backgroundController.metricsService.type | string | `"ClusterIP"` | Service type. |
 | backgroundController.metricsService.nodePort | string | `nil` | Service node port. Only used if `metricsService.type` is `NodePort`. |
 | backgroundController.metricsService.annotations | object | `{}` | Service annotations. |
+| backgroundController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
+| backgroundController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | backgroundController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
 | backgroundController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
 | backgroundController.serviceMonitor.namespace | string | `nil` | Override namespace |

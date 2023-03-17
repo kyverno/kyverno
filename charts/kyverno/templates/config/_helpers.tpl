@@ -32,10 +32,10 @@
 
 {{- define "kyverno.config.resourceFilters" -}}
 {{- $resourceFilters := .Values.config.resourceFilters }}
-{{- if .Values.excludeKyvernoNamespace }}
+{{- if .Values.config.excludeKyvernoNamespace }}
   {{- $resourceFilters = prepend .Values.config.resourceFilters (printf "[*,%s,*]" (include "kyverno.namespace" .)) }}
 {{- end }}
-{{- range $exclude := .Values.resourceFiltersExcludeNamespaces }}
+{{- range $exclude := .Values.config.resourceFiltersExcludeNamespaces }}
   {{- range $filter := $resourceFilters }}
     {{- if (contains (printf ",%s," $exclude) $filter) }}
       {{- $resourceFilters = without $resourceFilters $filter }}
