@@ -394,7 +394,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
 		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
-			return warnings, err
+			return warnings, fmt.Errorf("%s (you can bypass schema validation by setting `spec.schemaValidation: false`)", err)
 		}
 	}
 	return warnings, nil
