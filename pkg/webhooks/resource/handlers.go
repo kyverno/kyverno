@@ -58,7 +58,6 @@ type handlers struct {
 	eventGen       event.Interface
 	openApiManager openapi.ValidateInterface
 	pcBuilder      webhookutils.PolicyContextBuilder
-	urUpdater      webhookutils.UpdateRequestUpdater
 
 	admissionReports bool
 }
@@ -98,7 +97,6 @@ func NewHandlers(
 		eventGen:         eventGen,
 		openApiManager:   openApiManager,
 		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
-		urUpdater:        webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
 		admissionReports: admissionReports,
 	}
 }
