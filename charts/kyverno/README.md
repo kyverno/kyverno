@@ -164,6 +164,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `rbac` has been replaced with `admissionController.rbac`
 - `generatecontrollerExtraResources` has been replaced with `admissionController.rbac.clusterRole.extraResources`
 - `networkPolicy` has been replaced with `admissionController.networkPolicy`
+- all `extraArgs` now use objects instead of arrays
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
@@ -268,7 +269,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.initContainer.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | admissionController.initContainer.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | admissionController.initContainer.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
-| admissionController.initContainer.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
+| admissionController.initContainer.extraArgs | object | `{"loggingFormat":"text"}` | Additional container args. |
 | admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.container.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.container.image.repository | string | `"kyverno/kyverno"` | Image repository |
@@ -277,7 +278,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | admissionController.container.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
-| admissionController.container.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
+| admissionController.container.extraArgs | object | `{"loggingFormat":"text"}` | Additional container args. |
 | admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.extraInitContainers | list | `[]` | Array of extra init containers |
 | admissionController.extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
@@ -308,7 +309,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.priorityClassName | string | `""` | Optional priority class |
 | cleanupController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | cleanupController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| cleanupController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| cleanupController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | cleanupController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | cleanupController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
@@ -421,7 +422,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | backgroundController.priorityClassName | string | `""` | Optional priority class |
 | backgroundController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | backgroundController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| backgroundController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| backgroundController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | backgroundController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | backgroundController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | backgroundController.nodeSelector | object | `{}` | Node labels for pod assignment |
