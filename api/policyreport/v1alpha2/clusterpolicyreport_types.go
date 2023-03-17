@@ -71,10 +71,6 @@ func (r *ClusterPolicyReport) SetSummary(summary PolicyReportSummary) {
 	r.Summary = summary
 }
 
-func (r *ClusterPolicyReport) GetOwner() metav1.OwnerReference {
-	return metav1.OwnerReference{}
-}
-
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

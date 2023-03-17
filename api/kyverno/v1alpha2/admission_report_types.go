@@ -70,10 +70,6 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 	r.Spec.Summary = summary
 }
 
-func (r *AdmissionReport) GetOwner() metav1.OwnerReference {
-	return r.Spec.Owner
-}
-
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -109,10 +105,6 @@ func (r *ClusterAdmissionReport) SetResults(results []policyreportv1alpha2.Polic
 
 func (r *ClusterAdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
 	r.Spec.Summary = summary
-}
-
-func (r *ClusterAdmissionReport) GetOwner() metav1.OwnerReference {
-	return r.Spec.Owner
 }
 
 // +kubebuilder:object:root=true
