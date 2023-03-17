@@ -251,10 +251,12 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
+		fmt.Println("======1")
 		if namespaced {
+			fmt.Println("======2")
 			return warnings, checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res)
 		}
-
+		fmt.Println("======3")
 		if err := validateActions(i, &rules[i], client, mock); err != nil {
 			return warnings, err
 		}
