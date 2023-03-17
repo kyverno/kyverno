@@ -40,7 +40,6 @@ func NewGenerationHandler(
 	cpolLister kyvernov1listers.ClusterPolicyLister,
 	polLister kyvernov1listers.PolicyLister,
 	urGenerator webhookgenerate.Generator,
-	urUpdater webhookutils.UpdateRequestUpdater,
 	eventGen event.Interface,
 	metrics metrics.MetricsConfigManager,
 ) GenerationHandler {
@@ -54,7 +53,6 @@ func NewGenerationHandler(
 		cpolLister:    cpolLister,
 		polLister:     polLister,
 		urGenerator:   urGenerator,
-		urUpdater:     urUpdater,
 		eventGen:      eventGen,
 		metrics:       metrics,
 	}
@@ -70,7 +68,6 @@ type generationHandler struct {
 	cpolLister    kyvernov1listers.ClusterPolicyLister
 	polLister     kyvernov1listers.PolicyLister
 	urGenerator   webhookgenerate.Generator
-	urUpdater     webhookutils.UpdateRequestUpdater
 	eventGen      event.Interface
 	metrics       metrics.MetricsConfigManager
 }
