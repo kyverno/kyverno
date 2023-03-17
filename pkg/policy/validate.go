@@ -1213,16 +1213,16 @@ func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidation
 	for _, k := range kinds {
 		if !mock {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(k)
-			gvrs, err := client.Discovery().FindResources(group, version, kind, subresource)
+			gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", k, err)
 			}
-			if len(gvrs) == 0 {
+			if len(gvrss) == 0 {
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s", k)
 			}
 			if backgroundScanningEnabled {
-				for _, gvr := range gvrs {
-					if strings.Contains(gvr.Resource, "/") {
+				for gvrs := range gvrss {
+					if strings.Contains(gvrs.Resource, "/") {
 						return fmt.Errorf("background scan enabled with subresource %s", subresource)
 					}
 				}

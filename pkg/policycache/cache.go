@@ -4,10 +4,11 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ResourceFinder interface {
-	FindResources(group, version, kind, subresource string) ([]dclient.GroupVersionResourceSubresource, error)
+	FindResources(group, version, kind, subresource string) (map[dclient.GroupVersionResourceSubresource]metav1.APIResource, error)
 }
 
 // Cache get method use for to get policy names and mostly use to test cache testcases
