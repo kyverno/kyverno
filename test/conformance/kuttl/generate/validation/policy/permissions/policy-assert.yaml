@@ -2,6 +2,7 @@ apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: pol-validate-create-sa-permission
+  namespace: pol-validate-create-sa-permission-ns
 status:
   conditions:
   - reason: Succeeded
