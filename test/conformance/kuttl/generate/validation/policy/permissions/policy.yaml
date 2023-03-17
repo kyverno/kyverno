@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pol-validate-create-sa-permission-ns
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: pol-validate-create-sa-permission
+  namespace: pol-validate-create-sa-permission-nss
+spec:
+  rules:
+  - name: clone-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: ServiceAccount
+      name: cpol-validate-create-sa-permission-sa
+      namespace: pol-validate-create-sa-permission-nss
+      synchronize: true
+      clone:
+        namespace: pol-validate-create-sa-permission-nss
+        name: regcred
