@@ -137,7 +137,7 @@ func (op1 Quantity) Add(op2 interface{}, check bool) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
 		op1.Quantity.Add(v.Quantity)
-		if(check == true){
+		if(check){
 		 return op1.String(),nil
 	}else
 	{
@@ -151,7 +151,7 @@ func (op1 Quantity) Add(op2 interface{}, check bool) (interface{}, error) {
 func (op1 Duration) Add(op2 interface{}, check bool) (interface{}, error) {
 	switch v := op2.(type) {
 	case Duration:
-		if(check == true){
+		if(check){
 			return (op1.Duration + v.Duration).String(), nil
 		}else{
 			return (op1.Duration + v.Duration), nil
