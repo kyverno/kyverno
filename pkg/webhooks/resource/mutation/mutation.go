@@ -160,7 +160,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 	policyPatches := engineResponse.GetPatches()
 
 	if !engineResponse.IsSuccessful() {
-		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRules())
+		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRulesWithErrors())
 	}
 
 	if policyContext.Policy().ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {

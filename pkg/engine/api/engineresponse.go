@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"reflect"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -116,6 +117,11 @@ func (er EngineResponse) GetFailedRules() []string {
 	return er.getRules(func(rule RuleResponse) bool { return rule.HasStatus(RuleStatusFail, RuleStatusError) })
 }
 
+// GetFailedRulesWithErrors returns failed rules with corresponding error messages
+func (er EngineResponse) GetFailedRulesWithErrors() []string {
+	return er.getRulesWithErrors(func(rule RuleResponse) bool { return rule.HasStatus(RuleStatusFail, RuleStatusError) })
+}
+
 // GetSuccessRules returns success rules
 func (er EngineResponse) GetSuccessRules() []string {
 	return er.getRules(func(rule RuleResponse) bool { return rule.HasStatus(RuleStatusPass) })
@@ -137,6 +143,16 @@ func (er EngineResponse) getRules(predicate func(RuleResponse) bool) []string {
 	for _, r := range er.PolicyResponse.Rules {
 		if predicate(r) {
 			rules = append(rules, r.Name)
+		}
+	}
+	return rules
+}
+
+func (er EngineResponse) getRulesWithErrors(predicate func(RuleResponse) bool) []string {
+	var rules []string
+	for _, r := range er.PolicyResponse.Rules {
+		if predicate(r) {
+			rules = append(rules, fmt.Sprintf("%s: %s", r.Name, r.Message))
 		}
 	}
 	return rules
