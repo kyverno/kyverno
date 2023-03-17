@@ -50,6 +50,7 @@ var (
 	patternMatch           = "pattern_match"
 	labelMatch             = "label_match"
 	add                    = "add"
+	sum					   = "sum"	
 	subtract               = "subtract"
 	multiply               = "multiply"
 	divide                 = "divide"
@@ -230,15 +231,25 @@ func GetFunctions() []FunctionEntry {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: add,
 			Arguments: []argSpec{
-				// {Types: []jpType{jpAny}},
-				// {Types: []jpType{jpAny}},
-				{Types: []jpType{jpArray}},
+				{Types: []jpType{jpAny}},
+				{Types: []jpType{jpAny}},
+				// {Types: []jpType{jpArray}},
 			},
 			Handler: jpAdd,
 		},
 		ReturnType: []jpType{jpAny},
+		Note:       "does arithmetic addition of two specified values of numbers, quantities, and durations",
+	},{
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: sum,
+			Arguments: []argSpec{
+				 {Types: []jpType{jpArray}},
+			},
+			Handler: jpSum,
+		},
+		ReturnType: []jpType{jpAny},
 		Note:       "does arithmetic addition of specified array of values of numbers, quantities, and durations",
-	}, {
+	},{
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: subtract,
 			Arguments: []argSpec{
@@ -738,19 +749,21 @@ func jpLabelMatch(arguments []interface{}) (interface{}, error) {
 }
 
 func jpAdd(arguments []interface{}) (interface{}, error) {
-	// fmt.Printf("%T\n", arguments)
-	
-	args, _ := arguments[0].([]interface{})
-	// fmt.Printf("arguments in jpAdd %+v and type is %T\n", args, args)
-	ops, err := ParseArithmeticOperandsArray(args, add)
-	//  op1, op2, err := ParseArithemticOperands(arguments, add)
-	//  fmt.Printf("op1 %T ", op1)
-	//  fmt.Printf("op2 %T ", op2)
+	op1, op2, err := ParseArithemticOperands(arguments, add)
 	if err != nil {
 		return nil, err
 	}
 
-	//   return op1.Add(op2)
+   return op1.Add(op2, true)
+}
+
+func jpSum(arguments []interface{})(interface{}, error){
+	args, _ := arguments[0].([]interface{})
+	ops, err := ParseArithmeticOperandsArray(args, add)
+	if err != nil {
+		return nil, err
+	}
+
 	switch ops[0].(type) {
     case Scalar:
         return addScalars(ops)

@@ -11,7 +11,7 @@ import (
 )
 
 type Operand interface {
-	Add(interface{}) (interface{}, error)
+	Add(interface{}, bool) (interface{}, error)
 	Subtract(interface{}) (interface{}, error)
 	Multiply(interface{}) (interface{}, error)
 	Divide(interface{}) (interface{}, error)
@@ -85,7 +85,7 @@ func addScalars(scalars []Operand) (interface{}, error) {
 	result := scalars[0]
 	for i := 1; i < len(scalars); i++ {
 	
-		res, err := result.Add(scalars[i])
+		res, err := result.Add(scalars[i], true)
 		
 		if err != nil {
 			return nil, err
@@ -104,7 +104,7 @@ func addQuantities(quantities []Operand)(interface{}, error){
 
     result := quantities[0].(Quantity)
     for i := 1; i < len(quantities); i++ {
-        res, err := result.Add(quantities[i])
+        res, err := result.Add(quantities[i], false)
         if err != nil {
             return Quantity{}, err
         }
@@ -123,40 +123,46 @@ func addDurations(durations []Operand)(interface{}, error){
 
 	// Add the remaining durations in the array to the result using the `Add` method
 	for i := 1; i < len(durations); i++ {
-		value, err := result.Add(durations[i])
+		value, err := result.Add(durations[i], false)
 		if err != nil {
 			return "", err
 		}
-
 		result = Duration{value.(time.Duration)}
-		if err != nil {
-			return "", err
-		}
 	}
 
 	return result.(Duration).String(), nil
 }
 
-func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
+func (op1 Quantity) Add(op2 interface{}, check bool) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
 		op1.Quantity.Add(v.Quantity)
+		if(check == true){
+		 return op1.String(),nil
+	}else
+	{
 		return op1, nil
+	}
 	default:
 		return nil, formatError(typeMismatchError, add)
 	}
 }
 
-func (op1 Duration) Add(op2 interface{}) (interface{}, error) {
+func (op1 Duration) Add(op2 interface{}, check bool) (interface{}, error) {
 	switch v := op2.(type) {
 	case Duration:
-		return (op1.Duration + v.Duration), nil
+		if(check == true){
+			return (op1.Duration + v.Duration).String(), nil
+		}else{
+			return (op1.Duration + v.Duration), nil
+		}
+		
 	default:
 		return nil, formatError(typeMismatchError, add)
 	}
 }
 
-func (op1 Scalar) Add(op2 interface{}) (interface{}, error) {
+func (op1 Scalar) Add(op2 interface{}, check bool) (interface{}, error) {
 	switch v := op2.(type) {
 	case Scalar:
 		return op1.float64 + v.float64, nil
