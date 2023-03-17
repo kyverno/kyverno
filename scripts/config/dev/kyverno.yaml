@@ -17,6 +17,10 @@ admissionController:
       tracingPort: 4317
       enablePolicyException: true
 
+backgroundController:
+  serviceMonitor:
+    enabled: true
+
 cleanupController:
   rbac:
     clusterRole:
