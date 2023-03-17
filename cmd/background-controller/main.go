@@ -206,10 +206,12 @@ func main() {
 		logging.WithName("EventGenerator"),
 	)
 	// this controller only subscribe to events, nothing is returned...
+	var wg sync.WaitGroup
 	policymetricscontroller.NewController(
 		metricsConfig,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		&wg,
 	)
 	engine := engine.NewEngine(
 		configuration,
@@ -225,7 +227,7 @@ func main() {
 		os.Exit(1)
 	}
 	// start event generator
-	go eventGenerator.Run(signalCtx, 3)
+	go eventGenerator.Run(signalCtx, 3, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
@@ -280,6 +282,7 @@ func main() {
 	for {
 		select {
 		case <-signalCtx.Done():
+			wg.Wait()
 			return
 		default:
 			le.Run(signalCtx)
