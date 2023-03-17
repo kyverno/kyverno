@@ -119,7 +119,7 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 			return "", err
 		}
 		if !ok {
-			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
+			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
 		}
 	} else {
 		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
