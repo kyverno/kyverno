@@ -27,7 +27,6 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	}
 
 	var checker Validation
-	fmt.Println("======4")
 	// Mutate
 	if rule.HasMutate() {
 		checker = mutate.NewMutateFactory(rule.Mutation)
@@ -44,21 +43,17 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 		}
 	}
 
-	fmt.Println("======5")
 	// Generate
 	if rule.HasGenerate() {
-		fmt.Println("======6")
 		// TODO: this check is there to support offline validations
 		// generate uses selfSubjectReviews to verify actions
 		// this need to modified to use different implementation for online and offline mode
 		if mock {
-			fmt.Println("======7")
 			checker = generate.NewFakeGenerate(rule.Generation)
 			if path, err := checker.Validate(); err != nil {
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			}
 		} else {
-			fmt.Println("======8")
 			checker = generate.NewGenerateFactory(client, rule.Generation, logging.GlobalLogger())
 			if path, err := checker.Validate(); err != nil {
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
