@@ -33,7 +33,7 @@ func Test_All(t *testing.T) {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
-			for _, gvr := range gvrs {
+			for gvr := range gvrs {
 				// get
 				mutate := pCache.get(Mutate, gvr, "")
 				if len(mutate) != 1 {
@@ -69,7 +69,7 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
-			for _, gvr := range gvrs {
+			for gvr := range gvrs {
 				mutate := pCache.get(Mutate, gvr, "")
 				if len(mutate) != 1 {
 					t.Errorf("expected 1 mutate policy, found %v", len(mutate))
@@ -102,7 +102,7 @@ func Test_Add_Validate_Audit(t *testing.T) {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
-			for _, gvr := range gvrs {
+			for gvr := range gvrs {
 				validateEnforce := pCache.get(ValidateEnforce, gvr, "")
 				if len(validateEnforce) != 0 {
 					t.Errorf("expected 0 validate (enforce) policy, found %v", len(validateEnforce))
@@ -899,7 +899,7 @@ func Test_Ns_All(t *testing.T) {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
-			for _, gvr := range gvrs {
+			for gvr := range gvrs {
 				// get
 				mutate := pCache.get(Mutate, gvr, nspace)
 				if len(mutate) != 1 {
@@ -935,7 +935,7 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
-			for _, gvr := range gvrs {
+			for gvr := range gvrs {
 				mutate := pCache.get(Mutate, gvr, nspace)
 				if len(mutate) != 1 {
 					t.Errorf("expected 1 mutate policy, found %v", len(mutate))
@@ -968,7 +968,7 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
-			for _, gvr := range gvrs {
+			for gvr := range gvrs {
 				validateEnforce := pCache.get(ValidateEnforce, gvr, nspace)
 				if len(validateEnforce) != 0 {
 					t.Errorf("expected 0 validate (enforce) policy, found %v", len(validateEnforce))
@@ -1011,7 +1011,7 @@ func Test_GVk_Cache(t *testing.T) {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
-			for _, gvr := range gvrs {
+			for gvr := range gvrs {
 				generate := pCache.get(Generate, gvr, "")
 				if len(generate) != 1 {
 					t.Errorf("expected 1 generate policy, found %v", len(generate))
@@ -1049,7 +1049,7 @@ func Test_Add_Validate_Enforce(t *testing.T) {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
-			for _, gvr := range gvrs {
+			for gvr := range gvrs {
 				validateEnforce := pCache.get(ValidateEnforce, gvr, nspace)
 				if len(validateEnforce) != 1 {
 					t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
@@ -1090,7 +1090,7 @@ func Test_Mutate_Policy(t *testing.T) {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
-			for _, gvr := range gvrs {
+			for gvr := range gvrs {
 				// get
 				mutate := pCache.get(Mutate, gvr, "")
 				if len(mutate) != 1 {
@@ -1112,7 +1112,7 @@ func Test_Generate_Policy(t *testing.T) {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
-			for _, gvr := range gvrs {
+			for gvr := range gvrs {
 				// get
 				generate := pCache.get(Generate, gvr, "")
 				if len(generate) != 1 {
