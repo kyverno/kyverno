@@ -7,15 +7,15 @@ admissionController:
 
   initContainer:
     extraArgs:
-      - --loggingFormat=json
+      loggingFormat: json
 
   container:
     extraArgs:
-      - --loggingFormat=json
-      - --enableTracing
-      - --tracingAddress=tempo.monitoring
-      - --tracingPort=4317
-      - --enablePolicyException
+      loggingFormat: json
+      enableTracing: true
+      tracingAddress: tempo.monitoring
+      tracingPort: 4317
+      enablePolicyException: true
 
 backgroundController:
   serviceMonitor:
@@ -42,6 +42,9 @@ cleanupController:
     format: json
 
 reportsController:
+  extraArgs:
+    enablePolicyException: true
+
   serviceMonitor:
     enabled: true
 

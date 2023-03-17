@@ -100,8 +100,10 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
-            {{- range .Values.cleanupController.extraArgs }}
-            - {{ . }}
+            {{- range $key, $value := .Values.cleanupController.extraArgs }}
+            {{- if $value }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
             {{- end }}
           env:
           - name: METRICS_CONFIG
