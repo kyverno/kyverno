@@ -12,13 +12,17 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
 	//	resource labels
-	LabelResourceHash = "audit.kyverno.io/resource.hash"
-	LabelResourceUid  = "audit.kyverno.io/resource.uid"
+	LabelResourceHash      = "audit.kyverno.io/resource.hash"
+	LabelResourceUid       = "audit.kyverno.io/resource.uid"
+	LabelResourceGVR       = "audit.kyverno.io/resource.gvr"
+	LabelResourceNamespace = "audit.kyverno.io/resource.namespace"
+	LabelResourceName      = "audit.kyverno.io/resource.name"
 	//	policy labels
 	LabelDomainClusterPolicy = "cpol.kyverno.io"
 	LabelDomainPolicy        = "pol.kyverno.io"
@@ -66,8 +70,21 @@ func SetManagedByKyvernoLabel(obj metav1.Object) {
 	controllerutils.SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
 }
 
-func SetResourceLabels(report kyvernov1alpha2.ReportInterface, uid types.UID) {
+func SetResourceUid(report kyvernov1alpha2.ReportInterface, uid types.UID) {
 	controllerutils.SetLabel(report, LabelResourceUid, string(uid))
+}
+
+func SetResourceGVR(report kyvernov1alpha2.ReportInterface, gvr schema.GroupVersionResource) {
+	if gvr.Group != "" {
+		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version+"."+gvr.Group)
+	} else {
+		controllerutils.SetLabel(report, LabelResourceGVR, gvr.Resource+"."+gvr.Version)
+	}
+}
+
+func SetResourceNamespaceAndName(report kyvernov1alpha2.ReportInterface, namespace, name string) {
+	controllerutils.SetLabel(report, LabelResourceNamespace, namespace)
+	controllerutils.SetLabel(report, LabelResourceName, name)
 }
 
 func CalculateResourceHash(resource unstructured.Unstructured) string {
@@ -102,7 +119,24 @@ func SetPolicyLabel(report kyvernov1alpha2.ReportInterface, policy kyvernov1.Pol
 }
 
 func GetResourceUid(report metav1.Object) types.UID {
-	return types.UID(report.GetLabels()[LabelResourceUid])
+	return types.UID(controllerutils.GetLabel(report, LabelResourceUid))
+}
+
+func GetResourceGVR(report metav1.Object) schema.GroupVersionResource {
+	arg := controllerutils.GetLabel(report, LabelResourceGVR)
+	dots := strings.Count(arg, ".")
+	if dots >= 2 {
+		s := strings.SplitN(arg, ".", 3)
+		return schema.GroupVersionResource{Group: s[2], Version: s[1], Resource: s[0]}
+	} else if dots == 1 {
+		s := strings.SplitN(arg, ".", 2)
+		return schema.GroupVersionResource{Version: s[1], Resource: s[0]}
+	}
+	return schema.GroupVersionResource{Resource: arg}
+}
+
+func GetResourceNamespaceAndName(report kyvernov1alpha2.ReportInterface) (string, string) {
+	return controllerutils.GetLabel(report, LabelResourceNamespace), controllerutils.GetLabel(report, LabelResourceName)
 }
 
 func GetResourceHash(report metav1.Object) string {
