@@ -444,7 +444,7 @@ admissionController:
 
     # -- Additional container args.
     extraArgs:
-      - --loggingFormat=text
+      loggingFormat: text
 
     # -- Additional container environment variables.
     extraEnvVars: []
@@ -485,7 +485,7 @@ admissionController:
 
     # -- Additional container args.
     extraArgs:
-      - --loggingFormat=text
+      loggingFormat: text
 
     # -- Additional container environment variables.
     extraEnvVars: []
@@ -606,7 +606,7 @@ cleanupController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs: []
+  extraArgs: {}
 
   resources:
     # -- Pod resource limits
@@ -1107,7 +1107,7 @@ backgroundController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs: []
+  extraArgs: {}
 
   resources:
     # -- Pod resource limits

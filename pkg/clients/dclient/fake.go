@@ -81,7 +81,7 @@ func (c *fakeDiscoveryClient) FindResource(groupVersion string, kind string) (ap
 	return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("not implemented")
 }
 
-func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error) {
+func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) (map[GroupVersionResourceSubresource]metav1.APIResource, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

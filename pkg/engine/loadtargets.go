@@ -82,7 +82,7 @@ func getTargets(client dclient.Interface, target kyvernov1.ResourceSpec, ctx eng
 	if err != nil {
 		return nil, err
 	}
-	for _, gvrs := range gvrss {
+	for gvrs := range gvrss {
 		dyn := client.GetDynamicInterface().Resource(gvrs.GroupVersionResource)
 		var sub []string
 		if gvrs.SubResource != "" {

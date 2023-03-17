@@ -854,7 +854,9 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
 				continue
 			}
-			gvrsList = append(gvrsList, gvrss...)
+			for gvrs := range gvrss {
+				gvrsList = append(gvrsList, gvrs)
+			}
 		}
 	}
 	for _, gvr := range gvrsList {

@@ -80,10 +80,12 @@ spec:
         - name: kyverno-pre
           image: {{ include "kyverno.image" (dict "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.admissionController.container.image.tag)) | quote }}
           imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
-          {{- with .Values.admissionController.initContainer.extraArgs }}
           args:
-            {{- tpl (toYaml .) $ | nindent 12 }}
-          {{- end }}
+            {{- range $key, $value := .Values.admissionController.initContainer.extraArgs }}
+            {{- if $value }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
+            {{- end }}
           {{- with .Values.admissionController.initContainer.resources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}
@@ -115,16 +117,16 @@ spec:
         - name: kyverno
           image: {{ include "kyverno.image" (dict "image" .Values.admissionController.container.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.admissionController.container.image.pullPolicy }}
-          {{- if or .Values.admissionController.container.extraArgs .Values.imagePullSecrets }}
           args:
             - --servicePort={{ .Values.admissionController.service.port }}
-            {{- if .Values.admissionController.container.extraArgs -}}
-              {{ tpl (toYaml .Values.admissionController.container.extraArgs) . | nindent 12 }}
-            {{- end }}
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
-          {{- end }}
+            {{- range $key, $value := .Values.admissionController.container.extraArgs }}
+            {{- if $value }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
+            {{- end }}
           {{- with .Values.admissionController.container.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
