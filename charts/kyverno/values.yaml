@@ -117,6 +117,14 @@ config:
     # Example to disable admission enforcer on AKS:
     # 'admissions.enforcer/disabled': 'true'
 
+  # -- Exclude Kyverno namespace
+  # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
+  excludeKyvernoNamespace: true
+
+  # -- resourceFilter namespace exclude
+  # Namespaces to exclude from the default resourceFilters
+  resourceFiltersExcludeNamespaces: []
+
 # Metrics configuration
 metricsConfig:
 
@@ -198,26 +206,6 @@ test:
 
 # -- Additional labels
 customLabels: {}
-
-# -- Additional resources to be added to controller RBAC permissions.
-generatecontrollerExtraResources: []
-# - ResourceA
-# - ResourceB
-
-# -- Exclude Kyverno namespace
-# Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
-excludeKyvernoNamespace: true
-
-# -- resourceFilter namespace exclude
-# Namespaces to exclude from the default resourceFilters
-resourceFiltersExcludeNamespaces: []
-
-networkPolicy:
-  # -- When true, use a NetworkPolicy to allow ingress to the webhook
-  # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
-  enabled: false
-  # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
-  ingressFrom: []
 
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
@@ -539,6 +527,15 @@ admissionController:
     # -- Service annotations.
     annotations: {}
 
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
 # Cleanup controller configuration
 cleanupController:
 
@@ -552,6 +549,10 @@ cleanupController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -741,6 +742,15 @@ cleanupController:
     # -- Service annotations.
     annotations: {}
 
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
@@ -796,6 +806,10 @@ reportsController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -973,6 +987,15 @@ reportsController:
     # -- Service annotations.
     annotations: {}
 
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
@@ -1028,6 +1051,10 @@ backgroundController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1161,6 +1188,15 @@ backgroundController:
     nodePort:
     # -- Service annotations.
     annotations: {}
+
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
 
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.

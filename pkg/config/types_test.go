@@ -179,3 +179,40 @@ func Test_parseIncludeExcludeNamespacesFromNamespacesConfig(t *testing.T) {
 		})
 	}
 }
+
+func Test_parseWebhookAnnotations(t *testing.T) {
+	type args struct {
+		in string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    map[string]string
+		wantErr bool
+	}{{
+		args:    args{"hello"},
+		wantErr: true,
+	}, {
+		args:    args{""},
+		wantErr: true,
+	}, {
+		args: args{"null"},
+	}, {
+		args: args{`{"a": "b"}`},
+		want: map[string]string{
+			"a": "b",
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseWebhookAnnotations(tt.args.in)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseWebhookAnnotations() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseWebhookAnnotations() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

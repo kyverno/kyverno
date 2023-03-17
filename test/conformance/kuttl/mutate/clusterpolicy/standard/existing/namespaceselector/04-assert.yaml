@@ -4,4 +4,4 @@ metadata:
   annotations:
     org: kyverno-test
   name: test-org
-  namespace: test
+  namespace: org-label-inheritance-existing-standard-ns
