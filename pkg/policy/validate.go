@@ -254,7 +254,9 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		fmt.Println("======1")
 		if namespaced {
 			fmt.Println("======2")
-			return warnings, checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res)
+			if err := checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res); err != nil {
+				return warnings, err
+			}
 		}
 		fmt.Println("======3")
 		if err := validateActions(i, &rules[i], client, mock); err != nil {
