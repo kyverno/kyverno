@@ -163,6 +163,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `securityContext` has been replaced with `admissionController.container.securityContext` and `admissionController.initContainer.securityContext`
 - `rbac` has been replaced with `admissionController.rbac`
 - `generatecontrollerExtraResources` has been replaced with `admissionController.rbac.clusterRole.extraResources`
+- `networkPolicy` has been replaced with `admissionController.networkPolicy`
 - all `extraArgs` now use objects instead of arrays
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
