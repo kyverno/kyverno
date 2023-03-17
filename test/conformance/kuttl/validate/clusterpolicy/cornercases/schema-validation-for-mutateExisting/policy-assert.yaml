@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: org-label-inheritance-existing-standard
+  name: generate-cm-for-kube-state-metrics-crds
 status:
   conditions:
   - reason: Succeeded

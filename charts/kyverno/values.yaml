@@ -117,6 +117,14 @@ config:
     # Example to disable admission enforcer on AKS:
     # 'admissions.enforcer/disabled': 'true'
 
+  # -- Exclude Kyverno namespace
+  # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
+  excludeKyvernoNamespace: true
+
+  # -- resourceFilter namespace exclude
+  # Namespaces to exclude from the default resourceFilters
+  resourceFiltersExcludeNamespaces: []
+
 # Metrics configuration
 metricsConfig:
 
@@ -198,14 +206,6 @@ test:
 
 # -- Additional labels
 customLabels: {}
-
-# -- Exclude Kyverno namespace
-# Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
-excludeKyvernoNamespace: true
-
-# -- resourceFilter namespace exclude
-# Namespaces to exclude from the default resourceFilters
-resourceFiltersExcludeNamespaces: []
 
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
@@ -444,7 +444,7 @@ admissionController:
 
     # -- Additional container args.
     extraArgs:
-      - --loggingFormat=text
+      loggingFormat: text
 
     # -- Additional container environment variables.
     extraEnvVars: []
@@ -485,7 +485,7 @@ admissionController:
 
     # -- Additional container args.
     extraArgs:
-      - --loggingFormat=text
+      loggingFormat: text
 
     # -- Additional container environment variables.
     extraEnvVars: []
@@ -606,7 +606,7 @@ cleanupController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs: []
+  extraArgs: {}
 
   resources:
     # -- Pod resource limits
@@ -1107,7 +1107,7 @@ backgroundController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs: []
+  extraArgs: {}
 
   resources:
     # -- Pod resource limits
