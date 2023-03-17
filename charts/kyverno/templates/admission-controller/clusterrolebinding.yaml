@@ -13,11 +13,4 @@ subjects:
   - kind: ServiceAccount
     name: {{ template "kyverno.admission-controller.serviceAccountName" . }}
     namespace: {{ template "kyverno.namespace" . }}
-  {{- if .Values.backgroundController.enabled }}
-  {{- if .Values.backgroundController.rbac.create }}
-  - kind: ServiceAccount
-    name: {{ template "kyverno.background-controller.serviceAccountName" . }}
-    namespace: {{ template "kyverno.namespace" . }}
-  {{- end }}
-  {{- end }}
 {{- end -}}
