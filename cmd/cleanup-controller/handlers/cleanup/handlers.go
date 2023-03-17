@@ -10,6 +10,7 @@ import (
 	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -113,11 +114,11 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 	if spec.Context != nil {
 		for _, entry := range spec.Context {
 			if entry.APICall != nil {
-				if err := loadAPIData(ctx, logger, entry, enginectx, h.client); err != nil {
+				if err := engineapi.LoadAPIData(ctx, logger, entry, enginectx, h.client); err != nil {
 					return err
 				}
 			} else if entry.Variable != nil {
-				if err := loadVariable(logger, entry, enginectx); err != nil {
+				if err := engineapi.LoadVariable(logger, entry, enginectx); err != nil {
 					return err
 				}
 			}
