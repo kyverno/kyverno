@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: allow-insecure-pod
+spec:
+  exceptions:
+    - policyName: check-image
+      ruleNames:
+        - check-image
+  match:
+    any:
+      - resources:
+          kinds:
+          - Pod
+  images:
+  - nginx:v1.13
