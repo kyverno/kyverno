@@ -6,12 +6,5 @@ kind: ConfigMap
 metadata:
   labels:
     allowedToBeCloned: "true"
-    app.kubernetes.io/managed-by: kyverno
-    generate.kyverno.io/clone-policy-name: sync-with-multi-clone-update
-    kyverno.io/generated-by-kind: Namespace
-    kyverno.io/generated-by-name: prod
-    kyverno.io/generated-by-namespace: ""
-    policy.kyverno.io/policy-name: sync-with-multi-clone-update
-    policy.kyverno.io/synchronize: enable
   name: bootstrap-config
   namespace: prod

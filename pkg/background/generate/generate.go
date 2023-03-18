@@ -726,24 +726,8 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 
 		newResource.SetAPIVersion(rdata.GenAPIVersion)
 		common.ManageLabels(newResource, trigger, policy, rule.Name)
-		// Add Synchronize label
-		label := newResource.GetLabels()
-
-		// Add background gen-rule label if generate rule applied on existing resource
-		if policy.GetSpec().IsGenerateExisting() {
-			label[LabelBackgroundGenRuleName] = rule.Name
-		}
-
-		label[LabelURName] = ur.Name
 		if rdata.Action == Create {
-			if rule.Generation.Synchronize {
-				label[LabelSynchronize] = "enable"
-			} else {
-				label[LabelSynchronize] = "disable"
-			}
-
 			newResource.SetResourceVersion("")
-			newResource.SetLabels(label)
 			_, err = client.CreateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
@@ -768,9 +752,6 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 				// if synchronize is true - update the label and generated resource with generate policy data
 				if rule.Generation.Synchronize {
 					logger.V(4).Info("updating existing resource")
-					label[LabelSynchronize] = "enable"
-					newResource.SetLabels(label)
-
 					if rdata.GenAPIVersion == "" {
 						generatedResourceAPIVersion := generatedObj.GetAPIVersion()
 						newResource.SetAPIVersion(generatedResourceAPIVersion)
@@ -783,24 +764,6 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, t
 						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 						if err != nil {
 							logger.Error(err, "failed to update resource")
-							newGenResources = append(newGenResources, noGenResource)
-							return newGenResources, err
-						}
-					}
-				} else {
-					currentGeneratedResourcelabel := generatedObj.GetLabels()
-					currentSynclabel := currentGeneratedResourcelabel[LabelSynchronize]
-
-					// update only if the labels mismatches
-					if (!rule.Generation.Synchronize && currentSynclabel == "enable") ||
-						(rule.Generation.Synchronize && currentSynclabel == "disable") {
-						logger.V(4).Info("updating label in existing resource")
-						currentGeneratedResourcelabel[LabelSynchronize] = "disable"
-						generatedObj.SetLabels(currentGeneratedResourcelabel)
-
-						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, generatedObj, false)
-						if err != nil {
-							logger.Error(err, "failed to update label in existing resource")
 							newGenResources = append(newGenResources, noGenResource)
 							return newGenResources, err
 						}

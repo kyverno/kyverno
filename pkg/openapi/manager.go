@@ -123,17 +123,23 @@ func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error
 	kindToRules := make(map[string][]kyvernov1.Rule)
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
-			for _, kind := range rule.MatchResources.Kinds {
-				kindToRules[kind] = append(kindToRules[kind], rule)
-			}
-			for _, resourceFilter := range rule.MatchResources.Any {
-				for _, kind := range resourceFilter.Kinds {
+			if rule.IsMutateExisting() {
+				for _, target := range rule.Mutation.Targets {
+					kindToRules[target.Kind] = append(kindToRules[target.Kind], rule)
+				}
+			} else {
+				for _, kind := range rule.MatchResources.Kinds {
 					kindToRules[kind] = append(kindToRules[kind], rule)
 				}
-			}
-			for _, resourceFilter := range rule.MatchResources.All {
-				for _, kind := range resourceFilter.Kinds {
-					kindToRules[kind] = append(kindToRules[kind], rule)
+				for _, resourceFilter := range rule.MatchResources.Any {
+					for _, kind := range resourceFilter.Kinds {
+						kindToRules[kind] = append(kindToRules[kind], rule)
+					}
+				}
+				for _, resourceFilter := range rule.MatchResources.All {
+					for _, kind := range resourceFilter.Kinds {
+						kindToRules[kind] = append(kindToRules[kind], rule)
+					}
 				}
 			}
 		}

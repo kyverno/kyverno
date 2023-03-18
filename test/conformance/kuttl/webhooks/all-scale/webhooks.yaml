@@ -7,28 +7,14 @@ metadata:
 webhooks:
 - rules:
   - apiGroups:
-    - ""
+    - '*'
     apiVersions:
-    - v1
+    - '*'
     operations:
     - CREATE
     - UPDATE
     - DELETE
     - CONNECT
     resources:
-    - replicationcontrollers/scale
-    scope: '*'
-  - apiGroups:
-    - apps
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    - CONNECT
-    resources:
-    - deployments/scale
-    - replicasets/scale
-    - statefulsets/scale
+    - '*/scale'
     scope: '*'

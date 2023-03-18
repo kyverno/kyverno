@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"golang.org/x/exp/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -32,7 +33,7 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 	var rules []admissionregistrationv1.RuleWithOperations
 	for gv, resources := range wh.rules {
 		// if we have pods, we add pods/ephemeralcontainers by default
-		if gv.Group == "" && gv.Version == "v1" && resources.Has("pods") {
+		if (gv.Group == "" || gv.Group == "*") && (gv.Version == "v1" || gv.Version == "*") && (resources.Has("pods") || resources.Has("*")) {
 			resources.Insert("pods/ephemeralcontainers")
 		}
 		rules = append(rules, admissionregistrationv1.RuleWithOperations{
@@ -70,13 +71,13 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 	return rules
 }
 
-func (wh *webhook) set(gvr schema.GroupVersionResource) {
-	gv := gvr.GroupVersion()
+func (wh *webhook) set(gvrs dclient.GroupVersionResourceSubresource) {
+	gv := gvrs.GroupVersion()
 	resources := wh.rules[gv]
 	if resources == nil {
-		wh.rules[gv] = sets.New(gvr.Resource)
+		wh.rules[gv] = sets.New(gvrs.ResourceSubresource())
 	} else {
-		resources.Insert(gvr.Resource)
+		resources.Insert(gvrs.ResourceSubresource())
 	}
 }
 
@@ -84,30 +85,13 @@ func (wh *webhook) isEmpty() bool {
 	return len(wh.rules) == 0
 }
 
-func (wh *webhook) setWildcard() {
-	wh.rules = map[schema.GroupVersion]sets.Set[string]{
-		{Group: "*", Version: "*"}: sets.New("*/*"),
-	}
-}
-
-func hasWildcard(policies ...kyvernov1.PolicyInterface) bool {
-	for _, policy := range policies {
-		spec := policy.GetSpec()
-		for _, rule := range spec.Rules {
-			if kinds := rule.MatchResources.GetKinds(); slices.Contains(kinds, "*") {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+func objectMeta(name string, annotations map[string]string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
 			utils.ManagedByLabel: kyvernov1.ValueKyvernoApp,
 		},
+		Annotations:     annotations,
 		OwnerReferences: owner,
 	}
 }

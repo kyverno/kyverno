@@ -1,6 +1,6 @@
 ## Description
 
-This test verifies the resource validation webhook is configured correctly when a policy targets all `*` resource.
+This test verifies the resource validation webhook is configured correctly when a policy targets all `*` resources.
 
 ## Steps
 

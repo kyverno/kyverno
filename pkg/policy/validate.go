@@ -19,7 +19,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -33,7 +32,6 @@ import (
 	"golang.org/x/exp/slices"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -367,43 +365,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return warnings, fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
 
-		// add label to source mentioned in policy
-		if !mock && rule.Generation.Clone.Name != "" {
-			obj, err := client.GetResource(context.TODO(), "", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
-			if err != nil {
-				logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
-				continue
-			}
-			err = UpdateSourceResource(client, rule.Generation.Kind, rule.Generation.Clone.Namespace, policy.GetName(), obj)
-			if err != nil {
-				logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-				continue
-			}
-			logging.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-		}
-		if !mock && len(rule.Generation.CloneList.Kinds) != 0 {
-			for _, kind := range rule.Generation.CloneList.Kinds {
-				apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-				resources, err := client.ListResource(context.TODO(), apiVersion, kind, rule.Generation.CloneList.Namespace, rule.Generation.CloneList.Selector)
-				if err != nil {
-					logging.Error(err, fmt.Sprintf("failed to list resources %s/%s.", kind, rule.Generation.CloneList.Namespace))
-					continue
-				}
-				for _, rName := range resources.Items {
-					obj, err := client.GetResource(context.TODO(), apiVersion, kind, rule.Generation.CloneList.Namespace, rName.GetName())
-					if err != nil {
-						logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
-						continue
-					}
-					err = UpdateSourceResource(client, kind, rule.Generation.CloneList.Namespace, policy.GetName(), obj)
-					if err != nil {
-						logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-						continue
-					}
-				}
-			}
-		}
-
 		matchKinds := match.GetKinds()
 		excludeKinds := exclude.GetKinds()
 		allKinds := make([]string, 0, len(matchKinds)+len(excludeKinds))
@@ -433,46 +394,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	}
 	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
 		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
-			return warnings, err
+			return warnings, fmt.Errorf("%s (you can bypass schema validation by setting `spec.schemaValidation: false`)", err)
 		}
 	}
 	return warnings, nil
-}
-
-func UpdateSourceResource(client dclient.Interface, kind, namespace string, policyName string, obj *unstructured.Unstructured) error {
-	updateSource := true
-	label := obj.GetLabels()
-
-	if len(label) == 0 {
-		label = make(map[string]string)
-		label[generate.LabelClonePolicyName] = policyName
-	} else {
-		if label[generate.LabelClonePolicyName] != "" {
-			policyNames := label[generate.LabelClonePolicyName]
-			if !strings.Contains(policyNames, policyName) {
-				policyNames = policyNames + "," + policyName
-				label[generate.LabelClonePolicyName] = policyNames
-			} else {
-				updateSource = false
-			}
-		} else {
-			label[generate.LabelClonePolicyName] = policyName
-		}
-	}
-
-	if updateSource {
-		logging.V(4).Info("updating existing clone source labels")
-		obj.SetLabels(label)
-		obj.SetResourceVersion("")
-
-		_, err := client.UpdateResource(context.TODO(), obj.GetAPIVersion(), kind, namespace, obj, false)
-		if err != nil {
-			logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-			return err
-		}
-		logging.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-	}
-	return nil
 }
 
 func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
@@ -1285,16 +1210,22 @@ func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule)
 // and found in the cache, returns error if not found. It also returns an error if background scanning
 // is enabled for a subresource.
 func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidationPolicy bool, client dclient.Interface) error {
-	for _, kind := range kinds {
-		if !mock && !strings.Contains(kind, "*") {
-			gv, k := kubeutils.GetKindFromGVK(kind)
-			_, _, gvr, err := client.Discovery().FindResource(gv, k)
+	for _, k := range kinds {
+		if !mock {
+			group, version, kind, subresource := kubeutils.ParseKindSelector(k)
+			gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", k, err)
 			}
-			_, subresource := kubeutils.SplitSubresource(gvr.Resource)
-			if subresource != "" && isValidationPolicy && backgroundScanningEnabled {
-				return fmt.Errorf("background scan enabled with subresource %s", subresource)
+			if len(gvrss) == 0 {
+				return fmt.Errorf("unable to convert GVK to GVR for kinds %s", k)
+			}
+			if backgroundScanningEnabled {
+				for gvrs := range gvrss {
+					if strings.Contains(gvrs.Resource, "/") {
+						return fmt.Errorf("background scan enabled with subresource %s", subresource)
+					}
+				}
 			}
 		}
 	}
@@ -1310,7 +1241,6 @@ func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) 
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
 	}
-
 	pat1, pat2, notOk := wildcard.MatchPatterns(auditW, enforceW...)
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
@@ -1319,7 +1249,6 @@ func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) 
 	if notOk {
 		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
 	}
-
 	return nil
 }
 

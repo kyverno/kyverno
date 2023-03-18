@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -17,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
@@ -152,7 +152,11 @@ func (v *validationHandler) buildAuditResponses(
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
 ) ([]*engineapi.EngineResponse, error) {
-	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
+	gvrs := dclient.GroupVersionResourceSubresource{
+		GroupVersionResource: schema.GroupVersionResource(request.Resource),
+		SubResource:          request.SubResource,
+	}
+	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvrs, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
 		return nil, err
@@ -194,6 +198,10 @@ func (v *validationHandler) handleAudit(
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		createReport = false
 	}
+	// if the underlying resource has no UID don't create a report
+	if resource.GetUID() == "" {
+		createReport = false
+	}
 	tracing.Span(
 		context.Background(),
 		"",
@@ -207,12 +215,7 @@ func (v *validationHandler) handleAudit(
 			v.eventGen.Add(events...)
 			if createReport {
 				responses = append(responses, engineResponses...)
-				report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
-				// if it's not a creation, the resource already exists, we can set the owner
-				if request.Operation != admissionv1.Create {
-					gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
-					controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
-				}
+				report := reportutils.BuildAdmissionReport(resource, request, responses...)
 				if len(report.GetResults()) > 0 {
 					_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
 					if err != nil {
