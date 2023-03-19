@@ -1095,7 +1095,7 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	}
 	p, _ := pem.Decode([]byte(input.String()))
 	if p == nil {
-		return res, errors.New("invalid certificate or certificate signing request")
+		return res, nil
 	}
 
 	cert, err = x509.ParseCertificate(p.Bytes)
