@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "kyverno.fullname" . }}
+  name: {{ template "kyverno.admission-controller.name" . }}
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
@@ -81,6 +81,7 @@ spec:
           image: {{ include "kyverno.image" (dict "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.admissionController.container.image.tag)) | quote }}
           imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
           args:
+            - --loggingFormat={{ .Values.admissionController.logging.format }}
             {{- range $key, $value := .Values.admissionController.initContainer.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}
@@ -119,6 +120,26 @@ spec:
           imagePullPolicy: {{ .Values.admissionController.container.image.pullPolicy }}
           args:
             - --servicePort={{ .Values.admissionController.service.port }}
+            - --loggingFormat={{ .Values.admissionController.logging.format }}
+            {{- if .Values.admissionController.tracing.enabled }}
+            - --enableTracing
+            - --tracingAddress={{ .Values.admissionController.tracing.address }}
+            - --tracingPort={{ .Values.admissionController.tracing.port }}
+            {{- with .Values.admissionController.tracing.creds }}
+            - --tracingCreds={{ . }}
+            {{- end }}
+            {{- end }}
+            - --disableMetrics={{ .Values.admissionController.metering.disabled }}
+            {{- if not .Values.admissionController.metering.disabled }}
+            - --otelConfig={{ .Values.admissionController.metering.config }}
+            - --metricsPort={{ .Values.admissionController.metering.port }}
+            {{- with .Values.admissionController.metering.collector }}
+            - --otelCollector={{ . }}
+            {{- end }}
+            {{- with .Values.admissionController.metering.creds }}
+            - --transportCreds={{ . }}
+            {{- end }}
+            {{- end }}
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
@@ -164,7 +185,7 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
           - name: KYVERNO_DEPLOYMENT
-            value: {{ template "kyverno.fullname" . }}
+            value: {{ template "kyverno.admission-controller.name" . }}
           {{- with .Values.admissionController.startupProbe }}
           startupProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
