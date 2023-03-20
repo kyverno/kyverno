@@ -379,22 +379,6 @@ admissionController:
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
 
-  serviceMonitor:
-    # -- Create a `ServiceMonitor` to collect Prometheus metrics.
-    enabled: false
-    # -- Additional labels
-    additionalLabels: {}
-    # -- (string) Override namespace
-    namespace: ~
-    # --  Interval to scrape metrics
-    interval: 30s
-    # -- Timeout if metrics can't be retrieved in given time interval
-    scrapeTimeout: 25s
-    # -- Is TLS required for endpoint
-    secure: false
-    # -- TLS Configuration for endpoint
-    tlsConfig: {}
-
   # -- A writable volume to use for the TUF root initialization.
   tufRootMountPath: /.sigstore
 
@@ -443,8 +427,7 @@ admissionController:
         type: RuntimeDefault
 
     # -- Additional container args.
-    extraArgs:
-      loggingFormat: text
+    extraArgs: {}
 
     # -- Additional container environment variables.
     extraEnvVars: []
@@ -484,8 +467,7 @@ admissionController:
         type: RuntimeDefault
 
     # -- Additional container args.
-    extraArgs:
-      loggingFormat: text
+    extraArgs: {}
 
     # -- Additional container environment variables.
     extraEnvVars: []
@@ -528,13 +510,53 @@ admissionController:
     annotations: {}
 
   networkPolicy:
-
     # -- When true, use a NetworkPolicy to allow ingress to the webhook
     # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
     enabled: false
-
     # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
     ingressFrom: []
+
+  serviceMonitor:
+    # -- Create a `ServiceMonitor` to collect Prometheus metrics.
+    enabled: false
+    # -- Additional labels
+    additionalLabels: {}
+    # -- (string) Override namespace
+    namespace: ~
+    # --  Interval to scrape metrics
+    interval: 30s
+    # -- Timeout if metrics can't be retrieved in given time interval
+    scrapeTimeout: 25s
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- TLS Configuration for endpoint
+    tlsConfig: {}
+
+  tracing:
+    # -- Enable tracing
+    enabled: false
+    # -- Traces receiver address
+    address:
+    # -- Traces receiver port
+    port:
+    # -- Traces receiver credentials
+    creds: ''
+
+  logging:
+    # -- Logging format
+    format: text
+
+  metering:
+    # -- Disable metrics export
+    disabled: false
+    # -- Otel configuration, can be `prometheus` or `grpc`
+    config: prometheus
+    # -- Prometheus endpoint port
+    port: 8000
+    # -- Otel collector endpoint
+    collector: ''
+    # -- Otel collector credentials
+    creds: ''
 
 # Cleanup controller configuration
 cleanupController:
