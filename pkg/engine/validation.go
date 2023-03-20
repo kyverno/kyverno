@@ -514,13 +514,14 @@ func matches(
 	subresourceGVKToAPIResource map[string]*metav1.APIResource,
 	cfg config.Configuration,
 ) bool {
-	err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.NewResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludedGroups(), ctx.NamespaceLabels(), "", ctx.SubResource())
+	gvrs := ctx.GroupVersionResourceSubresource()
+	err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.NewResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludedGroups(), ctx.NamespaceLabels(), "", gvrs.SubResource)
 	if err == nil {
 		return true
 	}
 
 	if !reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.OldResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludedGroups(), ctx.NamespaceLabels(), "", ctx.SubResource())
+		err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.OldResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludedGroups(), ctx.NamespaceLabels(), "", gvrs.SubResource)
 		if err == nil {
 			return true
 		}

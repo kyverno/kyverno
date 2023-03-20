@@ -62,7 +62,8 @@ func (e *engine) mutate(
 
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
 				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
-				if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.AdmissionInfo(), excludeResource, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), policyContext.SubResource()); err != nil {
+				gvrs := policyContext.GroupVersionResourceSubresource()
+				if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.AdmissionInfo(), excludeResource, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), gvrs.SubResource); err != nil {
 					logger.V(4).Info("rule not matched", "reason", err.Error())
 					skippedRules = append(skippedRules, rule.Name)
 					return
@@ -97,12 +98,12 @@ func (e *engine) mutate(
 					}
 				} else {
 					var parentResourceGVR metav1.GroupVersionResource
-					if policyContext.SubResource() != "" {
-						parentResourceGVR = policyContext.RequestResource()
+					if gvrs.SubResource != "" {
+						parentResourceGVR = metav1.GroupVersionResource(gvrs.GroupVersionResource)
 					}
 					patchedResources = append(patchedResources, resourceInfo{
 						unstructured:      matchedResource,
-						subresource:       policyContext.SubResource(),
+						subresource:       gvrs.SubResource,
 						parentResourceGVR: parentResourceGVR,
 					})
 				}

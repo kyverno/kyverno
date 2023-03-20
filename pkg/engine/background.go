@@ -96,11 +96,12 @@ func (e *engine) filterRule(
 	excludeGroupRole := e.configuration.GetExcludedGroups()
 	namespaceLabels := policyContext.NamespaceLabels()
 	policy := policyContext.Policy()
+	gvrs := policyContext.GroupVersionResourceSubresource()
 
-	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), policyContext.SubResource()); err != nil {
+	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvrs.SubResource); err != nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), policyContext.SubResource()); err == nil {
+			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvrs.SubResource); err == nil {
 				return &engineapi.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,

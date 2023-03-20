@@ -52,13 +52,14 @@ func matchesException(
 	if err != nil {
 		return nil, err
 	}
+	gvrs := policyContext.GroupVersionResourceSubresource()
 	for _, candidate := range candidates {
 		err := matched.CheckMatchesResources(
 			policyContext.NewResource(),
 			candidate.Spec.Match,
 			policyContext.NamespaceLabels(),
 			subresourceGVKToAPIResource,
-			policyContext.SubResource(),
+			gvrs.SubResource,
 			policyContext.AdmissionInfo(),
 			cfg.GetExcludedGroups(),
 		)

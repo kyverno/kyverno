@@ -5,12 +5,12 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -31,15 +31,25 @@ type PolicyContext struct {
 	// admissionInfo contains the admission request information
 	admissionInfo kyvernov1beta1.RequestInfo
 
-	// requestResource is the fully-qualified resource of the original API request (for example, v1.pods).
-	// If this is specified and differs from the value in "resource", an equivalent match and conversion was performed.
-	//
-	// For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
-	// `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
-	// an API request to apps/v1beta1 deployments would be converted and sent to the webhook
-	// with `resource: {group:"apps", version:"v1", resource:"deployments"}` (matching the resource the webhook registered for),
-	// and `requestResource: {group:"apps", version:"v1beta1", resource:"deployments"}` (indicating the resource of the original API request).
-	requestResource metav1.GroupVersionResource
+	// // requestResource is the fully-qualified resource of the original API request (for example, v1.pods).
+	// // If this is specified and differs from the value in "resource", an equivalent match and conversion was performed.
+	// //
+	// // For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of
+	// // `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]` and `matchPolicy: Equivalent`,
+	// // an API request to apps/v1beta1 deployments would be converted and sent to the webhook
+	// // with `resource: {group:"apps", version:"v1", resource:"deployments"}` (matching the resource the webhook registered for),
+	// // and `requestResource: {group:"apps", version:"v1beta1", resource:"deployments"}` (indicating the resource of the original API request).
+	// requestResource metav1.GroupVersionResource
+
+	// // subresource is the subresource being requested, if any (for example, "status" or "scale")
+	// subresource string
+
+	// subresourcesInPolicy represents the APIResources that are subresources along with their parent resource.
+	// This is used to determine if a resource is a subresource. It is only used when the policy context is populated
+	// by kyverno CLI. In all other cases when connected to a cluster, this is empty.
+	subresourcesInPolicy []engineapi.SubResource
+
+	groupVersionResourceSubresource dclient.GroupVersionResourceSubresource
 
 	// jsonContext is the variable context
 	jsonContext enginectx.Interface
@@ -49,14 +59,6 @@ type PolicyContext struct {
 
 	// admissionOperation represents if the caller is from the webhook server
 	admissionOperation bool
-
-	// subresource is the subresource being requested, if any (for example, "status" or "scale")
-	subresource string
-
-	// subresourcesInPolicy represents the APIResources that are subresources along with their parent resource.
-	// This is used to determine if a resource is a subresource. It is only used when the policy context is populated
-	// by kyverno CLI. In all other cases when connected to a cluster, this is empty.
-	subresourcesInPolicy []engineapi.SubResource
 }
 
 // engineapi.PolicyContext interface
@@ -81,9 +83,17 @@ func (c *PolicyContext) NamespaceLabels() map[string]string {
 	return c.namespaceLabels
 }
 
-func (c *PolicyContext) SubResource() string {
-	return c.subresource
+func (c *PolicyContext) GroupVersionResourceSubresource() dclient.GroupVersionResourceSubresource {
+	return c.groupVersionResourceSubresource
 }
+
+// func (c *PolicyContext) RequestResource() metav1.GroupVersionResource {
+// 	return c.requestResource
+// }
+
+// func (c *PolicyContext) SubResource() string {
+// 	return c.subresource
+// }
 
 func (c *PolicyContext) SubresourcesInPolicy() []engineapi.SubResource {
 	return c.subresourcesInPolicy
@@ -91,10 +101,6 @@ func (c *PolicyContext) SubresourcesInPolicy() []engineapi.SubResource {
 
 func (c *PolicyContext) AdmissionOperation() bool {
 	return c.admissionOperation
-}
-
-func (c *PolicyContext) RequestResource() metav1.GroupVersionResource {
-	return c.requestResource
 }
 
 func (c *PolicyContext) Element() unstructured.Unstructured {
@@ -133,12 +139,6 @@ func (c *PolicyContext) WithAdmissionInfo(admissionInfo kyvernov1beta1.RequestIn
 	return copy
 }
 
-func (c *PolicyContext) WithRequestResource(requestResource metav1.GroupVersionResource) *PolicyContext {
-	copy := c.copy()
-	copy.requestResource = requestResource
-	return copy
-}
-
 func (c *PolicyContext) WithNewResource(resource unstructured.Unstructured) *PolicyContext {
 	copy := c.copy()
 	copy.newResource = resource
@@ -161,11 +161,17 @@ func (c *PolicyContext) withAdmissionOperation(admissionOperation bool) *PolicyC
 	return copy
 }
 
-func (c *PolicyContext) WithSubresource(subresource string) *PolicyContext {
-	copy := c.copy()
-	copy.subresource = subresource
-	return copy
-}
+// func (c *PolicyContext) withRequestResource(requestResource metav1.GroupVersionResource) *PolicyContext {
+// 	copy := c.copy()
+// 	copy.requestResource = requestResource
+// 	return copy
+// }
+
+// func (c *PolicyContext) withSubresource(subresource string) *PolicyContext {
+// 	copy := c.copy()
+// 	copy.subresource = subresource
+// 	return copy
+// }
 
 func (c *PolicyContext) WithSubresourcesInPolicy(subresourcesInPolicy []engineapi.SubResource) *PolicyContext {
 	copy := c.copy()
@@ -205,14 +211,14 @@ func NewPolicyContextFromAdmissionRequest(
 	if err := ctx.AddImageInfos(&newResource, configuration); err != nil {
 		return nil, fmt.Errorf("failed to add image information to the policy rule context: %w", err)
 	}
-	requestResource := request.RequestResource.DeepCopy()
+	// requestResource := request.RequestResource.DeepCopy()
 	policyContext := NewPolicyContextWithJsonContext(ctx).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
-		withAdmissionOperation(true).
-		WithRequestResource(*requestResource).
-		WithSubresource(request.SubResource)
+		withAdmissionOperation(true)
+		// withRequestResource(*requestResource).
+		// withSubresource(request.SubResource)
 	return policyContext, nil
 }
 
