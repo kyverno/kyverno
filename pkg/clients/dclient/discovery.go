@@ -229,27 +229,6 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 			}
 		}
 	}
-	// third if no resource matched, try again but consider subresources this time
-	if len(resources) == 0 {
-		for _, list := range serverGroupsAndResources {
-			gv, err := schema.ParseGroupVersion(list.GroupVersion)
-			if err != nil {
-				return nil, err
-			} else {
-				for _, resource := range list.APIResources {
-					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
-					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
-						parts := strings.Split(resource.Name, "/")
-						gvrs := GroupVersionResourceSubresource{
-							GroupVersionResource: gv.WithResource(parts[0]),
-							SubResource:          parts[1],
-						}
-						resources[gvrs] = resource
-					}
-				}
-			}
-		}
-	}
 	if kind == "*" && subresource == "*" {
 		for key, value := range subresources {
 			resources[key] = value
