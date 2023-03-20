@@ -6,7 +6,7 @@ rules:
 - apiGroups:
   - '*'
   resources:
-  - deloyments
+  - deployments
   verbs:
   - create
   - update
