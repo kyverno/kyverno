@@ -1,0 +1,13 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      EVENT=$(kubectl get events -n generate-event-on-edit-ns | grep generate-event-on-edit-configmap | wc -l | xargs)
+      if [[ "$EVENT" == 2 ]]
+      then 
+        echo "test succeeded, $EVENT event was created"
+        exit 0
+      else
+        echo "test failed, expected 2 event to be created, got $EVENT"
+        exit 1
+      fi
