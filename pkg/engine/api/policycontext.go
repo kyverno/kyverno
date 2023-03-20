@@ -24,8 +24,6 @@ type PolicyContext interface {
 	AdmissionInfo() kyvernov1beta1.RequestInfo
 	NamespaceLabels() map[string]string
 	GroupVersionResourceSubresource() dclient.GroupVersionResourceSubresource
-	// RequestResource() metav1.GroupVersionResource
-	// SubResource() string
 	SubresourcesInPolicy() []SubResource
 	AdmissionOperation() bool
 	Element() unstructured.Unstructured
