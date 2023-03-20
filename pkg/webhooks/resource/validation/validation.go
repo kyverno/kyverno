@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -152,11 +151,8 @@ func (v *validationHandler) buildAuditResponses(
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
 ) ([]*engineapi.EngineResponse, error) {
-	gvrs := dclient.GroupVersionResourceSubresource{
-		GroupVersionResource: schema.GroupVersionResource(request.Resource),
-		SubResource:          request.SubResource,
-	}
-	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvrs, request.Namespace)
+	gvr := schema.GroupVersionResource(request.Resource)
+	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
 		return nil, err

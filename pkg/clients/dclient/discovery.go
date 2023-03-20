@@ -16,8 +16,18 @@ import (
 
 // GroupVersionResourceSubresource contains a group/version/resource/subresource reference
 type GroupVersionResourceSubresource struct {
-	schema.GroupVersionResource
+	schema.GroupVersion
+	Kind        string
+	Resource    string
 	SubResource string
+}
+
+func (gvrs GroupVersionResourceSubresource) GroupVersionResource() schema.GroupVersionResource {
+	return gvrs.WithResource(gvrs.Resource)
+}
+
+func (gvrs GroupVersionResourceSubresource) GroupVersionKind() schema.GroupVersionKind {
+	return gvrs.WithKind(gvrs.Kind)
 }
 
 func (gvrs GroupVersionResourceSubresource) ResourceSubresource() string {
@@ -206,7 +216,9 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
 					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
 						gvrs := GroupVersionResourceSubresource{
-							GroupVersionResource: gv.WithResource(resource.Name),
+							GroupVersion: gv,
+							Kind:         resource.Kind,
+							Resource:     resource.Name,
 						}
 						resources[gvrs] = resource
 					}
