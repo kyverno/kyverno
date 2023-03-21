@@ -16,8 +16,10 @@ import (
 func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PSSCheckResult) {
 	checks := policy.DefaultChecks()
 
+	fmt.Println("======0")
 	for _, check := range checks {
 		if level.Level == api.LevelBaseline && check.Level != level.Level {
+			fmt.Println("======0.5")
 			continue
 		}
 		// check version
