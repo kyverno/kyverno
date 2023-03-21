@@ -525,8 +525,8 @@ func matches(
 	if err == nil {
 		return true
 	}
-
-	if !reflect.DeepEqual(ctx.OldResource(), unstructured.Unstructured{}) {
+	oldResource := ctx.OldResource()
+	if oldResource.Object != nil {
 		err := MatchesResourceDescription(
 			ctx.OldResource(),
 			*rule,
@@ -541,7 +541,6 @@ func matches(
 			return true
 		}
 	}
-
 	logger.V(5).Info("resource does not match rule", "reason", err.Error())
 	return false
 }
