@@ -856,37 +856,19 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		os.Exit(1)
 	}
 
-	filteredResources := map[string]*unstructured.Unstructured{}
-	for i := range resources {
-		r := resources[i]
-		key := fmt.Sprintf("%s/%s/%s", r.GetKind(), r.GetName(), r.GetNamespace())
-		for _, res := range values.Results {
-			for _, testr := range res.Resources {
-				if r.GetName() == testr {
-					filteredResources[key] = r
-				}
-			}
-			if r.GetName() == res.Resource {
-				filteredResources[key] = r
-				break
-			}
-		}
-	}
-
-	var noDuplicateResources []*unstructured.Unstructured
-
-	for key := range filteredResources {
-		noDuplicateResources = append(noDuplicateResources, filteredResources[key])
-	}
+	checkableResources := selectResourcesForCheck(resources, values)
 
 	msgPolicies := "1 policy"
 	if len(policies) > 1 {
 		msgPolicies = fmt.Sprintf("%d policies", len(policies))
 	}
 
-	msgResources := fmt.Sprintf("%d resources", len(noDuplicateResources))
+	msgResources := "1 resource"
+	if len(checkableResources) > 1 {
+		msgResources = fmt.Sprintf("%d resources", len(checkableResources))
+	}
 
-	if len(policies) > 0 && len(noDuplicateResources) > 0 {
+	if len(policies) > 0 && len(checkableResources) > 0 {
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
 
@@ -911,7 +893,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy, subresources, dClient)
 
-		for _, resource := range noDuplicateResources {
+		for _, resource := range checkableResources {
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
@@ -944,6 +926,42 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	return
+}
+
+func selectResourcesForCheck(resources []*unstructured.Unstructured, values *api.Test) []*unstructured.Unstructured {
+	uniqResources := make(map[string]*unstructured.Unstructured)
+
+	for i := range resources {
+		r := resources[i]
+		key := fmt.Sprintf("%s/%s/%s", r.GetKind(), r.GetName(), r.GetNamespace())
+		if _, ok := uniqResources[key]; ok {
+			fmt.Println("skipping duplicate resource, resource :", r)
+		} else {
+			uniqResources[key] = r
+		}
+	}
+
+	selectedResources := map[string]*unstructured.Unstructured{}
+	for key := range uniqResources {
+		r := uniqResources[key]
+		for _, res := range values.Results {
+			for _, testr := range res.Resources {
+				if r.GetName() == testr {
+					selectedResources[key] = r
+				}
+			}
+			if r.GetName() == res.Resource {
+				selectedResources[key] = r
+			}
+		}
+	}
+
+	var checkableResources []*unstructured.Unstructured
+
+	for key := range selectedResources {
+		checkableResources = append(checkableResources, selectedResources[key])
+	}
+	return checkableResources
 }
 
 func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []api.TestResults, rc *resultCounts, failOnly, removeColor bool) error {
