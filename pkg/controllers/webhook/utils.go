@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"golang.org/x/exp/slices"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -71,13 +70,13 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 	return rules
 }
 
-func (wh *webhook) set(gvrs dclient.GroupVersionResourceSubresource) {
+func (wh *webhook) set(gvrs schema.GroupVersionResource) {
 	gv := gvrs.GroupVersion()
 	resources := wh.rules[gv]
 	if resources == nil {
-		wh.rules[gv] = sets.New(gvrs.ResourceSubresource())
+		wh.rules[gv] = sets.New(gvrs.Resource)
 	} else {
-		resources.Insert(gvrs.ResourceSubresource())
+		resources.Insert(gvrs.Resource)
 	}
 }
 
