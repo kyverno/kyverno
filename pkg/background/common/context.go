@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -36,7 +35,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 			return nil, fmt.Errorf("failed to load request in context: %w", err)
 		}
 
-		if !reflect.DeepEqual(new, unstructured.Unstructured{}) {
+		if new.Object != nil {
 			if !check(&new, trigger) {
 				err := fmt.Errorf("resources don't match")
 				return nil, fmt.Errorf("resource %v: %w", ur.Spec.GetResource().String(), err)

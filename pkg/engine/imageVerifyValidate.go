@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -86,7 +85,7 @@ func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVeri
 		return fmt.Errorf("missing digest for %s", image)
 	}
 	newResource := ctx.NewResource()
-	if imageVerify.Required && !reflect.DeepEqual(newResource, unstructured.Unstructured{}) {
+	if imageVerify.Required && newResource.Object != nil {
 		verified, err := isImageVerified(newResource, image, log)
 		if err != nil {
 			return err
@@ -99,7 +98,7 @@ func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVeri
 }
 
 func isImageVerified(resource unstructured.Unstructured, image string, log logr.Logger) (bool, error) {
-	if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
+	if resource.Object == nil {
 		return false, fmt.Errorf("nil resource")
 	}
 	if annotations := resource.GetAnnotations(); len(annotations) == 0 {
