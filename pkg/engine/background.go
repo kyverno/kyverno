@@ -94,7 +94,17 @@ func (e *engine) filterRule(
 	namespaceLabels := policyContext.NamespaceLabels()
 	policy := policyContext.Policy()
 	gvk, subresource := policyContext.ResourceKind()
-	if err := MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err != nil {
+
+	if err := MatchesResourceDescription(
+		newResource,
+		rule,
+		admissionInfo,
+		excludeGroupRole,
+		namespaceLabels,
+		policy.GetNamespace(),
+		gvk,
+		subresource,
+	); err != nil || newResource.Object == nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
 			if err = MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err == nil {
