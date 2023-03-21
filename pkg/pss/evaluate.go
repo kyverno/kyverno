@@ -16,25 +16,21 @@ import (
 func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PSSCheckResult) {
 	checks := policy.DefaultChecks()
 
-	fmt.Println("======0", len(checks))
 	for _, check := range checks {
 		if level.Level == api.LevelBaseline && check.Level != level.Level {
-			fmt.Println("======0.5")
 			continue
 		}
 		// check version
-		fmt.Println("======1", level.Version, len(check.Versions))
 		appliedOnce := true
 		for _, versionCheck := range check.Versions {
+			// the latest check returned twice, skip duplicate application
 			if level.Version == api.LatestVersion() {
 				if !appliedOnce {
 					continue
 				}
 			} else if level.Version != api.LatestVersion() && !level.Version.Older(versionCheck.MinimumVersion) {
-				fmt.Println("======2 MinimumVersion", versionCheck.MinimumVersion)
 				continue
 			}
-			fmt.Println("======3")
 			checkResult := versionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec)
 			// Append only if the checkResult is not already in pssCheckResult
 			if !checkResult.Allowed {
