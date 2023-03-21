@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -13,6 +11,7 @@ import (
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -33,6 +32,9 @@ type PolicyContext struct {
 
 	// admissionInfo contains the admission request information
 	admissionInfo kyvernov1beta1.RequestInfo
+
+	// requestResource is GVR of the admission request
+	requestResource metav1.GroupVersionResource
 
 	// gvk is GVK of the top level resource
 	gvk schema.GroupVersionKind
@@ -64,19 +66,8 @@ func (c *PolicyContext) OldResource() unstructured.Unstructured {
 	return c.oldResource
 }
 
-func (c *PolicyContext) RequestResource() schema.GroupVersionResource {
-	result, err := c.jsonContext.Query("request.resource")
-	if err != nil || result == nil {
-		return schema.GroupVersionResource{}
-	}
-	buf := new(bytes.Buffer)
-	var gvr schema.GroupVersionResource
-	if json.NewEncoder(buf).Encode(result) != nil {
-		return schema.GroupVersionResource{}
-	} else if json.NewDecoder(buf).Decode(&gvr) != nil {
-		return schema.GroupVersionResource{}
-	}
-	return gvr
+func (c *PolicyContext) RequestResource() metav1.GroupVersionResource {
+	return c.requestResource
 }
 
 func (c *PolicyContext) ResourceKind() (schema.GroupVersionKind, string) {
@@ -154,6 +145,12 @@ func (c *PolicyContext) WithResourceKind(gvk schema.GroupVersionKind, subresourc
 	return copy
 }
 
+func (c *PolicyContext) WithRequestResource(gvr metav1.GroupVersionResource) *PolicyContext {
+	copy := c.copy()
+	copy.requestResource = gvr
+	return copy
+}
+
 func (c *PolicyContext) WithResources(newResource unstructured.Unstructured, oldResource unstructured.Unstructured) *PolicyContext {
 	return c.WithNewResource(newResource).WithOldResource(oldResource)
 }
@@ -206,7 +203,8 @@ func NewPolicyContextFromAdmissionRequest(
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
 		withAdmissionOperation(true).
-		WithResourceKind(gvk, request.SubResource)
+		WithResourceKind(gvk, request.SubResource).
+		WithRequestResource(request.Resource)
 	return policyContext, nil
 }
 

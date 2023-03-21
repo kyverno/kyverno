@@ -4,6 +4,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -17,7 +18,7 @@ type PolicyContext interface {
 	OldResource() unstructured.Unstructured
 	AdmissionInfo() kyvernov1beta1.RequestInfo
 	NamespaceLabels() map[string]string
-	RequestResource() schema.GroupVersionResource
+	RequestResource() metav1.GroupVersionResource
 	ResourceKind() (schema.GroupVersionKind, string)
 	AdmissionOperation() bool
 	Element() unstructured.Unstructured
