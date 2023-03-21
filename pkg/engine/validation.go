@@ -518,9 +518,9 @@ func matches(
 	if err == nil {
 		return true
 	}
-
-	if !reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.OldResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludedGroups(), ctx.NamespaceLabels(), "", ctx.SubResource())
+	oldResource := ctx.OldResource()
+	if oldResource.Object != nil {
+		err := MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, *rule, ctx.AdmissionInfo(), cfg.GetExcludedGroups(), ctx.NamespaceLabels(), "", ctx.SubResource())
 		if err == nil {
 			return true
 		}
