@@ -35,15 +35,15 @@ func Test_All(t *testing.T) {
 			assert.NilError(t, err)
 			for gvr := range gvrs {
 				// get
-				mutate := pCache.get(Mutate, gvr, "")
+				mutate := pCache.get(Mutate, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(mutate) != 1 {
 					t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 				}
-				validateEnforce := pCache.get(ValidateEnforce, gvr, "")
+				validateEnforce := pCache.get(ValidateEnforce, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(validateEnforce) != 1 {
 					t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
 				}
-				generate := pCache.get(Generate, gvr, "")
+				generate := pCache.get(Generate, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(generate) != 1 {
 					t.Errorf("expected 1 generate policy, found %v", len(generate))
 				}
@@ -53,7 +53,7 @@ func Test_All(t *testing.T) {
 
 	// remove
 	unsetPolicy(pCache, policy)
-	validateEnforce := pCache.get(ValidateEnforce, podsGVRS, "")
+	validateEnforce := pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
 	assert.Assert(t, len(validateEnforce) == 0)
 }
 
@@ -70,16 +70,16 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
 			for gvr := range gvrs {
-				mutate := pCache.get(Mutate, gvr, "")
+				mutate := pCache.get(Mutate, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(mutate) != 1 {
 					t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 				}
 
-				validateEnforce := pCache.get(ValidateEnforce, gvr, "")
+				validateEnforce := pCache.get(ValidateEnforce, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(validateEnforce) != 1 {
 					t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
 				}
-				generate := pCache.get(Generate, gvr, "")
+				generate := pCache.get(Generate, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(generate) != 1 {
 					t.Errorf("expected 1 generate policy, found %v", len(generate))
 				}
@@ -103,12 +103,12 @@ func Test_Add_Validate_Audit(t *testing.T) {
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
 			for gvr := range gvrs {
-				validateEnforce := pCache.get(ValidateEnforce, gvr, "")
+				validateEnforce := pCache.get(ValidateEnforce, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(validateEnforce) != 0 {
 					t.Errorf("expected 0 validate (enforce) policy, found %v", len(validateEnforce))
 				}
 
-				validateAudit := pCache.get(ValidateAudit, gvr, "")
+				validateAudit := pCache.get(ValidateAudit, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(validateAudit) != 1 {
 					t.Errorf("expected 1 validate (audit) policy, found %v", len(validateAudit))
 				}
@@ -122,20 +122,20 @@ func Test_Add_Remove(t *testing.T) {
 	policy := newPolicy(t)
 	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy, finder)
-	validateEnforce := pCache.get(ValidateEnforce, podsGVRS, "")
+	validateEnforce := pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
-	mutate := pCache.get(Mutate, podsGVRS, "")
+	mutate := pCache.get(Mutate, podsGVRS.GroupVersionResource(), "", "")
 	if len(mutate) != 1 {
 		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 	}
-	generate := pCache.get(Generate, podsGVRS, "")
+	generate := pCache.get(Generate, podsGVRS.GroupVersionResource(), "", "")
 	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 	unsetPolicy(pCache, policy)
-	deletedValidateEnforce := pCache.get(ValidateEnforce, podsGVRS, "")
+	deletedValidateEnforce := pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
 	}
@@ -146,20 +146,20 @@ func Test_Add_Remove_Any(t *testing.T) {
 	policy := newAnyPolicy(t)
 	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy, finder)
-	validateEnforce := pCache.get(ValidateEnforce, podsGVRS, "")
+	validateEnforce := pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
-	mutate := pCache.get(Mutate, podsGVRS, "")
+	mutate := pCache.get(Mutate, podsGVRS.GroupVersionResource(), "", "")
 	if len(mutate) != 1 {
 		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 	}
-	generate := pCache.get(Generate, podsGVRS, "")
+	generate := pCache.get(Generate, podsGVRS.GroupVersionResource(), "", "")
 	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 	unsetPolicy(pCache, policy)
-	deletedValidateEnforce := pCache.get(ValidateEnforce, podsGVRS, "")
+	deletedValidateEnforce := pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
 	}
@@ -901,15 +901,15 @@ func Test_Ns_All(t *testing.T) {
 			assert.NilError(t, err)
 			for gvr := range gvrs {
 				// get
-				mutate := pCache.get(Mutate, gvr, nspace)
+				mutate := pCache.get(Mutate, gvr.GroupVersionResource(), gvr.SubResource, nspace)
 				if len(mutate) != 1 {
 					t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 				}
-				validateEnforce := pCache.get(ValidateEnforce, gvr, nspace)
+				validateEnforce := pCache.get(ValidateEnforce, gvr.GroupVersionResource(), gvr.SubResource, nspace)
 				if len(validateEnforce) != 1 {
 					t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
 				}
-				generate := pCache.get(Generate, gvr, nspace)
+				generate := pCache.get(Generate, gvr.GroupVersionResource(), gvr.SubResource, nspace)
 				if len(generate) != 1 {
 					t.Errorf("expected 1 generate policy, found %v", len(generate))
 				}
@@ -918,7 +918,7 @@ func Test_Ns_All(t *testing.T) {
 	}
 	// remove
 	unsetPolicy(pCache, policy)
-	validateEnforce := pCache.get(ValidateEnforce, podsGVRS, nspace)
+	validateEnforce := pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", nspace)
 	assert.Assert(t, len(validateEnforce) == 0)
 }
 
@@ -936,15 +936,15 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
 			for gvr := range gvrs {
-				mutate := pCache.get(Mutate, gvr, nspace)
+				mutate := pCache.get(Mutate, gvr.GroupVersionResource(), gvr.SubResource, nspace)
 				if len(mutate) != 1 {
 					t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 				}
-				validateEnforce := pCache.get(ValidateEnforce, gvr, nspace)
+				validateEnforce := pCache.get(ValidateEnforce, gvr.GroupVersionResource(), gvr.SubResource, nspace)
 				if len(validateEnforce) != 1 {
 					t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
 				}
-				generate := pCache.get(Generate, gvr, nspace)
+				generate := pCache.get(Generate, gvr.GroupVersionResource(), gvr.SubResource, nspace)
 				if len(generate) != 1 {
 					t.Errorf("expected 1 generate policy, found %v", len(generate))
 				}
@@ -969,12 +969,12 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
 			for gvr := range gvrs {
-				validateEnforce := pCache.get(ValidateEnforce, gvr, nspace)
+				validateEnforce := pCache.get(ValidateEnforce, gvr.GroupVersionResource(), gvr.SubResource, nspace)
 				if len(validateEnforce) != 0 {
 					t.Errorf("expected 0 validate (enforce) policy, found %v", len(validateEnforce))
 				}
 
-				validateAudit := pCache.get(ValidateAudit, gvr, nspace)
+				validateAudit := pCache.get(ValidateAudit, gvr.GroupVersionResource(), gvr.SubResource, nspace)
 				if len(validateAudit) != 1 {
 					t.Errorf("expected 1 validate (audit) policy, found %v", len(validateAudit))
 				}
@@ -989,12 +989,12 @@ func Test_Ns_Add_Remove(t *testing.T) {
 	finder := TestResourceFinder{}
 	nspace := policy.GetNamespace()
 	setPolicy(t, pCache, policy, finder)
-	validateEnforce := pCache.get(ValidateEnforce, podsGVRS, nspace)
+	validateEnforce := pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", nspace)
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
 	unsetPolicy(pCache, policy)
-	deletedValidateEnforce := pCache.get(ValidateEnforce, podsGVRS, nspace)
+	deletedValidateEnforce := pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", nspace)
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
 	}
@@ -1012,7 +1012,7 @@ func Test_GVk_Cache(t *testing.T) {
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
 			for gvr := range gvrs {
-				generate := pCache.get(Generate, gvr, "")
+				generate := pCache.get(Generate, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(generate) != 1 {
 					t.Errorf("expected 1 generate policy, found %v", len(generate))
 				}
@@ -1026,12 +1026,12 @@ func Test_GVK_Add_Remove(t *testing.T) {
 	policy := newGVKPolicy(t)
 	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy, finder)
-	generate := pCache.get(Generate, clusterrolesGVRS, "")
+	generate := pCache.get(Generate, clusterrolesGVRS.GroupVersionResource(), "", "")
 	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 	unsetPolicy(pCache, policy)
-	deletedGenerate := pCache.get(Generate, clusterrolesGVRS, "")
+	deletedGenerate := pCache.get(Generate, clusterrolesGVRS.GroupVersionResource(), "", "")
 	if len(deletedGenerate) != 0 {
 		t.Errorf("expected 0 generate policy, found %v", len(deletedGenerate))
 	}
@@ -1050,7 +1050,7 @@ func Test_Add_Validate_Enforce(t *testing.T) {
 			gvrs, err := finder.FindResources(group, version, kind, subresource)
 			assert.NilError(t, err)
 			for gvr := range gvrs {
-				validateEnforce := pCache.get(ValidateEnforce, gvr, nspace)
+				validateEnforce := pCache.get(ValidateEnforce, gvr.GroupVersionResource(), gvr.SubResource, nspace)
 				if len(validateEnforce) != 1 {
 					t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
 				}
@@ -1066,12 +1066,12 @@ func Test_Ns_Add_Remove_User(t *testing.T) {
 	finder := TestResourceFinder{}
 	// kind := "Deployment"
 	setPolicy(t, pCache, policy, finder)
-	validateEnforce := pCache.get(ValidateEnforce, deploymentsGVRS, nspace)
+	validateEnforce := pCache.get(ValidateEnforce, deploymentsGVRS.GroupVersionResource(), "", nspace)
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
 	unsetPolicy(pCache, policy)
-	deletedValidateEnforce := pCache.get(ValidateEnforce, deploymentsGVRS, nspace)
+	deletedValidateEnforce := pCache.get(ValidateEnforce, deploymentsGVRS.GroupVersionResource(), "", nspace)
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
 	}
@@ -1092,7 +1092,7 @@ func Test_Mutate_Policy(t *testing.T) {
 			assert.NilError(t, err)
 			for gvr := range gvrs {
 				// get
-				mutate := pCache.get(Mutate, gvr, "")
+				mutate := pCache.get(Mutate, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(mutate) != 1 {
 					t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 				}
@@ -1114,7 +1114,7 @@ func Test_Generate_Policy(t *testing.T) {
 			assert.NilError(t, err)
 			for gvr := range gvrs {
 				// get
-				generate := pCache.get(Generate, gvr, "")
+				generate := pCache.get(Generate, gvr.GroupVersionResource(), gvr.SubResource, "")
 				if len(generate) != 1 {
 					t.Errorf("expected 1 generate policy, found %v", len(generate))
 				}
@@ -1135,12 +1135,12 @@ func Test_NsMutate_Policy(t *testing.T) {
 	setPolicy(t, pCache, nspolicy, finder)
 	nspace := policy.GetNamespace()
 	// get
-	mutate := pCache.get(Mutate, statefulsetsGVRS, "")
+	mutate := pCache.get(Mutate, statefulsetsGVRS.GroupVersionResource(), "", "")
 	if len(mutate) != 1 {
 		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 	}
 	// get
-	nsMutate := pCache.get(Mutate, statefulsetsGVRS, nspace)
+	nsMutate := pCache.get(Mutate, statefulsetsGVRS.GroupVersionResource(), "", nspace)
 	if len(nsMutate) != 1 {
 		t.Errorf("expected 1 namespace mutate policy, found %v", len(nsMutate))
 	}
@@ -1153,21 +1153,21 @@ func Test_Validate_Enforce_Policy(t *testing.T) {
 	finder := TestResourceFinder{}
 	setPolicy(t, pCache, policy1, finder)
 	setPolicy(t, pCache, policy2, finder)
-	validateEnforce := pCache.get(ValidateEnforce, podsGVRS, "")
+	validateEnforce := pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
 	if len(validateEnforce) != 2 {
 		t.Errorf("adding: expected 2 validate enforce policy, found %v", len(validateEnforce))
 	}
-	validateAudit := pCache.get(ValidateAudit, podsGVRS, "")
+	validateAudit := pCache.get(ValidateAudit, podsGVRS.GroupVersionResource(), "", "")
 	if len(validateAudit) != 0 {
 		t.Errorf("adding: expected 0 validate audit policy, found %v", len(validateAudit))
 	}
 	unsetPolicy(pCache, policy1)
 	unsetPolicy(pCache, policy2)
-	validateEnforce = pCache.get(ValidateEnforce, podsGVRS, "")
+	validateEnforce = pCache.get(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
 	if len(validateEnforce) != 0 {
 		t.Errorf("removing: expected 0 validate enforce policy, found %v", len(validateEnforce))
 	}
-	validateAudit = pCache.get(ValidateAudit, podsGVRS, "")
+	validateAudit = pCache.get(ValidateAudit, podsGVRS.GroupVersionResource(), "", "")
 	if len(validateAudit) != 0 {
 		t.Errorf("removing: expected 0 validate audit policy, found %v", len(validateAudit))
 	}
@@ -1179,23 +1179,23 @@ func Test_Get_Policies(t *testing.T) {
 	finder := TestResourceFinder{}
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
 	cache.Set(key, policy, finder)
-	validateAudit := cache.GetPolicies(ValidateAudit, namespacesGVRS, "")
+	validateAudit := cache.GetPolicies(ValidateAudit, namespacesGVRS.GroupVersionResource(), "", "")
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS, "test")
+	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "test")
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce := cache.GetPolicies(ValidateEnforce, namespacesGVRS, "")
+	validateEnforce := cache.GetPolicies(ValidateEnforce, namespacesGVRS.GroupVersionResource(), "", "")
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
-	mutate := cache.GetPolicies(Mutate, podsGVRS, "")
+	mutate := cache.GetPolicies(Mutate, podsGVRS.GroupVersionResource(), "", "")
 	if len(mutate) != 1 {
 		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 	}
-	generate := cache.GetPolicies(Generate, podsGVRS, "")
+	generate := cache.GetPolicies(Generate, podsGVRS.GroupVersionResource(), "", "")
 	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
@@ -1208,19 +1208,19 @@ func Test_Get_Policies_Ns(t *testing.T) {
 	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
 	cache.Set(key, policy, finder)
 	nspace := policy.GetNamespace()
-	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS, nspace)
+	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", nspace)
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS, nspace)
+	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", nspace)
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
-	mutate := cache.GetPolicies(Mutate, podsGVRS, nspace)
+	mutate := cache.GetPolicies(Mutate, podsGVRS.GroupVersionResource(), "", nspace)
 	if len(mutate) != 1 {
 		t.Errorf("expected 1 mutate policy, found %v", len(mutate))
 	}
-	generate := cache.GetPolicies(Generate, podsGVRS, nspace)
+	generate := cache.GetPolicies(Generate, podsGVRS.GroupVersionResource(), "", nspace)
 	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
@@ -1235,27 +1235,27 @@ func Test_Get_Policies_Validate_Failure_Action_Overrides(t *testing.T) {
 	cache.Set(key1, policy1, finder)
 	key2, _ := kubecache.MetaNamespaceKeyFunc(policy2)
 	cache.Set(key2, policy2, finder)
-	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS, "")
+	validateAudit := cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "")
 	if len(validateAudit) != 1 {
 		t.Errorf("expected 1 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS, "")
+	validateEnforce := cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "")
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
-	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS, "test")
+	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "test")
 	if len(validateAudit) != 2 {
 		t.Errorf("expected 2 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce = cache.GetPolicies(ValidateEnforce, podsGVRS, "test")
+	validateEnforce = cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "test")
 	if len(validateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(validateEnforce))
 	}
-	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS, "default")
+	validateAudit = cache.GetPolicies(ValidateAudit, podsGVRS.GroupVersionResource(), "", "default")
 	if len(validateAudit) != 0 {
 		t.Errorf("expected 0 validate audit policy, found %v", len(validateAudit))
 	}
-	validateEnforce = cache.GetPolicies(ValidateEnforce, podsGVRS, "default")
+	validateEnforce = cache.GetPolicies(ValidateEnforce, podsGVRS.GroupVersionResource(), "", "default")
 	if len(validateEnforce) != 2 {
 		t.Errorf("expected 2 validate enforce policy, found %v", len(validateEnforce))
 	}

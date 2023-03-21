@@ -83,7 +83,7 @@ func getTargets(client dclient.Interface, target kyvernov1.ResourceSpec, ctx eng
 		return nil, err
 	}
 	for gvrs := range gvrss {
-		dyn := client.GetDynamicInterface().Resource(gvrs.GroupVersionResource)
+		dyn := client.GetDynamicInterface().Resource(gvrs.GroupVersionResource())
 		var sub []string
 		if gvrs.SubResource != "" {
 			sub = []string{gvrs.SubResource}
@@ -96,7 +96,11 @@ func getTargets(client dclient.Interface, target kyvernov1.ResourceSpec, ctx eng
 			if err != nil {
 				return nil, err
 			}
-			targetObjects = append(targetObjects, resourceInfo{unstructured: *obj, subresource: gvrs.SubResource, parentResourceGVR: metav1.GroupVersionResource(gvrs.GroupVersionResource)})
+			targetObjects = append(targetObjects, resourceInfo{
+				unstructured:      *obj,
+				subresource:       gvrs.SubResource,
+				parentResourceGVR: metav1.GroupVersionResource(gvrs.GroupVersionResource()),
+			})
 		} else {
 			// we can use `LIST`
 			if gvrs.SubResource == "" {
@@ -132,7 +136,11 @@ func getTargets(client dclient.Interface, target kyvernov1.ResourceSpec, ctx eng
 					if err != nil {
 						return nil, err
 					}
-					targetObjects = append(targetObjects, resourceInfo{unstructured: *obj, subresource: gvrs.SubResource, parentResourceGVR: metav1.GroupVersionResource(gvrs.GroupVersionResource)})
+					targetObjects = append(targetObjects, resourceInfo{
+						unstructured:      *obj,
+						subresource:       gvrs.SubResource,
+						parentResourceGVR: metav1.GroupVersionResource(gvrs.GroupVersionResource()),
+					})
 				}
 			}
 		}
