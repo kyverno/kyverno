@@ -16,7 +16,7 @@ import (
 func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PSSCheckResult) {
 	checks := policy.DefaultChecks()
 
-	fmt.Println("======0")
+	fmt.Println("======0", len(checks))
 	for _, check := range checks {
 		if level.Level == api.LevelBaseline && check.Level != level.Level {
 			fmt.Println("======0.5")
@@ -24,8 +24,13 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 		}
 		// check version
 		fmt.Println("======1", level.Version, len(check.Versions))
+		appliedOnce := true
 		for _, versionCheck := range check.Versions {
-			if level.Version != api.LatestVersion() && !level.Version.Older(versionCheck.MinimumVersion) {
+			if level.Version == api.LatestVersion() {
+				if !appliedOnce {
+					continue
+				}
+			} else if level.Version != api.LatestVersion() && !level.Version.Older(versionCheck.MinimumVersion) {
 				fmt.Println("======2 MinimumVersion", versionCheck.MinimumVersion)
 				continue
 			}
@@ -39,6 +44,7 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 					RestrictedFields: GetRestrictedFields(check),
 				})
 			}
+			appliedOnce = false
 		}
 	}
 	return results
