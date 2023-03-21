@@ -20,17 +20,25 @@ var (
 	replicasetsGVR            = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
 	replicationcontrollersGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "replicationcontrollers"}
 
-	podsGVRS                   = dclient.GroupVersionResourceSubresource{GroupVersionResource: podsGVR}
-	namespacesGVRS             = dclient.GroupVersionResourceSubresource{GroupVersionResource: namespacesGVR}
-	clusterrolesGVRS           = dclient.GroupVersionResourceSubresource{GroupVersionResource: clusterrolesGVR}
-	deploymentsGVRS            = dclient.GroupVersionResourceSubresource{GroupVersionResource: deploymentsGVR}
-	statefulsetsGVRS           = dclient.GroupVersionResourceSubresource{GroupVersionResource: statefulsetsGVR}
-	daemonsetsGVRS             = dclient.GroupVersionResourceSubresource{GroupVersionResource: daemonsetsGVR}
-	jobsGVRS                   = dclient.GroupVersionResourceSubresource{GroupVersionResource: jobsGVR}
-	cronjobsGVRS               = dclient.GroupVersionResourceSubresource{GroupVersionResource: cronjobsGVR}
-	replicasetsGVRS            = dclient.GroupVersionResourceSubresource{GroupVersionResource: replicasetsGVR}
-	replicationcontrollersGVRS = dclient.GroupVersionResourceSubresource{GroupVersionResource: replicationcontrollersGVR}
+	podsGVRS                   = mapGVR(podsGVR, "Pod")
+	namespacesGVRS             = mapGVR(namespacesGVR, "Namespace")
+	clusterrolesGVRS           = mapGVR(clusterrolesGVR, "ClusterRole")
+	deploymentsGVRS            = mapGVR(deploymentsGVR, "Deployment")
+	statefulsetsGVRS           = mapGVR(statefulsetsGVR, "StatefulSet")
+	daemonsetsGVRS             = mapGVR(daemonsetsGVR, "DaemonSet")
+	jobsGVRS                   = mapGVR(jobsGVR, "Jon")
+	cronjobsGVRS               = mapGVR(cronjobsGVR, "CronJob")
+	replicasetsGVRS            = mapGVR(replicasetsGVR, "ReplicaSet")
+	replicationcontrollersGVRS = mapGVR(replicationcontrollersGVR, "ReplicationController")
 )
+
+func mapGVR(gvr schema.GroupVersionResource, kind string) dclient.GroupVersionResourceSubresource {
+	return dclient.GroupVersionResourceSubresource{
+		GroupVersion: gvr.GroupVersion(),
+		Kind:         kind,
+		Resource:     gvr.Resource,
+	}
+}
 
 type TestResourceFinder struct{}
 
