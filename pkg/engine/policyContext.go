@@ -38,11 +38,6 @@ type PolicyContext struct {
 	// subresource is the subresource being requested, if any (for example, "status" or "scale")
 	subresource string
 
-	// // subresourcesInPolicy represents the APIResources that are subresources along with their parent resource.
-	// // This is used to determine if a resource is a subresource. It is only used when the policy context is populated
-	// // by kyverno CLI. In all other cases when connected to a cluster, this is empty.
-	// subresourcesInPolicy []engineapi.SubResource
-
 	// jsonContext is the variable context
 	jsonContext enginectx.Interface
 
