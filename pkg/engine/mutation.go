@@ -59,17 +59,24 @@ func (e *engine) mutate(
 				if len(e.configuration.GetExcludedGroups()) > 0 {
 					excludeResource = e.configuration.GetExcludedGroups()
 				}
-
-				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
-				if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.AdmissionInfo(), excludeResource, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), policyContext.SubResource()); err != nil {
+				gvk, subresource := policyContext.ResourceKind()
+				if err = MatchesResourceDescription(
+					matchedResource,
+					rule,
+					policyContext.AdmissionInfo(),
+					excludeResource,
+					policyContext.NamespaceLabels(),
+					policyContext.Policy().GetNamespace(),
+					gvk,
+					subresource,
+				); err != nil {
 					logger.V(4).Info("rule not matched", "reason", err.Error())
 					skippedRules = append(skippedRules, rule.Name)
 					return
 				}
 
 				// check if there is a corresponding policy exception
-				if ruleResp := hasPolicyExceptions(logger, engineapi.Mutation, e.exceptionSelector, policyContext, &computeRules[i], subresourceGVKToAPIResource, e.configuration); ruleResp != nil {
+				if ruleResp := hasPolicyExceptions(logger, engineapi.Mutation, e.exceptionSelector, policyContext, &computeRules[i], e.configuration); ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return
 				}
@@ -97,12 +104,13 @@ func (e *engine) mutate(
 					}
 				} else {
 					var parentResourceGVR metav1.GroupVersionResource
-					if policyContext.SubResource() != "" {
-						parentResourceGVR = policyContext.RequestResource()
+					if subresource != "" {
+						// TODO
+						// parentResourceGVR = policyContext.RequestResource()
 					}
 					patchedResources = append(patchedResources, resourceInfo{
 						unstructured:      matchedResource,
-						subresource:       policyContext.SubResource(),
+						subresource:       subresource,
 						parentResourceGVR: parentResourceGVR,
 					})
 				}
