@@ -21,7 +21,16 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 			continue
 		}
 		// check version
+		appliedOnce := true
 		for _, versionCheck := range check.Versions {
+			// the latest check returned twice, skip duplicate application
+			if level.Version == api.LatestVersion() {
+				if !appliedOnce {
+					continue
+				}
+			} else if level.Version != api.LatestVersion() && level.Version.Older(versionCheck.MinimumVersion) {
+				continue
+			}
 			checkResult := versionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec)
 			// Append only if the checkResult is not already in pssCheckResult
 			if !checkResult.Allowed {
@@ -31,6 +40,7 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 					RestrictedFields: GetRestrictedFields(check),
 				})
 			}
+			appliedOnce = false
 		}
 	}
 	return results
@@ -81,12 +91,12 @@ func parseVersion(rule *kyvernov1.PodSecurity) (*api.LevelVersion, error) {
 
 // EvaluatePod applies PSS checks to the pod and exempts controls specified in the rule
 func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssutils.PSSCheckResult, error) {
-	level, err := parseVersion(rule)
+	levelVersion, err := parseVersion(rule)
 	if err != nil {
 		return false, nil, err
 	}
 
-	defaultCheckResults := evaluatePSS(level, *pod)
+	defaultCheckResults := evaluatePSS(levelVersion, *pod)
 
 	for _, exclude := range rule.Exclude {
 		spec, matching := GetPodWithMatchingContainers(exclude, pod)
@@ -94,12 +104,12 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssutils
 		switch {
 		// exclude pod level checks
 		case spec != nil:
-			excludeCheckResults := evaluatePSS(level, *spec)
+			excludeCheckResults := evaluatePSS(levelVersion, *spec)
 			defaultCheckResults = exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults, exclude)
 
 		// exclude container level checks
 		default:
-			excludeCheckResults := evaluatePSS(level, *matching)
+			excludeCheckResults := evaluatePSS(levelVersion, *matching)
 			defaultCheckResults = exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults, exclude)
 		}
 	}
