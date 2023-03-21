@@ -105,8 +105,7 @@ func (e *engine) mutate(
 				} else {
 					var parentResourceGVR metav1.GroupVersionResource
 					if subresource != "" {
-						// TODO
-						// parentResourceGVR = policyContext.RequestResource()
+						parentResourceGVR = metav1.GroupVersionResource(policyContext.RequestResource())
 					}
 					patchedResources = append(patchedResources, resourceInfo{
 						unstructured:      matchedResource,

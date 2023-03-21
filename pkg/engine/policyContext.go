@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -60,6 +62,21 @@ func (c *PolicyContext) NewResource() unstructured.Unstructured {
 
 func (c *PolicyContext) OldResource() unstructured.Unstructured {
 	return c.oldResource
+}
+
+func (c *PolicyContext) RequestResource() schema.GroupVersionResource {
+	result, err := c.jsonContext.Query("request.resource")
+	if err != nil || result == nil {
+		return schema.GroupVersionResource{}
+	}
+	buf := new(bytes.Buffer)
+	var gvr schema.GroupVersionResource
+	if json.NewEncoder(buf).Encode(result) != nil {
+		return schema.GroupVersionResource{}
+	} else if json.NewDecoder(buf).Decode(&gvr) != nil {
+		return schema.GroupVersionResource{}
+	}
+	return gvr
 }
 
 func (c *PolicyContext) ResourceKind() (schema.GroupVersionKind, string) {
