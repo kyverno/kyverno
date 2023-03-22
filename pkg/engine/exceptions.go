@@ -10,7 +10,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
@@ -45,22 +44,22 @@ func matchesException(
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
-	subresourceGVKToAPIResource map[string]*metav1.APIResource,
 	cfg config.Configuration,
 ) (*kyvernov2alpha1.PolicyException, error) {
 	candidates, err := findExceptions(selector, policyContext.Policy(), rule.Name)
 	if err != nil {
 		return nil, err
 	}
+	gvk, subresource := policyContext.ResourceKind()
 	for _, candidate := range candidates {
 		err := matched.CheckMatchesResources(
 			policyContext.NewResource(),
 			candidate.Spec.Match,
 			policyContext.NamespaceLabels(),
-			subresourceGVKToAPIResource,
-			policyContext.SubResource(),
 			policyContext.AdmissionInfo(),
 			cfg.GetExcludedGroups(),
+			gvk,
+			subresource,
 		)
 		// if there's no error it means a match
 		if err == nil {
@@ -78,11 +77,10 @@ func hasPolicyExceptions(
 	selector engineapi.PolicyExceptionSelector,
 	ctx engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
-	subresourceGVKToAPIResource map[string]*metav1.APIResource,
 	cfg config.Configuration,
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(selector, ctx, rule, subresourceGVKToAPIResource, cfg)
+	exception, err := matchesException(selector, ctx, rule, cfg)
 	var response *engineapi.RuleResponse
 	// if we found an exception
 	if err == nil && exception != nil {
