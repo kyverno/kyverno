@@ -18,29 +18,34 @@ func Test_selectResourcesForCheck(t *testing.T) {
 		testFile           string
 		expectedResources  int
 		expectedDuplicates int
+		expectedUnused     int
 	}
 	baseTestDir := "../../../../test/cli/test-unit/selectResourcesForCheck/"
 	testcases := []*TestCase{
 		{
 
 			testFile:           "kyverno-test-duplicated-with-resource.yaml",
-			expectedResources:  4,
+			expectedResources:  3,
 			expectedDuplicates: 1,
+			expectedUnused:     3,
 		},
 		{
 			testFile:           "kyverno-test-duplicated-with-resources.yaml",
-			expectedResources:  4,
+			expectedResources:  3,
 			expectedDuplicates: 1,
+			expectedUnused:     3,
 		},
 		{
 			testFile:           "kyverno-test-uniq-with-resource.yaml",
-			expectedResources:  4,
+			expectedResources:  3,
 			expectedDuplicates: 0,
+			expectedUnused:     3,
 		},
 		{
 			testFile:           "kyverno-test-uniq-with-resources.yaml",
-			expectedResources:  4,
+			expectedResources:  3,
 			expectedDuplicates: 0,
+			expectedUnused:     3,
 		},
 	}
 	fs := memfs.New()
@@ -76,10 +81,12 @@ func Test_selectResourcesForCheck(t *testing.T) {
 		)
 		assert.NilError(t, err)
 
-		selected, duplicates := selectResourcesForCheck(resources, values)
+		selected, duplicates, unused := selectResourcesForCheckInternal(resources, values)
 		assert.Equal(t, len(selected), tc.expectedResources,
 			"Did not get the expected number of resources for test %s", tc.testFile)
 		assert.Equal(t, duplicates, tc.expectedDuplicates,
 			"Did not get the expected number of duplicates for test %s", tc.testFile)
+		assert.Equal(t, unused, tc.expectedUnused,
+			"Did not get the expected number of unused resources for test %s", tc.testFile)
 	}
 }
