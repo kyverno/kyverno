@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -87,14 +86,12 @@ func (e *engine) validateResource(
 				if !hasValidate && !hasValidateImage {
 					return nil
 				}
-				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, enginectx)
 
-				if !matches(logger, rule, enginectx, subresourceGVKToAPIResource, e.configuration) {
+				if !matches(logger, rule, enginectx, e.configuration) {
 					return nil
 				}
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, enginectx, rule, subresourceGVKToAPIResource, e.configuration)
+				ruleResp := hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, enginectx, rule, e.configuration)
 				if ruleResp != nil {
 					return ruleResp
 				}
@@ -498,11 +495,9 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 	if u == nil {
 		return true
 	}
-
-	if reflect.DeepEqual(*u, unstructured.Unstructured{}) {
+	if u.Object == nil {
 		return true
 	}
-
 	return false
 }
 
@@ -511,21 +506,38 @@ func matches(
 	logger logr.Logger,
 	rule *kyvernov1.Rule,
 	ctx engineapi.PolicyContext,
-	subresourceGVKToAPIResource map[string]*metav1.APIResource,
 	cfg config.Configuration,
 ) bool {
-	err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.NewResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludedGroups(), ctx.NamespaceLabels(), "", ctx.SubResource())
+	gvk, subresource := ctx.ResourceKind()
+	err := MatchesResourceDescription(
+		ctx.NewResource(),
+		*rule,
+		ctx.AdmissionInfo(),
+		cfg.GetExcludedGroups(),
+		ctx.NamespaceLabels(),
+		"",
+		gvk,
+		subresource,
+	)
 	if err == nil {
 		return true
 	}
 	oldResource := ctx.OldResource()
 	if oldResource.Object != nil {
-		err := MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, *rule, ctx.AdmissionInfo(), cfg.GetExcludedGroups(), ctx.NamespaceLabels(), "", ctx.SubResource())
+		err := MatchesResourceDescription(
+			ctx.OldResource(),
+			*rule,
+			ctx.AdmissionInfo(),
+			cfg.GetExcludedGroups(),
+			ctx.NamespaceLabels(),
+			"",
+			gvk,
+			subresource,
+		)
 		if err == nil {
 			return true
 		}
 	}
-
 	logger.V(5).Info("resource does not match rule", "reason", err.Error())
 	return false
 }
