@@ -11,7 +11,7 @@ import (
 )
 
 type Operand interface {
-	Add(interface{}, bool) (interface{}, error)
+	Add(interface{}) (interface{}, error)
 	Subtract(interface{}) (interface{}, error)
 	Multiply(interface{}) (interface{}, error)
 	Divide(interface{}) (interface{}, error)
@@ -51,23 +51,23 @@ func ParseArithemticOperands(arguments []interface{}, operator string) (Operand,
 	return op[0], op[1], nil
 }
 
-func ParseArithmeticOperandsArray(arguments []interface{}, operator string) ([]Operand, error) {
-    op := make([]Operand, len(arguments))
-    for i := range arguments {
-		if tmp, err := validateArg(divide, arguments, i, reflect.Float64); err == nil {
-			var sc Scalar
-			sc.float64 = tmp.Float()
-			op[i] = sc
-		} else if tmp, err = validateArg(divide, arguments, i, reflect.String); err == nil {
-			if q, err := resource.ParseQuantity(tmp.String()); err == nil {
-				op[i] = Quantity{Quantity: q}
-			} else if d, err := time.ParseDuration(tmp.String()); err == nil {
-				op[i] = Duration{Duration: d}
-			}
-		}
-    }
-    return op, nil
-}
+// func ParseArithmeticOperandsArray(arguments []interface{}, operator string) ([]Operand, error) {
+//     op := make([]Operand, len(arguments))
+//     for i := range arguments {
+// 		if tmp, err := validateArg(divide, arguments, i, reflect.Float64); err == nil {
+// 			var sc Scalar
+// 			sc.float64 = tmp.Float()
+// 			op[i] = sc
+// 		} else if tmp, err = validateArg(divide, arguments, i, reflect.String); err == nil {
+// 			if q, err := resource.ParseQuantity(tmp.String()); err == nil {
+// 				op[i] = Quantity{Quantity: q}
+// 			} else if d, err := time.ParseDuration(tmp.String()); err == nil {
+// 				op[i] = Duration{Duration: d}
+// 			}
+// 		}
+//     }
+//     return op, nil
+// }
 
 // Quantity +|- Quantity          -> Quantity
 // Quantity +|- Duration|Scalar   -> error
@@ -77,92 +77,92 @@ func ParseArithmeticOperandsArray(arguments []interface{}, operator string) ([]O
 // Scalar   +|- Quantity|Duration -> error
 
 
-func addScalars(scalars []Operand) (interface{}, error) {
-	if len(scalars) == 0 {
-		return nil, fmt.Errorf("empty array")
-	}
+// func addScalars(scalars []Operand) (interface{}, error) {
+// 	if len(scalars) == 0 {
+// 		return nil, fmt.Errorf("empty array")
+// 	}
 
-	result := scalars[0]
-	for i := 1; i < len(scalars); i++ {
+// 	result := scalars[0]
+// 	for i := 1; i < len(scalars); i++ {
 	
-		res, err := result.Add(scalars[i], true)
+// 		res, err := result.Add(scalars[i])
 		
-		if err != nil {
-			return nil, err
-		}
-		result = Scalar{float64: res.(float64)}
-	}
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		result = Scalar{float64: res.(float64)}
+// 	}
 
-	return result.(Scalar).float64, nil
+// 	return result.(Scalar).float64, nil
 
-}
+// }
 
-func addQuantities(quantities []Operand)(interface{}, error){
-	if len(quantities) == 0 {
-        return Quantity{}, fmt.Errorf("empty array")
-    }
+// func addQuantities(quantities []Operand)(interface{}, error){
+// 	if len(quantities) == 0 {
+//         return Quantity{}, fmt.Errorf("empty array")
+//     }
 
-    result := quantities[0].(Quantity)
-    for i := 1; i < len(quantities); i++ {
-        res, err := result.Add(quantities[i], false)
-        if err != nil {
-            return Quantity{}, err
-        }
-        result = res.(Quantity)
-    }
-	return result.String(), nil
-}
+//     result := quantities[0].(Quantity)
+//     for i := 1; i < len(quantities); i++ {
+//         res, err := result.Add(quantities[i])
+//         if err != nil {
+//             return Quantity{}, err
+//         }
+//         result = res.(Quantity)
+//     }
+// 	return result.String(), nil
+// }
 
-func addDurations(durations []Operand)(interface{}, error){
-	if len(durations) == 0 {
-		return "", fmt.Errorf("empty array of durations")
-	}
+// func addDurations(durations []Operand)(interface{}, error){
+// 	if len(durations) == 0 {
+// 		return "", fmt.Errorf("empty array of durations")
+// 	}
 
-	// Start with the first duration in the array
-	result := durations[0]
+// 	// Start with the first duration in the array
+// 	result := durations[0]
 
-	// Add the remaining durations in the array to the result using the `Add` method
-	for i := 1; i < len(durations); i++ {
-		value, err := result.Add(durations[i], false)
-		if err != nil {
-			return "", err
-		}
-		result = Duration{value.(time.Duration)}
-	}
+// 	// Add the remaining durations in the array to the result using the `Add` method
+// 	for i := 1; i < len(durations); i++ {
+// 		value, err := result.Add(durations[i])
+// 		if err != nil {
+// 			return "", err
+// 		}
+// 		result = Duration{value.(time.Duration)}
+// 	}
 
-	return result.(Duration).String(), nil
-}
+// 	return result.(Duration).String(), nil
+// }
 
-func (op1 Quantity) Add(op2 interface{}, check bool) (interface{}, error) {
+func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
 		op1.Quantity.Add(v.Quantity)
-		if(check){
+		// if(check){
 		 return op1.String(),nil
-	}else
-	{
-		return op1, nil
-	}
+	// }else
+	// {
+	// 	return op1, nil
+	// }
 	default:
 		return nil, formatError(typeMismatchError, add)
 	}
 }
 
-func (op1 Duration) Add(op2 interface{}, check bool) (interface{}, error) {
+func (op1 Duration) Add(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Duration:
-		if(check){
+		// if(check){
 			return (op1.Duration + v.Duration).String(), nil
-		}else{
-			return (op1.Duration + v.Duration), nil
-		}
+		// }else{
+		// 	return (op1.Duration + v.Duration), nil
+		// }
 		
 	default:
 		return nil, formatError(typeMismatchError, add)
 	}
 }
 
-func (op1 Scalar) Add(op2 interface{}, check bool) (interface{}, error) {
+func (op1 Scalar) Add(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Scalar:
 		return op1.float64 + v.float64, nil

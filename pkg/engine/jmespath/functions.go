@@ -780,26 +780,27 @@ func jpAdd(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-   return op1.Add(op2, true)
+   return op1.Add(op2)
 }
 
 func jpSum(arguments []interface{})(interface{}, error){
-	args, _ := arguments[0].([]interface{})
-	ops, err := ParseArithmeticOperandsArray(args, add)
-	if err != nil {
-		return nil, err
-	}
 
-	switch ops[0].(type) {
-    case Scalar:
-        return addScalars(ops)
-	case Quantity:
-		return addQuantities(ops)
-	case Duration:
-		return addDurations(ops)
-    default:
-        return nil, formatError(typeMismatchError, add)
-    }
+	items, ok := arguments[0].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("argument is not a slice of interface{} values")
+	}
+	if len(items) == 0 {
+		return nil, fmt.Errorf("invalid number of arguments")
+	}
+	var err error
+	sum := items[0]
+	for _, item := range items[1:] {
+		sum, err = jpAdd([]interface{}{sum, item})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return sum, nil
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {
