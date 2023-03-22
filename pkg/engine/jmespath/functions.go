@@ -787,10 +787,10 @@ func jpSum(arguments []interface{})(interface{}, error){
 
 	items, ok := arguments[0].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("argument is not a slice of interface{} values")
+		return nil, formatError(typeMismatchError, sum)
 	}
 	if len(items) == 0 {
-		return nil, fmt.Errorf("invalid number of arguments")
+		return nil, formatError(genericError, sum, "invalid operands")
 	}
 	var err error
 	sum := items[0]
