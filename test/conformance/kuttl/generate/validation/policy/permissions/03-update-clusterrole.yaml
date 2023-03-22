@@ -6,17 +6,6 @@ rules:
 - apiGroups:
   - '*'
   resources:
-  - configmaps
-  - networkpolicies
-  - resourcequotas
-  - secrets
-  - roles
-  - rolebindings
-  - limitranges
-  - namespaces
-  - nodes
-  - nodes/status
-  - pods
   - serviceaccounts
   verbs:
   - create

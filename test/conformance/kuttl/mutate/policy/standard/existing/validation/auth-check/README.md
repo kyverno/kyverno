@@ -1,6 +1,6 @@
 ## Description
 
-This test ensures that a mutate existing policy is denied when it does not have corresponding permissions to operate the downstream resource.
+This test ensures that a mutate existing policy is denied when it does not have corresponding permissions to generate the downstream resource.
 
 ## Expected Behavior
 
