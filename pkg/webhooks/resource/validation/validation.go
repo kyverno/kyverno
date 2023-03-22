@@ -3,7 +3,6 @@ package validation
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -80,11 +79,9 @@ func (v *validationHandler) HandleValidation(
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource(), unstructured.Unstructured{}) {
-		resource := policyContext.NewResource()
+	if resource := policyContext.NewResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else {
-		resource := policyContext.OldResource()
+	} else if resource := policyContext.OldResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 
