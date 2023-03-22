@@ -2,12 +2,10 @@ package internal
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func RuleError(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) *engineapi.RuleResponse {
@@ -44,10 +42,10 @@ func AddRuleResponse(resp *engineapi.PolicyResponse, ruleResp *engineapi.RuleRes
 }
 
 func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, startTime time.Time) *engineapi.EngineResponse {
-	if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
+	if resp.PatchedResource.Object == nil {
 		// for delete requests patched resource will be oldResource since newResource is empty
 		resource := ctx.NewResource()
-		if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
+		if resource.Object == nil {
 			resource = ctx.OldResource()
 		}
 		resp.PatchedResource = resource
