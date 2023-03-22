@@ -30,7 +30,7 @@ func (e *engine) verifyAndPatchImages(
 
 	startTime := time.Now()
 	defer func() {
-		internal.BuildResponse(policyContext, resp, startTime)
+		internal.BuildResponse(policyContext, &resp, startTime)
 		logger.V(4).Info("processed image verification rules",
 			"time", resp.PolicyResponse.Stats.ProcessingTime.String(),
 			"applied", resp.PolicyResponse.Stats.RulesAppliedCount, "successful", resp.IsSuccessful())
@@ -50,7 +50,7 @@ func (e *engine) verifyAndPatchImages(
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),
 			func(ctx context.Context, span trace.Span) {
-				e.doVerifyAndPatch(ctx, logger, policyContext, rule, resp, ivm)
+				e.doVerifyAndPatch(ctx, logger, policyContext, rule, &resp, ivm)
 			},
 		)
 
@@ -59,7 +59,7 @@ func (e *engine) verifyAndPatchImages(
 		}
 	}
 
-	return resp, ivm
+	return &resp, ivm
 }
 
 func (e *engine) doVerifyAndPatch(

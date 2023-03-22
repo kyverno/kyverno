@@ -89,7 +89,7 @@ func (v *validationHandler) HandleValidation(
 		return true, "", nil
 	}
 
-	var engineResponses []*engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
 	failurePolicy := kyvernov1.Ignore
 	for _, policy := range policies {
 		tracing.ChildSpan(
@@ -112,7 +112,7 @@ func (v *validationHandler) HandleValidation(
 				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
 				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
 
-				engineResponses = append(engineResponses, &engineResponse)
+				engineResponses = append(engineResponses, engineResponse)
 				if !engineResponse.IsSuccessful() {
 					logger.V(2).Info("validation failed", "action", policy.GetSpec().ValidationFailureAction, "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 					return
@@ -147,14 +147,14 @@ func (v *validationHandler) buildAuditResponses(
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-) ([]*engineapi.EngineResponse, error) {
+) ([]engineapi.EngineResponse, error) {
 	gvr := schema.GroupVersionResource(request.Resource)
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
 		return nil, err
 	}
-	var responses []*engineapi.EngineResponse
+	var responses []engineapi.EngineResponse
 	for _, policy := range policies {
 		tracing.ChildSpan(
 			ctx,
@@ -163,7 +163,7 @@ func (v *validationHandler) buildAuditResponses(
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
 				response := v.engine.Validate(ctx, policyContext)
-				responses = append(responses, &response)
+				responses = append(responses, response)
 				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
 				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
 			},
@@ -177,7 +177,7 @@ func (v *validationHandler) handleAudit(
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-	engineResponses ...*engineapi.EngineResponse,
+	engineResponses ...engineapi.EngineResponse,
 ) {
 	createReport := v.admissionReports
 	if request.DryRun != nil && *request.DryRun {

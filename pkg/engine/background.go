@@ -51,7 +51,7 @@ func (e *engine) filterRules(
 		}
 	}
 
-	return *resp
+	return resp
 }
 
 func (e *engine) filterRule(

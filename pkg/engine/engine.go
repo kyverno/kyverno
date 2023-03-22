@@ -44,7 +44,7 @@ func (e *engine) Validate(
 ) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.validate"), policyContext)
 	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return nil
+		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	}
 	return e.validate(ctx, logger, policyContext)
 }
@@ -55,7 +55,7 @@ func (e *engine) Mutate(
 ) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.mutate"), policyContext)
 	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return nil
+		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	}
 	return e.mutate(ctx, logger, policyContext)
 }
@@ -77,7 +77,7 @@ func (e *engine) ApplyBackgroundChecks(
 ) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
 	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return nil
+		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	}
 	return e.applyBackgroundChecks(ctx, logger, policyContext)
 }
@@ -89,7 +89,7 @@ func (e *engine) GenerateResponse(
 ) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
 	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return nil
+		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	}
 	return e.generateResponse(ctx, logger, policyContext, gr)
 }

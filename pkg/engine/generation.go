@@ -41,5 +41,5 @@ func (e *engine) filterGenerateRules(
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}
-	return *resp
+	return resp
 }
