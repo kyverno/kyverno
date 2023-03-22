@@ -790,7 +790,7 @@ func jpSum(arguments []interface{})(interface{}, error){
 		return nil, formatError(typeMismatchError, sum)
 	}
 	if len(items) == 0 {
-		return nil, formatError(genericError, sum, "invalid operands")
+		return nil, formatError(genericError, sum, "at least one element in the array is required")
 	}
 	var err error
 	sum := items[0]
