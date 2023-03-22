@@ -109,10 +109,10 @@ func (v *validationHandler) HandleValidation(
 					return
 				}
 
-				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), *engineResponse)
-				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), *engineResponse)
+				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
+				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
 
-				engineResponses = append(engineResponses, engineResponse)
+				engineResponses = append(engineResponses, &engineResponse)
 				if !engineResponse.IsSuccessful() {
 					logger.V(2).Info("validation failed", "action", policy.GetSpec().ValidationFailureAction, "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 					return
@@ -163,9 +163,9 @@ func (v *validationHandler) buildAuditResponses(
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
 				response := v.engine.Validate(ctx, policyContext)
-				responses = append(responses, response)
-				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), *response)
-				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), *response)
+				responses = append(responses, &response)
+				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
+				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
 			},
 		)
 	}
