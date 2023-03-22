@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -108,7 +107,7 @@ func (e *engine) mutate(
 				}
 
 				for _, patchedResource := range patchedResources {
-					if reflect.DeepEqual(patchedResource, unstructured.Unstructured{}) {
+					if patchedResource.unstructured.Object == nil {
 						continue
 					}
 
@@ -327,7 +326,7 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 }
 
 func buildSuccessMessage(r unstructured.Unstructured) string {
-	if reflect.DeepEqual(unstructured.Unstructured{}, r) {
+	if r.Object == nil {
 		return "mutated resource"
 	}
 

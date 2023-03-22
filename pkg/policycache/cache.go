@@ -5,6 +5,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type ResourceFinder interface {
@@ -19,7 +20,7 @@ type Cache interface {
 	Unset(string)
 	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
 	// If the namespace is empty, only cluster-wide policies are returned
-	GetPolicies(PolicyType, dclient.GroupVersionResourceSubresource, string) []kyvernov1.PolicyInterface
+	GetPolicies(PolicyType, schema.GroupVersionResource, string, string) []kyvernov1.PolicyInterface
 }
 
 type cache struct {
@@ -41,15 +42,15 @@ func (c *cache) Unset(key string) {
 	c.store.unset(key)
 }
 
-func (c *cache) GetPolicies(pkey PolicyType, gvrs dclient.GroupVersionResourceSubresource, nspace string) []kyvernov1.PolicyInterface {
+func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, subresource string, nspace string) []kyvernov1.PolicyInterface {
 	var result []kyvernov1.PolicyInterface
-	result = append(result, c.store.get(pkey, gvrs, "")...)
+	result = append(result, c.store.get(pkey, gvr, subresource, "")...)
 	if nspace != "" {
-		result = append(result, c.store.get(pkey, gvrs, nspace)...)
+		result = append(result, c.store.get(pkey, gvr, subresource, nspace)...)
 	}
 	// also get policies with ValidateEnforce
 	if pkey == ValidateAudit {
-		result = append(result, c.store.get(ValidateEnforce, gvrs, "")...)
+		result = append(result, c.store.get(ValidateEnforce, gvr, subresource, "")...)
 	}
 	if pkey == ValidateAudit || pkey == ValidateEnforce {
 		result = filterPolicies(pkey, result, nspace)
