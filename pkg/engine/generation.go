@@ -35,9 +35,6 @@ func (e *engine) filterGenerateRules(
 			},
 		},
 	}
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return resp
-	}
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {

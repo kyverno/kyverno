@@ -40,11 +40,6 @@ func (e *engine) filterRules(
 			},
 		},
 	}
-
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return resp
-	}
-
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
 		logger := internal.LoggerWithRule(logger, rule)

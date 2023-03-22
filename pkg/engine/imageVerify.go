@@ -36,10 +36,6 @@ func (e *engine) verifyAndPatchImages(
 			"applied", resp.PolicyResponse.Stats.RulesAppliedCount, "successful", resp.IsSuccessful())
 	}()
 
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return resp, ivm
-	}
-
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 

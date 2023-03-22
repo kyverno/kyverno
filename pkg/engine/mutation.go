@@ -27,9 +27,6 @@ func (e *engine) mutate(
 ) *engineapi.EngineResponse {
 	policy := policyContext.Policy()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return resp
-	}
 
 	startTime := time.Now()
 	matchedResource := policyContext.NewResource()

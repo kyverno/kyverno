@@ -50,10 +50,6 @@ func (e *engine) validateResource(
 ) *engineapi.PolicyResponse {
 	resp := &engineapi.PolicyResponse{}
 
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return resp
-	}
-
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
