@@ -49,7 +49,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mydeploy
-  namespace: testing
   labels:
     app: nginx
 spec:
@@ -75,7 +74,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: same-name-but-diff-kind
-  namespace: testing
 spec:
   selector:
     app: MyApp
@@ -92,7 +90,6 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: same-name-but-diff-kind
-  namespace: testing
   labels:
     foo: bar
 spec:
