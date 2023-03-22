@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/tracing"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -68,7 +69,7 @@ func (inner AdmissionHandler) WithTrace(name string) AdmissionHandler {
 				tracing.RequestNamespaceKey.String(tracing.StringValue(request.Namespace)),
 				tracing.RequestUidKey.String(tracing.StringValue(string(request.UID))),
 				tracing.RequestOperationKey.String(tracing.StringValue(string(request.Operation))),
-				tracing.RequestDryRunKey.Bool(request.DryRun != nil && *request.DryRun),
+				tracing.RequestDryRunKey.Bool(admissionutils.IsDryRun(request)),
 				tracing.RequestKindGroupKey.String(tracing.StringValue(request.Kind.Group)),
 				tracing.RequestKindVersionKey.String(tracing.StringValue(request.Kind.Version)),
 				tracing.RequestKindKindKey.String(tracing.StringValue(request.Kind.Kind)),
