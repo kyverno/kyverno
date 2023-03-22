@@ -18,6 +18,7 @@ type PolicyContextBuilder interface {
 
 type policyContextBuilder struct {
 	configuration config.Configuration
+	client        dclient.Interface
 	rbLister      rbacv1listers.RoleBindingLister
 	crbLister     rbacv1listers.ClusterRoleBindingLister
 }
@@ -30,6 +31,7 @@ func NewPolicyContextBuilder(
 ) PolicyContextBuilder {
 	return &policyContextBuilder{
 		configuration: configuration,
+		client:        client,
 		rbLister:      rbLister,
 		crbLister:     crbLister,
 	}
@@ -45,5 +47,5 @@ func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest) (*en
 		userRequestInfo.Roles = roles
 		userRequestInfo.ClusterRoles = clusterRoles
 	}
-	return engine.NewPolicyContextFromAdmissionRequest(request, userRequestInfo, b.configuration)
+	return engine.NewPolicyContextFromAdmissionRequest(b.client.Discovery(), request, userRequestInfo, b.configuration)
 }
