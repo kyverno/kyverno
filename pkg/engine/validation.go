@@ -509,7 +509,7 @@ func matches(
 	cfg config.Configuration,
 ) bool {
 	gvk, subresource := ctx.ResourceKind()
-	err := MatchesResourceDescription(
+	err := matchesResourceDescription(
 		ctx.NewResource(),
 		*rule,
 		ctx.AdmissionInfo(),
@@ -524,7 +524,7 @@ func matches(
 	}
 	oldResource := ctx.OldResource()
 	if oldResource.Object != nil {
-		err := MatchesResourceDescription(
+		err := matchesResourceDescription(
 			ctx.OldResource(),
 			*rule,
 			ctx.AdmissionInfo(),
