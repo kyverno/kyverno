@@ -11,15 +11,23 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 )
 
 // GroupVersionResourceSubresource contains a group/version/resource/subresource reference
 type GroupVersionResourceSubresource struct {
-	schema.GroupVersionResource
+	schema.GroupVersion
+	Kind        string
+	Resource    string
 	SubResource string
+}
+
+func (gvrs GroupVersionResourceSubresource) GroupVersionResource() schema.GroupVersionResource {
+	return gvrs.WithResource(gvrs.Resource)
+}
+
+func (gvrs GroupVersionResourceSubresource) GroupVersionKind() schema.GroupVersionKind {
+	return gvrs.WithKind(gvrs.Kind)
 }
 
 func (gvrs GroupVersionResourceSubresource) ResourceSubresource() string {
@@ -36,12 +44,11 @@ func (gvrs GroupVersionResourceSubresource) WithSubResource(subresource string) 
 
 // IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
-	FindResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error)
+	FindResources(group, version, kind, subresource string) (map[GroupVersionResourceSubresource]metav1.APIResource, error)
 	FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error)
 	// TODO: there's no mapping from GVK to GVR, this is very error prone
 	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
 	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
-	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	DiscoveryCache() discovery.CachedDiscoveryInterface
 	DiscoveryInterface() discovery.DiscoveryInterface
@@ -103,11 +110,6 @@ func (c serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.Grou
 	return gvr, nil
 }
 
-// GetServerVersion returns the server version of the cluster
-func (c serverResources) GetServerVersion() (*version.Info, error) {
-	return c.cachedClient.ServerVersion()
-}
-
 // GetGVKFromGVR returns the Group Version Kind from Group Version Resource. The groupVersion has to be specified properly
 // for example, for corev1.Pod, the groupVersion has to be specified as `v1`, specifying empty groupVersion won't work.
 func (c serverResources) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
@@ -166,7 +168,7 @@ func (c serverResources) FindResource(groupVersion string, kind string) (apiReso
 	return nil, nil, schema.GroupVersionResource{}, err
 }
 
-func (c serverResources) FindResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error) {
+func (c serverResources) FindResources(group, version, kind, subresource string) (map[GroupVersionResourceSubresource]metav1.APIResource, error) {
 	resources, err := c.findResources(group, version, kind, subresource)
 	if err != nil {
 		if !c.cachedClient.Fresh() {
@@ -177,7 +179,7 @@ func (c serverResources) FindResources(group, version, kind, subresource string)
 	return resources, err
 }
 
-func (c serverResources) findResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error) {
+func (c serverResources) findResources(group, version, kind, subresource string) (map[GroupVersionResourceSubresource]metav1.APIResource, error) {
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
@@ -202,7 +204,7 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 			Kind:    kind,
 		}
 	}
-	resources := sets.New[GroupVersionResourceSubresource]()
+	resources := map[GroupVersionResourceSubresource]metav1.APIResource{}
 	// first match resouces
 	for _, list := range serverGroupsAndResources {
 		gv, err := schema.ParseGroupVersion(list.GroupVersion)
@@ -213,55 +215,41 @@ func (c serverResources) findResources(group, version, kind, subresource string)
 				if !strings.Contains(resource.Name, "/") {
 					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
 					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
-						resources.Insert(GroupVersionResourceSubresource{
-							GroupVersionResource: gvk.GroupVersion().WithResource(resource.Name),
-						})
+						gvrs := GroupVersionResourceSubresource{
+							GroupVersion: gv,
+							Kind:         resource.Kind,
+							Resource:     resource.Name,
+						}
+						resources[gvrs] = resource
 					}
 				}
 			}
 		}
 	}
 	// second match subresouces if necessary
-	subresources := sets.New[GroupVersionResourceSubresource]()
+	subresources := map[GroupVersionResourceSubresource]metav1.APIResource{}
 	if subresource != "" {
 		for _, list := range serverGroupsAndResources {
 			for _, resource := range list.APIResources {
 				for parent := range resources {
 					if wildcard.Match(parent.Resource+"/"+subresource, resource.Name) {
 						parts := strings.Split(resource.Name, "/")
-						subresources.Insert(parent.WithSubResource(parts[1]))
+						subresources[parent.WithSubResource(parts[1])] = resource
 						break
 					}
 				}
 			}
 		}
 	}
-	// third if no resource matched, try again but consider subresources this time
-	if resources.Len() == 0 {
-		for _, list := range serverGroupsAndResources {
-			gv, err := schema.ParseGroupVersion(list.GroupVersion)
-			if err != nil {
-				return nil, err
-			} else {
-				for _, resource := range list.APIResources {
-					gvk := getGVK(gv, resource.Group, resource.Version, resource.Kind)
-					if wildcard.Match(group, gvk.Group) && wildcard.Match(version, gvk.Version) && wildcard.Match(kind, gvk.Kind) {
-						parts := strings.Split(resource.Name, "/")
-						resources.Insert(GroupVersionResourceSubresource{
-							GroupVersionResource: gv.WithResource(parts[0]),
-							SubResource:          parts[1],
-						})
-					}
-				}
-			}
-		}
-	}
 	if kind == "*" && subresource == "*" {
-		return resources.Union(subresources).UnsortedList(), nil
+		for key, value := range subresources {
+			resources[key] = value
+		}
+		return resources, nil
 	} else if subresource != "" {
-		return subresources.UnsortedList(), nil
+		return subresources, nil
 	}
-	return resources.UnsortedList(), nil
+	return resources, nil
 }
 
 func (c serverResources) findResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource,
