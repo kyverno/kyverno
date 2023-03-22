@@ -51,12 +51,18 @@ func ParseArithemticOperands(arguments []interface{}, operator string) (Operand,
 	return op[0], op[1], nil
 }
 
+// Quantity +|- Quantity          -> Quantity
+// Quantity +|- Duration|Scalar   -> error
+// Duration +|- Duration          -> Duration
+// Duration +|- Quantity|Scalar   -> error
+// Scalar   +|- Scalar            -> Scalar
+// Scalar   +|- Quantity|Duration -> error
 
 func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
 		op1.Quantity.Add(v.Quantity)
-		 return op1.String(),nil
+		return op1.String(), nil
 	default:
 		return nil, formatError(typeMismatchError, add)
 	}
@@ -65,8 +71,7 @@ func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
 func (op1 Duration) Add(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case Duration:
-			return (op1.Duration + v.Duration).String(), nil
-		
+		return (op1.Duration + v.Duration).String(), nil
 	default:
 		return nil, formatError(typeMismatchError, add)
 	}
