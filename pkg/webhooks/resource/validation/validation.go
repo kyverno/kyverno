@@ -180,7 +180,7 @@ func (v *validationHandler) handleAudit(
 	engineResponses ...engineapi.EngineResponse,
 ) {
 	createReport := v.admissionReports
-	if request.DryRun != nil && *request.DryRun {
+	if admissionutils.IsDryRun(request) {
 		createReport = false
 	}
 	// we don't need reports for deletions

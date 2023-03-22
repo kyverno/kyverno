@@ -13,6 +13,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/tracing"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
@@ -150,30 +151,30 @@ func (v *imageVerificationHandler) handleAudit(
 	namespaceLabels map[string]string,
 	engineResponses ...engineapi.EngineResponse,
 ) {
-	if !v.admissionReports {
-		return
-	}
-	if request.DryRun != nil && *request.DryRun {
-		return
+	createReport := v.admissionReports
+	if admissionutils.IsDryRun(request) {
+		createReport = false
 	}
 	// we don't need reports for deletions and when it's about sub resources
 	if request.Operation == admissionv1.Delete || request.SubResource != "" {
-		return
+		createReport = false
 	}
 	// check if the resource supports reporting
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
-		return
+		createReport = false
 	}
 	tracing.Span(
 		context.Background(),
 		"",
 		fmt.Sprintf("AUDIT %s %s", request.Operation, request.Kind),
 		func(ctx context.Context, span trace.Span) {
-			report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
-			if len(report.GetResults()) > 0 {
-				_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
-				if err != nil {
-					v.log.Error(err, "failed to create report")
+			if createReport {
+				report := reportutils.BuildAdmissionReport(resource, request, engineResponses...)
+				if len(report.GetResults()) > 0 {
+					_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+					if err != nil {
+						v.log.Error(err, "failed to create report")
+					}
 				}
 			}
 		},

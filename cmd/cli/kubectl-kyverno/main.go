@@ -18,7 +18,6 @@ import (
 
 const EnableExperimentalEnv = "KYVERNO_EXPERIMENTAL"
 
-// CLI ...
 func main() {
 	cli := &cobra.Command{
 		Use:   "kyverno",
