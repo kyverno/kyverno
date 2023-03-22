@@ -3,7 +3,6 @@ package mutation
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -21,7 +20,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -186,11 +184,9 @@ func logMutationResponse(patches [][]byte, engineResponses []*engineapi.EngineRe
 
 func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		resource := policyContext.NewResource()
+	if resource := policyContext.NewResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else {
-		resource := policyContext.OldResource()
+	} else if resource := policyContext.OldResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 	return deletionTimeStamp != nil

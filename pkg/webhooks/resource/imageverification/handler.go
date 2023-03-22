@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -135,11 +134,9 @@ func hasAnnotations(context *engine.PolicyContext) bool {
 
 func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		resource := policyContext.NewResource()
+	if resource := policyContext.NewResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else {
-		resource := policyContext.OldResource()
+	} else if resource := policyContext.OldResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 	return deletionTimeStamp != nil
