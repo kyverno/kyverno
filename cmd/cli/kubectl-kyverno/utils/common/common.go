@@ -492,13 +492,8 @@ OuterLoop:
 		WithAdmissionInfo(c.UserInfo).
 		WithResourceKind(gvk, subresource)
 
-	mutateResponse := eng.Mutate(
-		context.Background(),
-		policyContext,
-	)
-	if !mutateResponse.IsEmpty() {
-		engineResponses = append(engineResponses, &mutateResponse)
-	}
+	mutateResponse := eng.Mutate(context.Background(), policyContext)
+	engineResponses = append(engineResponses, &mutateResponse)
 
 	err = processMutateEngineResponse(c, &mutateResponse, resPath)
 	if err != nil {
@@ -519,10 +514,7 @@ OuterLoop:
 	var info Info
 	var validateResponse engineapi.EngineResponse
 	if policyHasValidate {
-		validateResponse = eng.Validate(
-			context.Background(),
-			policyContext,
-		)
+		validateResponse = eng.Validate(context.Background(), policyContext)
 		info = ProcessValidateEngineResponse(c.Policy, &validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
