@@ -496,11 +496,11 @@ OuterLoop:
 		context.Background(),
 		policyContext,
 	)
-	if mutateResponse != nil {
-		engineResponses = append(engineResponses, mutateResponse)
+	if !mutateResponse.IsEmpty() {
+		engineResponses = append(engineResponses, &mutateResponse)
 	}
 
-	err = processMutateEngineResponse(c, mutateResponse, resPath)
+	err = processMutateEngineResponse(c, &mutateResponse, resPath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return engineResponses, Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
@@ -545,16 +545,16 @@ OuterLoop:
 
 	if policyHasGenerate {
 		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
-		if generateResponse != nil && !generateResponse.IsEmpty() {
-			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
+		if !generateResponse.IsEmpty() {
+			newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
 				log.Log.Error(err, "failed to apply generate policy")
 			} else {
 				generateResponse.PolicyResponse.Rules = newRuleResponse
 			}
-			engineResponses = append(engineResponses, generateResponse)
+			engineResponses = append(engineResponses, &generateResponse)
 		}
-		updateResultCounts(c.Policy, generateResponse, resPath, c.Rc, c.AuditWarn)
+		updateResultCounts(c.Policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
 	}
 
 	return engineResponses, info, nil

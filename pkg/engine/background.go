@@ -22,7 +22,7 @@ func (e *engine) applyBackgroundChecks(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (resp *engineapi.EngineResponse) {
+) engineapi.EngineResponse {
 	return e.filterRules(policyContext, logger, time.Now())
 }
 
@@ -30,7 +30,7 @@ func (e *engine) filterRules(
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
 	startTime time.Time,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	newResource := policyContext.NewResource()
 	policy := policyContext.Policy()
 	kind := newResource.GetKind()
@@ -47,7 +47,7 @@ func (e *engine) filterRules(
 
 	if e.configuration.ToFilter(kind, namespace, name) {
 		logger.Info("resource excluded")
-		return resp
+		return *resp
 	}
 
 	applyRules := policy.GetSpec().GetApplyRules()
@@ -61,7 +61,7 @@ func (e *engine) filterRules(
 		}
 	}
 
-	return resp
+	return *resp
 }
 
 func (e *engine) filterRule(

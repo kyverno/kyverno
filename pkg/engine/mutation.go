@@ -24,10 +24,10 @@ func (e *engine) mutate(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (resp *engineapi.EngineResponse) {
+) engineapi.EngineResponse {
 	startTime := time.Now()
 	policy := policyContext.Policy()
-	resp = engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	matchedResource := policyContext.NewResource()
 	var skippedRules []string
 
@@ -167,7 +167,7 @@ func (e *engine) mutate(
 	}
 
 	resp.PatchedResource = matchedResource
-	return resp
+	return *resp
 }
 
 func mutateResource(rule *kyvernov1.Rule, ctx engineapi.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
