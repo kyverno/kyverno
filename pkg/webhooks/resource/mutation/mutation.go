@@ -117,8 +117,8 @@ func (v *mutationHandler) applyMutations(
 					}
 				}
 
-				policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
 				if engineResponse != nil {
+					policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
 					engineResponses = append(engineResponses, *engineResponse)
 				}
 
