@@ -14,5 +14,8 @@ subjects:
 - kind: ServiceAccount
   name: {{ template "kyverno.background-controller.serviceAccountName" . }}
   namespace: {{ template "kyverno.namespace" . }}
+- kind: ServiceAccount
+  name: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+  namespace: {{ template "kyverno.namespace" . }}
 {{- end -}}
 {{- end -}}

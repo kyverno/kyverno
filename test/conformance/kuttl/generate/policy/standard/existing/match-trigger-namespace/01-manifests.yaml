@@ -32,11 +32,10 @@ spec:
               example.com/sm-sync: "true"
       generate:
         apiVersion: v1
-        kind: Secret
+        kind: ConfigMap
         name: "{{request.object.metadata.name}}-modify"
         namespace: match-trigger-namespace-ns
         synchronize: true
         data:
-          type: Opaque
           data:
             modify: Zm9v
