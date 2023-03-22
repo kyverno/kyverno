@@ -523,8 +523,6 @@ OuterLoop:
 	}
 
 	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	b, _ := json.Marshal(verifyImageResponse)
-	fmt.Println(string(b))
 	if !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, &verifyImageResponse)
 		info = ProcessValidateEngineResponse(c.Policy, &verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
