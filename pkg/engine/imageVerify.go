@@ -49,7 +49,7 @@ func (e *engine) verifyAndPatchImages(
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),
 			func(ctx context.Context, span trace.Span) {
-				e.doVerifyAndPatch(ctx, logger, policyContext, rule, &resp, ivm)
+				e.doVerifyAndPatch(ctx, logger, policyContext, rule, &resp, &ivm)
 			},
 		)
 
@@ -67,7 +67,7 @@ func (e *engine) doVerifyAndPatch(
 	policyContext engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
 	resp *engineapi.EngineResponse,
-	ivm engineapi.ImageVerificationMetadata,
+	ivm *engineapi.ImageVerificationMetadata,
 ) {
 	if len(rule.VerifyImages) == 0 {
 		return

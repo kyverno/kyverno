@@ -30,7 +30,7 @@ type ImageVerifier struct {
 	rclient       registryclient.Client
 	policyContext engineapi.PolicyContext
 	rule          *kyvernov1.Rule
-	ivm           engineapi.ImageVerificationMetadata
+	ivm           *engineapi.ImageVerificationMetadata
 }
 
 func NewImageVerifier(
@@ -38,7 +38,7 @@ func NewImageVerifier(
 	rclient registryclient.Client,
 	policyContext engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
-	ivm engineapi.ImageVerificationMetadata,
+	ivm *engineapi.ImageVerificationMetadata,
 ) *ImageVerifier {
 	return &ImageVerifier{
 		logger:        logger,
