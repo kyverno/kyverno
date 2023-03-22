@@ -41,7 +41,7 @@ func (e *engine) filterGenerateRules(
 	}
 	if e.configuration.ToFilter(kind, namespace, name) {
 		logger.Info("resource excluded")
-		return *resp
+		return resp
 	}
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		logger := internal.LoggerWithRule(logger, rule)
@@ -49,5 +49,5 @@ func (e *engine) filterGenerateRules(
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}
-	return *resp
+	return resp
 }

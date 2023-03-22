@@ -35,7 +35,7 @@ func Resource(policyContext PolicyContext) unstructured.Unstructured {
 func NewEngineResponseFromPolicyContext(
 	policyContext PolicyContext,
 	policyResponse *PolicyResponse,
-) *EngineResponse {
+) EngineResponse {
 	return NewEngineResponse(
 		Resource(policyContext),
 		policyContext.Policy(),
@@ -49,8 +49,8 @@ func NewEngineResponse(
 	policy kyvernov1.PolicyInterface,
 	namespaceLabels map[string]string,
 	policyResponse *PolicyResponse,
-) *EngineResponse {
-	response := &EngineResponse{
+) EngineResponse {
+	response := EngineResponse{
 		Resource:        resource,
 		Policy:          policy,
 		NamespaceLabels: namespaceLabels,
