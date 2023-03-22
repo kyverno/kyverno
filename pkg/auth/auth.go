@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -68,7 +67,7 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to get GVR for kind %s", o.kind)
 	}
 
-	if reflect.DeepEqual(gvr, schema.GroupVersionResource{}) {
+	if gvr.Empty() {
 		// cannot find GVR
 		return false, fmt.Errorf("failed to get the Group Version Resource for kind %s", o.kind)
 	}

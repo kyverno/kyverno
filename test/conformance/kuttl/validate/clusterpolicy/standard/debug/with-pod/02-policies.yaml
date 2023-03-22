@@ -1,4 +1,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
+apply:
+- policies.yaml
 assert:
-- webhooks.yaml
+- policies-assert.yaml

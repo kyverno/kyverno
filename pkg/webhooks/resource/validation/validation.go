@@ -3,13 +3,11 @@ package validation
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -81,11 +79,9 @@ func (v *validationHandler) HandleValidation(
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource(), unstructured.Unstructured{}) {
-		resource := policyContext.NewResource()
+	if resource := policyContext.NewResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else {
-		resource := policyContext.OldResource()
+	} else if resource := policyContext.OldResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 
@@ -152,11 +148,8 @@ func (v *validationHandler) buildAuditResponses(
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
 ) ([]*engineapi.EngineResponse, error) {
-	gvrs := dclient.GroupVersionResourceSubresource{
-		GroupVersionResource: schema.GroupVersionResource(request.Resource),
-		SubResource:          request.SubResource,
-	}
-	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvrs, request.Namespace)
+	gvr := schema.GroupVersionResource(request.Resource)
+	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
 		return nil, err

@@ -3,7 +3,6 @@ package generation
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -22,7 +21,6 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -249,7 +247,7 @@ func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.
 
 	managedBy := oldLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp
 	deleteDownstream := false
-	if reflect.DeepEqual(new, unstructured.Unstructured{}) {
+	if new.Object == nil {
 		labels = oldLabels
 		if !managedBy {
 			deleteDownstream = true

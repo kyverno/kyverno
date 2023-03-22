@@ -235,7 +235,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 						logger.Info("kind is not supported", "gvk", gvk)
 					} else {
 						if slices.Contains(api.Verbs, "list") && slices.Contains(api.Verbs, "watch") {
-							gvkToGvr[gvk] = gvrs.GroupVersionResource
+							gvkToGvr[gvk] = gvrs.GroupVersionResource()
 						} else {
 							logger.Info("list/watch not supported for kind", "kind", kind)
 						}
