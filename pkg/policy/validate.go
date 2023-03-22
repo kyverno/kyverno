@@ -190,6 +190,80 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 	rules := autogen.ComputeRules(policy)
 	rulesPath := specPath.Child("rules")
+
+	for _, rule := range rules {
+		// Validate Kind with match resource kinds
+		match := rule.MatchResources
+		exclude := rule.ExcludeResources
+		for _, value := range match.Any {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
+				if err != nil {
+					return warnings, fmt.Errorf("the kind defined in the any match resource is invalid: %w", err)
+				}
+			}
+		}
+		for _, value := range match.All {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
+				if err != nil {
+					return warnings, fmt.Errorf("the kind defined in the all match resource is invalid: %w", err)
+				}
+			}
+		}
+		for _, value := range exclude.Any {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
+				if err != nil {
+					return warnings, fmt.Errorf("the kind defined in the any exclude resource is invalid: %w", err)
+				}
+			}
+		}
+		for _, value := range exclude.All {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
+				if err != nil {
+					return warnings, fmt.Errorf("the kind defined in the all exclude resource is invalid: %w", err)
+				}
+			}
+		}
+		if !slices.Contains(rule.MatchResources.Kinds, "*") {
+			err := validateKinds(rule.MatchResources.Kinds, mock, background, rule.HasValidate(), client)
+			if err != nil {
+				return warnings, fmt.Errorf("match resource kind is invalid: %w", err)
+			}
+			err = validateKinds(rule.ExcludeResources.Kinds, mock, background, rule.HasValidate(), client)
+			if err != nil {
+				return warnings, fmt.Errorf("exclude resource kind is invalid: %w", err)
+			}
+		} else {
+			wildcardErr := validateWildcard(rule.MatchResources.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			wildcardErr = validateWildcard(rule.ExcludeResources.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+		}
+	}
+
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
 		// check for forward slash
@@ -290,83 +364,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		// Validate Kind with match resource kinds
-		match := rule.MatchResources
-		exclude := rule.ExcludeResources
-		for _, value := range match.Any {
-			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
-				if err != nil {
-					return warnings, fmt.Errorf("the kind defined in the any match resource is invalid: %w", err)
-				}
-			}
-		}
-		for _, value := range match.All {
-			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
-				if err != nil {
-					return warnings, fmt.Errorf("the kind defined in the all match resource is invalid: %w", err)
-				}
-			}
-		}
-		for _, value := range exclude.Any {
-			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
-				if err != nil {
-					return warnings, fmt.Errorf("the kind defined in the any exclude resource is invalid: %w", err)
-				}
-			}
-		}
-		for _, value := range exclude.All {
-			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
-				if err != nil {
-					return warnings, fmt.Errorf("the kind defined in the all exclude resource is invalid: %w", err)
-				}
-			}
-		}
-
-		if !slices.Contains(rule.MatchResources.Kinds, "*") {
-			err := validateKinds(rule.MatchResources.Kinds, mock, background, rule.HasValidate(), client)
-			if err != nil {
-				return warnings, fmt.Errorf("match resource kind is invalid: %w", err)
-			}
-			err = validateKinds(rule.ExcludeResources.Kinds, mock, background, rule.HasValidate(), client)
-			if err != nil {
-				return warnings, fmt.Errorf("exclude resource kind is invalid: %w", err)
-			}
-		} else {
-			wildcardErr := validateWildcard(rule.MatchResources.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-			wildcardErr = validateWildcard(rule.ExcludeResources.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-		}
-
 		// Validate string values in labels
 		if !isLabelAndAnnotationsString(rule) {
 			return warnings, fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
 
+		match := rule.MatchResources
+		exclude := rule.ExcludeResources
 		matchKinds := match.GetKinds()
 		excludeKinds := exclude.GetKinds()
 		allKinds := make([]string, 0, len(matchKinds)+len(excludeKinds))
@@ -1212,8 +1216,8 @@ func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule)
 // and found in the cache, returns error if not found. It also returns an error if background scanning
 // is enabled for a subresource.
 func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidationPolicy bool, client dclient.Interface) error {
-	for _, k := range kinds {
-		if !mock {
+	if !mock {
+		for _, k := range kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(k)
 			gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 			if err != nil {
@@ -1224,8 +1228,8 @@ func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidation
 			}
 			if backgroundScanningEnabled {
 				for gvrs := range gvrss {
-					if strings.Contains(gvrs.Resource, "/") {
-						return fmt.Errorf("background scan enabled with subresource %s", subresource)
+					if gvrs.SubResource != "" {
+						return fmt.Errorf("background scan enabled with subresource %s", k)
 					}
 				}
 			}
