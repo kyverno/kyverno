@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-mutate-existing-auth-check
+spec:
+  mutateExistingOnPolicyUpdate: true
+  background: false
+  rules:
+  - name: label-privileged-namespaces
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    mutate:
+      targets:
+        - apiVersion: v1
+          kind: ServiceAccount
+      patchStrategicMerge:
+        metadata:
+          labels:
+            foo: bar
