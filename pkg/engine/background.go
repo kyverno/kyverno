@@ -31,11 +31,7 @@ func (e *engine) filterRules(
 	logger logr.Logger,
 	startTime time.Time,
 ) *engineapi.EngineResponse {
-	newResource := policyContext.NewResource()
 	policy := policyContext.Policy()
-	kind := newResource.GetKind()
-	name := newResource.GetName()
-	namespace := newResource.GetNamespace()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	resp.PolicyResponse = engineapi.PolicyResponse{
 		Stats: engineapi.PolicyStats{

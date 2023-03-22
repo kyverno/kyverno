@@ -27,10 +27,6 @@ func (e *engine) filterGenerateRules(
 	policyNameKey string,
 	startTime time.Time,
 ) *engineapi.EngineResponse {
-	newResource := policyContext.NewResource()
-	kind := newResource.GetKind()
-	name := newResource.GetName()
-	namespace := newResource.GetNamespace()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	resp.PolicyResponse = engineapi.PolicyResponse{
 		Stats: engineapi.PolicyStats{
