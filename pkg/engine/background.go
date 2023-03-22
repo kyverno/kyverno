@@ -95,19 +95,10 @@ func (e *engine) filterRule(
 	policy := policyContext.Policy()
 	gvk, subresource := policyContext.ResourceKind()
 
-	if err := MatchesResourceDescription(
-		newResource,
-		rule,
-		admissionInfo,
-		excludeGroupRole,
-		namespaceLabels,
-		policy.GetNamespace(),
-		gvk,
-		subresource,
-	); err != nil || newResource.Object == nil {
+	if err := matchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err != nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err == nil {
+			if err = matchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err == nil {
 				return &engineapi.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,

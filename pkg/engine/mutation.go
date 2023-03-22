@@ -59,7 +59,7 @@ func (e *engine) mutate(
 					excludeResource = e.configuration.GetExcludedGroups()
 				}
 				gvk, subresource := policyContext.ResourceKind()
-				if err = MatchesResourceDescription(
+				if err = matchesResourceDescription(
 					matchedResource,
 					rule,
 					policyContext.AdmissionInfo(),
