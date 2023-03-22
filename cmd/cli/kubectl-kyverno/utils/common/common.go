@@ -1004,21 +1004,25 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []Subreso
 }
 
 func getKind(kind string, subresources []Subresource, dClient dclient.Interface) (string, error) {
-	gv, k := kubeutils.GetKindFromGVK(kind)
-	parentKind, subresource := kubeutils.SplitSubresource(k)
-	var err error
-	if subresource != "" {
-		if dClient != nil {
-			var apiResource *metav1.APIResource
-			apiResource, _, _, err = dClient.Discovery().FindResource(gv, k)
-			if err == nil {
-				k = apiResource.Kind
-			}
-		} else {
-			k, err = getSubresourceKind(gv, parentKind, subresource, subresources)
-		}
+	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+	if subresource == "" {
+		return kind, nil
 	}
-	return k, err
+	if dClient == nil {
+		gv := schema.GroupVersion{Group: group, Version: version}
+		return getSubresourceKind(gv.String(), kind, subresource, subresources)
+	}
+	gvrss, err := dClient.Discovery().FindResources(group, version, kind, subresource)
+	if err != nil {
+		return kind, err
+	}
+	if len(gvrss) != 1 {
+		return kind, fmt.Errorf("no unique match for kind %s", kind)
+	}
+	for _, api := range gvrss {
+		return api.Kind, nil
+	}
+	return kind, nil
 }
 
 func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []Subresource) (string, error) {
