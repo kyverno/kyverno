@@ -244,7 +244,6 @@ func GetFunctions() []FunctionEntry {
 			Arguments: []argSpec{
 				{Types: []jpType{jpAny}},
 				{Types: []jpType{jpAny}},
-				// {Types: []jpType{jpArray}},
 			},
 			Handler: jpAdd,
 		},
