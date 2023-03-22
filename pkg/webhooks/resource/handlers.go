@@ -137,8 +137,9 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 		logger.Info("admission request denied")
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
-
-	go h.handleBackgroundApplies(ctx, logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
+	if !admissionutils.IsDryRun(request) {
+		go h.handleBackgroundApplies(ctx, logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
+	}
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
 }
 
