@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -457,17 +458,24 @@ OuterLoop:
 		}
 	}
 
-	subresources := make([]engineapi.SubResource, 0)
-
-	// If --cluster flag is not set, then we need to add subresources to the context
+	gvk, subresource := updatedResource.GroupVersionKind(), ""
+	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
 	if c.Client == nil {
-		for _, subresource := range c.Subresources {
-			subresources = append(subresources, struct {
-				APIResource    metav1.APIResource
-				ParentResource metav1.APIResource
-			}{
-				APIResource: subresource.APIResource, ParentResource: subresource.ParentResource,
-			})
+		for _, s := range c.Subresources {
+			subgvk := schema.GroupVersionKind{
+				Group:   s.APIResource.Group,
+				Version: s.APIResource.Version,
+				Kind:    s.APIResource.Kind,
+			}
+			if gvk == subgvk {
+				gvk = schema.GroupVersionKind{
+					Group:   s.ParentResource.Group,
+					Version: s.ParentResource.Version,
+					Kind:    s.ParentResource.Kind,
+				}
+				parts := strings.Split(s.APIResource.Name, "/")
+				subresource = parts[1]
+			}
 		}
 	}
 	eng := engine.NewEngine(
@@ -482,7 +490,7 @@ OuterLoop:
 		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).
 		WithAdmissionInfo(c.UserInfo).
-		WithSubresourcesInPolicy(subresources)
+		WithResourceKind(gvk, subresource)
 
 	mutateResponse := eng.Mutate(
 		context.Background(),

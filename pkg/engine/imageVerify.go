@@ -74,15 +74,13 @@ func (e *engine) doVerifyAndPatch(
 	}
 	startTime := time.Now()
 	logger = internal.LoggerWithRule(logger, *rule)
-	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
 
-	if !matches(logger, rule, policyContext, subresourceGVKToAPIResource, e.configuration) {
+	if !matches(logger, rule, policyContext, e.configuration) {
 		return
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, rule, subresourceGVKToAPIResource, e.configuration)
+	ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, rule, e.configuration)
 	if ruleResp != nil {
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		return
