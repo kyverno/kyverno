@@ -25,15 +25,15 @@ func (e *engine) verifyAndPatchImages(
 	policyContext engineapi.PolicyContext,
 ) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
 	policy := policyContext.Policy()
-	resp := engineapi.NewEngineResponse(policy)
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	ivm := &engineapi.ImageVerificationMetadata{}
 
 	startTime := time.Now()
 	defer func() {
 		internal.BuildResponse(policyContext, resp, startTime)
 		logger.V(4).Info("processed image verification rules",
-			"time", resp.PolicyResponse.ProcessingTime.String(),
-			"applied", resp.PolicyResponse.RulesAppliedCount, "successful", resp.IsSuccessful())
+			"time", resp.PolicyResponse.Stats.ProcessingTime.String(),
+			"applied", resp.PolicyResponse.Stats.RulesAppliedCount, "successful", resp.IsSuccessful())
 	}()
 
 	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
@@ -54,87 +54,98 @@ func (e *engine) verifyAndPatchImages(
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),
 			func(ctx context.Context, span trace.Span) {
-				if len(rule.VerifyImages) == 0 {
-					return
-				}
-				startTime := time.Now()
-				logger := internal.LoggerWithRule(logger, rules[i])
-				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
-
-				if !matches(logger, rule, policyContext, subresourceGVKToAPIResource, e.configuration) {
-					return
-				}
-
-				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, rule, subresourceGVKToAPIResource, e.configuration)
-				if ruleResp != nil {
-					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-					return
-				}
-
-				logger.V(3).Info("processing image verification rule")
-
-				ruleImages, imageRefs, err := e.extractMatchingImages(policyContext, rule)
-				if err != nil {
-					internal.AddRuleResponse(
-						&resp.PolicyResponse,
-						internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err),
-						startTime,
-					)
-					return
-				}
-				if len(ruleImages) == 0 {
-					internal.AddRuleResponse(
-						&resp.PolicyResponse,
-						internal.RuleSkip(
-							rule,
-							engineapi.ImageVerify,
-							fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
-						),
-						startTime,
-					)
-					return
-				}
-				policyContext.JSONContext().Restore()
-				if err := internal.LoadContext(ctx, e, policyContext, *rule); err != nil {
-					internal.AddRuleResponse(
-						&resp.PolicyResponse,
-						internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
-						startTime,
-					)
-					return
-				}
-				ruleCopy, err := substituteVariables(rule, policyContext.JSONContext(), logger)
-				if err != nil {
-					internal.AddRuleResponse(
-						&resp.PolicyResponse,
-						internal.RuleError(rule, engineapi.ImageVerify, "failed to substitute variables", err),
-						startTime,
-					)
-					return
-				}
-				iv := internal.NewImageVerifier(
-					logger,
-					e.rclient,
-					policyContext,
-					ruleCopy,
-					ivm,
-				)
-				for _, imageVerify := range ruleCopy.VerifyImages {
-					for _, r := range iv.Verify(ctx, imageVerify, ruleImages, e.configuration) {
-						internal.AddRuleResponse(&resp.PolicyResponse, r, startTime)
-					}
-				}
+				e.doVerifyAndPatch(ctx, logger, policyContext, rule, resp, ivm)
 			},
 		)
 
-		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}
 
 	return resp, ivm
+}
+
+func (e *engine) doVerifyAndPatch(
+	ctx context.Context,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+	rule *kyvernov1.Rule,
+	resp *engineapi.EngineResponse,
+	ivm *engineapi.ImageVerificationMetadata,
+) {
+	if len(rule.VerifyImages) == 0 {
+		return
+	}
+	startTime := time.Now()
+	logger = internal.LoggerWithRule(logger, *rule)
+	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
+	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
+
+	if !matches(logger, rule, policyContext, subresourceGVKToAPIResource, e.configuration) {
+		return
+	}
+
+	// check if there is a corresponding policy exception
+	ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, rule, subresourceGVKToAPIResource, e.configuration)
+	if ruleResp != nil {
+		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+		return
+	}
+
+	logger.V(3).Info("processing image verification rule")
+
+	ruleImages, imageRefs, err := e.extractMatchingImages(policyContext, rule)
+	if err != nil {
+		internal.AddRuleResponse(
+			&resp.PolicyResponse,
+			internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err),
+			startTime,
+		)
+		return
+	}
+	if len(ruleImages) == 0 {
+		internal.AddRuleResponse(
+			&resp.PolicyResponse,
+			internal.RuleSkip(
+				rule,
+				engineapi.ImageVerify,
+				fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
+			),
+			startTime,
+		)
+		return
+	}
+	policyContext.JSONContext().Restore()
+	if err := internal.LoadContext(ctx, e, policyContext, *rule); err != nil {
+		internal.AddRuleResponse(
+			&resp.PolicyResponse,
+			internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
+			startTime,
+		)
+		return
+	}
+	ruleCopy, err := substituteVariables(rule, policyContext.JSONContext(), logger)
+	if err != nil {
+		internal.AddRuleResponse(
+			&resp.PolicyResponse,
+			internal.RuleError(rule, engineapi.ImageVerify, "failed to substitute variables", err),
+			startTime,
+		)
+		return
+	}
+	iv := internal.NewImageVerifier(
+		logger,
+		e.rclient,
+		policyContext,
+		ruleCopy,
+		ivm,
+	)
+	for _, imageVerify := range ruleCopy.VerifyImages {
+		for _, r := range iv.Verify(ctx, imageVerify, ruleImages, e.configuration) {
+			internal.AddRuleResponse(&resp.PolicyResponse, r, startTime)
+		}
+	}
 }
 
 func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string) {

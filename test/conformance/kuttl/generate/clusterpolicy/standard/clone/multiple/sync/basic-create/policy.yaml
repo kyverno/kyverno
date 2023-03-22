@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: clone-multiple-basic-create-policy
+spec:
+  rules:
+  - name: clone-multiple-basic-create-policy-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - default
+          - kube-public
+          - kyverno
+    generate:
+      namespace: "{{request.object.metadata.name}}"
+      synchronize: true
+      cloneList:
+        namespace: opal
+        kinds:
+          - v1/Secret
+          - v1/ConfigMap
+        selector:
+          matchLabels:
+            allowedToBeCloned: "true"

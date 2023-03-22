@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -21,25 +20,25 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 	cfg config.Configuration,
 	namespaceLabels map[string]string,
 	logger logr.Logger,
-) (*engine.PolicyContext, bool, error) {
+) (*engine.PolicyContext, error) {
 	ctx := context.NewContext()
 	var new, old unstructured.Unstructured
 	var err error
 
 	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
 		if err := ctx.AddRequest(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest); err != nil {
-			return nil, false, fmt.Errorf("failed to load request in context: %w", err)
+			return nil, fmt.Errorf("failed to load request in context: %w", err)
 		}
 
 		new, old, err = admissionutils.ExtractResources(nil, ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
 		if err != nil {
-			return nil, false, fmt.Errorf("failed to load request in context: %w", err)
+			return nil, fmt.Errorf("failed to load request in context: %w", err)
 		}
 
-		if !reflect.DeepEqual(new, unstructured.Unstructured{}) {
+		if new.Object != nil {
 			if !check(&new, trigger) {
 				err := fmt.Errorf("resources don't match")
-				return nil, false, fmt.Errorf("resource %v: %w", ur.Spec.Resource, err)
+				return nil, fmt.Errorf("resource %v: %w", ur.Spec.GetResource().String(), err)
 			}
 		}
 	}
@@ -49,27 +48,27 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 	}
 
 	if trigger == nil {
-		return nil, false, fmt.Errorf("trigger resource does not exist")
+		return nil, fmt.Errorf("trigger resource does not exist")
 	}
 
 	err = ctx.AddResource(trigger.Object)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to load resource in contex: %w", err)
+		return nil, fmt.Errorf("failed to load resource in context: %w", err)
 	}
 
 	err = ctx.AddOldResource(old.Object)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to load resource in context: %w", err)
+		return nil, fmt.Errorf("failed to load resource in context: %w", err)
 	}
 
 	err = ctx.AddUserInfo(ur.Spec.Context.UserRequestInfo)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to load SA in context: %w", err)
+		return nil, fmt.Errorf("failed to load SA in context: %w", err)
 	}
 
 	err = ctx.AddServiceAccount(ur.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to load UserInfo in context: %w", err)
+		return nil, fmt.Errorf("failed to load UserInfo in context: %w", err)
 	}
 
 	if err := ctx.AddImageInfos(trigger, cfg); err != nil {
@@ -83,7 +82,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 		WithAdmissionInfo(ur.Spec.Context.UserRequestInfo).
 		WithNamespaceLabels(namespaceLabels)
 
-	return policyContext, false, nil
+	return policyContext, nil
 }
 
 func check(admissionRsc, existingRsc *unstructured.Unstructured) bool {

@@ -117,8 +117,8 @@ func createReportControllers(
 				admissionreportcontroller.ControllerName,
 				admissionreportcontroller.NewController(
 					kyvernoClient,
+					client,
 					metadataFactory,
-					resourceReportController,
 				),
 				admissionreportcontroller.Workers,
 			))
@@ -310,7 +310,8 @@ func main() {
 		os.Exit(1)
 	}
 	// start event generator
-	go eventGenerator.Run(ctx, 3)
+	var wg sync.WaitGroup
+	go eventGenerator.Run(ctx, 3, &wg)
 	eng := engine.NewEngine(
 		configuration,
 		dClient,
@@ -386,6 +387,7 @@ func main() {
 	for {
 		select {
 		case <-ctx.Done():
+			wg.Wait()
 			return
 		default:
 			le.Run(ctx)

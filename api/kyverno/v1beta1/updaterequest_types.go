@@ -59,7 +59,7 @@ type UpdateRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Spec is the information to identify the update request.
+	// ResourceSpec is the information to identify the trigger resource.
 	Spec UpdateRequestSpec `json:"spec,omitempty"`
 
 	// Status contains statistics related to update request.
@@ -83,7 +83,17 @@ type UpdateRequestSpec struct {
 	// Specifies the name of the policy.
 	Policy string `json:"policy" yaml:"policy"`
 
-	// ResourceSpec is the information to identify the update request.
+	// Rule is the associate rule name of the current UR.
+	Rule string `json:"rule" yaml:"rule"`
+
+	// DeleteDownstream represents whether the downstream needs to be deleted.
+	DeleteDownstream bool `json:"deleteDownstream" yaml:"deleteDownstream"`
+
+	// Synchronize represents the sync behavior of the corresponding rule
+	// Optional. Defaults to "false" if not specified.
+	Synchronize bool `json:"synchronize,omitempty" yaml:"synchronize,omitempty"`
+
+	// ResourceSpec is the information to identify the trigger resource.
 	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
 
 	// Context ...
@@ -151,4 +161,20 @@ type UpdateRequestList struct {
 
 func (s *UpdateRequestSpec) GetRequestType() RequestType {
 	return s.Type
+}
+
+func (s *UpdateRequestSpec) GetPolicyKey() string {
+	return s.Policy
+}
+
+func (s *UpdateRequestSpec) GetRuleName() string {
+	return s.Rule
+}
+
+func (s *UpdateRequestSpec) GetSynchronize() bool {
+	return s.Synchronize
+}
+
+func (s *UpdateRequestSpec) GetResource() kyvernov1.ResourceSpec {
+	return s.Resource
 }

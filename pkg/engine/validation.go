@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -38,8 +37,9 @@ func (e *engine) validate(
 	startTime := time.Now()
 	logger.V(4).Info("start validate policy processing", "startTime", startTime)
 	policyResponse := e.validateResource(ctx, logger, policyContext)
-	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.ProcessingTime.String(), "validationRulesApplied", policyResponse.RulesAppliedCount)
-	engineResponse := &engineapi.EngineResponse{PolicyResponse: *policyResponse}
+	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.Stats.ProcessingTime.String(), "validationRulesApplied", policyResponse.Stats.RulesAppliedCount)
+	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	engineResponse.PolicyResponse = *policyResponse
 	return internal.BuildResponse(policyContext, engineResponse, startTime)
 }
 
@@ -102,9 +102,9 @@ func (e *engine) validateResource(
 		)
 		if ruleResp != nil {
 			internal.AddRuleResponse(resp, ruleResp, startTime)
-			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.ExecutionStats.ProcessingTime.String())
+			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
 		}
-		if applyRules == kyvernov1.ApplyOne && resp.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}
@@ -489,11 +489,9 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 	if u == nil {
 		return true
 	}
-
-	if reflect.DeepEqual(*u, unstructured.Unstructured{}) {
+	if u.Object == nil {
 		return true
 	}
-
 	return false
 }
 
@@ -505,13 +503,13 @@ func matches(
 	subresourceGVKToAPIResource map[string]*metav1.APIResource,
 	cfg config.Configuration,
 ) bool {
-	err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.NewResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludeGroupRole(), ctx.NamespaceLabels(), "", ctx.SubResource())
+	err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.NewResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludedGroups(), ctx.NamespaceLabels(), "", ctx.SubResource())
 	if err == nil {
 		return true
 	}
-
-	if !reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(subresourceGVKToAPIResource, ctx.OldResource(), *rule, ctx.AdmissionInfo(), cfg.GetExcludeGroupRole(), ctx.NamespaceLabels(), "", ctx.SubResource())
+	oldResource := ctx.OldResource()
+	if oldResource.Object != nil {
+		err := MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, *rule, ctx.AdmissionInfo(), cfg.GetExcludedGroups(), ctx.NamespaceLabels(), "", ctx.SubResource())
 		if err == nil {
 			return true
 		}

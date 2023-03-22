@@ -433,9 +433,9 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 
 	for _, resp := range engineResponses {
 		policyName := resp.Policy.GetName()
-		resourceName := resp.PolicyResponse.Resource.Name
-		resourceKind := resp.PolicyResponse.Resource.Kind
-		resourceNamespace := resp.PolicyResponse.Resource.Namespace
+		resourceName := resp.Resource.GetName()
+		resourceKind := resp.Resource.GetKind()
+		resourceNamespace := resp.Resource.GetNamespace()
 		policyNamespace := resp.Policy.GetNamespace()
 
 		var rules []string
@@ -903,7 +903,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	for _, policy := range policies {
-		_, err := policy2.Validate(policy, nil, true, openApiManager)
+		_, err := policy2.Validate(policy, nil, nil, true, openApiManager)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
 			continue

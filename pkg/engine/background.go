@@ -36,19 +36,12 @@ func (e *engine) filterRules(
 	kind := newResource.GetKind()
 	name := newResource.GetName()
 	namespace := newResource.GetNamespace()
-	apiVersion := newResource.GetAPIVersion()
-	resp := engineapi.NewEngineResponse(policy)
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	resp.PolicyResponse = engineapi.PolicyResponse{
-		PolicyStats: engineapi.PolicyStats{
+		Stats: engineapi.PolicyStats{
 			ExecutionStats: engineapi.ExecutionStats{
 				Timestamp: startTime.Unix(),
 			},
-		},
-		Resource: engineapi.ResourceSpec{
-			Kind:       kind,
-			Name:       name,
-			Namespace:  namespace,
-			APIVersion: apiVersion,
 		},
 	}
 
@@ -99,18 +92,19 @@ func (e *engine) filterRule(
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
 	ctx := policyContext.JSONContext()
-	excludeGroupRole := e.configuration.GetExcludeGroupRole()
+	excludeGroupRole := e.configuration.GetExcludedGroups()
 	namespaceLabels := policyContext.NamespaceLabels()
+	policy := policyContext.Policy()
 
-	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err != nil {
+	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), policyContext.SubResource()); err != nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err == nil {
+			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), policyContext.SubResource()); err == nil {
 				return &engineapi.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,
 					Status: engineapi.RuleStatusFail,
-					ExecutionStats: engineapi.ExecutionStats{
+					Stats: engineapi.ExecutionStats{
 						ProcessingTime: time.Since(startTime),
 						Timestamp:      startTime.Unix(),
 					},
@@ -155,7 +149,7 @@ func (e *engine) filterRule(
 		Name:   ruleCopy.Name,
 		Type:   ruleType,
 		Status: engineapi.RuleStatusPass,
-		ExecutionStats: engineapi.ExecutionStats{
+		Stats: engineapi.ExecutionStats{
 			ProcessingTime: time.Since(startTime),
 			Timestamp:      startTime.Unix(),
 		},

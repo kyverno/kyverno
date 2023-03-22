@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -27,14 +26,13 @@ func (e *engine) mutate(
 	policyContext engineapi.PolicyContext,
 ) *engineapi.EngineResponse {
 	policy := policyContext.Policy()
-	resp := engineapi.NewEngineResponse(policy)
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		return resp
 	}
 
 	startTime := time.Now()
 	matchedResource := policyContext.NewResource()
-	enginectx := policyContext.JSONContext()
 	var skippedRules []string
 
 	logger.V(4).Info("start mutate policy processing", "startTime", startTime)
@@ -61,8 +59,8 @@ func (e *engine) mutate(
 			func(ctx context.Context, span trace.Span) {
 				logger := internal.LoggerWithRule(logger, rule)
 				var excludeResource []string
-				if len(e.configuration.GetExcludeGroupRole()) > 0 {
-					excludeResource = e.configuration.GetExcludeGroupRole()
+				if len(e.configuration.GetExcludedGroups()) > 0 {
+					excludeResource = e.configuration.GetExcludedGroups()
 				}
 
 				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
@@ -80,15 +78,6 @@ func (e *engine) mutate(
 				}
 
 				logger.V(3).Info("processing mutate rule")
-				resource, err := policyContext.JSONContext().Query("request.object")
-				policyContext.JSONContext().Reset()
-				if err == nil && resource != nil {
-					if err := enginectx.AddResource(resource.(map[string]interface{})); err != nil {
-						logger.Error(err, "unable to update resource object")
-					}
-				} else {
-					logger.Error(err, "failed to query resource object")
-				}
 
 				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
 					if _, ok := err.(gojmespath.NotFoundError); ok {
@@ -122,7 +111,7 @@ func (e *engine) mutate(
 				}
 
 				for _, patchedResource := range patchedResources {
-					if reflect.DeepEqual(patchedResource, unstructured.Unstructured{}) {
+					if patchedResource.unstructured.Object == nil {
 						continue
 					}
 
@@ -160,7 +149,7 @@ func (e *engine) mutate(
 				}
 			},
 		)
-		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}
@@ -236,6 +225,10 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			if len(mutateResp.Patches) > 0 {
 				f.resource.unstructured = mutateResp.PatchedResource
 				allPatches = append(allPatches, mutateResp.Patches...)
+			}
+			f.log.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
+			if err := f.policyContext.JSONContext().AddResource(mutateResp.PatchedResource.Object); err != nil {
+				f.log.Error(err, "failed to update resource in context")
 			}
 		}
 	}
@@ -337,7 +330,7 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 }
 
 func buildSuccessMessage(r unstructured.Unstructured) string {
-	if reflect.DeepEqual(unstructured.Unstructured{}, r) {
+	if r.Object == nil {
 		return "mutated resource"
 	}
 
@@ -352,17 +345,13 @@ func startMutateResultResponse(resp *engineapi.EngineResponse, policy kyvernov1.
 	if resp == nil {
 		return
 	}
-	resp.PolicyResponse.Resource.Name = resource.GetName()
-	resp.PolicyResponse.Resource.Namespace = resource.GetNamespace()
-	resp.PolicyResponse.Resource.Kind = resource.GetKind()
-	resp.PolicyResponse.Resource.APIVersion = resource.GetAPIVersion()
 }
 
 func endMutateResultResponse(logger logr.Logger, resp *engineapi.EngineResponse, startTime time.Time) {
 	if resp == nil {
 		return
 	}
-	resp.PolicyResponse.ProcessingTime = time.Since(startTime)
-	resp.PolicyResponse.Timestamp = startTime.Unix()
-	logger.V(5).Info("finished processing policy", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
+	resp.PolicyResponse.Stats.ProcessingTime = time.Since(startTime)
+	resp.PolicyResponse.Stats.Timestamp = startTime.Unix()
+	logger.V(5).Info("finished processing policy", "processingTime", resp.PolicyResponse.Stats.ProcessingTime.String(), "mutationRulesApplied", resp.PolicyResponse.Stats.RulesAppliedCount)
 }

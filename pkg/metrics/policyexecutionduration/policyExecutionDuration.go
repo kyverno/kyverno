@@ -37,8 +37,8 @@ func ProcessEngineResponse(ctx context.Context, m metrics.MetricsConfigManager, 
 	if err != nil {
 		return err
 	}
-	resourceSpec := engineResponse.PolicyResponse.Resource
-	resourceNamespace := resourceSpec.Namespace
+	resourceSpec := engineResponse.Resource
+	resourceNamespace := resourceSpec.GetNamespace()
 	ruleResponses := engineResponse.PolicyResponse.Rules
 	for _, rule := range ruleResponses {
 		ruleName := rule.Name
@@ -58,7 +58,7 @@ func ProcessEngineResponse(ctx context.Context, m metrics.MetricsConfigManager, 
 		default:
 			ruleResult = metrics.Fail
 		}
-		ruleExecutionLatencyInSeconds := float64(rule.ExecutionStats.ProcessingTime) / float64(1000*1000*1000)
+		ruleExecutionLatencyInSeconds := float64(rule.Stats.ProcessingTime) / float64(1000*1000*1000)
 		registerPolicyExecutionDurationMetric(
 			ctx,
 			m,

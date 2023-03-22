@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	apiserverclient "github.com/kyverno/kyverno/pkg/clients/apiserver"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	dynamicclient "github.com/kyverno/kyverno/pkg/clients/dynamic"
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
@@ -22,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
+	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
@@ -50,6 +52,7 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -93,8 +96,8 @@ func showWarnings(logger logr.Logger) {
 	}
 }
 
-func sanityChecks(dynamicClient dclient.Interface) error {
-	if !kubeutils.CRDsInstalled(dynamicClient.Discovery()) {
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	if !kubeutils.CRDsInstalled(apiserverClient) {
 		return fmt.Errorf("CRDs not installed")
 	}
 	return nil
@@ -181,6 +184,7 @@ func createrLeaderControllers(
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kubeKyvernoInformer.Core().V1().Secrets(),
+		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		config.ExceptionValidatingWebhookConfigurationName,
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
@@ -271,6 +275,7 @@ func main() {
 	leaderElectionClient := internal.CreateKubernetesClient(logger, kubeclient.WithMetrics(metricsConfig, metrics.KubeClient), kubeclient.WithTracing())
 	kyvernoClient := internal.CreateKyvernoClient(logger, kyvernoclient.WithMetrics(metricsConfig, metrics.KyvernoClient), kyvernoclient.WithTracing())
 	dynamicClient := internal.CreateDynamicClient(logger, dynamicclient.WithMetrics(metricsConfig, metrics.KyvernoClient), dynamicclient.WithTracing())
+	apiserverClient := internal.CreateApiServerClient(logger, apiserverclient.WithMetrics(metricsConfig, metrics.KubeClient), apiserverclient.WithTracing())
 	dClient, err := dclient.NewClient(signalCtx, dynamicClient, kubeClient, 15*time.Minute)
 	if err != nil {
 		logger.Error(err, "failed to create dynamic client")
@@ -280,7 +285,7 @@ func main() {
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
 	// check we can run
-	if err := sanityChecks(dClient); err != nil {
+	if err := sanityChecks(apiserverClient); err != nil {
 		logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
@@ -327,6 +332,7 @@ func main() {
 		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)
 	}
+	var wg sync.WaitGroup
 	certRenewer := tls.NewCertRenewer(
 		kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 		secretLister,
@@ -348,6 +354,20 @@ func main() {
 		metricsConfig,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
+		&wg,
+	)
+	// log policy changes
+	genericloggingcontroller.NewController(
+		logger.WithName("policy"),
+		"Policy",
+		kyvernoInformer.Kyverno().V1().Policies(),
+		genericloggingcontroller.CheckGeneration,
+	)
+	genericloggingcontroller.NewController(
+		logger.WithName("cluster-policy"),
+		"ClusterPolicy",
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		genericloggingcontroller.CheckGeneration,
 	)
 	runtime := runtimeutils.NewRuntime(
 		logger.WithName("runtime-checks"),
@@ -397,7 +417,7 @@ func main() {
 		}
 	}
 	// start event generator
-	go eventGenerator.Run(signalCtx, 3)
+	go eventGenerator.Run(signalCtx, 3, &wg)
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
@@ -458,7 +478,6 @@ func main() {
 		os.Exit(1)
 	}
 	// start non leader controllers
-	var wg sync.WaitGroup
 	for _, controller := range nonLeaderControllers {
 		controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 	}
@@ -492,6 +511,8 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
 		urgen,
 		eventGenerator,
 		openApiManager,
@@ -521,6 +542,8 @@ func main() {
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
 		runtime,
+		kubeInformer.Rbac().V1().RoleBindings().Lister(),
+		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers

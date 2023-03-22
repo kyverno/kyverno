@@ -12,7 +12,7 @@ metadata:
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
     {{- with .Values.reportsController.serviceMonitor.additionalLabels }}
-    {{- toYaml .Values.reportsController.serviceMonitor.additionalLabels | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   selector:
