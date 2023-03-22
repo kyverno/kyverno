@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: pol-mutate-existing-auth-check
+  namespace: pol-mutate-existing-auth-check-ns
+spec:
+  mutateExistingOnPolicyUpdate: true
+  background: false
+  rules:
+  - name: label-privileged-namespaces
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    mutate:
+      targets:
+        - apiVersion: v1
+          kind: ServiceAccount
+          namespace: pol-mutate-existing-auth-check-ns
+      patchStrategicMerge:
+        metadata:
+          labels:
+            foo: bar
