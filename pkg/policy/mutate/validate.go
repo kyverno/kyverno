@@ -1,27 +1,34 @@
 package mutate
 
 import (
+	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/utils/api"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"go.uber.org/multierr"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // Mutate provides implementation to validate 'mutate' rule
 type Mutate struct {
-	mutation kyvernov1.Mutation
+	mutation    kyvernov1.Mutation
+	authChecker AuthChecker
 }
 
 // NewMutateFactory returns a new instance of Mutate validation checker
-func NewMutateFactory(m kyvernov1.Mutation) *Mutate {
+func NewMutateFactory(m kyvernov1.Mutation, client dclient.Interface) *Mutate {
 	return &Mutate{
-		mutation: m,
+		mutation:    m,
+		authChecker: newAuthChecker(client),
 	}
 }
 
 // Validate validates the 'mutate' rule
-func (m *Mutate) Validate() (string, error) {
+func (m *Mutate) Validate(ctx context.Context) (string, error) {
 	if m.hasForEach() {
 		if m.hasPatchStrategicMerge() || m.hasPatchesJSON6902() {
 			return "foreach", fmt.Errorf("only one of `foreach`, `patchStrategicMerge`, or `patchesJson6902` is allowed")
@@ -34,6 +41,11 @@ func (m *Mutate) Validate() (string, error) {
 		return "foreach", fmt.Errorf("only one of `patchStrategicMerge` or `patchesJson6902` is allowed")
 	}
 
+	if m.mutation.Targets != nil {
+		if err := m.validateAuth(ctx, m.mutation.Targets); err != nil {
+			return "targets", fmt.Errorf("auth check fails, require additional privileges, update the ClusterRole 'kyverno:background-controller:additional':%v", err)
+		}
+	}
 	return "", nil
 }
 
@@ -76,4 +88,31 @@ func (m *Mutate) hasPatchStrategicMerge() bool {
 
 func (m *Mutate) hasPatchesJSON6902() bool {
 	return m.mutation.PatchesJSON6902 != ""
+}
+
+func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.ResourceSpec) error {
+	var errs []error
+	for _, target := range targets {
+		if !regex.IsVariable(target.Namespace) {
+			_, _, k, sub := kubeutils.ParseKindSelector(target.Kind)
+			if ok, err := m.authChecker.CanICreate(ctx, k, target.Namespace, sub); err != nil {
+				errs = append(errs, err)
+			} else if !ok {
+				errs = append(errs, fmt.Errorf("cannot %s %s/%s in namespace %s", "create", k, sub, target.Namespace))
+			}
+
+			if ok, err := m.authChecker.CanIUpdate(ctx, k, target.Namespace, sub); err != nil {
+				errs = append(errs, err)
+			} else if !ok {
+				errs = append(errs, fmt.Errorf("cannot %s %s/%s in namespace %s", "update", k, sub, target.Namespace))
+			}
+
+			if ok, err := m.authChecker.CanIGet(ctx, k, target.Namespace, sub); err != nil {
+				errs = append(errs, err)
+			} else if !ok {
+				errs = append(errs, fmt.Errorf("cannot %s %s/%s in namespace %s", "get", k, sub, target.Namespace))
+			}
+		}
+	}
+	return multierr.Combine(errs...)
 }
