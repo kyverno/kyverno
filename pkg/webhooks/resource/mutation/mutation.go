@@ -117,10 +117,11 @@ func (v *mutationHandler) applyMutations(
 					}
 				}
 
-				policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
 				if engineResponse != nil {
+					policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
 					engineResponses = append(engineResponses, *engineResponse)
 				}
+
 				// registering the kyverno_policy_results_total metric concurrently
 				go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
 				// registering the kyverno_policy_execution_duration_seconds metric concurrently
