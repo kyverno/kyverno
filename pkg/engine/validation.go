@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -496,11 +495,9 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 	if u == nil {
 		return true
 	}
-
-	if reflect.DeepEqual(*u, unstructured.Unstructured{}) {
+	if u.Object == nil {
 		return true
 	}
-
 	return false
 }
 
