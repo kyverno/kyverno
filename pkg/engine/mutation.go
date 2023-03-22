@@ -24,7 +24,7 @@ func (e *engine) mutate(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	policy := policyContext.Policy()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 
@@ -60,7 +60,7 @@ func (e *engine) mutate(
 					excludeResource = e.configuration.GetExcludedGroups()
 				}
 				gvk, subresource := policyContext.ResourceKind()
-				if err = MatchesResourceDescription(
+				if err = matchesResourceDescription(
 					matchedResource,
 					rule,
 					policyContext.AdmissionInfo(),
@@ -168,7 +168,7 @@ func (e *engine) mutate(
 	}
 
 	resp.PatchedResource = matchedResource
-	return resp
+	return *resp
 }
 
 func mutateResource(rule *kyvernov1.Rule, ctx engineapi.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {

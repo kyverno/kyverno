@@ -17,7 +17,7 @@ func (e *engine) generateResponse(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
-) (resp *engineapi.EngineResponse) {
+) engineapi.EngineResponse {
 	return e.filterGenerateRules(policyContext, logger, gr.Spec.Policy, time.Now())
 }
 
@@ -26,7 +26,7 @@ func (e *engine) filterGenerateRules(
 	logger logr.Logger,
 	policyNameKey string,
 	startTime time.Time,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	resp.PolicyResponse = engineapi.PolicyResponse{
 		Stats: engineapi.PolicyStats{
@@ -41,5 +41,5 @@ func (e *engine) filterGenerateRules(
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		}
 	}
-	return resp
+	return *resp
 }

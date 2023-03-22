@@ -25,7 +25,7 @@ func testValidate(
 	pContext *PolicyContext,
 	cfg config.Configuration,
 	contextLoader engineapi.ContextLoaderFactory,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	if contextLoader == nil {
 		contextLoader = engineapi.DefaultContextLoaderFactory(nil)
 	}

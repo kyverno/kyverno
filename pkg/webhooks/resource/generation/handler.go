@@ -124,8 +124,8 @@ func (h *generationHandler) handleTrigger(
 		h.applyGeneration(ctx, request, policy, appliedRules, policyContext)
 		h.syncTriggerAction(ctx, request, policy, failedRules, policyContext)
 
-		go webhookutils.RegisterPolicyResultsMetricGeneration(ctx, h.log, h.metrics, string(request.Operation), policy, *engineResponse)
-		go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(ctx, h.log, h.metrics, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricGeneration(ctx, h.log, h.metrics, string(request.Operation), policy, engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(ctx, h.log, h.metrics, string(request.Operation), policy, engineResponse)
 	}
 }
 

@@ -33,14 +33,14 @@ func (e *engine) validate(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	startTime := time.Now()
 	logger.V(4).Info("start validate policy processing", "startTime", startTime)
 	policyResponse := e.validateResource(ctx, logger, policyContext)
 	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.Stats.ProcessingTime.String(), "validationRulesApplied", policyResponse.Stats.RulesAppliedCount)
 	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	engineResponse.PolicyResponse = *policyResponse
-	return internal.BuildResponse(policyContext, engineResponse, startTime)
+	return *internal.BuildResponse(policyContext, engineResponse, startTime)
 }
 
 func (e *engine) validateResource(
@@ -496,7 +496,7 @@ func matches(
 	cfg config.Configuration,
 ) bool {
 	gvk, subresource := ctx.ResourceKind()
-	err := MatchesResourceDescription(
+	err := matchesResourceDescription(
 		ctx.NewResource(),
 		*rule,
 		ctx.AdmissionInfo(),
@@ -511,7 +511,7 @@ func matches(
 	}
 	oldResource := ctx.OldResource()
 	if oldResource.Object != nil {
-		err := MatchesResourceDescription(
+		err := matchesResourceDescription(
 			ctx.OldResource(),
 			*rule,
 			ctx.AdmissionInfo(),

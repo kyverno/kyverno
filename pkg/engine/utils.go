@@ -155,8 +155,8 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 	return matchutils.CheckSubjects(ruleSubjects, userInfo)
 }
 
-// MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(
+// matchesResourceDescription checks if the resource matches resource description of the rule or not
+func matchesResourceDescription(
 	resourceRef unstructured.Unstructured,
 	ruleRef kyvernov1.Rule,
 	admissionInfoRef kyvernov1beta1.RequestInfo,
@@ -166,6 +166,9 @@ func MatchesResourceDescription(
 	gvk schema.GroupVersionKind,
 	subresource string,
 ) error {
+	if resourceRef.Object == nil {
+		return fmt.Errorf("resource is empty")
+	}
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
