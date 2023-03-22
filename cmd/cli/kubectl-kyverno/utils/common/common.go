@@ -517,17 +517,17 @@ OuterLoop:
 	policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
 
 	var info Info
-	var validateResponse *engineapi.EngineResponse
+	var validateResponse engineapi.EngineResponse
 	if policyHasValidate {
 		validateResponse = eng.Validate(
 			context.Background(),
 			policyContext,
 		)
-		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
+		info = ProcessValidateEngineResponse(c.Policy, &validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
-	if validateResponse != nil && !validateResponse.IsEmpty() {
-		engineResponses = append(engineResponses, validateResponse)
+	if !validateResponse.IsEmpty() {
+		engineResponses = append(engineResponses, &validateResponse)
 	}
 
 	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)

@@ -16,7 +16,7 @@ type Engine interface {
 	Validate(
 		ctx context.Context,
 		policyContext PolicyContext,
-	) *EngineResponse
+	) EngineResponse
 
 	// Mutate performs mutation. Overlay first and then mutation patches
 	Mutate(

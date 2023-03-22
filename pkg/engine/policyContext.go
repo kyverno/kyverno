@@ -71,10 +71,10 @@ func (c *PolicyContext) RequestResource() metav1.GroupVersionResource {
 }
 
 func (c *PolicyContext) ResourceKind() (schema.GroupVersionKind, string) {
-	// TODO: fallback
-	if c.gvk.Empty() {
-		return c.newResource.GroupVersionKind(), ""
-	}
+	// // TODO: fallback
+	// if c.gvk.Empty() {
+	// 	return c.newResource.GroupVersionKind(), ""
+	// }
 	return c.gvk, c.subresource
 }
 

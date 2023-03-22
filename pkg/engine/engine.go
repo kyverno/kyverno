@@ -41,7 +41,7 @@ func NewEngine(
 func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.validate"), policyContext)
 	return e.validate(ctx, logger, policyContext)
 }
