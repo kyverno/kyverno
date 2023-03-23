@@ -116,6 +116,23 @@ func Test_Sum(t *testing.T) {
 	}{
 		// Scalar
 		{
+			name:           "sum([]) -> error",
+			test:           "sum([])",
+			err:            true,
+		},
+		{
+			name:           "sum(Scalar[]) -> Scalar",
+			test:           "sum([`12`])",
+			expectedResult: 12.0,
+			retFloat:       true,
+		},
+		{
+			name:           "sum(Scalar[]) -> Scalar",
+			test:           "sum([`12`, `13`, `1`, `4`])",
+			expectedResult: 30.0,
+			retFloat:       true,
+		},
+		{
 			name:           "sum(Scalar[]) -> Scalar",
 			test:           "sum([`12`, `13`])",
 			expectedResult: 25.0,
@@ -138,6 +155,21 @@ func Test_Sum(t *testing.T) {
 		},
 		// Quantity
 		{
+			name:           "sum([]) -> error",
+			test:           "sum([])",
+			err:            true,
+		},
+		{
+			name:           "sum(Quantity[]) -> Quantity",
+			test:           "sum(['12Ki'])",
+			expectedResult: `12Ki`,
+		},
+		{
+			name:           "sum(Quantity[]) -> Quantity",
+			test:           "sum(['12Ki', '13Ki', '1Ki', '4Ki'])",
+			expectedResult: `30Ki`,
+		},
+		{
 			name:           "sum(Quantity[]) -> Quantity",
 			test:           "sum(['12Ki', '13Ki'])",
 			expectedResult: `25Ki`,
@@ -158,6 +190,21 @@ func Test_Sum(t *testing.T) {
 			err:  true,
 		},
 		// Duration
+		{
+			name:           "sum([]) -> error",
+			test:           "sum([])",
+			err:            true,
+		},
+		{
+			name:           "sum(Duration[]) -> Duration",
+			test:           "sum(['12s'])",
+			expectedResult: `12s`,
+		},
+		{
+			name:           "sum(Duration[]) -> Duration",
+			test:           "sum(['12s', '13s', '1s', '4s'])",
+			expectedResult: `30s`,
+		},
 		{
 			name:           "sum(Duration[]) -> Duration",
 			test:           "sum(['12s', '13s'])",
