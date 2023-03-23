@@ -7,7 +7,6 @@ results:
 - category: Pod Security
   message: |
     Validation rule 'restricted' failed. It violates PodSecurity "restricted:latest": ({Allowed:false ForbiddenReason:unrestricted capabilities ForbiddenDetail:container "container01" must set securityContext.capabilities.drop=["ALL"]})
-    ({Allowed:false ForbiddenReason:unrestricted capabilities ForbiddenDetail:container "container01" must set securityContext.capabilities.drop=["ALL"]})
   policy: podsecurity-subrule-restricted
   resources:
   - apiVersion: v1

@@ -13,12 +13,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const (
-	LabelKeyKind      = "kyverno.io/generated-by-kind"
-	LabelKeyNamespace = "kyverno.io/generated-by-namespace"
-	LabelKeyName      = "kyverno.io/generated-by-name"
-)
-
 type Object interface {
 	GetName() string
 	GetNamespace() string
@@ -35,8 +29,6 @@ func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured
 
 	// handle managedBy label
 	managedBy(labels)
-	// handle generatedBy label
-	generatedBy(labels, triggerResource)
 
 	PolicyInfo(labels, policy, ruleName)
 
@@ -86,28 +78,6 @@ func managedBy(labels map[string]string) {
 	if ok {
 		if val != value {
 			logging.V(2).Info(fmt.Sprintf("resource managed by %s, kyverno wont over-ride the label", val))
-			return
-		}
-	}
-	if !ok {
-		// add label
-		labels[key] = value
-	}
-}
-
-func generatedBy(labels map[string]string, triggerResource unstructured.Unstructured) {
-	checkGeneratedBy(labels, LabelKeyKind, triggerResource.GetKind())
-	checkGeneratedBy(labels, LabelKeyNamespace, triggerResource.GetNamespace())
-	checkGeneratedBy(labels, LabelKeyName, triggerResource.GetName())
-}
-
-func checkGeneratedBy(labels map[string]string, key, value string) {
-	value = trimByLength(value, 63)
-
-	val, ok := labels[key]
-	if ok {
-		if val != value {
-			logging.V(2).Info(fmt.Sprintf("kyverno wont over-ride the label %s", key))
 			return
 		}
 	}
