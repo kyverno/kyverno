@@ -796,7 +796,7 @@ func jpSum(arguments []interface{}) (interface{}, error) {
 	var err error
 	result := items[0]
 	for _, item := range items[1:] {
-		result, err = _jpAdd([]interface{}{sum, item}, sum)
+		result, err = _jpAdd([]interface{}{result, item}, sum)
 		if err != nil {
 			return nil, err
 		}
