@@ -557,6 +557,16 @@ of deployments across all namespaces.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.AdmissionOperation">AdmissionOperation
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ResourceDescription">ResourceDescription</a>, 
+<a href="#kyverno.io/v2beta1.ResourceDescription">ResourceDescription</a>)
+</p>
+<p>
+<p>AdmissionOperation can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.</p>
+</p>
 <h3 id="kyverno.io/v1.AnyAllConditions">AnyAllConditions
 </h3>
 <p>
@@ -2708,6 +2718,20 @@ in <code>matchLabels</code> support the wildcard characters <code>*</code> (matc
 and <code>?</code> (matches one character).Wildcards allows writing label selectors like
 [&ldquo;storage.k8s.io/<em>&rdquo;: &ldquo;</em>&rdquo;]. Note that using [&rdquo;<em>&rdquo; : &ldquo;</em>&rdquo;] matches any key and value but
 does not match an empty label set.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>operations</code><br/>
+<em>
+<a href="#kyverno.io/v1.AdmissionOperation">
+[]AdmissionOperation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Operations can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
 </td>
 </tr>
 </tbody>
@@ -6344,6 +6368,20 @@ in <code>matchLabels</code> support the wildcard characters <code>*</code> (matc
 and <code>?</code> (matches one character).Wildcards allows writing label selectors like
 [&ldquo;storage.k8s.io/<em>&rdquo;: &ldquo;</em>&rdquo;]. Note that using [&rdquo;<em>&rdquo; : &ldquo;</em>&rdquo;] matches any key and value but
 does not match an empty label set.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>operations</code><br/>
+<em>
+<a href="#kyverno.io/v1.AdmissionOperation">
+[]AdmissionOperation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Operations can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
 </td>
 </tr>
 </tbody>
