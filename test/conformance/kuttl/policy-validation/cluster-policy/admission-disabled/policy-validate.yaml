@@ -12,6 +12,6 @@ spec:
       any:
       - resources:
           kinds:
-          - Scale
+          - Pod
     validate:
       deny: {}
