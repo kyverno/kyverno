@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: policy-validate.yaml
+- file: policy-mutate.yaml
+  shouldFail: true
+- file: policy-generate.yaml
+  shouldFail: true
+- file: policy-verify-image.yaml
+  shouldFail: true
