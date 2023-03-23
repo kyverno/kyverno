@@ -23,22 +23,25 @@ func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	policy := policyContext.Policy()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	ivm := &engineapi.ImageVerificationMetadata{}
 
 	startTime := time.Now()
+
 	defer func() {
 		internal.BuildResponse(policyContext, &resp, startTime)
 		logger.V(4).Info("processed image verification rules",
 			"time", resp.PolicyResponse.Stats.ProcessingTime.String(),
-			"applied", resp.PolicyResponse.Stats.RulesAppliedCount, "successful", resp.IsSuccessful())
+			"applied", resp.PolicyResponse.Stats.RulesAppliedCount,
+			"successful", resp.IsSuccessful(),
+		)
 	}()
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
+	ivm := engineapi.ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy())
 	applyRules := policy.GetSpec().GetApplyRules()
 
@@ -50,7 +53,7 @@ func (e *engine) verifyAndPatchImages(
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),
 			func(ctx context.Context, span trace.Span) {
-				e.doVerifyAndPatch(ctx, logger, policyContext, rule, &resp, ivm)
+				e.doVerifyAndPatch(ctx, logger, policyContext, rule, &resp, &ivm)
 			},
 		)
 
@@ -58,8 +61,8 @@ func (e *engine) verifyAndPatchImages(
 			break
 		}
 	}
-
-	return &resp, ivm
+	internal.BuildResponse(policyContext, &resp, startTime)
+	return resp, ivm
 }
 
 func (e *engine) doVerifyAndPatch(

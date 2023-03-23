@@ -50,7 +50,6 @@ func (e *engine) filterRules(
 			}
 		}
 	}
-
 	return resp
 }
 

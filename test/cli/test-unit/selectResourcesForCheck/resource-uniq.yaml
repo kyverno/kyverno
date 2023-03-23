@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod1
+  namespace: foo
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod2
+  namespace: foo
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod2
+  namespace: bar
+
+---
+# will not be used
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod3
+  namespace: bar
+
+---
+# will not be used
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: myapp-pod2 # reuse the name of the pod to check duplicate check
+
+---
+# will not be used
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: myns

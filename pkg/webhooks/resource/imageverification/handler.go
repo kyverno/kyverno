@@ -81,7 +81,7 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	}
 	var engineResponses []engineapi.EngineResponse
 	var patches [][]byte
-	verifiedImageData := &engineapi.ImageVerificationMetadata{}
+	verifiedImageData := engineapi.ImageVerificationMetadata{}
 	for _, policy := range policies {
 		tracing.ChildSpan(
 			ctx,
