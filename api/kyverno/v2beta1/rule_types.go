@@ -89,7 +89,6 @@ func (r *Rule) HasImagesValidationChecks() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -100,7 +99,6 @@ func (p *ClusterPolicy) HasYAMLSignatureVerify() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
