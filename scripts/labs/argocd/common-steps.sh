@@ -10,3 +10,4 @@ $SRC/2-argocd.sh
 $SRC/3-kube-prometheus-stack.sh
 $SRC/4-loki.sh
 $SRC/5-tempo.sh
+$SRC/6-metrics-server.sh
