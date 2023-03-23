@@ -3,7 +3,6 @@ package mutation
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -21,7 +20,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -160,7 +158,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 	policyPatches := engineResponse.GetPatches()
 
 	if !engineResponse.IsSuccessful() {
-		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRules())
+		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRulesWithErrors())
 	}
 
 	if policyContext.Policy().ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
@@ -170,7 +168,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 		}
 	}
 
-	return engineResponse, policyPatches, nil
+	return &engineResponse, policyPatches, nil
 }
 
 func logMutationResponse(patches [][]byte, engineResponses []*engineapi.EngineResponse, logger logr.Logger) {
@@ -186,11 +184,9 @@ func logMutationResponse(patches [][]byte, engineResponses []*engineapi.EngineRe
 
 func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		resource := policyContext.NewResource()
+	if resource := policyContext.NewResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else {
-		resource := policyContext.OldResource()
+	} else if resource := policyContext.OldResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 	return deletionTimeStamp != nil

@@ -2,6 +2,7 @@ package policy
 
 import (
 	"context"
+	"sync"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -25,10 +26,17 @@ type controller struct {
 	// listers
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
+
+	waitGroup *sync.WaitGroup
 }
 
 // TODO: this is a strange controller, it only processes events, this should be changed to a real controller.
-func NewController(metricsConfig metrics.MetricsConfigManager, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) {
+func NewController(
+	metricsConfig metrics.MetricsConfigManager,
+	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	polInformer kyvernov1informers.PolicyInformer,
+	waitGroup *sync.WaitGroup,
+) {
 	meterProvider := global.MeterProvider()
 	meter := meterProvider.Meter(metrics.MeterName)
 	policyRuleInfoMetric, err := meter.Float64ObservableGauge(
@@ -43,6 +51,7 @@ func NewController(metricsConfig metrics.MetricsConfigManager, cpolInformer kyve
 		ruleInfo:      policyRuleInfoMetric,
 		cpolLister:    cpolInformer.Lister(),
 		polLister:     polInformer.Lister(),
+		waitGroup:     waitGroup,
 	}
 	controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlers(polInformer.Informer(), c.addNsPolicy, c.updateNsPolicy, c.deleteNsPolicy)
@@ -111,16 +120,24 @@ func (c *controller) reportPolicy(ctx context.Context, policy kyvernov1.PolicyIn
 	return nil
 }
 
+func (c *controller) startRountine(routine func()) {
+	c.waitGroup.Add(1)
+	go func() {
+		defer c.waitGroup.Done()
+		routine()
+	}()
+}
+
 func (c *controller) addPolicy(obj interface{}) {
 	p := obj.(*kyvernov1.ClusterPolicy)
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricAddPolicy(context.TODO(), logger, p)
+	c.startRountine(func() { c.registerPolicyChangesMetricAddPolicy(context.TODO(), logger, p) })
 }
 
 func (c *controller) updatePolicy(old, cur interface{}) {
 	oldP, curP := old.(*kyvernov1.ClusterPolicy), cur.(*kyvernov1.ClusterPolicy)
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricUpdatePolicy(context.TODO(), logger, oldP, curP)
+	c.startRountine(func() { c.registerPolicyChangesMetricUpdatePolicy(context.TODO(), logger, oldP, curP) })
 }
 
 func (c *controller) deletePolicy(obj interface{}) {
@@ -130,19 +147,19 @@ func (c *controller) deletePolicy(obj interface{}) {
 		return
 	}
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricDeletePolicy(context.TODO(), logger, p)
+	c.startRountine(func() { c.registerPolicyChangesMetricDeletePolicy(context.TODO(), logger, p) })
 }
 
 func (c *controller) addNsPolicy(obj interface{}) {
 	p := obj.(*kyvernov1.Policy)
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricAddPolicy(context.TODO(), logger, p)
+	c.startRountine(func() { c.registerPolicyChangesMetricAddPolicy(context.TODO(), logger, p) })
 }
 
 func (c *controller) updateNsPolicy(old, cur interface{}) {
 	oldP, curP := old.(*kyvernov1.Policy), cur.(*kyvernov1.Policy)
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricUpdatePolicy(context.TODO(), logger, oldP, curP)
+	c.startRountine(func() { c.registerPolicyChangesMetricUpdatePolicy(context.TODO(), logger, oldP, curP) })
 }
 
 func (c *controller) deleteNsPolicy(obj interface{}) {
@@ -152,5 +169,5 @@ func (c *controller) deleteNsPolicy(obj interface{}) {
 		return
 	}
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricDeletePolicy(context.TODO(), logger, p)
+	c.startRountine(func() { c.registerPolicyChangesMetricDeletePolicy(context.TODO(), logger, p) })
 }

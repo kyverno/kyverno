@@ -77,11 +77,7 @@ func (c *fakeDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema
 	return c.getGVR(resource)
 }
 
-func (c *fakeDiscoveryClient) FindResource(groupVersion string, kind string) (apiResource, parentAPIResource *metav1.APIResource, gvr schema.GroupVersionResource, err error) {
-	return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("not implemented")
-}
-
-func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) ([]GroupVersionResourceSubresource, error) {
+func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
