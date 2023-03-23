@@ -66,7 +66,7 @@ func (e *engine) VerifyAndPatchImages(
 ) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.verify"), policyContext)
 	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return nil, nil
+		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil), engineapi.ImageVerificationMetadata{}
 	}
 	return e.verifyAndPatchImages(ctx, logger, policyContext)
 }

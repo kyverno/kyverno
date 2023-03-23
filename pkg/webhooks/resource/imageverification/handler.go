@@ -90,8 +90,8 @@ func (h *imageVerificationHandler) handleVerifyImages(
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy)
 				resp, ivm := h.engine.VerifyAndPatchImages(ctx, policyContext)
-				if resp != nil {
-					engineResponses = append(engineResponses, *resp)
+				if !resp.IsEmpty() {
+					engineResponses = append(engineResponses, resp)
 				}
 				patches = append(patches, resp.GetPatches()...)
 				verifiedImageData.Merge(ivm)
