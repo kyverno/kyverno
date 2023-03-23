@@ -46,34 +46,22 @@ func (e *engine) validate(
 func (e *engine) validateResource(
 	ctx context.Context,
 	logger logr.Logger,
-	enginectx engineapi.PolicyContext,
+	policyContext engineapi.PolicyContext,
 ) *engineapi.PolicyResponse {
 	resp := &engineapi.PolicyResponse{}
 
-	enginectx.JSONContext().Checkpoint()
-	defer enginectx.JSONContext().Restore()
+	policyContext.JSONContext().Checkpoint()
+	defer policyContext.JSONContext().Restore()
 
-	rules := autogen.ComputeRules(enginectx.Policy())
+	rules := autogen.ComputeRules(policyContext.Policy())
 	matchCount := 0
-	applyRules := enginectx.Policy().GetSpec().GetApplyRules()
-	newResource := enginectx.NewResource()
-	oldResource := enginectx.OldResource()
-
-	if enginectx.Policy().IsNamespaced() {
-		polNs := enginectx.Policy().GetNamespace()
-		if enginectx.NewResource().Object != nil && (newResource.GetNamespace() != polNs || newResource.GetNamespace() == "") {
-			return resp
-		}
-		if enginectx.OldResource().Object != nil && (oldResource.GetNamespace() != polNs || oldResource.GetNamespace() == "") {
-			return resp
-		}
-	}
+	applyRules := policyContext.Policy().GetSpec().GetApplyRules()
 
 	for i := range rules {
 		rule := &rules[i]
 		logger := internal.LoggerWithRule(logger, rules[i])
 		logger.V(3).Info("processing validation rule", "matchCount", matchCount)
-		enginectx.JSONContext().Reset()
+		policyContext.JSONContext().Reset()
 		startTime := time.Now()
 		ruleResp := tracing.ChildSpan1(
 			ctx,
@@ -86,22 +74,21 @@ func (e *engine) validateResource(
 				if !hasValidate && !hasValidateImage {
 					return nil
 				}
-
-				if !matches(logger, rule, enginectx, e.configuration) {
+				if !matches(logger, rule, policyContext, e.configuration) {
 					return nil
 				}
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, enginectx, rule, e.configuration)
+				ruleResp := hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, policyContext, rule, e.configuration)
 				if ruleResp != nil {
 					return ruleResp
 				}
-				enginectx.JSONContext().Reset()
+				policyContext.JSONContext().Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
-					return e.processValidationRule(ctx, logger, enginectx, rule)
+					return e.processValidationRule(ctx, logger, policyContext, rule)
 				} else if hasValidateImage {
-					return e.processImageValidationRule(ctx, logger, enginectx, rule)
+					return e.processImageValidationRule(ctx, logger, policyContext, rule)
 				} else if hasYAMLSignatureVerify {
-					return processYAMLValidationRule(e.client, logger, enginectx, rule)
+					return processYAMLValidationRule(e.client, logger, policyContext, rule)
 				}
 				return nil
 			},
