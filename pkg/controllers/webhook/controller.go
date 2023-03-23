@@ -632,12 +632,14 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(cfg config.Config
 		}
 		c.recordPolicyState(config.MutatingWebhookConfigurationName, policies...)
 		for _, p := range policies {
-			spec := p.GetSpec()
-			if spec.HasMutate() || spec.HasVerifyImages() {
-				if spec.GetFailurePolicy() == kyvernov1.Ignore {
-					c.mergeWebhook(ignore, p, false)
-				} else {
-					c.mergeWebhook(fail, p, false)
+			if p.AdmissionProcessingEnabled() {
+				spec := p.GetSpec()
+				if spec.HasMutate() || spec.HasVerifyImages() {
+					if spec.GetFailurePolicy() == kyvernov1.Ignore {
+						c.mergeWebhook(ignore, p, false)
+					} else {
+						c.mergeWebhook(fail, p, false)
+					}
 				}
 			}
 		}
@@ -732,12 +734,14 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 		}
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
 		for _, p := range policies {
-			spec := p.GetSpec()
-			if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() || spec.HasYAMLSignatureVerify() {
-				if spec.GetFailurePolicy() == kyvernov1.Ignore {
-					c.mergeWebhook(ignore, p, true)
-				} else {
-					c.mergeWebhook(fail, p, true)
+			if p.AdmissionProcessingEnabled() {
+				spec := p.GetSpec()
+				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() || spec.HasYAMLSignatureVerify() {
+					if spec.GetFailurePolicy() == kyvernov1.Ignore {
+						c.mergeWebhook(ignore, p, true)
+					} else {
+						c.mergeWebhook(fail, p, true)
+					}
 				}
 			}
 		}
