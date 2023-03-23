@@ -51,6 +51,7 @@ var (
 	labelMatch             = "label_match"
 	toBoolean              = "to_boolean"
 	add                    = "add"
+	sum                    = "sum"
 	subtract               = "subtract"
 	multiply               = "multiply"
 	divide                 = "divide"
@@ -248,6 +249,16 @@ func GetFunctions() []FunctionEntry {
 		},
 		ReturnType: []jpType{jpAny},
 		Note:       "does arithmetic addition of two specified values of numbers, quantities, and durations",
+	}, {
+		FunctionEntry: gojmespath.FunctionEntry{
+			Name: sum,
+			Arguments: []argSpec{
+				{Types: []jpType{jpArray}},
+			},
+			Handler: jpSum,
+		},
+		ReturnType: []jpType{jpAny},
+		Note:       "does arithmetic addition of specified array of values of numbers, quantities, and durations",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: subtract,
@@ -762,13 +773,35 @@ func jpToBoolean(arguments []interface{}) (interface{}, error) {
 	}
 }
 
-func jpAdd(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, add)
+func _jpAdd(arguments []interface{}, operator string) (interface{}, error) {
+	op1, op2, err := ParseArithemticOperands(arguments, operator)
 	if err != nil {
 		return nil, err
 	}
+	return op1.Add(op2, operator)
+}
 
-	return op1.Add(op2)
+func jpAdd(arguments []interface{}) (interface{}, error) {
+	return _jpAdd(arguments, add)
+}
+
+func jpSum(arguments []interface{}) (interface{}, error) {
+	items, ok := arguments[0].([]interface{})
+	if !ok {
+		return nil, formatError(typeMismatchError, sum)
+	}
+	if len(items) == 0 {
+		return nil, formatError(genericError, sum, "at least one element in the array is required")
+	}
+	var err error
+	result := items[0]
+	for _, item := range items[1:] {
+		result, err = _jpAdd([]interface{}{result, item}, sum)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {

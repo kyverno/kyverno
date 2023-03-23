@@ -41,7 +41,7 @@ func NewEngine(
 func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.validate"), policyContext)
 	return e.validate(ctx, logger, policyContext)
 }
@@ -49,7 +49,7 @@ func (e *engine) Validate(
 func (e *engine) Mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.mutate"), policyContext)
 	return e.mutate(ctx, logger, policyContext)
 }
@@ -57,7 +57,7 @@ func (e *engine) Mutate(
 func (e *engine) VerifyAndPatchImages(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.verify"), policyContext)
 	return e.verifyAndPatchImages(ctx, logger, policyContext)
 }
@@ -65,7 +65,7 @@ func (e *engine) VerifyAndPatchImages(
 func (e *engine) ApplyBackgroundChecks(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
 	return e.applyBackgroundChecks(ctx, logger, policyContext)
 }
@@ -74,7 +74,7 @@ func (e *engine) GenerateResponse(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
 	return e.generateResponse(ctx, logger, policyContext, gr)
 }

@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -24,7 +25,7 @@ func NewValidateFactory(rule *kyvernov1.Validation) *Validate {
 }
 
 // Validate validates the 'validate' rule
-func (v *Validate) Validate() (string, error) {
+func (v *Validate) Validate(ctx context.Context) (string, error) {
 	if err := v.validateElements(); err != nil {
 		return "", err
 	}
