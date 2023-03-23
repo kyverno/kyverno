@@ -54,9 +54,10 @@ func (e *engine) Mutate(
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.mutate"), policyContext)
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	}
+	// TODO: why aren't we doing this ?
+	// if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+	// 	return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	// }
 	return e.mutate(ctx, logger, policyContext)
 }
 
