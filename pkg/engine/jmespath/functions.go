@@ -51,7 +51,7 @@ var (
 	labelMatch             = "label_match"
 	toBoolean              = "to_boolean"
 	add                    = "add"
-	sum					   = "sum"	
+	sum                    = "sum"	
 	subtract               = "subtract"
 	multiply               = "multiply"
 	divide                 = "divide"
