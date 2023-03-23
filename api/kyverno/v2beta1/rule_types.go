@@ -69,7 +69,12 @@ func (r *Rule) HasMutate() bool {
 
 // HasVerifyImages checks for verifyImages rule
 func (r *Rule) HasVerifyImages() bool {
-	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
+	for _, verifyImage := range r.VerifyImages {
+		if !reflect.DeepEqual(verifyImage, ImageVerification{}) {
+			return true
+		}
+	}
+	return false
 }
 
 // HasYAMLSignatureVerify checks for validate.manifests rule
