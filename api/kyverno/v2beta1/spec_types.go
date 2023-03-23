@@ -180,6 +180,9 @@ func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 
 // IsGenerateExisting return GenerateExisting set value
 func (s *Spec) IsGenerateExisting() bool {
+	if s.GenerateExistingOnPolicyUpdate != nil && *s.GenerateExistingOnPolicyUpdate {
+		return true
+	}
 	return s.GenerateExisting
 }
 
