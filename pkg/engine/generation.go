@@ -17,7 +17,7 @@ func (e *engine) generateResponse(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
-) (resp *engineapi.EngineResponse) {
+) engineapi.EngineResponse {
 	return e.filterGenerateRules(policyContext, logger, gr.Spec.Policy, time.Now())
 }
 
@@ -26,7 +26,7 @@ func (e *engine) filterGenerateRules(
 	logger logr.Logger,
 	policyNameKey string,
 	startTime time.Time,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	newResource := policyContext.NewResource()
 	kind := newResource.GetKind()
 	name := newResource.GetName()

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -53,8 +52,7 @@ func NewImageVerifier(
 func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Logger) bool {
 	newResource := ctx.NewResource()
 	oldResource := ctx.OldResource()
-	if reflect.DeepEqual(newResource, unstructured.Unstructured{}) ||
-		reflect.DeepEqual(oldResource, unstructured.Unstructured{}) {
+	if newResource.Object == nil || oldResource.Object == nil {
 		return false
 	}
 	newValue := newResource.GetAnnotations()[engineapi.ImageVerifyAnnotationKey]
@@ -76,7 +74,7 @@ func matchImageReferences(imageReferences []string, image string) bool {
 }
 
 func isImageVerified(resource unstructured.Unstructured, image string, log logr.Logger) (bool, error) {
-	if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
+	if resource.Object == nil {
 		return false, fmt.Errorf("nil resource")
 	}
 	annotations := resource.GetAnnotations()

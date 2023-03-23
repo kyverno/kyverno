@@ -26,7 +26,7 @@ func testMutate(
 	rclient registryclient.Client,
 	pContext *PolicyContext,
 	contextLoader engineapi.ContextLoaderFactory,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	if contextLoader == nil {
 		contextLoader = engineapi.DefaultContextLoaderFactory(nil)
 	}
@@ -1023,7 +1023,7 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	}
 }
 
-func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) *engineapi.EngineResponse {
+func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) engineapi.EngineResponse {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyRaw, &policy)
 	assert.NilError(t, err)

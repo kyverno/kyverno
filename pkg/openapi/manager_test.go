@@ -76,18 +76,20 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 	o, _ := NewManager(logr.Discard())
 
 	for i, tc := range tcs {
-		policy := v1.ClusterPolicy{}
-		_ = json.Unmarshal(tc.policy, &policy)
-		var errMessage string
-		err := o.ValidatePolicyMutation(&policy)
-		if err != nil {
-			errMessage = err.Error()
-		}
-		if tc.mustSucceed {
-			assert.NilError(t, err, "\nTestcase [%v] failed: Expected no error, Got error:  %v", i+1, errMessage)
-		} else {
-			assert.Assert(t, err != nil, "\nTestcase [%v] failed: Expected error to have occurred", i+1)
-		}
+		t.Run(tc.description, func(t *testing.T) {
+			policy := v1.ClusterPolicy{}
+			_ = json.Unmarshal(tc.policy, &policy)
+			var errMessage string
+			err := o.ValidatePolicyMutation(&policy)
+			if err != nil {
+				errMessage = err.Error()
+			}
+			if tc.mustSucceed {
+				assert.NilError(t, err, "\nTestcase [%v] failed: Expected no error, Got error:  %v", i+1, errMessage)
+			} else {
+				assert.Assert(t, err != nil, "\nTestcase [%v] failed: Expected error to have occurred", i+1)
+			}
+		})
 	}
 
 }
@@ -187,8 +189,10 @@ func Test_matchGVK(t *testing.T) {
 	}
 
 	for i, test := range testCases {
-		res := matchGVK(test.definitionName, test.gvk)
-		assert.Equal(t, res, test.match, "test #%d failed", i)
+		t.Run(test.definitionName, func(t *testing.T) {
+			res := matchGVK(test.definitionName, test.gvk)
+			assert.Equal(t, res, test.match, "test #%d failed", i)
+		})
 	}
 }
 

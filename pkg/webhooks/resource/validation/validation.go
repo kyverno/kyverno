@@ -3,7 +3,6 @@ package validation
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -80,11 +79,9 @@ func (v *validationHandler) HandleValidation(
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource(), unstructured.Unstructured{}) {
-		resource := policyContext.NewResource()
+	if resource := policyContext.NewResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else {
-		resource := policyContext.OldResource()
+	} else if resource := policyContext.OldResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 
@@ -92,7 +89,7 @@ func (v *validationHandler) HandleValidation(
 		return true, "", nil
 	}
 
-	var engineResponses []*engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
 	failurePolicy := kyvernov1.Ignore
 	for _, policy := range policies {
 		tracing.ChildSpan(
@@ -112,8 +109,8 @@ func (v *validationHandler) HandleValidation(
 					return
 				}
 
-				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), *engineResponse)
-				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), *engineResponse)
+				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
+				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
 
 				engineResponses = append(engineResponses, engineResponse)
 				if !engineResponse.IsSuccessful() {
@@ -150,14 +147,14 @@ func (v *validationHandler) buildAuditResponses(
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-) ([]*engineapi.EngineResponse, error) {
+) ([]engineapi.EngineResponse, error) {
 	gvr := schema.GroupVersionResource(request.Resource)
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
 		return nil, err
 	}
-	var responses []*engineapi.EngineResponse
+	var responses []engineapi.EngineResponse
 	for _, policy := range policies {
 		tracing.ChildSpan(
 			ctx,
@@ -167,8 +164,8 @@ func (v *validationHandler) buildAuditResponses(
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
 				response := v.engine.Validate(ctx, policyContext)
 				responses = append(responses, response)
-				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), *response)
-				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), *response)
+				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
+				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
 			},
 		)
 	}
@@ -180,10 +177,10 @@ func (v *validationHandler) handleAudit(
 	resource unstructured.Unstructured,
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
-	engineResponses ...*engineapi.EngineResponse,
+	engineResponses ...engineapi.EngineResponse,
 ) {
 	createReport := v.admissionReports
-	if request.DryRun != nil && *request.DryRun {
+	if admissionutils.IsDryRun(request) {
 		createReport = false
 	}
 	// we don't need reports for deletions
