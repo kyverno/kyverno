@@ -183,7 +183,6 @@ func (s *Spec) HasVerifyImages() bool {
 			return true
 		}
 	}
-
 	return false
 }
 

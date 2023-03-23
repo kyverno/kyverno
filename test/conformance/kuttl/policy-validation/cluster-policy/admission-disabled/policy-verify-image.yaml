@@ -3,10 +3,9 @@ kind: ClusterPolicy
 metadata:
   name: verify-image
 spec:
-  validationFailureAction: enforce
-  background: false
-  webhookTimeoutSeconds: 30
-  failurePolicy: Fail
+  validationFailureAction: Audit
+  admission: false
+  background: true
   rules:
   - name: verify-image
     match:
