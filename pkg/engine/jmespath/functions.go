@@ -773,13 +773,16 @@ func jpToBoolean(arguments []interface{}) (interface{}, error) {
 	}
 }
 
-func jpAdd(arguments []interface{}) (interface{}, error) {
-	op1, op2, err := ParseArithemticOperands(arguments, add)
+func _jpAdd(arguments []interface{}, operator string) (interface{}, error) {
+	op1, op2, err := ParseArithemticOperands(arguments, operator)
 	if err != nil {
 		return nil, err
 	}
+	return op1.Add(op2, operator)
+}
 
-	return op1.Add(op2)
+func jpAdd(arguments []interface{}) (interface{}, error) {
+	return _jpAdd(arguments, add)
 }
 
 func jpSum(arguments []interface{}) (interface{}, error) {
@@ -791,14 +794,14 @@ func jpSum(arguments []interface{}) (interface{}, error) {
 		return nil, formatError(genericError, sum, "at least one element in the array is required")
 	}
 	var err error
-	sum := items[0]
+	result := items[0]
 	for _, item := range items[1:] {
-		sum, err = jpAdd([]interface{}{sum, item})
+		result, err = _jpAdd([]interface{}{result, item}, sum)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return sum, nil
+	return result, nil
 }
 
 func jpSubtract(arguments []interface{}) (interface{}, error) {
