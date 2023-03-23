@@ -51,7 +51,7 @@ var (
 	labelMatch             = "label_match"
 	toBoolean              = "to_boolean"
 	add                    = "add"
-	sum                    = "sum"	
+	sum                    = "sum"
 	subtract               = "subtract"
 	multiply               = "multiply"
 	divide                 = "divide"
@@ -249,17 +249,17 @@ func GetFunctions() []FunctionEntry {
 		},
 		ReturnType: []jpType{jpAny},
 		Note:       "does arithmetic addition of two specified values of numbers, quantities, and durations",
-	},{
+	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: sum,
 			Arguments: []argSpec{
-				 {Types: []jpType{jpArray}},
+				{Types: []jpType{jpArray}},
 			},
 			Handler: jpSum,
 		},
 		ReturnType: []jpType{jpAny},
 		Note:       "does arithmetic addition of specified array of values of numbers, quantities, and durations",
-	},{
+	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: subtract,
 			Arguments: []argSpec{
@@ -779,11 +779,10 @@ func jpAdd(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-   return op1.Add(op2)
+	return op1.Add(op2)
 }
 
-func jpSum(arguments []interface{})(interface{}, error){
-
+func jpSum(arguments []interface{}) (interface{}, error) {
 	items, ok := arguments[0].([]interface{})
 	if !ok {
 		return nil, formatError(typeMismatchError, sum)

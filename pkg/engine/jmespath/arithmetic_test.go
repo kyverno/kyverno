@@ -116,9 +116,9 @@ func Test_Sum(t *testing.T) {
 	}{
 		// Scalar
 		{
-			name:           "sum([]) -> error",
-			test:           "sum([])",
-			err:            true,
+			name: "sum([]) -> error",
+			test: "sum([])",
+			err:  true,
 		},
 		{
 			name:           "sum(Scalar[]) -> Scalar",
@@ -155,9 +155,9 @@ func Test_Sum(t *testing.T) {
 		},
 		// Quantity
 		{
-			name:           "sum([]) -> error",
-			test:           "sum([])",
-			err:            true,
+			name: "sum([]) -> error",
+			test: "sum([])",
+			err:  true,
 		},
 		{
 			name:           "sum(Quantity[]) -> Quantity",
@@ -191,9 +191,9 @@ func Test_Sum(t *testing.T) {
 		},
 		// Duration
 		{
-			name:           "sum([]) -> error",
-			test:           "sum([])",
-			err:            true,
+			name: "sum([]) -> error",
+			test: "sum([])",
+			err:  true,
 		},
 		{
 			name:           "sum(Duration[]) -> Duration",
