@@ -34,7 +34,6 @@ func (e *engine) mutate(
 	logger.V(4).Info("start mutate policy processing", "startTime", startTime)
 
 	startMutateResultResponse(&resp, policy, matchedResource)
-	defer endMutateResultResponse(logger, &resp, startTime)
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
@@ -167,6 +166,7 @@ func (e *engine) mutate(
 	}
 
 	resp.PatchedResource = matchedResource
+	endMutateResultResponse(logger, &resp, startTime)
 	return resp
 }
 
