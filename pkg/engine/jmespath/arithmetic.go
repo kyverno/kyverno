@@ -11,7 +11,7 @@ import (
 )
 
 type Operand interface {
-	Add(interface{}) (interface{}, error)
+	Add(interface{}, string) (interface{}, error)
 	Subtract(interface{}) (interface{}, error)
 	Multiply(interface{}) (interface{}, error)
 	Divide(interface{}) (interface{}, error)
@@ -58,31 +58,31 @@ func ParseArithemticOperands(arguments []interface{}, operator string) (Operand,
 // Scalar   +|- Scalar            -> Scalar
 // Scalar   +|- Quantity|Duration -> error
 
-func (op1 Quantity) Add(op2 interface{}) (interface{}, error) {
+func (op1 Quantity) Add(op2 interface{}, operator string) (interface{}, error) {
 	switch v := op2.(type) {
 	case Quantity:
 		op1.Quantity.Add(v.Quantity)
 		return op1.String(), nil
 	default:
-		return nil, formatError(typeMismatchError, add)
+		return nil, formatError(typeMismatchError, operator)
 	}
 }
 
-func (op1 Duration) Add(op2 interface{}) (interface{}, error) {
+func (op1 Duration) Add(op2 interface{}, operator string) (interface{}, error) {
 	switch v := op2.(type) {
 	case Duration:
 		return (op1.Duration + v.Duration).String(), nil
 	default:
-		return nil, formatError(typeMismatchError, add)
+		return nil, formatError(typeMismatchError, operator)
 	}
 }
 
-func (op1 Scalar) Add(op2 interface{}) (interface{}, error) {
+func (op1 Scalar) Add(op2 interface{}, operator string) (interface{}, error) {
 	switch v := op2.(type) {
 	case Scalar:
 		return op1.float64 + v.float64, nil
 	default:
-		return nil, formatError(typeMismatchError, add)
+		return nil, formatError(typeMismatchError, operator)
 	}
 }
 

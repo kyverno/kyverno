@@ -230,7 +230,7 @@ type testFilter struct {
 	enabled  bool
 }
 
-var ftable = []Table{}
+var ftable []Table
 
 func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string, failOnly bool, removeColor bool) (rc *resultCounts, err error) {
 	var errors []error
@@ -756,7 +756,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		return nil
 	}
 
-	fmt.Printf("\nExecuting %s...", values.Name)
+	fmt.Printf("\nExecuting %s...\n", values.Name)
 	valuesFile := values.Variables
 	userInfoFile := values.UserInfo
 
@@ -802,7 +802,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		os.Exit(1)
 	}
 
-	filteredPolicies := []kyvernov1.PolicyInterface{}
+	var filteredPolicies []kyvernov1.PolicyInterface
 	for _, p := range policies {
 		for _, res := range values.Results {
 			if p.GetName() == res.Policy {
@@ -814,7 +814,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 
 	ruleToCloneSourceResource := map[string]string{}
 	for _, p := range filteredPolicies {
-		filteredRules := []kyvernov1.Rule{}
+		var filteredRules []kyvernov1.Rule
 
 		for _, rule := range autogen.ComputeRules(p) {
 			for _, res := range values.Results {
@@ -869,7 +869,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	if len(policies) > 0 && len(checkableResources) > 0 {
-		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
+		fmt.Printf("applying %s to %s... \n", msgPolicies, msgResources)
 	}
 
 	for _, policy := range policies {
@@ -929,6 +929,14 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 }
 
 func selectResourcesForCheck(resources []*unstructured.Unstructured, values *api.Test) []*unstructured.Unstructured {
+	res, _, _ := selectResourcesForCheckInternal(resources, values)
+	return res
+}
+
+// selectResourcesForCheckInternal internal method to test duplicates and unused
+func selectResourcesForCheckInternal(resources []*unstructured.Unstructured, values *api.Test) ([]*unstructured.Unstructured, int, int) {
+	var duplicates int
+	var unused int
 	uniqResources := make(map[string]*unstructured.Unstructured)
 
 	for i := range resources {
@@ -936,6 +944,7 @@ func selectResourcesForCheck(resources []*unstructured.Unstructured, values *api
 		key := fmt.Sprintf("%s/%s/%s", r.GetKind(), r.GetName(), r.GetNamespace())
 		if _, ok := uniqResources[key]; ok {
 			fmt.Println("skipping duplicate resource, resource :", r)
+			duplicates++
 		} else {
 			uniqResources[key] = r
 		}
@@ -945,13 +954,15 @@ func selectResourcesForCheck(resources []*unstructured.Unstructured, values *api
 	for key := range uniqResources {
 		r := uniqResources[key]
 		for _, res := range values.Results {
-			for _, testr := range res.Resources {
-				if r.GetName() == testr {
+			if res.Kind == r.GetKind() {
+				for _, testr := range res.Resources {
+					if r.GetName() == testr {
+						selectedResources[key] = r
+					}
+				}
+				if r.GetName() == res.Resource {
 					selectedResources[key] = r
 				}
-			}
-			if r.GetName() == res.Resource {
-				selectedResources[key] = r
 			}
 		}
 	}
@@ -960,13 +971,18 @@ func selectResourcesForCheck(resources []*unstructured.Unstructured, values *api
 
 	for key := range selectedResources {
 		checkableResources = append(checkableResources, selectedResources[key])
+		delete(uniqResources, key)
 	}
-	return checkableResources
+	for _, r := range uniqResources {
+		fmt.Println("skipping unused resource, resource :", r)
+		unused++
+	}
+	return checkableResources, duplicates, unused
 }
 
 func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []api.TestResults, rc *resultCounts, failOnly, removeColor bool) error {
 	printer := newTablePrinter(removeColor)
-	table := []Table{}
+	var table []Table
 
 	var countDeprecatedResource int
 	testCount := 1

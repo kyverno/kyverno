@@ -523,9 +523,9 @@ OuterLoop:
 	}
 
 	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
-		engineResponses = append(engineResponses, verifyImageResponse)
-		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
+	if !verifyImageResponse.IsEmpty() {
+		engineResponses = append(engineResponses, &verifyImageResponse)
+		info = ProcessValidateEngineResponse(c.Policy, &verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
 	var policyHasGenerate bool

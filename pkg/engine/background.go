@@ -47,7 +47,7 @@ func (e *engine) filterRules(
 
 	if e.configuration.ToFilter(kind, namespace, name) {
 		logger.Info("resource excluded")
-		return *resp
+		return resp
 	}
 
 	applyRules := policy.GetSpec().GetApplyRules()
@@ -61,7 +61,7 @@ func (e *engine) filterRules(
 		}
 	}
 
-	return *resp
+	return resp
 }
 
 func (e *engine) filterRule(
