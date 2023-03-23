@@ -9,7 +9,7 @@ import (
 )
 
 type ResourceFinder interface {
-	FindResources(group, version, kind, subresource string) (map[dclient.GroupVersionResourceSubresource]metav1.APIResource, error)
+	FindResources(group, version, kind, subresource string) (map[dclient.TopLevelApiDescription]metav1.APIResource, error)
 }
 
 // Cache get method use for to get policy names and mostly use to test cache testcases
