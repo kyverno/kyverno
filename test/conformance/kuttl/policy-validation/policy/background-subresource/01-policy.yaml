@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- file: policy-1.yaml
+  shouldFail: true
