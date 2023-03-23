@@ -164,12 +164,16 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `rbac` has been replaced with `admissionController.rbac`
 - `generatecontrollerExtraResources` has been replaced with `admissionController.rbac.clusterRole.extraResources`
 - `networkPolicy` has been replaced with `admissionController.networkPolicy`
+- all `extraArgs` now use objects instead of arrays
+- logging, tracing and metering are now configured using `*Controller.logging`, `*Controller.tracing` and `*Controller.metering`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
 - Image tags are now validated and must be strings, if you use image tags in the `1.35` form please add quotes around the tag value. 
 
 - Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
+
+- Admission controller `Deployment` name changed from `kyverno` to `kyverno-admission-controller`.
 
 ## Uninstalling the Chart
 

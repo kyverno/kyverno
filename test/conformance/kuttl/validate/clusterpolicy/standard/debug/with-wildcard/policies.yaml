@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-ephemeral-containers
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: deny-debug
+      match:
+        any:
+          - resources:
+              kinds:
+                - '*/ephemeralcontainers'
+      validate:
+        deny: {}

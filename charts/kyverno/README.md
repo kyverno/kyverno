@@ -164,12 +164,16 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `rbac` has been replaced with `admissionController.rbac`
 - `generatecontrollerExtraResources` has been replaced with `admissionController.rbac.clusterRole.extraResources`
 - `networkPolicy` has been replaced with `admissionController.networkPolicy`
+- all `extraArgs` now use objects instead of arrays
+- logging, tracing and metering are now configured using `*Controller.logging`, `*Controller.tracing` and `*Controller.metering`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
 - Image tags are now validated and must be strings, if you use image tags in the `1.35` form please add quotes around the tag value.
 
 - Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
+
+- Admission controller `Deployment` name changed from `kyverno` to `kyverno-admission-controller`.
 
 ## Uninstalling the Chart
 
@@ -251,13 +255,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.podSecurityContext | object | `{}` | Security context for the pod |
 | admissionController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
 | admissionController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
-| admissionController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
-| admissionController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
-| admissionController.serviceMonitor.namespace | string | `nil` | Override namespace |
-| admissionController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
-| admissionController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
-| admissionController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
-| admissionController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
 | admissionController.tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
 | admissionController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
 | admissionController.pullSecrets | list | `[]` | Image pull secrets |
@@ -268,7 +265,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.initContainer.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | admissionController.initContainer.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | admissionController.initContainer.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
-| admissionController.initContainer.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
+| admissionController.initContainer.extraArgs | object | `{}` | Additional container args. |
 | admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.container.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.container.image.repository | string | `"kyverno/kyverno"` | Image repository |
@@ -277,7 +274,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | admissionController.container.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
-| admissionController.container.extraArgs | list | `["--loggingFormat=text"]` | Additional container args. |
+| admissionController.container.extraArgs | object | `{}` | Additional container args. |
 | admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.extraInitContainers | list | `[]` | Array of extra init containers |
 | admissionController.extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
@@ -292,6 +289,23 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.metricsService.annotations | object | `{}` | Service annotations. |
 | admissionController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | admissionController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
+| admissionController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| admissionController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
+| admissionController.serviceMonitor.namespace | string | `nil` | Override namespace |
+| admissionController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
+| admissionController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
+| admissionController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
+| admissionController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| admissionController.tracing.enabled | bool | `false` | Enable tracing |
+| admissionController.tracing.address | string | `nil` | Traces receiver address |
+| admissionController.tracing.port | string | `nil` | Traces receiver port |
+| admissionController.tracing.creds | string | `""` | Traces receiver credentials |
+| admissionController.logging.format | string | `"text"` | Logging format |
+| admissionController.metering.disabled | bool | `false` | Disable metrics export |
+| admissionController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
+| admissionController.metering.port | int | `8000` | Prometheus endpoint port |
+| admissionController.metering.collector | string | `""` | Otel collector endpoint |
+| admissionController.metering.creds | string | `""` | Otel collector credentials |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
@@ -308,7 +322,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.priorityClassName | string | `""` | Optional priority class |
 | cleanupController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | cleanupController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| cleanupController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| cleanupController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | cleanupController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | cleanupController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
@@ -421,7 +435,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | backgroundController.priorityClassName | string | `""` | Optional priority class |
 | backgroundController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | backgroundController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| backgroundController.extraArgs | list | `[]` | Extra arguments passed to the container on the command line |
+| backgroundController.extraArgs | object | `{}` | Extra arguments passed to the container on the command line |
 | backgroundController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | backgroundController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | backgroundController.nodeSelector | object | `{}` | Node labels for pod assignment |

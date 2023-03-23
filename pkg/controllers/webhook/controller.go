@@ -829,32 +829,26 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
 	}
-	var gvrsList []dclient.GroupVersionResourceSubresource
+	var gvrsList []schema.GroupVersionResource
 	for _, gvk := range matchedGVK {
 		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
 		group, version, kind, subresource := kubeutils.ParseKindSelector(gvk)
 		// if kind is `*` no need to lookup resources
 		if kind == "*" && subresource == "*" {
-			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
-				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
-				SubResource:          "*",
-			})
+			gvrsList = append(gvrsList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/*"})
 		} else if kind == "*" && subresource == "" {
-			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
-				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
-			})
+			gvrsList = append(gvrsList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*"})
 		} else if kind == "*" && subresource != "" {
-			gvrsList = append(gvrsList, dclient.GroupVersionResourceSubresource{
-				GroupVersionResource: schema.GroupVersionResource{Group: group, Version: version, Resource: "*"},
-				SubResource:          subresource,
-			})
+			gvrsList = append(gvrsList, schema.GroupVersionResource{Group: group, Version: version, Resource: "*/" + subresource})
 		} else {
 			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
 			if err != nil {
 				logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
 				continue
 			}
-			gvrsList = append(gvrsList, gvrss...)
+			for gvrs := range gvrss {
+				gvrsList = append(gvrsList, gvrs.GroupVersion.WithResource(gvrs.ResourceSubresource()))
+			}
 		}
 	}
 	for _, gvr := range gvrsList {

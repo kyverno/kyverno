@@ -24,6 +24,14 @@ func CheckLabel(obj metav1.Object, key, value string) bool {
 	return labels[key] == value
 }
 
+func GetLabel(obj metav1.Object, key string) string {
+	labels := obj.GetLabels()
+	if labels == nil {
+		return ""
+	}
+	return labels[key]
+}
+
 func SetManagedByKyvernoLabel(obj metav1.Object) {
 	SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
 }

@@ -1,13 +1,7 @@
 admissionController:
-
-  initContainer:
-    extraArgs:
-      - --loggingFormat=json
-
   container:
     extraArgs:
-      - --loggingFormat=json
-      - --enablePolicyException
+      enablePolicyException: true
 
 backgroundController:
   rbac:
