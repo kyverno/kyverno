@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -25,12 +24,11 @@ func (e *engine) mutate(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (resp *engineapi.EngineResponse) {
+) engineapi.EngineResponse {
 	startTime := time.Now()
 	policy := policyContext.Policy()
-	resp = engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	matchedResource := policyContext.NewResource()
-	enginectx := policyContext.JSONContext()
 	var skippedRules []string
 
 	logger.V(4).Info("start mutate policy processing", "startTime", startTime)
@@ -60,31 +58,29 @@ func (e *engine) mutate(
 				if len(e.configuration.GetExcludedGroups()) > 0 {
 					excludeResource = e.configuration.GetExcludedGroups()
 				}
-
-				kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-				subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
-				if err = MatchesResourceDescription(subresourceGVKToAPIResource, matchedResource, rule, policyContext.AdmissionInfo(), excludeResource, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), policyContext.SubResource()); err != nil {
+				gvk, subresource := policyContext.ResourceKind()
+				if err = matchesResourceDescription(
+					matchedResource,
+					rule,
+					policyContext.AdmissionInfo(),
+					excludeResource,
+					policyContext.NamespaceLabels(),
+					policyContext.Policy().GetNamespace(),
+					gvk,
+					subresource,
+				); err != nil {
 					logger.V(4).Info("rule not matched", "reason", err.Error())
 					skippedRules = append(skippedRules, rule.Name)
 					return
 				}
 
 				// check if there is a corresponding policy exception
-				if ruleResp := hasPolicyExceptions(logger, engineapi.Mutation, e.exceptionSelector, policyContext, &computeRules[i], subresourceGVKToAPIResource, e.configuration); ruleResp != nil {
+				if ruleResp := hasPolicyExceptions(logger, engineapi.Mutation, e.exceptionSelector, policyContext, &computeRules[i], e.configuration); ruleResp != nil {
 					resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 					return
 				}
 
 				logger.V(3).Info("processing mutate rule")
-				resource, err := policyContext.JSONContext().Query("request.object")
-				policyContext.JSONContext().Reset()
-				if err == nil && resource != nil {
-					if err := enginectx.AddResource(resource.(map[string]interface{})); err != nil {
-						logger.Error(err, "unable to update resource object")
-					}
-				} else {
-					logger.Error(err, "failed to query resource object")
-				}
 
 				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
 					if _, ok := err.(gojmespath.NotFoundError); ok {
@@ -107,18 +103,18 @@ func (e *engine) mutate(
 					}
 				} else {
 					var parentResourceGVR metav1.GroupVersionResource
-					if policyContext.SubResource() != "" {
+					if subresource != "" {
 						parentResourceGVR = policyContext.RequestResource()
 					}
 					patchedResources = append(patchedResources, resourceInfo{
 						unstructured:      matchedResource,
-						subresource:       policyContext.SubResource(),
+						subresource:       subresource,
 						parentResourceGVR: parentResourceGVR,
 					})
 				}
 
 				for _, patchedResource := range patchedResources {
-					if reflect.DeepEqual(patchedResource, unstructured.Unstructured{}) {
+					if patchedResource.unstructured.Object == nil {
 						continue
 					}
 
@@ -171,7 +167,7 @@ func (e *engine) mutate(
 	}
 
 	resp.PatchedResource = matchedResource
-	return resp
+	return *resp
 }
 
 func mutateResource(rule *kyvernov1.Rule, ctx engineapi.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
@@ -232,6 +228,10 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			if len(mutateResp.Patches) > 0 {
 				f.resource.unstructured = mutateResp.PatchedResource
 				allPatches = append(allPatches, mutateResp.Patches...)
+			}
+			f.log.Info("mutateResp.PatchedResource", "resource", mutateResp.PatchedResource)
+			if err := f.policyContext.JSONContext().AddResource(mutateResp.PatchedResource.Object); err != nil {
+				f.log.Error(err, "failed to update resource in context")
 			}
 		}
 	}
@@ -333,7 +333,7 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 }
 
 func buildSuccessMessage(r unstructured.Unstructured) string {
-	if reflect.DeepEqual(unstructured.Unstructured{}, r) {
+	if r.Object == nil {
 		return "mutated resource"
 	}
 

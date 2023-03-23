@@ -1,5 +1,5 @@
 Chart version: {{ .Chart.Version }}
-Kyverno version: {{ default .Chart.AppVersion (default .Values.image.tag .Values.initImage.tag) }}
+Kyverno version: {{ default .Chart.AppVersion (default .Values.admissionController.container.image.tag .Values.admissionController.initContainer.image.tag) }}
 
 Thank you for installing {{ .Chart.Name }}! Your release is named {{ .Release.Name }}.
 
@@ -21,9 +21,9 @@ The following components have been installed in your cluster:
 - Grafana dashboard
 {{- end }}
 
-{{ if not .Values.replicaCount }}
+{{ if not .Values.admissionController.replicas }}
 ⚠️  WARNING: Setting replicas count below 3 means Kyverno is not running in high availability mode.
-{{- else if lt (int .Values.replicaCount) 3 }}
+{{- else if lt (int .Values.admissionController.replicas) 3 }}
 ⚠️  WARNING: Setting replicas count below 3 means Kyverno is not running in high availability mode.
 {{- end }}
 

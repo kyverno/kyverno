@@ -1,7 +1,0 @@
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl delete postgresql acid-minimal-cluster -n test-validate --force --wait=true --ignore-not-found=true
-  - command: kubectl delete cpol test --force --wait=true --ignore-not-found=true
-  - command: kubectl delete ns test-validate --force --ignore-not-found=true
-  - command: kubectl delete crd postgresqls.acid.zalan.do --force --wait=true

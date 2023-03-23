@@ -271,13 +271,12 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&validPolicy)
-	subresourceGVKToKind := make(map[string]string)
-	policyCache.Set(key, &validPolicy, subresourceGVKToKind)
+	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
 
 	request := &v1.AdmissionRequest{
 		Operation: v1.Create,
 		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		Object: runtime.RawExtension{
 			Raw: []byte(pod),
 		},
@@ -293,7 +292,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 	assert.Equal(t, len(response.Warnings), 0)
 
 	validPolicy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(key, &validPolicy, subresourceGVKToKind)
+	policyCache.Set(key, &validPolicy, policycache.TestResourceFinder{})
 
 	response = handlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -318,7 +317,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	request := &v1.AdmissionRequest{
 		Operation: v1.Create,
 		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		Object: runtime.RawExtension{
 			Raw: []byte(pod),
 		},
@@ -327,8 +326,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 
 	keyInvalid := makeKey(&invalidPolicy)
 	invalidPolicy.Spec.ValidationFailureAction = "Enforce"
-	subresourceGVKToKind := make(map[string]string)
-	policyCache.Set(keyInvalid, &invalidPolicy, subresourceGVKToKind)
+	policyCache.Set(keyInvalid, &invalidPolicy, policycache.TestResourceFinder{})
 
 	response := handlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -336,7 +334,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 
 	var ignore kyverno.FailurePolicyType = kyverno.Ignore
 	invalidPolicy.Spec.FailurePolicy = &ignore
-	policyCache.Set(keyInvalid, &invalidPolicy, subresourceGVKToKind)
+	policyCache.Set(keyInvalid, &invalidPolicy, policycache.TestResourceFinder{})
 
 	response = handlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
@@ -357,13 +355,12 @@ func Test_ImageVerify(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)
-	subresourceGVKToKind := make(map[string]string)
-	policyCache.Set(key, &policy, subresourceGVKToKind)
+	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
 
 	request := &v1.AdmissionRequest{
 		Operation: v1.Create,
 		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		Object: runtime.RawExtension{
 			Raw: []byte(pod),
 		},
@@ -371,7 +368,7 @@ func Test_ImageVerify(t *testing.T) {
 	}
 
 	policy.Spec.ValidationFailureAction = "Enforce"
-	policyCache.Set(key, &policy, subresourceGVKToKind)
+	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
 
 	response := handlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -379,7 +376,7 @@ func Test_ImageVerify(t *testing.T) {
 
 	var ignore kyverno.FailurePolicyType = kyverno.Ignore
 	policy.Spec.FailurePolicy = &ignore
-	policyCache.Set(key, &policy, subresourceGVKToKind)
+	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
 
 	response = handlers.Mutate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
@@ -400,7 +397,7 @@ func Test_MutateAndVerify(t *testing.T) {
 	assert.NilError(t, err)
 
 	key := makeKey(&policy)
-	policyCache.Set(key, &policy, make(map[string]string))
+	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
 
 	request := &v1.AdmissionRequest{
 		Operation: v1.Create,

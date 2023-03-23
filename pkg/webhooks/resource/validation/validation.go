@@ -3,7 +3,6 @@ package validation
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -17,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"go.opentelemetry.io/otel/trace"
@@ -81,11 +79,9 @@ func (v *validationHandler) HandleValidation(
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind)
 
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource(), unstructured.Unstructured{}) {
-		resource := policyContext.NewResource()
+	if resource := policyContext.NewResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else {
-		resource := policyContext.OldResource()
+	} else if resource := policyContext.OldResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 
@@ -113,10 +109,10 @@ func (v *validationHandler) HandleValidation(
 					return
 				}
 
-				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), *engineResponse)
-				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), *engineResponse)
+				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
+				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
 
-				engineResponses = append(engineResponses, engineResponse)
+				engineResponses = append(engineResponses, &engineResponse)
 				if !engineResponse.IsSuccessful() {
 					logger.V(2).Info("validation failed", "action", policy.GetSpec().ValidationFailureAction, "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
 					return
@@ -152,7 +148,8 @@ func (v *validationHandler) buildAuditResponses(
 	request *admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
 ) ([]*engineapi.EngineResponse, error) {
-	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
+	gvr := schema.GroupVersionResource(request.Resource)
+	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request)
 	if err != nil {
 		return nil, err
@@ -166,9 +163,9 @@ func (v *validationHandler) buildAuditResponses(
 			func(ctx context.Context, span trace.Span) {
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
 				response := v.engine.Validate(ctx, policyContext)
-				responses = append(responses, response)
-				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), *response)
-				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), *response)
+				responses = append(responses, &response)
+				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
+				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
 			},
 		)
 	}
@@ -182,19 +179,21 @@ func (v *validationHandler) handleAudit(
 	namespaceLabels map[string]string,
 	engineResponses ...*engineapi.EngineResponse,
 ) {
-	if !v.admissionReports {
-		return
-	}
-	if request.DryRun != nil && *request.DryRun {
-		return
+	createReport := v.admissionReports
+	if admissionutils.IsDryRun(request) {
+		createReport = false
 	}
 	// we don't need reports for deletions
 	if request.Operation == admissionv1.Delete {
-		return
+		createReport = false
 	}
 	// check if the resource supports reporting
 	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
-		return
+		createReport = false
+	}
+	// if the underlying resource has no UID don't create a report
+	if resource.GetUID() == "" {
+		createReport = false
 	}
 	tracing.Span(
 		context.Background(),
@@ -207,17 +206,14 @@ func (v *validationHandler) handleAudit(
 			}
 			events := webhookutils.GenerateEvents(responses, false)
 			v.eventGen.Add(events...)
-			responses = append(responses, engineResponses...)
-			report := reportutils.BuildAdmissionReport(resource, request, request.Kind, responses...)
-			// if it's not a creation, the resource already exists, we can set the owner
-			if request.Operation != admissionv1.Create {
-				gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
-				controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
-			}
-			if len(report.GetResults()) > 0 {
-				_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
-				if err != nil {
-					v.log.Error(err, "failed to create report")
+			if createReport {
+				responses = append(responses, engineResponses...)
+				report := reportutils.BuildAdmissionReport(resource, request, responses...)
+				if len(report.GetResults()) > 0 {
+					_, err = reportutils.CreateReport(ctx, report, v.kyvernoClient)
+					if err != nil {
+						v.log.Error(err, "failed to create report")
+					}
 				}
 			}
 		},
