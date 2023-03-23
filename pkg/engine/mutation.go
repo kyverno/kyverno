@@ -25,16 +25,16 @@ func (e *engine) mutate(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
-	startTime := time.Now()
 	policy := policyContext.Policy()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+
+	startTime := time.Now()
 	matchedResource := policyContext.NewResource()
 	var skippedRules []string
 
 	logger.V(4).Info("start mutate policy processing", "startTime", startTime)
 
-	startMutateResultResponse(resp, policy, matchedResource)
-	defer endMutateResultResponse(logger, resp, startTime)
+	startMutateResultResponse(&resp, policy, matchedResource)
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
@@ -167,7 +167,8 @@ func (e *engine) mutate(
 	}
 
 	resp.PatchedResource = matchedResource
-	return *resp
+	endMutateResultResponse(logger, &resp, startTime)
+	return resp
 }
 
 func mutateResource(rule *kyvernov1.Rule, ctx engineapi.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
