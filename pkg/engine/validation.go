@@ -40,7 +40,7 @@ func (e *engine) validate(
 	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.Stats.ProcessingTime.String(), "validationRulesApplied", policyResponse.Stats.RulesAppliedCount)
 	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	engineResponse.PolicyResponse = *policyResponse
-	return *internal.BuildResponse(policyContext, engineResponse, startTime)
+	return *internal.BuildResponse(policyContext, &engineResponse, startTime)
 }
 
 func (e *engine) validateResource(
