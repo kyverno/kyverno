@@ -187,7 +187,11 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return warnings, err
 		}
 	}
-
+	if !policy.AdmissionProcessingEnabled() {
+		if spec.HasMutate() || spec.HasGenerate() || spec.HasVerifyImages() {
+			return warnings, fmt.Errorf("disabling admission processing is only allowed with validation policies")
+		}
+	}
 	rules := autogen.ComputeRules(policy)
 	rulesPath := specPath.Child("rules")
 

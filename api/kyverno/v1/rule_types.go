@@ -116,7 +116,6 @@ func (r *Rule) HasImagesValidationChecks() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
