@@ -79,6 +79,12 @@ type Spec struct {
 	// +optional
 	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
+	// Admission controls if rules are applied during admission.
+	// Optional. Default value is "true".
+	// +optional
+	// +kubebuilder:default=true
+	Admission *bool `json:"admission,omitempty" yaml:"admission,omitempty"`
+
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
@@ -190,6 +196,15 @@ func (s *Spec) HasYAMLSignatureVerify() bool {
 	}
 
 	return false
+}
+
+// AdmissionProcessingEnabled checks if admission is set to true
+func (s *Spec) AdmissionProcessingEnabled() bool {
+	if s.Admission == nil {
+		return true
+	}
+
+	return *s.Admission
 }
 
 // BackgroundProcessingEnabled checks if background is set to true
