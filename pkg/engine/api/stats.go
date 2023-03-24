@@ -12,6 +12,16 @@ type ExecutionStats struct {
 	Timestamp int64
 }
 
+func NewExecutionStats(timestamp time.Time) ExecutionStats {
+	return ExecutionStats{
+		Timestamp: timestamp.Unix(),
+	}
+}
+
+func (s *ExecutionStats) Update(timestamp time.Time) {
+	s.ProcessingTime = timestamp.Sub(time.Unix(s.Timestamp, 0))
+}
+
 // PolicyStats stores statistics for the single policy application
 type PolicyStats struct {
 	// ExecutionStats policy execution stats
@@ -20,4 +30,10 @@ type PolicyStats struct {
 	RulesAppliedCount int
 	// RulesErrorCount is the count of rules that with execution errors
 	RulesErrorCount int
+}
+
+func NewPolicyStats(timestamp time.Time) PolicyStats {
+	return PolicyStats{
+		ExecutionStats: NewExecutionStats(timestamp),
+	}
 }

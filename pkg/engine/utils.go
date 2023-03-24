@@ -7,6 +7,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
@@ -17,6 +18,22 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+func isDeleteRequest(ctx engineapi.PolicyContext) bool {
+	newResource := ctx.NewResource()
+	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
+	return isEmptyUnstructured(&newResource)
+}
+
+func isEmptyUnstructured(u *unstructured.Unstructured) bool {
+	if u == nil {
+		return true
+	}
+	if u.Object == nil {
+		return true
+	}
+	return false
+}
 
 func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
 	resourceNameSpace := resource.GetNamespace()

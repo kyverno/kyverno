@@ -2,7 +2,9 @@ package api
 
 import (
 	"fmt"
+	"time"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +48,39 @@ type RuleResponse struct {
 	PodSecurityChecks *PodSecurityChecks
 	// Exception is the exception applied (if any)
 	Exception *kyvernov2alpha1.PolicyException
+}
+
+func NewRuleResponse(rule kyvernov1.Rule, ruleType RuleType, timestamp time.Time) RuleResponse {
+	return RuleResponse{
+		Stats: NewExecutionStats(timestamp),
+		Name:  rule.Name,
+		Type:  ruleType,
+	}
+}
+
+func (rr *RuleResponse) Error(message string, err error) {
+	rr.SetStatus(RuleStatusError, message, err)
+}
+
+func (rr *RuleResponse) Fail(message string, err error) {
+	rr.SetStatus(RuleStatusFail, message, err)
+}
+
+func (rr *RuleResponse) Pass(message string) {
+	rr.SetStatus(RuleStatusFail, message, nil)
+}
+
+func (rr *RuleResponse) SetStatus(status RuleStatus, message string, err error) {
+	if err != nil {
+		rr.Message = fmt.Sprintf("%s: %s", message, err.Error())
+	} else {
+		rr.Message = message
+	}
+	rr.Status = status
+}
+
+func (rr *RuleResponse) UpdateStats(timestamp time.Time) {
+	rr.Stats.Update(timestamp)
 }
 
 // HasStatus checks if rule status is in a given list

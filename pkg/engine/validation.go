@@ -39,7 +39,7 @@ func (e *engine) validate(
 	policyResponse := e.validateResource(ctx, logger, policyContext)
 	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.Stats.ProcessingTime.String(), "validationRulesApplied", policyResponse.Stats.RulesAppliedCount)
 	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	engineResponse.PolicyResponse = *policyResponse
+	engineResponse.PolicyResponse = policyResponse
 	return *internal.BuildResponse(policyContext, &engineResponse, startTime)
 }
 
@@ -47,8 +47,8 @@ func (e *engine) validateResource(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) *engineapi.PolicyResponse {
-	resp := &engineapi.PolicyResponse{}
+) engineapi.PolicyResponse {
+	resp := engineapi.NewPolicyResponse(time.Now())
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
@@ -62,7 +62,6 @@ func (e *engine) validateResource(
 		logger := internal.LoggerWithRule(logger, rules[i])
 		logger.V(3).Info("processing validation rule", "matchCount", matchCount)
 		policyContext.JSONContext().Reset()
-		startTime := time.Now()
 		ruleResp := tracing.ChildSpan1(
 			ctx,
 			"pkg/engine",
@@ -88,20 +87,19 @@ func (e *engine) validateResource(
 				} else if hasValidateImage {
 					return e.processImageValidationRule(ctx, logger, policyContext, rule)
 				} else if hasYAMLSignatureVerify {
-					return processYAMLValidationRule(e.client, logger, policyContext, rule)
+					return processYAMLValidationRule(ctx, logger, e.client, policyContext, rules[i])
 				}
 				return nil
 			},
 		)
 		if ruleResp != nil {
-			internal.AddRuleResponse(resp, ruleResp, startTime)
+			resp.Add(*ruleResp)
 			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
 		}
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}
-
 	return resp
 }
 
@@ -470,22 +468,6 @@ func (v *validator) validateResourceWithRule() *engineapi.RuleResponse {
 	}
 	resp := v.validatePatterns(v.policyContext.NewResource())
 	return resp
-}
-
-func isDeleteRequest(ctx engineapi.PolicyContext) bool {
-	newResource := ctx.NewResource()
-	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
-	return isEmptyUnstructured(&newResource)
-}
-
-func isEmptyUnstructured(u *unstructured.Unstructured) bool {
-	if u == nil {
-		return true
-	}
-	if u.Object == nil {
-		return true
-	}
-	return false
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule

@@ -10,8 +10,8 @@ import (
 	"math"
 	"math/big"
 	"os"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
@@ -36,41 +36,47 @@ const (
 var defaultConfigBytes []byte
 
 func processYAMLValidationRule(
+	ctx context.Context,
+	logger logr.Logger,
 	client dclient.Interface,
-	log logr.Logger,
-	ctx engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+	policyContext engineapi.PolicyContext,
+	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
-	if isDeleteRequest(ctx) {
+	if isDeleteRequest(policyContext) {
 		return nil
 	}
-	ruleResp := handleVerifyManifest(client, ctx, rule, log)
-	return ruleResp
+	return handleVerifyManifest(ctx, logger, client, policyContext, rule)
 }
 
 func handleVerifyManifest(
-	client dclient.Interface,
-	ctx engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+	ctx context.Context,
 	logger logr.Logger,
+	client dclient.Interface,
+	policyContext engineapi.PolicyContext,
+	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
-	verified, reason, err := verifyManifest(client, ctx, *rule.Validation.Manifests, logger)
-	if err != nil {
+	resp := engineapi.NewRuleResponse(rule, engineapi.Validation, time.Now())
+	if verified, reason, err := verifyManifest(ctx, logger, client, policyContext, *rule.Validation.Manifests); err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
-		return internal.RuleError(rule, engineapi.Validation, "error occurred during manifest verification", err)
+		resp.Error("error occurred during manifest verification", err)
+	} else {
+		logger.V(3).Info("verifyManifest result", "verified", verified, "reason", reason)
+		if !verified {
+			resp.Fail(reason, nil)
+		} else {
+			resp.Pass(reason)
+		}
 	}
-	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
-	if !verified {
-		return internal.RuleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusFail)
-	}
-	return internal.RulePass(rule, engineapi.Validation, reason)
+	resp.UpdateStats(time.Now())
+	return &resp
 }
 
 func verifyManifest(
+	ctx context.Context,
+	logger logr.Logger,
 	client dclient.Interface,
 	policyContext engineapi.PolicyContext,
 	verifyRule kyvernov1.Manifests,
-	logger logr.Logger,
 ) (bool, string, error) {
 	// load AdmissionRequest
 	request, err := policyContext.JSONContext().Query("request")
@@ -121,7 +127,7 @@ func verifyManifest(
 	}
 	if !vo.DisableDryRun {
 		// check if kyverno can 'create' dryrun resource
-		ok, err := checkDryRunPermission(client, adreq.Kind.Kind, vo.DryRunNamespace)
+		ok, err := checkDryRunPermission(ctx, client, adreq.Kind.Kind, vo.DryRunNamespace)
 		if err != nil {
 			logger.V(1).Info("failed to check permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind, "error", err.Error())
 			vo.DisableDryRun = true
@@ -153,7 +159,7 @@ func verifyManifest(
 	verifiedMsgs := []string{}
 	for i, attestorSet := range verifyRule.Attestors {
 		path := fmt.Sprintf(".attestors[%d]", i)
-		verified, reason, err := verifyManifestAttestorSet(resource, attestorSet, vo, path, string(adreq.UID), logger)
+		verified, reason, err := verifyManifestAttestorSet(logger, resource, attestorSet, vo, path, string(adreq.UID))
 		if err != nil {
 			return verified, reason, err
 		}
@@ -167,7 +173,7 @@ func verifyManifest(
 	return true, msg, nil
 }
 
-func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
+func verifyManifestAttestorSet(logger logr.Logger, resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string) (bool, string, error) {
 	verifiedCount := 0
 	attestorSet = internal.ExpandStaticKeys(attestorSet)
 	requiredCount := attestorSet.RequiredCount()
@@ -186,13 +192,13 @@ func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet k
 				entryError = fmt.Errorf("failed to unmarshal nested attestor %s: %w", attestorPath, err)
 			} else {
 				attestorPath += ".attestor"
-				verified, reason, err = verifyManifestAttestorSet(resource, *nestedAttestorSet, vo, attestorPath, uid, logger)
+				verified, reason, err = verifyManifestAttestorSet(logger, resource, *nestedAttestorSet, vo, attestorPath, uid)
 				if err != nil {
 					entryError = fmt.Errorf("failed to verify signature; %s: %w", attestorPath, err)
 				}
 			}
 		} else {
-			verified, reason, entryError = k8sVerifyResource(resource, a, vo, attestorPath, uid, i, logger)
+			verified, reason, entryError = k8sVerifyResource(logger, resource, a, vo, attestorPath, uid, i)
 		}
 
 		if entryError != nil {
@@ -226,7 +232,7 @@ func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet k
 	return false, reason, nil
 }
 
-func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor, vo *k8smanifest.VerifyResourceOption, attestorPath, uid string, i int, logger logr.Logger) (bool, string, error) {
+func k8sVerifyResource(logger logr.Logger, resource unstructured.Unstructured, a kyvernov1.Attestor, vo *k8smanifest.VerifyResourceOption, attestorPath, uid string, i int) (bool, string, error) {
 	// check annotations
 	if a.Annotations != nil {
 		mnfstAnnotations := resource.GetAnnotations()
@@ -413,9 +419,9 @@ func checkManifestAnnotations(mnfstAnnotations map[string]string, annotations ma
 	return nil
 }
 
-func checkDryRunPermission(dclient dclient.Interface, kind, namespace string) (bool, error) {
+func checkDryRunPermission(ctx context.Context, dclient dclient.Interface, kind, namespace string) (bool, error) {
 	canI := auth.NewCanI(dclient.Discovery(), dclient.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "create", "")
-	ok, err := canI.RunAccessCheck(context.TODO())
+	ok, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -424,9 +430,5 @@ func checkDryRunPermission(dclient dclient.Interface, kind, namespace string) (b
 
 func checkDryRunNamespace(namespace string) bool {
 	// should not use kyverno namespace for dryrun
-	if namespace != config.KyvernoNamespace() {
-		return true
-	} else {
-		return false
-	}
+	return namespace != config.KyvernoNamespace()
 }
