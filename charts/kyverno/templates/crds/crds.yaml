@@ -3438,6 +3438,9 @@ spec:
       name: Verifyimages
       priority: 1
       type: integer
+    - jsonPath: .status.conditions[?(@.type == "Ready")].message
+      name: MESSAGE
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -10152,6 +10155,9 @@ spec:
       name: Verifyimages
       priority: 1
       type: integer
+    - jsonPath: .status.conditions[?(@.type == "Ready")].message
+      name: MESSAGE
+      type: string
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -16622,6 +16628,9 @@ spec:
       name: Verifyimages
       priority: 1
       type: integer
+    - jsonPath: .status.conditions[?(@.type == "Ready")].message
+      name: MESSAGE
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -23338,6 +23347,9 @@ spec:
       name: Verifyimages
       priority: 1
       type: integer
+    - jsonPath: .status.conditions[?(@.type == "Ready")].message
+      name: MESSAGE
+      type: string
     name: v2beta1
     schema:
       openAPIV3Schema:
