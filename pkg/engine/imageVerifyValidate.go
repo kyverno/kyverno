@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -19,7 +20,7 @@ func (e *engine) processImageValidationRule(
 	enginectx engineapi.PolicyContext,
 	rule *kyvernov1.Rule,
 ) *engineapi.RuleResponse {
-	if isDeleteRequest(enginectx) {
+	if engineutils.IsDeleteRequest(enginectx) {
 		return nil
 	}
 
