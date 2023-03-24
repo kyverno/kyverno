@@ -9,6 +9,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/handlers/manifest"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
@@ -20,6 +22,7 @@ type engine struct {
 	rclient           registryclient.Client
 	contextLoader     engineapi.ContextLoaderFactory
 	exceptionSelector engineapi.PolicyExceptionSelector
+	manifestHandler   handlers.Handler
 }
 
 func NewEngine(
@@ -35,6 +38,7 @@ func NewEngine(
 		rclient:           rclient,
 		contextLoader:     contextLoader,
 		exceptionSelector: exceptionSelector,
+		manifestHandler:   manifest.NewHandler(client),
 	}
 }
 

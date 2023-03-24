@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/pss"
@@ -88,7 +89,7 @@ func (e *engine) validateResource(
 				} else if hasValidateImage {
 					return e.processImageValidationRule(ctx, logger, policyContext, rule)
 				} else if hasYAMLSignatureVerify {
-					return processYAMLValidationRule(e.client, logger, policyContext, rule)
+					return e.manifestHandler.Process(ctx, logger, policyContext, *rule)
 				}
 				return nil
 			},
@@ -209,7 +210,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	}
 
 	if v.podSecurity != nil {
-		if !isDeleteRequest(v.policyContext) {
+		if !engineutils.IsDeleteRequest(v.policyContext) {
 			ruleResponse := v.validatePodSecurity()
 			return ruleResponse
 		}
@@ -461,31 +462,15 @@ func (v *validator) validatePodSecurity() *engineapi.RuleResponse {
 
 func (v *validator) validateResourceWithRule() *engineapi.RuleResponse {
 	element := v.policyContext.Element()
-	if !isEmptyUnstructured(&element) {
+	if !engineutils.IsEmptyUnstructured(&element) {
 		return v.validatePatterns(element)
 	}
-	if isDeleteRequest(v.policyContext) {
+	if engineutils.IsDeleteRequest(v.policyContext) {
 		v.log.V(3).Info("skipping validation on deleted resource")
 		return nil
 	}
 	resp := v.validatePatterns(v.policyContext.NewResource())
 	return resp
-}
-
-func isDeleteRequest(ctx engineapi.PolicyContext) bool {
-	newResource := ctx.NewResource()
-	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
-	return isEmptyUnstructured(&newResource)
-}
-
-func isEmptyUnstructured(u *unstructured.Unstructured) bool {
-	if u == nil {
-		return true
-	}
-	if u.Object == nil {
-		return true
-	}
-	return false
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
