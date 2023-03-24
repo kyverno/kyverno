@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -552,7 +551,7 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name string, poli
 		obj.SetCreationTimestamp(newResource.GetCreationTimestamp())
 		obj.SetManagedFields(newResource.GetManagedFields())
 		obj.SetResourceVersion(newResource.GetResourceVersion())
-		if reflect.DeepEqual(obj, newResource) {
+		if datautils.DeepEqual(obj, newResource) {
 			return nil, Skip, nil
 		}
 		return obj.UnstructuredContent(), Update, nil
@@ -641,7 +640,7 @@ func manageCloneList(log logr.Logger, namespace string, ur kyvernov1beta1.Update
 				obj.SetManagedFields(newResource.GetManagedFields())
 				obj.SetResourceVersion(newResource.GetResourceVersion())
 
-				if reflect.DeepEqual(obj, newResource) {
+				if datautils.DeepEqual(obj, newResource) {
 					response = append(response, GenerateResponse{
 						Data:   nil,
 						Action: Skip,
