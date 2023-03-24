@@ -28,7 +28,7 @@ type Engine interface {
 	VerifyAndPatchImages(
 		ctx context.Context,
 		policyContext PolicyContext,
-	) (*EngineResponse, *ImageVerificationMetadata)
+	) (EngineResponse, ImageVerificationMetadata)
 
 	// ApplyBackgroundChecks checks for validity of generate and mutateExisting rules on the resource
 	// 1. validate variables to be substitute in the general ruleInfo (match,exclude,condition)

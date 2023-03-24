@@ -52,6 +52,9 @@ spec:
       name: Verifyimages
       priority: 1
       type: integer
+    - jsonPath: .status.conditions[?(@.type == "Ready")].message
+      name: MESSAGE
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -106,6 +109,9 @@ spec:
                   rule in existing resources If is set to "true" generate rule will
                   be triggered and applied to existing matched resources. Defaults
                   to "false" if not specified.
+                type: boolean
+              generateExistingOnPolicyUpdate:
+                description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
@@ -6763,6 +6769,9 @@ spec:
       name: Verifyimages
       priority: 1
       type: integer
+    - jsonPath: .status.conditions[?(@.type == "Ready")].message
+      name: MESSAGE
+      type: string
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -6816,6 +6825,9 @@ spec:
                   rule in existing resources If is set to "true" generate rule will
                   be triggered and applied to existing matched resources. Defaults
                   to "false" if not specified.
+                type: boolean
+              generateExistingOnPolicyUpdate:
+                description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
