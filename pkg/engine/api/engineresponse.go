@@ -54,6 +54,7 @@ func NewEngineResponse(
 		Resource:        resource,
 		Policy:          policy,
 		NamespaceLabels: namespaceLabels,
+		PatchedResource: resource,
 	}
 	if policyResponse != nil {
 		response.SetPolicyResponse(*policyResponse)

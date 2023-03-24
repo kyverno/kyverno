@@ -34,8 +34,8 @@ func (e *engine) validate(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
-	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	logger.V(4).Info("start validate policy processing")
+	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	defer func() {
 		logger.V(4).Info(
 			"finished policy processing",
