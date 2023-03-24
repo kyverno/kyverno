@@ -437,17 +437,17 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		ready := true
+		ready, message := true, "Ready"
 		if c.autoUpdateWebhooks {
 			for _, set := range c.policyState {
 				if !set.Has(policyKey) {
-					ready = false
+					ready, message = false, "Not ready yet"
 					break
 				}
 			}
 		}
 		status := policy.GetStatus()
-		status.SetReady(ready)
+		status.SetReady(ready, message)
 		status.Autogen.Rules = nil
 		rules := autogen.ComputeRules(policy)
 		setRuleCount(rules, status)
