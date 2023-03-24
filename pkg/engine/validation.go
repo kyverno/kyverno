@@ -53,13 +53,12 @@ func (e *engine) validateResource(
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	rules := autogen.ComputeRules(policyContext.Policy())
 	matchCount := 0
 	applyRules := policyContext.Policy().GetSpec().GetApplyRules()
 
-	for i := range rules {
-		rule := &rules[i]
-		logger := internal.LoggerWithRule(logger, rules[i])
+	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
+		rule := rule
+		logger := internal.LoggerWithRule(logger, rule)
 		logger.V(3).Info("processing validation rule", "matchCount", matchCount)
 		policyContext.JSONContext().Reset()
 		ruleResp := tracing.ChildSpan1(
@@ -73,21 +72,21 @@ func (e *engine) validateResource(
 				if !hasValidate && !hasValidateImage {
 					return nil
 				}
-				if !matches(logger, rule, policyContext, e.configuration) {
+				if !matches(logger, &rule, policyContext, e.configuration) {
 					return nil
 				}
 				// check if there is a corresponding policy exception
-				ruleResp := hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, policyContext, rule, e.configuration)
+				ruleResp := hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, policyContext, &rule, e.configuration)
 				if ruleResp != nil {
 					return ruleResp
 				}
 				policyContext.JSONContext().Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
-					return e.processValidationRule(ctx, logger, policyContext, rules[i])
+					return e.processValidationRule(ctx, logger, policyContext, rule)
 				} else if hasValidateImage {
-					return e.processImageValidationRule(ctx, logger, policyContext, rules[i])
+					return e.processImageValidationRule(ctx, logger, policyContext, rule)
 				} else if hasYAMLSignatureVerify {
-					return processYAMLValidationRule(ctx, logger, e.client, policyContext, rules[i])
+					return processYAMLValidationRule(ctx, logger, e.client, policyContext, rule)
 				}
 				return nil
 			},
