@@ -3,11 +3,11 @@ package operator
 import (
 	"fmt"
 	"math"
-	"reflect"
 	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -52,7 +52,7 @@ func (eh EqualHandler) Evaluate(key, value interface{}) bool {
 
 func (eh EqualHandler) validateValueWithSlicePattern(key []interface{}, value interface{}) bool {
 	if val, ok := value.([]interface{}); ok {
-		return reflect.DeepEqual(key, val)
+		return datautils.DeepEqual(key, val)
 	}
 	eh.log.V(2).Info("Expected type []interface{}", "value", value, "type", fmt.Sprintf("%T", value))
 	return false
@@ -60,7 +60,7 @@ func (eh EqualHandler) validateValueWithSlicePattern(key []interface{}, value in
 
 func (eh EqualHandler) validateValueWithMapPattern(key map[string]interface{}, value interface{}) bool {
 	if val, ok := value.(map[string]interface{}); ok {
-		return reflect.DeepEqual(key, val)
+		return datautils.DeepEqual(key, val)
 	}
 	eh.log.V(2).Info("Expected type map[string]interface{}", "value", value, "type", fmt.Sprintf("%T", value))
 	return false

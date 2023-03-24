@@ -2,7 +2,6 @@ package background
 
 import (
 	"context"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -20,6 +19,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -232,7 +232,7 @@ func (c *controller) needsReconcile(namespace, name, hash string, backgroundPoli
 			actual[key] = value
 		}
 	}
-	if !reflect.DeepEqual(expected, actual) {
+	if !datautils.DeepEqual(expected, actual) {
 		return true, false, nil
 	}
 	// no need to reconcile
