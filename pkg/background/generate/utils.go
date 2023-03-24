@@ -47,7 +47,7 @@ func updateRetryAnnotation(kyvernoClient versioned.Interface, ur *kyvernov1beta1
 	if err != nil {
 		return err
 	}
-	if retry > 5 {
+	if retry > 3 {
 		err = kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			return errors.Wrapf(err, "exceeds retry limit, failed to delete the UR: %s, retry: %v, resourceVersion: %s", ur.Name, retry, ur.GetResourceVersion())
