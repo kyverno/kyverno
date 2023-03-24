@@ -2,7 +2,6 @@ package engine
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -269,13 +268,13 @@ func matchesResourceDescriptionMatchHelper(
 	subresource string,
 ) []error {
 	var errs []error
-	if reflect.DeepEqual(admissionInfo, kyvernov1beta1.RequestInfo{}) {
+	if datautils.DeepEqual(admissionInfo, kyvernov1beta1.RequestInfo{}) {
 		rmr.UserInfo = kyvernov1.UserInfo{}
 	}
 
 	// checking if resource matches the rule
-	if !reflect.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
-		!reflect.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
+	if !datautils.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
+		!datautils.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
 		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource)
 		errs = append(errs, matchErrs...)
 	} else {
@@ -295,8 +294,8 @@ func matchesResourceDescriptionExcludeHelper(
 ) []error {
 	var errs []error
 	// checking if resource matches the rule
-	if !reflect.DeepEqual(rer.ResourceDescription, kyvernov1.ResourceDescription{}) ||
-		!reflect.DeepEqual(rer.UserInfo, kyvernov1.UserInfo{}) {
+	if !datautils.DeepEqual(rer.ResourceDescription, kyvernov1.ResourceDescription{}) ||
+		!datautils.DeepEqual(rer.UserInfo, kyvernov1.UserInfo{}) {
 		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, namespaceLabels, gvk, subresource)
 		// it was a match so we want to exclude it
 		if len(excludeErrs) == 0 {
