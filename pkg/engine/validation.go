@@ -34,13 +34,17 @@ func (e *engine) validate(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
-	startTime := time.Now()
-	logger.V(4).Info("start validate policy processing", "startTime", startTime)
-	policyResponse := e.validateResource(ctx, logger, policyContext)
-	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.Stats.ProcessingTime.String(), "validationRulesApplied", policyResponse.Stats.RulesAppliedCount)
 	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	engineResponse.PolicyResponse = policyResponse
-	return *internal.BuildResponse(policyContext, &engineResponse, startTime)
+	logger.V(4).Info("start validate policy processing")
+	defer func() {
+		logger.V(4).Info(
+			"finished policy processing",
+			"processingTime", engineResponse.PolicyResponse.Stats.ProcessingTime.String(),
+			"validationRulesApplied", engineResponse.PolicyResponse.Stats.RulesAppliedCount,
+		)
+	}()
+	engineResponse.SetPolicyResponse(e.validateResource(ctx, logger, policyContext))
+	return engineResponse
 }
 
 func (e *engine) validateResource(

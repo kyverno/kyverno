@@ -56,9 +56,13 @@ func NewEngineResponse(
 		NamespaceLabels: namespaceLabels,
 	}
 	if policyResponse != nil {
-		response.PolicyResponse = *policyResponse
+		response.SetPolicyResponse(*policyResponse)
 	}
 	return response
+}
+
+func (er *EngineResponse) SetPolicyResponse(pr PolicyResponse) {
+	er.PolicyResponse = pr
 }
 
 // IsOneOf checks if any rule has status in a given list
