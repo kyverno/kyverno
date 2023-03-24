@@ -28,9 +28,3 @@ spec:
           policyTypes:
           - Ingress
           - Egress
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: test-org
-  namespace: pol-data-sync-delete-trigger-ns
