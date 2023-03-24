@@ -3,7 +3,6 @@ package aggregate
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -17,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -229,7 +229,7 @@ func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]p
 		}
 	}
 	reportutils.SetResults(after, results...)
-	if reflect.DeepEqual(report, after) {
+	if datautils.DeepEqual(report, after) {
 		return after, nil
 	}
 	return reportutils.UpdateReport(ctx, after, c.client)

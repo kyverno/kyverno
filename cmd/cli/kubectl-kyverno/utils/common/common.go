@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -27,6 +26,7 @@ import (
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -945,7 +945,7 @@ func PrintMutatedPolicy(mutatedPolicies []kyvernov1.PolicyInterface) error {
 func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
 	// get values from file for this policy resource combination
 	thisPolicyResourceValues := make(map[string]interface{})
-	if len(valuesMap[policyName]) != 0 && !reflect.DeepEqual(valuesMap[policyName][resourceName], Resource{}) {
+	if len(valuesMap[policyName]) != 0 && !datautils.DeepEqual(valuesMap[policyName][resourceName], Resource{}) {
 		thisPolicyResourceValues = valuesMap[policyName][resourceName].Values
 	}
 
