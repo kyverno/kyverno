@@ -25,7 +25,7 @@ func (inner HttpHandler) WithTrace(name string) HttpHandler {
 			},
 			trace.WithAttributes(
 				semconv.HTTPRequestContentLengthKey.Int64(request.ContentLength),
-				// semconv.HTTPHostKey.String(tracing.StringValue(request.Host)),
+				semconv.NetSockPeerAddrKey.String(tracing.StringValue(request.Host)),
 				semconv.HTTPMethodKey.String(tracing.StringValue(request.Method)),
 				semconv.HTTPURLKey.String(tracing.StringValue(request.RequestURI)),
 			),
