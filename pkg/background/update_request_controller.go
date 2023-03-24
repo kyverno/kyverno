@@ -183,11 +183,12 @@ func (c *controller) syncUpdateRequest(key string) error {
 		}
 	}
 
-	if err = c.reconcileURStatus(ur); err != nil {
+	urStatus, err := c.reconcileURStatus(ur)
+	if err != nil {
 		return err
 	}
 
-	logger.V(4).Info("completed sync update request", "key", key, "processingTime", time.Since(startTime).String())
+	logger.V(4).Info("synced update request", "key", key, "processingTime", time.Since(startTime).String(), "ur status", urStatus)
 	return nil
 }
 
@@ -227,23 +228,22 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	return nil
 }
 
-func (c *controller) reconcileURStatus(ur *kyvernov1beta1.UpdateRequest) error {
+func (c *controller) reconcileURStatus(ur *kyvernov1beta1.UpdateRequest) (kyvernov1beta1.UpdateRequestState, error) {
 	new, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
 	if err != nil {
 		logger.V(2).Info("cannot fetch latest UR, fallback to the existing one", "reason", err.Error())
 		new = ur
 	}
 
+	var errUpdate error
 	switch new.Status.State {
 	case kyvernov1beta1.Completed:
-		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+		errUpdate = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	case kyvernov1beta1.Failed:
 		new.Status.State = kyvernov1beta1.Pending
-		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
-		return err
-	default:
-		return nil
+		_, errUpdate = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
 	}
+	return new.Status.State, errUpdate
 }
 
 func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
