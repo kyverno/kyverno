@@ -4,6 +4,7 @@ This document covers basic needs to work with Kyverno codebase.
 
 It contains instructions to build, run, and test Kyverno.
 
+- [Open project in devcontainer](#open-project-in-devcontainer-recommended)
 - [Tools](#tools)
 - [Building local binaries](#building-local-binaries)
   - [Building kyvernopre locally](#building-kyvernopre-locally)
@@ -26,6 +27,27 @@ It contains instructions to build, run, and test Kyverno.
   - [Generating helm charts CRDs](#generating-helm-charts-crds)
   - [Generating helm charts docs](#generating-helm-charts-docs)
 - [Debugging local code](#debugging-local-code)
+
+## Open project in devcontainer (recommended)
+- Clone the project to your local machine.
+- Make sure that you have the Visual Studio Code editor installed on your system.
+
+- Make sure that you have the Docker installed on your system.
+
+- Open the project in Visual Studio Code.
+
+- If you haven't already done so, install the **Dev Containers** extension in Visual Studio Code.
+
+- Once the extension is installed, you should see a green icon in the bottom left corner of the window.
+
+- After you have installed Dev Containers extension, it should automatically detect the .devcontainer folder inside the project,
+and should suggest you to open the project in container.
+
+- If it doesn't suggest you, then press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>p</kbd> and search "reopen in container" and click on it.
+
+- If everything goes well, the project should be opened in your devcontainer.
+
+- Then follow the steps as mentioned below to configure the project.
 
 ## Tools
 
