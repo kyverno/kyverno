@@ -27,6 +27,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"golang.org/x/exp/slices"
@@ -760,11 +761,11 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 		return "exclude", errs.ToAggregate()
 	}
 
-	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
+	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !datautils.DeepEqual(rule.MatchResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
 		return "match.", fmt.Errorf("can't specify any/all together with match resources")
 	}
 
-	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
+	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !datautils.DeepEqual(rule.ExcludeResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
 		return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
 	}
 
@@ -831,7 +832,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 	switch typedConditions := kyvernoConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		// validating the conditions under 'any', if there are any
-		if !reflect.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
+		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
 			for i, condition := range typedConditions.AnyConditions {
 				if path, err := validateConditionValues(condition); err != nil {
 					return fmt.Sprintf("%s.any[%d].%s", schemaKey, i, path), err
@@ -839,7 +840,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 			}
 		}
 		// validating the conditions under 'all', if there are any
-		if !reflect.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AllConditions != nil {
+		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AllConditions != nil {
 			for i, condition := range typedConditions.AllConditions {
 				if path, err := validateConditionValues(condition); err != nil {
 					return fmt.Sprintf("%s.all[%d].%s", schemaKey, i, path), err
@@ -1074,7 +1075,7 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 // - kinds is empty array in matched resource block, i.e. kinds: []
 // - selector is invalid
 func validateMatchedResourceDescription(rd kyvernov1.ResourceDescription) (string, error) {
-	if reflect.DeepEqual(rd, kyvernov1.ResourceDescription{}) {
+	if datautils.DeepEqual(rd, kyvernov1.ResourceDescription{}) {
 		return "", fmt.Errorf("match resources not specified")
 	}
 
@@ -1160,7 +1161,7 @@ func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
-	if ok && !reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) {
+	if ok && !datautils.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) {
 		return true
 	}
 	return false
