@@ -17,7 +17,7 @@ func (e *engine) processImageValidationRule(
 	ctx context.Context,
 	log logr.Logger,
 	enginectx engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
 	if isDeleteRequest(enginectx) {
 		return nil
@@ -26,24 +26,24 @@ func (e *engine) processImageValidationRule(
 	log = log.WithValues("rule", rule.Name)
 	matchingImages, _, err := e.extractMatchingImages(enginectx, rule)
 	if err != nil {
-		return internal.RuleError(rule, engineapi.Validation, "", err)
+		return internal.RuleError(&rule, engineapi.Validation, "", err)
 	}
 	if len(matchingImages) == 0 {
-		return internal.RuleSkip(rule, engineapi.Validation, "image verified")
+		return internal.RuleSkip(&rule, engineapi.Validation, "image verified")
 	}
-	if err := internal.LoadContext(ctx, e, enginectx, *rule); err != nil {
+	if err := internal.LoadContext(ctx, e, enginectx, rule); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
 		} else {
 			log.Error(err, "failed to load context")
 		}
 
-		return internal.RuleError(rule, engineapi.Validation, "failed to load context", err)
+		return internal.RuleError(&rule, engineapi.Validation, "failed to load context", err)
 	}
 
 	preconditionsPassed, err := internal.CheckPreconditions(log, enginectx, rule.RawAnyAllConditions)
 	if err != nil {
-		return internal.RuleError(rule, engineapi.Validation, "failed to evaluate preconditions", err)
+		return internal.RuleError(&rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}
 
 	if !preconditionsPassed {
@@ -51,7 +51,7 @@ func (e *engine) processImageValidationRule(
 			return nil
 		}
 
-		return internal.RuleSkip(rule, engineapi.Validation, "preconditions not met")
+		return internal.RuleSkip(&rule, engineapi.Validation, "preconditions not met")
 	}
 
 	for _, v := range rule.VerifyImages {
@@ -68,14 +68,14 @@ func (e *engine) processImageValidationRule(
 
 				log.V(4).Info("validating image", "image", image)
 				if err := validateImage(enginectx, imageVerify, name, imageInfo, log); err != nil {
-					return internal.RuleResponse(*rule, engineapi.ImageVerify, err.Error(), engineapi.RuleStatusFail)
+					return internal.RuleResponse(rule, engineapi.ImageVerify, err.Error(), engineapi.RuleStatusFail)
 				}
 			}
 		}
 	}
 
 	log.V(4).Info("validated image", "rule", rule.Name)
-	return internal.RulePass(rule, engineapi.Validation, "image verified")
+	return internal.RulePass(&rule, engineapi.Validation, "image verified")
 }
 
 func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {

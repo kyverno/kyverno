@@ -24,3 +24,7 @@ func (pr *PolicyResponse) Add(rr RuleResponse) {
 		pr.Stats.RulesErrorCount++
 	}
 }
+
+func (pr *PolicyResponse) UpdateStats(timestamp time.Time) {
+	pr.Stats.Update(timestamp)
+}

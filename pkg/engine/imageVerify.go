@@ -53,7 +53,7 @@ func (e *engine) verifyAndPatchImages(
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),
 			func(ctx context.Context, span trace.Span) {
-				e.doVerifyAndPatch(ctx, logger, policyContext, rule, &resp, &ivm)
+				e.doVerifyAndPatch(ctx, logger, policyContext, rules[i], &resp, &ivm)
 			},
 		)
 
@@ -69,7 +69,7 @@ func (e *engine) doVerifyAndPatch(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+	rule kyvernov1.Rule,
 	resp *engineapi.EngineResponse,
 	ivm *engineapi.ImageVerificationMetadata,
 ) {
@@ -77,14 +77,14 @@ func (e *engine) doVerifyAndPatch(
 		return
 	}
 	startTime := time.Now()
-	logger = internal.LoggerWithRule(logger, *rule)
+	logger = internal.LoggerWithRule(logger, rule)
 
-	if !matches(logger, rule, policyContext, e.configuration) {
+	if !matches(logger, &rule, policyContext, e.configuration) {
 		return
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, rule, e.configuration)
+	ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, &rule, e.configuration)
 	if ruleResp != nil {
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		return
@@ -96,7 +96,7 @@ func (e *engine) doVerifyAndPatch(
 	if err != nil {
 		internal.AddRuleResponse(
 			&resp.PolicyResponse,
-			internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err),
+			internal.RuleError(&rule, engineapi.ImageVerify, "failed to extract images", err),
 			startTime,
 		)
 		return
@@ -105,7 +105,7 @@ func (e *engine) doVerifyAndPatch(
 		internal.AddRuleResponse(
 			&resp.PolicyResponse,
 			internal.RuleSkip(
-				rule,
+				&rule,
 				engineapi.ImageVerify,
 				fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
 			),
@@ -114,19 +114,19 @@ func (e *engine) doVerifyAndPatch(
 		return
 	}
 	policyContext.JSONContext().Restore()
-	if err := internal.LoadContext(ctx, e, policyContext, *rule); err != nil {
+	if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
 		internal.AddRuleResponse(
 			&resp.PolicyResponse,
-			internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
+			internal.RuleError(&rule, engineapi.ImageVerify, "failed to load context", err),
 			startTime,
 		)
 		return
 	}
-	ruleCopy, err := substituteVariables(rule, policyContext.JSONContext(), logger)
+	ruleCopy, err := substituteVariables(&rule, policyContext.JSONContext(), logger)
 	if err != nil {
 		internal.AddRuleResponse(
 			&resp.PolicyResponse,
-			internal.RuleError(rule, engineapi.ImageVerify, "failed to substitute variables", err),
+			internal.RuleError(&rule, engineapi.ImageVerify, "failed to substitute variables", err),
 			startTime,
 		)
 		return
@@ -145,7 +145,7 @@ func (e *engine) doVerifyAndPatch(
 	}
 }
 
-func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string) {
+func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule kyvernov1.Rule) ([]apiutils.ImageInfo, string) {
 	imageInfos := []apiutils.ImageInfo{}
 	imageRefs := []string{}
 	for _, infoMap := range images {
@@ -173,7 +173,7 @@ func imageMatches(image string, imagePatterns []string) bool {
 	return false
 }
 
-func (e *engine) extractMatchingImages(policyContext engineapi.PolicyContext, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string, error) {
+func (e *engine) extractMatchingImages(policyContext engineapi.PolicyContext, rule kyvernov1.Rule) ([]apiutils.ImageInfo, string, error) {
 	var (
 		images map[string]map[string]apiutils.ImageInfo
 		err    error

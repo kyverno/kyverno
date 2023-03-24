@@ -83,9 +83,9 @@ func (e *engine) validateResource(
 				}
 				policyContext.JSONContext().Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
-					return e.processValidationRule(ctx, logger, policyContext, rule)
+					return e.processValidationRule(ctx, logger, policyContext, rules[i])
 				} else if hasValidateImage {
-					return e.processImageValidationRule(ctx, logger, policyContext, rule)
+					return e.processImageValidationRule(ctx, logger, policyContext, rules[i])
 				} else if hasYAMLSignatureVerify {
 					return processYAMLValidationRule(ctx, logger, e.client, policyContext, rules[i])
 				}
@@ -100,6 +100,7 @@ func (e *engine) validateResource(
 			break
 		}
 	}
+	resp.UpdateStats(time.Now())
 	return resp
 }
 
@@ -107,9 +108,9 @@ func (e *engine) processValidationRule(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
-	v := newValidator(logger, e.ContextLoader(policyContext.Policy(), *rule), policyContext, rule)
+	v := newValidator(logger, e.ContextLoader(policyContext.Policy(), rule), policyContext, rule)
 	return v.validate(ctx)
 }
 
@@ -128,7 +129,7 @@ type validator struct {
 	nesting          int
 }
 
-func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
 	return &validator{
 		log:              log,
