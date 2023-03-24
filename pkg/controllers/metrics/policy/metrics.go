@@ -2,11 +2,11 @@ package policy
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyChangesMetric "github.com/kyverno/kyverno/pkg/metrics/policychanges"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
 
 func (pc *controller) registerPolicyChangesMetricAddPolicy(ctx context.Context, logger logr.Logger, p kyvernov1.PolicyInterface) {
@@ -19,7 +19,7 @@ func (pc *controller) registerPolicyChangesMetricAddPolicy(ctx context.Context, 
 func (pc *controller) registerPolicyChangesMetricUpdatePolicy(ctx context.Context, logger logr.Logger, oldP, curP kyvernov1.PolicyInterface) {
 	oldSpec := oldP.GetSpec()
 	curSpec := curP.GetSpec()
-	if reflect.DeepEqual(oldSpec, curSpec) {
+	if datautils.DeepEqual(oldSpec, curSpec) {
 		return
 	}
 	err := policyChangesMetric.RegisterPolicy(ctx, pc.metricsConfig, oldP, policyChangesMetric.PolicyUpdated)

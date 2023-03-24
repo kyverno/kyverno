@@ -3,13 +3,13 @@ package generate
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/policy/common"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
@@ -70,7 +70,7 @@ func (g *Generate) Validate(ctx context.Context) (string, error) {
 		}
 	}
 
-	if !reflect.DeepEqual(rule.Clone, kyvernov1.CloneFrom{}) {
+	if !datautils.DeepEqual(rule.Clone, kyvernov1.CloneFrom{}) {
 		if path, err := g.validateClone(rule.Clone, rule.CloneList, kind); err != nil {
 			return fmt.Sprintf("clone.%s", path), err
 		}
