@@ -15,6 +15,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -217,11 +218,9 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	err = enginecontext.AddResource(ctx, []byte(resource))
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &cpol,
-		jsonContext: ctx,
-		newResource: *resourceUnstructured,
-	}
+	policyContext := policycontext.NewPolicyContextWithJsonContext(ctx).
+		WithPolicy(&cpol).
+		WithNewResource(*resourceUnstructured)
 
 	if oldResource != "" {
 		oldResourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(oldResource))
@@ -230,7 +229,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 		err = enginecontext.AddOldResource(ctx, []byte(oldResource))
 		assert.NilError(t, err)
 
-		policyContext.oldResource = *oldResourceUnstructured
+		policyContext = policyContext.WithOldResource(*oldResourceUnstructured)
 	}
 
 	if err := ctx.AddImageInfos(resourceUnstructured, cfg); err != nil {
@@ -467,7 +466,7 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
-	policyContext.policy.GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
+	policyContext.Policy().GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
 	cosign.ClearMock()
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
@@ -543,7 +542,7 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	rule := newStaticKeyRule("match-all", "*", testOtherKey)
-	spec := policyContext.policy.GetSpec()
+	spec := policyContext.Policy().GetSpec()
 	spec.Rules = append(spec.Rules, *rule)
 
 	applyAll := kyverno.ApplyAll
