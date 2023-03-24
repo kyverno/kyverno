@@ -63,6 +63,10 @@ type Spec struct {
 	// +optional
 	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
 
+	// Deprecated, use generateExisting instead
+	// +optional
+	GenerateExistingOnPolicyUpdate *bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
+
 	// GenerateExisting controls whether to trigger generate rule in existing resources
 	// If is set to "true" generate rule will be triggered and applied to existing matched resources.
 	// Defaults to "false" if not specified.
@@ -176,6 +180,9 @@ func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 
 // IsGenerateExisting return GenerateExisting set value
 func (s *Spec) IsGenerateExisting() bool {
+	if s.GenerateExistingOnPolicyUpdate != nil && *s.GenerateExistingOnPolicyUpdate {
+		return true
+	}
 	return s.GenerateExisting
 }
 
@@ -217,8 +224,18 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources
 	return errs
 }
 
+func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
+	if s.GenerateExistingOnPolicyUpdate != nil {
+		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "deprecated field, define generateExisting instead"))
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if err := s.ValidateDeprecatedFields(path); err != nil {
+		errs = append(errs, err...)
+	}
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
 		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))

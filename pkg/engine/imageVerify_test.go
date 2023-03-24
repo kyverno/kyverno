@@ -167,7 +167,7 @@ func testVerifyAndPatchImages(
 	cmResolver engineapi.ConfigmapResolver,
 	pContext engineapi.PolicyContext,
 	cfg config.Configuration,
-) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	e := NewEngine(
 		cfg,
 		nil,
@@ -769,11 +769,9 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.NilError(t, err)
 
 	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	assert.Assert(t, engineResponse != nil)
 	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
-	assert.Assert(t, verifiedImages != nil)
 	assert.Assert(t, verifiedImages.Data != nil)
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.IsVerified(image), true)
@@ -862,11 +860,9 @@ func Test_ParsePEMDelimited(t *testing.T) {
 	assert.NilError(t, err)
 
 	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	assert.Assert(t, engineResponse != nil)
 	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
-	assert.Assert(t, verifiedImages != nil)
 	assert.Assert(t, verifiedImages.Data != nil)
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.IsVerified(image), true)

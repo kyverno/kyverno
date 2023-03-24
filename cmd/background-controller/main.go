@@ -19,6 +19,7 @@ import (
 	kubeclient "github.com/kyverno/kyverno/pkg/clients/kube"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/kyverno"
 	"github.com/kyverno/kyverno/pkg/config"
+	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -94,7 +95,6 @@ func createrLeaderControllers(
 	if err != nil {
 		return nil, err
 	}
-
 	backgroundController := background.NewController(
 		kyvernoClient,
 		dynamicClient,
@@ -111,6 +111,20 @@ func createrLeaderControllers(
 		internal.NewController("policy-controller", policyCtrl, 2),
 		internal.NewController("background-controller", backgroundController, genWorkers),
 	}, err
+}
+
+func createNonLeaderControllers(
+	configuration config.Configuration,
+	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
+) ([]internal.Controller, func() error) {
+	configurationController := configcontroller.NewController(
+		configuration,
+		kubeKyvernoInformer.Core().V1().ConfigMaps(),
+	)
+	return []internal.Controller{
+			internal.NewController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
+		},
+		nil
 }
 
 func main() {
@@ -221,10 +235,22 @@ func main() {
 		// TODO: do we need exceptions here ?
 		nil,
 	)
+	// create non leader controllers
+	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
+		configuration,
+		kubeKyvernoInformer,
+	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, logger, kyvernoInformer, kubeKyvernoInformer, cacheInformer) {
 		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
+	}
+	// bootstrap non leader controllers
+	if nonLeaderBootstrap != nil {
+		if err := nonLeaderBootstrap(); err != nil {
+			logger.Error(err, "failed to bootstrap non leader controllers")
+			os.Exit(1)
+		}
 	}
 	// start event generator
 	go eventGenerator.Run(signalCtx, 3, &wg)
@@ -277,6 +303,10 @@ func main() {
 	if err != nil {
 		logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
+	}
+	// start non leader controllers
+	for _, controller := range nonLeaderControllers {
+		controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 	}
 	// start leader election
 	for {

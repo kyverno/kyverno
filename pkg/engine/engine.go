@@ -41,32 +41,44 @@ func NewEngine(
 func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.validate"), policyContext)
+	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	}
 	return e.validate(ctx, logger, policyContext)
 }
 
 func (e *engine) Mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.mutate"), policyContext)
+	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	}
 	return e.mutate(ctx, logger, policyContext)
 }
 
 func (e *engine) VerifyAndPatchImages(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.verify"), policyContext)
+	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil), engineapi.ImageVerificationMetadata{}
+	}
 	return e.verifyAndPatchImages(ctx, logger, policyContext)
 }
 
 func (e *engine) ApplyBackgroundChecks(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
+	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	}
 	return e.applyBackgroundChecks(ctx, logger, policyContext)
 }
 
@@ -74,8 +86,11 @@ func (e *engine) GenerateResponse(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
-) *engineapi.EngineResponse {
+) engineapi.EngineResponse {
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
+	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	}
 	return e.generateResponse(ctx, logger, policyContext, gr)
 }
 

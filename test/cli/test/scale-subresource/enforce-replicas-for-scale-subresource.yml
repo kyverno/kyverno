@@ -10,7 +10,7 @@ spec:
         all:
           - resources:
               kinds:
-                - "Deployment/scale"
+                - Deployment/scale
               names:
                 - nginx-test
               namespaces:

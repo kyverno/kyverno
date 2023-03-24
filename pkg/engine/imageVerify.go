@@ -23,21 +23,25 @@ func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	policy := policyContext.Policy()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+
 	startTime := time.Now()
+
 	defer func() {
-		internal.BuildResponse(policyContext, resp, startTime)
+		internal.BuildResponse(policyContext, &resp, startTime)
 		logger.V(4).Info("processed image verification rules",
 			"time", resp.PolicyResponse.Stats.ProcessingTime.String(),
-			"applied", resp.PolicyResponse.Stats.RulesAppliedCount, "successful", resp.IsSuccessful())
+			"applied", resp.PolicyResponse.Stats.RulesAppliedCount,
+			"successful", resp.IsSuccessful(),
+		)
 	}()
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	ivm := &engineapi.ImageVerificationMetadata{}
+	ivm := engineapi.ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy())
 	applyRules := policy.GetSpec().GetApplyRules()
 
@@ -49,7 +53,7 @@ func (e *engine) verifyAndPatchImages(
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),
 			func(ctx context.Context, span trace.Span) {
-				e.doVerifyAndPatch(ctx, logger, policyContext, rule, resp, ivm)
+				e.doVerifyAndPatch(ctx, logger, policyContext, rule, &resp, &ivm)
 			},
 		)
 
@@ -57,7 +61,7 @@ func (e *engine) verifyAndPatchImages(
 			break
 		}
 	}
-
+	internal.BuildResponse(policyContext, &resp, startTime)
 	return resp, ivm
 }
 
@@ -74,15 +78,13 @@ func (e *engine) doVerifyAndPatch(
 	}
 	startTime := time.Now()
 	logger = internal.LoggerWithRule(logger, *rule)
-	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
 
-	if !matches(logger, rule, policyContext, subresourceGVKToAPIResource, e.configuration) {
+	if !matches(logger, rule, policyContext, e.configuration) {
 		return
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, rule, subresourceGVKToAPIResource, e.configuration)
+	ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, rule, e.configuration)
 	if ruleResp != nil {
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		return
