@@ -31,11 +31,7 @@ func (e *engine) filterRules(
 	logger logr.Logger,
 	startTime time.Time,
 ) engineapi.EngineResponse {
-	newResource := policyContext.NewResource()
 	policy := policyContext.Policy()
-	kind := newResource.GetKind()
-	name := newResource.GetName()
-	namespace := newResource.GetNamespace()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	resp.PolicyResponse = engineapi.PolicyResponse{
 		Stats: engineapi.PolicyStats{
@@ -44,12 +40,6 @@ func (e *engine) filterRules(
 			},
 		},
 	}
-
-	if e.configuration.ToFilter(kind, namespace, name) {
-		logger.Info("resource excluded")
-		return resp
-	}
-
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
 		logger := internal.LoggerWithRule(logger, rule)
@@ -60,7 +50,6 @@ func (e *engine) filterRules(
 			}
 		}
 	}
-
 	return resp
 }
 
