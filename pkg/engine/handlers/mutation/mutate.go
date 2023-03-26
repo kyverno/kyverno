@@ -36,6 +36,7 @@ func (h handler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	polexFilter func(logr.Logger, engineapi.PolicyContext, kyvernov1.Rule) *engineapi.RuleResponse,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	policy := policyContext.Policy()
 	contextLoader := h.contextLoader(policy, rule)
@@ -58,11 +59,10 @@ func (h handler) Process(
 		return resource, nil
 	}
 
-	// // check if there is a corresponding policy exception
-	// if ruleResp := hasPolicyExceptions(logger, engineapi.Mutation, e.exceptionSelector, policyContext, &computeRules[i], e.configuration); ruleResp != nil {
-	// 	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-	// 	return
-	// }
+	// check if there is a corresponding policy exception
+	if ruleResp := polexFilter(logger, policyContext, rule); ruleResp != nil {
+		return resource, handlers.RuleResponses(ruleResp)
+	}
 
 	logger.V(3).Info("processing mutate rule")
 

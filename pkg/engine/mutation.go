@@ -43,10 +43,13 @@ func (e *engine) mutate(
 			fmt.Sprintf("RULE %s", rule.Name),
 			func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
 				logger := internal.LoggerWithRule(logger, rule)
+				polexFilter := func(logger logr.Logger, policyContext engineapi.PolicyContext, rule kyvernov1.Rule) *engineapi.RuleResponse {
+					return hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, policyContext, &rule, e.configuration)
+				}
 				if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
-					return e.mutateExistingHandler.Process(ctx, logger, policyContext, matchedResource, rule)
+					return e.mutateExistingHandler.Process(ctx, logger, policyContext, matchedResource, rule, polexFilter)
 				} else {
-					return e.mutateHandler.Process(ctx, logger, policyContext, matchedResource, rule)
+					return e.mutateHandler.Process(ctx, logger, policyContext, matchedResource, rule, polexFilter)
 				}
 			},
 		)
