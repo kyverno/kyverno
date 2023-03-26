@@ -104,6 +104,7 @@ func (e *engine) validateResource(
 			},
 		)
 		for _, ruleResp := range ruleResp {
+			ruleResp := ruleResp
 			internal.AddRuleResponse(resp, &ruleResp, startTime)
 			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
 		}

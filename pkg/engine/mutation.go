@@ -55,6 +55,7 @@ func (e *engine) mutate(
 		)
 		matchedResource = resource
 		for _, ruleResp := range ruleResp {
+			ruleResp := ruleResp
 			internal.AddRuleResponse(&resp.PolicyResponse, &ruleResp, startTime)
 			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
 		}
