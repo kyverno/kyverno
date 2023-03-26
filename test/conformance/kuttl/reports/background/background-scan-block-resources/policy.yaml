@@ -1,0 +1,12 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: background-properties
+spec:
+  background:
+    properties:
+      - name: "spec.containers[*].resources.requests.cpu"
+        type: "numeric"
+        value: 100m
+        validationFailureAction: "audit"
+        message: "CPU requests for containers must be less than 100m"
