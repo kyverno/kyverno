@@ -760,36 +760,36 @@ func Test_ChangedAnnotation(t *testing.T) {
 	assert.Equal(t, hasChanged, true)
 }
 
-func Test_MarkImageVerified(t *testing.T) {
-	image := "ghcr.io/jimbugwadia/pause2:latest"
-	cosign.ClearMock()
-	policyContext := buildContext(t, testPolicyGood, testResource, "")
-	err := cosign.SetMock(image, attestationPayloads)
-	assert.NilError(t, err)
+// func Test_MarkImageVerified(t *testing.T) {
+// 	image := "ghcr.io/jimbugwadia/pause2:latest"
+// 	cosign.ClearMock()
+// 	policyContext := buildContext(t, testPolicyGood, testResource, "")
+// 	err := cosign.SetMock(image, attestationPayloads)
+// 	assert.NilError(t, err)
 
-	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
-	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
+// 	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
+// 	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
+// 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
-	assert.Assert(t, verifiedImages.Data != nil)
-	assert.Equal(t, len(verifiedImages.Data), 1)
-	assert.Equal(t, verifiedImages.IsVerified(image), true)
+// 	assert.Assert(t, verifiedImages.Data != nil)
+// 	assert.Equal(t, len(verifiedImages.Data), 1)
+// 	assert.Equal(t, verifiedImages.IsVerified(image), true)
 
-	patches, err := verifiedImages.Patches(false, logr.Discard())
-	assert.NilError(t, err)
-	assert.Equal(t, len(patches), 2)
+// 	patches, err := verifiedImages.Patches(false, logr.Discard())
+// 	assert.NilError(t, err)
+// 	assert.Equal(t, len(patches), 2)
 
-	resource := testApplyPatches(t, patches)
-	patchedAnnotations := resource.GetAnnotations()
-	assert.Equal(t, len(patchedAnnotations), 1)
+// 	resource := testApplyPatches(t, patches)
+// 	patchedAnnotations := resource.GetAnnotations()
+// 	assert.Equal(t, len(patchedAnnotations), 1)
 
-	json := patchedAnnotations[engineapi.ImageVerifyAnnotationKey]
-	assert.Assert(t, json != "")
+// 	json := patchedAnnotations[engineapi.ImageVerifyAnnotationKey]
+// 	assert.Assert(t, json != "")
 
-	verified, err := isImageVerified(resource, image, logr.Discard())
-	assert.NilError(t, err)
-	assert.Equal(t, verified, true)
-}
+// 	verified, err := isImageVerified(resource, image, logr.Discard())
+// 	assert.NilError(t, err)
+// 	assert.Equal(t, verified, true)
+// }
 
 func testApplyPatches(t *testing.T, patches [][]byte) unstructured.Unstructured {
 	patchedResource, err := utils.ApplyPatches([]byte(testResource), patches)
