@@ -105,7 +105,7 @@ func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVeri
 	}
 	newResource := ctx.NewResource()
 	if imageVerify.Required && newResource.Object != nil {
-		verified, err := isImageVerified(newResource, image, log)
+		verified, err := engineutils.IsImageVerified(newResource, image, log)
 		if err != nil {
 			return err
 		}
@@ -114,21 +114,4 @@ func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVeri
 		}
 	}
 	return nil
-}
-
-func isImageVerified(resource unstructured.Unstructured, image string, log logr.Logger) (bool, error) {
-	if resource.Object == nil {
-		return false, fmt.Errorf("nil resource")
-	}
-	if annotations := resource.GetAnnotations(); len(annotations) == 0 {
-		return false, nil
-	} else if data, ok := annotations[engineapi.ImageVerifyAnnotationKey]; !ok {
-		log.V(2).Info("missing image metadata in annotation", "key", engineapi.ImageVerifyAnnotationKey)
-		return false, fmt.Errorf("image is not verified")
-	} else if ivm, err := engineapi.ParseImageMetadata(data); err != nil {
-		log.Error(err, "failed to parse image verification metadata", "data", data)
-		return false, fmt.Errorf("failed to parse image metadata: %w", err)
-	} else {
-		return ivm.IsVerified(image), nil
-	}
 }
