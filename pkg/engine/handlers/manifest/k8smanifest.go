@@ -1,10 +1,9 @@
-package engine
+package manifest
 
 import (
 	"context"
 	"crypto/rand"
 	"crypto/x509"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -20,7 +19,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	engineresources "github.com/kyverno/kyverno/pkg/engine/resources"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -32,45 +34,43 @@ const (
 	CosignEnvVariable          = "COSIGN_EXPERIMENTAL"
 )
 
-//go:embed resources/default-config.yaml
-var defaultConfigBytes []byte
-
-func processYAMLValidationRule(
-	client dclient.Interface,
-	log logr.Logger,
-	ctx engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
-) *engineapi.RuleResponse {
-	if isDeleteRequest(ctx) {
-		return nil
-	}
-	ruleResp := handleVerifyManifest(client, ctx, rule, log)
-	return ruleResp
+type handler struct {
+	client dclient.Interface
 }
 
-func handleVerifyManifest(
-	client dclient.Interface,
-	ctx engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+func NewHandler(client dclient.Interface) handlers.Handler {
+	return handler{
+		client: client,
+	}
+}
+
+func (h handler) Process(
+	ctx context.Context,
 	logger logr.Logger,
-) *engineapi.RuleResponse {
-	verified, reason, err := verifyManifest(client, ctx, *rule.Validation.Manifests, logger)
+	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
+	rule kyvernov1.Rule,
+) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	if engineutils.IsDeleteRequest(policyContext) {
+		return resource, nil
+	}
+	verified, reason, err := h.verifyManifest(ctx, logger, policyContext, *rule.Validation.Manifests)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
-		return internal.RuleError(rule, engineapi.Validation, "error occurred during manifest verification", err)
+		return resource, handlers.RuleResponses(internal.RuleError(&rule, engineapi.Validation, "error occurred during manifest verification", err))
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {
-		return internal.RuleResponse(*rule, engineapi.Validation, reason, engineapi.RuleStatusFail)
+		return resource, handlers.RuleResponses(internal.RuleResponse(rule, engineapi.Validation, reason, engineapi.RuleStatusFail))
 	}
-	return internal.RulePass(rule, engineapi.Validation, reason)
+	return resource, handlers.RuleResponses(internal.RulePass(&rule, engineapi.Validation, reason))
 }
 
-func verifyManifest(
-	client dclient.Interface,
+func (h handler) verifyManifest(
+	ctx context.Context,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	verifyRule kyvernov1.Manifests,
-	logger logr.Logger,
 ) (bool, string, error) {
 	// load AdmissionRequest
 	request, err := policyContext.JSONContext().Query("request")
@@ -121,7 +121,7 @@ func verifyManifest(
 	}
 	if !vo.DisableDryRun {
 		// check if kyverno can 'create' dryrun resource
-		ok, err := checkDryRunPermission(client, adreq.Kind.Kind, vo.DryRunNamespace)
+		ok, err := h.checkDryRunPermission(ctx, adreq.Kind.Kind, vo.DryRunNamespace)
 		if err != nil {
 			logger.V(1).Info("failed to check permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind, "error", err.Error())
 			vo.DisableDryRun = true
@@ -165,6 +165,15 @@ func verifyManifest(
 	}
 	msg := fmt.Sprintf("verified manifest signatures; %s", strings.Join(verifiedMsgs, ","))
 	return true, msg, nil
+}
+
+func (h handler) checkDryRunPermission(ctx context.Context, kind, namespace string) (bool, error) {
+	canI := auth.NewCanI(h.client.Discovery(), h.client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "create", "")
+	ok, err := canI.RunAccessCheck(ctx)
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
 }
 
 func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
@@ -382,7 +391,7 @@ func addConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest
 
 func loadDefaultConfig() *k8smanifest.VerifyResourceOption {
 	var defaultConfig *k8smanifest.VerifyResourceOption
-	err := yaml.Unmarshal(defaultConfigBytes, &defaultConfig)
+	err := yaml.Unmarshal(engineresources.DefaultConfigBytes, &defaultConfig)
 	if err != nil {
 		return nil
 	}
@@ -413,20 +422,7 @@ func checkManifestAnnotations(mnfstAnnotations map[string]string, annotations ma
 	return nil
 }
 
-func checkDryRunPermission(dclient dclient.Interface, kind, namespace string) (bool, error) {
-	canI := auth.NewCanI(dclient.Discovery(), dclient.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "create", "")
-	ok, err := canI.RunAccessCheck(context.TODO())
-	if err != nil {
-		return false, err
-	}
-	return ok, nil
-}
-
 func checkDryRunNamespace(namespace string) bool {
 	// should not use kyverno namespace for dryrun
-	if namespace != config.KyvernoNamespace() {
-		return true
-	} else {
-		return false
-	}
+	return namespace != config.KyvernoNamespace()
 }

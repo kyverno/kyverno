@@ -2,9 +2,9 @@ package api
 
 import (
 	"fmt"
-	"reflect"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	utils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,7 +35,7 @@ func Resource(policyContext PolicyContext) unstructured.Unstructured {
 func NewEngineResponseFromPolicyContext(
 	policyContext PolicyContext,
 	policyResponse *PolicyResponse,
-) *EngineResponse {
+) EngineResponse {
 	return NewEngineResponse(
 		Resource(policyContext),
 		policyContext.Policy(),
@@ -49,8 +49,8 @@ func NewEngineResponse(
 	policy kyvernov1.PolicyInterface,
 	namespaceLabels map[string]string,
 	policyResponse *PolicyResponse,
-) *EngineResponse {
-	response := &EngineResponse{
+) EngineResponse {
+	response := EngineResponse{
 		Resource:        resource,
 		Policy:          policy,
 		NamespaceLabels: namespaceLabels,
@@ -98,7 +98,7 @@ func (er EngineResponse) IsEmpty() bool {
 
 // isNil checks if rule is an empty rule
 func (er EngineResponse) IsNil() bool {
-	return reflect.DeepEqual(er, EngineResponse{})
+	return datautils.DeepEqual(er, EngineResponse{})
 }
 
 // GetPatches returns all the patches joined
