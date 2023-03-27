@@ -13,7 +13,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	"github.com/kyverno/kyverno/pkg/engine/handlers/manifest"
 	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
 	"github.com/kyverno/kyverno/pkg/engine/handlers/validation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
@@ -26,16 +25,16 @@ import (
 )
 
 type engine struct {
-	configuration         config.Configuration
-	client                dclient.Interface
-	rclient               registryclient.Client
-	contextLoader         engineapi.ContextLoaderFactory
-	exceptionSelector     engineapi.PolicyExceptionSelector
-	verifyManifestHandler handlers.Handler
-	mutateHandler         handlers.Handler
-	mutateExistingHandler handlers.Handler
-	validateHandler       handlers.Handler
-	validateImageHandler  handlers.Handler
+	configuration              config.Configuration
+	client                     dclient.Interface
+	rclient                    registryclient.Client
+	engineContextLoaderFactory engineapi.EngineContextLoaderFactory
+	exceptionSelector          engineapi.PolicyExceptionSelector
+	validateManifestHandler    handlers.Handler
+	mutateResourceHandler      handlers.Handler
+	mutateExistingHandler      handlers.Handler
+	validateResourceHandler    handlers.Handler
+	validateImageHandler       handlers.Handler
 }
 
 func NewEngine(
@@ -45,19 +44,30 @@ func NewEngine(
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 ) engineapi.Engine {
-	e := &engine{
-		configuration:         configuration,
-		client:                client,
-		rclient:               rclient,
-		contextLoader:         contextLoader,
-		exceptionSelector:     exceptionSelector,
-		verifyManifestHandler: manifest.NewHandler(client),
+	engineContextLoaderFactory := func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.EngineContextLoader {
+		loader := contextLoader(policy, rule)
+		return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+			return loader.Load(
+				ctx,
+				client,
+				rclient,
+				contextEntries,
+				jsonContext,
+			)
+		}
 	}
-	e.mutateHandler = mutation.NewHandler(configuration, e.ContextLoader)
-	e.mutateExistingHandler = mutation.NewMutateExistingHandler(configuration, client, e.ContextLoader)
-	e.validateHandler = validation.NewHandler(e.ContextLoader)
-	e.validateImageHandler = validation.NewValidateImageHandler(configuration, e.ContextLoader)
-	return e
+	return &engine{
+		configuration:              configuration,
+		client:                     client,
+		rclient:                    rclient,
+		engineContextLoaderFactory: engineContextLoaderFactory,
+		exceptionSelector:          exceptionSelector,
+		validateManifestHandler:    validation.NewValidateManifestHandler(client),
+		validateImageHandler:       validation.NewValidateImageHandler(configuration),
+		validateResourceHandler:    validation.NewValidateResourceHandler(engineContextLoaderFactory),
+		mutateResourceHandler:      mutation.NewMutateResourceHandler(engineContextLoaderFactory),
+		mutateExistingHandler:      mutation.NewMutateExistingHandler(client, engineContextLoaderFactory),
+	}
 }
 
 func (e *engine) Validate(
@@ -120,16 +130,7 @@ func (e *engine) ContextLoader(
 	policy kyvernov1.PolicyInterface,
 	rule kyvernov1.Rule,
 ) engineapi.EngineContextLoader {
-	loader := e.contextLoader(policy, rule)
-	return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
-		return loader.Load(
-			ctx,
-			e.client,
-			e.rclient,
-			contextEntries,
-			jsonContext,
-		)
-	}
+	return e.engineContextLoaderFactory(policy, rule)
 }
 
 func (e *engine) invokeRuleHandler(

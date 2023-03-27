@@ -1,4 +1,4 @@
-package manifest
+package validation
 
 import (
 	"context"
@@ -618,7 +618,7 @@ FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
 `
 
 var (
-	h   = handler{}
+	h   = validateManifestHandler{}
 	cfg = config.NewDefaultConfiguration()
 )
 

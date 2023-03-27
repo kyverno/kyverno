@@ -36,9 +36,9 @@ func (e *engine) mutate(
 			continue
 		}
 		polexFilter := func(logger logr.Logger, policyContext engineapi.PolicyContext, rule kyvernov1.Rule) *engineapi.RuleResponse {
-			return hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, policyContext, rule, e.configuration)
+			return hasPolicyExceptions(logger, engineapi.Mutation, e.exceptionSelector, policyContext, rule, e.configuration)
 		}
-		handler := e.mutateHandler
+		handler := e.mutateResourceHandler
 		if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
 			handler = e.mutateExistingHandler
 		}
