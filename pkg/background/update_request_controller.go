@@ -91,7 +91,6 @@ func NewController(
 	_, _ = urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
 		UpdateFunc: c.updateUR,
-		DeleteFunc: c.deleteUR,
 	})
 
 	c.informersSynced = []cache.InformerSynced{cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced}
@@ -150,7 +149,7 @@ func (c *controller) handleErr(err error, key interface{}) {
 
 	if c.queue.NumRequeues(key) < maxRetries {
 		logger.V(3).Info("retrying update request", "key", key, "error", err.Error())
-		c.queue.AddRateLimited(key)
+		c.queue.AddAfter(key, time.Second)
 		return
 	}
 
@@ -161,9 +160,6 @@ func (c *controller) handleErr(err error, key interface{}) {
 func (c *controller) syncUpdateRequest(key string) error {
 	startTime := time.Now()
 	logger.V(4).Info("started sync", "key", key, "startTime", startTime)
-	defer func() {
-		logger.V(4).Info("completed sync update request", "key", key, "processingTime", time.Since(startTime).String())
-	}()
 	_, urName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return err
@@ -187,8 +183,13 @@ func (c *controller) syncUpdateRequest(key string) error {
 		}
 	}
 
-	err = c.cleanUR(ur)
-	return err
+	urStatus, err := c.reconcileURStatus(ur)
+	if err != nil {
+		return err
+	}
+
+	logger.V(4).Info("synced update request", "key", key, "processingTime", time.Since(startTime).String(), "ur status", urStatus)
+	return nil
 }
 
 func (c *controller) enqueueUpdateRequest(obj interface{}) {
@@ -208,28 +209,10 @@ func (c *controller) addUR(obj interface{}) {
 
 func (c *controller) updateUR(_, cur interface{}) {
 	curUr := cur.(*kyvernov1beta1.UpdateRequest)
-	c.enqueueUpdateRequest(curUr)
-}
-
-func (c *controller) deleteUR(obj interface{}) {
-	ur, ok := obj.(*kyvernov1beta1.UpdateRequest)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("Couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		ur, ok = tombstone.Obj.(*kyvernov1beta1.UpdateRequest)
-		if !ok {
-			logger.Info("tombstone contained object that is not a Update Request CR", "obj", obj)
-			return
-		}
-	}
-	if ur.Status.Handler != "" {
+	if curUr.Status.State == kyvernov1beta1.Skip || curUr.Status.State == kyvernov1beta1.Completed {
 		return
 	}
-	// sync Handler will remove it from the queue
-	c.enqueueUpdateRequest(ur)
+	c.enqueueUpdateRequest(curUr)
 }
 
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
@@ -245,11 +228,22 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	return nil
 }
 
-func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
-	if ur.Status.State == kyvernov1beta1.Completed {
-		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+func (c *controller) reconcileURStatus(ur *kyvernov1beta1.UpdateRequest) (kyvernov1beta1.UpdateRequestState, error) {
+	new, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
+	if err != nil {
+		logger.V(2).Info("cannot fetch latest UR, fallback to the existing one", "reason", err.Error())
+		new = ur
 	}
-	return nil
+
+	var errUpdate error
+	switch new.Status.State {
+	case kyvernov1beta1.Completed:
+		errUpdate = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+	case kyvernov1beta1.Failed:
+		new.Status.State = kyvernov1beta1.Pending
+		_, errUpdate = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
+	}
+	return new.Status.State, errUpdate
 }
 
 func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
