@@ -72,7 +72,7 @@ func (e *engine) validateResource(
 				}
 				policyContext.JSONContext().Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
-					_, rr := e.verifyManifestHandler.Process(
+					_, rr := e.validateHandler.Process(
 						ctx,
 						logger,
 						policyContext,
