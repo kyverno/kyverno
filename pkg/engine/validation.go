@@ -81,7 +81,14 @@ func (e *engine) validateResource(
 					)
 					return rr
 				} else if hasValidateImage {
-					return handlers.RuleResponses(e.processImageValidationRule(ctx, logger, policyContext, rule))
+					_, rr := e.validateImageHandler.Process(
+						ctx,
+						logger,
+						policyContext,
+						policyContext.NewResource(),
+						*rule,
+					)
+					return rr
 				} else if hasYAMLSignatureVerify {
 					_, rr := e.verifyManifestHandler.Process(
 						ctx,

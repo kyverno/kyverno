@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
@@ -786,7 +787,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	json := patchedAnnotations[engineapi.ImageVerifyAnnotationKey]
 	assert.Assert(t, json != "")
 
-	verified, err := isImageVerified(resource, image, logr.Discard())
+	verified, err := engineutils.IsImageVerified(resource, image, logr.Discard())
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }
