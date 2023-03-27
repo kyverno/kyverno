@@ -77,7 +77,7 @@ func (e *engine) doVerifyAndPatch(
 	startTime := time.Now()
 	logger = internal.LoggerWithRule(logger, *rule)
 
-	if err := matches(*rule, policyContext, policyContext.NewResource(), e.configuration); err != nil {
+	if err := matches(*rule, policyContext, policyContext.NewResource()); err != nil {
 		logger.V(5).Info("resource does not match rule", "reason", err.Error())
 		return
 	}
