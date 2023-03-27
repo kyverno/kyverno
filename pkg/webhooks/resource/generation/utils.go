@@ -1,7 +1,6 @@
 package generation
 
 import (
-	"reflect"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -10,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	utils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionv1 "k8s.io/api/admission/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -50,7 +50,7 @@ func precondition(rule kyvernov1.Rule, expected kyvernov1.Condition) bool {
 	for _, condition := range conditionsAll {
 		copy := condition.DeepCopy()
 		copy.RawKey = trimKeySpaces(condition.RawKey)
-		if reflect.DeepEqual(*copy, expected) {
+		if datautils.DeepEqual(*copy, expected) {
 			return true
 		}
 	}
