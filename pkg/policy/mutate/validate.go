@@ -95,9 +95,9 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.ResourceS
 	for _, target := range targets {
 		if !regex.IsVariable(target.Namespace) {
 			_, _, k, sub := kubeutils.ParseKindSelector(target.Kind)
-			srcKey := k + "/" + sub
+			srcKey := k
 			if sub == "" {
-				srcKey = k
+				srcKey = srcKey + "/" + sub
 			}
 
 			if ok, err := m.authChecker.CanIUpdate(ctx, k, target.Namespace, sub); err != nil {
