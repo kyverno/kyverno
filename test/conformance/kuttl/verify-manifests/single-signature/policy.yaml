@@ -5,7 +5,7 @@ metadata:
 spec:
   validationFailureAction: Enforce
   background: false
-  webhookTimeoutSeconds: 60
+  webhookTimeoutSeconds: 30
   failurePolicy: Fail  
   rules:
     - name: validate-yaml
