@@ -17,7 +17,8 @@ spec:
       validate:
         manifests:
           attestors:
-          - entries:
+          - count: 1
+            entries:
             - keys:
                 publicKeys: |-
                     -----BEGIN PUBLIC KEY-----

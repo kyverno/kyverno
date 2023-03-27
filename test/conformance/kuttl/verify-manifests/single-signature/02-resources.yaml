@@ -4,6 +4,6 @@ assert:
 - file: resource-no-signature.yaml
   shouldFail: true
 - file: resource-one-signature.yaml
-  shouldFail: true
+  shouldFail: false
 - file: resource-two-signatures.yaml
   shouldFail: false

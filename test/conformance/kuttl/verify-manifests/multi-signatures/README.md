@@ -1,9 +1,3 @@
 ## Description
 
-This test verifies the resource validation webhook is configured correctly when a policy targets all `*/*` resources and subresources.
-
-## Steps
-
-1.  - Create a policy targeting `*/*`
-    - Assert policy gets ready
-1.  - Assert that the resource validation webhook is configured correctly
+This test verifies the manifests signatures, two signatures are expected to be valid.
