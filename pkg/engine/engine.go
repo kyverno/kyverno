@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/handlers/manifest"
 	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
+	"github.com/kyverno/kyverno/pkg/engine/handlers/validation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -33,6 +34,7 @@ type engine struct {
 	verifyManifestHandler handlers.Handler
 	mutateHandler         handlers.Handler
 	mutateExistingHandler handlers.Handler
+	validateHandler       handlers.Handler
 }
 
 func NewEngine(
@@ -52,6 +54,7 @@ func NewEngine(
 	}
 	e.mutateHandler = mutation.NewHandler(configuration, e.ContextLoader)
 	e.mutateExistingHandler = mutation.NewMutateExistingHandler(configuration, client, e.ContextLoader)
+	e.validateHandler = validation.NewHandler(e.ContextLoader)
 	return e
 }
 
