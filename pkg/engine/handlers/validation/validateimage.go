@@ -22,9 +22,11 @@ type validateImageHandler struct {
 }
 
 func NewValidateImageHandler(
+	configuration config.Configuration,
 	contextLoader func(kyvernov1.PolicyInterface, kyvernov1.Rule) engineapi.EngineContextLoader,
 ) handlers.Handler {
 	return validateImageHandler{
+		configuration: configuration,
 		contextLoader: contextLoader,
 	}
 }
