@@ -95,22 +95,21 @@ func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.ResourceS
 	for _, target := range targets {
 		if !regex.IsVariable(target.Namespace) {
 			_, _, k, sub := kubeutils.ParseKindSelector(target.Kind)
-			if ok, err := m.authChecker.CanICreate(ctx, k, target.Namespace, sub); err != nil {
-				errs = append(errs, err)
-			} else if !ok {
-				errs = append(errs, fmt.Errorf("cannot %s %s/%s in namespace %s", "create", k, sub, target.Namespace))
+			srcKey := k
+			if sub != "" {
+				srcKey = srcKey + "/" + sub
 			}
 
 			if ok, err := m.authChecker.CanIUpdate(ctx, k, target.Namespace, sub); err != nil {
 				errs = append(errs, err)
 			} else if !ok {
-				errs = append(errs, fmt.Errorf("cannot %s %s/%s in namespace %s", "update", k, sub, target.Namespace))
+				errs = append(errs, fmt.Errorf("cannot %s %s in namespace %s", "update", srcKey, target.Namespace))
 			}
 
 			if ok, err := m.authChecker.CanIGet(ctx, k, target.Namespace, sub); err != nil {
 				errs = append(errs, err)
 			} else if !ok {
-				errs = append(errs, fmt.Errorf("cannot %s %s/%s in namespace %s", "get", k, sub, target.Namespace))
+				errs = append(errs, fmt.Errorf("cannot %s %s in namespace %s", "get", srcKey, target.Namespace))
 			}
 		}
 	}
