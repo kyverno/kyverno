@@ -9,17 +9,23 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/handlers/manifest"
+	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 type engine struct {
-	configuration     config.Configuration
-	client            dclient.Interface
-	rclient           registryclient.Client
-	contextLoader     engineapi.ContextLoaderFactory
-	exceptionSelector engineapi.PolicyExceptionSelector
+	configuration         config.Configuration
+	client                dclient.Interface
+	rclient               registryclient.Client
+	contextLoader         engineapi.ContextLoaderFactory
+	exceptionSelector     engineapi.PolicyExceptionSelector
+	verifyManifestHandler handlers.Handler
+	mutateHandler         handlers.Handler
+	mutateExistingHandler handlers.Handler
 }
 
 func NewEngine(
@@ -29,13 +35,17 @@ func NewEngine(
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 ) engineapi.Engine {
-	return &engine{
-		configuration:     configuration,
-		client:            client,
-		rclient:           rclient,
-		contextLoader:     contextLoader,
-		exceptionSelector: exceptionSelector,
+	e := &engine{
+		configuration:         configuration,
+		client:                client,
+		rclient:               rclient,
+		contextLoader:         contextLoader,
+		exceptionSelector:     exceptionSelector,
+		verifyManifestHandler: manifest.NewHandler(client),
 	}
+	e.mutateHandler = mutation.NewHandler(configuration, e.ContextLoader)
+	e.mutateExistingHandler = mutation.NewMutateExistingHandler(configuration, client, e.ContextLoader)
+	return e
 }
 
 func (e *engine) Validate(
