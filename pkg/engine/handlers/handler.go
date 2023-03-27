@@ -16,7 +16,6 @@ type Handler interface {
 		engineapi.PolicyContext,
 		unstructured.Unstructured,
 		kyvernov1.Rule,
-		func(logr.Logger, engineapi.PolicyContext, kyvernov1.Rule) *engineapi.RuleResponse,
 	) (unstructured.Unstructured, []engineapi.RuleResponse)
 }
 

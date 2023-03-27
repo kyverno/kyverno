@@ -50,7 +50,6 @@ func (h handler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-	_ func(logr.Logger, engineapi.PolicyContext, kyvernov1.Rule) *engineapi.RuleResponse,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		return resource, nil
