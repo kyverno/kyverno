@@ -133,6 +133,45 @@ func (e *engine) ContextLoader(
 	return e.engineContextLoaderFactory(policy, rule)
 }
 
+// matches checks if either the new or old resource satisfies the filter conditions defined in the rule
+func matches2(
+	rule kyvernov1.Rule,
+	policyContext engineapi.PolicyContext,
+	cfg config.Configuration,
+) error {
+	gvk, subresource := policyContext.ResourceKind()
+	err := engineutils.MatchesResourceDescription(
+		policyContext.NewResource(),
+		rule,
+		policyContext.AdmissionInfo(),
+		cfg.GetExcludedGroups(),
+		policyContext.NamespaceLabels(),
+		policyContext.Policy().GetNamespace(),
+		gvk,
+		subresource,
+	)
+	if err == nil {
+		return nil
+	}
+	oldResource := policyContext.OldResource()
+	if oldResource.Object != nil {
+		err := engineutils.MatchesResourceDescription(
+			policyContext.OldResource(),
+			rule,
+			policyContext.AdmissionInfo(),
+			cfg.GetExcludedGroups(),
+			policyContext.NamespaceLabels(),
+			policyContext.Policy().GetNamespace(),
+			gvk,
+			subresource,
+		)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
 func (e *engine) invokeRuleHandler(
 	ctx context.Context,
 	logger logr.Logger,
@@ -148,21 +187,7 @@ func (e *engine) invokeRuleHandler(
 		fmt.Sprintf("RULE %s", rule.Name),
 		func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
 			// check if resource and rule match
-			var excludeResource []string
-			if len(e.configuration.GetExcludedGroups()) > 0 {
-				excludeResource = e.configuration.GetExcludedGroups()
-			}
-			gvk, subresource := policyContext.ResourceKind()
-			if err := engineutils.MatchesResourceDescription(
-				resource,
-				rule,
-				policyContext.AdmissionInfo(),
-				excludeResource,
-				policyContext.NamespaceLabels(),
-				policyContext.Policy().GetNamespace(),
-				gvk,
-				subresource,
-			); err != nil {
+			if err := matches2(rule, policyContext, e.configuration); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
 				return resource, nil
 			}
