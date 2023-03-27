@@ -140,7 +140,7 @@ func (e *engine) invokeRuleHandler(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-	polexFilter func(logr.Logger, engineapi.PolicyContext, kyvernov1.Rule) *engineapi.RuleResponse,
+	ruleType engineapi.RuleType,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	return tracing.ChildSpan2(
 		ctx,
@@ -167,7 +167,7 @@ func (e *engine) invokeRuleHandler(
 				return resource, nil
 			}
 			// check if there's an exception
-			if ruleResp := polexFilter(logger, policyContext, rule); ruleResp != nil {
+			if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
 				return resource, handlers.RuleResponses(ruleResp)
 			}
 			// load rule context

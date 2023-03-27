@@ -69,7 +69,7 @@ func (e *engine) filterRule(
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, ruleType, e.exceptionSelector, policyContext, rule, e.configuration)
+	ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule)
 	if ruleResp != nil {
 		return ruleResp
 	}

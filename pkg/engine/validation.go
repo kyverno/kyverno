@@ -47,9 +47,6 @@ func (e *engine) validateResource(
 		if !hasValidate && !hasValidateImage {
 			continue
 		}
-		polexFilter := func(logger logr.Logger, policyContext engineapi.PolicyContext, rule kyvernov1.Rule) *engineapi.RuleResponse {
-			return hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, policyContext, rule, e.configuration)
-		}
 		var handler handlers.Handler
 		if hasValidate && !hasYAMLSignatureVerify {
 			handler = e.validateResourceHandler
@@ -59,7 +56,7 @@ func (e *engine) validateResource(
 			handler = e.validateManifestHandler
 		}
 		if handler != nil {
-			_, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, policyContext.NewResource(), rule, polexFilter)
+			_, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, policyContext.NewResource(), rule, engineapi.Validation)
 			for _, ruleResp := range ruleResp {
 				ruleResp := ruleResp
 				internal.AddRuleResponse(resp, &ruleResp, startTime)

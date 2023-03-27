@@ -83,7 +83,7 @@ func (e *engine) doVerifyAndPatch(
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, *rule, e.configuration)
+	ruleResp := e.hasPolicyExceptions(logger, engineapi.ImageVerify, policyContext, *rule)
 	if ruleResp != nil {
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		return
