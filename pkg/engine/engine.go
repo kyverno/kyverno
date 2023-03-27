@@ -137,11 +137,12 @@ func (e *engine) ContextLoader(
 func matches2(
 	rule kyvernov1.Rule,
 	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
 	cfg config.Configuration,
 ) error {
 	gvk, subresource := policyContext.ResourceKind()
 	err := engineutils.MatchesResourceDescription(
-		policyContext.NewResource(),
+		resource,
 		rule,
 		policyContext.AdmissionInfo(),
 		cfg.GetExcludedGroups(),
@@ -187,7 +188,7 @@ func (e *engine) invokeRuleHandler(
 		fmt.Sprintf("RULE %s", rule.Name),
 		func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
 			// check if resource and rule match
-			if err := matches2(rule, policyContext, e.configuration); err != nil {
+			if err := matches2(rule, policyContext, resource, e.configuration); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
 				return resource, nil
 			}
