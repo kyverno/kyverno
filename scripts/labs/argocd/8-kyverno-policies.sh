@@ -18,7 +18,10 @@ spec:
   source:
     chart: kyverno-policies
     repoURL: https://kyverno.github.io/kyverno
-    targetRevision: 2.6.2
+    targetRevision: 2.7.2
+    helm:
+      values: |
+        validationFailureAction: Enforce
   syncPolicy:
     automated:
       prune: true

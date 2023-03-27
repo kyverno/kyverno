@@ -5,7 +5,6 @@ set -e
 readonly SRC=$(dirname "$0")
 
 $SRC/common-steps.sh
-$SRC/6-metrics-server.sh
 $SRC/7-kyverno.sh
 $SRC/8-kyverno-policies.sh
 $SRC/9-policy-reporter.sh

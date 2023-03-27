@@ -18,16 +18,21 @@ spec:
   source:
     chart: kyverno
     repoURL: https://kyverno.github.io/kyverno
-    targetRevision: 2.6.2
+    targetRevision: 2.7.2
     helm:
       values: |
-        serviceMonitor:
-          enabled: true
         initContainer:
           extraArgs:
             - --loggingFormat=json
         extraArgs:
-          - --loggingFormat=json
+          - --enableTracing
+          - --tracingAddress=tempo.monitoring
+          - --tracingPort=4317
+        cleanupController:
+          tracing:
+            enabled: true
+            address: tempo.monitoring
+            port: 4317
   syncPolicy:
     automated:
       prune: true
