@@ -35,6 +35,7 @@ type engine struct {
 	mutateHandler         handlers.Handler
 	mutateExistingHandler handlers.Handler
 	validateHandler       handlers.Handler
+	validateImageHandler  handlers.Handler
 }
 
 func NewEngine(
@@ -55,6 +56,7 @@ func NewEngine(
 	e.mutateHandler = mutation.NewHandler(configuration, e.ContextLoader)
 	e.mutateExistingHandler = mutation.NewMutateExistingHandler(configuration, client, e.ContextLoader)
 	e.validateHandler = validation.NewHandler(e.ContextLoader)
+	e.validateImageHandler = validation.NewValidateImageHandler(configuration, e.ContextLoader)
 	return e
 }
 
