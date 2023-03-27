@@ -50,6 +50,7 @@ jobs:
           - rbac
           - reports
           - validate
+          - verify-manifests
           - verifyImages
           - webhooks
     runs-on: ubuntu-latest
