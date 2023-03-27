@@ -13,7 +13,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/pss"
@@ -67,7 +69,7 @@ func (e *engine) validateResource(
 			ctx,
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),
-			func(ctx context.Context, span trace.Span) *engineapi.RuleResponse {
+			func(ctx context.Context, span trace.Span) []engineapi.RuleResponse {
 				hasValidate := rule.HasValidate()
 				hasValidateImage := rule.HasImagesValidationChecks()
 				hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
@@ -80,21 +82,30 @@ func (e *engine) validateResource(
 				// check if there is a corresponding policy exception
 				ruleResp := hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, policyContext, rule, e.configuration)
 				if ruleResp != nil {
-					return ruleResp
+					return handlers.RuleResponses(ruleResp)
 				}
 				policyContext.JSONContext().Reset()
 				if hasValidate && !hasYAMLSignatureVerify {
-					return e.processValidationRule(ctx, logger, policyContext, rule)
+					return handlers.RuleResponses(e.processValidationRule(ctx, logger, policyContext, rule))
 				} else if hasValidateImage {
-					return e.processImageValidationRule(ctx, logger, policyContext, rule)
+					return handlers.RuleResponses(e.processImageValidationRule(ctx, logger, policyContext, rule))
 				} else if hasYAMLSignatureVerify {
-					return processYAMLValidationRule(e.client, logger, policyContext, rule)
+					_, rr := e.verifyManifestHandler.Process(
+						ctx,
+						logger,
+						policyContext,
+						policyContext.NewResource(),
+						*rule,
+						nil,
+					)
+					return rr
 				}
 				return nil
 			},
 		)
-		if ruleResp != nil {
-			internal.AddRuleResponse(resp, ruleResp, startTime)
+		for _, ruleResp := range ruleResp {
+			ruleResp := ruleResp
+			internal.AddRuleResponse(resp, &ruleResp, startTime)
 			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
 		}
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
@@ -209,7 +220,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	}
 
 	if v.podSecurity != nil {
-		if !isDeleteRequest(v.policyContext) {
+		if !engineutils.IsDeleteRequest(v.policyContext) {
 			ruleResponse := v.validatePodSecurity()
 			return ruleResponse
 		}
@@ -227,7 +238,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {
 	applyCount := 0
 	for _, foreach := range v.forEach {
-		elements, err := evaluateList(foreach.List, v.policyContext.JSONContext())
+		elements, err := engineutils.EvaluateList(foreach.List, v.policyContext.JSONContext())
 		if err != nil {
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
@@ -259,7 +270,7 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 
 		v.policyContext.JSONContext().Reset()
 		policyContext := v.policyContext.Copy()
-		if err := addElementToContext(policyContext, element, index, v.nesting, elementScope); err != nil {
+		if err := engineutils.AddElementToContext(policyContext, element, index, v.nesting, elementScope); err != nil {
 			v.log.Error(err, "failed to add element to context")
 			return internal.RuleError(v.rule, engineapi.Validation, "failed to process foreach", err), applyCount
 		}
@@ -293,38 +304,6 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 	}
 
 	return internal.RulePass(v.rule, engineapi.Validation, ""), applyCount
-}
-
-func addElementToContext(ctx engineapi.PolicyContext, element interface{}, index, nesting int, elementScope *bool) error {
-	data, err := variables.DocumentToUntyped(element)
-	if err != nil {
-		return err
-	}
-	if err := ctx.JSONContext().AddElement(data, index, nesting); err != nil {
-		return fmt.Errorf("failed to add element (%v) to JSON context: %w", element, err)
-	}
-	dataMap, ok := data.(map[string]interface{})
-	// We set scoped to true by default if the data is a map
-	// otherwise we do not do element scoped foreach unless the user
-	// has explicitly set it to true
-	scoped := ok
-
-	// If the user has explicitly provided an element scope
-	// we check if data is a map or not. In case it is not a map and the user
-	// has set elementscoped to true, we throw an error.
-	// Otherwise we set the value to what is specified by the user.
-	if elementScope != nil {
-		if *elementScope && !ok {
-			return fmt.Errorf("cannot use elementScope=true foreach rules for elements that are not maps, expected type=map got type=%T", data)
-		}
-		scoped = *elementScope
-	}
-	if scoped {
-		u := unstructured.Unstructured{}
-		u.SetUnstructuredContent(dataMap)
-		ctx.SetElement(u)
-	}
-	return nil
 }
 
 func (v *validator) loadContext(ctx context.Context) error {
@@ -461,31 +440,15 @@ func (v *validator) validatePodSecurity() *engineapi.RuleResponse {
 
 func (v *validator) validateResourceWithRule() *engineapi.RuleResponse {
 	element := v.policyContext.Element()
-	if !isEmptyUnstructured(&element) {
+	if !engineutils.IsEmptyUnstructured(&element) {
 		return v.validatePatterns(element)
 	}
-	if isDeleteRequest(v.policyContext) {
+	if engineutils.IsDeleteRequest(v.policyContext) {
 		v.log.V(3).Info("skipping validation on deleted resource")
 		return nil
 	}
 	resp := v.validatePatterns(v.policyContext.NewResource())
 	return resp
-}
-
-func isDeleteRequest(ctx engineapi.PolicyContext) bool {
-	newResource := ctx.NewResource()
-	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
-	return isEmptyUnstructured(&newResource)
-}
-
-func isEmptyUnstructured(u *unstructured.Unstructured) bool {
-	if u == nil {
-		return true
-	}
-	if u.Object == nil {
-		return true
-	}
-	return false
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
@@ -496,7 +459,7 @@ func matches(
 	cfg config.Configuration,
 ) bool {
 	gvk, subresource := ctx.ResourceKind()
-	err := matchesResourceDescription(
+	err := engineutils.MatchesResourceDescription(
 		ctx.NewResource(),
 		*rule,
 		ctx.AdmissionInfo(),
@@ -511,7 +474,7 @@ func matches(
 	}
 	oldResource := ctx.OldResource()
 	if oldResource.Object != nil {
-		err := matchesResourceDescription(
+		err := engineutils.MatchesResourceDescription(
 			ctx.OldResource(),
 			*rule,
 			ctx.AdmissionInfo(),
