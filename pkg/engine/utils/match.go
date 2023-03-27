@@ -1,4 +1,4 @@
-package engine
+package utils
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -155,7 +154,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 // matchesResourceDescription checks if the resource matches resource description of the rule or not
-func matchesResourceDescription(
+func MatchesResourceDescription(
 	resourceRef unstructured.Unstructured,
 	ruleRef kyvernov1.Rule,
 	admissionInfoRef kyvernov1beta1.RequestInfo,
@@ -325,25 +324,4 @@ func ManagedPodResource(policy kyvernov1.PolicyInterface, resource unstructured.
 	}
 
 	return false
-}
-
-func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, error) {
-	i, err := ctx.Query(jmesPath)
-	if err != nil {
-		return nil, err
-	}
-
-	l, ok := i.([]interface{})
-	if !ok {
-		return []interface{}{i}, nil
-	}
-
-	return l, nil
-}
-
-// invertedElement inverted the order of element for patchStrategicMerge  policies as kustomize patch revering the order of patch resources.
-func invertedElement(elements []interface{}) {
-	for i, j := 0, len(elements)-1; i < j; i, j = i+1, j-1 {
-		elements[i], elements[j] = elements[j], elements[i]
-	}
 }

@@ -48,21 +48,23 @@ func (h handler) Process(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-) *engineapi.RuleResponse {
+	_ func(logr.Logger, engineapi.PolicyContext, kyvernov1.Rule) *engineapi.RuleResponse,
+) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
-		return nil
+		return resource, nil
 	}
 	verified, reason, err := h.verifyManifest(ctx, logger, policyContext, *rule.Validation.Manifests)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
-		return internal.RuleError(&rule, engineapi.Validation, "error occurred during manifest verification", err)
+		return resource, handlers.RuleResponses(internal.RuleError(&rule, engineapi.Validation, "error occurred during manifest verification", err))
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {
-		return internal.RuleResponse(rule, engineapi.Validation, reason, engineapi.RuleStatusFail)
+		return resource, handlers.RuleResponses(internal.RuleResponse(rule, engineapi.Validation, reason, engineapi.RuleStatusFail))
 	}
-	return internal.RulePass(&rule, engineapi.Validation, reason)
+	return resource, handlers.RuleResponses(internal.RulePass(&rule, engineapi.Validation, reason))
 }
 
 func (h handler) verifyManifest(

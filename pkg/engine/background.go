@@ -10,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
 
@@ -84,10 +85,10 @@ func (e *engine) filterRule(
 	policy := policyContext.Policy()
 	gvk, subresource := policyContext.ResourceKind()
 
-	if err := matchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err != nil {
+	if err := engineutils.MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err != nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = matchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err == nil {
+			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, policy.GetNamespace(), gvk, subresource); err == nil {
 				return &engineapi.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,
