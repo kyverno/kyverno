@@ -43,7 +43,7 @@ func findExceptions(
 func matchesException(
 	selector engineapi.PolicyExceptionSelector,
 	policyContext engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+	rule kyvernov1.Rule,
 	cfg config.Configuration,
 ) (*kyvernov2alpha1.PolicyException, error) {
 	candidates, err := findExceptions(selector, policyContext.Policy(), rule.Name)
@@ -76,7 +76,7 @@ func hasPolicyExceptions(
 	ruleType engineapi.RuleType,
 	selector engineapi.PolicyExceptionSelector,
 	ctx engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+	rule kyvernov1.Rule,
 	cfg config.Configuration,
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
@@ -87,10 +87,10 @@ func hasPolicyExceptions(
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {
 			log.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
-			response = internal.RuleError(rule, ruleType, "failed to compute exception key", err)
+			response = internal.RuleError(&rule, ruleType, "failed to compute exception key", err)
 		} else {
 			log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
-			response = internal.RuleSkip(rule, ruleType, "rule skipped due to policy exception "+key)
+			response = internal.RuleSkip(&rule, ruleType, "rule skipped due to policy exception "+key)
 			response.Exception = exception
 		}
 	}
