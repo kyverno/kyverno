@@ -34,7 +34,7 @@ func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSp
 
 		if resource.GetDeletionTimestamp() != nil {
 			log.V(4).Info("trigger resource is in termination", "operation", urSpec.Context.AdmissionRequestInfo.Operation)
-			return nil, nil
+			return nil, fmt.Errorf("trigger resource is in termination")
 		}
 
 		return resource, nil
