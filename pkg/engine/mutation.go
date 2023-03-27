@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -10,8 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
-	"github.com/kyverno/kyverno/pkg/tracing"
-	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -34,25 +31,18 @@ func (e *engine) mutate(
 	applyRules := policy.GetSpec().GetApplyRules()
 
 	for _, rule := range autogen.ComputeRules(policy) {
+		logger := internal.LoggerWithRule(logger, rule)
 		if !rule.HasMutate() {
 			continue
 		}
-		resource, ruleResp := tracing.ChildSpan2(
-			ctx,
-			"pkg/engine",
-			fmt.Sprintf("RULE %s", rule.Name),
-			func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
-				logger := internal.LoggerWithRule(logger, rule)
-				polexFilter := func(logger logr.Logger, policyContext engineapi.PolicyContext, rule kyvernov1.Rule) *engineapi.RuleResponse {
-					return hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, policyContext, &rule, e.configuration)
-				}
-				if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
-					return e.mutateExistingHandler.Process(ctx, logger, policyContext, matchedResource, rule, polexFilter)
-				} else {
-					return e.mutateHandler.Process(ctx, logger, policyContext, matchedResource, rule, polexFilter)
-				}
-			},
-		)
+		polexFilter := func(logger logr.Logger, policyContext engineapi.PolicyContext, rule kyvernov1.Rule) *engineapi.RuleResponse {
+			return hasPolicyExceptions(logger, engineapi.Validation, e.exceptionSelector, policyContext, &rule, e.configuration)
+		}
+		handler := e.mutateHandler
+		if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
+			handler = e.mutateExistingHandler
+		}
+		resource, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, matchedResource, rule, polexFilter)
 		matchedResource = resource
 		for _, ruleResp := range ruleResp {
 			ruleResp := ruleResp

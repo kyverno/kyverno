@@ -96,7 +96,6 @@ func (e *engine) validateResource(
 						policyContext,
 						policyContext.NewResource(),
 						*rule,
-						nil,
 					)
 					return rr
 				}
