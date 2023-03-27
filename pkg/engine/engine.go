@@ -134,7 +134,7 @@ func (e *engine) ContextLoader(
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches2(
+func matches(
 	rule kyvernov1.Rule,
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
@@ -188,7 +188,7 @@ func (e *engine) invokeRuleHandler(
 		fmt.Sprintf("RULE %s", rule.Name),
 		func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
 			// check if resource and rule match
-			if err := matches2(rule, policyContext, resource, e.configuration); err != nil {
+			if err := matches(rule, policyContext, resource, e.configuration); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
 				return resource, nil
 			}

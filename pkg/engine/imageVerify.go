@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
@@ -78,7 +77,8 @@ func (e *engine) doVerifyAndPatch(
 	startTime := time.Now()
 	logger = internal.LoggerWithRule(logger, *rule)
 
-	if !matches(logger, rule, policyContext, e.configuration) {
+	if err := matches(*rule, policyContext, policyContext.NewResource(), e.configuration); err != nil {
+		logger.V(5).Info("resource does not match rule", "reason", err.Error())
 		return
 	}
 
@@ -168,45 +168,4 @@ func substituteVariables(rule *kyvernov1.Rule, ctx enginecontext.EvalInterface, 
 	}
 
 	return &ruleCopy, nil
-}
-
-// matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(
-	logger logr.Logger,
-	rule *kyvernov1.Rule,
-	ctx engineapi.PolicyContext,
-	cfg config.Configuration,
-) bool {
-	gvk, subresource := ctx.ResourceKind()
-	err := engineutils.MatchesResourceDescription(
-		ctx.NewResource(),
-		*rule,
-		ctx.AdmissionInfo(),
-		cfg.GetExcludedGroups(),
-		ctx.NamespaceLabels(),
-		"",
-		gvk,
-		subresource,
-	)
-	if err == nil {
-		return true
-	}
-	oldResource := ctx.OldResource()
-	if oldResource.Object != nil {
-		err := engineutils.MatchesResourceDescription(
-			ctx.OldResource(),
-			*rule,
-			ctx.AdmissionInfo(),
-			cfg.GetExcludedGroups(),
-			ctx.NamespaceLabels(),
-			"",
-			gvk,
-			subresource,
-		)
-		if err == nil {
-			return true
-		}
-	}
-	logger.V(5).Info("resource does not match rule", "reason", err.Error())
-	return false
 }
