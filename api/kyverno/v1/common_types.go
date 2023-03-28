@@ -651,3 +651,10 @@ type ObjectFieldBinding k8smanifest.ObjectFieldBinding
 // AdmissionOperation can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.
 // +kubebuilder:validation:Enum=CREATE;CONNECT;UPDATE;DELETE
 type AdmissionOperation admissionv1.Operation
+
+const (
+	Create  AdmissionOperation = AdmissionOperation(admissionv1.Create)
+	Update  AdmissionOperation = AdmissionOperation(admissionv1.Update)
+	Delete  AdmissionOperation = AdmissionOperation(admissionv1.Delete)
+	Connect AdmissionOperation = AdmissionOperation(admissionv1.Connect)
+)

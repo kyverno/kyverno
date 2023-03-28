@@ -128,7 +128,7 @@ func doesResourceMatchConditionBlock(
 	}
 
 	if len(conditionBlock.Operations) > 0 {
-		if slices.Contains(conditionBlock.Operations, operation) {
+		if !slices.Contains(conditionBlock.Operations, operation) {
 			errs = append(errs, fmt.Errorf("operation does not match"))
 		}
 	}

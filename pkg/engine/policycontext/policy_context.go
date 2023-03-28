@@ -177,19 +177,16 @@ func (c PolicyContext) copy() *PolicyContext {
 }
 
 // Constructors
-func new(operation kyvernov1.AdmissionOperation, jsonContext enginectx.Interface) *PolicyContext {
+
+func NewPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jsonContext enginectx.Interface) *PolicyContext {
 	return &PolicyContext{
 		operation:   operation,
 		jsonContext: jsonContext,
 	}
 }
 
-func NewPolicyContextWithJsonContext(jsonContext enginectx.Interface) *PolicyContext {
-	return new("CREATE", jsonContext)
-}
-
-func NewPolicyContext() *PolicyContext {
-	return new("CREATE", enginectx.NewContext())
+func NewPolicyContext(operation kyvernov1.AdmissionOperation) *PolicyContext {
+	return NewPolicyContextWithJsonContext(operation, enginectx.NewContext())
 }
 
 func NewPolicyContextFromAdmissionRequest(
@@ -213,7 +210,7 @@ func NewPolicyContextFromAdmissionRequest(
 	if err != nil {
 		return nil, err
 	}
-	policyContext := new(kyvernov1.AdmissionOperation(request.Operation), ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), ctx).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).
