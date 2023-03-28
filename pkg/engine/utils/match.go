@@ -158,7 +158,6 @@ func MatchesResourceDescription(
 	resourceRef unstructured.Unstructured,
 	ruleRef kyvernov1.Rule,
 	admissionInfoRef kyvernov1beta1.RequestInfo,
-	dynamicConfig []string,
 	namespaceLabels map[string]string,
 	policyNamespace string,
 	gvk schema.GroupVersionKind,
@@ -204,7 +203,7 @@ func MatchesResourceDescription(
 	if len(rule.ExcludeResources.Any) > 0 {
 		// exclude the object if ANY of the criteria match
 		for _, rer := range rule.ExcludeResources.Any {
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels, gvk, subresource)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource)...)
 		}
 	} else if len(rule.ExcludeResources.All) > 0 {
 		// exclude the object if ALL the criteria match
@@ -212,7 +211,7 @@ func MatchesResourceDescription(
 		for _, rer := range rule.ExcludeResources.All {
 			// we got no errors inplying a resource did NOT exclude it
 			// "matchesResourceDescriptionExcludeHelper" returns errors if resource is excluded by a filter
-			if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels, gvk, subresource)) == 0 {
+			if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource)) == 0 {
 				excludedByAll = false
 				break
 			}
@@ -222,7 +221,7 @@ func MatchesResourceDescription(
 		}
 	} else {
 		rer := kyvernov1.ResourceFilter{UserInfo: rule.ExcludeResources.UserInfo, ResourceDescription: rule.ExcludeResources.ResourceDescription}
-		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels, gvk, subresource)...)
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource)...)
 	}
 
 	// creating final error
@@ -269,7 +268,6 @@ func matchesResourceDescriptionExcludeHelper(
 	rer kyvernov1.ResourceFilter,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	resource unstructured.Unstructured,
-	dynamicConfig []string,
 	namespaceLabels map[string]string,
 	gvk schema.GroupVersionKind,
 	subresource string,
