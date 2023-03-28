@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/logging"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -89,6 +90,7 @@ func extract(obj interface{}, path []string, keyPath, valuePath string, fields [
 		value, ok := output[valuePath].(string)
 		if !ok {
 			// the image may not be present
+			logging.V(4).Info("image information is not present", "pointer", pointer)
 			return nil
 		}
 		if jmesPath != "" {
