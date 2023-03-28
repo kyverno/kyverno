@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -2467,73 +2466,5 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 
 	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
-	}
-}
-
-func TestManagedPodResource(t *testing.T) {
-	testCases := []struct {
-		name           string
-		policy         []byte
-		resource       []byte
-		expectedResult bool
-	}{
-		{
-			name:           "disable-autogen-pod-without-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "none"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test"}}`),
-			expectedResult: false,
-		},
-		{
-			name:           "disable-autogen-pod-with-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "none"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"}]}}`),
-			expectedResult: false,
-		},
-		{
-			name:           "disable-autogen",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod"}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"}]}}`),
-			expectedResult: false,
-		},
-		{
-			name:           "enable-autogen-pod-without-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test"}}`),
-			expectedResult: false,
-		},
-		{
-			name:           "enable-autogen-pod-with-matched-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"}]}}`),
-			expectedResult: true,
-		},
-		{
-			name:           "enable-autogen-pod-with-unmatched-owner",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Challenge"}]}}`),
-			expectedResult: false,
-		},
-		{
-			name:           "enable-autogen-pod-with-owner-rs",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment,StatefulSet"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "ReplicaSet"}]}}`),
-			expectedResult: true,
-		},
-		{
-			name:           "enable-autogen-pod-with-multiple-owners",
-			policy:         []byte(`{"apiVersion": "kyverno.io/v1","kind": "ClusterPolicy","metadata": {"name": "test-managedPod","annotations": {"pod-policies.kyverno.io/autogen-controllers": "Deployment,StatefulSet"}}}`),
-			resource:       []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "test","ownerReferences": [{"kind": "Deployment"},{"kind": "Challenge"}]}}`),
-			expectedResult: false,
-		},
-	}
-
-	for i, tc := range testCases {
-		var policy v1.ClusterPolicy
-		err := json.Unmarshal(tc.policy, &policy)
-		assert.Assert(t, err == nil, "Test %d/%s invalid policy raw: %v", i+1, tc.name, err)
-
-		resource, _ := kubeutils.BytesToUnstructured(tc.resource)
-		res := ManagedPodResource(&policy, *resource)
-		assert.Equal(t, res, tc.expectedResult, "test %d/%s failed, expect %v, got %v", i+1, tc.name, tc.expectedResult, res)
 	}
 }
