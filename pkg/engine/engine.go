@@ -148,7 +148,7 @@ func matches(
 		policyContext.Policy().GetNamespace(),
 		gvk,
 		subresource,
-		"CREATE",
+		policyContext.Operation(),
 	)
 	if err == nil {
 		return nil
@@ -163,7 +163,7 @@ func matches(
 			policyContext.Policy().GetNamespace(),
 			gvk,
 			subresource,
-			"CREATE",
+			policyContext.Operation(),
 		)
 		if err == nil {
 			return nil
