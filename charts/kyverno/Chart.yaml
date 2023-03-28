@@ -36,3 +36,5 @@ annotations:
       description: view aggregated cluster role support
     - kind: added
       description: support for webhook annotations in config map
+    - kind: added
+      description: allow overriding PDB api version
