@@ -1033,7 +1033,8 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 	if pattern == "" {
 		return "", errors.New("no pattern provided")
 	}
-	rand.Seed(time.Now().UnixNano())
+	seed := time.Now().UnixNano()
+	rand.New(rand.NewSource(seed))
 	ans, err := regen.Generate(pattern)
 	if err != nil {
 		return nil, err
