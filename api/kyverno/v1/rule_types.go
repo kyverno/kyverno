@@ -3,9 +3,9 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/kyverno/kyverno/pkg/pss/utils"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -96,12 +96,17 @@ type Rule struct {
 
 // HasMutate checks for mutate rule
 func (r *Rule) HasMutate() bool {
-	return !reflect.DeepEqual(r.Mutation, Mutation{})
+	return !datautils.DeepEqual(r.Mutation, Mutation{})
 }
 
 // HasVerifyImages checks for verifyImages rule
 func (r *Rule) HasVerifyImages() bool {
-	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
+	for _, verifyImage := range r.VerifyImages {
+		if !datautils.DeepEqual(verifyImage, ImageVerification{}) {
+			return true
+		}
+	}
+	return false
 }
 
 // HasYAMLSignatureVerify checks for validate.manifests rule
@@ -133,12 +138,12 @@ func (p *ClusterPolicy) HasYAMLSignatureVerify() bool {
 
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
-	return !reflect.DeepEqual(r.Validation, Validation{})
+	return !datautils.DeepEqual(r.Validation, Validation{})
 }
 
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
-	return !reflect.DeepEqual(r.Generation, Generation{})
+	return !datautils.DeepEqual(r.Generation, Generation{})
 }
 
 // IsMutateExisting checks if the mutate rule applies to existing resources
@@ -150,18 +155,11 @@ func (r *Rule) IsPodSecurity() bool {
 	return r.Validation.PodSecurity != nil
 }
 
-// IsCloneSyncGenerate checks if the generate rule has the clone block with sync=true
-func (r *Rule) GetCloneSyncForGenerate() (clone bool, sync bool) {
+func (r *Rule) GetGenerateTypeAndSync() (_ GenerateType, sync bool) {
 	if !r.HasGenerate() {
 		return
 	}
-
-	if r.Generation.Clone.Name != "" {
-		clone = true
-	}
-
-	sync = r.Generation.Synchronize
-	return
+	return r.Generation.GetTypeAndSync()
 }
 
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
@@ -202,14 +200,14 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	if len(r.MatchResources.Any) > 0 && len(r.ExcludeResources.Any) > 0 {
 		for _, rmr := range r.MatchResources.Any {
 			for _, rer := range r.ExcludeResources.Any {
-				if reflect.DeepEqual(rmr, rer) {
+				if datautils.DeepEqual(rmr, rer) {
 					return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 				}
 			}
 		}
 		return errs
 	}
-	if reflect.DeepEqual(r.ExcludeResources, MatchResources{}) {
+	if datautils.DeepEqual(r.ExcludeResources, MatchResources{}) {
 		return errs
 	}
 	excludeRoles := sets.New(r.ExcludeResources.Roles...)
@@ -347,7 +345,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		return errs
 	}
 	if r.MatchResources.Annotations != nil && r.ExcludeResources.Annotations != nil {
-		if !(reflect.DeepEqual(r.MatchResources.Annotations, r.ExcludeResources.Annotations)) {
+		if !datautils.DeepEqual(r.MatchResources.Annotations, r.ExcludeResources.Annotations) {
 			return errs
 		}
 	}
@@ -402,6 +400,17 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
+func (r *Rule) ValidateGenerateVariables(path *field.Path) (errs field.ErrorList) {
+	if !r.HasGenerate() {
+		return nil
+	}
+
+	if err := r.Generation.Validate(); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), fmt.Sprintf("Generation Rule Clone/CloneList \"%s\" should not have variables", r.Name)))
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
@@ -410,5 +419,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
+	errs = append(errs, r.ValidateGenerateVariables(path)...)
 	return errs
 }

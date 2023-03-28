@@ -2,16 +2,12 @@ package policy
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
-	"math/big"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -24,6 +20,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
@@ -206,11 +203,17 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 		return
 	}
 
-	if reflect.DeepEqual(oldP.GetSpec(), curP.GetSpec()) {
+	if datautils.DeepEqual(oldP.GetSpec(), curP.GetSpec()) {
 		return
 	}
 
 	logger.V(2).Info("updating policy", "name", oldP.GetName())
+	if deleted, ok := ruleDeletion(oldP, curP); ok {
+		err := pc.createURForDownstreamDeletion(deleted)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("failed to create UR on rule deletion, clean up downstream resource may be failed: %v", err))
+		}
+	}
 
 	pc.enqueuePolicy(curP)
 }
@@ -230,16 +233,10 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	}
 
 	logger.Info("policy deleted", "uid", p.GetUID(), "kind", p.GetKind(), "namespace", p.GetNamespace(), "name", p.GetName())
-
-	// do not clean up UR on generate clone (sync=true) policy deletion
-	rules := autogen.ComputeRules(p)
-	for _, r := range rules {
-		clone, sync := r.GetCloneSyncForGenerate()
-		if clone && sync {
-			return
-		}
+	err := pc.createURForDownstreamDeletion(p)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %v", err))
 	}
-	pc.enqueuePolicy(p)
 }
 
 func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
@@ -408,7 +405,7 @@ func (pc *PolicyController) requeuePolicies() {
 
 func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
 	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(triggerResource.GetKind(), triggerResource.GetNamespace(), pc.nsLister, pc.log)
-	policyContext, _, err := backgroundcommon.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, namespaceLabels, pc.log)
+	policyContext, err := backgroundcommon.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, namespaceLabels, pc.log)
 	if err != nil {
 		return false, fmt.Errorf("failed to build policy context for rule %s: %w", rule.Name, err)
 	}
@@ -425,7 +422,13 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		}
 
 		pc.log.V(2).Info("creating new UR for generate")
-		_, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		created, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		if err != nil {
+			return false, err
+		}
+		updated := created.DeepCopy()
+		updated.Status.State = kyvernov1beta1.Pending
+		_, err = pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -447,39 +450,4 @@ func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Lo
 		list.Items = append(list.Items, mlist.Items...)
 	}
 	return convertlist(list.Items)
-}
-
-func updateUR(kyvernoClient versioned.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
-	for _, ur := range urList {
-		if policyKey == ur.Spec.GetPolicyKey() {
-			_, err := backgroundcommon.Update(kyvernoClient, urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
-				urLabels := ur.Labels
-				if len(urLabels) == 0 {
-					urLabels = make(map[string]string)
-				}
-				nBig, err := rand.Int(rand.Reader, big.NewInt(100000))
-				if err != nil {
-					logger.Error(err, "failed to generate random interger")
-				}
-				urLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
-				ur.SetLabels(urLabels)
-			})
-			if err != nil {
-				logger.Error(err, "failed to update gr", "name", ur.GetName())
-				continue
-			}
-			if _, err := backgroundcommon.UpdateStatus(kyvernoClient, urLister, ur.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
-				logger.Error(err, "failed to set UpdateRequest state to Pending")
-			}
-		}
-	}
-}
-
-func resourceSpecFromUnstructured(obj *unstructured.Unstructured) kyvernov1.ResourceSpec {
-	return kyvernov1.ResourceSpec{
-		APIVersion: obj.GetAPIVersion(),
-		Kind:       obj.GetKind(),
-		Namespace:  obj.GetNamespace(),
-		Name:       obj.GetName(),
-	}
 }

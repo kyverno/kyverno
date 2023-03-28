@@ -10,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
 
@@ -22,7 +23,7 @@ func (e *engine) applyBackgroundChecks(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (resp *engineapi.EngineResponse) {
+) engineapi.EngineResponse {
 	return e.filterRules(policyContext, logger, time.Now())
 }
 
@@ -30,12 +31,8 @@ func (e *engine) filterRules(
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
 	startTime time.Time,
-) *engineapi.EngineResponse {
-	newResource := policyContext.NewResource()
+) engineapi.EngineResponse {
 	policy := policyContext.Policy()
-	kind := newResource.GetKind()
-	name := newResource.GetName()
-	namespace := newResource.GetNamespace()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	resp.PolicyResponse = engineapi.PolicyResponse{
 		Stats: engineapi.PolicyStats{
@@ -44,12 +41,6 @@ func (e *engine) filterRules(
 			},
 		},
 	}
-
-	if e.configuration.ToFilter(kind, namespace, name) {
-		logger.Info("resource excluded")
-		return resp
-	}
-
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
 		logger := internal.LoggerWithRule(logger, rule)
@@ -60,7 +51,6 @@ func (e *engine) filterRules(
 			}
 		}
 	}
-
 	return resp
 }
 
@@ -73,16 +63,13 @@ func (e *engine) filterRule(
 		return nil
 	}
 
-	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
-
 	ruleType := engineapi.Mutation
 	if rule.HasGenerate() {
 		ruleType = engineapi.Generation
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, ruleType, e.exceptionSelector, policyContext, &rule, subresourceGVKToAPIResource, e.configuration)
+	ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule)
 	if ruleResp != nil {
 		return ruleResp
 	}
@@ -93,13 +80,14 @@ func (e *engine) filterRule(
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
 	ctx := policyContext.JSONContext()
-	excludeGroupRole := e.configuration.GetExcludedGroups()
 	namespaceLabels := policyContext.NamespaceLabels()
+	policy := policyContext.Policy()
+	gvk, subresource := policyContext.ResourceKind()
 
-	if err := MatchesResourceDescription(subresourceGVKToAPIResource, newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err != nil {
+	if err := engineutils.MatchesResourceDescription(newResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource); err != nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(subresourceGVKToAPIResource, oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, "", policyContext.SubResource()); err == nil {
+			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource); err == nil {
 				return &engineapi.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,

@@ -56,9 +56,10 @@ func newControllerMetrics(logger logr.Logger, controllerName string) *controller
 
 func Run(ctx context.Context, logger logr.Logger, controllerName string, period time.Duration, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, routines ...func(context.Context, logr.Logger)) {
 	logger.Info("starting ...")
-	defer runtime.HandleCrash()
 	defer logger.Info("stopped")
 	var wg sync.WaitGroup
+	defer wg.Wait()
+	defer runtime.HandleCrash()
 	metric := newControllerMetrics(logger, controllerName)
 	func() {
 		ctx, cancel := context.WithCancel(ctx)
@@ -68,8 +69,8 @@ func Run(ctx context.Context, logger logr.Logger, controllerName string, period 
 			wg.Add(1)
 			go func(logger logr.Logger) {
 				logger.Info("starting worker")
-				defer wg.Done()
 				defer logger.Info("worker stopped")
+				defer wg.Done()
 				wait.UntilWithContext(ctx, func(ctx context.Context) { worker(ctx, logger, metric, queue, maxRetries, r) }, period)
 			}(logger.WithName("worker").WithValues("id", i))
 		}
@@ -77,15 +78,14 @@ func Run(ctx context.Context, logger logr.Logger, controllerName string, period 
 			wg.Add(1)
 			go func(logger logr.Logger, routine func(context.Context, logr.Logger)) {
 				logger.Info("starting routine")
-				defer wg.Done()
 				defer logger.Info("routine stopped")
+				defer wg.Done()
 				routine(ctx, logger)
 			}(logger.WithName("routine").WithValues("id", i), routine)
 		}
 		<-ctx.Done()
 	}()
 	logger.Info("waiting for workers to terminate ...")
-	wg.Wait()
 }
 
 func worker(ctx context.Context, logger logr.Logger, metric *controllerMetrics, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) {
@@ -150,6 +150,8 @@ func reconcile(ctx context.Context, logger logr.Logger, obj interface{}, r recon
 	}
 	logger = logger.WithValues("key", k, "namespace", ns, "name", n)
 	logger.Info("reconciling ...")
-	defer logger.Info("done", "duration", time.Since(start).String())
+	defer func(start time.Time) {
+		logger.Info("done", "duration", time.Since(start).String())
+	}(start)
 	return r(ctx, logger, k, ns, n)
 }

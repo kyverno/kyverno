@@ -23,5 +23,5 @@ helm.sh/hook: test
 {{- end -}}
 
 {{- define "kyverno.test.imagePullPolicy" -}}
-{{- default .Values.image.pullPolicy .Values.test.image.pullPolicy -}}
+{{- default .Values.admissionController.container.image.pullPolicy .Values.test.image.pullPolicy -}}
 {{- end -}}

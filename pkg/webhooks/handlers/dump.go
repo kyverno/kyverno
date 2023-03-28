@@ -96,7 +96,7 @@ func newAdmissionRequestPayload(
 	}
 	var roles, clusterRoles []string
 	if rbLister != nil && crbLister != nil {
-		if r, cr, err := userinfo.GetRoleRef(rbLister, crbLister, request); err != nil {
+		if r, cr, err := userinfo.GetRoleRef(rbLister, crbLister, request.UserInfo); err != nil {
 			return nil, err
 		} else {
 			roles = r

@@ -10,6 +10,8 @@
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5327/badge)](https://bestpractices.coreinfrastructure.org/projects/5327)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/kyverno/kyverno/badge)](https://api.securityscorecards.dev/projects/github.com/kyverno/kyverno)
 [![codecov](https://codecov.io/gh/kyverno/kyverno/branch/main/graph/badge.svg)](https://app.codecov.io/gh/kyverno/kyverno/branch/main)
+[![Artifact HUB](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kyverno)](https://artifacthub.io/packages/search?repo=kyverno)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkyverno%2Fkyverno?ref=badge_shield)
 
 
 
@@ -54,6 +56,10 @@ Thanks for your interest in contributing to Kyverno! Here are some steps to help
 ✔ Check out the [good first issues](https://github.com/kyverno/kyverno/labels/good%20first%20issue) list. Add a comment with `/assign` to request assignment of the issue.
 
 ✔ Check out the Kyverno [Community page](https://kyverno.io/community/) for other ways to get involved.
+
+## Software Bill of Materials
+
+All Kyverno images include a Software Bill of Materials (SBOM) in [CycloneDX](https://cyclonedx.org/) JSON format. SBOMs for Kyverno images are stored in a separate repository at `ghcr.io/kyverno/sbom`. More information on this is available at [Fetching the SBOM for Kyverno](https://kyverno.io/docs/security/#fetching-the-sbom-for-kyverno). 
 
 ## Contributors
 

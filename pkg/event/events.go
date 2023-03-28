@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func NewPolicyFailEvent(source Source, reason Reason, engineResponse *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, blocked bool) Info {
+func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, blocked bool) Info {
 	return Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
 		Name:      engineResponse.Policy.GetName(),
@@ -47,7 +47,7 @@ func getPolicyKind(policy kyvernov1.PolicyInterface) string {
 	return "ClusterPolicy"
 }
 
-func NewPolicyAppliedEvent(source Source, engineResponse *engineapi.EngineResponse) Info {
+func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineResponse) Info {
 	resource := engineResponse.Resource
 	var bldr strings.Builder
 	defer bldr.Reset()
@@ -68,7 +68,7 @@ func NewPolicyAppliedEvent(source Source, engineResponse *engineapi.EngineRespon
 	}
 }
 
-func NewResourceViolationEvent(source Source, reason Reason, engineResponse *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) Info {
+func NewResourceViolationEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) Info {
 	var bldr strings.Builder
 	defer bldr.Reset()
 
@@ -123,14 +123,14 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 	return events
 }
 
-func NewPolicyExceptionEvents(engineResponse *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) []Info {
+func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) []Info {
 	exceptionName, exceptionNamespace := ruleResp.Exception.GetName(), ruleResp.Exception.GetNamespace()
-	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", engineResponse.PatchedResource.GetName(), ruleResp.Name, exceptionNamespace, exceptionName)
+	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", resourceKey(engineResponse.PatchedResource), ruleResp.Name, exceptionNamespace, exceptionName)
 	var exceptionMessage string
 	if engineResponse.Policy.GetNamespace() == "" {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", engineResponse.PatchedResource.GetName(), engineResponse.Policy.GetName(), ruleResp.Name)
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy.GetName(), ruleResp.Name)
 	} else {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", engineResponse.PatchedResource.GetName(), engineResponse.Policy.GetNamespace(), engineResponse.Policy.GetName(), ruleResp.Name)
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy.GetNamespace(), engineResponse.Policy.GetName(), ruleResp.Name)
 	}
 	policyEvent := Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
@@ -147,4 +147,23 @@ func NewPolicyExceptionEvents(engineResponse *engineapi.EngineResponse, ruleResp
 		Message:   exceptionMessage,
 	}
 	return []Info{policyEvent, exceptionEvent}
+}
+
+func NewFailedEvent(err error, policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
+	return Info{
+		Kind:      resource.GetKind(),
+		Namespace: resource.GetNamespace(),
+		Name:      resource.GetName(),
+		Source:    source,
+		Reason:    PolicyError,
+		Message:   fmt.Sprintf("policy %s/%s error: %v", policy, rule, err),
+	}
+}
+
+func resourceKey(resource unstructured.Unstructured) string {
+	if resource.GetNamespace() != "" {
+		return strings.Join([]string{resource.GetKind(), resource.GetNamespace(), resource.GetName()}, "/")
+	}
+
+	return strings.Join([]string{resource.GetKind(), resource.GetName()}, "/")
 }

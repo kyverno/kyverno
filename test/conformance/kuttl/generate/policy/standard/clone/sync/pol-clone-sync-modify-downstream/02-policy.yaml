@@ -1,8 +1,8 @@
 apiVersion: kyverno.io/v2beta1
 kind: Policy
 metadata:
-  name: pol-sync-clone
-  namespace: poltest
+  name: pol-clone-sync-modify-downstream-policy
+  namespace: pol-clone-sync-modify-downstream-ns
 spec:
   rules:
   - name: gen-zk
@@ -15,8 +15,8 @@ spec:
       apiVersion: v1
       kind: Secret
       name: myclonedsecret
-      namespace: poltest
+      namespace: pol-clone-sync-modify-downstream-ns
       synchronize: true
       clone:
-        namespace: poltest
+        namespace: pol-clone-sync-modify-downstream-ns
         name: regcred

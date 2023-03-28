@@ -2,9 +2,9 @@ package v2beta1
 
 import (
 	"fmt"
-	"reflect"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -64,12 +64,17 @@ type Rule struct {
 
 // HasMutate checks for mutate rule
 func (r *Rule) HasMutate() bool {
-	return !reflect.DeepEqual(r.Mutation, kyvernov1.Mutation{})
+	return !datautils.DeepEqual(r.Mutation, kyvernov1.Mutation{})
 }
 
 // HasVerifyImages checks for verifyImages rule
 func (r *Rule) HasVerifyImages() bool {
-	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
+	for _, verifyImage := range r.VerifyImages {
+		if !datautils.DeepEqual(verifyImage, ImageVerification{}) {
+			return true
+		}
+	}
+	return false
 }
 
 // HasYAMLSignatureVerify checks for validate.manifests rule
@@ -101,12 +106,12 @@ func (p *ClusterPolicy) HasYAMLSignatureVerify() bool {
 
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
-	return !reflect.DeepEqual(r.Validation, Validation{})
+	return !datautils.DeepEqual(r.Validation, Validation{})
 }
 
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
-	return !reflect.DeepEqual(r.Generation, kyvernov1.Generation{})
+	return !datautils.DeepEqual(r.Generation, kyvernov1.Generation{})
 }
 
 // IsMutateExisting checks if the mutate rule applies to existing resources
@@ -158,20 +163,31 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	if len(r.MatchResources.Any) > 0 && len(r.ExcludeResources.Any) > 0 {
 		for _, rmr := range r.MatchResources.Any {
 			for _, rer := range r.ExcludeResources.Any {
-				if reflect.DeepEqual(rmr, rer) {
+				if datautils.DeepEqual(rmr, rer) {
 					return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 				}
 			}
 		}
 		return errs
 	}
-	if reflect.DeepEqual(r.ExcludeResources.Any, r.MatchResources.Any) {
+	if datautils.DeepEqual(r.ExcludeResources.Any, r.MatchResources.Any) {
 		return errs
 	}
-	if reflect.DeepEqual(r.ExcludeResources.All, r.MatchResources.All) {
+	if datautils.DeepEqual(r.ExcludeResources.All, r.MatchResources.All) {
 		return errs
 	}
 	return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
+}
+
+func (r *Rule) ValidateGenerateVariables(path *field.Path) (errs field.ErrorList) {
+	if !r.HasGenerate() {
+		return nil
+	}
+
+	if err := r.Generation.Validate(); err != nil {
+		errs = append(errs, field.Forbidden(path.Child("generate").Child("clone/cloneList"), fmt.Sprintf("Generation Rule Clone/CloneList \"%s\" should not have variables", r.Name)))
+	}
+	return errs
 }
 
 // Validate implements programmatic validation
@@ -180,5 +196,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets
 	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+	errs = append(errs, r.ValidateGenerateVariables(path)...)
 	return errs
 }

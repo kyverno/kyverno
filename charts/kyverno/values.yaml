@@ -14,6 +14,12 @@ fullnameOverride: ~
 # -- (string) Override the namespace the chart deploys to
 namespaceOverride: ~
 
+apiVersionOverride:
+  # -- (string) Override api version used to create `PodDisruptionBudget`` resources.
+  # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to
+  # determine the api version automatically.
+  podDisruptionBudget: ~
+
 # CRDs configuration
 crds:
 
@@ -48,6 +54,9 @@ config:
 
   # -- Exclude username
   excludeUsername: []
+
+  # -- Exclude usernames for mutateExisting and generate policies
+  excludeBackgroundUsernames: []
 
   # -- Generate success events.
   generateSuccessEvents: false
@@ -87,7 +96,7 @@ config:
     - '[Secret,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.*]'
     - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}]'
     - '[Service,{{ include "kyverno.namespace" . }},{{ template "kyverno.admission-controller.serviceName" . }}-metrics]'
-    - '[ServiceMonitor,{{ if .Values.serviceMonitor.namespace }}{{ .Values.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.admission-controller.serviceName" . }}-service-monitor]'
+    - '[ServiceMonitor,{{ if .Values.admissionController.serviceMonitor.namespace }}{{ .Values.admissionController.serviceMonitor.namespace }}{{ else }}{{ template "kyverno.namespace" . }}{{ end }},{{ template "kyverno.admission-controller.serviceName" . }}-service-monitor]'
     - '[Pod,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}-*]'
 
   # -- Defines the `namespaceSelector` in the webhook configurations.
@@ -108,6 +117,19 @@ config:
     #     matchExpressions:
     #     - key: webhooks.kyverno.io/exclude
     #       operator: DoesNotExist
+
+  # -- Defines annotations to set on webhook configurations.
+  webhookAnnotations: {}
+    # Example to disable admission enforcer on AKS:
+    # 'admissions.enforcer/disabled': 'true'
+
+  # -- Exclude Kyverno namespace
+  # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
+  excludeKyvernoNamespace: true
+
+  # -- resourceFilter namespace exclude
+  # Namespaces to exclude from the default resourceFilters
+  resourceFiltersExcludeNamespaces: []
 
 # Metrics configuration
 metricsConfig:
@@ -191,311 +213,11 @@ test:
 # -- Additional labels
 customLabels: {}
 
-rbac:
-  # -- Create ClusterRoles, ClusterRoleBindings, and ServiceAccount
-  create: true
-  serviceAccount:
-    # -- Create a ServiceAccount
-    create: true
-    # -- The ServiceAccount name
-    name:
-    # -- Annotations for the ServiceAccount
-    annotations: {}
-      # example.com/annotation: value
-
-image:
-  # -- Image registry
-  registry: ghcr.io
-  # -- Image repository
-  repository: kyverno/kyverno
-  # -- (string) Image tag
-  # Defaults to appVersion in Chart.yaml if omitted
-  tag: ~
-  # -- Image pull policy
-  pullPolicy: IfNotPresent
-  # -- Image pull secrets
-  pullSecrets: []
-  # - secretName
-
-initImage:
-  # -- Image registry
-  registry: ghcr.io
-  # -- Image repository
-  repository: kyverno/kyvernopre
-  # -- (string) Image tag
-  # If initImage.tag is missing, defaults to image.tag
-  tag: ~
-  # -- (string) Image pull policy
-  # If initImage.pullPolicy is missing, defaults to image.pullPolicy
-  pullPolicy: ~
-
-initContainer:
-  # -- Extra arguments to give to the kyvernopre binary.
-  extraArgs:
-    - --loggingFormat=text
-
-# -- (int) Desired number of pods
-replicaCount: ~
-
-# -- Additional labels to add to each pod
-podLabels: {}
-  # example.com/label: foo
-
-# -- Additional annotations to add to each pod
-podAnnotations: {}
-  # example.com/annotation: foo
-
-# -- Security context for the pod
-podSecurityContext: {}
-
-# -- Security context for the containers
-securityContext:
-  runAsNonRoot: true
-  privileged: false
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop:
-      - ALL
-  seccompProfile:
-    type: RuntimeDefault
-
-# -- Optional priority class to be used for kyverno pods
-priorityClassName: ''
-
-antiAffinity:
-  # -- Pod antiAffinities toggle.
-  # Enabled by default but can be disabled if you want to schedule pods to the same node.
-  enable: true
-
-# -- Pod anti affinity constraints.
-# @default -- See [values.yaml](values.yaml)
-podAntiAffinity:
-  preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: 1
-      podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-            - key: app.kubernetes.io/name
-              operator: In
-              values:
-                - '{{ template "kyverno.name" . }}'
-        topologyKey: kubernetes.io/hostname
-
-# -- Pod affinity constraints.
-podAffinity: {}
-
-# -- Node affinity constraints.
-nodeAffinity: {}
-
-podDisruptionBudget:
-  # -- Configures the minimum available pods for kyverno disruptions.
-  # Cannot be used if `maxUnavailable` is set.
-  minAvailable: 1
-  # -- Configures the maximum unavailable pods for kyverno disruptions.
-  # Cannot be used if `minAvailable` is set.
-  maxUnavailable:
-
-# -- Node labels for pod assignment
-nodeSelector: {}
-
-# -- List of node taints to tolerate
-tolerations: []
-
-# -- Change `hostNetwork` to `true` when you want the kyverno's pod to share its host's network namespace.
-# Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
-# Update the `dnsPolicy` accordingly as well to suit the host network mode.
-hostNetwork: false
-
-# -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
-# In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
-# For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
-dnsPolicy: ClusterFirst
-
-# -- Env variables for initContainers.
-envVarsInit: {}
-
-# -- Env variables for containers.
-envVars: {}
-
-# -- Extra arguments to give to the binary.
-extraArgs:
-  - --loggingFormat=text
-
-# -- Array of extra init containers
-extraInitContainers: []
-# Example:
-# - name: init-container
-#   image: busybox
-#   command: ['sh', '-c', 'echo Hello']
-
-# -- Array of extra containers to run alongside kyverno
-extraContainers: []
-# Example:
-# - name: myapp-container
-#   image: busybox
-#   command: ['sh', '-c', 'echo Hello && sleep 3600']
-
-resources:
-  # -- Pod resource limits
-  limits:
-    memory: 384Mi
-  # -- Pod resource requests
-  requests:
-    cpu: 100m
-    memory: 128Mi
-
-initResources:
-  # -- Pod resource limits
-  limits:
-    cpu: 100m
-    memory: 256Mi
-  # -- Pod resource requests
-  requests:
-    cpu: 10m
-    memory: 64Mi
-
-# -- Startup probe.
-# The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
-# ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-# @default -- See [values.yaml](values.yaml)
-startupProbe:
-  httpGet:
-    path: /health/liveness
-    port: 9443
-    scheme: HTTPS
-  failureThreshold: 20
-  initialDelaySeconds: 2
-  periodSeconds: 6
-
-# -- Liveness probe.
-# The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
-# ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-# @default -- See [values.yaml](values.yaml)
-livenessProbe:
-  httpGet:
-    path: /health/liveness
-    port: 9443
-    scheme: HTTPS
-  initialDelaySeconds: 15
-  periodSeconds: 30
-  timeoutSeconds: 5
-  failureThreshold: 2
-  successThreshold: 1
-
-# -- Readiness Probe.
-# The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
-# ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
-# @default -- See [values.yaml](values.yaml)
-readinessProbe:
-  httpGet:
-    path: /health/readiness
-    port: 9443
-    scheme: HTTPS
-  initialDelaySeconds: 5
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 6
-  successThreshold: 1
-
-# -- Additional resources to be added to controller RBAC permissions.
-generatecontrollerExtraResources: []
-# - ResourceA
-# - ResourceB
-
-# -- Exclude Kyverno namespace
-# Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
-excludeKyvernoNamespace: true
-
-# -- resourceFilter namespace exclude
-# Namespaces to exclude from the default resourceFilters
-resourceFiltersExcludeNamespaces: []
-
-# -- Deployment update strategy.
-# Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
-# @default -- See [values.yaml](values.yaml)
-updateStrategy:
-  rollingUpdate:
-    maxSurge: 1
-    maxUnavailable: 40%
-  type: RollingUpdate
-
-service:
-  # -- Service port.
-  port: 443
-  # -- Service type.
-  type: ClusterIP
-  # -- Service node port.
-  # Only used if `service.type` is `NodePort`.
-  nodePort:
-  # -- Service annotations.
-  annotations: {}
-
-# -- Topology spread constraints.
-topologySpreadConstraints: []
-
-metricsService:
-  # -- Create service.
-  create: true
-  # -- Service port.
-  # Kyverno's metrics server will be exposed at this port.
-  port: 8000
-  # -- Service type.
-  type: ClusterIP
-  # -- Service node port.
-  # Only used if `metricsService.type` is `NodePort`.
-  nodePort:
-  # -- Service annotations.
-  annotations: {}
-
-serviceMonitor:
-  # -- Create a `ServiceMonitor` to collect Prometheus metrics.
-  enabled: false
-  # -- Additional labels
-  additionalLabels:
-    # key: value
-  # -- Override namespace (default is the same as kyverno)
-  namespace:
-  # --  Interval to scrape metrics
-  interval: 30s
-  # -- Timeout if metrics can't be retrieved in given time interval
-  scrapeTimeout: 25s
-  # -- Is TLS required for endpoint
-  secure: false
-  # -- TLS Configuration for endpoint
-  tlsConfig: {}
-
-# -- Kyverno requires a certificate key pair and corresponding certificate authority
-# to properly register its webhooks. This can be done in one of 3 ways:
-# 1) Use kube-controller-manager to generate a CA-signed certificate (preferred)
-# 2) Provide your own CA and cert.
-#    In this case, you will need to create a certificate with a specific name and data structure.
-#    As long as you follow the naming scheme, it will be automatically picked up.
-#    kyverno-svc.(namespace).svc.kyverno-tls-ca (with data entries named tls.key and tls.crt)
-#    kyverno-svc.kyverno.svc.kyverno-tls-pair (with data entries named tls.key and tls.crt)
-# 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
-# If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
-createSelfSignedCert: false
-
-networkPolicy:
-  # -- When true, use a NetworkPolicy to allow ingress to the webhook
-  # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
-  enabled: false
-  # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
-  ingressFrom: []
-
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
   enabled: false
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
-
-# -- A writable volume to use for the TUF root initialization.
-tufRootMountPath: /.sigstore
-
-# -- Volume to be mounted in pods for TUF/cosign work.
-sigstoreVolume:
-  emptyDir: {}
 
 grafana:
   # -- Enable grafana dashboard creation.
@@ -511,6 +233,337 @@ grafana:
   # -- Grafana dashboard configmap annotations.
   annotations: {}
 
+# Admission controller configuration
+admissionController:
+
+  rbac:
+    # -- Create RBAC resources
+    create: true
+
+    serviceAccount:
+      # -- The ServiceAccount name
+      name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
+
+    clusterRole:
+      # -- Extra resource permissions to add in the cluster role
+      extraResources: []
+      # - apiGroups:
+      #     - ''
+      #   resources:
+      #     - pods
+      #   verbs:
+      #     - create
+      #     - update
+      #     - delete
+
+  # -- Create self-signed certificates at deployment time.
+  # The certificates won't be automatically renewed if this is set to `true`.
+  createSelfSignedCert: false
+
+  # -- (int) Desired number of pods
+  replicas: ~
+
+  # -- Additional labels to add to each pod
+  podLabels: {}
+    # example.com/label: foo
+
+  # -- Additional annotations to add to each pod
+  podAnnotations: {}
+    # example.com/annotation: foo
+
+  # -- Deployment update strategy.
+  # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+  # @default -- See [values.yaml](values.yaml)
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 40%
+    type: RollingUpdate
+
+  # -- Optional priority class
+  priorityClassName: ''
+
+  # -- Change `hostNetwork` to `true` when you want the pod to share its host's network namespace.
+  # Useful for situations like when you end up dealing with a custom CNI over Amazon EKS.
+  # Update the `dnsPolicy` accordingly as well to suit the host network mode.
+  hostNetwork: false
+
+  # -- `dnsPolicy` determines the manner in which DNS resolution happens in the cluster.
+  # In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`.
+  # For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy.
+  dnsPolicy: ClusterFirst
+
+  # -- Startup probe.
+  # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  startupProbe:
+    httpGet:
+      path: /health/liveness
+      port: 9443
+      scheme: HTTPS
+    failureThreshold: 20
+    initialDelaySeconds: 2
+    periodSeconds: 6
+
+  # -- Liveness probe.
+  # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  livenessProbe:
+    httpGet:
+      path: /health/liveness
+      port: 9443
+      scheme: HTTPS
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 2
+    successThreshold: 1
+
+  # -- Readiness Probe.
+  # The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want.
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+  # @default -- See [values.yaml](values.yaml)
+  readinessProbe:
+    httpGet:
+      path: /health/readiness
+      port: 9443
+      scheme: HTTPS
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+
+  # -- Node labels for pod assignment
+  nodeSelector: {}
+
+  # -- List of node taints to tolerate
+  tolerations: []
+
+  antiAffinity:
+    # -- Pod antiAffinities toggle.
+    # Enabled by default but can be disabled if you want to schedule pods to the same node.
+    enabled: true
+
+  # -- Pod anti affinity constraints.
+  # @default -- See [values.yaml](values.yaml)
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values:
+                  - admission-controller
+          topologyKey: kubernetes.io/hostname
+
+  # -- Pod affinity constraints.
+  podAffinity: {}
+
+  # -- Node affinity constraints.
+  nodeAffinity: {}
+
+  # -- Topology spread constraints.
+  topologySpreadConstraints: []
+
+  # -- Security context for the pod
+  podSecurityContext: {}
+
+  podDisruptionBudget:
+    # -- Configures the minimum available pods for disruptions.
+    # Cannot be used if `maxUnavailable` is set.
+    minAvailable: 1
+    # -- Configures the maximum unavailable pods for disruptions.
+    # Cannot be used if `minAvailable` is set.
+    maxUnavailable:
+
+  # -- A writable volume to use for the TUF root initialization.
+  tufRootMountPath: /.sigstore
+
+  # -- Volume to be mounted in pods for TUF/cosign work.
+  sigstoreVolume:
+    emptyDir: {}
+
+  # -- Image pull secrets
+  pullSecrets: []
+    # - secretName
+
+  initContainer:
+
+    image:
+      # -- Image registry
+      registry: ghcr.io
+      # -- Image repository
+      repository: kyverno/kyvernopre
+      # -- (string) Image tag
+      # If missing, defaults to image.tag
+      tag: ~
+      # -- (string) Image pull policy
+      # If missing, defaults to image.pullPolicy
+      pullPolicy: ~
+
+    resources:
+      # -- Pod resource limits
+      limits:
+        cpu: 100m
+        memory: 256Mi
+      # -- Pod resource requests
+      requests:
+        cpu: 10m
+        memory: 64Mi
+
+    # -- Container security context
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    # -- Additional container args.
+    extraArgs: {}
+
+    # -- Additional container environment variables.
+    extraEnvVars: []
+
+  container:
+
+    image:
+      # -- Image registry
+      registry: ghcr.io
+      # -- Image repository
+      repository: kyverno/kyverno
+      # -- (string) Image tag
+      # Defaults to appVersion in Chart.yaml if omitted
+      tag: ~
+      # -- Image pull policy
+      pullPolicy: IfNotPresent
+
+    resources:
+      # -- Pod resource limits
+      limits:
+        memory: 384Mi
+      # -- Pod resource requests
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+    # -- Container security context
+    securityContext:
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    # -- Additional container args.
+    extraArgs: {}
+
+    # -- Additional container environment variables.
+    extraEnvVars: []
+
+  # -- Array of extra init containers
+  extraInitContainers: []
+    # - name: init-container
+    #   image: busybox
+    #   command: ['sh', '-c', 'echo Hello']
+
+  # -- Array of extra containers to run alongside kyverno
+  extraContainers: []
+    # - name: myapp-container
+    #   image: busybox
+    #   command: ['sh', '-c', 'echo Hello && sleep 3600']
+
+  service:
+    # -- Service port.
+    port: 443
+    # -- Service type.
+    type: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+    # -- Service annotations.
+    annotations: {}
+
+  metricsService:
+    # -- Create service.
+    create: true
+    # -- Service port.
+    # Kyverno's metrics server will be exposed at this port.
+    port: 8000
+    # -- Service type.
+    type: ClusterIP
+    # -- Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort:
+    # -- Service annotations.
+    annotations: {}
+
+  networkPolicy:
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
+  serviceMonitor:
+    # -- Create a `ServiceMonitor` to collect Prometheus metrics.
+    enabled: false
+    # -- Additional labels
+    additionalLabels: {}
+    # -- (string) Override namespace
+    namespace: ~
+    # --  Interval to scrape metrics
+    interval: 30s
+    # -- Timeout if metrics can't be retrieved in given time interval
+    scrapeTimeout: 25s
+    # -- Is TLS required for endpoint
+    secure: false
+    # -- TLS Configuration for endpoint
+    tlsConfig: {}
+
+  tracing:
+    # -- Enable tracing
+    enabled: false
+    # -- Traces receiver address
+    address:
+    # -- Traces receiver port
+    port:
+    # -- Traces receiver credentials
+    creds: ''
+
+  logging:
+    # -- Logging format
+    format: text
+
+  metering:
+    # -- Disable metrics export
+    disabled: false
+    # -- Otel configuration, can be `prometheus` or `grpc`
+    config: prometheus
+    # -- Prometheus endpoint port
+    port: 8000
+    # -- Otel collector endpoint
+    collector: ''
+    # -- Otel collector credentials
+    creds: ''
+
 # Cleanup controller configuration
 cleanupController:
 
@@ -524,6 +577,10 @@ cleanupController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -577,7 +634,7 @@ cleanupController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs: []
+  extraArgs: {}
 
   resources:
     # -- Pod resource limits
@@ -713,14 +770,22 @@ cleanupController:
     # -- Service annotations.
     annotations: {}
 
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
     # -- Additional labels
-    additionalLabels:
-      # key: value
-    # -- Override namespace (default is the same as kyverno)
-    namespace:
+    additionalLabels: {}
+    # -- (string) Override namespace
+    namespace: ~
     # --  Interval to scrape metrics
     interval: 30s
     # -- Timeout if metrics can't be retrieved in given time interval
@@ -770,6 +835,10 @@ reportsController:
       # -- Service account name
       name:
 
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
+
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
       extraResources: []
@@ -818,7 +887,9 @@ reportsController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs: []
+  extraArgs:
+    clientRateLimitQPS: 300
+    clientRateLimitBurst: 300
 
   resources:
     # -- Pod resource limits
@@ -938,21 +1009,29 @@ reportsController:
     port: 8000
     # -- Service type.
     type: ClusterIP
-    # -- Service node port.
-    # Only used if `metricsService.type` is `NodePort`.
-    nodePort:
+    # -- (string) Service node port.
+    # Only used if `type` is `NodePort`.
+    nodePort: ~
     # -- Service annotations.
     annotations: {}
+
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
 
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
     # -- Additional labels
-    additionalLabels:
-      # key: value
-    # -- Override namespace (default is the same as kyverno)
-    namespace:
-    # --  Interval to scrape metrics
+    additionalLabels: {}
+    # -- (string) Override namespace
+    namespace: ~
+    # -- Interval to scrape metrics
     interval: 30s
     # -- Timeout if metrics can't be retrieved in given time interval
     scrapeTimeout: 25s
@@ -964,12 +1043,12 @@ reportsController:
   tracing:
     # -- Enable tracing
     enabled: false
-    # -- Traces receiver address
-    address:
-    # -- Traces receiver port
-    port:
-    # -- Traces receiver credentials
-    creds: ''
+    # -- (string) Traces receiver address
+    address: ~
+    # -- (string) Traces receiver port
+    port: ~
+    # -- (string) Traces receiver credentials
+    creds: ~
 
   logging:
     # -- Logging format
@@ -982,10 +1061,10 @@ reportsController:
     config: prometheus
     # -- Prometheus endpoint port
     port: 8000
-    # -- Otel collector endpoint
-    collector: ''
-    # -- Otel collector credentials
-    creds: ''
+    # -- (string) Otel collector endpoint
+    collector: ~
+    # -- (string) Otel collector credentials
+    creds: ~
 
 # Background controller configuration
 backgroundController:
@@ -1000,6 +1079,10 @@ backgroundController:
     serviceAccount:
       # -- Service account name
       name:
+
+      # -- Annotations for the ServiceAccount
+      annotations: {}
+        # example.com/annotation: value
 
     clusterRole:
       # -- Extra resource permissions to add in the cluster role
@@ -1052,7 +1135,7 @@ backgroundController:
   dnsPolicy: ClusterFirst
 
   # -- Extra arguments passed to the container on the command line
-  extraArgs: []
+  extraArgs: {}
 
   resources:
     # -- Pod resource limits
@@ -1085,7 +1168,7 @@ backgroundController:
               - key: app.kubernetes.io/component
                 operator: In
                 values:
-                  - reports-controller
+                  - background-controller
           topologyKey: kubernetes.io/hostname
 
   # -- Pod affinity constraints.
@@ -1134,14 +1217,22 @@ backgroundController:
     # -- Service annotations.
     annotations: {}
 
+  networkPolicy:
+
+    # -- When true, use a NetworkPolicy to allow ingress to the webhook
+    # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
+    enabled: false
+
+    # -- A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies.
+    ingressFrom: []
+
   serviceMonitor:
     # -- Create a `ServiceMonitor` to collect Prometheus metrics.
     enabled: false
     # -- Additional labels
-    additionalLabels:
-      # key: value
-    # -- Override namespace (default is the same as kyverno)
-    namespace:
+    additionalLabels: {}
+    # -- (string) Override namespace
+    namespace: ~
     # --  Interval to scrape metrics
     interval: 30s
     # -- Timeout if metrics can't be retrieved in given time interval

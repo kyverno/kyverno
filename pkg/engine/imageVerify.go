@@ -3,7 +3,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -12,10 +11,9 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/tracing"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -23,21 +21,25 @@ func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	policy := policyContext.Policy()
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+
 	startTime := time.Now()
+
 	defer func() {
-		internal.BuildResponse(policyContext, resp, startTime)
+		internal.BuildResponse(policyContext, &resp, startTime)
 		logger.V(4).Info("processed image verification rules",
 			"time", resp.PolicyResponse.Stats.ProcessingTime.String(),
-			"applied", resp.PolicyResponse.Stats.RulesAppliedCount, "successful", resp.IsSuccessful())
+			"applied", resp.PolicyResponse.Stats.RulesAppliedCount,
+			"successful", resp.IsSuccessful(),
+		)
 	}()
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	ivm := &engineapi.ImageVerificationMetadata{}
+	ivm := engineapi.ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy())
 	applyRules := policy.GetSpec().GetApplyRules()
 
@@ -49,7 +51,7 @@ func (e *engine) verifyAndPatchImages(
 			"pkg/engine",
 			fmt.Sprintf("RULE %s", rule.Name),
 			func(ctx context.Context, span trace.Span) {
-				e.doVerifyAndPatch(ctx, logger, policyContext, rule, resp, ivm)
+				e.doVerifyAndPatch(ctx, logger, policyContext, rule, &resp, &ivm)
 			},
 		)
 
@@ -57,7 +59,7 @@ func (e *engine) verifyAndPatchImages(
 			break
 		}
 	}
-
+	internal.BuildResponse(policyContext, &resp, startTime)
 	return resp, ivm
 }
 
@@ -74,15 +76,14 @@ func (e *engine) doVerifyAndPatch(
 	}
 	startTime := time.Now()
 	logger = internal.LoggerWithRule(logger, *rule)
-	kindsInPolicy := append(rule.MatchResources.GetKinds(), rule.ExcludeResources.GetKinds()...)
-	subresourceGVKToAPIResource := GetSubresourceGVKToAPIResourceMap(e.client, kindsInPolicy, policyContext)
 
-	if !matches(logger, rule, policyContext, subresourceGVKToAPIResource, e.configuration) {
+	if err := matches(*rule, policyContext, policyContext.NewResource()); err != nil {
+		logger.V(5).Info("resource does not match rule", "reason", err.Error())
 		return
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, rule, subresourceGVKToAPIResource, e.configuration)
+	ruleResp := e.hasPolicyExceptions(logger, engineapi.ImageVerify, policyContext, *rule)
 	if ruleResp != nil {
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		return
@@ -90,7 +91,12 @@ func (e *engine) doVerifyAndPatch(
 
 	logger.V(3).Info("processing image verification rule")
 
-	ruleImages, imageRefs, err := e.extractMatchingImages(policyContext, rule)
+	ruleImages, imageRefs, err := engineutils.ExtractMatchingImages(
+		policyContext.NewResource(),
+		policyContext.JSONContext(),
+		*rule,
+		e.configuration,
+	)
 	if err != nil {
 		internal.AddRuleResponse(
 			&resp.PolicyResponse,
@@ -141,53 +147,6 @@ func (e *engine) doVerifyAndPatch(
 			internal.AddRuleResponse(&resp.PolicyResponse, r, startTime)
 		}
 	}
-}
-
-func getMatchingImages(images map[string]map[string]apiutils.ImageInfo, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string) {
-	imageInfos := []apiutils.ImageInfo{}
-	imageRefs := []string{}
-	for _, infoMap := range images {
-		for _, imageInfo := range infoMap {
-			image := imageInfo.String()
-			for _, verifyImage := range rule.VerifyImages {
-				verifyImage = *verifyImage.Convert()
-				imageRefs = append(imageRefs, verifyImage.ImageReferences...)
-				if imageMatches(image, verifyImage.ImageReferences) {
-					imageInfos = append(imageInfos, imageInfo)
-				}
-			}
-		}
-	}
-	return imageInfos, strings.Join(imageRefs, ",")
-}
-
-func imageMatches(image string, imagePatterns []string) bool {
-	for _, imagePattern := range imagePatterns {
-		if wildcard.Match(imagePattern, image) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (e *engine) extractMatchingImages(policyContext engineapi.PolicyContext, rule *kyvernov1.Rule) ([]apiutils.ImageInfo, string, error) {
-	var (
-		images map[string]map[string]apiutils.ImageInfo
-		err    error
-	)
-	newResource := policyContext.NewResource()
-	images = policyContext.JSONContext().ImageInfo()
-	if rule.ImageExtractors != nil {
-		images, err = policyContext.JSONContext().GenerateCustomImageInfo(&newResource, rule.ImageExtractors, e.configuration)
-		if err != nil {
-			// if we get an error while generating custom images from image extractors,
-			// don't check for matching images in imageExtractors
-			return nil, "", err
-		}
-	}
-	matchingImages, imageRefs := getMatchingImages(images, rule)
-	return matchingImages, imageRefs, nil
 }
 
 func substituteVariables(rule *kyvernov1.Rule, ctx enginecontext.EvalInterface, logger logr.Logger) (*kyvernov1.Rule, error) {

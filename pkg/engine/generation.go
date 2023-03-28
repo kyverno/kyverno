@@ -17,7 +17,7 @@ func (e *engine) generateResponse(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
-) (resp *engineapi.EngineResponse) {
+) engineapi.EngineResponse {
 	return e.filterGenerateRules(policyContext, logger, gr.Spec.Policy, time.Now())
 }
 
@@ -26,11 +26,7 @@ func (e *engine) filterGenerateRules(
 	logger logr.Logger,
 	policyNameKey string,
 	startTime time.Time,
-) *engineapi.EngineResponse {
-	newResource := policyContext.NewResource()
-	kind := newResource.GetKind()
-	name := newResource.GetName()
-	namespace := newResource.GetNamespace()
+) engineapi.EngineResponse {
 	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
 	resp.PolicyResponse = engineapi.PolicyResponse{
 		Stats: engineapi.PolicyStats{
@@ -38,10 +34,6 @@ func (e *engine) filterGenerateRules(
 				Timestamp: startTime.Unix(),
 			},
 		},
-	}
-	if e.configuration.ToFilter(kind, namespace, name) {
-		logger.Info("resource excluded")
-		return resp
 	}
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		logger := internal.LoggerWithRule(logger, rule)

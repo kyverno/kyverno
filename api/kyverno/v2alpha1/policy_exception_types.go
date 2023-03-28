@@ -16,11 +16,10 @@ limitations under the License.
 package v2alpha1
 
 import (
-	"encoding/json"
 	"fmt"
-	"regexp"
 
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -42,9 +41,6 @@ type PolicyException struct {
 	Spec PolicyExceptionSpec `json:"spec"`
 }
 
-// regexVariables represents regex for '{{}}'
-var regexVariables = regexp.MustCompile(`\{\{[^{}]*\}\}`)
-
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
 	if err := ValidateVariables(p); err != nil {
@@ -55,19 +51,7 @@ func (p *PolicyException) Validate() (errs field.ErrorList) {
 }
 
 func ValidateVariables(polex *PolicyException) error {
-	return objectHasVariables(polex)
-}
-
-func objectHasVariables(object interface{}) error {
-	var err error
-	objectJSON, err := json.Marshal(object)
-	if err != nil {
-		return err
-	}
-	if len(regexVariables.FindAllStringSubmatch(string(objectJSON), -1)) > 0 {
-		return fmt.Errorf("variables are not allowed")
-	}
-	return nil
+	return regex.ObjectHasVariables(polex)
 }
 
 // Contains returns true if it contains an exception for the given policy/rule pair
