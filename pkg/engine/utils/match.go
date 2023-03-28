@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -294,41 +293,4 @@ func matchesResourceDescriptionExcludeHelper(
 	}
 	// len(errs) != 0 if the filter excluded the resource
 	return errs
-}
-
-// excludeResource checks if the resource has ownerRef set
-func excludeResource(podControllers string, resource unstructured.Unstructured) bool {
-	kind := resource.GetKind()
-	hasOwner := false
-	if kind == "Pod" || kind == "Job" {
-		for _, owner := range resource.GetOwnerReferences() {
-			hasOwner = true
-			if owner.Kind != "ReplicaSet" && !strings.Contains(podControllers, owner.Kind) {
-				return false
-			}
-		}
-		return hasOwner
-	}
-
-	return false
-}
-
-// ManagedPodResource returns true:
-// - if the policy has auto-gen annotation && resource == Pod
-// - if the auto-gen contains cronJob && resource == Job
-func ManagedPodResource(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) bool {
-	podControllers, ok := policy.GetAnnotations()[kyvernov1.PodControllersAnnotation]
-	if !ok || strings.ToLower(podControllers) == "none" {
-		return false
-	}
-
-	if excludeResource(podControllers, resource) {
-		return true
-	}
-
-	if strings.Contains(podControllers, "CronJob") && excludeResource(podControllers, resource) {
-		return true
-	}
-
-	return false
 }
