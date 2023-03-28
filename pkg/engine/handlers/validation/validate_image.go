@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -18,16 +17,13 @@ import (
 
 type validateImageHandler struct {
 	configuration config.Configuration
-	contextLoader func(kyvernov1.PolicyInterface, kyvernov1.Rule) engineapi.EngineContextLoader
 }
 
 func NewValidateImageHandler(
 	configuration config.Configuration,
-	contextLoader func(kyvernov1.PolicyInterface, kyvernov1.Rule) engineapi.EngineContextLoader,
 ) handlers.Handler {
 	return validateImageHandler{
 		configuration: configuration,
-		contextLoader: contextLoader,
 	}
 }
 
@@ -41,8 +37,6 @@ func (h validateImageHandler) Process(
 	if engineutils.IsDeleteRequest(policyContext) {
 		return resource, nil
 	}
-	policy := policyContext.Policy()
-	contextLoader := h.contextLoader(policy, rule)
 	matchingImages, _, err := engineutils.ExtractMatchingImages(
 		policyContext.NewResource(),
 		policyContext.JSONContext(),
@@ -54,15 +48,6 @@ func (h validateImageHandler) Process(
 	}
 	if len(matchingImages) == 0 {
 		return resource, handlers.RuleResponses(internal.RuleSkip(&rule, engineapi.Validation, "image verified"))
-	}
-	if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
-		if _, ok := err.(gojmespath.NotFoundError); ok {
-			logger.V(3).Info("failed to load context", "reason", err.Error())
-		} else {
-			logger.Error(err, "failed to load context")
-		}
-
-		return resource, handlers.RuleResponses(internal.RuleError(&rule, engineapi.Validation, "failed to load context", err))
 	}
 	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext, rule.RawAnyAllConditions)
 	if err != nil {

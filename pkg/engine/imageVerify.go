@@ -77,12 +77,13 @@ func (e *engine) doVerifyAndPatch(
 	startTime := time.Now()
 	logger = internal.LoggerWithRule(logger, *rule)
 
-	if !matches(logger, rule, policyContext, e.configuration) {
+	if err := matches(*rule, policyContext, policyContext.NewResource()); err != nil {
+		logger.V(5).Info("resource does not match rule", "reason", err.Error())
 		return
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := hasPolicyExceptions(logger, engineapi.ImageVerify, e.exceptionSelector, policyContext, *rule, e.configuration)
+	ruleResp := e.hasPolicyExceptions(logger, engineapi.ImageVerify, policyContext, *rule)
 	if ruleResp != nil {
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		return
