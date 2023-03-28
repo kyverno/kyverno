@@ -906,7 +906,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.ComputeRules(&policy) {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "")
+			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1811,7 +1811,7 @@ func TestMatchesResourceDescription_GenerateName(t *testing.T) {
 		resource, _ := kubeutils.BytesToUnstructured(tc.Resource)
 
 		for _, rule := range autogen.ComputeRules(&policy) {
-			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "")
+			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, nil, "", resource.GroupVersionKind(), "", "CREATE")
 			if err != nil {
 				if !tc.areErrorsExpected {
 					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
@@ -1878,7 +1878,7 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1981,7 +1981,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}
 
 	// First test: confirm that this above rule produces errors (and raise an error if err == nil)
-	if err := MatchesResourceDescription(*resource, rule, requestInfo, nil, "", resource.GroupVersionKind(), ""); err == nil {
+	if err := MatchesResourceDescription(*resource, rule, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
 		t.Error("Testcase was expected to fail, but err was nil")
 	}
 
@@ -2001,7 +2001,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}
 
 	// Second test: confirm that matching this rule does not create any errors (and raise if err != nil)
-	if err := MatchesResourceDescription(*resource, rule2, requestInfo, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule2, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase was expected to not fail, but err was %s", err)
 	}
 
@@ -2015,7 +2015,7 @@ func TestResourceDescriptionMatch_ExcludeDefaultGroups(t *testing.T) {
 	}}
 
 	// Third test: confirm that now the custom exclude-snippet should run in CheckSubjects() and that should result in this rule failing (raise if err == nil for that reason)
-	if err := MatchesResourceDescription(*resource, rule2, requestInfo, nil, "", resource.GroupVersionKind(), ""); err == nil {
+	if err := MatchesResourceDescription(*resource, rule2, requestInfo, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
 		t.Error("Testcase was expected to fail, but err was nil #1!")
 	}
 }
@@ -2074,7 +2074,7 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2132,7 +2132,7 @@ func TestResourceDescriptionMatch_GenerateName(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2191,7 +2191,7 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2249,7 +2249,7 @@ func TestResourceDescriptionMatch_GenerateName_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2316,7 +2316,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2384,7 +2384,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -2465,7 +2465,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude},
 	}
 
-	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), ""); err == nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, nil, "", resource.GroupVersionKind(), "", "CREATE"); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
 	}
 }
