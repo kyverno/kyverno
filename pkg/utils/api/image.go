@@ -113,7 +113,7 @@ func extract(obj interface{}, path []string, keyPath, valuePath string, fields [
 		}
 
 		if imageInfo, err := imageutils.GetImageInfo(value, cfg); err != nil {
-			return fmt.Errorf("invalid image %s", value)
+			return fmt.Errorf("invalid image %s (%s)", value, err)
 		} else {
 			(*imageInfos)[key] = ImageInfo{*imageInfo, pointer}
 		}
