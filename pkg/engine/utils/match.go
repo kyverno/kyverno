@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -158,7 +157,6 @@ func MatchesResourceDescription(
 	resourceRef unstructured.Unstructured,
 	ruleRef kyvernov1.Rule,
 	admissionInfoRef kyvernov1beta1.RequestInfo,
-	dynamicConfig []string,
 	namespaceLabels map[string]string,
 	policyNamespace string,
 	gvk schema.GroupVersionKind,
@@ -204,7 +202,7 @@ func MatchesResourceDescription(
 	if len(rule.ExcludeResources.Any) > 0 {
 		// exclude the object if ANY of the criteria match
 		for _, rer := range rule.ExcludeResources.Any {
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels, gvk, subresource)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource)...)
 		}
 	} else if len(rule.ExcludeResources.All) > 0 {
 		// exclude the object if ALL the criteria match
@@ -212,7 +210,7 @@ func MatchesResourceDescription(
 		for _, rer := range rule.ExcludeResources.All {
 			// we got no errors inplying a resource did NOT exclude it
 			// "matchesResourceDescriptionExcludeHelper" returns errors if resource is excluded by a filter
-			if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels, gvk, subresource)) == 0 {
+			if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource)) == 0 {
 				excludedByAll = false
 				break
 			}
@@ -222,7 +220,7 @@ func MatchesResourceDescription(
 		}
 	} else {
 		rer := kyvernov1.ResourceFilter{UserInfo: rule.ExcludeResources.UserInfo, ResourceDescription: rule.ExcludeResources.ResourceDescription}
-		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels, gvk, subresource)...)
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, namespaceLabels, gvk, subresource)...)
 	}
 
 	// creating final error
@@ -269,7 +267,6 @@ func matchesResourceDescriptionExcludeHelper(
 	rer kyvernov1.ResourceFilter,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	resource unstructured.Unstructured,
-	dynamicConfig []string,
 	namespaceLabels map[string]string,
 	gvk schema.GroupVersionKind,
 	subresource string,
@@ -287,41 +284,4 @@ func matchesResourceDescriptionExcludeHelper(
 	}
 	// len(errs) != 0 if the filter excluded the resource
 	return errs
-}
-
-// excludeResource checks if the resource has ownerRef set
-func excludeResource(podControllers string, resource unstructured.Unstructured) bool {
-	kind := resource.GetKind()
-	hasOwner := false
-	if kind == "Pod" || kind == "Job" {
-		for _, owner := range resource.GetOwnerReferences() {
-			hasOwner = true
-			if owner.Kind != "ReplicaSet" && !strings.Contains(podControllers, owner.Kind) {
-				return false
-			}
-		}
-		return hasOwner
-	}
-
-	return false
-}
-
-// ManagedPodResource returns true:
-// - if the policy has auto-gen annotation && resource == Pod
-// - if the auto-gen contains cronJob && resource == Job
-func ManagedPodResource(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) bool {
-	podControllers, ok := policy.GetAnnotations()[kyvernov1.PodControllersAnnotation]
-	if !ok || strings.ToLower(podControllers) == "none" {
-		return false
-	}
-
-	if excludeResource(podControllers, resource) {
-		return true
-	}
-
-	if strings.Contains(podControllers, "CronJob") && excludeResource(podControllers, resource) {
-		return true
-	}
-
-	return false
 }
