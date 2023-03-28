@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/distribution/distribution/reference"
+	"github.com/containerd/containerd/reference"
+	"github.com/containerd/containerd/reference/docker"
 	"github.com/kyverno/kyverno/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -59,23 +60,25 @@ func GetImageInfo(image string, cfg config.Configuration) (*ImageInfo, error) {
 	)
 	// adding the default domain in order to properly parse image info
 	fullImageName := addDefaultRegistry(image, cfg)
-	ref, err := reference.Parse(fullImageName)
+	spec, err := reference.Parse(fullImageName)
 	if err != nil {
 		return nil, fmt.Errorf("bad image: %s: %w", fullImageName, err)
 	}
+	var tag, digest string
+	if spec.Object != "" {
+		t, d := reference.SplitObject(spec.Object)
+		tag, digest = strings.ReplaceAll(t, "@", ""), d.String()
+	}
+	ref, err := docker.Parse(spec.Locator)
+	if err != nil {
+		return nil, fmt.Errorf("bad image: %s: %w", fullImageName, err)
+	}
+	var registry, path, name string
 
-	var registry, path, name, tag, digest string
-	if named, ok := ref.(reference.Named); ok {
-		registry = reference.Domain(named)
-		path = reference.Path(named)
+	if named, ok := ref.(docker.Named); ok {
+		registry = docker.Domain(named)
+		path = docker.Path(named)
 		name = path[strings.LastIndex(path, "/")+1:]
-	}
-
-	if tagged, ok := ref.(reference.Tagged); ok {
-		tag = tagged.Tag()
-	}
-	if digested, ok := ref.(reference.Digested); ok {
-		digest = digested.Digest().String()
 	}
 	// set default tag - the domain is set via addDefaultRegistry before parsing
 	if digest == "" && tag == "" {

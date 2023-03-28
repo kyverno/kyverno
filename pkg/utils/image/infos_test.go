@@ -116,6 +116,17 @@ func Test_GetImageInfo(t *testing.T) {
 		"test/nginx:latest",
 		"gcr.io",
 		false)
+
+	validateImageInfo(t,
+		"kindest/node:v1.26.2@sha256:c39462fc9f460e13627cbd835b7d1268e4fd1a82d23833864e33ac1aaa79ee7a",
+		"node",
+		"kindest/node",
+		"docker.io",
+		"v1.26.2",
+		"sha256:c39462fc9f460e13627cbd835b7d1268e4fd1a82d23833864e33ac1aaa79ee7a",
+		"docker.io/kindest/node@sha256:c39462fc9f460e13627cbd835b7d1268e4fd1a82d23833864e33ac1aaa79ee7a",
+		"docker.io",
+		true)
 }
 
 func Test_ReferenceWithTag(t *testing.T) {
@@ -165,6 +176,7 @@ func Test_ParseError(t *testing.T) {
 }
 
 func validateImageInfo(t *testing.T, raw, name, path, registry, tag, digest, str string, defautRegistry string, enableDefaultRegistryMutation bool) {
+	t.Helper()
 	cfg, err := initializeMockConfig(defautRegistry, enableDefaultRegistryMutation)
 	assert.NoError(t, err)
 	i1, err := GetImageInfo(raw, cfg)
