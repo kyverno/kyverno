@@ -73,12 +73,10 @@ func extract(obj interface{}, path []string, keyPath, valuePath string, fields [
 		}
 		return nil
 	}
-
 	output, ok := obj.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("invalid image config")
 	}
-
 	if len(fields) == 0 {
 		pointer := fmt.Sprintf("/%s/%s", strings.Join(path, "/"), valuePath)
 		key := pointer
@@ -90,28 +88,24 @@ func extract(obj interface{}, path []string, keyPath, valuePath string, fields [
 		}
 		value, ok := output[valuePath].(string)
 		if !ok {
-			return fmt.Errorf("invalid value")
+			// the image may not be present
+			return nil
 		}
-
 		if jmesPath != "" {
 			jp, err := jmespath.New(jmesPath)
 			if err != nil {
 				return fmt.Errorf("invalid jmespath %s: %v", jmesPath, err)
 			}
-
 			result, err := jp.Search(value)
 			if err != nil {
 				return fmt.Errorf("failed to apply jmespath %s: %v", jmesPath, err)
 			}
-
 			resultStr, ok := result.(string)
 			if !ok {
 				return fmt.Errorf("jmespath %s must produce a string, but produced %v", jmesPath, result)
 			}
-
 			value = resultStr
 		}
-
 		if imageInfo, err := imageutils.GetImageInfo(value, cfg); err != nil {
 			return fmt.Errorf("invalid image %s", value)
 		} else {
@@ -119,7 +113,6 @@ func extract(obj interface{}, path []string, keyPath, valuePath string, fields [
 		}
 		return nil
 	}
-
 	currentPath := fields[0]
 	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg)
 }
