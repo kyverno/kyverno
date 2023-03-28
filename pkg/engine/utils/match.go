@@ -169,7 +169,6 @@ func MatchesResourceDescription(
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
-	empty := []string{}
 
 	var reasonsForFailure []error
 	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {
@@ -182,7 +181,7 @@ func MatchesResourceDescription(
 		oneMatched := false
 		for _, rmr := range rule.MatchResources.Any {
 			// if there are no errors it means it was a match
-			if len(matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, empty, namespaceLabels, gvk, subresource)) == 0 {
+			if len(matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource)) == 0 {
 				oneMatched = true
 				break
 			}
@@ -193,11 +192,11 @@ func MatchesResourceDescription(
 	} else if len(rule.MatchResources.All) > 0 {
 		// include object if ALL of the criteria match
 		for _, rmr := range rule.MatchResources.All {
-			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, empty, namespaceLabels, gvk, subresource)...)
+			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource)...)
 		}
 	} else {
 		rmr := kyvernov1.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
-		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, empty, namespaceLabels, gvk, subresource)...)
+		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, namespaceLabels, gvk, subresource)...)
 	}
 
 	if len(rule.ExcludeResources.Any) > 0 {
@@ -243,7 +242,6 @@ func matchesResourceDescriptionMatchHelper(
 	rmr kyvernov1.ResourceFilter,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	resource unstructured.Unstructured,
-	dynamicConfig []string,
 	namespaceLabels map[string]string,
 	gvk schema.GroupVersionKind,
 	subresource string,
