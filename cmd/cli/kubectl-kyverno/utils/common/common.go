@@ -483,7 +483,7 @@ OuterLoop:
 		store.ContextLoaderFactory(nil),
 		nil,
 	)
-	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
+	policyContext := engine.NewPolicyContextWithJsonContext(kyvernov1.Create, ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).

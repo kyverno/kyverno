@@ -1064,7 +1064,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
-			ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
+			ctx := engine.NewPolicyContext(kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
 			er := eng.Validate(
 				context.TODO(),
 				ctx,
@@ -1126,7 +1126,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, resourceUnstructured != nil)
 
-	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	ctx := engine.NewPolicyContext(kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
 	eng := engine.NewEngine(
 		config.NewDefaultConfiguration(),

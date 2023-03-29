@@ -75,7 +75,7 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
-	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
+	policyContext := engine.NewPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(ur.Spec.Context.AdmissionRequestInfo.Operation), ctx).
 		WithPolicy(policy).
 		WithNewResource(*trigger).
 		WithOldResource(old).

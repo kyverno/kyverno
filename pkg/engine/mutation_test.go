@@ -114,7 +114,7 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 		t.Error(err)
 	}
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
 
@@ -187,7 +187,7 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
 
@@ -264,7 +264,7 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
 
@@ -384,7 +384,7 @@ func Test_chained_rules(t *testing.T) {
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resource)
 
@@ -472,7 +472,7 @@ func Test_precondition(t *testing.T) {
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
 
@@ -566,7 +566,7 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
 
@@ -652,7 +652,7 @@ func Test_foreach(t *testing.T) {
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resource)
 
@@ -754,7 +754,7 @@ func Test_foreach_element_mutation(t *testing.T) {
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resource)
 
@@ -875,7 +875,7 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resource)
 
@@ -1020,7 +1020,7 @@ func testApplyPolicyToResource(t *testing.T, policyRaw, resourceRaw []byte) engi
 	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resource)
 
@@ -1571,7 +1571,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 			_, err = dclient.GetResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
 			assert.NilError(t, err)
 
-			policyContext = NewPolicyContextWithJsonContext(ctx).
+			policyContext = NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 				WithPolicy(&policy).
 				WithNewResource(*trigger)
 
@@ -1678,7 +1678,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
 	_, err = ctx.Query("request.object.metadata.name")
 	assert.NilError(t, err)
 
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).
 		WithNewResource(*resourceUnstructured)
 
@@ -2057,7 +2057,7 @@ func Test_SpecialCharacters(t *testing.T) {
 			}
 
 			// Create policy context.
-			policyContext := NewPolicyContextWithJsonContext(ctx).
+			policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 				WithPolicy(&policy).
 				WithNewResource(*resource)
 
