@@ -4,7 +4,7 @@ metadata:
   ownerReferences:
   - apiVersion: v1
     kind: Pod
-    name: test-secret-pod
+    name: signed
 spec:
   summary:
     error: 0
