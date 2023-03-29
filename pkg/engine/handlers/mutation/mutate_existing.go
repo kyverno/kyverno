@@ -42,7 +42,7 @@ func (h mutateExistingHandler) Process(
 	var patchedResources []resourceInfo
 	targets, err := loadTargets(h.client, rule.Mutation.Targets, policyContext, logger)
 	if err != nil {
-		rr := internal.RuleError(&rule, engineapi.Mutation, "", err)
+		rr := internal.RuleError(rule, engineapi.Mutation, "", err)
 		responses = append(responses, *rr)
 	} else {
 		patchedResources = append(patchedResources, targets...)
