@@ -46,13 +46,13 @@ func ForceMutate(
 		}
 
 		if r.Mutation.ForEachMutation != nil {
-			patchedResource, err = applyForEachMutate(r.Name, r.Mutation.ForEachMutation, patchedResource, ctx, logger)
+			patchedResource, err = applyForEachMutate(r.Name, r.Mutation.ForEachMutation, patchedResource, logger)
 			if err != nil {
 				return patchedResource, err
 			}
 		} else {
 			m := r.Mutation
-			patchedResource, err = applyPatches(r.Name, m.GetPatchStrategicMerge(), m.PatchesJSON6902, patchedResource, ctx, logger)
+			patchedResource, err = applyPatches(r.Name, m.GetPatchStrategicMerge(), m.PatchesJSON6902, patchedResource, logger)
 			if err != nil {
 				return patchedResource, err
 			}
@@ -62,7 +62,7 @@ func ForceMutate(
 	return patchedResource, nil
 }
 
-func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resource unstructured.Unstructured, ctx context.Interface, logger logr.Logger) (patchedResource unstructured.Unstructured, err error) {
+func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resource unstructured.Unstructured, logger logr.Logger) (patchedResource unstructured.Unstructured, err error) {
 	patchedResource = resource
 	for _, fe := range foreach {
 		if fe.ForEachMutation != nil {
@@ -71,10 +71,10 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 				return patchedResource, fmt.Errorf("failed to deserialize foreach: %w", err)
 			}
 
-			return applyForEachMutate(name, nestedForEach, patchedResource, ctx, logger)
+			return applyForEachMutate(name, nestedForEach, patchedResource, logger)
 		}
 
-		patchedResource, err = applyPatches(name, fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, patchedResource, ctx, logger)
+		patchedResource, err = applyPatches(name, fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, patchedResource, logger)
 		if err != nil {
 			return resource, err
 		}
@@ -83,8 +83,8 @@ func applyForEachMutate(name string, foreach []kyvernov1.ForEachMutation, resour
 	return patchedResource, nil
 }
 
-func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, resource unstructured.Unstructured, ctx context.Interface, logger logr.Logger) (unstructured.Unstructured, error) {
-	patcher := mutate.NewPatcher(name, mergePatch, jsonPatch, resource, ctx, logger)
+func applyPatches(name string, mergePatch apiextensions.JSON, jsonPatch string, resource unstructured.Unstructured, logger logr.Logger) (unstructured.Unstructured, error) {
+	patcher := mutate.NewPatcher(name, mergePatch, jsonPatch, resource, logger)
 	resp, mutatedResource := patcher.Patch()
 	if resp.Status != engineapi.RuleStatusPass {
 		return mutatedResource, fmt.Errorf("mutate status %q: %s", resp.Status, resp.Message)

@@ -210,10 +210,10 @@ func (e *engine) invokeRuleHandler(
 			// check preconditions
 			preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext, rule.GetAnyAllConditions())
 			if err != nil {
-				return resource, handlers.RuleResponses(internal.RuleError(&rule, ruleType, "failed to evaluate preconditions", err))
+				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to evaluate preconditions", err))
 			}
 			if !preconditionsPassed {
-				return resource, handlers.RuleResponses(internal.RuleSkip(&rule, ruleType, "preconditions not met"))
+				return resource, handlers.RuleResponses(internal.RuleSkip(rule, ruleType, "preconditions not met"))
 			}
 			// process handler
 			return handler.Process(ctx, logger, policyContext, resource, rule)

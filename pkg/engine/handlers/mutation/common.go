@@ -144,7 +144,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 
 			mutateResp = m.mutateForEach(ctx)
 		} else {
-			mutateResp = mutate.ForEach(f.rule.Name, foreach, policyContext.JSONContext(), patchedResource.unstructured, f.log)
+			mutateResp = mutate.ForEach(f.rule.Name, foreach, policyContext, patchedResource.unstructured, element, f.log)
 		}
 
 		if mutateResp.Status == engineapi.RuleStatusFail || mutateResp.Status == engineapi.RuleStatusError {
