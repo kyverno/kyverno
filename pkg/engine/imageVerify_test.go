@@ -219,7 +219,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	err = enginecontext.AddResource(ctx, []byte(resource))
 	assert.NilError(t, err)
 
-	policyContext := policycontext.NewPolicyContextWithJsonContext(ctx).
+	policyContext := policycontext.NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&cpol).
 		WithNewResource(*resourceUnstructured)
 
