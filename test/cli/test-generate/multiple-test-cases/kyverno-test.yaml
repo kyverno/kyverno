@@ -1,0 +1,21 @@
+name: pdb-test
+policies:
+  - policy.yaml
+resources:
+  - resourceFoo.yaml
+  - resourceBar.yaml
+results:
+  - policy: multiple-test-cases
+    rule: create-default-pdb
+    resource: foo-deployment
+    generatedResource: generatedResourceFoo.yaml
+    kind: Deployment
+    result: pass
+    namespace: hello-world
+  - policy: multiple-test-cases
+    rule: create-default-pdb
+    resource: bar-deployment
+    generatedResource: generatedResourceBar.yaml
+    kind: Deployment
+    result: pass
+    namespace: hello-world
