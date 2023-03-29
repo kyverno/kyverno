@@ -20,7 +20,7 @@ endif
 IMAGE_TAG_DEV         = $(GIT_VERSION_DEV)
 IMAGE_TAG            ?= $(GIT_VERSION)
 K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
-KIND_IMAGE           ?= kindest/node:v1.25.3
+KIND_IMAGE           ?= kindest/node:v1.26.2
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
