@@ -1001,6 +1001,13 @@ reportsController:
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
 
+  # -- A writable volume to use for the TUF root initialization.
+  tufRootMountPath: /.sigstore
+
+  # -- Volume to be mounted in pods for TUF/cosign work.
+  sigstoreVolume:
+    emptyDir: {}
+
   metricsService:
     # -- Create service.
     create: true
