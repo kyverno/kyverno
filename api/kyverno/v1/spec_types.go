@@ -133,7 +133,6 @@ func (s *Spec) HasMutate() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -144,7 +143,6 @@ func (s *Spec) HasValidate() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -155,7 +153,6 @@ func (s *Spec) HasGenerate() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -166,7 +163,6 @@ func (s *Spec) HasImagesValidationChecks() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -177,7 +173,6 @@ func (s *Spec) HasVerifyImages() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -188,7 +183,6 @@ func (s *Spec) HasYAMLSignatureVerify() bool {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -197,7 +191,6 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	if s.Background == nil {
 		return true
 	}
-
 	return *s.Background
 }
 

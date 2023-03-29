@@ -30,11 +30,12 @@ type engine struct {
 	rclient                    registryclient.Client
 	engineContextLoaderFactory engineapi.EngineContextLoaderFactory
 	exceptionSelector          engineapi.PolicyExceptionSelector
-	validateManifestHandler    handlers.Handler
-	mutateResourceHandler      handlers.Handler
-	mutateExistingHandler      handlers.Handler
 	validateResourceHandler    handlers.Handler
 	validateImageHandler       handlers.Handler
+	validateManifestHandler    handlers.Handler
+	validatePssHandler         handlers.Handler
+	mutateResourceHandler      handlers.Handler
+	mutateExistingHandler      handlers.Handler
 }
 
 func NewEngine(
@@ -62,9 +63,10 @@ func NewEngine(
 		rclient:                    rclient,
 		engineContextLoaderFactory: engineContextLoaderFactory,
 		exceptionSelector:          exceptionSelector,
-		validateManifestHandler:    validation.NewValidateManifestHandler(client),
-		validateImageHandler:       validation.NewValidateImageHandler(configuration),
 		validateResourceHandler:    validation.NewValidateResourceHandler(engineContextLoaderFactory),
+		validateImageHandler:       validation.NewValidateImageHandler(configuration),
+		validateManifestHandler:    validation.NewValidateManifestHandler(client),
+		validatePssHandler:         validation.NewValidatePssHandler(),
 		mutateResourceHandler:      mutation.NewMutateResourceHandler(engineContextLoaderFactory),
 		mutateExistingHandler:      mutation.NewMutateExistingHandler(client, engineContextLoaderFactory),
 	}

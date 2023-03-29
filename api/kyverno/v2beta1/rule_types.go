@@ -93,17 +93,6 @@ func (r *Rule) HasImagesValidationChecks() bool {
 	return false
 }
 
-// HasYAMLSignatureVerify checks for validate rule
-func (p *ClusterPolicy) HasYAMLSignatureVerify() bool {
-	for _, rule := range p.Spec.Rules {
-		if rule.HasYAMLSignatureVerify() {
-			return true
-		}
-	}
-
-	return false
-}
-
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
 	return !datautils.DeepEqual(r.Validation, Validation{})
