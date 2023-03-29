@@ -47,14 +47,14 @@ func (h validateResourceHandler) Process(
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	policy := policyContext.Policy()
 	contextLoader := h.contextLoader(policy, rule)
-	v := newValidator(logger, contextLoader, policyContext, &rule)
+	v := newValidator(logger, contextLoader, policyContext, rule)
 	return resource, handlers.RuleResponses(v.validate(ctx))
 }
 
 type validator struct {
 	log              logr.Logger
 	policyContext    engineapi.PolicyContext
-	rule             *kyvernov1.Rule
+	rule             kyvernov1.Rule
 	contextEntries   []kyvernov1.ContextEntry
 	anyAllConditions apiextensions.JSON
 	pattern          apiextensions.JSON
@@ -66,20 +66,19 @@ type validator struct {
 	nesting          int
 }
 
-func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
-	ruleCopy := rule.DeepCopy()
+func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
 	return &validator{
 		log:              log,
-		rule:             ruleCopy,
+		rule:             rule,
 		policyContext:    ctx,
 		contextLoader:    contextLoader,
-		contextEntries:   ruleCopy.Context,
-		anyAllConditions: ruleCopy.GetAnyAllConditions(),
-		pattern:          ruleCopy.Validation.GetPattern(),
-		anyPattern:       ruleCopy.Validation.GetAnyPattern(),
-		deny:             ruleCopy.Validation.Deny,
-		podSecurity:      ruleCopy.Validation.PodSecurity,
-		forEach:          ruleCopy.Validation.ForEachValidation,
+		contextEntries:   rule.Context,
+		anyAllConditions: rule.GetAnyAllConditions(),
+		pattern:          rule.Validation.GetPattern(),
+		anyPattern:       rule.Validation.GetAnyPattern(),
+		deny:             rule.Validation.Deny,
+		podSecurity:      rule.Validation.PodSecurity,
+		forEach:          rule.Validation.ForEachValidation,
 	}
 }
 
@@ -87,11 +86,10 @@ func newForEachValidator(
 	foreach kyvernov1.ForEachValidation,
 	contextLoader engineapi.EngineContextLoader,
 	nesting int,
-	rule *kyvernov1.Rule,
+	rule kyvernov1.Rule,
 	ctx engineapi.PolicyContext,
 	log logr.Logger,
 ) (*validator, error) {
-	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := datautils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
@@ -105,7 +103,7 @@ func newForEachValidator(
 	return &validator{
 		log:              log,
 		policyContext:    ctx,
-		rule:             ruleCopy,
+		rule:             rule,
 		contextLoader:    contextLoader,
 		contextEntries:   foreach.Context,
 		anyAllConditions: anyAllConditions,
@@ -219,10 +217,10 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 					continue
 				}
 				msg := fmt.Sprintf("validation failure: %v", r.Message)
-				return internal.RuleResponse(*v.rule, engineapi.Validation, msg, r.Status), applyCount
+				return internal.RuleResponse(v.rule, engineapi.Validation, msg, r.Status), applyCount
 			}
 			msg := fmt.Sprintf("validation failure: %v", r.Message)
-			return internal.RuleResponse(*v.rule, engineapi.Validation, msg, r.Status), applyCount
+			return internal.RuleResponse(v.rule, engineapi.Validation, msg, r.Status), applyCount
 		}
 
 		applyCount++
@@ -250,7 +248,7 @@ func (v *validator) validateDeny() *engineapi.RuleResponse {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to check deny preconditions", err)
 	} else {
 		if deny {
-			return internal.RuleResponse(*v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusFail)
+			return internal.RuleResponse(v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusFail)
 		}
 		return internal.RulePass(v.rule, engineapi.Validation, v.getDenyMessage(deny))
 	}
@@ -357,7 +355,7 @@ func (v *validator) validatePodSecurity() *engineapi.RuleResponse {
 		return rspn
 	} else {
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, v.podSecurity.Level, v.podSecurity.Version, pss.FormatChecksPrint(pssChecks))
-		rspn := internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusFail)
+		rspn := internal.RuleResponse(v.rule, engineapi.Validation, msg, engineapi.RuleStatusFail)
 		rspn.PodSecurityChecks = podSecurityChecks
 		return rspn
 	}
@@ -389,13 +387,13 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 				}
 
 				if pe.Path == "" {
-					return internal.RuleResponse(*v.rule, engineapi.Validation, v.buildErrorMessage(err, ""), engineapi.RuleStatusError)
+					return internal.RuleResponse(v.rule, engineapi.Validation, v.buildErrorMessage(err, ""), engineapi.RuleStatusError)
 				}
 
-				return internal.RuleResponse(*v.rule, engineapi.Validation, v.buildErrorMessage(err, pe.Path), engineapi.RuleStatusFail)
+				return internal.RuleResponse(v.rule, engineapi.Validation, v.buildErrorMessage(err, pe.Path), engineapi.RuleStatusFail)
 			}
 
-			return internal.RuleResponse(*v.rule, engineapi.Validation, v.buildErrorMessage(err, pe.Path), engineapi.RuleStatusError)
+			return internal.RuleResponse(v.rule, engineapi.Validation, v.buildErrorMessage(err, pe.Path), engineapi.RuleStatusError)
 		}
 
 		v.log.V(4).Info("successfully processed rule")
@@ -454,7 +452,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", v.rule.Name, errorStr))
 			msg := buildAnyPatternErrorMessage(v.rule, errorStr)
-			return internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusFail)
+			return internal.RuleResponse(v.rule, engineapi.Validation, msg, engineapi.RuleStatusFail)
 		}
 	}
 
@@ -504,7 +502,7 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	}
 }
 
-func buildAnyPatternErrorMessage(rule *kyvernov1.Rule, errors []string) string {
+func buildAnyPatternErrorMessage(rule kyvernov1.Rule, errors []string) string {
 	errStr := strings.Join(errors, " ")
 	if rule.Validation.Message == "" {
 		return fmt.Sprintf("validation error: %s", errStr)
