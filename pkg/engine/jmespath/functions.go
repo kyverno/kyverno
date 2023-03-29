@@ -2,6 +2,7 @@ package jmespath
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
@@ -9,14 +10,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"math/rand"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
@@ -1033,8 +1032,13 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 	if pattern == "" {
 		return "", errors.New("no pattern provided")
 	}
-	seed := time.Now().UnixNano()
-	rand.New(rand.NewSource(seed))
+
+	b := make([]byte, 8)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+
 	ans, err := regen.Generate(pattern)
 	if err != nil {
 		return nil, err

@@ -2,8 +2,8 @@ package main
 
 // We currently accept the risk of exposing pprof and rely on users to protect the endpoint.
 import (
-	"context"
 	"errors"
+	"context"
 	"flag"
 	"fmt"
 	"os"
