@@ -1,4 +1,4 @@
-package manifest
+package validation
 
 import (
 	"context"
@@ -34,17 +34,17 @@ const (
 	CosignEnvVariable          = "COSIGN_EXPERIMENTAL"
 )
 
-type handler struct {
+type validateManifestHandler struct {
 	client dclient.Interface
 }
 
-func NewHandler(client dclient.Interface) handlers.Handler {
-	return handler{
+func NewValidateManifestHandler(client dclient.Interface) handlers.Handler {
+	return validateManifestHandler{
 		client: client,
 	}
 }
 
-func (h handler) Process(
+func (h validateManifestHandler) Process(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
@@ -66,7 +66,7 @@ func (h handler) Process(
 	return resource, handlers.RuleResponses(internal.RulePass(&rule, engineapi.Validation, reason))
 }
 
-func (h handler) verifyManifest(
+func (h validateManifestHandler) verifyManifest(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
@@ -167,7 +167,7 @@ func (h handler) verifyManifest(
 	return true, msg, nil
 }
 
-func (h handler) checkDryRunPermission(ctx context.Context, kind, namespace string) (bool, error) {
+func (h validateManifestHandler) checkDryRunPermission(ctx context.Context, kind, namespace string) (bool, error) {
 	canI := auth.NewCanI(h.client.Discovery(), h.client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), kind, namespace, "create", "")
 	ok, err := canI.RunAccessCheck(ctx)
 	if err != nil {

@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
   name: policyexceptions.kyverno.io
 spec:
@@ -174,6 +174,21 @@ spec:
                                 Each name supports wildcard characters "*" (matches
                                 zero or many characters) and "?" (at least one character).
                               items:
+                                type: string
+                              type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
                                 type: string
                               type: array
                             selector:
@@ -377,6 +392,21 @@ spec:
                                 Each name supports wildcard characters "*" (matches
                                 zero or many characters) and "?" (at least one character).
                               items:
+                                type: string
+                              type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
                                 type: string
                               type: array
                             selector:

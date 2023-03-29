@@ -271,17 +271,37 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace 
 	return errs
 }
 
-func (s *Spec) ValidateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
+func (s *Spec) validateDeprecatedFields(path *field.Path) (errs field.ErrorList) {
 	if s.GenerateExistingOnPolicyUpdate != nil {
 		errs = append(errs, field.Forbidden(path.Child("generateExistingOnPolicyUpdate"), "deprecated field, define generateExisting instead"))
 	}
 	return errs
 }
 
+func (s *Spec) validateMutateTargets(path *field.Path) (errs field.ErrorList) {
+	if s.MutateExistingOnPolicyUpdate {
+		for i, rule := range s.Rules {
+			if !rule.HasMutate() {
+				continue
+			}
+			if len(rule.Mutation.Targets) == 0 {
+				errs = append(errs, field.Forbidden(path.Child("mutateExistingOnPolicyUpdate"), fmt.Sprintf("rules[%v].mutate.targets has to be specified when mutateExistingOnPolicyUpdate is set", i)))
+			}
+		}
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
-	if err := s.ValidateDeprecatedFields(path); err != nil {
+	if err := s.validateDeprecatedFields(path); err != nil {
 		errs = append(errs, err...)
+	}
+	if err := s.validateMutateTargets(path); err != nil {
+		errs = append(errs, err...)
+	}
+	if s.WebhookTimeoutSeconds != nil && (*s.WebhookTimeoutSeconds < 1 || *s.WebhookTimeoutSeconds > 30) {
+		errs = append(errs, field.Invalid(path.Child("webhookTimeoutSeconds"), s.WebhookTimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
 	}
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {

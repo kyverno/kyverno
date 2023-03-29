@@ -13,8 +13,8 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	"github.com/kyverno/kyverno/pkg/engine/handlers/manifest"
 	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
+	"github.com/kyverno/kyverno/pkg/engine/handlers/validation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -25,14 +25,16 @@ import (
 )
 
 type engine struct {
-	configuration         config.Configuration
-	client                dclient.Interface
-	rclient               registryclient.Client
-	contextLoader         engineapi.ContextLoaderFactory
-	exceptionSelector     engineapi.PolicyExceptionSelector
-	verifyManifestHandler handlers.Handler
-	mutateHandler         handlers.Handler
-	mutateExistingHandler handlers.Handler
+	configuration              config.Configuration
+	client                     dclient.Interface
+	rclient                    registryclient.Client
+	engineContextLoaderFactory engineapi.EngineContextLoaderFactory
+	exceptionSelector          engineapi.PolicyExceptionSelector
+	validateManifestHandler    handlers.Handler
+	mutateResourceHandler      handlers.Handler
+	mutateExistingHandler      handlers.Handler
+	validateResourceHandler    handlers.Handler
+	validateImageHandler       handlers.Handler
 }
 
 func NewEngine(
@@ -42,17 +44,30 @@ func NewEngine(
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 ) engineapi.Engine {
-	e := &engine{
-		configuration:         configuration,
-		client:                client,
-		rclient:               rclient,
-		contextLoader:         contextLoader,
-		exceptionSelector:     exceptionSelector,
-		verifyManifestHandler: manifest.NewHandler(client),
+	engineContextLoaderFactory := func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.EngineContextLoader {
+		loader := contextLoader(policy, rule)
+		return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+			return loader.Load(
+				ctx,
+				client,
+				rclient,
+				contextEntries,
+				jsonContext,
+			)
+		}
 	}
-	e.mutateHandler = mutation.NewHandler(configuration, e.ContextLoader)
-	e.mutateExistingHandler = mutation.NewMutateExistingHandler(configuration, client, e.ContextLoader)
-	return e
+	return &engine{
+		configuration:              configuration,
+		client:                     client,
+		rclient:                    rclient,
+		engineContextLoaderFactory: engineContextLoaderFactory,
+		exceptionSelector:          exceptionSelector,
+		validateManifestHandler:    validation.NewValidateManifestHandler(client),
+		validateImageHandler:       validation.NewValidateImageHandler(configuration),
+		validateResourceHandler:    validation.NewValidateResourceHandler(engineContextLoaderFactory),
+		mutateResourceHandler:      mutation.NewMutateResourceHandler(engineContextLoaderFactory),
+		mutateExistingHandler:      mutation.NewMutateExistingHandler(client, engineContextLoaderFactory),
+	}
 }
 
 func (e *engine) Validate(
@@ -115,16 +130,46 @@ func (e *engine) ContextLoader(
 	policy kyvernov1.PolicyInterface,
 	rule kyvernov1.Rule,
 ) engineapi.EngineContextLoader {
-	loader := e.contextLoader(policy, rule)
-	return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
-		return loader.Load(
-			ctx,
-			e.client,
-			e.rclient,
-			contextEntries,
-			jsonContext,
-		)
+	return e.engineContextLoaderFactory(policy, rule)
+}
+
+// matches checks if either the new or old resource satisfies the filter conditions defined in the rule
+func matches(
+	rule kyvernov1.Rule,
+	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
+) error {
+	gvk, subresource := policyContext.ResourceKind()
+	err := engineutils.MatchesResourceDescription(
+		resource,
+		rule,
+		policyContext.AdmissionInfo(),
+		policyContext.NamespaceLabels(),
+		policyContext.Policy().GetNamespace(),
+		gvk,
+		subresource,
+		policyContext.Operation(),
+	)
+	if err == nil {
+		return nil
 	}
+	oldResource := policyContext.OldResource()
+	if oldResource.Object != nil {
+		err := engineutils.MatchesResourceDescription(
+			policyContext.OldResource(),
+			rule,
+			policyContext.AdmissionInfo(),
+			policyContext.NamespaceLabels(),
+			policyContext.Policy().GetNamespace(),
+			gvk,
+			subresource,
+			policyContext.Operation(),
+		)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
 }
 
 func (e *engine) invokeRuleHandler(
@@ -134,7 +179,7 @@ func (e *engine) invokeRuleHandler(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-	polexFilter func(logr.Logger, engineapi.PolicyContext, kyvernov1.Rule) *engineapi.RuleResponse,
+	ruleType engineapi.RuleType,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	return tracing.ChildSpan2(
 		ctx,
@@ -142,26 +187,12 @@ func (e *engine) invokeRuleHandler(
 		fmt.Sprintf("RULE %s", rule.Name),
 		func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
 			// check if resource and rule match
-			var excludeResource []string
-			if len(e.configuration.GetExcludedGroups()) > 0 {
-				excludeResource = e.configuration.GetExcludedGroups()
-			}
-			gvk, subresource := policyContext.ResourceKind()
-			if err := engineutils.MatchesResourceDescription(
-				resource,
-				rule,
-				policyContext.AdmissionInfo(),
-				excludeResource,
-				policyContext.NamespaceLabels(),
-				policyContext.Policy().GetNamespace(),
-				gvk,
-				subresource,
-			); err != nil {
+			if err := matches(rule, policyContext, resource); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
 				return resource, nil
 			}
 			// check if there's an exception
-			if ruleResp := polexFilter(logger, policyContext, rule); ruleResp != nil {
+			if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
 				return resource, handlers.RuleResponses(ruleResp)
 			}
 			// load rule context
@@ -173,6 +204,14 @@ func (e *engine) invokeRuleHandler(
 				}
 				// TODO: return error ?
 				return resource, nil
+			}
+			// check preconditions
+			preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext, rule.GetAnyAllConditions())
+			if err != nil {
+				return resource, handlers.RuleResponses(internal.RuleError(&rule, ruleType, "failed to evaluate preconditions", err))
+			}
+			if !preconditionsPassed {
+				return resource, handlers.RuleResponses(internal.RuleSkip(&rule, ruleType, "preconditions not met"))
 			}
 			// process handler
 			return handler.Process(ctx, logger, policyContext, resource, rule)
