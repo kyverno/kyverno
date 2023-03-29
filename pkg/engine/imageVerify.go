@@ -40,12 +40,9 @@ func (e *engine) verifyAndPatchImages(
 	defer policyContext.JSONContext().Restore()
 
 	ivm := engineapi.ImageVerificationMetadata{}
-	rules := autogen.ComputeRules(policyContext.Policy())
 	applyRules := policy.GetSpec().GetApplyRules()
 
-	for i := range rules {
-		rule := &rules[i]
-
+	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		tracing.ChildSpan(
 			ctx,
 			"pkg/engine",
@@ -67,7 +64,7 @@ func (e *engine) doVerifyAndPatch(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+	rule kyvernov1.Rule,
 	resp *engineapi.EngineResponse,
 	ivm *engineapi.ImageVerificationMetadata,
 ) {
@@ -75,15 +72,15 @@ func (e *engine) doVerifyAndPatch(
 		return
 	}
 	startTime := time.Now()
-	logger = internal.LoggerWithRule(logger, *rule)
+	logger = internal.LoggerWithRule(logger, rule)
 
-	if err := matches(*rule, policyContext, policyContext.NewResource()); err != nil {
+	if err := matches(rule, policyContext, policyContext.NewResource()); err != nil {
 		logger.V(5).Info("resource does not match rule", "reason", err.Error())
 		return
 	}
 
 	// check if there is a corresponding policy exception
-	ruleResp := e.hasPolicyExceptions(logger, engineapi.ImageVerify, policyContext, *rule)
+	ruleResp := e.hasPolicyExceptions(logger, engineapi.ImageVerify, policyContext, rule)
 	if ruleResp != nil {
 		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
 		return
@@ -94,7 +91,7 @@ func (e *engine) doVerifyAndPatch(
 	ruleImages, imageRefs, err := engineutils.ExtractMatchingImages(
 		policyContext.NewResource(),
 		policyContext.JSONContext(),
-		*rule,
+		rule,
 		e.configuration,
 	)
 	if err != nil {
@@ -118,7 +115,7 @@ func (e *engine) doVerifyAndPatch(
 		return
 	}
 	policyContext.JSONContext().Restore()
-	if err := internal.LoadContext(ctx, e, policyContext, *rule); err != nil {
+	if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
 		internal.AddRuleResponse(
 			&resp.PolicyResponse,
 			internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
@@ -126,7 +123,7 @@ func (e *engine) doVerifyAndPatch(
 		)
 		return
 	}
-	ruleCopy, err := substituteVariables(rule, policyContext.JSONContext(), logger)
+	ruleCopy, err := substituteVariables(&rule, policyContext.JSONContext(), logger)
 	if err != nil {
 		internal.AddRuleResponse(
 			&resp.PolicyResponse,
@@ -139,7 +136,7 @@ func (e *engine) doVerifyAndPatch(
 		logger,
 		e.rclient,
 		policyContext,
-		ruleCopy,
+		*ruleCopy,
 		ivm,
 	)
 	for _, imageVerify := range ruleCopy.VerifyImages {
