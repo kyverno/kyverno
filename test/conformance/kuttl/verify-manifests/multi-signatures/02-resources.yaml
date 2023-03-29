@@ -7,3 +7,5 @@ apply:
   shouldFail: true
 - file: resource-two-signatures.yaml
   shouldFail: false
+- file: resource-bad-signatures.yaml
+  shouldFail: true
