@@ -236,6 +236,9 @@ func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets
 	if err := s.ValidateDeprecatedFields(path); err != nil {
 		errs = append(errs, err...)
 	}
+	if s.WebhookTimeoutSeconds != nil && (*s.WebhookTimeoutSeconds < 1 || *s.WebhookTimeoutSeconds > 30) {
+		errs = append(errs, field.Invalid(path.Child("webhookTimeoutSeconds"), s.WebhookTimeoutSeconds, "the timeout value must be between 1 and 30 seconds"))
+	}
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
 		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))
