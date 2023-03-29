@@ -453,9 +453,7 @@ OuterLoop:
 
 	cfg := config.NewDefaultConfiguration()
 	if err := ctx.AddImageInfos(c.Resource, cfg); err != nil {
-		if err != nil {
-			log.Log.Error(err, "failed to add image variables to context")
-		}
+		log.Log.Error(err, "failed to add image variables to context")
 	}
 
 	gvk, subresource := updatedResource.GroupVersionKind(), ""
@@ -485,7 +483,7 @@ OuterLoop:
 		store.ContextLoaderFactory(nil),
 		nil,
 	)
-	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
+	policyContext := engine.NewPolicyContextWithJsonContext(kyvernov1.Create, ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).

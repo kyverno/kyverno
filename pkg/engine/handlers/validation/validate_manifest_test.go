@@ -1,4 +1,4 @@
-package manifest
+package validation
 
 import (
 	"context"
@@ -618,7 +618,7 @@ FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
 `
 
 var (
-	h   = handler{}
+	h   = validateManifestHandler{}
 	cfg = config.NewDefaultConfiguration()
 )
 
@@ -789,7 +789,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) eng
 	err = enginecontext.AddResource(ctx, []byte(resource))
 	assert.NilError(t, err)
 
-	policyContext := policycontext.NewPolicyContextWithJsonContext(ctx).
+	policyContext := policycontext.NewPolicyContextWithJsonContext(kyvernov1.Create, ctx).
 		WithPolicy(&cpol).
 		WithNewResource(*resourceUnstructured)
 

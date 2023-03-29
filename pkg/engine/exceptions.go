@@ -71,25 +71,23 @@ func matchesException(
 
 // hasPolicyExceptions returns nil when there are no matching exceptions.
 // A rule response is returned when an exception is matched, or there is an error.
-func hasPolicyExceptions(
-	log logr.Logger,
+func (e *engine) hasPolicyExceptions(
+	logger logr.Logger,
 	ruleType engineapi.RuleType,
-	selector engineapi.PolicyExceptionSelector,
 	ctx engineapi.PolicyContext,
 	rule kyvernov1.Rule,
-	cfg config.Configuration,
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(selector, ctx, rule, cfg)
+	exception, err := matchesException(e.exceptionSelector, ctx, rule, e.configuration)
 	var response *engineapi.RuleResponse
 	// if we found an exception
 	if err == nil && exception != nil {
 		key, err := cache.MetaNamespaceKeyFunc(exception)
 		if err != nil {
-			log.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
+			logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
 			response = internal.RuleError(&rule, ruleType, "failed to compute exception key", err)
 		} else {
-			log.V(3).Info("policy rule skipped due to policy exception", "exception", key)
+			logger.V(3).Info("policy rule skipped due to policy exception", "exception", key)
 			response = internal.RuleSkip(&rule, ruleType, "rule skipped due to policy exception "+key)
 			response.Exception = exception
 		}

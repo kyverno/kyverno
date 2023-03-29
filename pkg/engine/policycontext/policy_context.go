@@ -33,6 +33,9 @@ type PolicyContext struct {
 	// admissionInfo contains the admission request information
 	admissionInfo kyvernov1beta1.RequestInfo
 
+	// operation contains the admission operatipn
+	operation kyvernov1.AdmissionOperation
+
 	// requestResource is GVR of the admission request
 	requestResource metav1.GroupVersionResource
 
@@ -59,13 +62,6 @@ func (c *PolicyContext) Policy() kyvernov1.PolicyInterface {
 }
 
 func (c *PolicyContext) NewResource() unstructured.Unstructured {
-	// object, err := c.jsonContext.Query("request.object")
-	// if err == nil {
-	// 	if o, ok := object.(map[string]interface{}); ok {
-	// 		return unstructured.Unstructured{Object: o}
-	// 	}
-	// }
-	// return unstructured.Unstructured{}
 	return c.newResource
 }
 
@@ -91,6 +87,10 @@ func (c *PolicyContext) ResourceKind() (schema.GroupVersionKind, string) {
 
 func (c *PolicyContext) AdmissionInfo() kyvernov1beta1.RequestInfo {
 	return c.admissionInfo
+}
+
+func (c *PolicyContext) Operation() kyvernov1.AdmissionOperation {
+	return c.operation
 }
 
 func (c *PolicyContext) NamespaceLabels() map[string]string {
@@ -178,14 +178,15 @@ func (c PolicyContext) copy() *PolicyContext {
 
 // Constructors
 
-func NewPolicyContextWithJsonContext(jsonContext enginectx.Interface) *PolicyContext {
+func NewPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jsonContext enginectx.Interface) *PolicyContext {
 	return &PolicyContext{
+		operation:   operation,
 		jsonContext: jsonContext,
 	}
 }
 
-func NewPolicyContext() *PolicyContext {
-	return NewPolicyContextWithJsonContext(enginectx.NewContext())
+func NewPolicyContext(operation kyvernov1.AdmissionOperation) *PolicyContext {
+	return NewPolicyContextWithJsonContext(operation, enginectx.NewContext())
 }
 
 func NewPolicyContextFromAdmissionRequest(
@@ -209,7 +210,7 @@ func NewPolicyContextFromAdmissionRequest(
 	if err != nil {
 		return nil, err
 	}
-	policyContext := NewPolicyContextWithJsonContext(ctx).
+	policyContext := NewPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), ctx).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
 		WithAdmissionInfo(admissionInfo).

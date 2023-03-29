@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
@@ -13,22 +12,19 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type handler struct {
-	configuration config.Configuration
-	contextLoader func(kyvernov1.PolicyInterface, kyvernov1.Rule) engineapi.EngineContextLoader
+type mutateResourceHandler struct {
+	contextLoader engineapi.EngineContextLoaderFactory
 }
 
-func NewHandler(
-	configuration config.Configuration,
-	contextLoader func(kyvernov1.PolicyInterface, kyvernov1.Rule) engineapi.EngineContextLoader,
+func NewMutateResourceHandler(
+	contextLoader engineapi.EngineContextLoaderFactory,
 ) handlers.Handler {
-	return handler{
-		configuration: configuration,
+	return mutateResourceHandler{
 		contextLoader: contextLoader,
 	}
 }
 
-func (h handler) Process(
+func (h mutateResourceHandler) Process(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,

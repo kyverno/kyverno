@@ -6,7 +6,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
@@ -14,25 +13,22 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type handlerExisting struct {
-	configuration config.Configuration
+type mutateExistingHandler struct {
 	client        dclient.Interface
-	contextLoader func(kyvernov1.PolicyInterface, kyvernov1.Rule) engineapi.EngineContextLoader
+	contextLoader engineapi.EngineContextLoaderFactory
 }
 
 func NewMutateExistingHandler(
-	configuration config.Configuration,
 	client dclient.Interface,
-	contextLoader func(kyvernov1.PolicyInterface, kyvernov1.Rule) engineapi.EngineContextLoader,
+	contextLoader engineapi.EngineContextLoaderFactory,
 ) handlers.Handler {
-	return handlerExisting{
-		configuration: configuration,
+	return mutateExistingHandler{
 		client:        client,
 		contextLoader: contextLoader,
 	}
 }
 
-func (h handlerExisting) Process(
+func (h mutateExistingHandler) Process(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
