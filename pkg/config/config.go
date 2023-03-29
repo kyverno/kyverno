@@ -96,7 +96,7 @@ var (
 	// kyvernoConfigMapName is the Kyverno configmap name
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
 	// defaultExcludedUsernames are the usernames excluded by default when matching an incoming admission request
-	defaultExcludedUsernames []string = []string{"system:kube-scheduler"}
+	defaultExcludedUsernames []string
 	// defaultExcludedGroups are the groups excluded by default when matching an incoming admission request
 	defaultExcludedGroups []string = []string{"system:serviceaccounts:kube-system", "system:nodes"}
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
