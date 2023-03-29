@@ -108,7 +108,6 @@ func getSpec(resource unstructured.Unstructured) (podSpec *corev1.PodSpec, metad
 		metadata = &pod.ObjectMeta
 		return podSpec, metadata, nil
 	}
-
 	if err != nil {
 		return nil, nil, err
 	}
