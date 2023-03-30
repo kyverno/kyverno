@@ -68,7 +68,7 @@ func (r ResourceDescription) IsEmpty() bool {
 }
 
 func (r ResourceDescription) GetOperations() []string {
-	ops := make([]string, len(r.Operations))
+	ops := []string{}
 	for _, op := range r.Operations {
 		ops = append(ops, string(op))
 	}
