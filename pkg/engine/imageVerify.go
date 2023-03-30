@@ -77,7 +77,7 @@ func (e *engine) doVerifyAndPatch(
 
 	logger.V(3).Info("processing image verification rule")
 
-	ruleImages, imageRefs, err := engineutils.ExtractMatchingImages(
+	ruleImages, _, err := engineutils.ExtractMatchingImages(
 		policyContext.NewResource(),
 		policyContext.JSONContext(),
 		rule,
@@ -88,12 +88,6 @@ func (e *engine) doVerifyAndPatch(
 		return
 	}
 	if len(ruleImages) == 0 {
-		resp.Add(engineapi.RuleSkip(
-			startTime,
-			rule,
-			engineapi.ImageVerify,
-			fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
-		))
 		return
 	}
 	policyContext.JSONContext().Restore()
