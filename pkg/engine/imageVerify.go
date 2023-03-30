@@ -16,40 +16,30 @@ func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
-	policy := policyContext.Policy()
-	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	matchedResource := policyContext.NewResource()
-
-	startTime := time.Now()
-
-	defer func() {
-		internal.BuildResponse(policyContext, &resp, startTime)
-		logger.V(4).Info("processed image verification rules",
-			"time", resp.PolicyResponse.Stats.ProcessingTime.String(),
-			"applied", resp.PolicyResponse.Stats.RulesAppliedCount,
-			"successful", resp.IsSuccessful(),
-		)
-	}()
+) (engineapi.PolicyResponse, engineapi.ImageVerificationMetadata) {
+	resp := engineapi.NewPolicyResponse()
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
 	ivm := engineapi.ImageVerificationMetadata{}
+	policy := policyContext.Policy()
+	matchedResource := policyContext.NewResource()
 	applyRules := policy.GetSpec().GetApplyRules()
 	handler := mutation.NewMutateImageHandler(e.configuration, e.rclient, &ivm)
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
+		startTime := time.Now()
 		resource, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, matchedResource, rule, engineapi.ImageVerify)
 		matchedResource = resource
 		for _, ruleResp := range ruleResp {
 			ruleResp := ruleResp
-			internal.AddRuleResponse(&resp.PolicyResponse, &ruleResp, startTime)
+			internal.AddRuleResponse(&resp, &ruleResp, startTime)
 			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
 		}
-		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.Stats.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}
-	internal.BuildResponse(policyContext, &resp, startTime)
+	// TODO: i doesn't make sense to not return the patched resource here
 	return resp, ivm
 }
