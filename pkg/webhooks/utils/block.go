@@ -65,8 +65,8 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 	r := engineResponses[0].Resource
 	resourceName := fmt.Sprintf("%s/%s/%s", r.GetKind(), r.GetNamespace(), r.GetName())
 	action := getAction(hasViolations, len(failures))
-	results, _ := yaml.Marshal(failures)
+	results, err := yaml.Marshal(failures)
 	msg := fmt.Sprintf("\n\npolicy %s for resource %s: \n\n%s", resourceName, action, results)
-	fmt.Println("=======5", msg)
+	fmt.Println("=======5", err, resourceName, action, string(results))
 	return msg
 }
