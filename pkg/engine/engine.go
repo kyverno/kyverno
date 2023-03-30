@@ -202,6 +202,7 @@ func (e *engine) invokeRuleHandler(
 		"pkg/engine",
 		fmt.Sprintf("RULE %s", rule.Name),
 		func(ctx context.Context, span trace.Span) (unstructured.Unstructured, []engineapi.RuleResponse) {
+			startTime := time.Now()
 			// check if resource and rule match
 			if err := matches(rule, policyContext, resource); err != nil {
 				logger.V(4).Info("rule not matched", "reason", err.Error())
@@ -218,16 +219,15 @@ func (e *engine) invokeRuleHandler(
 				} else {
 					logger.Error(err, "failed to load context")
 				}
-				// TODO: return error ?
-				return resource, nil
+				return resource, handlers.WithError(startTime, rule, ruleType, "failed to load context", err)
 			}
 			// check preconditions
 			preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext, rule.GetAnyAllConditions())
 			if err != nil {
-				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to evaluate preconditions", err))
+				return resource, handlers.WithError(startTime, rule, ruleType, "failed to evaluate preconditions", err)
 			}
 			if !preconditionsPassed {
-				return resource, handlers.RuleResponses(internal.RuleSkip(rule, ruleType, "preconditions not met"))
+				return resource, handlers.WithSkip(startTime, rule, ruleType, "preconditions not met")
 			}
 			// process handler
 			return handler.Process(ctx, logger, policyContext, resource, rule)

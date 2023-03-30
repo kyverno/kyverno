@@ -2,13 +2,13 @@ package mutation
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -35,20 +35,15 @@ func (h mutateExistingHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	startTime := time.Now()
+	targets, err := loadTargets(h.client, rule.Mutation.Targets, policyContext, logger)
+	if err != nil {
+		return resource, handlers.WithError(startTime, rule, engineapi.Mutation, "failed to load targets", err)
+	}
 	policy := policyContext.Policy()
 	contextLoader := h.contextLoader(policy, rule)
 	var responses []engineapi.RuleResponse
-	logger.V(3).Info("processing mutate rule")
-	var patchedResources []resourceInfo
-	targets, err := loadTargets(h.client, rule.Mutation.Targets, policyContext, logger)
-	if err != nil {
-		rr := internal.RuleError(rule, engineapi.Mutation, "", err)
-		responses = append(responses, *rr)
-	} else {
-		patchedResources = append(patchedResources, targets...)
-	}
-
-	for _, patchedResource := range patchedResources {
+	for _, patchedResource := range targets {
 		if patchedResource.unstructured.Object == nil {
 			continue
 		}

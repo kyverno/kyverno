@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
@@ -51,13 +52,14 @@ func (h validateManifestHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	startTime := time.Now()
 	if engineutils.IsDeleteRequest(policyContext) {
 		return resource, nil
 	}
 	verified, reason, err := h.verifyManifest(ctx, logger, policyContext, *rule.Validation.Manifests)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "error occurred during manifest verification", err))
+		return resource, handlers.WithError(startTime, rule, engineapi.Validation, "error occurred during manifest verification", err)
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {

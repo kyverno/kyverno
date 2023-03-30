@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -31,11 +32,12 @@ func (h validatePssHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	startTime := time.Now()
 	podSecurity := rule.Validation.PodSecurity
 	// Marshal pod metadata and spec
 	podSpec, metadata, err := getSpec(resource)
 	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "Error while getting new resource", err))
+		return resource, handlers.WithError(startTime, rule, engineapi.Validation, "Error while getting new resource", err)
 	}
 	pod := &corev1.Pod{
 		Spec:       *podSpec,
@@ -43,7 +45,7 @@ func (h validatePssHandler) Process(
 	}
 	allowed, pssChecks, err := pss.EvaluatePod(podSecurity, pod)
 	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to parse pod security api version", err))
+		return resource, handlers.WithError(startTime, rule, engineapi.Validation, "failed to parse pod security api version", err)
 	}
 	podSecurityChecks := &engineapi.PodSecurityChecks{
 		Level:   podSecurity.Level,
