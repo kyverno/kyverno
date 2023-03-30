@@ -90,7 +90,7 @@ func SubstituteAllInType[T any](log logr.Logger, ctx context.EvalInterface, t *T
 	return &result, nil
 }
 
-func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, rule kyvernov1.Rule) (_ kyvernov1.Rule, err error) {
+func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, rule kyvernov1.Rule) (kyvernov1.Rule, error) {
 	result, err := SubstituteAllInType(log, ctx, &rule)
 	if err != nil {
 		return kyvernov1.Rule{}, err
