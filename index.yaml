@@ -1212,7 +1212,6 @@ entries:
         - kind: added
           description: Extra args support for init container.
         - kind: added
-        - kind: added
           description: Allow overriding of test security context and resource block.
         - kind: added
           description: Added possibility to define custom image registries
@@ -4327,7 +4326,7 @@ entries:
         - kind: added
           description: Add ability to configure autogen behavior
         - kind: fixed
-          description: Support for customLabels, they were ignored up to now
+          description: Support for customLabels as they were ignored up to now
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
