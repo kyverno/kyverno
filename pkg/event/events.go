@@ -33,7 +33,7 @@ func buildPolicyEventMessage(resp *engineapi.RuleResponse, resource engineapi.Re
 		fmt.Fprintf(&b, " (blocked)")
 	}
 
-	if resp.Status == engineapi.RuleStatusError && resp.Message != "" {
+	if resp.Message != "" {
 		fmt.Fprintf(&b, "; %s", resp.Message)
 	}
 
