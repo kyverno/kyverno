@@ -178,7 +178,7 @@ func Test_Apply(t *testing.T) {
 			config: ApplyCommandConfig{
 				PolicyPaths:     []string{"../../../../test/cli/apply/policies-set-test/policy.yaml"},
 				ResourcePaths:   []string{"../../../../test/cli/apply/resources-set-test/resources.yaml"},
-				VariablesString: "request.operation=UPDATE",
+				VariablesString: "request.operation=CREATE",
 				PolicyReport:    true,
 			},
 			expectedPolicyReports: []preport.PolicyReport{
@@ -195,18 +195,18 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				// PolicyPaths:     []string{"https://github.com/kyverno/policies/other/block_images_with_volumes/block-images-with-volumes.yaml"},
+				// PolicyPaths:   []string{"https://github.com/kyverno/policies/other/require_unique_uid_per_workload/require_unique_uid_per_workload.yaml"},
 				PolicyPaths:     []string{"../../../../test/cli/apply/policies-set-test/policy-two.yaml"},
 				ResourcePaths:   []string{"../../../../test/cli/apply/resources-set-test/resources-two.yaml"},
 				GitBranch:       "main",
 				PolicyReport:    true,
-				VariablesString: "imageData.configData.config.Volumes=1",
+				VariablesString: "uidsAllPodsExceptSameOwnerAsRequestObject=[\"1337\"]",
 			},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
-						Pass:  0,
-						Fail:  2,
+						Pass:  1,
+						Fail:  1,
 						Skip:  0,
 						Error: 0,
 						Warn:  0,

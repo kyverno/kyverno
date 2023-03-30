@@ -1,17 +1,25 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: image-vol
+  labels:
+    app: server
+  name: already-taken-user
 spec:
   containers:
-  - name: image-vol
-    image: clover/volume:passbolt
+  - image: nginxinc/nginx-unprivileged
+    name: already-taken-user
+    securityContext:
+      runAsUser: 1337
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: busybox
+  labels:
+    app: server
+  name: free-user
 spec:
   containers:
-  - name: busybox
-    image: busybox:1.28
+  - image: nginxinc/nginx-unprivileged
+    name: free-user
+    securityContext:
+      runAsUser: 42
