@@ -3,6 +3,8 @@ package notaryv2
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/images"
@@ -13,8 +15,13 @@ import (
 	"github.com/notaryproject/notation-go/verifier"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/pkg/errors"
+	"github.com/regclient/regclient"
+	"github.com/regclient/regclient/config"
+	"github.com/regclient/regclient/types"
+	"github.com/regclient/regclient/types/ref"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"go.uber.org/multierr"
+	"gorm.io/gorm/logger"
 )
 
 func NewVerifier() images.ImageVerifier {
@@ -128,5 +135,95 @@ func (v *notaryV2Verifier) verifyOutcomes(outcomes []*notation.VerificationOutco
 }
 
 func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
-	return nil, errors.Errorf("not implemented")
+	v.log.V(2).Info("fetching attestations", "reference", opts.ImageRef)
+
+	rcRepoReference, err := ref.New(opts.ImageRef)
+	if err != nil {
+		panic(err)
+	}
+
+	rcConfigHost := config.Host{
+		Name:     rcRepoReference.Registry,
+		Hostname: rcRepoReference.Registry,
+	}
+
+	rcClient := regclient.New(regclient.WithConfigHost(rcConfigHost))
+
+	rcRepoReferrers, err := rcClient.ReferrerList(ctx, rcRepoReference)
+	if err != nil {
+		msg := err.Error()
+		logger.Info("failed to fetch attestations", "error", msg)
+		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
+			return nil, fmt.Errorf("not found")
+		}
+
+		return nil, err
+	}
+	rcReferrersDescs := rcRepoReferrers.Descriptors
+	statements := make([]map[string]interface{}, 0)
+
+	certsPEM := combineCerts(opts)
+	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse certificates")
+	}
+
+	trustStore := NewTrustStore("kyverno", certs)
+	policyDoc := v.buildPolicy()
+	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to created verifier")
+	}
+
+	for _, referrer := range rcReferrersDescs {
+		match, predicateType, err := matchArtifactType(referrer, opts.PredicateType)
+		if err != nil {
+			return nil, err
+		}
+
+		if !match {
+			logger.V(4).Info("predicateType doesn't match, continue", "expected", opts.PredicateType, "received", predicateType)
+			continue
+		}
+
+		reference := rcRepoReferrers.Subject.Registry + "/" + rcRepoReference.Repository + "@" + referrer.Digest.String()
+		repo, parsedRef, err := parseReference(ctx, reference, opts.RegistryClient)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
+		}
+
+		ref := parsedRef.String()
+		remoteVerifyOptions := notation.RemoteVerifyOptions{
+			ArtifactReference:    ref,
+			MaxSignatureAttempts: 10,
+		}
+
+		targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, repo, remoteVerifyOptions)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to verify %s", ref)
+		}
+
+		if err := v.verifyOutcomes(outcomes); err != nil {
+			return nil, err
+		}
+
+		if targetDesc.Digest != referrer.Digest {
+			return nil, errors.Errorf("digest mismatch")
+		}
+
+		logger.V(3).Info("verified images", "digest", len(targetDesc.Digest))
+	}
+
+	// TODO: GET STATEMENTS
+
+	return &images.Response{Digest: rcRepoReference.Digest, Statements: statements}, nil
+}
+
+func matchArtifactType(ref types.Descriptor, expectedArtifactType string) (bool, string, error) {
+	if expectedArtifactType != "" {
+		if ref.ArtifactType == expectedArtifactType {
+			return true, ref.ArtifactType, nil
+		}
+	}
+	return false, "", nil
 }
