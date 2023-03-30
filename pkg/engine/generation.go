@@ -17,7 +17,7 @@ func (e *engine) generateResponse(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
-) engineapi.EngineResponse {
+) engineapi.PolicyResponse {
 	return e.filterGenerateRules(policyContext, logger, gr.Spec.Policy, time.Now())
 }
 
@@ -26,19 +26,12 @@ func (e *engine) filterGenerateRules(
 	logger logr.Logger,
 	policyNameKey string,
 	startTime time.Time,
-) engineapi.EngineResponse {
-	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	resp.PolicyResponse = engineapi.PolicyResponse{
-		Stats: engineapi.PolicyStats{
-			ExecutionStats: engineapi.ExecutionStats{
-				Timestamp: startTime.Unix(),
-			},
-		},
-	}
+) engineapi.PolicyResponse {
+	resp := engineapi.NewPolicyResponse()
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+			resp.Rules = append(resp.Rules, *ruleResp)
 		}
 	}
 	return resp

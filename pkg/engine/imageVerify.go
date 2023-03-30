@@ -21,20 +21,9 @@ func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
+) (engineapi.PolicyResponse, engineapi.ImageVerificationMetadata) {
 	policy := policyContext.Policy()
-	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-
-	startTime := time.Now()
-
-	defer func() {
-		internal.BuildResponse(policyContext, &resp, startTime)
-		logger.V(4).Info("processed image verification rules",
-			"time", resp.PolicyResponse.Stats.ProcessingTime.String(),
-			"applied", resp.PolicyResponse.Stats.RulesAppliedCount,
-			"successful", resp.IsSuccessful(),
-		)
-	}()
+	resp := engineapi.NewPolicyResponse()
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
@@ -52,11 +41,11 @@ func (e *engine) verifyAndPatchImages(
 			},
 		)
 
-		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.Stats.RulesAppliedCount > 0 {
+		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}
-	internal.BuildResponse(policyContext, &resp, startTime)
+	// TODO: i doesn't make sense to not return the patched resource here
 	return resp, ivm
 }
 
@@ -65,7 +54,7 @@ func (e *engine) doVerifyAndPatch(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
-	resp *engineapi.EngineResponse,
+	resp *engineapi.PolicyResponse,
 	ivm *engineapi.ImageVerificationMetadata,
 ) {
 	if len(rule.VerifyImages) == 0 {
@@ -82,7 +71,7 @@ func (e *engine) doVerifyAndPatch(
 	// check if there is a corresponding policy exception
 	ruleResp := e.hasPolicyExceptions(logger, engineapi.ImageVerify, policyContext, rule)
 	if ruleResp != nil {
-		resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+		resp.Rules = append(resp.Rules, *ruleResp)
 		return
 	}
 
@@ -96,7 +85,7 @@ func (e *engine) doVerifyAndPatch(
 	)
 	if err != nil {
 		internal.AddRuleResponse(
-			&resp.PolicyResponse,
+			resp,
 			internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err),
 			startTime,
 		)
@@ -104,7 +93,7 @@ func (e *engine) doVerifyAndPatch(
 	}
 	if len(ruleImages) == 0 {
 		internal.AddRuleResponse(
-			&resp.PolicyResponse,
+			resp,
 			internal.RuleSkip(
 				rule,
 				engineapi.ImageVerify,
@@ -117,7 +106,7 @@ func (e *engine) doVerifyAndPatch(
 	policyContext.JSONContext().Restore()
 	if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
 		internal.AddRuleResponse(
-			&resp.PolicyResponse,
+			resp,
 			internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
 			startTime,
 		)
@@ -126,7 +115,7 @@ func (e *engine) doVerifyAndPatch(
 	ruleCopy, err := substituteVariables(&rule, policyContext.JSONContext(), logger)
 	if err != nil {
 		internal.AddRuleResponse(
-			&resp.PolicyResponse,
+			resp,
 			internal.RuleError(rule, engineapi.ImageVerify, "failed to substitute variables", err),
 			startTime,
 		)
@@ -141,7 +130,7 @@ func (e *engine) doVerifyAndPatch(
 	)
 	for _, imageVerify := range ruleCopy.VerifyImages {
 		for _, r := range iv.Verify(ctx, imageVerify, ruleImages, e.configuration) {
-			internal.AddRuleResponse(&resp.PolicyResponse, r, startTime)
+			internal.AddRuleResponse(resp, r, startTime)
 		}
 	}
 }
