@@ -140,7 +140,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface, client Res
 			hasValidate := rule.HasValidate()
 			hasGenerate := rule.HasGenerate()
 			hasVerifyImages := rule.HasVerifyImages()
-			hasImagesValidationChecks := rule.HasImagesValidationChecks()
+			hasImagesValidationChecks := rule.HasVerifyImageChecks()
 			for gvrs := range entries {
 				entry := kindStates[gvrs]
 				entry.hasMutate = entry.hasMutate || hasMutate
