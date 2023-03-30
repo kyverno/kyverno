@@ -30,7 +30,7 @@ func (e *engine) verifyAndPatchImages(
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		if rule.HasVerifyImages() {
 			startTime := time.Now()
-			handlerFactory := func() handlers.Handler {
+			handlerFactory := func() (handlers.Handler, error) {
 				return mutation.NewMutateImageHandler(
 					policyContext,
 					matchedResource,

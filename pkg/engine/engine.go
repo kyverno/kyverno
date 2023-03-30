@@ -188,11 +188,11 @@ func matches(
 	return err
 }
 
-type HandlerFactory = func() handlers.Handler
+type HandlerFactory = func() (handlers.Handler, error)
 
 func WithHandler(handler handlers.Handler) HandlerFactory {
-	return func() handlers.Handler {
-		return handler
+	return func() (handlers.Handler, error) {
+		return handler, nil
 	}
 }
 
@@ -219,7 +219,9 @@ func (e *engine) invokeRuleHandler(
 			if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
 				return resource, handlers.RuleResponses(ruleResp)
 			}
-			if handler := handlerFactory(); handler != nil {
+			if handler, err := handlerFactory(); err != nil {
+				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", err))
+			} else if handler != nil {
 				// load rule context
 				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
 					if _, ok := err.(gojmespath.NotFoundError); ok {
@@ -227,8 +229,7 @@ func (e *engine) invokeRuleHandler(
 					} else {
 						logger.Error(err, "failed to load context")
 					}
-					// TODO: return error ?
-					return resource, nil
+					return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to load context", err))
 				}
 				// check preconditions
 				preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())

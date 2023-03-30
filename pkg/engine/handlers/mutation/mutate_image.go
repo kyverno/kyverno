@@ -31,30 +31,20 @@ func NewMutateImageHandler(
 	configuration config.Configuration,
 	rclient registryclient.Client,
 	ivm *engineapi.ImageVerificationMetadata,
-) handlers.Handler {
+) (handlers.Handler, error) {
 	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
 	if err != nil {
-		return nil
-		// TODO
-		// return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err))
+		return nil, err
 	}
 	if len(ruleImages) == 0 {
-		return nil
-		// TODO
-		// return resource, handlers.RuleResponses(
-		// 	internal.RuleSkip(
-		// 		rule,
-		// 		engineapi.ImageVerify,
-		// 		fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
-		// 	),
-		// )
+		return nil, nil
 	}
 	return mutateImageHandler{
 		configuration: configuration,
 		rclient:       rclient,
 		ivm:           ivm,
 		images:        ruleImages,
-	}
+	}, nil
 }
 
 func (h mutateImageHandler) Process(
