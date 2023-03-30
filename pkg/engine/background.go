@@ -23,7 +23,7 @@ func (e *engine) applyBackgroundChecks(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) engineapi.EngineResponse {
+) engineapi.PolicyResponse {
 	return e.filterRules(policyContext, logger, time.Now())
 }
 
@@ -31,15 +31,14 @@ func (e *engine) filterRules(
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
 	startTime time.Time,
-) engineapi.EngineResponse {
+) engineapi.PolicyResponse {
 	policy := policyContext.Policy()
-	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
-	resp.PolicyResponse = engineapi.PolicyResponse{}
+	resp := engineapi.NewPolicyResponse()
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+			resp.Rules = append(resp.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
 				break
 			}
