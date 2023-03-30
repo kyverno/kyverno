@@ -24,8 +24,6 @@ func (s *ExecutionStats) Done(timestamp time.Time) {
 
 // PolicyStats stores statistics for the single policy application
 type PolicyStats struct {
-	// ExecutionStats policy execution stats
-	// ExecutionStats
 	// RulesAppliedCount is the count of rules that were applied successfully
 	RulesAppliedCount int
 	// RulesErrorCount is the count of rules that with execution errors
