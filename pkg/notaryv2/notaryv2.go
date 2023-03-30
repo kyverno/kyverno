@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/images"
@@ -15,14 +14,15 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/verifier"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
-	oci_desc_v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
-	"github.com/regclient/regclient"
-	"github.com/regclient/regclient/config"
-	"github.com/regclient/regclient/types"
 	"github.com/regclient/regclient/types/ref"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"go.uber.org/multierr"
+	"oras.land/oras-go/v2"
+	"oras.land/oras-go/v2/content"
+	orasReg "oras.land/oras-go/v2/registry"
+	"oras.land/oras-go/v2/registry/remote"
 )
 
 func NewVerifier() images.ImageVerifier {
@@ -138,33 +138,24 @@ func (v *notaryV2Verifier) verifyOutcomes(outcomes []*notation.VerificationOutco
 func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
 	v.log.V(3).Info("fetching attestations", "reference", opts.ImageRef)
 
-	rcRepoReference, err := ref.New(opts.ImageRef)
+	repo, err := remote.NewRepository(opts.ImageRef)
 	if err != nil {
 		return nil, err
 	}
 
-	rcConfigHost := config.Host{
-		Name:     rcRepoReference.Registry,
-		Hostname: rcRepoReference.Registry,
-	}
-
-	rcClient := regclient.New(regclient.WithConfigHost(rcConfigHost))
-
-	rcRepoReferrers, err := rcClient.ReferrerList(ctx, rcRepoReference)
+	repoDesc, err := oras.Resolve(ctx, repo, repo.Reference.Reference, oras.DefaultResolveOptions)
 	if err != nil {
-		msg := err.Error()
-		v.log.V(3).Info("failed to fetch attestations", "error", msg)
-		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
-			return nil, fmt.Errorf("not found")
-		}
-
 		return nil, err
 	}
-	rcReferrersDescs := rcRepoReferrers.Descriptors
+
+	referrersDescs, err := fetchReferrers(ctx, repo, repoDesc)
+	if err != nil {
+		return nil, err
+	}
 
 	var statements []map[string]interface{}
 
-	for _, referrer := range rcReferrersDescs {
+	for _, referrer := range referrersDescs {
 		match, predicateType, err := matchArtifactType(referrer, opts.PredicateType)
 		if err != nil {
 			return nil, err
@@ -182,7 +173,7 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 			continue
 		}
 
-		statements, err = extractStatements(ctx, rcClient, opts, targetDesc)
+		statements, err = extractStatements(ctx, repo, targetDesc)
 		if err != nil {
 			msg := err.Error()
 			v.log.V(3).Info(msg, "failed to extract statements %s", targetDesc.Digest.String())
@@ -193,44 +184,36 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 		break
 	}
 
-	return &images.Response{Digest: rcRepoReference.Digest, Statements: statements}, nil
+	return &images.Response{Digest: repoDesc.Digest.String(), Statements: statements}, nil
 }
 
-func verifyAttestators(ctx context.Context, v *notaryV2Verifier, opts images.Options, desc types.Descriptor) (oci_desc_v1.Descriptor, error) {
+func verifyAttestators(ctx context.Context, v *notaryV2Verifier, opts images.Options, desc ocispec.Descriptor) (ocispec.Descriptor, error) {
 	rcRepoReference, err := ref.New(opts.ImageRef)
 	if err != nil {
-		return oci_desc_v1.Descriptor{}, err
+		return ocispec.Descriptor{}, err
 	}
 
 	if opts.Cert == "" && opts.CertChain == "" {
 		// skips the checks when no attestor is provided
-		return oci_desc_v1.Descriptor{
-			MediaType:    desc.MediaType,
-			Digest:       desc.Digest,
-			Size:         desc.Size,
-			Data:         desc.Data,
-			URLs:         desc.URLs,
-			Annotations:  desc.Annotations,
-			ArtifactType: desc.ArtifactType,
-		}, nil
+		return desc, nil
 	}
 	certsPEM := combineCerts(opts)
 	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
 	if err != nil {
-		return oci_desc_v1.Descriptor{}, errors.Wrapf(err, "failed to parse certificates")
+		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse certificates")
 	}
 
 	trustStore := NewTrustStore("kyverno", certs)
 	policyDoc := v.buildPolicy()
 	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
 	if err != nil {
-		return oci_desc_v1.Descriptor{}, errors.Wrapf(err, "failed to created verifier")
+		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to created verifier")
 	}
 
 	reference := rcRepoReference.Registry + "/" + rcRepoReference.Repository + "@" + desc.Digest.String()
 	repo, parsedRef, err := parseReference(ctx, reference, opts.RegistryClient)
 	if err != nil {
-		return oci_desc_v1.Descriptor{}, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
+		return ocispec.Descriptor{}, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 	}
 
 	refer := parsedRef.String()
@@ -253,9 +236,9 @@ func verifyAttestators(ctx context.Context, v *notaryV2Verifier, opts images.Opt
 	return targetDesc, nil
 }
 
-func extractStatements(ctx context.Context, rcClient *regclient.RegClient, opts images.Options, targetDesc oci_desc_v1.Descriptor) ([]map[string]interface{}, error) {
+func extractStatements(ctx context.Context, repo *remote.Repository, targetDesc ocispec.Descriptor) ([]map[string]interface{}, error) {
 	statements := make([]map[string]interface{}, 0)
-	data, err := extractStatement(ctx, rcClient, opts, targetDesc)
+	data, err := extractStatement(ctx, repo, targetDesc)
 	if err != nil {
 		return nil, err
 	}
@@ -263,37 +246,60 @@ func extractStatements(ctx context.Context, rcClient *regclient.RegClient, opts 
 	return statements, nil
 }
 
-func extractStatement(ctx context.Context, rcClient *regclient.RegClient, opts images.Options, targetDesc oci_desc_v1.Descriptor) (map[string]interface{}, error) {
-	rcRepoReference, err := ref.New(opts.ImageRef)
-	if err != nil {
-		return nil, err
-	}
-	rcRefer, err := ref.New(rcRepoReference.Registry + "/" + rcRepoReference.Repository + "@" + targetDesc.Digest.String())
-	if err != nil {
-		return nil, err
-	}
-	referrerManifest, err := rcClient.ManifestGet(ctx, rcRefer)
-	if err != nil {
-		return nil, err
-	}
+func extractStatement(ctx context.Context, repo *remote.Repository, targetDesc ocispec.Descriptor) (map[string]interface{}, error) {
+	repoDesc, artifactListIO, err := oras.Fetch(ctx, repo, repo.Reference.Reference, oras.DefaultFetchOptions)
 
-	refManifestBody, err := referrerManifest.RawBody()
 	if err != nil {
 		return nil, err
+	}
+	if repoDesc.Digest != targetDesc.Digest {
+		return nil, errors.Errorf("Couldn't fetch statement")
+	}
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(artifactListIO)
+
+	manifest := ocispec.Manifest{}
+	if err := json.Unmarshal(buf.Bytes(), &manifest); err != nil {
+		return nil, fmt.Errorf("error decoding the payload: %w", err)
 	}
 
 	data := make(map[string]interface{})
-	if err := json.Unmarshal(refManifestBody, &data); err != nil {
+	if err := json.Unmarshal(buf.Bytes(), &data); err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func matchArtifactType(ref types.Descriptor, expectedArtifactType string) (bool, string, error) {
+func matchArtifactType(ref ocispec.Descriptor, expectedArtifactType string) (bool, string, error) {
 	if expectedArtifactType != "" {
 		if ref.ArtifactType == expectedArtifactType {
 			return true, ref.ArtifactType, nil
 		}
 	}
 	return false, "", nil
+}
+
+func fetchReferrers(ctx context.Context, src content.ReadOnlyGraphStorage, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+	var results []ocispec.Descriptor
+	if repo, ok := src.(orasReg.ReferrerLister); ok {
+		err := repo.Referrers(ctx, desc, "", func(referrers []ocispec.Descriptor) error {
+			results = append(results, referrers...)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return results, nil
+	}
+	predecessors, err := src.Predecessors(ctx, desc)
+	if err != nil {
+		return nil, err
+	}
+	for _, node := range predecessors {
+		switch node.MediaType {
+		case ocispec.MediaTypeArtifactManifest, ocispec.MediaTypeImageManifest:
+			results = append(results, node)
+		}
+	}
+	return results, nil
 }
