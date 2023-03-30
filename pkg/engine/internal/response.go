@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -27,19 +26,5 @@ func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, 
 		Message: msg,
 		Status:  status,
 	}
-	return resp
-}
-
-func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, startTime time.Time) *engineapi.EngineResponse {
-	if resp.PatchedResource.Object == nil {
-		// for delete requests patched resource will be oldResource since newResource is empty
-		resource := ctx.NewResource()
-		if resource.Object == nil {
-			resource = ctx.OldResource()
-		}
-		resp.PatchedResource = resource
-	}
-	resp.Stats.ProcessingTime = time.Since(startTime)
-	resp.Stats.Timestamp = startTime.Unix()
 	return resp
 }
