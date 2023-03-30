@@ -7,9 +7,10 @@ spec:
   rules:
   - name: create-default-pdb
     match:
-      resources:
-        kinds:
-        - Deployment
+      any:
+        - resources:
+            kinds:
+            - Deployment
     generate:
       apiVersion: policy/v1
       kind: PodDisruptionBudget
