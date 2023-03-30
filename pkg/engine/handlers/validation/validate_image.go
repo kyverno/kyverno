@@ -51,7 +51,6 @@ func (h validateImageHandler) Process(
 		if policyContext.Policy().GetSpec().ValidationFailureAction.Audit() {
 			return resource, nil
 		}
-
 		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.Validation, "preconditions not met"))
 	}
 	for _, v := range rule.VerifyImages {
