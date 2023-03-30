@@ -42,18 +42,23 @@ func (e *engine) validateResource(
 		logger := internal.LoggerWithRule(logger, rule)
 		startTime := time.Now()
 		hasValidate := rule.HasValidate()
-		hasValidateImage := rule.HasImagesValidationChecks()
-		hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
-		if !hasValidate && !hasValidateImage {
+		hasVerifyImageChecks := rule.HasVerifyImageChecks()
+		if !hasValidate && !hasVerifyImageChecks {
 			continue
 		}
 		var handler handlers.Handler
-		if hasValidate && !hasYAMLSignatureVerify {
-			handler = e.validateResourceHandler
-		} else if hasValidateImage {
+		if hasValidate {
+			hasVerifyManifest := rule.HasVerifyManifests()
+			hasValidatePss := rule.HasValidatePodSecurity()
+			if hasVerifyManifest {
+				handler = e.validateManifestHandler
+			} else if hasValidatePss {
+				handler = e.validatePssHandler
+			} else {
+				handler = e.validateResourceHandler
+			}
+		} else if hasVerifyImageChecks {
 			handler = e.validateImageHandler
-		} else if hasYAMLSignatureVerify {
-			handler = e.validateManifestHandler
 		}
 		if handler != nil {
 			_, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, policyContext.NewResource(), rule, engineapi.Validation)
