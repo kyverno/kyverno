@@ -3,7 +3,6 @@ package patch
 import (
 	"github.com/go-logr/logr"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -18,16 +17,14 @@ type patchStrategicMergeHandler struct {
 	ruleName        string
 	patch           apiextensions.JSON
 	patchedResource unstructured.Unstructured
-	evalCtx         context.EvalInterface
 	logger          logr.Logger
 }
 
-func NewPatchStrategicMerge(ruleName string, patch apiextensions.JSON, patchedResource unstructured.Unstructured, context context.EvalInterface, logger logr.Logger) Patcher {
+func NewPatchStrategicMerge(ruleName string, patch apiextensions.JSON, patchedResource unstructured.Unstructured, logger logr.Logger) Patcher {
 	return patchStrategicMergeHandler{
 		ruleName:        ruleName,
 		patch:           patch,
 		patchedResource: patchedResource,
-		evalCtx:         context,
 		logger:          logger,
 	}
 }
