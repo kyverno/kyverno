@@ -2,7 +2,6 @@ package mutation
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -14,6 +13,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -21,17 +21,39 @@ type mutateImageHandler struct {
 	configuration config.Configuration
 	rclient       registryclient.Client
 	ivm           *engineapi.ImageVerificationMetadata
+	images        []apiutils.ImageInfo
 }
 
 func NewMutateImageHandler(
+	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
+	rule kyvernov1.Rule,
 	configuration config.Configuration,
 	rclient registryclient.Client,
 	ivm *engineapi.ImageVerificationMetadata,
 ) handlers.Handler {
+	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
+	if err != nil {
+		return nil
+		// TODO
+		// return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err))
+	}
+	if len(ruleImages) == 0 {
+		return nil
+		// TODO
+		// return resource, handlers.RuleResponses(
+		// 	internal.RuleSkip(
+		// 		rule,
+		// 		engineapi.ImageVerify,
+		// 		fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
+		// 	),
+		// )
+	}
 	return mutateImageHandler{
 		configuration: configuration,
 		rclient:       rclient,
 		ivm:           ivm,
+		images:        ruleImages,
 	}
 }
 
@@ -46,19 +68,6 @@ func (h mutateImageHandler) Process(
 		return resource, nil
 	}
 	jsonContext := policyContext.JSONContext()
-	ruleImages, imageRefs, err := engineutils.ExtractMatchingImages(resource, jsonContext, rule, h.configuration)
-	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err))
-	}
-	if len(ruleImages) == 0 {
-		return resource, handlers.RuleResponses(
-			internal.RuleSkip(
-				rule,
-				engineapi.ImageVerify,
-				fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
-			),
-		)
-	}
 	jsonContext.Restore()
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {
@@ -69,7 +78,7 @@ func (h mutateImageHandler) Process(
 	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm)
 	var engineResponses []*engineapi.RuleResponse
 	for _, imageVerify := range ruleCopy.VerifyImages {
-		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, ruleImages, h.configuration)...)
+		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)
 	}
 	return resource, handlers.RuleResponses(engineResponses...)
 }

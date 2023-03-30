@@ -37,7 +37,15 @@ func (e *engine) mutate(
 		if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
 			handler = e.mutateExistingHandler
 		}
-		resource, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, matchedResource, rule, engineapi.Mutation)
+		resource, ruleResp := e.invokeRuleHandler(
+			ctx,
+			logger,
+			WithHandler(handler),
+			policyContext,
+			matchedResource,
+			rule,
+			engineapi.Mutation,
+		)
 		matchedResource = resource
 		for _, ruleResp := range ruleResp {
 			ruleResp := ruleResp

@@ -49,7 +49,7 @@ func (h validateImageHandler) Process(
 	if len(matchingImages) == 0 {
 		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.Validation, "image verified"))
 	}
-	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext, rule.RawAnyAllConditions)
+	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.RawAnyAllConditions)
 	if err != nil {
 		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to evaluate preconditions", err))
 	}

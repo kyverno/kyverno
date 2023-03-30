@@ -47,7 +47,15 @@ func (e *engine) validate(
 			handler = e.validateImageHandler
 		}
 		if handler != nil {
-			_, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, policyContext.NewResource(), rule, engineapi.Validation)
+			_, ruleResp := e.invokeRuleHandler(
+				ctx,
+				logger,
+				WithHandler(handler),
+				policyContext,
+				policyContext.NewResource(),
+				rule,
+				engineapi.Validation,
+			)
 			for _, ruleResp := range ruleResp {
 				ruleResp := ruleResp
 				internal.AddRuleResponse(resp, &ruleResp, startTime)

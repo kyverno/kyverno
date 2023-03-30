@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 )
@@ -26,11 +27,28 @@ func (e *engine) verifyAndPatchImages(
 	policy := policyContext.Policy()
 	matchedResource := policyContext.NewResource()
 	applyRules := policy.GetSpec().GetApplyRules()
-	handler := mutation.NewMutateImageHandler(e.configuration, e.rclient, &ivm)
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		if rule.HasVerifyImages() {
 			startTime := time.Now()
-			resource, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, matchedResource, rule, engineapi.ImageVerify)
+			handlerFactory := func() handlers.Handler {
+				return mutation.NewMutateImageHandler(
+					policyContext,
+					matchedResource,
+					rule,
+					e.configuration,
+					e.rclient,
+					&ivm,
+				)
+			}
+			resource, ruleResp := e.invokeRuleHandler(
+				ctx,
+				logger,
+				handlerFactory,
+				policyContext,
+				matchedResource,
+				rule,
+				engineapi.ImageVerify,
+			)
 			matchedResource = resource
 			for _, ruleResp := range ruleResp {
 				ruleResp := ruleResp
