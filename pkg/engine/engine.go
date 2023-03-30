@@ -32,7 +32,6 @@ type engine struct {
 	engineContextLoaderFactory engineapi.EngineContextLoaderFactory
 	exceptionSelector          engineapi.PolicyExceptionSelector
 	validateResourceHandler    handlers.Handler
-	validateImageHandler       handlers.Handler
 	validateManifestHandler    handlers.Handler
 	validatePssHandler         handlers.Handler
 	mutateResourceHandler      handlers.Handler
@@ -65,7 +64,6 @@ func NewEngine(
 		engineContextLoaderFactory: engineContextLoaderFactory,
 		exceptionSelector:          exceptionSelector,
 		validateResourceHandler:    validation.NewValidateResourceHandler(engineContextLoaderFactory),
-		validateImageHandler:       validation.NewValidateImageHandler(configuration),
 		validateManifestHandler:    validation.NewValidateManifestHandler(client),
 		validatePssHandler:         validation.NewValidatePssHandler(),
 		mutateResourceHandler:      mutation.NewMutateResourceHandler(engineContextLoaderFactory),
@@ -188,18 +186,10 @@ func matches(
 	return err
 }
 
-type HandlerFactory = func() (handlers.Handler, error)
-
-func WithHandler(handler handlers.Handler) HandlerFactory {
-	return func() (handlers.Handler, error) {
-		return handler, nil
-	}
-}
-
 func (e *engine) invokeRuleHandler(
 	ctx context.Context,
 	logger logr.Logger,
-	handlerFactory HandlerFactory,
+	handlerFactory handlers.HandlerFactory,
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
@@ -219,7 +209,9 @@ func (e *engine) invokeRuleHandler(
 			if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
 				return resource, handlers.RuleResponses(ruleResp)
 			}
-			if handler, err := handlerFactory(); err != nil {
+			if handlerFactory == nil {
+				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", nil))
+			} else if handler, err := handlerFactory(); err != nil {
 				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", err))
 			} else if handler != nil {
 				// load rule context

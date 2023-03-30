@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -33,14 +34,14 @@ func (e *engine) mutate(
 		if !rule.HasMutate() {
 			continue
 		}
-		handler := e.mutateResourceHandler
+		handlerFactory := handlers.WithHandler(e.mutateResourceHandler)
 		if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
-			handler = e.mutateExistingHandler
+			handlerFactory = handlers.WithHandler(e.mutateExistingHandler)
 		}
 		resource, ruleResp := e.invokeRuleHandler(
 			ctx,
 			logger,
-			WithHandler(handler),
+			handlerFactory,
 			policyContext,
 			matchedResource,
 			rule,

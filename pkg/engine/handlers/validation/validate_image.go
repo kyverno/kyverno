@@ -15,16 +15,22 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type validateImageHandler struct {
-	configuration config.Configuration
-}
+type validateImageHandler struct{}
 
 func NewValidateImageHandler(
+	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
+	rule kyvernov1.Rule,
 	configuration config.Configuration,
-) handlers.Handler {
-	return validateImageHandler{
-		configuration: configuration,
+) (handlers.Handler, error) {
+	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
+	if err != nil {
+		return nil, err
 	}
+	if len(ruleImages) == 0 {
+		return nil, nil
+	}
+	return validateImageHandler{}, nil
 }
 
 func (h validateImageHandler) Process(
@@ -36,18 +42,6 @@ func (h validateImageHandler) Process(
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		return resource, nil
-	}
-	matchingImages, _, err := engineutils.ExtractMatchingImages(
-		policyContext.NewResource(),
-		policyContext.JSONContext(),
-		rule,
-		h.configuration,
-	)
-	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "", err))
-	}
-	if len(matchingImages) == 0 {
-		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.Validation, "image verified"))
 	}
 	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.RawAnyAllConditions)
 	if err != nil {
