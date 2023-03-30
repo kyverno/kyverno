@@ -1,23 +1,21 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-pod-1
+  name: myapp-pod
   labels:
-    foo: bar
-    op: UPDATE
-spec:
+    op: CREATE
+spec: 
   containers:
-    - name: nginx
-      image: nginx:latest
+  - name: nginx
+    image: nginx:1.12
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-pod-2
+  name: myapp-pod2
   labels:
-    foo: bar
-    op: UPDATE
-spec:
+    op: CREATE
+spec: 
   containers:
-    - name: nginx
-      image: nginx:1.12
+  - name: nginx
+    image: nginx:1.12

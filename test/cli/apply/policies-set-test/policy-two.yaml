@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-images-with-volumes
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  validationFailureAction: audit
+  rules:
+  - name: block-images-with-vols
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    preconditions:
+      all:
+      - key: "{{request.operation || 'BACKGROUND'}}"
+        operator: NotEquals
+        value: DELETE
+    validate:
+      message: "Images containing built-in volumes are prohibited."
+      foreach:
+      - list: "request.object.spec.containers"
+        context: 
+        - name: imageData
+          imageRegistry: 
+            reference: "{{ element.image }}"
+        deny:
+          conditions:
+            all:
+              - key: "{{ imageData.configData.config.Volumes || '' | length(@) }}"
+                operator: GreaterThan
+                value: 0

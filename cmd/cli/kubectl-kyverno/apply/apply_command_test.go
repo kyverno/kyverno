@@ -176,8 +176,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:     []string{"../../../../test/cli/apply/policies-set-test"},
-				ResourcePaths:   []string{"../../../../test/cli/apply/resources-set-test"},
+				PolicyPaths:     []string{"../../../../test/cli/apply/policies-set-test/policy.yaml"},
+				ResourcePaths:   []string{"../../../../test/cli/apply/resources-set-test/resources.yaml"},
 				VariablesString: "request.operation=UPDATE",
 				PolicyReport:    true,
 			},
@@ -186,7 +186,28 @@ func Test_Apply(t *testing.T) {
 					Summary: preport.PolicyReportSummary{
 						Pass:  2,
 						Fail:  0,
-						Skip:  4,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
+		{
+			config: ApplyCommandConfig{
+				// PolicyPaths:     []string{"https://github.com/kyverno/policies/other/block_images_with_volumes/block-images-with-volumes.yaml"},
+				PolicyPaths:     []string{"../../../../test/cli/apply/policies-set-test/policy-two.yaml"},
+				ResourcePaths:   []string{"../../../../test/cli/apply/resources-set-test/resources-two.yaml"},
+				GitBranch:       "main",
+				PolicyReport:    true,
+				VariablesString: "imageData.configData.config.Volumes=1",
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  0,
+						Fail:  2,
+						Skip:  0,
 						Error: 0,
 						Warn:  0,
 					},

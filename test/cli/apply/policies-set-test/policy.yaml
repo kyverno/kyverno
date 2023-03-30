@@ -1,20 +1,20 @@
-apiVersion: kyverno.io/v1
+apiVersion : kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: enforce-label
+  name: require-label
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
 spec:
-  validationFailureAction: Audit
-  background: false
+  validationFailureAction: audit
   rules:
-    - name: enforce-label
-      match:
-        any:
-        - resources:
-            kinds:
-              - Pod
-      validate:
-        message: "The foo label must be set."
-        pattern:
-          metadata:
-            labels:
-              op: "{{ request.operation }}"
+  - name: require-op-label
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Op label is required"  
+      pattern:
+        metadata:
+          labels:
+            op: "{{ request.operation }}"
