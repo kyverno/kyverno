@@ -16,21 +16,7 @@ func (e *engine) validate(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) engineapi.EngineResponse {
-	startTime := time.Now()
-	logger.V(4).Info("start validate policy processing", "startTime", startTime)
-	policyResponse := e.validateResource(ctx, logger, policyContext)
-	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.Stats.ProcessingTime.String(), "validationRulesApplied", policyResponse.Stats.RulesAppliedCount)
-	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	engineResponse.PolicyResponse = *policyResponse
-	return *internal.BuildResponse(policyContext, &engineResponse, startTime)
-}
-
-func (e *engine) validateResource(
-	ctx context.Context,
-	logger logr.Logger,
-	policyContext engineapi.PolicyContext,
-) *engineapi.PolicyResponse {
+) engineapi.PolicyResponse {
 	resp := &engineapi.PolicyResponse{}
 
 	policyContext.JSONContext().Checkpoint()
@@ -67,5 +53,5 @@ func (e *engine) validateResource(
 			break
 		}
 	}
-	return resp
+	return *resp
 }

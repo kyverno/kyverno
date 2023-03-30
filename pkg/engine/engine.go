@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -74,44 +75,51 @@ func (e *engine) Validate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.validate"), policyContext)
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		response = response.WithPolicyResponse(e.validate(ctx, logger, policyContext))
 	}
-	return e.validate(ctx, logger, policyContext)
+	return response.Done(time.Now())
 }
 
 func (e *engine) Mutate(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.mutate"), policyContext)
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		policyResponse, patchedResource := e.mutate(ctx, logger, policyContext)
+		response = response.WithPolicyResponse(policyResponse)
+		response = response.WithPatchedResource(patchedResource)
 	}
-	return e.mutate(ctx, logger, policyContext)
+	return response.Done(time.Now())
 }
 
 func (e *engine) VerifyAndPatchImages(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
+	ivm := engineapi.ImageVerificationMetadata{}
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.verify"), policyContext)
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil), engineapi.ImageVerificationMetadata{}
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		response, ivm = e.verifyAndPatchImages(ctx, logger, policyContext)
 	}
-	return e.verifyAndPatchImages(ctx, logger, policyContext)
+	return response.Done(time.Now()), ivm
 }
 
 func (e *engine) ApplyBackgroundChecks(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
 ) engineapi.EngineResponse {
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		response = e.applyBackgroundChecks(ctx, logger, policyContext)
 	}
-	return e.applyBackgroundChecks(ctx, logger, policyContext)
+	return response.Done(time.Now())
 }
 
 func (e *engine) GenerateResponse(
@@ -119,11 +127,12 @@ func (e *engine) GenerateResponse(
 	policyContext engineapi.PolicyContext,
 	gr kyvernov1beta1.UpdateRequest,
 ) engineapi.EngineResponse {
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
-	if !internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		return engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		response = e.generateResponse(ctx, logger, policyContext, gr)
 	}
-	return e.generateResponse(ctx, logger, policyContext, gr)
+	return response.Done(time.Now())
 }
 
 func (e *engine) ContextLoader(

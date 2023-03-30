@@ -33,14 +33,8 @@ func (e *engine) filterRules(
 	startTime time.Time,
 ) engineapi.EngineResponse {
 	policy := policyContext.Policy()
-	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	resp.PolicyResponse = engineapi.PolicyResponse{
-		Stats: engineapi.PolicyStats{
-			ExecutionStats: engineapi.ExecutionStats{
-				Timestamp: startTime.Unix(),
-			},
-		},
-	}
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
+	resp.PolicyResponse = engineapi.PolicyResponse{}
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
 		logger := internal.LoggerWithRule(logger, rule)

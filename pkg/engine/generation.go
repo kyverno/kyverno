@@ -27,14 +27,8 @@ func (e *engine) filterGenerateRules(
 	policyNameKey string,
 	startTime time.Time,
 ) engineapi.EngineResponse {
-	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	resp.PolicyResponse = engineapi.PolicyResponse{
-		Stats: engineapi.PolicyStats{
-			ExecutionStats: engineapi.ExecutionStats{
-				Timestamp: startTime.Unix(),
-			},
-		},
-	}
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
+	resp.PolicyResponse = engineapi.PolicyResponse{}
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {

@@ -23,14 +23,14 @@ func (e *engine) verifyAndPatchImages(
 	policyContext engineapi.PolicyContext,
 ) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	policy := policyContext.Policy()
-	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
+	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
 
 	startTime := time.Now()
 
 	defer func() {
 		internal.BuildResponse(policyContext, &resp, startTime)
 		logger.V(4).Info("processed image verification rules",
-			"time", resp.PolicyResponse.Stats.ProcessingTime.String(),
+			"time", resp.Stats.ProcessingTime.String(),
 			"applied", resp.PolicyResponse.Stats.RulesAppliedCount,
 			"successful", resp.IsSuccessful(),
 		)
