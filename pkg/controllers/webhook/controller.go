@@ -735,7 +735,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
 		for _, p := range policies {
 			spec := p.GetSpec()
-			if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() || spec.HasYAMLSignatureVerify() {
+			if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
 				if spec.GetFailurePolicy() == kyvernov1.Ignore {
 					c.mergeWebhook(ignore, p, true)
 				} else {
@@ -826,10 +826,10 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			matchedGVK = append(matchedGVK, rule.Generation.CloneList.Kinds...)
 			continue
 		}
-		if (updateValidate && rule.HasValidate() || rule.HasImagesValidationChecks()) ||
+		if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
 			(updateValidate && rule.HasMutate() && rule.IsMutateExisting()) ||
 			(!updateValidate && rule.HasMutate()) && !rule.IsMutateExisting() ||
-			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasYAMLSignatureVerify()) {
+			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
 	}
