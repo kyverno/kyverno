@@ -58,7 +58,6 @@ func (h mutateImageHandler) Process(
 		return resource, nil
 	}
 	jsonContext := policyContext.JSONContext()
-	jsonContext.Restore()
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {
 		return resource, handlers.RuleResponses(
