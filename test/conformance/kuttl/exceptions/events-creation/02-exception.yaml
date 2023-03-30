@@ -1,0 +1,14 @@
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: allow-latest
+spec:
+  exceptions:
+    - policyName: disallow-latest-tag-events-creation
+      ruleNames:
+        - validate-image-tag
+  match:
+    any:
+      - resources:
+          namespaces:
+            - policy-exception-events-creation-ns
