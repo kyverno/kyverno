@@ -446,12 +446,11 @@ var (
 	testOtherKey       = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpNlOGZ323zMlhs4bcKSpAKQvbcWi5ZLRmijm6SqXDy0Fp0z0Eal+BekFnLzs8rUXUaXlhZ3hNudlgFJH+nFNMw==\n-----END PUBLIC KEY-----\n`
 )
 
-func Test_ConfigMapMissingSuccess(t *testing.T) {
+func Test_NoMatch(t *testing.T) {
 	policyContext := buildContext(t, testConfigMapMissing, testConfigMapMissingResource, "")
 	cosign.ClearMock()
 	err, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, engineapi.RuleStatusSkip, err.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, len(err.PolicyResponse.Rules), 0)
 }
 
 func Test_ConfigMapMissingFailure(t *testing.T) {
