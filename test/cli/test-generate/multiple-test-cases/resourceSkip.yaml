@@ -1,11 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: foo-deployment
+  name: skip-deployment
   namespace: hello-world
   labels:
     app: nginx
-    create-default-pdb: "true"
 spec:
   replicas: 1
   selector:

@@ -5,6 +5,7 @@ metadata:
   namespace: hello-world
   labels:
     app: nginx
+    create-default-pdb: "true"
 spec:
   replicas: 1
   selector:

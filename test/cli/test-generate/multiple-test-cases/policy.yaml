@@ -11,6 +11,9 @@ spec:
         - resources:
             kinds:
             - Deployment
+            selector:
+              matchLabels:
+                create-default-pdb: "true"
     generate:
       apiVersion: policy/v1
       kind: PodDisruptionBudget

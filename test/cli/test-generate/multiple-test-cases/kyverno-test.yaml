@@ -4,6 +4,7 @@ policies:
 resources:
   - resourceFoo.yaml
   - resourceBar.yaml
+  - resourceSkip.yaml
 results:
   - policy: multiple-test-cases
     rule: create-default-pdb
@@ -18,4 +19,10 @@ results:
     generatedResource: generatedResourceBar.yaml
     kind: Deployment
     result: pass
+    namespace: hello-world
+  - policy: multiple-test-cases
+    rule: create-default-pdb
+    resource: skip-deployment
+    kind: Deployment
+    result: skip
     namespace: hello-world
