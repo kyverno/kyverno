@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -17,6 +18,29 @@ type Handler interface {
 		unstructured.Unstructured,
 		kyvernov1.Rule,
 	) (unstructured.Unstructured, []engineapi.RuleResponse)
+}
+
+func WithResponses(ruleResponses ...engineapi.RuleResponse) []engineapi.RuleResponse {
+	if len(ruleResponses) == 0 {
+		return nil
+	}
+	return ruleResponses
+}
+
+func WithError(timestamp time.Time, rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) []engineapi.RuleResponse {
+	return WithResponses(engineapi.RuleError(timestamp, rule, ruleType, msg, err))
+}
+
+func WithSkip(timestamp time.Time, rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
+	return WithResponses(engineapi.RuleSkip(timestamp, rule, ruleType, msg))
+}
+
+func WithPass(timestamp time.Time, rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
+	return WithResponses(engineapi.RulePass(timestamp, rule, ruleType, msg))
+}
+
+func WithFail(timestamp time.Time, rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
+	return WithResponses(engineapi.RuleFail(timestamp, rule, ruleType, msg))
 }
 
 func RuleResponses(rrs ...*engineapi.RuleResponse) []engineapi.RuleResponse {

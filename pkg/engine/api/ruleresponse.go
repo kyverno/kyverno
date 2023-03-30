@@ -2,7 +2,9 @@ package api
 
 import (
 	"fmt"
+	"time"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +48,35 @@ type RuleResponse struct {
 	PodSecurityChecks *PodSecurityChecks
 	// Exception is the exception applied (if any)
 	Exception *kyvernov2alpha1.PolicyException
+}
+
+func NewRuleResponse(timestamp time.Time, rule kyvernov1.Rule, ruleType RuleType, msg string, status RuleStatus) RuleResponse {
+	return RuleResponse{
+		Name:    rule.Name,
+		Type:    ruleType,
+		Message: msg,
+		Status:  status,
+		Stats:   NewExecutionStats(timestamp),
+	}
+}
+
+func RuleError(timestamp time.Time, rule kyvernov1.Rule, ruleType RuleType, msg string, err error) RuleResponse {
+	if err != nil {
+		return NewRuleResponse(timestamp, rule, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), RuleStatusError)
+	}
+	return NewRuleResponse(timestamp, rule, ruleType, msg, RuleStatusError)
+}
+
+func RuleSkip(timestamp time.Time, rule kyvernov1.Rule, ruleType RuleType, msg string) RuleResponse {
+	return NewRuleResponse(timestamp, rule, ruleType, msg, RuleStatusSkip)
+}
+
+func RulePass(timestamp time.Time, rule kyvernov1.Rule, ruleType RuleType, msg string) RuleResponse {
+	return NewRuleResponse(timestamp, rule, ruleType, msg, RuleStatusPass)
+}
+
+func RuleFail(timestamp time.Time, rule kyvernov1.Rule, ruleType RuleType, msg string) RuleResponse {
+	return NewRuleResponse(timestamp, rule, ruleType, msg, RuleStatusFail)
 }
 
 // HasStatus checks if rule status is in a given list

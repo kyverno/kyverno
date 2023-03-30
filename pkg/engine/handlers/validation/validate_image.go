@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -37,6 +38,7 @@ func (h validateImageHandler) Process(
 	if engineutils.IsDeleteRequest(policyContext) {
 		return resource, nil
 	}
+	startTime := time.Now()
 	matchingImages, _, err := engineutils.ExtractMatchingImages(
 		policyContext.NewResource(),
 		policyContext.JSONContext(),
@@ -44,21 +46,20 @@ func (h validateImageHandler) Process(
 		h.configuration,
 	)
 	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "", err))
+		return resource, handlers.WithError(startTime, rule, engineapi.Validation, "failed to extract matching images", err)
 	}
 	if len(matchingImages) == 0 {
-		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.Validation, "image verified"))
+		return resource, handlers.WithSkip(startTime, rule, engineapi.Validation, "image verified")
 	}
 	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext, rule.RawAnyAllConditions)
 	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to evaluate preconditions", err))
+		return resource, handlers.WithError(startTime, rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}
 	if !preconditionsPassed {
 		if policyContext.Policy().GetSpec().ValidationFailureAction.Audit() {
 			return resource, nil
 		}
-
-		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.Validation, "preconditions not met"))
+		return resource, handlers.WithSkip(startTime, rule, engineapi.Validation, "preconditions not met")
 	}
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
@@ -73,13 +74,13 @@ func (h validateImageHandler) Process(
 
 				logger.V(4).Info("validating image", "image", image)
 				if err := validateImage(policyContext, imageVerify, name, imageInfo, logger); err != nil {
-					return resource, handlers.RuleResponses(internal.RuleResponse(rule, engineapi.ImageVerify, err.Error(), engineapi.RuleStatusFail))
+					return resource, handlers.WithFail(startTime, rule, engineapi.ImageVerify, err.Error())
 				}
 			}
 		}
 	}
 	logger.V(4).Info("validated image", "rule", rule.Name)
-	return resource, handlers.RuleResponses(internal.RulePass(rule, engineapi.Validation, "image verified"))
+	return resource, handlers.WithPass(startTime, rule, engineapi.Validation, "image verified")
 }
 
 func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {
