@@ -502,7 +502,7 @@ OuterLoop:
 
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(c.Policy) {
-		if rule.HasValidate() || rule.HasImagesValidationChecks() {
+		if rule.HasValidate() || rule.HasVerifyImageChecks() {
 			policyHasValidate = true
 		}
 	}
@@ -702,7 +702,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
-		if !policyRule.HasValidate() && !policyRule.HasImagesValidationChecks() && !policyRule.HasVerifyImages() {
+		if !policyRule.HasValidate() && !policyRule.HasVerifyImageChecks() && !policyRule.HasVerifyImages() {
 			continue
 		}
 
