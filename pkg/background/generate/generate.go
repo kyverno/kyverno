@@ -3,9 +3,7 @@ package generate
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -24,10 +22,13 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
+	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -88,45 +89,23 @@ func NewGenerateController(
 func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var err error
-	var resource *unstructured.Unstructured
 	var genResources []kyvernov1.ResourceSpec
 	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
-	// 1 - Check if the trigger exists
-	resource, err = common.GetResource(c.client, ur.Spec, c.log)
+	trigger, err := c.getTrigger(ur.Spec)
 	if err != nil {
-		// Don't update status
-		// re-queueing the UR by updating the annotation
-		// retry - 5 times
-		logger.V(3).Info("resource does not exist or is pending creation, re-queueing", "details", err.Error())
-		retry, urAnnotations, err := increaseRetryAnnotation(ur)
-		if err != nil {
-			return err
-		}
-		if retry > 5 {
-			err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
-			if err != nil {
-				logger.Error(err, "exceeds retry limit, failed to delete the UR", "update request", ur.Name, "retry", retry, "resourceVersion", ur.GetResourceVersion())
-				return err
-			}
-		}
-
-		ur.SetAnnotations(urAnnotations)
-		_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
-		if err != nil {
-			logger.Error(err, "failed to update annotation in update request for the resource", "update request", ur.Name, "resourceVersion", ur.GetResourceVersion(), "annotations", urAnnotations, "retry", retry)
+		logger.V(3).Info("the trigger resource does not exist or is pending creation, re-queueing", "details", err.Error())
+		if err := updateRetryAnnotation(c.kyvernoClient, ur); err != nil {
 			return err
 		}
 	}
 
-	// trigger resource is being terminated
-	if resource == nil {
+	if trigger == nil {
 		return nil
 	}
 
-	// 2 - Apply the generate policy on the resource
-	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), c.nsLister, logger)
-	genResources, err = c.applyGenerate(*resource, *ur, namespaceLabels)
+	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+	genResources, err = c.applyGenerate(*trigger, *ur, namespaceLabels)
 	if err != nil {
 		// Need not update the status when policy doesn't apply on resource, because all the update requests are removed by the cleanup controller
 		if strings.Contains(err.Error(), doesNotApply) {
@@ -134,16 +113,33 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 			return nil
 		}
 
-		// 3 - Report failure Events
-		events := event.NewBackgroundFailedEvent(err, ur.Spec.Policy, "", event.GeneratePolicyController, resource)
+		events := event.NewBackgroundFailedEvent(err, ur.Spec.Policy, "", event.GeneratePolicyController, trigger)
 		c.eventGen.Add(events...)
 	}
 
-	// 4 - Update Status
 	return updateStatus(c.statusControl, *ur, err, genResources)
 }
 
 const doesNotApply = "policy does not apply to resource"
+
+func (c *GenerateController) getTrigger(spec kyvernov1beta1.UpdateRequestSpec) (*unstructured.Unstructured, error) {
+	if spec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
+		request := spec.Context.AdmissionRequestInfo.AdmissionRequest
+		_, oldResource, err := admissionutils.ExtractResources(nil, request)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load resource from context: %w", err)
+		}
+		labels := oldResource.GetLabels()
+		if labels[common.GeneratePolicyLabel] != "" {
+			// non-trigger deletion, get trigger from ur spec
+			c.log.V(4).Info("non-trigger resource is deleted, fetching the trigger from the UR spec", "trigger", spec.Resource.String())
+			return common.GetResource(c.client, spec, c.log)
+		}
+		return &oldResource, nil
+	} else {
+		return common.GetResource(c.client, spec, c.log)
+	}
+}
 
 func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, ur kyvernov1beta1.UpdateRequest, namespaceLabels map[string]string) ([]kyvernov1.ResourceSpec, error) {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
@@ -324,7 +320,7 @@ func getResourceInfoForDataAndClone(rule kyvernov1.Rule) (kind, name, namespace,
 	return
 }
 
-func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, trigger unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
 	rdatas := []GenerateResponse{}
 	var cresp, dresp map[string]interface{}
 	var err error
@@ -396,29 +392,9 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 		}
 
 		newResource.SetAPIVersion(rdata.GenAPIVersion)
-		common.ManageLabels(newResource, resource, policy, rule.Name)
-		// Add Synchronize label
-		label := newResource.GetLabels()
-
-		// Add background gen-rule label if generate rule applied on existing resource
-		if policy.GetSpec().IsGenerateExisting() {
-			label[LabelBackgroundGenRuleName] = rule.Name
-		}
-
-		label[LabelDataPolicyName] = policy.GetName()
-		label[LabelURName] = ur.Name
+		common.ManageLabels(newResource, trigger, policy, rule.Name)
 		if rdata.Action == Create {
-			if rule.Generation.Synchronize {
-				label[LabelSynchronize] = "enable"
-			} else {
-				label[LabelSynchronize] = "disable"
-			}
-
-			// Reset resource version
 			newResource.SetResourceVersion("")
-			newResource.SetLabels(label)
-
-			// Create the resource
 			_, err = client.CreateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
@@ -443,9 +419,6 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 				// if synchronize is true - update the label and generated resource with generate policy data
 				if rule.Generation.Synchronize {
 					logger.V(4).Info("updating existing resource")
-					label[LabelSynchronize] = "enable"
-					newResource.SetLabels(label)
-
 					if rdata.GenAPIVersion == "" {
 						generatedResourceAPIVersion := generatedObj.GetAPIVersion()
 						newResource.SetAPIVersion(generatedResourceAPIVersion)
@@ -458,24 +431,6 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 						if err != nil {
 							logger.Error(err, "failed to update resource")
-							newGenResources = append(newGenResources, noGenResource)
-							return newGenResources, err
-						}
-					}
-				} else {
-					currentGeneratedResourcelabel := generatedObj.GetLabels()
-					currentSynclabel := currentGeneratedResourcelabel[LabelSynchronize]
-
-					// update only if the labels mismatches
-					if (!rule.Generation.Synchronize && currentSynclabel == "enable") ||
-						(rule.Generation.Synchronize && currentSynclabel == "disable") {
-						logger.V(4).Info("updating label in existing resource")
-						currentGeneratedResourcelabel[LabelSynchronize] = "disable"
-						generatedObj.SetLabels(currentGeneratedResourcelabel)
-
-						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, generatedObj, false)
-						if err != nil {
-							logger.Error(err, "failed to update label in existing resource")
 							newGenResources = append(newGenResources, noGenResource)
 							return newGenResources, err
 						}
@@ -581,7 +536,7 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name string, poli
 		obj.SetCreationTimestamp(newResource.GetCreationTimestamp())
 		obj.SetManagedFields(newResource.GetManagedFields())
 		obj.SetResourceVersion(newResource.GetResourceVersion())
-		if reflect.DeepEqual(obj, newResource) {
+		if datautils.DeepEqual(obj, newResource) {
 			return nil, Skip, nil
 		}
 		return obj.UnstructuredContent(), Update, nil
@@ -670,7 +625,7 @@ func manageCloneList(log logr.Logger, namespace string, ur kyvernov1beta1.Update
 				obj.SetManagedFields(newResource.GetManagedFields())
 				obj.SetResourceVersion(newResource.GetResourceVersion())
 
-				if reflect.DeepEqual(obj, newResource) {
+				if datautils.DeepEqual(obj, newResource) {
 					response = append(response, GenerateResponse{
 						Data:   nil,
 						Action: Skip,

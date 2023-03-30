@@ -2,8 +2,8 @@ package controller
 
 import (
 	"context"
-	"reflect"
 
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -116,7 +116,7 @@ func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](ctx context.Co
 			if obj.GetResourceVersion() == "" {
 				return setter.Create(ctx, mutated, metav1.CreateOptions{})
 			} else {
-				if reflect.DeepEqual(obj, mutated) {
+				if datautils.DeepEqual(obj, mutated) {
 					return mutated, nil
 				} else {
 					return setter.Update(ctx, mutated, metav1.UpdateOptions{})
@@ -140,7 +140,7 @@ func Update[T interface {
 		var d T
 		return d, err
 	} else {
-		if reflect.DeepEqual(obj, mutated) {
+		if datautils.DeepEqual(obj, mutated) {
 			return mutated, nil
 		} else {
 			return setter.Update(ctx, mutated, metav1.UpdateOptions{})
@@ -158,7 +158,7 @@ func UpdateStatus[T interface {
 		var d T
 		return d, err
 	} else {
-		if reflect.DeepEqual(obj, mutated) {
+		if datautils.DeepEqual(obj, mutated) {
 			return mutated, nil
 		} else {
 			return setter.UpdateStatus(ctx, mutated, metav1.UpdateOptions{})

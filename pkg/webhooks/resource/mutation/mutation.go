@@ -3,7 +3,6 @@ package mutation
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -21,7 +20,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -81,7 +79,7 @@ func (v *mutationHandler) applyMutations(
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
-) ([]byte, []*engineapi.EngineResponse, error) {
+) ([]byte, []engineapi.EngineResponse, error) {
 	if len(policies) == 0 {
 		return nil, nil, nil
 	}
@@ -91,7 +89,7 @@ func (v *mutationHandler) applyMutations(
 	}
 
 	var patches [][]byte
-	var engineResponses []*engineapi.EngineResponse
+	var engineResponses []engineapi.EngineResponse
 
 	for _, policy := range policies {
 		spec := policy.GetSpec()
@@ -119,8 +117,10 @@ func (v *mutationHandler) applyMutations(
 					}
 				}
 
-				policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
-				engineResponses = append(engineResponses, engineResponse)
+				if engineResponse != nil {
+					policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
+					engineResponses = append(engineResponses, *engineResponse)
+				}
 
 				// registering the kyverno_policy_results_total metric concurrently
 				go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), v.log, v.metrics, string(request.Operation), policy, *engineResponse)
@@ -160,7 +160,7 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 	policyPatches := engineResponse.GetPatches()
 
 	if !engineResponse.IsSuccessful() {
-		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRules())
+		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy().GetName(), engineResponse.GetFailedRulesWithErrors())
 	}
 
 	if policyContext.Policy().ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
@@ -170,10 +170,10 @@ func (h *mutationHandler) applyMutation(ctx context.Context, request *admissionv
 		}
 	}
 
-	return engineResponse, policyPatches, nil
+	return &engineResponse, policyPatches, nil
 }
 
-func logMutationResponse(patches [][]byte, engineResponses []*engineapi.EngineResponse, logger logr.Logger) {
+func logMutationResponse(patches [][]byte, engineResponses []engineapi.EngineResponse, logger logr.Logger) {
 	if len(patches) != 0 {
 		logger.V(4).Info("created patches", "count", len(patches))
 	}
@@ -186,11 +186,9 @@ func logMutationResponse(patches [][]byte, engineResponses []*engineapi.EngineRe
 
 func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		resource := policyContext.NewResource()
+	if resource := policyContext.NewResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
-	} else {
-		resource := policyContext.OldResource()
+	} else if resource := policyContext.OldResource(); resource.Object != nil {
 		deletionTimeStamp = resource.GetDeletionTimestamp()
 	}
 	return deletionTimeStamp != nil

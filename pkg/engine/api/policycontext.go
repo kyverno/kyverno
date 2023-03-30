@@ -6,26 +6,22 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // ExcludeFunc is a function used to determine if a resource is excluded
 type ExcludeFunc = func(kind, namespace, name string) bool
-
-type SubResource struct {
-	APIResource    metav1.APIResource
-	ParentResource metav1.APIResource
-}
 
 type PolicyContext interface {
 	Policy() kyvernov1.PolicyInterface
 	NewResource() unstructured.Unstructured
 	OldResource() unstructured.Unstructured
 	AdmissionInfo() kyvernov1beta1.RequestInfo
+	Operation() kyvernov1.AdmissionOperation
 	NamespaceLabels() map[string]string
-	SubResource() string
-	SubresourcesInPolicy() []SubResource
-	AdmissionOperation() bool
 	RequestResource() metav1.GroupVersionResource
+	ResourceKind() (schema.GroupVersionKind, string)
+	AdmissionOperation() bool
 	Element() unstructured.Unstructured
 	SetElement(element unstructured.Unstructured)
 

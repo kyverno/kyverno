@@ -4,9 +4,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "kyverno.reports-controller.name" . }}
+  namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.reports-controller.labels" . | nindent 4 }}
-  namespace: {{ template "kyverno.namespace" . }}
 spec:
   replicas: {{ template "kyverno.deployment.replicas" .Values.reportsController.replicas }}
   {{- with .Values.reportsController.updateStrategy }}
@@ -99,8 +99,10 @@ spec:
             - --transportCreds={{ . }}
             {{- end }}
             {{- end }}
-            {{- range .Values.reportsController.extraArgs }}
-            - {{ . }}
+            {{- range $key, $value := .Values.reportsController.extraArgs }}
+            {{- if $value }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
             {{- end }}
           env:
           - name: METRICS_CONFIG
@@ -113,6 +115,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: TUF_ROOT
+            value: {{ .Values.reportsController.tufRootMountPath }}
           {{- with .Values.reportsController.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
@@ -120,5 +124,11 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          volumeMounts:
+            - mountPath: {{ .Values.reportsController.tufRootMountPath }}
+              name: sigstore
+      volumes:
+      - name: sigstore
+        {{- toYaml (required "A valid .Values.reportsController.sigstoreVolume entry is required" .Values.reportsController.sigstoreVolume) | nindent 8 }}
 {{- end -}}
 {{- end -}}

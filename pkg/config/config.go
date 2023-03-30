@@ -7,7 +7,7 @@ import (
 
 	valid "github.com/asaskevich/govalidator"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
-	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,7 +96,7 @@ var (
 	// kyvernoConfigMapName is the Kyverno configmap name
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
 	// defaultExcludedUsernames are the usernames excluded by default when matching an incoming admission request
-	defaultExcludedUsernames []string = []string{"system:kube-scheduler"}
+	defaultExcludedUsernames []string
 	// defaultExcludedGroups are the groups excluded by default when matching an incoming admission request
 	defaultExcludedGroups []string = []string{"system:serviceaccounts:kube-system", "system:nodes"}
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
@@ -143,10 +143,14 @@ type Configuration interface {
 	GetExcludedGroups() []string
 	// GetExcludedUsernames return exclude usernames
 	GetExcludedUsernames() []string
+	// GetExcludedBackgroundUsernames return exclude usernames for mutateExisting and generate policies
+	GetExcludedBackgroundUsernames() []string
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
 	// GetWebhooks returns the webhook configs
 	GetWebhooks() []WebhookConfig
+	// GetWebhookAnnotations returns annotations to set on webhook configs
+	GetWebhookAnnotations() map[string]string
 	// Load loads configuration from a configmap
 	Load(cm *corev1.ConfigMap)
 }
@@ -157,10 +161,12 @@ type configuration struct {
 	enableDefaultRegistryMutation bool
 	excludedGroups                []string
 	excludedUsernames             []string
+	excludeBackgroundUsernames    []string
 	filters                       []filter
 	generateSuccessEvents         bool
-	mux                           sync.RWMutex
 	webhooks                      []WebhookConfig
+	webhookAnnotations            map[string]string
+	mux                           sync.RWMutex
 }
 
 // NewDefaultConfiguration ...
@@ -221,6 +227,12 @@ func (cd *configuration) GetExcludedUsernames() []string {
 	return cd.excludedUsernames
 }
 
+func (cd *configuration) GetExcludedBackgroundUsernames() []string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.excludeBackgroundUsernames
+}
+
 func (cd *configuration) GetExcludedGroups() []string {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
@@ -237,6 +249,12 @@ func (cd *configuration) GetWebhooks() []WebhookConfig {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.webhooks
+}
+
+func (cd *configuration) GetWebhookAnnotations() map[string]string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.webhookAnnotations
 }
 
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
@@ -300,6 +318,13 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	} else {
 		cd.excludedUsernames = parseRbac(excludedUsernames)
 	}
+	// load excludeBackgroundUsernames
+	excludeBackgroundUsernames, ok := cm.Data["excludeBackgroundUsernames"]
+	if !ok {
+		logger.V(6).Info("configuration: No excludeBackgroundUsernames defined in ConfigMap")
+	} else {
+		cd.excludeBackgroundUsernames = parseRbac(excludeBackgroundUsernames)
+	}
 	// load generateSuccessEvents
 	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]
 	if ok {
@@ -320,6 +345,16 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			cd.webhooks = webhooks
 		}
 	}
+	// load webhook annotations
+	webhookAnnotations, ok := cm.Data["webhookAnnotations"]
+	if ok {
+		webhookAnnotations, err := parseWebhookAnnotations(webhookAnnotations)
+		if err != nil {
+			logger.Error(err, "failed to parse webhook annotations")
+		} else {
+			cd.webhookAnnotations = webhookAnnotations
+		}
+	}
 }
 
 func (cd *configuration) unload() {
@@ -332,6 +367,7 @@ func (cd *configuration) unload() {
 	cd.excludedGroups = []string{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
+	cd.webhookAnnotations = nil
 	cd.excludedGroups = append(cd.excludedGroups, defaultExcludedGroups...)
 	cd.excludedUsernames = append(cd.excludedUsernames, defaultExcludedUsernames...)
 }

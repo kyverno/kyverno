@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -25,38 +25,30 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.ownerReferences[0].apiVersion
-      name: ApiVersion
-      priority: 1
-      type: string
-    - jsonPath: .metadata.ownerReferences[0].kind
-      name: Kind
-      priority: 1
-      type: string
-    - jsonPath: .metadata.ownerReferences[0].name
-      name: Subject
-      priority: 1
-      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
     - jsonPath: .spec.summary.pass
-      name: Pass
+      name: PASS
       type: integer
     - jsonPath: .spec.summary.fail
-      name: Fail
+      name: FAIL
       type: integer
     - jsonPath: .spec.summary.warn
-      name: Warn
+      name: WARN
       type: integer
     - jsonPath: .spec.summary.error
-      name: Error
+      name: ERROR
       type: integer
     - jsonPath: .spec.summary.skip
-      name: Skip
+      name: SKIP
       type: integer
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
-      name: Hash
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
+      name: GVR
+      priority: 1
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
+      name: REF
       priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
@@ -349,7 +341,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -654,7 +646,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -896,6 +888,21 @@ spec:
                               items:
                                 type: string
                               type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
+                                type: string
+                              type: array
                             selector:
                               description: 'Selector is a label selector. Label keys
                                 and values in `matchLabels` support the wildcard characters
@@ -1097,6 +1104,21 @@ spec:
                                 Each name supports wildcard characters "*" (matches
                                 zero or many characters) and "?" (at least one character).
                               items:
+                                type: string
+                              type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
                                 type: string
                               type: array
                             selector:
@@ -1309,6 +1331,21 @@ spec:
                               items:
                                 type: string
                               type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
+                                type: string
+                              type: array
                             selector:
                               description: 'Selector is a label selector. Label keys
                                 and values in `matchLabels` support the wildcard characters
@@ -1512,6 +1549,21 @@ spec:
                               items:
                                 type: string
                               type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
+                                type: string
+                              type: array
                             selector:
                               description: 'Selector is a label selector. Label keys
                                 and values in `matchLabels` support the wildcard characters
@@ -1702,7 +1754,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -1723,38 +1775,30 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.ownerReferences[0].apiVersion
-      name: ApiVersion
-      priority: 1
-      type: string
-    - jsonPath: .metadata.ownerReferences[0].kind
-      name: Kind
-      priority: 1
-      type: string
-    - jsonPath: .metadata.ownerReferences[0].name
-      name: Subject
-      priority: 1
-      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
     - jsonPath: .spec.summary.pass
-      name: Pass
+      name: PASS
       type: integer
     - jsonPath: .spec.summary.fail
-      name: Fail
+      name: FAIL
       type: integer
     - jsonPath: .spec.summary.warn
-      name: Warn
+      name: WARN
       type: integer
     - jsonPath: .spec.summary.error
-      name: Error
+      name: ERROR
       type: integer
     - jsonPath: .spec.summary.skip
-      name: Skip
+      name: SKIP
       type: integer
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
-      name: Hash
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.gvr']
+      name: GVR
+      priority: 1
+      type: string
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.name']
+      name: REF
       priority: 1
       type: string
     - jsonPath: .metadata.labels['audit\.kyverno\.io/report\.aggregate']
@@ -2048,7 +2092,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -2353,7 +2397,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -2595,6 +2639,21 @@ spec:
                               items:
                                 type: string
                               type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
+                                type: string
+                              type: array
                             selector:
                               description: 'Selector is a label selector. Label keys
                                 and values in `matchLabels` support the wildcard characters
@@ -2796,6 +2855,21 @@ spec:
                                 Each name supports wildcard characters "*" (matches
                                 zero or many characters) and "?" (at least one character).
                               items:
+                                type: string
+                              type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
                                 type: string
                               type: array
                             selector:
@@ -3008,6 +3082,21 @@ spec:
                               items:
                                 type: string
                               type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
+                                type: string
+                              type: array
                             selector:
                               description: 'Selector is a label selector. Label keys
                                 and values in `matchLabels` support the wildcard characters
@@ -3211,6 +3300,21 @@ spec:
                               items:
                                 type: string
                               type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
+                                type: string
+                              type: array
                             selector:
                               description: 'Selector is a label selector. Label keys
                                 and values in `matchLabels` support the wildcard characters
@@ -3401,7 +3505,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -3454,6 +3558,9 @@ spec:
       name: Verifyimages
       priority: 1
       type: integer
+    - jsonPath: .status.conditions[?(@.type == "Ready")].message
+      name: MESSAGE
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -3508,6 +3615,9 @@ spec:
                   rule in existing resources If is set to "true" generate rule will
                   be triggered and applied to existing matched resources. Defaults
                   to "false" if not specified.
+                type: boolean
+              generateExistingOnPolicyUpdate:
+                description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
@@ -3766,6 +3876,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -3984,6 +4109,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -4188,6 +4328,21 @@ spec:
                                 Each name supports wildcard characters "*" (matches
                                 zero or many characters) and "?" (at least one character).
                               items:
+                                type: string
+                              type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
                                 type: string
                               type: array
                             selector:
@@ -4556,6 +4711,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -4774,6 +4944,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -4978,6 +5163,21 @@ spec:
                                 Each name supports wildcard characters "*" (matches
                                 zero or many characters) and "?" (at least one character).
                               items:
+                                type: string
+                              type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
                                 type: string
                               type: array
                             selector:
@@ -7011,6 +7211,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -7236,6 +7452,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -7453,6 +7685,21 @@ spec:
                                     "*" (matches zero or many characters) and "?"
                                     (at least one character).
                                   items:
+                                    type: string
+                                  type: array
+                                operations:
+                                  description: Operations can contain values ["CREATE,
+                                    "UPDATE", "CONNECT", "DELETE"], which are used
+                                    to match a specific action.
+                                  items:
+                                    description: AdmissionOperation can have one of
+                                      the values CREATE, UPDATE, CONNECT, DELETE,
+                                      which are used to match a specific action.
+                                    enum:
+                                    - CREATE
+                                    - CONNECT
+                                    - UPDATE
+                                    - DELETE
                                     type: string
                                   type: array
                                 selector:
@@ -7837,6 +8084,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -8062,6 +8325,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -8279,6 +8558,21 @@ spec:
                                     "*" (matches zero or many characters) and "?"
                                     (at least one character).
                                   items:
+                                    type: string
+                                  type: array
+                                operations:
+                                  description: Operations can contain values ["CREATE,
+                                    "UPDATE", "CONNECT", "DELETE"], which are used
+                                    to match a specific action.
+                                  items:
+                                    description: AdmissionOperation can have one of
+                                      the values CREATE, UPDATE, CONNECT, DELETE,
+                                      which are used to match a specific action.
+                                    enum:
+                                    - CREATE
+                                    - CONNECT
+                                    - UPDATE
+                                    - DELETE
                                     type: string
                                   type: array
                                 selector:
@@ -10165,6 +10459,9 @@ spec:
       name: Verifyimages
       priority: 1
       type: integer
+    - jsonPath: .status.conditions[?(@.type == "Ready")].message
+      name: MESSAGE
+      type: string
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -10218,6 +10515,9 @@ spec:
                   rule in existing resources If is set to "true" generate rule will
                   be triggered and applied to existing matched resources. Defaults
                   to "false" if not specified.
+                type: boolean
+              generateExistingOnPolicyUpdate:
+                description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
@@ -10476,6 +10776,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -10692,6 +11007,21 @@ spec:
                                       "*" (matches zero or many characters) and "?"
                                       (at least one character).
                                     items:
+                                      type: string
+                                    type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
                                       type: string
                                     type: array
                                   selector:
@@ -11068,6 +11398,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -11284,6 +11629,21 @@ spec:
                                       "*" (matches zero or many characters) and "?"
                                       (at least one character).
                                     items:
+                                      type: string
+                                    type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
                                       type: string
                                     type: array
                                   selector:
@@ -13453,6 +13813,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -13678,6 +14054,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -13895,6 +14287,21 @@ spec:
                                     "*" (matches zero or many characters) and "?"
                                     (at least one character).
                                   items:
+                                    type: string
+                                  type: array
+                                operations:
+                                  description: Operations can contain values ["CREATE,
+                                    "UPDATE", "CONNECT", "DELETE"], which are used
+                                    to match a specific action.
+                                  items:
+                                    description: AdmissionOperation can have one of
+                                      the values CREATE, UPDATE, CONNECT, DELETE,
+                                      which are used to match a specific action.
+                                    enum:
+                                    - CREATE
+                                    - CONNECT
+                                    - UPDATE
+                                    - DELETE
                                     type: string
                                   type: array
                                 selector:
@@ -14279,6 +14686,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -14504,6 +14927,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -14721,6 +15160,21 @@ spec:
                                     "*" (matches zero or many characters) and "?"
                                     (at least one character).
                                   items:
+                                    type: string
+                                  type: array
+                                operations:
+                                  description: Operations can contain values ["CREATE,
+                                    "UPDATE", "CONNECT", "DELETE"], which are used
+                                    to match a specific action.
+                                  items:
+                                    description: AdmissionOperation can have one of
+                                      the values CREATE, UPDATE, CONNECT, DELETE,
+                                      which are used to match a specific action.
+                                    enum:
+                                    - CREATE
+                                    - CONNECT
+                                    - UPDATE
+                                    - DELETE
                                     type: string
                                   type: array
                                 selector:
@@ -16579,7 +17033,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -16632,6 +17086,9 @@ spec:
       name: Verifyimages
       priority: 1
       type: integer
+    - jsonPath: .status.conditions[?(@.type == "Ready")].message
+      name: MESSAGE
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -16687,6 +17144,9 @@ spec:
                   rule in existing resources If is set to "true" generate rule will
                   be triggered and applied to existing matched resources. Defaults
                   to "false" if not specified.
+                type: boolean
+              generateExistingOnPolicyUpdate:
+                description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
@@ -16945,6 +17405,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -17163,6 +17638,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -17367,6 +17857,21 @@ spec:
                                 Each name supports wildcard characters "*" (matches
                                 zero or many characters) and "?" (at least one character).
                               items:
+                                type: string
+                              type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
                                 type: string
                               type: array
                             selector:
@@ -17735,6 +18240,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -17953,6 +18473,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -18157,6 +18692,21 @@ spec:
                                 Each name supports wildcard characters "*" (matches
                                 zero or many characters) and "?" (at least one character).
                               items:
+                                type: string
+                              type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
                                 type: string
                               type: array
                             selector:
@@ -20191,6 +20741,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -20416,6 +20982,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -20633,6 +21215,21 @@ spec:
                                     "*" (matches zero or many characters) and "?"
                                     (at least one character).
                                   items:
+                                    type: string
+                                  type: array
+                                operations:
+                                  description: Operations can contain values ["CREATE,
+                                    "UPDATE", "CONNECT", "DELETE"], which are used
+                                    to match a specific action.
+                                  items:
+                                    description: AdmissionOperation can have one of
+                                      the values CREATE, UPDATE, CONNECT, DELETE,
+                                      which are used to match a specific action.
+                                    enum:
+                                    - CREATE
+                                    - CONNECT
+                                    - UPDATE
+                                    - DELETE
                                     type: string
                                   type: array
                                 selector:
@@ -21017,6 +21614,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -21242,6 +21855,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -21459,6 +22088,21 @@ spec:
                                     "*" (matches zero or many characters) and "?"
                                     (at least one character).
                                   items:
+                                    type: string
+                                  type: array
+                                operations:
+                                  description: Operations can contain values ["CREATE,
+                                    "UPDATE", "CONNECT", "DELETE"], which are used
+                                    to match a specific action.
+                                  items:
+                                    description: AdmissionOperation can have one of
+                                      the values CREATE, UPDATE, CONNECT, DELETE,
+                                      which are used to match a specific action.
+                                    enum:
+                                    - CREATE
+                                    - CONNECT
+                                    - UPDATE
+                                    - DELETE
                                     type: string
                                   type: array
                                 selector:
@@ -23345,6 +23989,9 @@ spec:
       name: Verifyimages
       priority: 1
       type: integer
+    - jsonPath: .status.conditions[?(@.type == "Ready")].message
+      name: MESSAGE
+      type: string
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -23399,6 +24046,9 @@ spec:
                   rule in existing resources If is set to "true" generate rule will
                   be triggered and applied to existing matched resources. Defaults
                   to "false" if not specified.
+                type: boolean
+              generateExistingOnPolicyUpdate:
+                description: Deprecated, use generateExisting instead
                 type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
@@ -23657,6 +24307,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -23873,6 +24538,21 @@ spec:
                                       "*" (matches zero or many characters) and "?"
                                       (at least one character).
                                     items:
+                                      type: string
+                                    type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
                                       type: string
                                     type: array
                                   selector:
@@ -24249,6 +24929,21 @@ spec:
                                     items:
                                       type: string
                                     type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
+                                      type: string
+                                    type: array
                                   selector:
                                     description: 'Selector is a label selector. Label
                                       keys and values in `matchLabels` support the
@@ -24465,6 +25160,21 @@ spec:
                                       "*" (matches zero or many characters) and "?"
                                       (at least one character).
                                     items:
+                                      type: string
+                                    type: array
+                                  operations:
+                                    description: Operations can contain values ["CREATE,
+                                      "UPDATE", "CONNECT", "DELETE"], which are used
+                                      to match a specific action.
+                                    items:
+                                      description: AdmissionOperation can have one
+                                        of the values CREATE, UPDATE, CONNECT, DELETE,
+                                        which are used to match a specific action.
+                                      enum:
+                                      - CREATE
+                                      - CONNECT
+                                      - UPDATE
+                                      - DELETE
                                       type: string
                                     type: array
                                   selector:
@@ -26634,6 +27344,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -26859,6 +27585,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -27076,6 +27818,21 @@ spec:
                                     "*" (matches zero or many characters) and "?"
                                     (at least one character).
                                   items:
+                                    type: string
+                                  type: array
+                                operations:
+                                  description: Operations can contain values ["CREATE,
+                                    "UPDATE", "CONNECT", "DELETE"], which are used
+                                    to match a specific action.
+                                  items:
+                                    description: AdmissionOperation can have one of
+                                      the values CREATE, UPDATE, CONNECT, DELETE,
+                                      which are used to match a specific action.
+                                    enum:
+                                    - CREATE
+                                    - CONNECT
+                                    - UPDATE
+                                    - DELETE
                                     type: string
                                   type: array
                                 selector:
@@ -27460,6 +28217,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -27685,6 +28458,22 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                      operations:
+                                        description: Operations can contain values
+                                          ["CREATE, "UPDATE", "CONNECT", "DELETE"],
+                                          which are used to match a specific action.
+                                        items:
+                                          description: AdmissionOperation can have
+                                            one of the values CREATE, UPDATE, CONNECT,
+                                            DELETE, which are used to match a specific
+                                            action.
+                                          enum:
+                                          - CREATE
+                                          - CONNECT
+                                          - UPDATE
+                                          - DELETE
+                                          type: string
+                                        type: array
                                       selector:
                                         description: 'Selector is a label selector.
                                           Label keys and values in `matchLabels` support
@@ -27902,6 +28691,21 @@ spec:
                                     "*" (matches zero or many characters) and "?"
                                     (at least one character).
                                   items:
+                                    type: string
+                                  type: array
+                                operations:
+                                  description: Operations can contain values ["CREATE,
+                                    "UPDATE", "CONNECT", "DELETE"], which are used
+                                    to match a specific action.
+                                  items:
+                                    description: AdmissionOperation can have one of
+                                      the values CREATE, UPDATE, CONNECT, DELETE,
+                                      which are used to match a specific action.
+                                    enum:
+                                    - CREATE
+                                    - CONNECT
+                                    - UPDATE
+                                    - DELETE
                                     type: string
                                   type: array
                                 selector:
@@ -29760,7 +30564,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -29935,6 +30739,21 @@ spec:
                                 Each name supports wildcard characters "*" (matches
                                 zero or many characters) and "?" (at least one character).
                               items:
+                                type: string
+                              type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
                                 type: string
                               type: array
                             selector:
@@ -30140,6 +30959,21 @@ spec:
                               items:
                                 type: string
                               type: array
+                            operations:
+                              description: Operations can contain values ["CREATE,
+                                "UPDATE", "CONNECT", "DELETE"], which are used to
+                                match a specific action.
+                              items:
+                                description: AdmissionOperation can have one of the
+                                  values CREATE, UPDATE, CONNECT, DELETE, which are
+                                  used to match a specific action.
+                                enum:
+                                - CREATE
+                                - CONNECT
+                                - UPDATE
+                                - DELETE
+                                type: string
+                              type: array
                             selector:
                               description: 'Selector is a label selector. Label keys
                                 and values in `matchLabels` support the wildcard characters
@@ -30254,7 +31088,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -30659,7 +31493,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -31026,7 +31860,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.1
+    controller-gen.kubebuilder.io/version: v0.11.3
     {{- with .Values.crds.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

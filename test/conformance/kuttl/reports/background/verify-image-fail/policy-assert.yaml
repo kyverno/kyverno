@@ -1,0 +1,9 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: keyed-basic-policy
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready

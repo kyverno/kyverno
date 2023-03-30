@@ -1,0 +1,15 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: cpol-create-on-trigger-deletion
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-org
+  namespace: cpol-create-on-trigger-deletion-ns

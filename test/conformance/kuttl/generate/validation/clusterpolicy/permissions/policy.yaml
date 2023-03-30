@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-validate-create-sa-permission
+spec:
+  rules:
+  - name: clone-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: ServiceAccount
+      name: cpol-validate-create-sa-permission-sa
+      namespace: default
+      synchronize: true
+      clone:
+        namespace: default
+        name: regcred

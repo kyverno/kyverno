@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete pod nginx-pod -n test-ns --force --wait=true
+  - command: kubectl delete -f 01-manifests.yaml --force --wait=true
+  - script: ./modify-resource-filters.sh addBinding
