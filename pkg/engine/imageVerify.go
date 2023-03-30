@@ -28,16 +28,18 @@ func (e *engine) verifyAndPatchImages(
 	applyRules := policy.GetSpec().GetApplyRules()
 	handler := mutation.NewMutateImageHandler(e.configuration, e.rclient, &ivm)
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
-		startTime := time.Now()
-		resource, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, matchedResource, rule, engineapi.ImageVerify)
-		matchedResource = resource
-		for _, ruleResp := range ruleResp {
-			ruleResp := ruleResp
-			internal.AddRuleResponse(&resp, &ruleResp, startTime)
-			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
-		}
-		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
-			break
+		if rule.HasVerifyImages() {
+			startTime := time.Now()
+			resource, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, matchedResource, rule, engineapi.ImageVerify)
+			matchedResource = resource
+			for _, ruleResp := range ruleResp {
+				ruleResp := ruleResp
+				internal.AddRuleResponse(&resp, &ruleResp, startTime)
+				logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
+			}
+			if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
+				break
+			}
 		}
 	}
 	// TODO: i doesn't make sense to not return the patched resource here
