@@ -16,21 +16,7 @@ func (e *engine) validate(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) engineapi.EngineResponse {
-	startTime := time.Now()
-	logger.V(4).Info("start validate policy processing", "startTime", startTime)
-	policyResponse := e.validateResource(ctx, logger, policyContext)
-	defer logger.V(4).Info("finished policy processing", "processingTime", policyResponse.Stats.ProcessingTime.String(), "validationRulesApplied", policyResponse.Stats.RulesAppliedCount)
-	engineResponse := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	engineResponse.PolicyResponse = *policyResponse
-	return *internal.BuildResponse(policyContext, &engineResponse, startTime)
-}
-
-func (e *engine) validateResource(
-	ctx context.Context,
-	logger logr.Logger,
-	policyContext engineapi.PolicyContext,
-) *engineapi.PolicyResponse {
+) engineapi.PolicyResponse {
 	resp := &engineapi.PolicyResponse{}
 
 	policyContext.JSONContext().Checkpoint()
@@ -42,18 +28,23 @@ func (e *engine) validateResource(
 		logger := internal.LoggerWithRule(logger, rule)
 		startTime := time.Now()
 		hasValidate := rule.HasValidate()
-		hasValidateImage := rule.HasImagesValidationChecks()
-		hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
-		if !hasValidate && !hasValidateImage {
+		hasVerifyImageChecks := rule.HasVerifyImageChecks()
+		if !hasValidate && !hasVerifyImageChecks {
 			continue
 		}
 		var handler handlers.Handler
-		if hasValidate && !hasYAMLSignatureVerify {
-			handler = e.validateResourceHandler
-		} else if hasValidateImage {
+		if hasValidate {
+			hasVerifyManifest := rule.HasVerifyManifests()
+			hasValidatePss := rule.HasValidatePodSecurity()
+			if hasVerifyManifest {
+				handler = e.validateManifestHandler
+			} else if hasValidatePss {
+				handler = e.validatePssHandler
+			} else {
+				handler = e.validateResourceHandler
+			}
+		} else if hasVerifyImageChecks {
 			handler = e.validateImageHandler
-		} else if hasYAMLSignatureVerify {
-			handler = e.validateManifestHandler
 		}
 		if handler != nil {
 			_, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, policyContext.NewResource(), rule, engineapi.Validation)
@@ -67,5 +58,5 @@ func (e *engine) validateResource(
 			break
 		}
 	}
-	return resp
+	return *resp
 }

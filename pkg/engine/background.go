@@ -23,7 +23,7 @@ func (e *engine) applyBackgroundChecks(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) engineapi.EngineResponse {
+) engineapi.PolicyResponse {
 	return e.filterRules(policyContext, logger, time.Now())
 }
 
@@ -31,21 +31,14 @@ func (e *engine) filterRules(
 	policyContext engineapi.PolicyContext,
 	logger logr.Logger,
 	startTime time.Time,
-) engineapi.EngineResponse {
+) engineapi.PolicyResponse {
 	policy := policyContext.Policy()
-	resp := engineapi.NewEngineResponseFromPolicyContext(policyContext, nil)
-	resp.PolicyResponse = engineapi.PolicyResponse{
-		Stats: engineapi.PolicyStats{
-			ExecutionStats: engineapi.ExecutionStats{
-				Timestamp: startTime.Unix(),
-			},
-		},
-	}
+	resp := engineapi.NewPolicyResponse()
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policy) {
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
-			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+			resp.Rules = append(resp.Rules, *ruleResp)
 			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
 				break
 			}
@@ -84,10 +77,10 @@ func (e *engine) filterRule(
 	policy := policyContext.Policy()
 	gvk, subresource := policyContext.ResourceKind()
 
-	if err := engineutils.MatchesResourceDescription(newResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource); err != nil {
+	if err := engineutils.MatchesResourceDescription(newResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err != nil {
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource); err == nil {
+			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err == nil {
 				return &engineapi.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,
@@ -129,7 +122,7 @@ func (e *engine) filterRule(
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return internal.RuleSkip(ruleCopy, ruleType, "")
+		return internal.RuleSkip(*ruleCopy, ruleType, "")
 	}
 
 	// build rule Response

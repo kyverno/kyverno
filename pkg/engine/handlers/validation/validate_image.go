@@ -44,21 +44,21 @@ func (h validateImageHandler) Process(
 		h.configuration,
 	)
 	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(&rule, engineapi.Validation, "", err))
+		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "", err))
 	}
 	if len(matchingImages) == 0 {
-		return resource, handlers.RuleResponses(internal.RuleSkip(&rule, engineapi.Validation, "image verified"))
+		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.Validation, "image verified"))
 	}
 	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext, rule.RawAnyAllConditions)
 	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(&rule, engineapi.Validation, "failed to evaluate preconditions", err))
+		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to evaluate preconditions", err))
 	}
 	if !preconditionsPassed {
 		if policyContext.Policy().GetSpec().ValidationFailureAction.Audit() {
 			return resource, nil
 		}
 
-		return resource, handlers.RuleResponses(internal.RuleSkip(&rule, engineapi.Validation, "preconditions not met"))
+		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.Validation, "preconditions not met"))
 	}
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
@@ -79,7 +79,7 @@ func (h validateImageHandler) Process(
 		}
 	}
 	logger.V(4).Info("validated image", "rule", rule.Name)
-	return resource, handlers.RuleResponses(internal.RulePass(&rule, engineapi.Validation, "image verified"))
+	return resource, handlers.RuleResponses(internal.RulePass(rule, engineapi.Validation, "image verified"))
 }
 
 func validateImage(ctx engineapi.PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {

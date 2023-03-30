@@ -115,6 +115,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: TUF_ROOT
+            value: {{ .Values.reportsController.tufRootMountPath }}
           {{- with .Values.reportsController.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
@@ -122,5 +124,11 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          volumeMounts:
+            - mountPath: {{ .Values.reportsController.tufRootMountPath }}
+              name: sigstore
+      volumes:
+      - name: sigstore
+        {{- toYaml (required "A valid .Values.reportsController.sigstoreVolume entry is required" .Values.reportsController.sigstoreVolume) | nindent 8 }}
 {{- end -}}
 {{- end -}}

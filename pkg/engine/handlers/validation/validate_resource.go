@@ -15,14 +15,9 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -47,39 +42,36 @@ func (h validateResourceHandler) Process(
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	policy := policyContext.Policy()
 	contextLoader := h.contextLoader(policy, rule)
-	v := newValidator(logger, contextLoader, policyContext, &rule)
+	v := newValidator(logger, contextLoader, policyContext, rule)
 	return resource, handlers.RuleResponses(v.validate(ctx))
 }
 
 type validator struct {
 	log              logr.Logger
 	policyContext    engineapi.PolicyContext
-	rule             *kyvernov1.Rule
+	rule             kyvernov1.Rule
 	contextEntries   []kyvernov1.ContextEntry
 	anyAllConditions apiextensions.JSON
 	pattern          apiextensions.JSON
 	anyPattern       apiextensions.JSON
 	deny             *kyvernov1.Deny
-	podSecurity      *kyvernov1.PodSecurity
 	forEach          []kyvernov1.ForEachValidation
 	contextLoader    engineapi.EngineContextLoader
 	nesting          int
 }
 
-func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule *kyvernov1.Rule) *validator {
-	ruleCopy := rule.DeepCopy()
+func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
 	return &validator{
 		log:              log,
-		rule:             ruleCopy,
+		rule:             rule,
 		policyContext:    ctx,
 		contextLoader:    contextLoader,
-		contextEntries:   ruleCopy.Context,
-		anyAllConditions: ruleCopy.GetAnyAllConditions(),
-		pattern:          ruleCopy.Validation.GetPattern(),
-		anyPattern:       ruleCopy.Validation.GetAnyPattern(),
-		deny:             ruleCopy.Validation.Deny,
-		podSecurity:      ruleCopy.Validation.PodSecurity,
-		forEach:          ruleCopy.Validation.ForEachValidation,
+		contextEntries:   rule.Context,
+		anyAllConditions: rule.GetAnyAllConditions(),
+		pattern:          rule.Validation.GetPattern(),
+		anyPattern:       rule.Validation.GetAnyPattern(),
+		deny:             rule.Validation.Deny,
+		forEach:          rule.Validation.ForEachValidation,
 	}
 }
 
@@ -87,11 +79,10 @@ func newForEachValidator(
 	foreach kyvernov1.ForEachValidation,
 	contextLoader engineapi.EngineContextLoader,
 	nesting int,
-	rule *kyvernov1.Rule,
+	rule kyvernov1.Rule,
 	ctx engineapi.PolicyContext,
 	log logr.Logger,
 ) (*validator, error) {
-	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := datautils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
@@ -105,7 +96,7 @@ func newForEachValidator(
 	return &validator{
 		log:              log,
 		policyContext:    ctx,
-		rule:             ruleCopy,
+		rule:             rule,
 		contextLoader:    contextLoader,
 		contextEntries:   foreach.Context,
 		anyAllConditions: anyAllConditions,
@@ -142,13 +133,6 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 
 		ruleResponse := v.validateResourceWithRule()
 		return ruleResponse
-	}
-
-	if v.podSecurity != nil {
-		if !engineutils.IsDeleteRequest(v.policyContext) {
-			ruleResponse := v.validatePodSecurity()
-			return ruleResponse
-		}
 	}
 
 	if v.forEach != nil {
@@ -219,10 +203,10 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 					continue
 				}
 				msg := fmt.Sprintf("validation failure: %v", r.Message)
-				return internal.RuleResponse(*v.rule, engineapi.Validation, msg, r.Status), applyCount
+				return internal.RuleResponse(v.rule, engineapi.Validation, msg, r.Status), applyCount
 			}
 			msg := fmt.Sprintf("validation failure: %v", r.Message)
-			return internal.RuleResponse(*v.rule, engineapi.Validation, msg, r.Status), applyCount
+			return internal.RuleResponse(v.rule, engineapi.Validation, msg, r.Status), applyCount
 		}
 
 		applyCount++
@@ -250,7 +234,7 @@ func (v *validator) validateDeny() *engineapi.RuleResponse {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to check deny preconditions", err)
 	} else {
 		if deny {
-			return internal.RuleResponse(*v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusFail)
+			return internal.RuleResponse(v.rule, engineapi.Validation, v.getDenyMessage(deny), engineapi.RuleStatusFail)
 		}
 		return internal.RulePass(v.rule, engineapi.Validation, v.getDenyMessage(deny))
 	}
@@ -273,93 +257,6 @@ func (v *validator) getDenyMessage(deny bool) string {
 		return typed
 	default:
 		return "the produced message didn't resolve to a string, check your policy definition."
-	}
-}
-
-func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
-	newResource := v.policyContext.NewResource()
-	kind := newResource.GetKind()
-
-	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
-		var deployment appsv1.Deployment
-
-		resourceBytes, err := newResource.MarshalJSON()
-		if err != nil {
-			return nil, nil, err
-		}
-		err = json.Unmarshal(resourceBytes, &deployment)
-		if err != nil {
-			return nil, nil, err
-		}
-		podSpec = &deployment.Spec.Template.Spec
-		metadata = &deployment.Spec.Template.ObjectMeta
-		return podSpec, metadata, nil
-	} else if kind == "CronJob" {
-		var cronJob batchv1.CronJob
-
-		resourceBytes, err := newResource.MarshalJSON()
-		if err != nil {
-			return nil, nil, err
-		}
-		err = json.Unmarshal(resourceBytes, &cronJob)
-		if err != nil {
-			return nil, nil, err
-		}
-		podSpec = &cronJob.Spec.JobTemplate.Spec.Template.Spec
-		metadata = &cronJob.Spec.JobTemplate.ObjectMeta
-	} else if kind == "Pod" {
-		var pod corev1.Pod
-
-		resourceBytes, err := newResource.MarshalJSON()
-		if err != nil {
-			return nil, nil, err
-		}
-		err = json.Unmarshal(resourceBytes, &pod)
-		if err != nil {
-			return nil, nil, err
-		}
-		podSpec = &pod.Spec
-		metadata = &pod.ObjectMeta
-		return podSpec, metadata, nil
-	}
-
-	if err != nil {
-		return nil, nil, err
-	}
-	return podSpec, metadata, err
-}
-
-// Unstructured
-func (v *validator) validatePodSecurity() *engineapi.RuleResponse {
-	// Marshal pod metadata and spec
-	podSpec, metadata, err := getSpec(v)
-	if err != nil {
-		return internal.RuleError(v.rule, engineapi.Validation, "Error while getting new resource", err)
-	}
-
-	pod := &corev1.Pod{
-		Spec:       *podSpec,
-		ObjectMeta: *metadata,
-	}
-	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod)
-	if err != nil {
-		return internal.RuleError(v.rule, engineapi.Validation, "failed to parse pod security api version", err)
-	}
-	podSecurityChecks := &engineapi.PodSecurityChecks{
-		Level:   v.podSecurity.Level,
-		Version: v.podSecurity.Version,
-		Checks:  pssChecks,
-	}
-	if allowed {
-		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
-		rspn := internal.RulePass(v.rule, engineapi.Validation, msg)
-		rspn.PodSecurityChecks = podSecurityChecks
-		return rspn
-	} else {
-		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, v.podSecurity.Level, v.podSecurity.Version, pss.FormatChecksPrint(pssChecks))
-		rspn := internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusFail)
-		rspn.PodSecurityChecks = podSecurityChecks
-		return rspn
 	}
 }
 
@@ -389,13 +286,13 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 				}
 
 				if pe.Path == "" {
-					return internal.RuleResponse(*v.rule, engineapi.Validation, v.buildErrorMessage(err, ""), engineapi.RuleStatusError)
+					return internal.RuleResponse(v.rule, engineapi.Validation, v.buildErrorMessage(err, ""), engineapi.RuleStatusError)
 				}
 
-				return internal.RuleResponse(*v.rule, engineapi.Validation, v.buildErrorMessage(err, pe.Path), engineapi.RuleStatusFail)
+				return internal.RuleResponse(v.rule, engineapi.Validation, v.buildErrorMessage(err, pe.Path), engineapi.RuleStatusFail)
 			}
 
-			return internal.RuleResponse(*v.rule, engineapi.Validation, v.buildErrorMessage(err, pe.Path), engineapi.RuleStatusError)
+			return internal.RuleResponse(v.rule, engineapi.Validation, v.buildErrorMessage(err, pe.Path), engineapi.RuleStatusError)
 		}
 
 		v.log.V(4).Info("successfully processed rule")
@@ -454,7 +351,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", v.rule.Name, errorStr))
 			msg := buildAnyPatternErrorMessage(v.rule, errorStr)
-			return internal.RuleResponse(*v.rule, engineapi.Validation, msg, engineapi.RuleStatusFail)
+			return internal.RuleResponse(v.rule, engineapi.Validation, msg, engineapi.RuleStatusFail)
 		}
 	}
 
@@ -504,7 +401,7 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	}
 }
 
-func buildAnyPatternErrorMessage(rule *kyvernov1.Rule, errors []string) string {
+func buildAnyPatternErrorMessage(rule kyvernov1.Rule, errors []string) string {
 	errStr := strings.Join(errors, " ")
 	if rule.Validation.Message == "" {
 		return fmt.Sprintf("validation error: %s", errStr)
