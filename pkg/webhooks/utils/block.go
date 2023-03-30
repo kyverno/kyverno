@@ -36,18 +36,15 @@ func BlockRequest(engineResponses []engineapi.EngineResponse, failurePolicy kyve
 
 // GetBlockedMessages gets the error messages for rules with error or fail status
 func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
-	fmt.Println("=======1")
 	if len(engineResponses) == 0 {
 		return ""
 	}
 	failures := make(map[string]interface{})
 	hasViolations := false
-	fmt.Println("=======2")
 	for _, er := range engineResponses {
 		ruleToReason := make(map[string]string)
 		for _, rule := range er.PolicyResponse.Rules {
 			if rule.Status != engineapi.RuleStatusPass {
-				fmt.Println("=======3", rule.Message)
 				ruleToReason[rule.Name] = rule.Message
 				if rule.Status == engineapi.RuleStatusFail {
 					hasViolations = true
@@ -58,15 +55,13 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 			failures[er.Policy.GetName()] = ruleToReason
 		}
 	}
-	fmt.Println("=======4", failures)
 	if len(failures) == 0 {
 		return ""
 	}
 	r := engineResponses[0].Resource
 	resourceName := fmt.Sprintf("%s/%s/%s", r.GetKind(), r.GetNamespace(), r.GetName())
 	action := getAction(hasViolations, len(failures))
-	results, err := yaml.Marshal(failures)
+	results, _ := yaml.Marshal(failures)
 	msg := fmt.Sprintf("\n\npolicy %s for resource %s: \n\n%s", resourceName, action, results)
-	fmt.Println("=======5", err, resourceName, action, string(results))
 	return msg
 }

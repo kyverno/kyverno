@@ -103,7 +103,6 @@ func (h *imageVerificationHandler) handleVerifyImages(
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 	if !isResourceDeleted(policyContext) {
 		events := webhookutils.GenerateEvents(engineResponses, blocked)
-		fmt.Println("=====-1 adding event", events)
 		h.eventGen.Add(events...)
 	}
 
