@@ -28,19 +28,19 @@ func WithResponses(ruleResponses ...engineapi.RuleResponse) []engineapi.RuleResp
 }
 
 func WithError(timestamp time.Time, rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) []engineapi.RuleResponse {
-	return WithResponses(engineapi.RuleError(timestamp, rule, ruleType, msg, err).Done(time.Now()))
+	return WithResponses(engineapi.RuleError(timestamp, rule, ruleType, msg, err).DoneNow())
 }
 
 func WithSkip(timestamp time.Time, rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
-	return WithResponses(engineapi.RuleSkip(timestamp, rule, ruleType, msg).Done(time.Now()))
+	return WithResponses(engineapi.RuleSkip(timestamp, rule, ruleType, msg).DoneNow())
 }
 
 func WithPass(timestamp time.Time, rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
-	return WithResponses(engineapi.RulePass(timestamp, rule, ruleType, msg).Done(time.Now()))
+	return WithResponses(engineapi.RulePass(timestamp, rule, ruleType, msg).DoneNow())
 }
 
 func WithFail(timestamp time.Time, rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
-	return WithResponses(engineapi.RuleFail(timestamp, rule, ruleType, msg).Done(time.Now()))
+	return WithResponses(engineapi.RuleFail(timestamp, rule, ruleType, msg).DoneNow())
 }
 
 func RuleResponses(rrs ...*engineapi.RuleResponse) []engineapi.RuleResponse {

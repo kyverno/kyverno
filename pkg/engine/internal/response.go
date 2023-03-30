@@ -30,17 +30,6 @@ func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, 
 	return resp
 }
 
-func AddRuleResponse(resp *engineapi.PolicyResponse, ruleResp *engineapi.RuleResponse, startTime time.Time) {
-	ruleResp.Stats.ProcessingTime = time.Since(startTime)
-	ruleResp.Stats.Timestamp = startTime.Unix()
-	resp.Rules = append(resp.Rules, *ruleResp)
-	if ruleResp.Status == engineapi.RuleStatusPass || ruleResp.Status == engineapi.RuleStatusFail {
-		resp.Stats.RulesAppliedCount++
-	} else if ruleResp.Status == engineapi.RuleStatusError {
-		resp.Stats.RulesErrorCount++
-	}
-}
-
 func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, startTime time.Time) *engineapi.EngineResponse {
 	if resp.PatchedResource.Object == nil {
 		// for delete requests patched resource will be oldResource since newResource is empty

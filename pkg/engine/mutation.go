@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -28,7 +27,6 @@ func (e *engine) mutate(
 	applyRules := policy.GetSpec().GetApplyRules()
 
 	for _, rule := range autogen.ComputeRules(policy) {
-		startTime := time.Now()
 		logger := internal.LoggerWithRule(logger, rule)
 		if !rule.HasMutate() {
 			continue
@@ -38,12 +36,10 @@ func (e *engine) mutate(
 			handler = e.mutateExistingHandler
 		}
 		resource, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, matchedResource, rule, engineapi.Mutation)
-		matchedResource = resource
 		for _, ruleResp := range ruleResp {
-			ruleResp := ruleResp
-			internal.AddRuleResponse(&resp, &ruleResp, startTime)
-			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
+			resp.Add(ruleResp)
 		}
+		matchedResource = resource
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
 		}

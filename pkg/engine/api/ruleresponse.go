@@ -79,9 +79,17 @@ func RuleFail(timestamp time.Time, rule kyvernov1.Rule, ruleType RuleType, msg s
 	return NewRuleResponse(timestamp, rule, ruleType, msg, RuleStatusFail)
 }
 
+func (r RuleResponse) DoneNow() RuleResponse {
+	return r.Done(time.Now())
+}
+
 func (r RuleResponse) Done(timestamp time.Time) RuleResponse {
 	r.Stats.Done(timestamp)
 	return r
+}
+
+func (r RuleResponse) IsDone() bool {
+	return r.Stats.ProcessingTime != 0
 }
 
 // HasStatus checks if rule status is in a given list

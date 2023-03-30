@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -26,7 +25,6 @@ func (e *engine) validate(
 
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		logger := internal.LoggerWithRule(logger, rule)
-		startTime := time.Now()
 		hasValidate := rule.HasValidate()
 		hasVerifyImageChecks := rule.HasVerifyImageChecks()
 		if !hasValidate && !hasVerifyImageChecks {
@@ -49,9 +47,7 @@ func (e *engine) validate(
 		if handler != nil {
 			_, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, policyContext.NewResource(), rule, engineapi.Validation)
 			for _, ruleResp := range ruleResp {
-				ruleResp := ruleResp
-				internal.AddRuleResponse(resp, &ruleResp, startTime)
-				logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
+				resp.Add(ruleResp)
 			}
 		}
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {

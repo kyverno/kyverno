@@ -84,41 +84,26 @@ func (e *engine) doVerifyAndPatch(
 		e.configuration,
 	)
 	if err != nil {
-		internal.AddRuleResponse(
-			resp,
-			internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err),
-			startTime,
-		)
+		resp.Add(engineapi.RuleError(startTime, rule, engineapi.ImageVerify, "failed to extract images", err))
 		return
 	}
 	if len(ruleImages) == 0 {
-		internal.AddRuleResponse(
-			resp,
-			internal.RuleSkip(
-				rule,
-				engineapi.ImageVerify,
-				fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
-			),
+		resp.Add(engineapi.RuleSkip(
 			startTime,
-		)
+			rule,
+			engineapi.ImageVerify,
+			fmt.Sprintf("skip run verification as image in resource not found in imageRefs '%s'", imageRefs),
+		))
 		return
 	}
 	policyContext.JSONContext().Restore()
 	if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
-		internal.AddRuleResponse(
-			resp,
-			internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
-			startTime,
-		)
+		resp.Add(engineapi.RuleError(startTime, rule, engineapi.ImageVerify, "failed to load context", err))
 		return
 	}
 	ruleCopy, err := substituteVariables(&rule, policyContext.JSONContext(), logger)
 	if err != nil {
-		internal.AddRuleResponse(
-			resp,
-			internal.RuleError(rule, engineapi.ImageVerify, "failed to substitute variables", err),
-			startTime,
-		)
+		resp.Add(engineapi.RuleError(startTime, rule, engineapi.ImageVerify, "failed to substitute variables", err))
 		return
 	}
 	iv := internal.NewImageVerifier(
@@ -130,7 +115,11 @@ func (e *engine) doVerifyAndPatch(
 	)
 	for _, imageVerify := range ruleCopy.VerifyImages {
 		for _, r := range iv.Verify(ctx, imageVerify, ruleImages, e.configuration) {
-			internal.AddRuleResponse(resp, r, startTime)
+			if r != nil {
+				// TODO: fix this
+				r.Stats.Timestamp = startTime.Unix()
+				resp.Add(*r)
+			}
 		}
 	}
 }
