@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-protected-namespaces
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: disallow
+    match:
+      all:
+      - resources:
+          kinds:
+          - "*"
+          namespaces:
+          - "namespace1"
+          - "namespace2"
+    validate:
+      message: "This resource is protected and changes are not allowed."
+      deny: {}

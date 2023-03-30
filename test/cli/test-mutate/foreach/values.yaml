@@ -1,0 +1,12 @@
+policies:
+- name: foreach-json-patch
+  rules:
+  - name: add-security-context
+  - name: mutate-images
+  resources:
+  - name: nginx
+    values:
+      request.operation: CREATE
+  - name: myapp
+    values:
+      request.operation: CREATE

@@ -1,0 +1,11 @@
+name: test-image-enforce-signatures
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: secure-images
+    rule: enforce-signatures
+    resource: tomcat
+    kind: Pod
+    status: fail

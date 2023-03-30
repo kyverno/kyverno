@@ -1,0 +1,17 @@
+name: exclude-namespaces-example
+policies:
+  - exclude_namespaces_dynamically.yaml
+resources:
+  - resource.yaml
+variables: values.yaml
+results:
+  - policy: exclude-namespaces-example
+    rule: exclude-namespaces-dynamically
+    resource: bad-pod01
+    kind: Pod
+    result: pass
+  - policy: exclude-namespaces-example
+    rule: exclude-namespaces-dynamically
+    resource: bad-pod02
+    kind: Pod
+    result: error

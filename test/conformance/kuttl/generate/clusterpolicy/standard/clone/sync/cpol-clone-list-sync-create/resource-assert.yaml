@@ -1,0 +1,22 @@
+---
+apiVersion: v1
+data:
+  password: dDBwLVNlY3JldC1zdXBlcg==
+  username: YWRtaW4=
+kind: Secret
+metadata:
+  labels:
+    allowedToBeCloned: "true"
+  name: image-secret
+  namespace: prod-1
+type: kubernetes.io/basic-auth
+---
+apiVersion: v1
+data:
+  initial_lives: "15"
+kind: ConfigMap
+metadata:
+  labels:
+    allowedToBeCloned: "true"
+  name: bootstrap-config
+  namespace: prod-1

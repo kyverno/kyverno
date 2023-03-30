@@ -1,38 +1,45 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/kyverno/store"
-	utils2 "github.com/kyverno/kyverno/pkg/utils"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
+	"github.com/kyverno/kyverno/pkg/registryclient"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func TestGetAnchorsFromMap_ThereAreAnchors(t *testing.T) {
-	rawMap := []byte(`{
-		"(name)":"nirmata-*",
-		"notAnchor1":123,
-		"(namespace)":"kube-?olicy",
-		"notAnchor2":"sample-text",
-		"object":{
-			"key1":"value1",
-			"(key2)":"value2"
-		}
-	}`)
-
-	var unmarshalled map[string]interface{}
-	err := json.Unmarshal(rawMap, &unmarshalled)
-	assert.NilError(t, err)
-
-	actualMap := utils.GetAnchorsFromMap(unmarshalled)
-	assert.Equal(t, len(actualMap), 2)
-	assert.Equal(t, actualMap["(name)"].(string), "nirmata-*")
-	assert.Equal(t, actualMap["(namespace)"].(string), "kube-?olicy")
+func testValidate(
+	ctx context.Context,
+	rclient registryclient.Client,
+	pContext *PolicyContext,
+	cfg config.Configuration,
+	contextLoader engineapi.ContextLoaderFactory,
+) engineapi.EngineResponse {
+	if contextLoader == nil {
+		contextLoader = engineapi.DefaultContextLoaderFactory(nil)
+	}
+	e := NewEngine(
+		cfg,
+		nil,
+		rclient,
+		contextLoader,
+		nil,
+	)
+	return e.Validate(
+		ctx,
+		pContext,
+	)
 }
 
 func TestValidate_image_tag_fail(t *testing.T) {
@@ -121,16 +128,18 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
 		"validation rule 'validate-tag' passed.",
-		"validation error: imagePullPolicy 'Always' required with tag 'latest'. Rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
+		"validation error: imagePullPolicy 'Always' required with tag 'latest'. rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
 	}
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
+
 	assert.Assert(t, !er.IsSuccessful())
 }
 
@@ -220,13 +229,13 @@ func TestValidate_image_tag_pass(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
 		"validation rule 'validate-tag' passed.",
 		"validation rule 'validate-latest' passed.",
 	}
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -298,12 +307,12 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	assert.Assert(t, !er.IsSuccessful())
 
-	msgs := []string{"validation error: A namespace is required. Rule check-default-namespace[0] failed at path /metadata/namespace/. Rule check-default-namespace[1] failed at path /metadata/namespace/."}
+	msgs := []string{"validation error: A namespace is required. rule check-default-namespace[0] failed at path /metadata/namespace/ rule check-default-namespace[1] failed at path /metadata/namespace/"}
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -381,10 +390,10 @@ func TestValidate_host_network_port(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: Host network and port are not allowed. Rule validate-host-network-port failed at path /spec/containers/0/ports/0/hostPort/"}
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
+	msgs := []string{"validation error: Host network and port are not allowed. rule validate-host-network-port failed at path /spec/containers/0/ports/0/hostPort/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -429,7 +438,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 			  }
 		   ]
 		}
-	 }	
+	 }
 	 `)
 
 	rawResource := []byte(`
@@ -471,9 +480,9 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	msgs := []string{"validation rule 'validate-host-path' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -518,7 +527,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 			  }
 		   ]
 		}
-	 }	
+	 }
 	 `)
 
 	rawResource := []byte(`
@@ -559,10 +568,10 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: Host path '/var/lib/' is not allowed. Rule validate-host-path failed at path /spec/volumes/0/hostPath/path/"}
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
+	msgs := []string{"validation error: Host path '/var/lib/' is not allowed. rule validate-host-path failed at path /spec/volumes/0/hostPath/path/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -629,9 +638,9 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -702,9 +711,9 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -776,9 +785,9 @@ func TestValidate_inequality_List_Processing(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -856,9 +865,9 @@ func TestValidate_inequality_List_ProcessingBrackets(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -930,10 +939,10 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: pod: validate run as non root user. Rule pod rule 2 failed at path /spec/securityContext/runAsNonRoot/"}
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
+	msgs := []string{"validation error: pod: validate run as non root user. rule pod rule 2 failed at path /spec/securityContext/runAsNonRoot/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -975,7 +984,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -998,16 +1007,16 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	msgs := []string{"validation rule 'pod image rule' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -1050,7 +1059,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1073,16 +1082,16 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	assert.Assert(t, !er.IsSuccessful())
 }
 
@@ -1120,7 +1129,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1143,16 +1152,16 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	assert.Assert(t, !er.IsSuccessful())
 }
 
@@ -1190,7 +1199,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1213,16 +1222,16 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	msgs := []string{"validation rule 'pod image rule' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -1266,7 +1275,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 	 `)
 
 	rawResource := []byte(`
@@ -1308,10 +1317,10 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: Host path is not allowed. Rule validate-host-path failed at path /spec/volumes/0/hostPath/"}
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
+	msgs := []string{"validation error: Host path is not allowed. rule validate-host-path failed at path /spec/volumes/0/hostPath/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -1354,7 +1363,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 	 `)
 
 	rawResource := []byte(`
@@ -1395,9 +1404,9 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	msgs := []string{"validation rule 'validate-host-path' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -1462,21 +1471,19 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(policyraw, &policy)
 	assert.NilError(t, err)
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		Policy:      policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
-	er := Validate(policyContext)
-	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
-		"variable substitution failed for rule test-path-not-exist: NotFoundVariableErr, variable request.object.metadata.name1 not resolved at path /validate/pattern/spec/containers/0/name")
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusError)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSubstitutionFails(t *testing.T) {
@@ -1554,20 +1561,19 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 
 	var policy kyverno.ClusterPolicy
 	assert.NilError(t, json.Unmarshal(policyraw, &policy))
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		Policy:      policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
-	er := Validate(policyContext)
-	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: NotFoundVariableErr, variable request.object.metadata.name1 not resolved at path /validate/anyPattern/0/spec/template/spec/containers/0/name")
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusError)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
 }
 
 func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
@@ -1613,19 +1619,16 @@ func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
 
 	var policy kyverno.ClusterPolicy
 	assert.NilError(t, json.Unmarshal(policyraw, &policy))
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		Policy:      policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
-	er := Validate(policyContext)
-	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation error: rule not-operator-with-variable-should-alway-fail-validation failed at path /spec/content/")
 }
 
@@ -1704,20 +1707,19 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 
 	var policy kyverno.ClusterPolicy
 	assert.NilError(t, json.Unmarshal(policyraw, &policy))
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		Policy:      policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
-	er := Validate(policyContext)
-	assert.Assert(t, er.PolicyResponse.Rules[0].Success)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "variable substitution failed for rule test-path-not-exist: NotFoundVariableErr, variable request.object.metadata.name1 not resolved at path /validate/anyPattern/0/spec/template/spec/containers/0/name")
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
+
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusError)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {
@@ -1795,22 +1797,19 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 
 	var policy kyverno.ClusterPolicy
 	assert.NilError(t, json.Unmarshal(policyraw, &policy))
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		Policy:      policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
-	er := Validate(policyContext)
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
-	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
-		"validation error: Rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/. Rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/.")
+		"validation error: rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/ rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/")
 }
 
 func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.T) {
@@ -1900,77 +1899,69 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 
 	var policy kyverno.ClusterPolicy
 	assert.NilError(t, json.Unmarshal(policyraw, &policy))
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		Policy:      policy,
-		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
-	er := Validate(policyContext)
-	assert.Assert(t, !er.PolicyResponse.Rules[0].Success)
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "The animal cow is not in the allowed list of animals.")
 }
 
 func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 	tests := []struct {
-		name            string
-		policyRaw       []byte
-		resourceRaw     []byte
-		expectedResult  bool
-		expectedMessage string
+		name             string
+		policyRaw        []byte
+		resourceRaw      []byte
+		expectedResults  []engineapi.RuleStatus
+		expectedMessages []string
 	}{
 		{
 			name:      "path-not-present",
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace must be the same as metadata.namespace","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path not present
-			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
-			expectedResult:  true,
-			expectedMessage: "variable substitution failed for rule sourceRefNamespace: NotFoundVariableErr, variable request.object.spec.sourceRef.namespace not resolved at path /validate/deny/conditions/0/key",
+			resourceRaw:      []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team"},"prune":true,"validation":"client"}}`),
+			expectedResults:  []engineapi.RuleStatus{engineapi.RuleStatusPass, engineapi.RuleStatusError},
+			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "failed to check deny preconditions: failed to substitute variables in deny conditions: failed to resolve request.object.spec.sourceRef.namespace at path /0/key: JMESPath query failed: Unknown key \"namespace\" in path"},
 		},
 		{
 			name:      "resource-with-violation",
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace {{request.object.spec.sourceRef.namespace}} must be the same as metadata.namespace {{request.object.metadata.namespace}}","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path present with different value
-			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"default"},"prune":true,"validation":"client"}}`),
-			expectedResult:  false,
-			expectedMessage: "spec.sourceRef.namespace default must be the same as metadata.namespace apps",
+			resourceRaw:      []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"default"},"prune":true,"validation":"client"}}`),
+			expectedResults:  []engineapi.RuleStatus{engineapi.RuleStatusPass, engineapi.RuleStatusFail},
+			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "spec.sourceRef.namespace default must be the same as metadata.namespace apps"},
 		},
 		{
 			name:      "resource-comply",
 			policyRaw: []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"flux-multi-tenancy"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"serviceAccountName","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":".spec.serviceAccountName is required","pattern":{"spec":{"serviceAccountName":"?*"}}}},{"name":"sourceRefNamespace","exclude":{"resources":{"namespaces":["flux-system"]}},"match":{"resources":{"kinds":["Kustomization","HelmRelease"]}},"validate":{"message":"spec.sourceRef.namespace must be the same as metadata.namespace","deny":{"conditions":[{"key":"{{request.object.spec.sourceRef.namespace}}","operator":"NotEquals","value":"{{request.object.metadata.namespace}}"}]}}}]}}`),
 			// referred variable path present with same value - validate passes
-			resourceRaw:     []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"apps"},"prune":true,"validation":"client"}}`),
-			expectedResult:  true,
-			expectedMessage: "spec.sourceRef.namespace must be the same as metadata.namespace",
+			resourceRaw:      []byte(`{"apiVersion":"kustomize.toolkit.fluxcd.io/v1beta1","kind":"Kustomization","metadata":{"name":"dev-team","namespace":"apps"},"spec":{"serviceAccountName":"dev-team","interval":"5m","sourceRef":{"kind":"GitRepository","name":"dev-team","namespace":"apps"},"prune":true,"validation":"client"}}`),
+			expectedResults:  []engineapi.RuleStatus{engineapi.RuleStatusPass, engineapi.RuleStatusPass},
+			expectedMessages: []string{"validation rule 'serviceAccountName' passed.", "validation rule 'sourceRefNamespace' passed."},
 		},
 	}
 
 	for _, test := range tests {
 		var policy kyverno.ClusterPolicy
 		assert.NilError(t, json.Unmarshal(test.policyRaw, &policy))
-		resourceUnstructured, err := utils.ConvertToUnstructured(test.resourceRaw)
+		resourceUnstructured, err := kubeutils.BytesToUnstructured(test.resourceRaw)
 		assert.NilError(t, err)
 
-		ctx := context.NewContext()
-		err = ctx.AddResource(test.resourceRaw)
+		ctx := enginecontext.NewContext()
+		err = enginecontext.AddResource(ctx, test.resourceRaw)
 		assert.NilError(t, err)
 
-		policyContext := &PolicyContext{
-			Policy:      policy,
-			JSONContext: ctx,
-			NewResource: *resourceUnstructured}
-		er := Validate(policyContext)
+		policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+		er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
 		for i, rule := range er.PolicyResponse.Rules {
-			if rule.Name == "sourceRefNamespace" {
-				assert.Equal(t, er.PolicyResponse.Rules[i].Success, test.expectedResult)
-				assert.Equal(t, er.PolicyResponse.Rules[i].Message, test.expectedMessage, "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedMessage, rule.Message)
-			}
+			assert.Equal(t, er.PolicyResponse.Rules[i].Status, test.expectedResults[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedResults[i], er.PolicyResponse.Rules[i].Status)
+			assert.Equal(t, er.PolicyResponse.Rules[i].Message, test.expectedMessages[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedMessages[i], rule.Message)
 		}
 	}
 }
@@ -2001,9 +1992,8 @@ func Test_denyFeatureIssue744_BlockUpdate(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2018,9 +2008,8 @@ func Test_denyFeatureIssue744_DenyAll(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2042,9 +2031,8 @@ func Test_denyFeatureIssue744_BlockFields(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2059,9 +2047,8 @@ func Test_BlockLabelRemove(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2083,32 +2070,31 @@ func Test_denyFeatureIssue744_BlockDelete(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
-func executeTest(t *testing.T, err error, test testCase) {
+func executeTest(t *testing.T, test testCase) {
 	var policy kyverno.ClusterPolicy
-	err = json.Unmarshal(test.policy, &policy)
+	err := json.Unmarshal(test.policy, &policy)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var request *v1beta1.AdmissionRequest
+	var request *admissionv1.AdmissionRequest
 	err = json.Unmarshal(test.request, &request)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var userInfo kyverno.RequestInfo
+	var userInfo urkyverno.RequestInfo
 	err = json.Unmarshal(test.userInfo, &userInfo)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ctx := context.NewContext()
+	ctx := enginecontext.NewContext()
 	err = ctx.AddRequest(request)
 	if err != nil {
 		t.Fatal(err)
@@ -2124,20 +2110,18 @@ func executeTest(t *testing.T, err error, test testCase) {
 		t.Fatal(err)
 	}
 
-	newR, oldR, err := utils2.ExtractResources(nil, request)
+	newR, oldR, err := admissionutils.ExtractResources(nil, request)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	pc := &PolicyContext{
-		Policy:        policy,
-		NewResource:   newR,
-		OldResource:   oldR,
-		AdmissionInfo: userInfo,
-		JSONContext:   ctx,
-	}
+	pc := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
+		WithPolicy(&policy).
+		WithNewResource(newR).
+		WithOldResource(oldR).
+		WithAdmissionInfo(userInfo)
 
-	resp := Validate(pc)
+	resp := testValidate(context.TODO(), registryclient.NewOrDie(), pc, cfg, nil)
 	if resp.IsSuccessful() && test.requestDenied {
 		t.Errorf("Testcase has failed, policy: %v", policy.Name)
 	}
@@ -2208,37 +2192,1037 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 	  }
 	`)
 
-	configMapVariableContext := store.Context{
-		Policies: []store.Policy{
-			{
-				Name: "restrict-pod-count",
-				Rules: []store.Rule{
-					{
-						Name: "restrict-pod-count",
-						Values: map[string]string{
-							"podcounts": "12",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	store.SetContext(configMapVariableContext)
-	store.SetMock(true)
-
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
 	assert.NilError(t, err)
 	msgs := []string{
 		"restrict pod counts to be no more than 10 on node minikube",
 	}
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := testValidate(
+		context.TODO(),
+		registryclient.NewOrDie(),
+		NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured),
+		cfg,
+		enginetest.ContextLoaderFactory(
+			nil,
+			map[string]enginetest.Policy{
+				"restrict-pod-count": {
+					Rules: map[string]enginetest.Rule{
+						"restrict-pod-count": {
+							Values: map[string]interface{}{
+								"podcounts": "12",
+							},
+						},
+					},
+				},
+			},
+		),
+	)
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, !er.IsSuccessful())
+}
+
+func Test_EmptyStringInDenyCondition(t *testing.T) {
+	policyRaw := []byte(`{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "annotations": {
+		"meta.helm.sh/release-name": "kyverno-policies",
+		"meta.helm.sh/release-namespace": "kyverno",
+		"pod-policies.kyverno.io/autogen-controllers": "none"
+	  },
+	  "labels": {
+		"app.kubernetes.io/managed-by": "Helm"
+	  },
+	  "name": "if-baltic-restrict-external-load-balancer"
+	},
+	"spec": {
+	  "background": true,
+	  "rules": [
+		{
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Service"
+			  ]
+			}
+		  },
+		  "name": "match-service-type",
+		  "preconditions": [
+			{
+			  "key": "{{request.object.spec.type}}",
+			  "operator": "Equals",
+			  "value": "LoadBalancer"
+			}
+		  ],
+		  "validate": {
+			"deny": {
+			  "conditions": [
+				{
+				  "key": "{{ request.object.metadata.annotations.\"service.beta.kubernetes.io/azure-load-balancer-internal\"}}",
+				  "operator": "NotEquals",
+				  "value": "true"
+				}
+			  ]
+			}
+		  }
+		}
+	  ],
+	  "validationFailureAction": "enforce"
+	}
+  }`)
+
+	resourceRaw := []byte(`{
+	"apiVersion": "v1",
+	"kind": "Service",
+	"metadata": {
+	  "name": "example-service"
+	},
+	"spec": {
+	  "selector": {
+		"app": "example"
+	  },
+	  "ports": [
+		{
+		  "port": 8765,
+		  "targetPort": 9376
+		}
+	  ],
+	  "type": "LoadBalancer"
+	}
+  }`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	assert.NilError(t, err)
+
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	er := testValidate(context.TODO(), registryclient.NewOrDie(),
+		NewPolicyContextWithJsonContext(kyverno.Create, ctx).
+			WithPolicy(&policy).
+			WithNewResource(*resourceUnstructured),
+		cfg, nil)
+	assert.Assert(t, !er.IsSuccessful())
+}
+
+func Test_StringInDenyCondition(t *testing.T) {
+	policyRaw := []byte(`{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "annotations": {
+		"meta.helm.sh/release-name": "kyverno-policies",
+		"meta.helm.sh/release-namespace": "kyverno",
+		"pod-policies.kyverno.io/autogen-controllers": "none"
+	  },
+	  "labels": {
+		"app.kubernetes.io/managed-by": "Helm"
+	  },
+	  "name": "if-baltic-restrict-external-load-balancer"
+	},
+	"spec": {
+	  "background": true,
+	  "rules": [
+		{
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Service"
+			  ]
+			}
+		  },
+		  "name": "match-service-type",
+		  "preconditions": [
+			{
+			  "key": "{{request.object.spec.type}}",
+			  "operator": "Equals",
+			  "value": "LoadBalancer"
+			}
+		  ],
+		  "validate": {
+			"deny": {
+			  "conditions": [
+				{
+				  "key": "{{ request.object.metadata.annotations.\"service.beta.kubernetes.io/azure-load-balancer-internal\"}}",
+				  "operator": "NotEquals",
+				  "value": "true"
+				}
+			  ]
+			}
+		  }
+		}
+	  ],
+	  "validationFailureAction": "enforce"
+	}
+  }`)
+
+	resourceRaw := []byte(`{
+	"apiVersion": "v1",
+	"kind": "Service",
+	"metadata": {
+	  "name": "example-service",
+	  "annotations": {
+		"service.beta.kubernetes.io/azure-load-balancer-internal": "true"
+	  }
+	},
+	"spec": {
+	  "selector": {
+		"app": "example"
+	  },
+	  "ports": [
+		{
+		  "port": 8765,
+		  "targetPort": 9376
+		}
+	  ],
+	  "type": "LoadBalancer"
+	}
+  }`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	assert.NilError(t, err)
+
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	er := testValidate(context.TODO(), registryclient.NewOrDie(),
+		NewPolicyContextWithJsonContext(kyverno.Create, ctx).
+			WithPolicy(&policy).
+			WithNewResource(*resourceUnstructured),
+		cfg, nil)
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func Test_foreach_container_pass(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-valid", "image": "nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "test"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test-path-not-exist",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"pattern": {
+					  "name": "*-valid"
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusPass, nil)
+}
+
+func Test_foreach_container_fail(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-invalid", "image": "nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test"},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Deployment" ] } },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"pattern": {
+					  "name": "*-valid"
+					}
+				  }
+				]
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusFail, nil)
+}
+
+func Test_foreach_container_deny_fail(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-invalid", "image": "docker.io/nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "test"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ regex_match('{{element.image}}', 'docker.io') }}",
+						  "operator": "Equals",
+						  "value": false
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusFail, nil)
+}
+
+func Test_foreach_container_deny_success(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-invalid", "image": "nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test"},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Deployment" ] } },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ regex_match('{{element.image}}', 'docker.io') }}",
+						  "operator": "Equals",
+						  "value": false
+						}
+					  ]
+					}
+				  }
+				]
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusFail, nil)
+}
+
+func Test_foreach_container_deny_error(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "pod1-valid", "image": "nginx/nginx:v1"},
+				{"name": "pod2-invalid", "image": "nginx/nginx:v2"},
+				{"name": "pod3-valid", "image": "nginx/nginx:v3"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "test"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ regex_match_INVALID('{{request.object.image}}', 'docker.io') }}",
+						  "operator": "Equals",
+						  "value": false
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusError, nil)
+}
+
+func Test_foreach_context_preconditions(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "podvalid", "image": "nginx/nginx:v1"},
+				{"name": "podinvalid", "image": "nginx/nginx:v2"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "test"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"context": [
+					  {
+						"name": "img",
+						"configMap": {
+						  "name": "mycmap",
+						  "namespace": "default"
+						}
+					  }
+					],
+					"preconditions": {
+					  "all": [
+						{
+						  "key": "{{element.name}}",
+						  "operator": "In",
+						  "value": [
+							"podvalid"
+						  ]
+						}
+					  ]
+					},
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ element.image }}",
+						  "operator": "NotEquals",
+						  "value": "{{ img.data.{{ element.name }} }}"
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	testForEach(
+		t,
+		policyraw,
+		resourceRaw,
+		"",
+		engineapi.RuleStatusPass,
+		enginetest.ContextLoaderFactory(
+			nil,
+			map[string]enginetest.Policy{
+				"test": {
+					Rules: map[string]enginetest.Rule{
+						"test": {
+							Values: map[string]interface{}{
+								"img.data.podvalid":   "nginx/nginx:v1",
+								"img.data.podinvalid": "nginx/nginx:v2",
+							},
+						},
+					},
+				},
+			},
+		),
+	)
+}
+
+func Test_foreach_context_preconditions_fail(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Deployment",
+		"metadata": {"name": "test"},
+		"spec": { "template": { "spec": {
+			"containers": [
+				{"name": "podvalid", "image": "nginx/nginx:v1"},
+				{"name": "podinvalid", "image": "nginx/nginx:v2"}
+			]
+		}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "test"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"context": [
+					  {
+						"name": "img",
+						"configMap": {
+						  "name": "mycmap",
+						  "namespace": "default"
+						}
+					  }
+					],
+					"preconditions": {
+					  "all": [
+						{
+						  "key": "{{element.name}}",
+						  "operator": "In",
+						  "value": [
+							"podvalid",
+							"podinvalid"
+						  ]
+						}
+					  ]
+					},
+					"deny": {
+					  "conditions": [
+						{
+						  "key": "{{ element.image }}",
+						  "operator": "NotEquals",
+						  "value": "{{ img.data.{{ element.name }} }}"
+						}
+					  ]
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	testForEach(
+		t,
+		policyraw,
+		resourceRaw,
+		"",
+		engineapi.RuleStatusFail,
+		enginetest.ContextLoaderFactory(
+			nil,
+			map[string]enginetest.Policy{
+				"test": {
+					Rules: map[string]enginetest.Rule{
+						"test": {
+							Values: map[string]interface{}{
+								"img.data.podvalid":   "nginx/nginx:v1",
+								"img.data.podinvalid": "nginx/nginx:v1",
+							},
+						},
+					},
+				},
+			},
+		),
+	)
+}
+
+func Test_foreach_element_validation(t *testing.T) {
+	resourceRaw := []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "nginx"
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx1",
+              "image": "nginx"
+            },
+            {
+              "name": "nginx2",
+              "image": "nginx"
+            }
+          ]
+        }
+	}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "check-container-names"},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Pod" ] } },
+			  "validate": {
+			  	"message": "Invalid name",
+				"foreach": [
+					{
+					  "list": "request.object.spec.containers",
+					  "pattern": {
+						"name": "{{ element.name }}"
+					  }
+					}
+				]
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusPass, nil)
+}
+
+func Test_outof_foreach_element_validation(t *testing.T) {
+	resourceRaw := []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "nginx"
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx1",
+              "image": "nginx"
+            },
+            {
+              "name": "nginx2",
+              "image": "nginx"
+            }
+          ]
+        }
+	}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "check-container-names"},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Pod" ] } },
+			  "validate": {
+			  	"message": "Invalid name",
+				"pattern": {
+				  "name": "{{ element.name }}"
+				}
+			}}]}}`)
+
+	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusError, nil)
+}
+
+func Test_foreach_skip_initContainer_pass(t *testing.T) {
+	resourceRaw := []byte(`{"apiVersion": "v1",
+	"kind": "Deployment",
+	"metadata": {"name": "test"},
+	"spec": { "template": { "spec": {
+		"containers": [
+			{"name": "podvalid", "image": "nginx"}
+		]
+	}}}}`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "check-images"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "check-registry",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"Deployment"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "unknown registry",
+				"foreach": [
+				  {
+					"list": "request.object.spec.template.spec.containers",
+					"pattern": {
+					  "image": "nginx"
+					}
+				  },
+				  {
+					"list": "request.object.spec.template.spec.initContainers",
+					"pattern": {
+					  "image": "trusted-registry.io/*"
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusPass, nil)
+}
+
+func Test_foreach_validate_nested(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "networking.k8s.io/v1",
+		"kind": "Ingress",
+		"metadata": {
+		  "name": "name-virtual-host-ingress"
+		},
+		"spec": {
+		  "rules": [
+			{
+			  "host": "foo.bar.com",
+			  "http": {
+				"paths": [
+				  {
+					"pathType": "Prefix",
+					"path": "/",
+					"backend": {
+					  "service": {
+						"name": "service1",
+						"port": {
+						  "number": 80
+						}
+					  }
+					}
+				  }
+				]
+			  }
+			},
+			{
+			  "host": "bar.foo.com",
+			  "http": {
+				"paths": [
+				  {
+					"pathType": "Prefix",
+					"path": "/",
+					"backend": {
+					  "service": {
+						"name": "service2",
+						"port": {
+						  "number": 80
+						}
+					  }
+					}
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	policyraw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "replace-image-registry"
+		},
+		"spec": {
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "replace-dns-suffix",
+			  "match": {
+				"any": [
+				  {
+					"resources": {
+					  "kinds": [
+						"Ingress"
+					  ]
+					}
+				  }
+				]
+			  },
+			  "validate": {
+				"foreach": [
+				  {
+					"list": "request.object.spec.rules",
+					"foreach": [
+					  {
+						"list": "element.http.paths",
+						"pattern": {
+						  "path": "/"
+						}
+					  }
+					]
+				  }
+				]
+			  }
+			}
+		  ]
+		}
+	  }`)
+
+	testForEach(t, policyraw, resourceRaw, "", engineapi.RuleStatusPass, nil)
+}
+
+func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string, status engineapi.RuleStatus, contextLoader engineapi.ContextLoaderFactory) {
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyraw, &policy))
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
+	assert.NilError(t, err)
+
+	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resourceUnstructured)
+	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, contextLoader)
+
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, status)
+	if msg != "" {
+		assert.Equal(t, er.PolicyResponse.Rules[0].Message, msg)
+	}
+}
+
+func Test_delete_ignore_pattern(t *testing.T) {
+	resourceRaw := []byte(`{
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+          "name": "nginx",
+          "labels": {"app.kubernetes.io/foo" : "myapp-pod"}
+        },
+        "spec": {
+          "containers": [
+            {
+              "name": "nginx1",
+              "image": "nginx"
+            },
+            {
+              "name": "nginx2",
+              "image": "nginx"
+            }
+          ]
+        }
+	}`)
+
+	policyRaw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "check-container-labels"},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "test",
+			  "match": {"resources": { "kinds": [ "Pod" ] } },
+			  "validate": {
+			  	"message": "Invalid label",
+				"pattern": {
+				  "metadata" : {
+                      "labels": {"app.kubernetes.io/name" : "myapp-pod"}
+                  }
+				}
+			}}]}}`)
+
+	var policy kyverno.ClusterPolicy
+	assert.NilError(t, json.Unmarshal(policyRaw, &policy))
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+
+	ctx := enginecontext.NewContext()
+	err = enginecontext.AddResource(ctx, resourceRaw)
+	assert.NilError(t, err)
+
+	policyContextCreate := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
+		WithPolicy(&policy).
+		WithNewResource(*resourceUnstructured)
+
+	engineResponseCreate := testValidate(context.TODO(), registryclient.NewOrDie(), policyContextCreate, cfg, nil)
+	assert.Equal(t, len(engineResponseCreate.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
+
+	policyContextDelete := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
+		WithPolicy(&policy).
+		WithOldResource(*resourceUnstructured)
+
+	engineResponseDelete := testValidate(context.TODO(), registryclient.NewOrDie(), policyContextDelete, cfg, nil)
+	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
+}
+
+func Test_block_bypass(t *testing.T) {
+	testcases := []testCase{
+		{
+			description:   "Blocks bypass of policy by manipulating pre-conditions",
+			policy:        []byte(`{"apiVersion":"kyverno.io/v1","kind":"Policy","metadata":{"name":"configmap-policy"},"spec":{"rules":[{"match":{"resources":{"kinds":["ConfigMap"]}},"name":"key-abc","preconditions":{"any":[{"key":"admin","operator":"Equals","value":"{{request.object.data.lock}}"}]},"validate":{"anyPattern":[{"data":{"key":"abc"}}],"message":"Configmap key must be \"abc\""}}]}}`),
+			request:       []byte(`{"uid":"7b0600b7-0258-4ecb-9666-c2839bd19612","kind":{"group":"","version":"v1","kind":"ConfigMap"},"resource":{"group":"","version":"v1","resource":"configmaps"},"subResource":"status","requestKind":{"group":"","version":"v1","kind":"configmaps"},"requestResource":{"group":"","version":"v1","resource":"configmaps"},"name":"test-configmap","namespace":"default","operation":"UPDATE","userInfo":{"username":"system:node:kind-control-plane","groups":["system:authenticated"]},"object":{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-configmap"},"data":{"key":"xyz","lock":"admin"}},"oldObject":{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-configmap"},"data":{"key":"xyz"}},"dryRun":false,"options":{"kind":"UpdateOptions","apiVersion":"meta.k8s.io/v1"}}`),
+			userInfo:      []byte(`{"roles":["kube-system:kubeadm:kubelet-config-1.17","kube-system:kubeadm:nodes-kubeadm-config"],"clusterRoles":["system:basic-user","system:certificates.k8s.io:certificatesigningrequests:selfnodeclient","system:public-info-viewer","system:discovery"],"userInfo":{"username":"kubernetes-admin","groups":["system:authenticated"]}}`),
+			requestDenied: true,
+		},
+	}
+
+	for _, testcase := range testcases {
+		executeTest(t, testcase)
+	}
+}
+
+func Test_ValidatePattern_anyPattern(t *testing.T) {
+	var policy kyverno.ClusterPolicy
+	rawPolicy := []byte(`{"apiVersion":"kyverno.io\/v1","kind":"ClusterPolicy","metadata":{"name":"validate-service-loadbalancer"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"check-loadbalancer-public","match":{"resources":{"kinds":["Service"]}},"validate":{"message":"Service of type 'LoadBalancer' is public and does not explicitly define network security. To use a public LB you must supply either spec[loadBalancerSourceRanges] or the 'service.beta.kubernetes.io\/aws-load-balancer-security-groups' annotation.","anyPattern":[{"spec":{"<(type)":"LoadBalancer"},"metadata":{"annotations":{"service.beta.kubernetes.io\/aws-load-balancer-security-groups":"?*"}}},{"spec":{"<(type)":"LoadBalancer","loadBalancerSourceRanges":"*"}}]}},{"name":"check-loadbalancer-internal","match":{"resources":{"kinds":["Service"]}},"validate":{"message":"Service of type 'LoadBalancer' is internal and does not explicitly define network security. To set the LB to internal, use annotation 'service.beta.kubernetes.io\/aws-load-balancer-internal' with value 'true' or '0.0.0.0\/0' ","pattern":{"spec":{"<(type)":"LoadBalancer"},"metadata":{"annotations":{"=(service.beta.kubernetes.io\/aws-load-balancer-internal)":"0.0.0.0\/0|true"}}}}}]}}`)
+	testCases := []struct {
+		description     string
+		rawPolicy       []byte
+		rawResource     []byte
+		expectedFailed  bool
+		expectedSkipped bool
+		expectedSuccess bool
+	}{
+		{
+			description:     "skip",
+			rawPolicy:       rawPolicy,
+			rawResource:     []byte(`{"apiVersion":"v1","kind":"Service","metadata":{"labels":{"app.kubernetes.io\/managed-by":"Helm"},"name":"service-clusterip-pass"},"spec":{"type":"ClusterIP","ports":[{"name":"http","port":80,"protocol":"TCP","targetPort":3000}]}}`),
+			expectedSkipped: true,
+		},
+		{
+			description:    "fail",
+			rawPolicy:      rawPolicy,
+			rawResource:    []byte(`{"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"service.beta.kubernetes.io\/aws-load-balancer-internal":"anything"},"labels":{"app.kubernetes.io\/managed-by":"Helm"},"name":"service-internal-fail"},"spec":{"type":"LoadBalancer","clusterIP":"10.96.0.2","ports":[{"name":"http","nodePort":31207,"port":80,"protocol":"TCP","targetPort":3000}]}}`),
+			expectedFailed: true,
+		},
+		{
+			description:     "success",
+			rawPolicy:       rawPolicy,
+			rawResource:     []byte(`{"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"service.beta.kubernetes.io\/aws-load-balancer-internal":"0.0.0.0\/0"},"labels":{"app.kubernetes.io\/managed-by":"Helm"},"name":"service-internal-pass"},"spec":{"type":"LoadBalancer","clusterIP":"100.69.148.11","loadBalancerSourceRanges":["3.224.166.65\/32","3.210.193.151\/32","3.226.136.65\/32","10.0.0.0\/8"]}}`),
+			expectedSuccess: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			err := json.Unmarshal(tc.rawPolicy, &policy)
+			assert.NilError(t, err)
+
+			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
+			assert.NilError(t, err)
+
+			er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
+			if tc.expectedFailed {
+				assert.Assert(t, er.IsFailed())
+			} else if tc.expectedSkipped {
+				assert.Assert(t, er.IsSkipped())
+			} else if tc.expectedSuccess {
+				assert.Assert(t, er.IsSuccessful())
+			}
+		})
+	}
 }

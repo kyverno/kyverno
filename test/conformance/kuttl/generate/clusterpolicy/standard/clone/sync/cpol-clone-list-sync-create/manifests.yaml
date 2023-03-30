@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bootstrap-config
+  namespace: default
+  labels:
+    allowedToBeCloned:  "true"
+data:
+  initial_lives: "15"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: image-secret
+  namespace: default
+  labels:
+    allowedToBeCloned:  "true"
+type: kubernetes.io/basic-auth
+stringData:
+  username: admin
+  password: t0p-Secret-super

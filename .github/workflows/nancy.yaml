@@ -1,0 +1,28 @@
+name: Nancy
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'release*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  nancy:
+    runs-on: ubuntu-latest
+    name: Nancy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+      - name: Setup build env
+        uses: ./.github/actions/setup-build-env
+      - name: WriteGoList
+        run: go list -json -m all > go.list
+      - name: Nancy SAST Scan
+        uses: sonatype-nexus-community/nancy-github-action@726e338312e68ecdd4b4195765f174d3b3ce1533 # v1.0.3

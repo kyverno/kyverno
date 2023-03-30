@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myconfigmap1
+  namespace: mynamespace
+data:
+  configmapkey: |
+    -----BEGIN PUBLIC KEY-----
+    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+    5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+    -----END PUBLIC KEY-----
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-with-configmap
+  namespace: mynamespace
+spec:
+  containers:
+  - image: ghcr.io/kyverno/test-verify-image:signed
+    name: test-with-configmap

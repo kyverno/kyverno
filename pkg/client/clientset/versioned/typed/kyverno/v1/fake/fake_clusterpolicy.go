@@ -21,7 +21,7 @@ package fake
 import (
 	"context"
 
-	kyvernov1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -110,7 +110,7 @@ func (c *FakeClusterPolicies) UpdateStatus(ctx context.Context, clusterPolicy *k
 // Delete takes name of the clusterPolicy and deletes it. Returns an error if one occurs.
 func (c *FakeClusterPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(clusterpoliciesResource, name), &kyvernov1.ClusterPolicy{})
+		Invokes(testing.NewRootDeleteActionWithOptions(clusterpoliciesResource, name, opts), &kyvernov1.ClusterPolicy{})
 	return err
 }
 

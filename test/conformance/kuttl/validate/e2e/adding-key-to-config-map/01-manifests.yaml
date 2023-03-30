@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-validate-e2e-adding-key-to-config-map
+---
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: configmap-policy
+  namespace: test-validate-e2e-adding-key-to-config-map
+spec:
+  background: false
+  failurePolicy: Fail
+  validationFailureAction: Enforce
+  rules:
+    - match:
+        all:
+          - resources:
+              kinds:
+                - ConfigMap
+      name: key-abc
+      preconditions:
+        all:
+          - key: "admin"
+            operator: Equals
+            value: "{{ request.object.data.lock || '' }}"
+      validate:
+        anyPattern:
+          - data:
+              key: "abc"
+        message: Configmap key must be "abc"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-configmap
+  namespace: test-validate-e2e-adding-key-to-config-map
+data:
+  key: xyz

@@ -19,7 +19,9 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	"net/http"
+
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
@@ -27,7 +29,6 @@ import (
 type KyvernoV1Interface interface {
 	RESTClient() rest.Interface
 	ClusterPoliciesGetter
-	GenerateRequestsGetter
 	PoliciesGetter
 }
 
@@ -40,21 +41,33 @@ func (c *KyvernoV1Client) ClusterPolicies() ClusterPolicyInterface {
 	return newClusterPolicies(c)
 }
 
-func (c *KyvernoV1Client) GenerateRequests(namespace string) GenerateRequestInterface {
-	return newGenerateRequests(c, namespace)
-}
-
 func (c *KyvernoV1Client) Policies(namespace string) PolicyInterface {
 	return newPolicies(c, namespace)
 }
 
 // NewForConfig creates a new KyvernoV1Client for the given config.
+// NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
+// where httpClient was generated with rest.HTTPClientFor(c).
 func NewForConfig(c *rest.Config) (*KyvernoV1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
 	}
-	client, err := rest.RESTClientFor(&config)
+	httpClient, err := rest.HTTPClientFor(&config)
+	if err != nil {
+		return nil, err
+	}
+	return NewForConfigAndClient(&config, httpClient)
+}
+
+// NewForConfigAndClient creates a new KyvernoV1Client for the given config and http client.
+// Note the http client provided takes precedence over the configured transport values.
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*KyvernoV1Client, error) {
+	config := *c
+	if err := setConfigDefaults(&config); err != nil {
+		return nil, err
+	}
+	client, err := rest.RESTClientForConfigAndClient(&config, h)
 	if err != nil {
 		return nil, err
 	}

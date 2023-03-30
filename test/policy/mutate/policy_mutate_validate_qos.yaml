@@ -14,7 +14,7 @@ spec:
             matchLabels:
               test: qos
       mutate:
-        overlay:
+        patchStrategicMerge:
           spec:
             template:
               spec:

@@ -1,56 +1,58 @@
 package utils
 
 import (
+	"fmt"
+
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/logging"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//RuleType defines the type for rule
-type RuleType int
+func IsDeleteRequest(ctx engineapi.PolicyContext) bool {
+	newResource := ctx.NewResource()
+	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
+	return IsEmptyUnstructured(&newResource)
+}
 
-const (
-	//Mutation type for mutation rule
-	Mutation RuleType = iota
-	//Validation type for validation rule
-	Validation
-	//Generation type for generation rule
-	Generation
-	//All type for other rule operations(future)
-	All
-)
-
-func (ri RuleType) String() string {
-	return [...]string{
-		"Mutation",
-		"Validation",
-		"Generation",
-		"All",
-	}[ri]
+func IsEmptyUnstructured(u *unstructured.Unstructured) bool {
+	if u == nil {
+		return true
+	}
+	if u.Object == nil {
+		return true
+	}
+	return false
 }
 
 // ApplyPatches patches given resource with given patches and returns patched document
 // return original resource if any error occurs
 func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
-	joinedPatches := JoinPatches(patches)
+	if len(patches) == 0 {
+		return resource, nil
+	}
+	joinedPatches := jsonutils.JoinPatches(patches...)
 	patch, err := jsonpatch.DecodePatch(joinedPatches)
 	if err != nil {
-		log.Log.V(4).Info("failed to decode JSON patch", "patch", patch)
+		logging.V(4).Info("failed to decode JSON patch", "patch", patch)
 		return resource, err
 	}
 
 	patchedDocument, err := patch.Apply(resource)
 	if err != nil {
-		log.Log.V(4).Info("failed to apply JSON patch", "patch", patch)
+		logging.V(4).Info("failed to apply JSON patch", "patch", patch)
 		return resource, err
 	}
 
-	log.Log.V(4).Info("applied JSON patch", "patch", patch)
+	logging.V(4).Info("applied JSON patch", "patch", patch)
 	return patchedDocument, err
 }
 
-//ApplyPatchNew patches given resource with given joined patches
+// ApplyPatchNew patches given resource with given joined patches
 func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	jsonpatch, err := jsonpatch.DecodePatch(patch)
 	if err != nil {
@@ -63,46 +65,23 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	}
 
 	return patchedResource, err
-
 }
 
-// JoinPatches joins array of serialized JSON patches to the single JSONPatch array
-func JoinPatches(patches [][]byte) []byte {
-	var result []byte
-	if len(patches) == 0 {
-		return result
-	}
-
-	result = append(result, []byte("[\n")...)
-	for index, patch := range patches {
-		result = append(result, patch...)
-		if index != len(patches)-1 {
-			result = append(result, []byte(",\n")...)
-		}
-	}
-	result = append(result, []byte("\n]")...)
-	return result
-}
-
-//ConvertToUnstructured converts the resource to unstructured format
-func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
-	resource := &unstructured.Unstructured{}
-	err := resource.UnmarshalJSON(data)
+func TransformConditions(original apiextensions.JSON) (interface{}, error) {
+	// conditions are currently in the form of []interface{}
+	oldConditions, err := apiutils.ApiextensionsJsonToKyvernoConditions(original)
 	if err != nil {
 		return nil, err
 	}
-	return resource, nil
-}
-
-// GetAnchorsFromMap gets the conditional anchor map
-func GetAnchorsFromMap(anchorsMap map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	for key, value := range anchorsMap {
-		if commonAnchor.IsConditionAnchor(key) {
-			result[key] = value
+	switch typedValue := oldConditions.(type) {
+	case kyvernov1.AnyAllConditions:
+		return *typedValue.DeepCopy(), nil
+	case []kyvernov1.Condition: // backwards compatibility
+		var copies []kyvernov1.Condition
+		for _, condition := range typedValue {
+			copies = append(copies, *condition.DeepCopy())
 		}
+		return copies, nil
 	}
-
-	return result
+	return nil, fmt.Errorf("invalid preconditions")
 }

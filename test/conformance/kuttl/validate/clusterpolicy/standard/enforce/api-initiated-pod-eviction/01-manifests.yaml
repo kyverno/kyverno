@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-validate
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-evict-by-pod-label
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+    - name: deny-evict-by-label
+      match:
+        resources:
+          kinds:
+            - Pod/eviction
+      context:
+        - name: podevictlabel
+          apiCall:
+            urlPath: "/api/v1/namespaces/{{request.namespace}}/pods/{{request.name}}"
+            jmesPath: "metadata.labels.evict"
+      validate:
+        message: Evicting Pods protected with the label 'evict=false' is forbidden.
+        deny:
+          conditions:
+            all:
+              - key: "{{ podevictlabel }}"
+                operator: Equals
+                value: "false"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+    tier: frontend
+    evict: "false"
+  namespace: test-validate
+spec:
+  containers:
+    - name: nginx
+      image: nginx

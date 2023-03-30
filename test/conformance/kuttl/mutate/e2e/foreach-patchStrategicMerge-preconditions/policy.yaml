@@ -1,0 +1,32 @@
+apiVersion : kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: replace-docker-hub
+spec:
+  rules:
+  - name: replace-docker-hub
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    preconditions:
+      all:
+      - key: "{{request.operation}}"
+        operator: AnyIn
+        value:
+        - CREATE
+        - UPDATE
+    mutate:
+      foreach:
+      - list: "request.object.spec.containers"
+        preconditions:
+          all:
+            - key: '{{images.containers."{{element.name}}".registry}}'
+              operator: Equals
+              value: 'docker.io'
+        patchStrategicMerge:
+          spec:
+            containers:
+            - name: "{{ element.name }}"           
+              image: 'my-private-registry/{{images.containers."{{element.name}}".path}}:{{images.containers."{{element.name}}".tag}}'

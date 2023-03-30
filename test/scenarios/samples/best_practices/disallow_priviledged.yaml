@@ -5,7 +5,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: disallow-privileged
+      policy:
+        namespace: ''
+        name: disallow-privileged
       resource:
         kind: Pod
         apiVersion: v1
@@ -14,7 +16,7 @@ expected:
       rules:
         - name: validate-privileged
           type: Validation
-          success: false
+          status: fail
         - name: validate-allowPrivilegeEscalation
           type: Validation
-          success: false
+          status: fail

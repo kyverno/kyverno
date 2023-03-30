@@ -1,0 +1,60 @@
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+# TEST: Pod with Labels Should Pass
+- policy: require-common-labels
+  rule: check-for-labels
+  result: pass
+  kind: Pod 
+  resource: pod-with-labels
+
+# TEST: Pod Missing Labels Should Fail
+- policy: require-common-labels
+  rule: check-for-labels
+  result: fail
+  kind: Pod
+  resource: pod-missing-labels
+
+# TEST: Deployment with Labels Should Pass
+- policy: require-common-labels
+  rule: check-for-labels
+  result: pass
+  kind: Deployment
+  resource: deployment-with-labels
+
+# TEST: Deployment with Labels Should Fail
+- policy: require-common-labels
+  rule: check-for-labels
+  result: fail
+  kind: Deployment
+  resource: deployment-missing-labels
+
+# TEST: StatefulSet with Labels Should Pass
+- policy: require-common-labels
+  rule: check-for-labels
+  result: pass
+  kind: StatefulSet
+  resource: StatefulSet-with-labels
+
+# TEST: StatefulSet with Labels Should fail
+- policy: require-common-labels
+  rule: check-for-labels
+  result: fail
+  kind: StatefulSet
+  resource: StatefulSet-without-labels
+
+# TEST: Cronjob with Labels Should pass
+- policy: require-common-labels
+  rule: check-for-labels
+  result: pass
+  kind: CronJob
+  resource: cronjob-with-labels
+
+# TEST: Cronjob without Labels Should fail
+- policy: require-common-labels
+  rule: check-for-labels
+  result: fail
+  kind: CronJob
+  resource: cronjob-without-labels

@@ -1,0 +1,17 @@
+name: test-simple
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: test-multiple-key
+    rule: test-multiple-key
+    resource: test-resource-pass
+    kind: Pod
+    status: pass
+  - policy: test-multiple-key
+    rule: test-multiple-key
+    resource: test-resource-fail
+    kind: Pod
+    status: fail
+  

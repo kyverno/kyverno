@@ -1,0 +1,9 @@
+policies:
+  - name: limit-configmap-for-sa
+    resources:
+      - name: any-configmap-name-good
+        values:
+          request.operation: UPDATE
+      - name: any-configmap-name-bad
+        values:
+          request.operation: UPDATE

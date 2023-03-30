@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-validate
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: nginx-test-scaling-policy
+spec:
+  background: false
+  failurePolicy: Fail
+  rules:
+    - match:
+        resources:
+          kinds:
+            - "Deployment/scale"
+          names:
+            - nginx-test
+          namespaces:
+            - test-validate
+      name: validate-nginx-test
+      validate:
+        message: 'nginx-test needs to have 2 replicas'
+        pattern:
+          spec:
+            replicas: 2
+  validationFailureAction: Enforce
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-test
+  name: nginx-test
+  namespace: test-validate
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-test
+  template:
+    metadata:
+      labels:
+        app: nginx-test
+    spec:
+      containers:
+        - image: nginx
+          name: nginx

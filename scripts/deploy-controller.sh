@@ -33,8 +33,8 @@ if [ -z "${namespace}" ]; then # controller should be launched locally
 
   ${certsGenerator} "--service=${service_name}" "--serverIp=${serverIp}" || exit 2
 
-  kubectl delete -f definitions/install.yaml
-  kubectl create -f definitions/install.yaml || exit 3
+  kubectl delete -f config/install.yaml
+  kubectl create -f config/install.yaml || exit 3
 
   echo -e "\n### You can build and run kyverno project locally.\n### To check its work, run it with parameters -cert, -key and -kubeconfig parameters (see paths of -cert and -key in the log above)."
 
@@ -45,7 +45,7 @@ else # controller should be launched within a cluster
   secret_name="${project_name}-secret"
   echo "Generating secret ${secret_name}..."
   kubectl delete secret "${secret_name}" 2>/dev/null
-  kubectl create secret generic ${secret_name} --namespace ${namespace} --from-file=./certs || exit 3
+  kubectl create secret generic "${secret_name}" --namespace "${namespace}" --from-file=./certs || exit 3
 
   echo "Creating the service ${service_name}..."
   kubectl delete -f crd/service.yaml

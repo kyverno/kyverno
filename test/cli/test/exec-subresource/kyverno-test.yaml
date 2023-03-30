@@ -1,0 +1,13 @@
+name: deny-exec-by-pod-label
+policies:
+  - deny-exec-by-pod-label.yaml
+resources:
+  - resource.yaml
+variables: values.yaml
+results:
+  - policy: deny-exec-by-pod-label
+    rule: deny-exec-by-label
+    resource: execpod
+    namespace: default
+    kind: PodExecOptions
+    result: fail

@@ -6,7 +6,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: disallow-sysctls
+      policy:
+        namespace: ''
+        name: disallow-sysctls
       resource:
         kind: Pod
         apiVersion: v1
@@ -15,4 +17,4 @@ expected:
       rules:
         - name: validate-sysctls
           type: Validation
-          success: false
+          status: fail

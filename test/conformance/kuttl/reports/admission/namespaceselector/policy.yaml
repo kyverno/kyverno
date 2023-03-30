@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-audit-reports-namespacesselector
+  annotations:  
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  mutateExistingOnPolicyUpdate: false
+  validationFailureAction: Audit
+  rules:
+  - name: test-audit-reports-namespacesselector
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaceSelector:
+            matchExpressions:
+              - key: org
+                operator: Exists
+    validate:
+      pattern:
+        metadata:
+          annotations:
+            validate: namespaceselector
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    org: kyverno-test
+  name: test-audit-reports-namespacesselector
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-non-audit-reports-namespacesselector

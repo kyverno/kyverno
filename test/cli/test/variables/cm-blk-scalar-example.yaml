@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cm-blk-scalar-example
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: validate-blk-role-annotation
+    context:
+      - name: roles-dictionary
+        configMap:
+          name: roles-dictionary
+          namespace: default
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "The role {{ request.object.metadata.annotations.role }} is not in the allowed list of roles: {{ \"roles-dictionary\".data.\"allowed-roles\" }}."
+      deny:
+        conditions:
+        - key: "{{ request.object.metadata.annotations.role }}"
+          operator: NotIn
+          value:  "{{ \"roles-dictionary\".data.\"allowed-roles\" }}"

@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-fail
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: xyz
+spec:
+  containers:
+  - name: test-probes
+    image: registry.k8s.io/liveness
+    args:
+    - /server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-skip
+spec:
+  template:
+    spec:
+      containers:
+      - name: test-probes
+        image: registry.k8s.io/liveness
+        args:
+        - /server
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cronjob-skip
+spec:
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: busybox
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - date; echo Hello from the Kubernetes cluster
+          restartPolicy: OnFailure

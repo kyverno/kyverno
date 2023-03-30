@@ -22,6 +22,7 @@ spec:
           - "kube-public"
           - "kyverno"
     generate:
+      apiVersion: v1
       kind: ResourceQuota
       name: default-resourcequota
       synchronize : true
@@ -39,6 +40,7 @@ spec:
         kinds:
         - Namespace
     generate:
+      apiVersion: v1
       kind: LimitRange
       name: default-limitrange
       synchronize : true

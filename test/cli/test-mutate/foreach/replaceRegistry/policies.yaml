@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: replace-image-registry-containers
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: "none"
+spec:
+  rules:
+    - name: set-default
+      match:
+        all:
+          - resources:
+              kinds:
+                - Pod
+      mutate:
+        foreach:
+          - list: "request.object.spec.containers"
+            patchStrategicMerge:
+              spec:
+                containers:
+                  - (name): "{{ element.name }}"
+                    image: test/test3.2

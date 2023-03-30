@@ -1,0 +1,16 @@
+name: test-foreach-precondition
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: enforce-limits-fraction
+    rule: check-memory-requests-limits
+    resource: frontend1
+    kind: Pod
+    status: fail
+  - policy: enforce-limits-fraction
+    rule: check-memory-requests-limits
+    resource: frontend2
+    kind: Pod
+    status: pass

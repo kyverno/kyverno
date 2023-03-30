@@ -1,0 +1,16 @@
+name: psp-check-supplemental-groups
+policies:
+  - check-supplemental-groups.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: psp-check-supplemental-groups
+    rule: supplementalgroup-ranges
+    resource: badpod01
+    kind: Pod
+    result: fail
+  - policy: psp-check-supplemental-groups
+    rule: supplementalgroup-ranges
+    resource: goodpod01
+    kind: Pod
+    result: pass

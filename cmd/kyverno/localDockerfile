@@ -1,7 +1,0 @@
-FROM scratch
-
-ADD kyverno /kyverno
-
-USER 10001
-
-ENTRYPOINT ["/kyverno"]

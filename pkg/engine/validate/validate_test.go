@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"gotest.tools/assert"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestValidateMap(t *testing.T) {
@@ -104,7 +105,7 @@ func TestValidateMap(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateMap(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -154,7 +155,7 @@ func TestValidateMap_AsteriskForInt(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
@@ -200,7 +201,7 @@ func TestValidateMap_AsteriskForInt(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateMap(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	t.Log(path)
 	assert.NilError(t, err)
 }
@@ -248,7 +249,7 @@ func TestValidateMap_AsteriskForMap(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
@@ -293,7 +294,7 @@ func TestValidateMap_AsteriskForMap(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateMap(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -336,7 +337,7 @@ func TestValidateMap_AsteriskForArray(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
@@ -381,7 +382,7 @@ func TestValidateMap_AsteriskForArray(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateMap(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -429,7 +430,7 @@ func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
@@ -472,7 +473,7 @@ func TestValidateMap_AsteriskFieldIsMissing(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateMap(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/spec/template/spec/containers/0/")
 	assert.Assert(t, err != nil)
 }
@@ -520,7 +521,7 @@ func TestValidateMap_livenessProbeIsNull(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
@@ -564,7 +565,7 @@ func TestValidateMap_livenessProbeIsNull(t *testing.T) {
 	err := json.Unmarshal(rawMap, &resource)
 	assert.NilError(t, err)
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateMap(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -612,7 +613,7 @@ func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
 					"containers":[
 						{
 							"name":"nginxo",
-							"image":"k8s.gcr.io/nginx-but-no-slim:0.8",
+							"image":"registry.k8s.io/nginx-but-no-slim:0.8",
 							"ports":[
 								{
 									"containerPort":8780,
@@ -654,7 +655,7 @@ func TestValidateMap_livenessProbeIsMissing(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateMap(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateMap(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -700,7 +701,7 @@ func TestValidateMapElement_TwoElementsInArrayOnePass(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	// assert.Equal(t, path, "/1/object/0/key2/")
 	// assert.NilError(t, err)
@@ -735,7 +736,7 @@ func TestValidateMapElement_OneElementInArrayPass(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -789,10 +790,10 @@ func TestValidateMap_CorrectRelativePathInConfig(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	pattern, err := variables.SubstituteAll(log.Log, nil, pattern)
+	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
 	assert.NilError(t, err)
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -846,7 +847,7 @@ func TestValidateMap_RelativePathDoesNotExists(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
@@ -900,7 +901,7 @@ func TestValidateMap_OnlyAnchorsInPath(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
@@ -954,7 +955,7 @@ func TestValidateMap_MalformedReferenceOnlyDolarMark(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
@@ -1008,10 +1009,10 @@ func TestValidateMap_RelativePathWithParentheses(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	pattern, err := variables.SubstituteAll(log.Log, nil, pattern)
+	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
 	assert.NilError(t, err)
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.NilError(t, err)
 }
@@ -1065,7 +1066,7 @@ func TestValidateMap_MalformedPath(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
@@ -1119,41 +1120,32 @@ func TestValidateMap_AbosolutePathExists(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	pattern, err := variables.SubstituteAll(log.Log, nil, pattern)
+	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
 	assert.NilError(t, err)
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.Assert(t, err == nil)
 }
 
 func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
 	rawPattern := []byte(`{
-		"metadata":{
-			"labels":{
-				"app":"nirmata*"
-			}
-		},
 		"spec":{
 			"containers":[
 				{
-					"(name)":"$(/metadata/labels/app)",
-					"(image)":"nirmata.io*"
+					"(name)":"kyverno",
+					"image":"kyverno.io*"
 				}
 			]
 		}
 	}`)
 
 	rawMap := []byte(`{
-		"metadata":{
-			"labels":{
-				"app":"nirmata*"
-			}
-		},
 		"spec":{
 			"containers":[
 				{
-					"name":"nirmata"
+					"name":"kyverno",
+					"image": "kyverno.io/test:latest"
 				}
 			]
 		}
@@ -1163,7 +1155,7 @@ func TestValidateMap_AbsolutePathToMetadata(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "")
 	assert.Assert(t, err == nil)
 }
@@ -1205,10 +1197,10 @@ func TestValidateMap_AbsolutePathToMetadata_fail(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	pattern, err := variables.SubstituteAll(log.Log, nil, pattern)
+	pattern, err := variables.SubstituteAll(logr.Discard(), nil, pattern)
 	assert.NilError(t, err)
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/image/")
 	assert.Assert(t, err != nil)
 }
@@ -1262,7 +1254,7 @@ func TestValidateMap_AbosolutePathDoesNotExists(t *testing.T) {
 	assert.Assert(t, json.Unmarshal(rawPattern, &pattern))
 	assert.Assert(t, json.Unmarshal(rawMap, &resource))
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/spec/containers/0/resources/requests/memory/")
 	assert.Assert(t, err != nil)
 }
@@ -1297,7 +1289,7 @@ func TestValidateMapElement_OneElementInArrayNotPass(t *testing.T) {
 	err = json.Unmarshal(rawMap, &resource)
 	assert.NilError(t, err)
 
-	path, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	path, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, path, "/0/object/0/key2/")
 	assert.Assert(t, err != nil)
 }
@@ -1355,7 +1347,7 @@ func testValidationPattern(t *testing.T, num string, patternBytes []byte, resour
 	err = json.Unmarshal(resourceBytes, &resource)
 	assert.NilError(t, err)
 
-	p, err := validateResourceElement(log.Log, resource, pattern, pattern, "/", common.NewAnchorMap())
+	p, err := validateResourceElement(logr.Discard(), resource, pattern, pattern, "/", anchor.NewAnchorMap())
 	assert.Equal(t, p, path, num)
 	if nilErr {
 		assert.NilError(t, err, num)
@@ -1369,156 +1361,331 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 		name     string
 		pattern  []byte
 		resource []byte
-		nilErr   bool
+		status   engineapi.RuleStatus
 	}{
 		{
 			name:     "test-1",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusSkip,
 		},
 		{
 			name:     "test-2",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
-		},
-		{
-			name:     "test-x",
-			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "!*:* | *:latest","imagePullPolicy": "!Always"}]}}`),
-			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
+			status:   engineapi.RuleStatusFail,
 		},
 		{
 			name:     "test-3",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
+			status:   engineapi.RuleStatusFail,
 		},
 		{
 			name:     "test-4",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Never"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusPass,
 		},
 		{
 			name:     "test-5",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Never"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusPass,
 		},
 		{
 			name:     "test-6",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Never"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusSkip,
 		},
 		{
 			name:     "test-7",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
+			status:   engineapi.RuleStatusFail,
 		},
 		{
 			name:     "test-8",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
+			status:   engineapi.RuleStatusFail,
 		},
 		{
 			name:     "test-9",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Always"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusSkip,
 		},
 		{
 			name:     "test-10",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Never"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusPass,
 		},
 		{
 			name:     "test-11",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Never"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusPass,
 		},
 		{
 			name:     "test-12",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Never"},{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusSkip,
 		},
 		{
 			name:     "test-13",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
+			status:   engineapi.RuleStatusFail,
 		},
 		{
 			name:     "test-14",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
+			status:   engineapi.RuleStatusFail,
 		},
 		{
 			name:     "test-15",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusSkip,
 		},
 		{
 			name:     "test-16",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx", "imagePullPolicy": "Never"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusPass,
 		},
 		{
 			name:     "test-17",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Never"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusPass,
 		},
 		{
 			name:     "test-18",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.28", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Never"}]}}`),
-			nilErr:   true,
+			status:   engineapi.RuleStatusSkip,
 		},
 		{
 			name:     "test-19",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
+			status:   engineapi.RuleStatusFail,
 		},
 		{
 			name:     "test-20",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
 			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:latest", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   false,
+			status:   engineapi.RuleStatusFail,
 		},
 		{
 			name:     "test-21",
 			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "*:latest | !*:*","imagePullPolicy": "!Always"}]}}`),
-			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.2.3", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:1.2.3", "imagePullPolicy": "Always"}]}}`),
-			nilErr:   true,
+			resource: []byte(`{"spec": {"containers": [{"name": "busybox","image": "busybox:1.2.3", "imagePullPolicy": "Always"},{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "IfNotPresent"}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "test-22",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","(image)": "!*:* | *:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-23",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "imagePullPolicy": "Always"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-24",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-25",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo1", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-26",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-27",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo1", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-28",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo", "value": "bar" }],"imagePullPolicy": "IfNotpresent"}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "test-29",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*", "env": [{"<(name)": "foo", "<(value)": "bar" }],"imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx", "env": [{"name": "foo", "value": "bar" }],"imagePullPolicy": "Always"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-30",
+			pattern:  []byte(`{"metadata": {"<(name)": "nginx"},"spec": {"imagePullSecrets": [{"name": "regcred"}]}}`),
+			resource: []byte(`{"metadata": {"name": "somename"},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}], "imagePullSecrets": [{"name": "cred"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-31",
+			pattern:  []byte(`{"metadata": {"<(name)": "nginx"},"spec": {"imagePullSecrets": [{"name": "regcred"}]}}`),
+			resource: []byte(`{"metadata": {"name": "nginx"},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}], "imagePullSecrets": [{"name": "cred"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-32",
+			pattern:  []byte(`{"metadata": {"labels": {"<(foo)": "bar"}},"spec": {"containers": [{"name": "nginx","image": "!*:latest"}]}}`),
+			resource: []byte(`{"metadata": {"name": "nginx","labels": {"foo": "bar"}},"spec": {"containers": [{"name": "nginx","image": "nginx"}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "test-33",
+			pattern:  []byte(`{"metadata": {"labels": {"<(foo)": "bar"}},"spec": {"containers": [{"name": "nginx","image": "!*:latest"}]}}`),
+			resource: []byte(`{"metadata": {"name": "nginx","labels": {"foo": "bar"}},"spec": {"containers": [{"name": "nginx","image": "nginx:latest"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-34",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx"}],"imagePullSecrets": [{"name": "my-registry-secret"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx"}], "imagePullSecrets": [{"name": "cred"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-35",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx"}],"imagePullSecrets": [{"name": "my-registry-secret"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "somepod"}], "imagePullSecrets": [{"name": "cred"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-36",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "nginx"}],"imagePullSecrets": [{"name": "my-registry-secret"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx"}], "imagePullSecrets": [{"name": "my-registry-secret"}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "test-37",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}]}}`),
+			status:   engineapi.RuleStatusSkip,
+		},
+		{
+			name:     "test-38",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/var/run/docker.sock"}}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-39",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/randome/value"}}]}}`),
+			status:   engineapi.RuleStatusSkip,
+		},
+		{
+			name:     "test-40",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx","allow-docker": "true"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/var/run/docker.sock"}}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "test-41",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx","allow-docker": "false"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/var/run/docker.sock"}}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "test-42",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/var/run/docker.sock"}}]}}`),
+			status:   engineapi.RuleStatusFail,
 		},
 	}
 
 	for _, testCase := range testCases {
-		var pattern, resource interface{}
-		err := json.Unmarshal(testCase.pattern, &pattern)
-		assert.NilError(t, err)
-		err = json.Unmarshal(testCase.resource, &resource)
-		assert.NilError(t, err)
+		testMatchPattern(t, testCase)
+	}
+}
 
-		_, err = ValidateResourceWithPattern(log.Log, resource, pattern)
-		if testCase.nilErr {
-			assert.NilError(t, err, fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
-		} else {
-			assert.Assert(t,
-				err != nil,
-				fmt.Sprintf("\ntest: %s\npattern: %s\nresource: %s\nmsg: %v", testCase.name, pattern, resource, err))
+func Test_global_anchor(t *testing.T) {
+	testCases := []struct {
+		name     string
+		pattern  []byte
+		resource []byte
+		status   engineapi.RuleStatus
+	}{
+		{
+			name:     "check_global_anchor_skip",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:v1", "imagePullPolicy": "Always"}]}}`),
+			status:   engineapi.RuleStatusSkip,
+		},
+		{
+			name:     "check_global_anchor_fail",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "Always"}]}}`),
+			status:   engineapi.RuleStatusFail,
+		},
+		{
+			name:     "check_global_anchor_pass",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "IfNotPresent"}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+		{
+			name:     "check_global_anchor_mixed",
+			pattern:  []byte(`{"spec": {"containers": [{"name": "*","<(image)": "*:latest","imagePullPolicy": "!Always"}]}}`),
+			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx:latest", "imagePullPolicy": "IfNotPresent"},{"name": "nginx","image": "nginx:v2", "imagePullPolicy": "IfNotPresent"}]}}`),
+			status:   engineapi.RuleStatusPass,
+		},
+	}
+
+	for i := range testCases {
+		testMatchPattern(t, testCases[i])
+	}
+}
+
+func testMatchPattern(t *testing.T, testCase struct {
+	name     string
+	pattern  []byte
+	resource []byte
+	status   engineapi.RuleStatus
+},
+) {
+	var pattern, resource interface{}
+	err := json.Unmarshal(testCase.pattern, &pattern)
+	assert.NilError(t, err)
+	err = json.Unmarshal(testCase.resource, &resource)
+	assert.NilError(t, err)
+
+	err = MatchPattern(logr.Discard(), resource, pattern)
+
+	if testCase.status == engineapi.RuleStatusPass {
+		assert.NilError(t, err, fmt.Sprintf("\nexpected pass - test: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
+	} else if testCase.status == engineapi.RuleStatusSkip {
+		assert.Assert(t, err != nil, fmt.Sprintf("\nexpected skip error - test: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
+		pe, ok := err.(*PatternError)
+		if !ok {
+			assert.Assert(t, err != nil, fmt.Sprintf("\ninvalid error type - test: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
 		}
+
+		assert.Assert(t, pe.Skip, fmt.Sprintf("\nexpected skip == true - test: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
+	} else if testCase.status == engineapi.RuleStatusError {
+		assert.Assert(t, err == nil, fmt.Sprintf("\nexpected error - test: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
 	}
 }

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kyverno.io/verify-images: '{"ghcr.io/chipzoller/zulu:latest":true}'
+  name: zulu
+  namespace: default
+spec:
+  containers:
+  - image: ghcr.io/chipzoller/zulu
+    name: zulu

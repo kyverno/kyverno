@@ -6,7 +6,9 @@ expected:
   mutation:
     patchedresource: test/output/output_mutate_validate_qos.yaml
     policyresponse:
-      policy: policy-qos
+      policy:
+        namespace: ''
+        name: policy-qos
       resource:
         kind: Deployment
         apiVersion: apps/v1
@@ -15,11 +17,13 @@ expected:
       rules:
         - name: add-memory-limit
           type: Mutation
-          success: true
-          message: successfully processed strategic merge patch
+          status: pass
+          message: mutated Deployment/qos-demo
   validation:
     policyresponse:
-      policy: policy-qos
+      policy:
+        namespace: ''
+        name: policy-qos
       resource:
         kind: Deployment
         apiVersion: apps/v1
@@ -29,4 +33,4 @@ expected:
         - name: check-cpu-memory-limits
           type: Validation
           message: validation rule 'check-cpu-memory-limits' passed.
-          success: true     
+          status: pass

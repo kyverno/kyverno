@@ -2,39 +2,81 @@ package metrics
 
 import (
 	"fmt"
-	"reflect"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
 
-func ParsePolicyValidationMode(validationFailureAction string) (PolicyValidationMode, error) {
-	switch validationFailureAction {
-	case "enforce":
+func ParsePolicyValidationMode(validationFailureAction kyvernov1.ValidationFailureAction) (PolicyValidationMode, error) {
+	if validationFailureAction.Enforce() {
 		return Enforce, nil
-	case "audit":
-		return Audit, nil
-	default:
-		return "", fmt.Errorf("wrong validation failure action found %s. Allowed: '%s', '%s'", validationFailureAction, "enforce", "audit")
 	}
+	return Audit, nil
 }
 
-func ParsePolicyBackgroundMode(backgroundMode *bool) PolicyBackgroundMode {
-	if backgroundMode == nil || *backgroundMode {
+func ParsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroundMode {
+	if policy.BackgroundProcessingEnabled() {
 		return BackgroundTrue
 	}
-
 	return BackgroundFalse
 }
 
-func ParseRuleType(rule kyverno.Rule) RuleType {
-	if !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+func ParseRuleType(rule kyvernov1.Rule) RuleType {
+	if !datautils.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		return Validate
 	}
-	if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
+	if !datautils.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
 		return Mutate
 	}
-	if !reflect.DeepEqual(rule.Generation, kyverno.Generation{}) {
+	if !datautils.DeepEqual(rule.Generation, kyvernov1.Generation{}) {
 		return Generate
 	}
+	if len(rule.VerifyImages) > 0 {
+		return ImageVerify
+	}
 	return EmptyRuleType
+}
+
+func ParseResourceRequestOperation(requestOperationStr string) (ResourceRequestOperation, error) {
+	switch requestOperationStr {
+	case "CREATE":
+		return ResourceCreated, nil
+	case "UPDATE":
+		return ResourceUpdated, nil
+	case "DELETE":
+		return ResourceDeleted, nil
+	case "CONNECT":
+		return ResourceConnected, nil
+	default:
+		return "", fmt.Errorf("unknown request operation made by resource: %s. Allowed requests: 'CREATE', 'UPDATE', 'DELETE', 'CONNECT'", requestOperationStr)
+	}
+}
+
+func ParseRuleTypeFromEngineRuleResponse(rule engineapi.RuleResponse) RuleType {
+	switch rule.Type {
+	case "Validation":
+		return Validate
+	case "Mutation":
+		return Mutate
+	case "Generation":
+		return Generate
+	case "ImageVerify":
+		return ImageVerify
+	default:
+		return EmptyRuleType
+	}
+}
+
+func GetPolicyInfos(policy kyvernov1.PolicyInterface) (string, string, PolicyType, PolicyBackgroundMode, PolicyValidationMode, error) {
+	name := policy.GetName()
+	namespace := ""
+	policyType := Cluster
+	if policy.IsNamespaced() {
+		namespace = policy.GetNamespace()
+		policyType = Namespaced
+	}
+	backgroundMode := ParsePolicyBackgroundMode(policy)
+	validationMode, err := ParsePolicyValidationMode(policy.GetSpec().ValidationFailureAction)
+	return name, namespace, policyType, backgroundMode, validationMode, err
 }

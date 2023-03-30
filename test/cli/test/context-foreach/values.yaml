@@ -1,0 +1,6 @@
+policies:
+- name: block-images
+  rules:
+    - name: block-images
+      foreachValues:
+        imageData: ["foo", "foo1"]

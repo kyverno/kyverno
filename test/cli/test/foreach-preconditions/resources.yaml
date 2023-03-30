@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend1
+spec:
+  containers:
+  - name: app
+    image: images.my-company.example/app:v4
+    resources:
+      requests:
+        memory: 100Mi
+      limits:
+        memory: 300Mi
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend2
+spec:
+  containers:
+  - name: app
+    image: images.my-company.example/app:v4
+    resources:
+      requests:
+        memory: 100Mi
+      limits:
+        memory: 200Mi

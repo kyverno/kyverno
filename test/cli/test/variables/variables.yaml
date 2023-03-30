@@ -1,9 +1,17 @@
 policies:
+  - name: cm-multiple-example
+    rules:
+      - name: example-configmap-lookup
+        values:
+          dictionary.data.env: ''
+          anotherdictionary.data.env: test
   - name: cm-variable-example
     rules:
       - name: example-configmap-lookup
         values:
-          dictionary.data.env: test
+          dictionary:
+            data:
+              env: test
     resources:
       - name: test-env-test
         values:
@@ -15,7 +23,7 @@ policies:
     rules:
       - name: validate-role-annotation
         values:
-          roles-dictionary.data.allowed-roles: "[\"app\",\"test\"]"
+          roles-dictionary.data.allowed-roles: '["app","test"]'
     resources:
       - name: test-web
         values:
@@ -23,3 +31,47 @@ policies:
       - name: test-app
         values:
           request.object.metadata.annotations.role: app
+  - name: cm-blk-scalar-example
+    rules:
+      - name: validate-blk-role-annotation
+        values:
+          roles-dictionary.data.allowed-roles: '["app", "test"]'
+    resources:
+      - name: test-blk-web
+        values:
+          request.object.metadata.annotations.role: web
+      - name: test-blk-app
+        values:
+          request.object.metadata.annotations.role: app
+  - name: cm-globalval-example
+    resources:
+      - name: test-global-prod
+        values:
+          request.mode: prod
+  - name: images
+    rules:
+      - name: only-allow-trusted-images
+        values:
+          request.operation: CREATE
+    resources:
+      - name: test-pod-with-non-root-user-image
+        values:
+          imageData.registry: "index.docker.io"
+          imageData.configData.config.User: "nginx"
+          element.name: "nginx"
+      - name: test-pod-with-trusted-registry
+        values:
+          element.name: "kyverno"
+          imageData.registry: "ghcr.io"
+          imageData.configData.config.User: ""
+      - name: test-pod-with-non-trusted-registry
+        values:
+          element:
+            name: "not-kyverno"
+          imageData:
+            registry: "gcr.io"
+            configData:
+              config:
+                User: ""
+globalValues:
+  request.mode: dev

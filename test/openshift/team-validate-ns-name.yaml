@@ -1,0 +1,12 @@
+### Namespace good
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team1-test
+### Namespace bad
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-namespace

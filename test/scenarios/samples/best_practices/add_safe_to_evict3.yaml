@@ -4,12 +4,24 @@ input:
   resource: test/resources/pod-with-default-volume.yaml
 expected:
   mutation:
-    patchedresource: test/resources/pod-with-default-volume.yaml
+    patchedresource: test/output/pod-with-default-volume.yaml
     policyresponse:
-      policy: add-safe-to-evict
+      policy:
+        namespace: ''
+        name: add-safe-to-evict
       resource:
         kind: Pod
         apiVersion: v1
         namespace: ''
         name: pod-with-default-volume
       rules:
+        - name: annotate-empty-dir
+          type: Mutation
+          status: skip
+          message: "no patches applied"
+        - name: annotate-host-path
+          type: Mutation
+          status: skip
+          message: "no patches applied"
+
+        

@@ -16,6 +16,13 @@ builds:
     - windows
   goarch:
     - amd64
+    - arm64
+    - s390x
+  ignore:
+    - goos: darwin
+      goarch: s390x
+    - goos: windows
+      goarch: s390x
 archives:
 - id: kyverno-cli-archive
   name_template: |-
@@ -42,9 +49,9 @@ release:
 changelog:
   sort: asc
   filters:
-    # commit messages matching the regexp listed here will be removed from
-    # the changelog
     exclude:
       - '^docs:'
       - typo
-
+      - '^test:'
+source:
+  enabled: true

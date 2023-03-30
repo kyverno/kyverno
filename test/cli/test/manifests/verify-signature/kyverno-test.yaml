@@ -1,0 +1,21 @@
+name: yaml-verification
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: validate-yaml
+    rule: validate-yaml
+    resource: test-service # no signature
+    kind: Service
+    result: fail
+  - policy: validate-yaml
+    rule: validate-yaml
+    resource: test-service2 # one signature
+    kind: Service
+    result: pass
+  - policy: validate-yaml
+    rule: validate-yaml-multi-sig
+    resource: test-service3 # multi signature
+    kind: Service
+    result: pass

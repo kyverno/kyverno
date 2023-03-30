@@ -1,0 +1,32 @@
+name: ondemand
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: ondemand
+    rule: ondemand-nodeselector
+    resource: nodeselector-with-labels-on-mutation
+    patchedResource: patched-resource.yaml
+    namespace: user-space
+    kind: Pod
+    result: pass
+  - policy: ondemand
+    rule: ondemand-managed_by
+    resource: nodeselector-with-labels-on-mutation
+    namespace: user-space
+    kind: Pod
+    result: pass
+  - policy: ondemand
+    rule: ondemand-nodeselector
+    resource: nodeselector-without-labels-on-mutation
+    patchedResource: patched-resource1.yaml
+    namespace: user-foo
+    kind: Pod
+    result: skip
+  - policy: ondemand
+    rule: ondemand-managed_by
+    resource: nodeselector-without-labels-on-mutation
+    namespace: user-foo
+    kind: Pod
+    result: fail

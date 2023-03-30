@@ -1,0 +1,4 @@
+clusterRoles:
+- cluster-admin
+userInfo:
+  username: molybdenum@somecorp.com

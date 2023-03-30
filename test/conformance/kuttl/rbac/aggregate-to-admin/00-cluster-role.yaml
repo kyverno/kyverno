@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+assert:
+- admin-policies.yaml
+- admin-policyreport.yaml
+- admin-reports.yaml
+- admin-updaterequest.yaml

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example
+  annotations:
+    key1: "1"
+    key2: "1"

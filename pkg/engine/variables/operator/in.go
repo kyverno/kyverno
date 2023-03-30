@@ -4,45 +4,34 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/minio/pkg/wildcard"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
-//NewInHandler returns handler to manage In operations
-func NewInHandler(log logr.Logger, ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
+// NewInHandler returns handler to manage In operations
+//
+// Deprecated: Use `NewAllInHandler` or `NewAnyInHandler` instead
+func NewInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return InHandler{
-		ctx:        ctx,
-		subHandler: subHandler,
-		log:        log,
+		ctx: ctx,
+		log: log,
 	}
 }
 
-//InHandler provides implementation to handle In Operator
+// InHandler provides implementation to handle In Operator
 type InHandler struct {
-	ctx        context.EvalInterface
-	subHandler VariableSubstitutionHandler
-	log        logr.Logger
+	ctx context.EvalInterface
+	log logr.Logger
 }
 
-//Evaluate evaluates expression with In Operator
+// Evaluate evaluates expression with In Operator
 func (in InHandler) Evaluate(key, value interface{}) bool {
-	var err error
-	// substitute the variables
-	if key, err = in.subHandler(in.log, in.ctx, key); err != nil {
-		in.log.Error(err, "Failed to resolve variable", "variable", key)
-		return false
-	}
-
-	if value, err = in.subHandler(in.log, in.ctx, value); err != nil {
-		in.log.Error(err, "Failed to resolve variable", "variable", value)
-		return false
-	}
-
 	switch typedKey := key.(type) {
 	case string:
 		return in.validateValueWithStringPattern(typedKey, value)
+	case int, int32, int64, float32, float64:
+		return in.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string
 		for _, v := range typedKey {
@@ -50,7 +39,7 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 		}
 		return in.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		in.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		in.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -58,7 +47,7 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 func (in InHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
 	invalidType, keyExists := keyExistsInArray(key, value, in.log)
 	if invalidType {
-		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		in.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -70,21 +59,14 @@ func (in InHandler) validateValueWithStringPattern(key string, value interface{}
 // array of strings (e.g. ["val1", "val2", "val3"].
 func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			v, ok := val.(string)
-			if !ok {
-				return true, false
-			}
-
-			if ok && wildcard.Match(key, v) {
+			if wildcard.Match(fmt.Sprint(val), key) || wildcard.Match(key, fmt.Sprint(val)) {
 				return false, true
 			}
 		}
 
 	case string:
-
 		if wildcard.Match(valuesAvailable, key) {
 			return false, true
 		}
@@ -112,7 +94,7 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 func (in InHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
 	invalidType, isIn := setExistsInArray(key, value, in.log, false)
 	if invalidType {
-		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		in.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -125,7 +107,6 @@ func (in InHandler) validateValueWithStringSetPattern(key []string, value interf
 // notIn argument if set to true will check for NotIn
 func setExistsInArray(key []string, value interface{}, log logr.Logger, notIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		var valueSlice []string
 		for _, val := range valuesAvailable {

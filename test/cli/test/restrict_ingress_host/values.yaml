@@ -1,0 +1,13 @@
+policies:
+- name: unique-ingress-host
+  rules:
+  - name: check-single-host
+    values:
+      hosts: "[\"www.github.com\", \"www.kyverno.com\", \"www.nirmata.com\"]"
+  resources:
+  - name: ingress-kyverno-host
+    values:
+      request.operation: CREATE
+  - name: ingress-foo-host
+    values:
+      request.operation: CREATE

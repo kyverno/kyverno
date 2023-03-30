@@ -1,0 +1,29 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: path-canonicalize
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+  - name: disallow-mount-containerd-sock
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      foreach:
+      - list: "request.object.spec.volumes[]"
+        deny:
+          conditions:
+            any:
+            - key: "{{ path_canonicalize(element.hostPath.path) }}"
+              operator: Equals
+              value: "/var/run/containerd/containerd.sock"
+            - key: "{{ path_canonicalize(element.hostPath.path) }}"
+              operator: Equals
+              value: "/run/containerd/containerd.sock"
+            - key: "{{ path_canonicalize(element.hostPath.path) }}"
+              operator: Equals
+              value: "\\var\\run\\containerd\\containerd.sock"

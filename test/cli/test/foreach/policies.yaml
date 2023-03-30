@@ -1,0 +1,95 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-empty-dir-mountpath
+spec:
+  rules:
+  - name: check-mount-paths
+    match:
+      resources:
+        kinds:
+          - Pod
+    validate:
+      message: "emptyDir volumes must be mounted under /tmp"
+      foreach:
+      - list: "request.object.spec.volumes[?contains(keys(@), 'emptyDir')]"
+        elementScope: false
+        pattern:
+          spec:
+            containers:
+              - name: "*"
+                volumeMounts:
+                - (name): "{{element.name}}"
+                  mountPath: "/tmp/*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-empty-dir-resources
+spec:
+  rules:
+  - name: check-resources
+    match:
+      resources:
+        kinds:
+          - Pod
+    validate:
+      message: "ephemeral-storage requests and limits are required for emptyDir volumes"
+      foreach:
+      - list: "request.object.spec.volumes[?contains(keys(@), 'emptyDir')]"
+        elementScope: false
+        pattern:
+          spec:
+            containers:
+            - volumeMounts:
+              - <(name): "{{element.name}}"
+              resources:
+                requests:
+                 ephemeral-storage: "?*"
+                limits:
+                  ephemeral-storage: "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-image-list
+spec:
+  rules:
+  - name: check-image
+    match:
+      resources:
+        kinds:
+          - Pod
+    validate:
+      message: "images must begin with ghcr.io"
+      foreach:
+      - list: "request.object.spec.containers[].image"
+        deny:
+          conditions:
+            all:
+              - key: '{{ element }}'
+                operator: NotEquals
+                value: 'ghcr.io'
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-image-list-error
+spec:
+  rules:
+  - name: check-image
+    match:
+      resources:
+        kinds:
+          - Pod
+    validate:
+      message: "images must begin with ghcr.io"
+      foreach:
+      - list: "request.object.spec.containers[].image"
+        elementScope: true
+        deny:
+          conditions:
+            all:
+              - key: '{{ element }}'
+                operator: NotEquals
+                value: 'ghcr.io'

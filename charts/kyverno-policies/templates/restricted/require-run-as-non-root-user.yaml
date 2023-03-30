@@ -1,0 +1,68 @@
+{{- $name := "require-run-as-non-root-user" }}
+{{- if eq (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" $name) .)) "true" }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    {{- with .Values.autogenControllers }}
+    pod-policies.kyverno.io/autogen-controllers: {{ . }}
+    {{- end }}
+    policies.kyverno.io/title: Require Run As Non-Root User
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    {{- if .Values.podSecuritySeverity }}
+    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: 1.6.0
+    kyverno.io/kubernetes-version: "1.22-1.23"
+    policies.kyverno.io/description: >-
+      Containers must be required to run as non-root users. This policy ensures
+      `runAsUser` is either unset or set to a number greater than zero.
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  {{- with index .Values "validationFailureActionByPolicy" $name }}
+  validationFailureAction: {{ toYaml . }}
+  {{- else }}
+  validationFailureAction: {{ .Values.validationFailureAction }}
+  {{- end }}
+  {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
+  validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
+  {{- end }}
+  background: {{ .Values.background }}
+  failurePolicy: {{ .Values.failurePolicy }}
+  rules:
+    - name: run-as-non-root-user
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      {{- with index .Values "policyExclude" $name }}
+      exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with index .Values "policyPreconditions" $name }}
+      preconditions:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      validate:
+        message: >-
+          Running as root is not allowed. The fields spec.securityContext.runAsUser,
+          spec.containers[*].securityContext.runAsUser, spec.initContainers[*].securityContext.runAsUser,
+          and spec.ephemeralContainers[*].securityContext.runAsUser must be unset or
+          set to a number greater than zero.
+        pattern:
+          spec:
+            =(securityContext):
+              =(runAsUser): ">0"
+            =(ephemeralContainers):
+            - =(securityContext):
+                =(runAsUser): ">0"
+            =(initContainers):
+            - =(securityContext):
+                =(runAsUser): ">0"
+            containers:
+            - =(securityContext):
+                =(runAsUser): ">0"
+{{- end }}

@@ -1,0 +1,27 @@
+---
+# This role is required for e2e tests that generate and update a ClusterRole.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:test-e2e
+  labels:
+    app: kyverno
+    app.kubernetes.io/name: kyverno
+rules:
+  - apiGroups:
+      - '*'
+    resources:
+      - clusterroles
+      - rolebindings
+      - clusterrolebindings
+      - secrets
+      - configmaps
+      - deployments
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch

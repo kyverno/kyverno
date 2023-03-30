@@ -6,7 +6,7 @@ import (
 )
 
 func TestExpandInMetadata(t *testing.T) {
-	//testExpand(t, map[string]string{"test/*": "*"}, map[string]string{},
+	// testExpand(t, map[string]string{"test/*": "*"}, map[string]string{},
 	//	map[string]string{"test/0": "0"})
 
 	testExpand(t, map[string]string{"test/*": "*"}, map[string]string{"test/test": "test"},

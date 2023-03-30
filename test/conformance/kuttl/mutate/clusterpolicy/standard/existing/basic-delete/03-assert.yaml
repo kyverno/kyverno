@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret-2
+  namespace: staging-2
+  labels:
+    foo: dictionary-2

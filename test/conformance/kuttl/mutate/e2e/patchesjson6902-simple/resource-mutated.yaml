@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foo-patchesjson6902-simple
+  namespace: default
+spec:
+  containers:
+  - command:
+    - sleep infinity
+    env:
+    - name: FOO
+      value: bar
+    - name: K8S_IMAGE
+      value: busybox:1.11
+    image: busybox:1.11
+    name: busybox
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID
+  initContainers:
+  - command:
+    - sleep infinity
+    image: nginx:1.14
+    name: nginx
+    securityContext:
+      capabilities:
+        drop:
+        - SETUID

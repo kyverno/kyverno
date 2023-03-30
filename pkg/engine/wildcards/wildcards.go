@@ -3,8 +3,8 @@ package wildcards
 import (
 	"strings"
 
-	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor/common"
-	"github.com/minio/pkg/wildcard"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,19 +20,14 @@ func ReplaceInSelector(labelSelector *metav1.LabelSelector, resourceLabels map[s
 func replaceWildcardsInMapKeyValues(patternMap map[string]string, resourceMap map[string]string) map[string]string {
 	result := map[string]string{}
 	for k, v := range patternMap {
-		if hasWildcards(k) || hasWildcards(v) {
+		if wildcard.ContainsWildcard(k) || wildcard.ContainsWildcard(v) {
 			matchK, matchV := expandWildcards(k, v, resourceMap, true, true)
 			result[matchK] = matchV
 		} else {
 			result[k] = v
 		}
 	}
-
 	return result
-}
-
-func hasWildcards(s string) bool {
-	return strings.Contains(s, "*") || strings.Contains(s, "?")
 }
 
 func expandWildcards(k, v string, resourceMap map[string]string, matchValue, replace bool) (key string, val string) {
@@ -45,20 +40,18 @@ func expandWildcards(k, v string, resourceMap map[string]string, matchValue, rep
 			}
 		}
 	}
-
 	if replace {
 		k = replaceWildCardChars(k)
 		v = replaceWildCardChars(v)
 	}
-
 	return k, v
 }
 
 // replaceWildCardChars will replace '*' and '?' characters which are not
 // supported by Kubernetes with a '0'.
 func replaceWildCardChars(s string) string {
-	s = strings.Replace(s, "*", "0", -1)
-	s = strings.Replace(s, "?", "0", -1)
+	s = strings.ReplaceAll(s, "*", "0")
+	s = strings.ReplaceAll(s, "?", "0")
 	return s
 }
 
@@ -67,7 +60,6 @@ func replaceWildCardChars(s string) string {
 // here, as they are evaluated separately while processing the validation pattern. Anchors
 // on the tags (e.g. "=(kubernetes.io/*)" will be preserved when the values are expanded.
 func ExpandInMetadata(patternMap, resourceMap map[string]interface{}) map[string]interface{} {
-
 	_, patternMetadata := getPatternValue("metadata", patternMap)
 	if patternMetadata == nil {
 		return patternMap
@@ -83,23 +75,22 @@ func ExpandInMetadata(patternMap, resourceMap map[string]interface{}) map[string
 	if labels != nil {
 		metadata[labelsKey] = labels
 	}
-
 	annotationsKey, annotations := expandWildcardsInTag("annotations", patternMetadata, resourceMetadata)
 	if annotations != nil {
 		metadata[annotationsKey] = annotations
 	}
-
 	return patternMap
 }
 
 func getPatternValue(tag string, pattern map[string]interface{}) (string, interface{}) {
 	for k, v := range pattern {
-		k2, _ := commonAnchor.RemoveAnchor(k)
-		if k2 == tag {
+		if k == tag {
+			return k, v
+		}
+		if a := anchor.Parse(k); a != nil && a.Key() == tag {
 			return k, v
 		}
 	}
-
 	return "", nil
 }
 
@@ -144,18 +135,17 @@ func getValueAsStringMap(key string, data interface{}) (string, map[string]strin
 func replaceWildcardsInMapKeys(patternData, resourceData map[string]string) map[string]interface{} {
 	results := map[string]interface{}{}
 	for k, v := range patternData {
-		if hasWildcards(k) {
-			anchorFreeKey, anchorPrefix := commonAnchor.RemoveAnchor(k)
-			matchK, _ := expandWildcards(anchorFreeKey, v, resourceData, false, false)
-			if anchorPrefix != "" {
-				matchK = commonAnchor.AddAnchor(matchK, anchorPrefix)
+		if wildcard.ContainsWildcard(k) {
+			if a := anchor.Parse(k); a != nil {
+				matchK, _ := expandWildcards(a.Key(), v, resourceData, false, false)
+				results[anchor.String(a.Type(), matchK)] = v
+			} else {
+				matchK, _ := expandWildcards(k, v, resourceData, false, false)
+				results[matchK] = v
 			}
-
-			results[matchK] = v
 		} else {
 			results[k] = v
 		}
 	}
-
 	return results
 }

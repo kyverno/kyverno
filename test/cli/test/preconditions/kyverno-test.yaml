@@ -1,0 +1,16 @@
+name: test-preconditions
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: preconditions
+    rule: any-rule
+    resource: test-valid
+    kind: Pod
+    status: pass
+  - policy: preconditions
+    rule: any-rule
+    resource: test-invalid
+    kind: Pod
+    status: fail

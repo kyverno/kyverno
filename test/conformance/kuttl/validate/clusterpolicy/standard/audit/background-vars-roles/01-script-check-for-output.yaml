@@ -1,0 +1,14 @@
+## Checks that there is specific output when creating a manifest
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    if kubectl apply -f manifests.yaml 2>&1 | grep -q 'variable {{request.roles}} is not allowed' 
+    then 
+        echo "Test succeeded. The phrase 'variable {{request.roles}} is not allowed' is found."
+        exit 0
+    else 
+        echo "Test failed. The phrase 'variable {{request.roles}} is not allowed' has not been found."
+        exit 1
+    fi

@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-ingress-host
+spec:
+  rules:
+  - name: mutate-rules-host
+    match:
+      any:
+      - resources:
+          kinds:
+          - Ingress
+    mutate:
+      patchesJson6902: |-
+        - op: replace
+          path: /spec/rules/0/host
+          value: "{{request.object.spec.rules[0].host}}.mycompany.com"

@@ -28,7 +28,7 @@ if [ ! -d "$destdir" ]; then
 fi
 tmpdir=$(mktemp -d)
 
-cat <<EOF >> ${tmpdir}/csr.conf
+cat <<EOF >> "${tmpdir}/csr.conf"
 [req]
 req_extensions = v3_req
 distinguished_name = req_distinguished_name
@@ -57,32 +57,32 @@ if [ ! -z "${service}" ]; then
     subjectCN="${service}"
   fi
 else
-  subjectCN=${serverIp}
+  subjectCN="${serverIp}"
 fi
 echo "Generating certificate for CN=${subjectCN}"
-openssl req -new -key ${destdir}/server-key.pem -subj "/CN=${subjectCN}" -out ${tmpdir}/server.csr -config ${tmpdir}/csr.conf || exit 3
+openssl req -new -key "${destdir}/server-key.pem" -subj "/CN=${subjectCN}" -out "${tmpdir}/server.csr" -config "${tmpdir}/csr.conf" || exit 3
 
 CSR_NAME=${service}.cert-request
-kubectl delete csr ${CSR_NAME} 2>/dev/null
+kubectl delete csr "${CSR_NAME}" 2>/dev/null
 
 cat <<EOF | kubectl create -f -
 apiVersion: certificates.k8s.io/v1beta1
 kind: CertificateSigningRequest
 metadata:
-  name: ${CSR_NAME}
+  name: "${CSR_NAME}"
 spec:
   groups:
   - system:authenticated
-  request: $(cat ${tmpdir}/server.csr | base64 | tr -d '\n')
+  request: $(cat "${tmpdir}/server.csr" | base64 | tr -d '\n')
   usages:
   - digital signature
   - key encipherment
   - server auth
 EOF
 
-kubectl certificate approve ${CSR_NAME} || exit 4
-kubectl get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' | base64 --decode > ${outCertFile} || exit 5
+kubectl certificate approve "${CSR_NAME}" || exit 4
+kubectl get csr "${CSR_NAME}" -o jsonpath='{.status.certificate}' | base64 --decode > "${outCertFile}" || exit 5
 
 echo "Generated:"
-echo ${outKeyFile}
-echo ${outCertFile}
+echo "${outKeyFile}"
+echo "${outCertFile}"

@@ -5,7 +5,9 @@ input:
 expected:
   validation:
     policyresponse:
-      policy: disallow-host-pid-ipc
+      policy:
+        namespace: ''
+        name: disallow-host-pid-ipc
       resource:
         kind: Pod
         apiVersion: v1
@@ -14,4 +16,4 @@ expected:
       rules:
         - name: validate-hostPID-hostIPC
           type: Validation
-          success: false
+          status: fail

@@ -19,17 +19,20 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
 
 // ClusterPolicyLister helps list ClusterPolicies.
+// All objects returned here must be treated as read-only.
 type ClusterPolicyLister interface {
 	// List lists all ClusterPolicies in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.ClusterPolicy, err error)
 	// Get retrieves the ClusterPolicy from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1.ClusterPolicy, error)
 	ClusterPolicyListerExpansion
 }

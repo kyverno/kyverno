@@ -1,27 +1,33 @@
 name: FOSSA
+
 on:
   push:
-    branches: [master]
-  pull_request:
-    branches: [master]
+    branches: 
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  build:
+  fossa-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - name: Checkout
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
+      - name: Check secret
+        id: checksecret
+        uses: ./.github/actions/is-defined
         with:
-          go-version: "^1.14.x"
-      - run: go version
-      # Runs a set of commands to initialize and analyze with FOSSA
-      - name: run FOSSA analysis
-        env:
-          # FOSSA Push-Only API Token
-          FOSSA_API_KEY: '760a966bd1687152ecfe23386d841df4'
-        run: |
-          export GOPATH=$HOME/go
-          export PATH=$PATH:$(go env GOPATH)/bin
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install.sh | bash
-          fossa init
-          fossa analyze
+          value: ${{ secrets.FOSSA_API_KEY }}
+      - name: Setup build env
+        if: steps.checksecret.outputs.result == 'true'
+        uses: ./.github/actions/setup-build-env
+      - name: Run FOSSA analysis
+        if: steps.checksecret.outputs.result == 'true'
+        uses: fossas/fossa-action@f61a4c0c263690f2ddb54b9822a719c25a7b608f # v1.3.1
+        with:
+          api-key: ${{ secrets.FOSSA_API_KEY }}

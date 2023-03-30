@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: create-default-pdb
+  namespace: hello-world
+spec:
+  rules:
+  - name: create-default-pdb
+    match:
+      resources:
+        kinds:
+        - Deployment
+    generate:
+      apiVersion: policy/v1
+      kind: PodDisruptionBudget
+      name: "{{request.object.metadata.name}}-default-pdb"
+      namespace: "{{request.object.metadata.namespace}}"
+      data:
+        spec:
+          minAvailable: 1
+          selector:
+            matchLabels:
+              "{{request.object.metadata.labels}}"

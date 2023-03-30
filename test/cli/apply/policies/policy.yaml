@@ -1,0 +1,56 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/description: >-
+      The ':latest' tag is mutable and can lead to unexpected errors if the
+      image changes. A best practice is to use an immutable tag that maps to
+      a specific version of an application pod.
+spec:
+  validationFailureAction: audit
+  rules:
+  - name: validate-image-tag
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Using a mutable image tag e.g. 'latest' is not allowed."
+      pattern:
+        spec:
+          containers:
+          - image: "!*:latest"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: drop-all-capabilities
+  annotations:
+    policies.kyverno.io/scored: "false"
+spec:
+  validationFailureAction: audit
+  rules:
+    - name: require-drop-all
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      preconditions:
+        all:
+        - key: "{{ request.operation }}"
+          operator: NotEquals
+          value: DELETE
+      validate:
+        message: >-
+          Containers must drop `ALL` capabilities.
+        foreach:
+          - list: request.object.spec.[ephemeralContainers, initContainers, containers][]
+            deny:
+              conditions:
+                all:
+                - key: ALL
+                  operator: AnyNotIn
+                  value: "{{ element.securityContext.capabilities.drop || '' }}"

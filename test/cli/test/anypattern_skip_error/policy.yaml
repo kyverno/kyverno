@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-service-loadbalancer
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: check-loadbalancer-public
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+    validate:
+      message: "Service of type 'LoadBalancer' is public and does not explicitly define network security. To use a public LB you must supply either spec[loadBalancerSourceRanges] or the 'service.beta.kubernetes.io/aws-load-balancer-security-groups' annotation."
+      anyPattern:
+      - spec:
+          <(type): LoadBalancer
+        metadata:
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-security-groups: "?*"
+      - spec:
+          <(type): LoadBalancer
+          loadBalancerSourceRanges: "*"

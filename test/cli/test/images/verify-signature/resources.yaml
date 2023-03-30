@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: signed
+spec:
+  containers:
+    - name: signed
+      image: ghcr.io/kyverno/test-verify-image:signed
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unsigned
+spec:
+  containers:
+    - name: signed
+      image: ghcr.io/kyverno/test-verify-image:unsigned
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: signed-registry-image-datavolume
+spec:
+  source:
+    registry:
+      url: "docker://ghcr.io/kyverno/test-verify-image:signed"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 5Gi
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: unsigned-registry-image-datavolume
+spec:
+  source:
+    registry:
+      url: "docker://ghcr.io/kyverno/test-verify-image:unsigned"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 5Gi

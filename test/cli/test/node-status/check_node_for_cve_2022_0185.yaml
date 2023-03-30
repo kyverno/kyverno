@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-kernel
+  annotations:
+    policies.kyverno.io/title: Check Node for CVE-2022-0185
+    policies.kyverno.io/category: Other
+    policies.kyverno.io/severity: high
+    kyverno.io/kyverno-version: 1.6.0
+    policies.kyverno.io/minversion: 1.6.0
+    kyverno.io/kubernetes-version: "1.23"
+    policies.kyverno.io/subject: Node
+    policies.kyverno.io/description: >-
+      Linux CVE-2022-0185 can allow a container escape in Kubernetes if left unpatched.
+      The affected Linux kernel versions, at this time, are 5.10.84-1 and 5.15.5-2.
+      For more information, refer to https://security-tracker.debian.org/tracker/CVE-2022-0185.
+      This policy runs in background mode and flags an entry in the ClusterPolicyReport
+      if any Node is reporting one of the affected kernel versions.
+spec:
+  validationFailureAction: audit
+  background: true
+  rules:
+  - name: kernel-validate
+    match:
+      any:
+      - resources:
+          kinds:
+            - Node
+    validate:
+      message: "Kernel is vulnerable to CVE-2022-0185."
+      pattern:
+        status:
+          nodeInfo:
+            kernelVersion: "!5.10.84-1 & !5.15.5-2"

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
@@ -48,14 +48,15 @@ func Test_addResourceAndUserContext(t *testing.T) {
 		Username: "system:serviceaccount:nirmata:user1",
 		UID:      "014fbff9a07c",
 	}
-	userRequestInfo := kyverno.RequestInfo{
+	userRequestInfo := urkyverno.RequestInfo{
 		Roles:             nil,
 		ClusterRoles:      nil,
-		AdmissionUserInfo: userInfo}
+		AdmissionUserInfo: userInfo,
+	}
 
 	var expectedResult string
 	ctx := NewContext()
-	err = ctx.AddResource(rawResource)
+	err = AddResource(ctx, rawResource)
 	if err != nil {
 		t.Error(err)
 	}
@@ -115,6 +116,6 @@ func Test_addResourceAndUserContext(t *testing.T) {
 	expectedResult = "nirmata"
 	t.Log(result)
 	if !reflect.DeepEqual(expectedResult, result) {
-		t.Error("exected result does not match")
+		t.Error("expected result does not match")
 	}
 }

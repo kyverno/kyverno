@@ -1,0 +1,10 @@
+admissionController:
+  extraContainers:
+    - name: myapp-container
+      image: busybox
+      command: ['sh', '-c', 'echo Hello && sleep 3600']
+
+  extraInitContainers:
+    - name: init-container
+      image: busybox
+      command: ['sh', '-c', 'echo Hello']

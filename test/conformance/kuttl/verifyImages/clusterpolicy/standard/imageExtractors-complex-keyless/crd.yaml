@@ -1,0 +1,24 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: tasks.tekton.dev
+spec:
+  group: tekton.dev
+  preserveUnknownFields: false
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+    subresources:
+      status: {}
+  names:
+    kind: Task
+    plural: tasks
+    categories:
+    - tekton
+    - tekton-pipelines
+  scope: Namespaced

@@ -9,7 +9,9 @@ expected:
         kind: NetworkPolicy
         namespace: devtest
     policyresponse:
-      policy: add-networkpolicy
+      policy:
+        namespace: ''
+        name: add-networkpolicy
       resource:
         kind: Namespace
         apiVersion: v1
@@ -18,5 +20,5 @@ expected:
       rules:
         - name: default-deny-ingress
           type: Generation
-          success: true
+          status: pass
           message: created resource NetworkPolicy/devtest/default-deny-ingress

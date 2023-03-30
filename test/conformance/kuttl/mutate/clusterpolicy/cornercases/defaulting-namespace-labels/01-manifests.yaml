@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: propagate-cost-labels-from-namespace
+spec:
+  failurePolicy: Ignore
+  rules:
+  - name: add-cost-labels
+    context:
+    - name: namespaceLabels
+      apiCall:
+        urlPath: "/api/v1/namespaces/{{request.namespace}}"
+        jmesPath: metadata.labels
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          - Deployment
+          - StatefulSet
+          - DaemonSet
+          - Job
+          - CronJob
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            cost.starfleet.evtech/project: "{{namespaceLabels.\"cost.starfleet.evtech/project\"}}"
+            cost.starfleet.evtech/application: "{{request.object.metadata.labels.\"cost.starfleet.evtech/application\" || namespaceLabels.\"cost.starfleet.evtech/application\"}}"

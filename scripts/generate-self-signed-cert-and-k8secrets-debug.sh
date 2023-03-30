@@ -58,7 +58,7 @@ openssl req -new -key ${destdir}/webhook.key -out ${destdir}/webhook.csr -subj "
 openssl x509 -req -in ${destdir}/webhook.csr -CA ${destdir}/rootCA.crt -CAkey ${destdir}/rootCA.key -CAcreateserial -out ${destdir}/webhook.crt -days 1024 -sha256 -extensions v3_req  -extfile ${tmpdir}/csr.conf
 
 
-kubectl delete -f definitions/install_debug.yaml 2>/dev/null
+kubectl delete -f config/install_debug.yaml 2>/dev/null
 kubectl delete namespace kyverno 2>/dev/null
 
 echo "Generating corresponding kubernetes secrets for TLS pair and root CA"
@@ -72,4 +72,4 @@ kubectl annotate secret ${service}.kyverno.svc.kyverno-tls-pair -n kyverno self-
 kubectl -n kyverno create secret generic ${service}.kyverno.svc.kyverno-tls-ca --from-file=${destdir}/rootCA.crt
 
 echo "Creating CRD"
-kubectl apply -f definitions/install_debug.yaml
+kubectl apply -f config/install_debug.yaml

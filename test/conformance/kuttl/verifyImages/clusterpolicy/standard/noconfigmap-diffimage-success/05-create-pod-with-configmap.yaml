@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+- pod-with-configmap.yaml
+assert:
+- pod-with-configmap-ready.yaml

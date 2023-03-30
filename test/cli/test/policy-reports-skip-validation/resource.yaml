@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: blank-skip
+spec:
+  hostIPC: true
+  containers:
+  - name: busybox
+    image: busyboxasdfasdf:1.28
+    args:
+    - sleep
+    - "9999"
+    securityContext:
+      runAsUser: 12345
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: blank-fail
+  labels:
+    foo: bar
+spec:
+  hostIPC: true
+  containers:
+  - name: busybox
+    image: nginx

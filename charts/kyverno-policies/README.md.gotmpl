@@ -1,0 +1,80 @@
+{{ template "chart.header" . }}
+{{ template "chart.deprecationWarning" . }}
+{{ template "chart.description" . }}
+
+{{ template "chart.badgesSection" . }}
+
+## About
+
+This chart contains Kyverno's implementation of the Kubernetes Pod Security Standards (PSS) as documented at https://kubernetes.io/docs/concepts/security/pod-security-standards/ and are a Helm packaged version of those found at https://github.com/kyverno/policies/tree/main/pod-security. The goal of the PSS controls is to provide a good starting point for general Kubernetes cluster operational security. These controls are broken down into two categories, Baseline and Restricted. Baseline policies implement the most basic of Pod security controls while Restricted implements more strict controls. Restricted is cumulative and encompasses those listed in Baseline.
+
+The following policies are included in each profile.
+
+**Baseline**
+
+* disallow-capabilities
+* disallow-host-namespaces
+* disallow-host-path
+* disallow-host-ports
+* disallow-host-process
+* disallow-privileged-containers
+* disallow-proc-mount
+* disallow-selinux
+* restrict-apparmor-profiles
+* restrict-seccomp
+* restrict-sysctls
+
+**Restricted**
+
+* disallow-capabilities-strict
+* disallow-privilege-escalation
+* require-run-as-non-root-user
+* require-run-as-nonroot
+* restrict-seccomp-strict
+* restrict-volume-types
+
+An additional policy "require-non-root-groups" is included in an `other` group as this was previously included in the official PSS controls but since removed.
+
+For the latest version of these PSS policies, always refer to the kyverno/policies repo at https://github.com/kyverno/policies/tree/main/pod-security.
+
+## Installing the Chart
+
+These PSS policies presently have a minimum requirement of Kyverno 1.6.0.
+
+```console
+## Add the Kyverno Helm repository
+$ helm repo add kyverno https://kyverno.github.io/kyverno/
+
+## Install the Kyverno Policies Helm chart
+$ helm install kyverno-policies --namespace kyverno kyverno/kyverno-policies
+```
+
+## Uninstalling the Chart
+
+To uninstall/delete the `kyverno-policies` chart:
+
+```console
+$ helm delete -n kyverno kyverno-policies
+```
+
+The command removes all the Kubernetes components associated with the chart and deletes the release.
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "chart.sourcesSection" . }}
+
+{{ template "chart.requirementsSection" . }}
+
+{{ template "chart.maintainersSection" . }}
+
+## Changes
+
+### v2.3.4
+
+* Do not evaluate `foreach` policies on DELETE
+
+### v2.3.3
+
+* Add policyPreconditions value to allow policies and rules to have preconditions added
+
+{{ template "helm-docs.versionFooter" . }}

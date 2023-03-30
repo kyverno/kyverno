@@ -1,0 +1,26 @@
+# Configuration for welcome - https://github.com/behaviorbot/welcome
+
+# Configuration for new-issue-welcome - https://github.com/behaviorbot/new-issue-welcome
+
+# Comment to be posted to on first time issues
+newIssueWelcomeComment: >
+  Thanks for opening your first issue here! Be sure to follow the issue template!
+# Configuration for new-pr-welcome - https://github.com/behaviorbot/new-pr-welcome
+
+# Comment to be posted to on PRs from first time contributors in your repository
+newPRWelcomeComment: >
+  Thanks for opening your first Pull Request here! 
+  Please check out our [Contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md) and confirm that you Signed off.
+# Configuration for first-pr-merge - https://github.com/behaviorbot/first-pr-merge
+
+# Comment to be posted to on pull requests merged by a first time user
+firstPRMergeComment: >
+  # Congratulations! :tada:
+
+  
+  
+  Great job merging your first Pull Request here!  How awesome!
+  If you are new to this project, feel free to join our [Slack community](https://slack.k8s.io/#kyverno)
+
+  ![200w](https://user-images.githubusercontent.com/62384659/131811391-bdfe5f22-f233-4e9f-a00c-320bd6c4ebc9.gif)
+# It is recommend to include as many gifs and emojis as possible 

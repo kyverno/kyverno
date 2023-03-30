@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-labels
+  labels:
+    app: my-pod
+    owner: me
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-missing-labels
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-with-labels
+spec:
+  template:
+    metadata:
+      labels:
+        app: my-pod
+        owner: me
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-missing-labels
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: StatefulSet-with-labels
+spec:
+  serviceName: "nginx"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: my-pod
+        owner: me
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: StatefulSet-without-labels
+spec:
+  serviceName: "nginx"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cronjob-with-labels
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: my-pod
+            owner: me
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cronjob-without-labels
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: busybox

@@ -1,0 +1,12 @@
+name: test-rangeoperators
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: check-value
+    rule: check-value
+    resources:
+      - test-config-fail
+    kind: ConfigMap
+    result: fail

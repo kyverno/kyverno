@@ -1,0 +1,30 @@
+builds:
+- id: kyverno
+  main: ./cmd/kyverno
+  ldflags:
+  - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
+
+- id: kyverno-init
+  main: ./cmd/kyverno-init
+  ldflags:
+  - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
+
+- id: cli
+  main: ./cmd/cli
+  ldflags:
+  - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
+
+- id: cleanup-controller
+  main: ./cmd/cleanup-controller
+  ldflags:
+  - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
+
+- id: reports-controller
+  main: ./cmd/reports-controller
+  ldflags:
+  - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
+
+- id: background-controller
+  main: ./cmd/background-controller
+  ldflags:
+  - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'

@@ -1,0 +1,17 @@
+name: disallow-naked-pods
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+variables: values.yaml
+results:
+- policy: disallow-naked-pods
+  rule: validate-naked-pods
+  resource: blank-skip
+  kind: Pod
+  result: skip
+- policy: disallow-naked-pods
+  rule: validate-naked-pods
+  resource: blank-fail
+  kind: Pod
+  result: fail

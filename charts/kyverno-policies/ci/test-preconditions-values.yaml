@@ -1,0 +1,19 @@
+podSecurityStandard: restricted
+includeOtherPolicies:
+- require-non-root-groups
+policyPreconditions:
+  require-run-as-non-root-user:
+    all:
+    - key: "{{ request.object.metadata.name }}"
+      operator: NotEquals
+      value: "dcgm-exporter*"
+  require-drop-all:
+    any:
+    - key: "{{ request.object.metadata.name }}"
+      operator: NotEquals
+      value: "dcgm-exporter*"
+  adding-capabilities-strict:
+    all:
+    - key: "{{ request.object.metadata.name }}"
+      operator: NotEquals
+      value: "dcgm-exporter*"

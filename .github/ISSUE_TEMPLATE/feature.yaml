@@ -1,0 +1,63 @@
+name: "Feature Request"
+description: Suggest a new feature for Kyverno to support.
+title: "[Feature] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please explain the new feature.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Describe the problem.
+      placeholder: A clear and concise description of the problem statement.
+      # value: "asdf"
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution Description
+      description: Describe the solution you'd like.
+      placeholder: A clear and concise description of what you want to happen.
+      # value: "asdf"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Describe alternatives you've considered.
+      placeholder: A clear and concise description of any alternative solutions or features you've considered.
+      # value: "asdf"
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any additional context to this enhancement request.
+      placeholder: Add any other context or screenshots about the feature request here.
+      # value: "asdf"
+    validations:
+      required: false
+  - type: input
+    id: slack
+    attributes:
+      label: Slack discussion
+      description: If this feature request is the result of a discussion thread on Slack, please provide the link to the discussion for reference.
+      # placeholder: ex. email@example.com
+    validations:
+      required: false
+  - type: checkboxes
+    id: research
+    attributes:
+      label: Research
+      description: By submitting this issue, you agree that you have performed some basic attempts at researching your problem and solution.
+      options:
+        - label: I have read and followed the documentation AND the [troubleshooting guide](https://kyverno.io/docs/troubleshooting/).
+          required: true
+        - label: I have searched other issues in this repository and mine is not recorded.
+          required: true

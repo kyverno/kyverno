@@ -7,40 +7,29 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//NewNotInHandler returns handler to manage NotIn operations
-func NewNotInHandler(log logr.Logger, ctx context.EvalInterface, subHandler VariableSubstitutionHandler) OperatorHandler {
+// NewNotInHandler returns handler to manage NotIn operations
+//
+// Deprecated: Use `NewAllNotInHandler` or `NewAnyNotInHandler` instead
+func NewNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return NotInHandler{
-		ctx:        ctx,
-		subHandler: subHandler,
-		log:        log,
+		ctx: ctx,
+		log: log,
 	}
 }
 
-//NotInHandler provides implementation to handle NotIn Operator
+// NotInHandler provides implementation to handle NotIn Operator
 type NotInHandler struct {
-	ctx        context.EvalInterface
-	subHandler VariableSubstitutionHandler
-	log        logr.Logger
+	ctx context.EvalInterface
+	log logr.Logger
 }
 
-//Evaluate evaluates expression with NotIn Operator
+// Evaluate evaluates expression with NotIn Operator
 func (nin NotInHandler) Evaluate(key, value interface{}) bool {
-	var err error
-
-	// substitute the variables
-	if key, err = nin.subHandler(nin.log, nin.ctx, key); err != nil {
-		nin.log.Error(err, "Failed to resolve variable", "variable", key)
-		return false
-	}
-
-	if value, err = nin.subHandler(nin.log, nin.ctx, value); err != nil {
-		nin.log.Error(err, "Failed to resolve variable", "variable", value)
-		return false
-	}
-
 	switch typedKey := key.(type) {
 	case string:
 		return nin.validateValueWithStringPattern(typedKey, value)
+	case int, int32, int64, float32, float64:
+		return nin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
 		var stringSlice []string
 		for _, v := range typedKey {
@@ -48,7 +37,7 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 		}
 		return nin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		nin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		nin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -56,7 +45,7 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 func (nin NotInHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	invalidType, keyExists := keyExistsInArray(key, value, nin.log)
 	if invalidType {
-		nin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		nin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -66,7 +55,7 @@ func (nin NotInHandler) validateValueWithStringPattern(key string, value interfa
 func (nin NotInHandler) validateValueWithStringSetPattern(key []string, value interface{}) bool {
 	invalidType, isNotIn := setExistsInArray(key, value, nin.log, true)
 	if invalidType {
-		nin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		nin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 

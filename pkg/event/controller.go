@@ -1,34 +1,35 @@
 package event
 
 import (
+	"context"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
-	v1 "k8s.io/api/core/v1"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 )
 
-//Generator generate events
-type Generator struct {
-	client *client.Client
+const (
+	eventWorkQueueName  = "kyverno-events"
+	workQueueRetryLimit = 3
+)
+
+// generator generate events
+type generator struct {
+	client dclient.Interface
 	// list/get cluster policy
-	pLister kyvernolister.ClusterPolicyLister
-	// returns true if the cluster policy store has been synced at least once
-	pSynced cache.InformerSynced
+	cpLister kyvernov1listers.ClusterPolicyLister
+	// list/get policy
+	pLister kyvernov1listers.PolicyLister
 	// queue to store event generation requests
 	queue workqueue.RateLimitingInterface
 	// events generated at policy controller
@@ -37,67 +38,62 @@ type Generator struct {
 	admissionCtrRecorder record.EventRecorder
 	// events generated at namespaced policy controller to process 'generate' rule
 	genPolicyRecorder record.EventRecorder
-	resCache          resourcecache.ResourceCache
-	log               logr.Logger
+	// events generated at mutateExisting controller
+	mutateExistingRecorder record.EventRecorder
+
+	maxQueuedEvents int
+
+	log logr.Logger
 }
 
-//Interface to generate event
+// Controller interface to generate event
+type Controller interface {
+	Interface
+	Run(context.Context, int, *sync.WaitGroup)
+}
+
+// Interface to generate event
 type Interface interface {
 	Add(infoList ...Info)
 }
 
-//NewEventGenerator to generate a new event controller
-func NewEventGenerator(client *client.Client, pInformer kyvernoinformer.ClusterPolicyInformer, resCache resourcecache.ResourceCache, log logr.Logger) *Generator {
-
-	gen := Generator{
-		client:               client,
-		pLister:              pInformer.Lister(),
-		queue:                workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
-		pSynced:              pInformer.Informer().HasSynced,
-		policyCtrRecorder:    initRecorder(client, PolicyController, log),
-		admissionCtrRecorder: initRecorder(client, AdmissionController, log),
-		genPolicyRecorder:    initRecorder(client, GeneratePolicyController, log),
-		resCache:             resCache,
-		log:                  log,
+// NewEventGenerator to generate a new event controller
+func NewEventGenerator(
+	// source Source,
+	client dclient.Interface,
+	cpInformer kyvernov1informers.ClusterPolicyInformer,
+	pInformer kyvernov1informers.PolicyInformer,
+	maxQueuedEvents int,
+	log logr.Logger,
+) Controller {
+	gen := generator{
+		client:                 client,
+		cpLister:               cpInformer.Lister(),
+		pLister:                pInformer.Lister(),
+		queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter(), eventWorkQueueName),
+		policyCtrRecorder:      NewRecorder(PolicyController, client.GetEventsInterface()),
+		admissionCtrRecorder:   NewRecorder(AdmissionController, client.GetEventsInterface()),
+		genPolicyRecorder:      NewRecorder(GeneratePolicyController, client.GetEventsInterface()),
+		mutateExistingRecorder: NewRecorder(MutateExistingController, client.GetEventsInterface()),
+		maxQueuedEvents:        maxQueuedEvents,
+		log:                    log,
 	}
 	return &gen
 }
 
-func rateLimiter() workqueue.RateLimiter {
-	return workqueue.DefaultItemBasedRateLimiter()
-}
-
-func initRecorder(client *client.Client, eventSource Source, log logr.Logger) record.EventRecorder {
-	// Initliaze Event Broadcaster
-	err := scheme.AddToScheme(scheme.Scheme)
-	if err != nil {
-		log.Error(err, "failed to add to scheme")
-		return nil
-	}
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(klog.V(5).Infof)
-	eventInterface, err := client.GetEventsInterface()
-	if err != nil {
-		log.Error(err, "failed to get event interface for logging")
-		return nil
-	}
-	eventBroadcaster.StartRecordingToSink(
-		&typedcorev1.EventSinkImpl{
-			Interface: eventInterface})
-	recorder := eventBroadcaster.NewRecorder(
-		scheme.Scheme,
-		v1.EventSource{Component: eventSource.String()})
-	return recorder
-}
-
-//Add queues an event for generation
-func (gen *Generator) Add(infos ...Info) {
+// Add queues an event for generation
+func (gen *generator) Add(infos ...Info) {
 	logger := gen.log
+	logger.V(3).Info("generating events", "count", len(infos))
+	if gen.maxQueuedEvents == 0 || gen.queue.Len() > gen.maxQueuedEvents {
+		logger.V(2).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
+		return
+	}
 	for _, info := range infos {
 		if info.Name == "" {
 			// dont create event for resources with generateName
 			// as the name is not generated yet
-			logger.V(4).Info("not creating an event as the resource has not been assigned a name yet", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
+			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
 		gen.queue.Add(info)
@@ -105,29 +101,28 @@ func (gen *Generator) Add(infos ...Info) {
 }
 
 // Run begins generator
-func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
+func (gen *generator) Run(ctx context.Context, workers int, waitGroup *sync.WaitGroup) {
 	logger := gen.log
-	defer utilruntime.HandleCrash()
-
 	logger.Info("start")
 	defer logger.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, gen.pSynced) {
-		logger.Info("failed to sync informer cache")
-	}
-
+	defer utilruntime.HandleCrash()
+	defer gen.queue.ShutDown()
 	for i := 0; i < workers; i++ {
-		go wait.Until(gen.runWorker, time.Second, stopCh)
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			wait.UntilWithContext(ctx, gen.runWorker, time.Second)
+		}()
 	}
-	<-stopCh
+	<-ctx.Done()
 }
 
-func (gen *Generator) runWorker() {
+func (gen *generator) runWorker(ctx context.Context) {
 	for gen.processNextWorkItem() {
 	}
 }
 
-func (gen *Generator) handleErr(err error, key interface{}) {
+func (gen *generator) handleErr(err error, key interface{}) {
 	logger := gen.log
 	if err == nil {
 		gen.queue.Forget(key)
@@ -141,116 +136,78 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 		gen.queue.AddRateLimited(key)
 		return
 	}
-
 	gen.queue.Forget(key)
 	if !errors.IsNotFound(err) {
 		logger.Error(err, "failed to generate event", "key", key)
 	}
 }
 
-func (gen *Generator) processNextWorkItem() bool {
-	logger := gen.log
+func (gen *generator) processNextWorkItem() bool {
 	obj, shutdown := gen.queue.Get()
 	if shutdown {
 		return false
 	}
-
-	err := func(obj interface{}) error {
-		defer gen.queue.Done(obj)
-		var key Info
-		var ok bool
-
-		if key, ok = obj.(Info); !ok {
-			gen.queue.Forget(obj)
-			logger.Info("Incorrect type; expected type 'info'", "obj", obj)
-			return nil
-		}
-		err := gen.syncHandler(key)
-		gen.handleErr(err, obj)
-		return nil
-	}(obj)
-	if err != nil {
-		logger.Error(err, "failed to process next work item")
+	defer gen.queue.Done(obj)
+	var key Info
+	var ok bool
+	if key, ok = obj.(Info); !ok {
+		gen.queue.Forget(obj)
+		gen.log.V(2).Info("Incorrect type; expected type 'info'", "obj", obj)
 		return true
 	}
+	err := gen.syncHandler(key)
+	gen.handleErr(err, obj)
 	return true
 }
 
-func (gen *Generator) syncHandler(key Info) error {
+func (gen *generator) syncHandler(key Info) error {
 	logger := gen.log
 	var robj runtime.Object
 	var err error
 	switch key.Kind {
 	case "ClusterPolicy":
-		//TODO: policy is clustered resource so wont need namespace
-		robj, err = gen.pLister.Get(key.Name)
+		robj, err = gen.cpLister.Get(key.Name)
+		if err != nil {
+			logger.Error(err, "failed to get cluster policy", "name", key.Name)
+			return err
+		}
+	case "Policy":
+		robj, err = gen.pLister.Policies(key.Namespace).Get(key.Name)
 		if err != nil {
 			logger.Error(err, "failed to get policy", "name", key.Name)
 			return err
 		}
 	default:
-		robj, err = gen.getResource(key)
+		robj, err = gen.client.GetResource(context.TODO(), "", key.Kind, key.Namespace, key.Name)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
+				return nil
 			}
 			return err
 		}
 	}
 
 	// set the event type based on reason
-	eventType := v1.EventTypeWarning
+	// if skip/pass, reason will be: NORMAL
+	// else reason will be: WARNING
+	eventType := corev1.EventTypeWarning
+	if key.Reason == PolicyApplied || key.Reason == PolicySkipped {
+		eventType = corev1.EventTypeNormal
+	}
 
 	// based on the source of event generation, use different event recorders
 	switch key.Source {
 	case AdmissionController:
-		gen.admissionCtrRecorder.Event(robj, eventType, key.Reason, key.Message)
+		gen.admissionCtrRecorder.Event(robj, eventType, string(key.Reason), key.Message)
 	case PolicyController:
-		gen.policyCtrRecorder.Event(robj, eventType, key.Reason, key.Message)
+		gen.policyCtrRecorder.Event(robj, eventType, string(key.Reason), key.Message)
 	case GeneratePolicyController:
-		gen.genPolicyRecorder.Event(robj, eventType, key.Reason, key.Message)
+		gen.genPolicyRecorder.Event(robj, eventType, string(key.Reason), key.Message)
+	case MutateExistingController:
+		gen.mutateExistingRecorder.Event(robj, eventType, string(key.Reason), key.Message)
 	default:
 		logger.Info("info.source not defined for the request")
 	}
 	return nil
-}
-
-func (gen *Generator) getResource(key Info) (obj *unstructured.Unstructured, err error) {
-	lister, ok := gen.resCache.GetGVRCache(key.Kind)
-	if !ok {
-		if lister, err = gen.resCache.CreateGVKInformer(key.Kind); err != nil {
-			return nil, err
-		}
-	}
-
-	if key.Namespace == "" {
-		return lister.Lister().Get(key.Name)
-	}
-
-	return lister.Lister().Namespace(key.Namespace).Get(key.Name)
-}
-
-//NewEvent builds a event creation request
-func NewEvent(
-	log logr.Logger,
-	rkind,
-	rapiVersion,
-	rnamespace,
-	rname,
-	reason string,
-	source Source,
-	message MsgKey,
-	args ...interface{}) Info {
-	msgText, err := getEventMsg(message, args...)
-	if err != nil {
-		log.Error(err, "failed to get event message")
-	}
-	return Info{
-		Kind:      rkind,
-		Name:      rname,
-		Namespace: rnamespace,
-		Reason:    reason,
-		Source:    source,
-		Message:   msgText,
-	}
 }

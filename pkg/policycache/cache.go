@@ -1,219 +1,92 @@
 package policycache
 
 import (
-	"sync"
-
-	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/pkg/api/kyverno/v1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
-	policy2 "github.com/kyverno/kyverno/pkg/policy"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-type pMap struct {
-	sync.RWMutex
-
-	// kindDataMap field stores names of ClusterPolicies and  Namespaced Policies.
-	// Since both the policy name use same type (i.e. string), Both policies can be differentiated based on
-	// "namespace". namespace policy get stored with policy namespace with policy name"
-	// kindDataMap {"kind": {{"policytype" : {"policyName","nsname/policyName}}},"kind2": {{"policytype" : {"nsname/policyName" }}}}
-	kindDataMap map[string]map[PolicyType][]string
-
-	// nameCacheMap stores the names of all existing policies in dataMap
-	// Policy names are stored as <namespace>/<name>
-	nameCacheMap map[PolicyType]map[string]bool
+type ResourceFinder interface {
+	FindResources(group, version, kind, subresource string) (map[dclient.TopLevelApiDescription]metav1.APIResource, error)
 }
 
-// policyCache ...
-type policyCache struct {
-	pMap
-	logr.Logger
-	// list/get cluster policy resource
-	pLister kyvernolister.ClusterPolicyLister
-
-	// npLister can list/get namespace policy from the shared informer's store
-	npLister kyvernolister.PolicyLister
+// Cache get method use for to get policy names and mostly use to test cache testcases
+type Cache interface {
+	// Set inserts a policy in the cache
+	Set(string, kyvernov1.PolicyInterface, ResourceFinder) error
+	// Unset removes a policy from the cache
+	Unset(string)
+	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
+	// If the namespace is empty, only cluster-wide policies are returned
+	GetPolicies(PolicyType, schema.GroupVersionResource, string, string) []kyvernov1.PolicyInterface
 }
 
-// Interface ...
-// Interface get method use for to get policy names and mostly use to test cache testcases
-type Interface interface {
-	Add(policy *kyverno.ClusterPolicy)
-	Remove(policy *kyverno.ClusterPolicy)
-	GetPolicyObject(pkey PolicyType, kind string, nspace string) []*kyverno.ClusterPolicy
-	get(pkey PolicyType, kind string, nspace string) []string
+type cache struct {
+	store store
 }
 
-// newPolicyCache ...
-func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister) Interface {
-	namesCache := map[PolicyType]map[string]bool{
-		Mutate:          make(map[string]bool),
-		ValidateEnforce: make(map[string]bool),
-		ValidateAudit:   make(map[string]bool),
-		Generate:        make(map[string]bool),
-	}
-
-	return &policyCache{
-		pMap{
-			nameCacheMap: namesCache,
-			kindDataMap:  make(map[string]map[PolicyType][]string),
-		},
-		log,
-		pLister,
-		npLister,
+// NewCache create a new Cache
+func NewCache() Cache {
+	return &cache{
+		store: newPolicyCache(),
 	}
 }
 
-// Add a policy to cache
-func (pc *policyCache) Add(policy *kyverno.ClusterPolicy) {
-	pc.pMap.add(policy)
-	pc.Logger.V(4).Info("policy is added to cache", "name", policy.GetName())
+func (c *cache) Set(key string, policy kyvernov1.PolicyInterface, client ResourceFinder) error {
+	return c.store.set(key, policy, client)
 }
 
-// Get the list of matched policies
-func (pc *policyCache) get(pkey PolicyType, kind, nspace string) []string {
-	return pc.pMap.get(pkey, kind, nspace)
-}
-func (pc *policyCache) GetPolicyObject(pkey PolicyType, kind, nspace string) []*kyverno.ClusterPolicy {
-	return pc.getPolicyObject(pkey, kind, nspace)
+func (c *cache) Unset(key string) {
+	c.store.unset(key)
 }
 
-// Remove a policy from cache
-func (pc *policyCache) Remove(policy *kyverno.ClusterPolicy) {
-	pc.pMap.remove(policy)
-	pc.Logger.V(4).Info("policy is removed from cache", "name", policy.GetName())
-}
-
-func (m *pMap) add(policy *kyverno.ClusterPolicy) {
-	m.Lock()
-	defer m.Unlock()
-
-	enforcePolicy := policy.Spec.ValidationFailureAction == "enforce"
-	mutateMap := m.nameCacheMap[Mutate]
-	validateEnforceMap := m.nameCacheMap[ValidateEnforce]
-	validateAuditMap := m.nameCacheMap[ValidateAudit]
-	generateMap := m.nameCacheMap[Generate]
-	var pName = policy.GetName()
-	pSpace := policy.GetNamespace()
-	if pSpace != "" {
-		pName = pSpace + "/" + pName
+func (c *cache) GetPolicies(pkey PolicyType, gvr schema.GroupVersionResource, subresource string, nspace string) []kyvernov1.PolicyInterface {
+	var result []kyvernov1.PolicyInterface
+	result = append(result, c.store.get(pkey, gvr, subresource, "")...)
+	if nspace != "" {
+		result = append(result, c.store.get(pkey, gvr, subresource, nspace)...)
 	}
-	for _, rule := range policy.Spec.Rules {
+	// also get policies with ValidateEnforce
+	if pkey == ValidateAudit {
+		result = append(result, c.store.get(ValidateEnforce, gvr, subresource, "")...)
+	}
+	if pkey == ValidateAudit || pkey == ValidateEnforce {
+		result = filterPolicies(pkey, result, nspace)
+	}
+	return result
+}
 
-		for _, gvk := range rule.MatchResources.Kinds {
-			_, kind := common.GetKindFromGVK(gvk)
-			_, ok := m.kindDataMap[kind]
-			if !ok {
-				m.kindDataMap[kind] = make(map[PolicyType][]string)
-			}
-
-			if rule.HasMutate() {
-				if !mutateMap[kind+"/"+pName] {
-					mutateMap[kind+"/"+pName] = true
-					mutatePolicy := m.kindDataMap[kind][Mutate]
-					m.kindDataMap[kind][Mutate] = append(mutatePolicy, pName)
-				}
-				continue
-			}
-			if rule.HasValidate() {
-				if enforcePolicy {
-					if !validateEnforceMap[kind+"/"+pName] {
-						validateEnforceMap[kind+"/"+pName] = true
-						validatePolicy := m.kindDataMap[kind][ValidateEnforce]
-						m.kindDataMap[kind][ValidateEnforce] = append(validatePolicy, pName)
-					}
-					continue
-				}
-
-				// ValidateAudit
-				if !validateAuditMap[kind+"/"+pName] {
-					validateAuditMap[kind+"/"+pName] = true
-					validatePolicy := m.kindDataMap[kind][ValidateAudit]
-					m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, pName)
-				}
-				continue
-			}
-
-			if rule.HasGenerate() {
-				if !generateMap[kind+"/"+pName] {
-					generateMap[kind+"/"+pName] = true
-					generatePolicy := m.kindDataMap[kind][Generate]
-					m.kindDataMap[kind][Generate] = append(generatePolicy, pName)
-				}
-				continue
-			}
+// Filter cluster policies using validationFailureAction override
+func filterPolicies(pkey PolicyType, result []kyvernov1.PolicyInterface, nspace string) []kyvernov1.PolicyInterface {
+	var policies []kyvernov1.PolicyInterface
+	for _, policy := range result {
+		keepPolicy := true
+		switch pkey {
+		case ValidateAudit:
+			keepPolicy = checkValidationFailureActionOverrides(false, nspace, policy)
+		case ValidateEnforce:
+			keepPolicy = checkValidationFailureActionOverrides(true, nspace, policy)
+		}
+		// add policy to result
+		if keepPolicy {
+			policies = append(policies, policy)
 		}
 	}
-	m.nameCacheMap[Mutate] = mutateMap
-	m.nameCacheMap[ValidateEnforce] = validateEnforceMap
-	m.nameCacheMap[ValidateAudit] = validateAuditMap
-	m.nameCacheMap[Generate] = generateMap
+	return policies
 }
 
-func (pc *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
-	pc.RLock()
-	defer pc.RUnlock()
-	_, kind := common.GetKindFromGVK(gvk)
-	for _, policyName := range pc.kindDataMap[kind][key] {
-		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
-		if !isNamespacedPolicy {
-			names = append(names, key)
-		} else {
-			if ns == namespace {
-				names = append(names, policyName)
-			}
+func checkValidationFailureActionOverrides(enforce bool, ns string, policy kyvernov1.PolicyInterface) bool {
+	validationFailureAction := policy.GetSpec().ValidationFailureAction
+	validationFailureActionOverrides := policy.GetSpec().ValidationFailureActionOverrides
+	if validationFailureAction.Enforce() != enforce && (ns == "" || len(validationFailureActionOverrides) == 0) {
+		return false
+	}
+	for _, action := range validationFailureActionOverrides {
+		if action.Action.Enforce() != enforce && wildcard.CheckPatterns(action.Namespaces, ns) {
+			return false
 		}
 	}
-	return names
-}
-
-func (m *pMap) remove(policy *kyverno.ClusterPolicy) {
-	m.Lock()
-	defer m.Unlock()
-	var pName = policy.GetName()
-	pSpace := policy.GetNamespace()
-	if pSpace != "" {
-		pName = pSpace + "/" + pName
-	}
-
-	for _, rule := range policy.Spec.Rules {
-		for _, gvk := range rule.MatchResources.Kinds {
-			_, kind := common.GetKindFromGVK(gvk)
-			dataMap := m.kindDataMap[kind]
-			for policyType, policies := range dataMap {
-				var newPolicies []string
-				for _, p := range policies {
-					if p == pName {
-						continue
-					}
-					newPolicies = append(newPolicies, p)
-				}
-				m.kindDataMap[kind][policyType] = newPolicies
-			}
-			for _, nameCache := range m.nameCacheMap {
-				if ok := nameCache[kind+"/"+pName]; ok {
-					delete(nameCache, kind+"/"+pName)
-				}
-			}
-
-		}
-	}
-}
-func (m *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []*kyverno.ClusterPolicy) {
-	_, kind := common.GetKindFromGVK(gvk)
-	policyNames := m.pMap.get(key, kind, nspace)
-	for _, policyName := range policyNames {
-		var policy *kyverno.ClusterPolicy
-		ns, key, isNamespacedPolicy := policy2.ParseNamespacedPolicy(policyName)
-		if !isNamespacedPolicy {
-			policy, _ = m.pLister.Get(key)
-		} else {
-			if ns == nspace {
-				nspolicy, _ := m.npLister.Policies(ns).Get(key)
-				policy = policy2.ConvertPolicyToClusterPolicy(nspolicy)
-			}
-		}
-		policyObject = append(policyObject, policy)
-	}
-	return policyObject
+	return true
 }

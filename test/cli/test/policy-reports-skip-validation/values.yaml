@@ -1,0 +1,14 @@
+policies:
+  - name: disallow-naked-pods
+    resources:
+    - name: blank-skip
+     # It doesn't satifies the precondition. Therefore can not proceed
+     # further for validation.
+      values:
+        ignorepolicy: "ignore"
+    - name: blank-fail
+     # It satisfies the precondition. Therefore can proceed
+     # further for validation against policy.
+      values:
+        ignorepolicy: "allowit"
+        
