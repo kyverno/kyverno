@@ -47,7 +47,7 @@ func RemoveNonValidationPolicies(policies ...kyvernov1.PolicyInterface) []kyvern
 	var validationPolicies []kyvernov1.PolicyInterface
 	for _, pol := range policies {
 		spec := pol.GetSpec()
-		if spec.HasVerifyImages() || spec.HasValidate() || spec.HasYAMLSignatureVerify() {
+		if spec.HasVerifyImages() || spec.HasValidate() || spec.HasVerifyManifests() {
 			validationPolicies = append(validationPolicies, pol)
 		}
 	}
