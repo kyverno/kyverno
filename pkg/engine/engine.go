@@ -32,11 +32,10 @@ type engine struct {
 	validateResourceHandler    handlers.Handler
 	validateManifestHandler    handlers.Handler
 	validatePssHandler         handlers.Handler
+	validateImageHandler       handlers.Handler
 	mutateResourceHandler      handlers.Handler
 	mutateExistingHandler      handlers.Handler
 }
-
-type handlerFactory = func() (handlers.Handler, error)
 
 func NewEngine(
 	configuration config.Configuration,
@@ -66,6 +65,7 @@ func NewEngine(
 		validateResourceHandler:    validation.NewValidateResourceHandler(),
 		validateManifestHandler:    validation.NewValidateManifestHandler(client),
 		validatePssHandler:         validation.NewValidatePssHandler(),
+		validateImageHandler:       validation.NewValidateImageHandler(configuration),
 		mutateResourceHandler:      mutation.NewMutateResourceHandler(),
 		mutateExistingHandler:      mutation.NewMutateExistingHandler(client),
 	}
@@ -188,7 +188,7 @@ func matches(
 func (e *engine) invokeRuleHandler(
 	ctx context.Context,
 	logger logr.Logger,
-	handlerFactory handlerFactory,
+	handler handlers.Handler,
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
@@ -204,19 +204,12 @@ func (e *engine) invokeRuleHandler(
 				logger.V(4).Info("rule not matched", "reason", err.Error())
 				return resource, nil
 			}
-			if handlerFactory == nil {
-				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", nil))
-			} else if handler, err := handlerFactory(); err != nil {
-				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", err))
-			} else if handler != nil {
-				// check if there's an exception
-				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
-					return resource, handlers.RuleResponses(ruleResp)
-				}
-				// process handler
-				return handler.Process(ctx, logger, policyContext, resource, rule, e.ContextLoader(policyContext.Policy(), rule))
+			// check if there's an exception
+			if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
+				return resource, handlers.RuleResponses(ruleResp)
 			}
-			return resource, nil
+			// process handler
+			return handler.Process(ctx, logger, policyContext, resource, rule, e.ContextLoader(policyContext.Policy(), rule))
 		},
 	)
 }

@@ -16,22 +16,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type validateImageHandler struct{}
+type validateImageHandler struct {
+	configuration config.Configuration
+}
 
 func NewValidateImageHandler(
-	policyContext engineapi.PolicyContext,
-	resource unstructured.Unstructured,
-	rule kyvernov1.Rule,
 	configuration config.Configuration,
-) (handlers.Handler, error) {
-	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
-	if err != nil {
-		return nil, err
+) handlers.Handler {
+	return validateImageHandler{
+		configuration: configuration,
 	}
-	if len(ruleImages) == 0 {
-		return nil, nil
-	}
-	return validateImageHandler{}, nil
 }
 
 func (h validateImageHandler) Process(
@@ -43,6 +37,16 @@ func (h validateImageHandler) Process(
 	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
+		return resource, nil
+	}
+	if len(rule.VerifyImages) == 0 {
+		return resource, nil
+	}
+	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, h.configuration)
+	if err != nil {
+		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to extract images", err))
+	}
+	if len(ruleImages) == 0 {
 		return resource, nil
 	}
 	// load context

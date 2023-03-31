@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	"github.com/kyverno/kyverno/pkg/engine/handlers/validation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 )
 
@@ -29,36 +28,29 @@ func (e *engine) validate(
 	for _, rule := range autogen.ComputeRules(policy) {
 		startTime := time.Now()
 		logger := internal.LoggerWithRule(logger, rule)
-		handlerFactory := func() (handlers.Handler, error) {
-			hasValidate := rule.HasValidate()
-			hasVerifyImageChecks := rule.HasVerifyImageChecks()
-			if !hasValidate && !hasVerifyImageChecks {
-				return nil, nil
+		hasValidate := rule.HasValidate()
+		hasVerifyImageChecks := rule.HasVerifyImageChecks()
+		if !hasValidate && !hasVerifyImageChecks {
+			continue
+		}
+		var handler handlers.Handler
+		if hasValidate {
+			hasVerifyManifest := rule.HasVerifyManifests()
+			hasValidatePss := rule.HasValidatePodSecurity()
+			if hasVerifyManifest {
+				handler = e.validateManifestHandler
+			} else if hasValidatePss {
+				handler = e.validatePssHandler
+			} else {
+				handler = e.validateResourceHandler
 			}
-			if hasValidate {
-				hasVerifyManifest := rule.HasVerifyManifests()
-				hasValidatePss := rule.HasValidatePodSecurity()
-				if hasVerifyManifest {
-					return e.validateManifestHandler, nil
-				} else if hasValidatePss {
-					return e.validatePssHandler, nil
-				} else {
-					return e.validateResourceHandler, nil
-				}
-			} else if hasVerifyImageChecks {
-				return validation.NewValidateImageHandler(
-					policyContext,
-					policyContext.NewResource(),
-					rule,
-					e.configuration,
-				)
-			}
-			return nil, nil
+		} else if hasVerifyImageChecks {
+			handler = e.validateImageHandler
 		}
 		resource, ruleResp := e.invokeRuleHandler(
 			ctx,
 			logger,
-			handlerFactory,
+			handler,
 			policyContext,
 			matchedResource,
 			rule,

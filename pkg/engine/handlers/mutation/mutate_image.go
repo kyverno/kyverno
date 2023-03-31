@@ -14,7 +14,6 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -22,30 +21,18 @@ type mutateImageHandler struct {
 	configuration config.Configuration
 	rclient       registryclient.Client
 	ivm           *engineapi.ImageVerificationMetadata
-	images        []apiutils.ImageInfo
 }
 
 func NewMutateImageHandler(
-	policyContext engineapi.PolicyContext,
-	resource unstructured.Unstructured,
-	rule kyvernov1.Rule,
 	configuration config.Configuration,
 	rclient registryclient.Client,
 	ivm *engineapi.ImageVerificationMetadata,
-) (handlers.Handler, error) {
-	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
-	if err != nil {
-		return nil, err
-	}
-	if len(ruleImages) == 0 {
-		return nil, nil
-	}
+) handlers.Handler {
 	return mutateImageHandler{
 		configuration: configuration,
 		rclient:       rclient,
 		ivm:           ivm,
-		images:        ruleImages,
-	}, nil
+	}
 }
 
 func (h mutateImageHandler) Process(
@@ -56,7 +43,17 @@ func (h mutateImageHandler) Process(
 	rule kyvernov1.Rule,
 	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	if engineutils.IsDeleteRequest(policyContext) {
+		return resource, nil
+	}
 	if len(rule.VerifyImages) == 0 {
+		return resource, nil
+	}
+	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, h.configuration)
+	if err != nil {
+		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err))
+	}
+	if len(ruleImages) == 0 {
 		return resource, nil
 	}
 	jsonContext := policyContext.JSONContext()
@@ -86,7 +83,7 @@ func (h mutateImageHandler) Process(
 	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm)
 	var engineResponses []*engineapi.RuleResponse
 	for _, imageVerify := range ruleCopy.VerifyImages {
-		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)
+		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, ruleImages, h.configuration)...)
 	}
 	return resource, handlers.RuleResponses(engineResponses...)
 }
