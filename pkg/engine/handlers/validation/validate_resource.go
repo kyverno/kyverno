@@ -113,7 +113,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to load context", err)
 	}
 
-	preconditionsPassed, err := internal.CheckPreconditions(v.log, v.policyContext, v.anyAllConditions)
+	preconditionsPassed, err := internal.CheckPreconditions(v.log, v.policyContext.JSONContext(), v.anyAllConditions)
 	if err != nil {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}
@@ -230,7 +230,7 @@ func (v *validator) loadContext(ctx context.Context) error {
 }
 
 func (v *validator) validateDeny() *engineapi.RuleResponse {
-	if deny, err := internal.CheckDenyPreconditions(v.log, v.policyContext, v.deny.GetAnyAllConditions()); err != nil {
+	if deny, err := internal.CheckDenyPreconditions(v.log, v.policyContext.JSONContext(), v.deny.GetAnyAllConditions()); err != nil {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to check deny preconditions", err)
 	} else {
 		if deny {

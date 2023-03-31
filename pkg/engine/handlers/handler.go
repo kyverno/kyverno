@@ -41,6 +41,12 @@ func WithPass(timestamp time.Time, rule kyvernov1.Rule, ruleType engineapi.RuleT
 
 func WithFail(timestamp time.Time, rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
 	return WithResponses(engineapi.RuleFail(timestamp, rule, ruleType, msg).DoneNow())
+type HandlerFactory = func() (Handler, error)
+
+func WithHandler(handler Handler) HandlerFactory {
+	return func() (Handler, error) {
+		return handler, nil
+	}
 }
 
 func RuleResponses(rrs ...*engineapi.RuleResponse) []engineapi.RuleResponse {

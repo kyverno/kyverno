@@ -3,7 +3,6 @@ package validation
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -16,16 +15,22 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type validateImageHandler struct {
-	configuration config.Configuration
-}
+type validateImageHandler struct{}
 
 func NewValidateImageHandler(
+	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
+	rule kyvernov1.Rule,
 	configuration config.Configuration,
-) handlers.Handler {
-	return validateImageHandler{
-		configuration: configuration,
+) (handlers.Handler, error) {
+	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
+	if err != nil {
+		return nil, err
 	}
+	if len(ruleImages) == 0 {
+		return nil, nil
+	}
+	return validateImageHandler{}, nil
 }
 
 func (h validateImageHandler) Process(
@@ -38,20 +43,7 @@ func (h validateImageHandler) Process(
 	if engineutils.IsDeleteRequest(policyContext) {
 		return resource, nil
 	}
-	startTime := time.Now()
-	matchingImages, _, err := engineutils.ExtractMatchingImages(
-		policyContext.NewResource(),
-		policyContext.JSONContext(),
-		rule,
-		h.configuration,
-	)
-	if err != nil {
-		return resource, handlers.WithError(startTime, rule, engineapi.Validation, "failed to extract matching images", err)
-	}
-	if len(matchingImages) == 0 {
-		return resource, handlers.WithSkip(startTime, rule, engineapi.Validation, "image verified")
-	}
-	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext, rule.RawAnyAllConditions)
+	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.RawAnyAllConditions)
 	if err != nil {
 		return resource, handlers.WithError(startTime, rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}

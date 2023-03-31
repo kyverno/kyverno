@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/handlers/validation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 )
 
@@ -16,7 +17,7 @@ func (e *engine) validate(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) engineapi.PolicyResponse {
-	resp := &engineapi.PolicyResponse{}
+	resp := engineapi.NewPolicyResponse()
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
@@ -30,22 +31,37 @@ func (e *engine) validate(
 		if !hasValidate && !hasVerifyImageChecks {
 			continue
 		}
-		var handler handlers.Handler
+		var handlerFactory handlers.HandlerFactory
 		if hasValidate {
 			hasVerifyManifest := rule.HasVerifyManifests()
 			hasValidatePss := rule.HasValidatePodSecurity()
 			if hasVerifyManifest {
-				handler = e.validateManifestHandler
+				handlerFactory = handlers.WithHandler(e.validateManifestHandler)
 			} else if hasValidatePss {
-				handler = e.validatePssHandler
+				handlerFactory = handlers.WithHandler(e.validatePssHandler)
 			} else {
-				handler = e.validateResourceHandler
+				handlerFactory = handlers.WithHandler(e.validateResourceHandler)
 			}
 		} else if hasVerifyImageChecks {
-			handler = e.validateImageHandler
+			handlerFactory = func() (handlers.Handler, error) {
+				return validation.NewValidateImageHandler(
+					policyContext,
+					policyContext.NewResource(),
+					rule,
+					e.configuration,
+				)
+			}
 		}
-		if handler != nil {
-			_, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, policyContext.NewResource(), rule, engineapi.Validation)
+		if handlerFactory != nil {
+			_, ruleResp := e.invokeRuleHandler(
+				ctx,
+				logger,
+				handlerFactory,
+				policyContext,
+				policyContext.NewResource(),
+				rule,
+				engineapi.Validation,
+			)
 			for _, ruleResp := range ruleResp {
 				resp.Add(ruleResp)
 			}
@@ -54,5 +70,5 @@ func (e *engine) validate(
 			break
 		}
 	}
-	return *resp
+	return resp
 }
