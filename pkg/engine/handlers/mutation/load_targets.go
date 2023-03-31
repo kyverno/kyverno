@@ -24,7 +24,7 @@ type resourceInfo struct {
 	parentResourceGVR metav1.GroupVersionResource
 }
 
-func loadTargets(client dclient.Interface, targets []kyvernov1.ResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) ([]resourceInfo, error) {
+func loadTargets(client dclient.Interface, targets []kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) ([]resourceInfo, error) {
 	var targetObjects []resourceInfo
 	var errors []error
 	for i := range targets {
@@ -43,7 +43,7 @@ func loadTargets(client dclient.Interface, targets []kyvernov1.ResourceSpec, ctx
 	return targetObjects, multierr.Combine(errors...)
 }
 
-func resolveSpec(i int, target kyvernov1.ResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) (kyvernov1.ResourceSpec, error) {
+func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) (kyvernov1.ResourceSpec, error) {
 	kind, err := variables.SubstituteAll(logger, ctx.JSONContext(), target.Kind)
 	if err != nil {
 		return kyvernov1.ResourceSpec{}, fmt.Errorf("failed to substitute variables in target[%d].Kind %s: %v", i, target.Kind, err)
