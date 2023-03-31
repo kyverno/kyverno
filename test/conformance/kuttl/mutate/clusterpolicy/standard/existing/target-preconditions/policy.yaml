@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: update-targets
+spec:
+  background: false
+  rules:
+    - name: update-targets
+      match:
+        resources:
+          kinds:
+            - ConfigMap
+      preconditions:
+        all:
+          - key: "{{ request.object.name }}"
+            operator: Equals
+            value: trigger
+      mutate:
+        targets:
+          - apiVersion: v1
+            kind: ConfigMap
+            namespace: "{{ request.object.namespace }}"
+            preconditions:
+              all:
+                - key: "{{ target.labels.foo || '' }}"
+                  operator: Equals
+                  value: bar
+        patchStrategicMerge:
+          data:
+            content: "{{ request.object.data.content }}"
