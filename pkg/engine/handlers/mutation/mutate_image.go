@@ -2,6 +2,7 @@ package mutation
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -57,12 +58,11 @@ func (h mutateImageHandler) Process(
 	if len(rule.VerifyImages) == 0 {
 		return resource, nil
 	}
+	startTime := time.Now()
 	jsonContext := policyContext.JSONContext()
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {
-		return resource, handlers.RuleResponses(
-			internal.RuleError(rule, engineapi.ImageVerify, "failed to substitute variables", err),
-		)
+		return resource, handlers.WithError(startTime, rule, engineapi.ImageVerify, "failed to substitute variables", err)
 	}
 	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm)
 	var engineResponses []*engineapi.RuleResponse

@@ -211,9 +211,9 @@ func (e *engine) invokeRuleHandler(
 				return resource, handlers.RuleResponses(ruleResp)
 			}
 			if handlerFactory == nil {
-				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", nil))
+				return resource, handlers.WithError(startTime, rule, ruleType, "failed to instantiate handler", nil)
 			} else if handler, err := handlerFactory(); err != nil {
-				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", err))
+				return resource, handlers.WithError(startTime, rule, ruleType, "failed to instantiate handler", err)
 			} else if handler != nil {
 				// load rule context
 				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
@@ -222,15 +222,15 @@ func (e *engine) invokeRuleHandler(
 					} else {
 						logger.Error(err, "failed to load context")
 					}
-					return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to load context", err))
+					return resource, handlers.WithError(startTime, rule, ruleType, "failed to load context", err)
 				}
 				// check preconditions
 				preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
 				if err != nil {
-					return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to evaluate preconditions", err))
+					return resource, handlers.WithError(startTime, rule, ruleType, "failed to evaluate preconditions", err)
 				}
 				if !preconditionsPassed {
-					return resource, handlers.RuleResponses(internal.RuleSkip(rule, ruleType, "preconditions not met"))
+					return resource, handlers.WithSkip(startTime, rule, ruleType, "preconditions not met")
 				}
 				// process handler
 				return handler.Process(ctx, logger, policyContext, resource, rule)

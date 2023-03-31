@@ -49,7 +49,6 @@ func (e *engine) mutate(
 		for _, ruleResp := range ruleResp {
 			resp.Add(ruleResp)
 		}
-		matchedResource = resource
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
 		}

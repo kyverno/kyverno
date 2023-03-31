@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -10,7 +9,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
-	"github.com/kyverno/kyverno/pkg/engine/internal"
 )
 
 func (e *engine) verifyAndPatchImages(
@@ -29,7 +27,6 @@ func (e *engine) verifyAndPatchImages(
 	applyRules := policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
 		if rule.HasVerifyImages() {
-			startTime := time.Now()
 			handlerFactory := func() (handlers.Handler, error) {
 				return mutation.NewMutateImageHandler(
 					policyContext,
@@ -51,9 +48,7 @@ func (e *engine) verifyAndPatchImages(
 			)
 			matchedResource = resource
 			for _, ruleResp := range ruleResp {
-				ruleResp := ruleResp
-				internal.AddRuleResponse(&resp, &ruleResp, startTime)
-				logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
+				resp.Add(ruleResp)
 			}
 			if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 				break

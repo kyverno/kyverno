@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -43,6 +44,7 @@ func (h validateImageHandler) Process(
 	if engineutils.IsDeleteRequest(policyContext) {
 		return resource, nil
 	}
+	startTime := time.Now()
 	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.RawAnyAllConditions)
 	if err != nil {
 		return resource, handlers.WithError(startTime, rule, engineapi.Validation, "failed to evaluate preconditions", err)
