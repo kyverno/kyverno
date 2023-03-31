@@ -63,11 +63,11 @@ func NewEngine(
 		rclient:                    rclient,
 		engineContextLoaderFactory: engineContextLoaderFactory,
 		exceptionSelector:          exceptionSelector,
-		validateResourceHandler:    validation.NewValidateResourceHandler(engineContextLoaderFactory),
+		validateResourceHandler:    validation.NewValidateResourceHandler(),
 		validateManifestHandler:    validation.NewValidateManifestHandler(client),
 		validatePssHandler:         validation.NewValidatePssHandler(),
-		mutateResourceHandler:      mutation.NewMutateResourceHandler(engineContextLoaderFactory),
-		mutateExistingHandler:      mutation.NewMutateExistingHandler(client, engineContextLoaderFactory),
+		mutateResourceHandler:      mutation.NewMutateResourceHandler(),
+		mutateExistingHandler:      mutation.NewMutateExistingHandler(client),
 	}
 }
 
@@ -231,7 +231,7 @@ func (e *engine) invokeRuleHandler(
 				// 	return resource, handlers.RuleResponses(internal.RuleSkip(rule, ruleType, "preconditions not met"))
 				// }
 				// process handler
-				return handler.Process(ctx, logger, policyContext, resource, rule)
+				return handler.Process(ctx, logger, policyContext, resource, rule, e.ContextLoader(policyContext.Policy(), rule))
 			}
 			return resource, nil
 		},

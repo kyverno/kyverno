@@ -53,11 +53,29 @@ func (h mutateImageHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if len(rule.VerifyImages) == 0 {
 		return resource, nil
 	}
 	jsonContext := policyContext.JSONContext()
+	if err := contextLoader(ctx, rule.Context, jsonContext); err != nil {
+		logger.Error(err, "failed to load context")
+		return resource, handlers.RuleResponses(
+			internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
+		)
+	}
+	preconditionsPassed, err := internal.CheckPreconditions(logger, jsonContext, rule.GetAnyAllConditions())
+	if err != nil {
+		return resource, handlers.RuleResponses(
+			internal.RuleError(rule, engineapi.ImageVerify, "failed to evaluate preconditions", err),
+		)
+	}
+	if !preconditionsPassed {
+		return resource, handlers.RuleResponses(
+			internal.RuleSkip(rule, engineapi.ImageVerify, "preconditions not met"),
+		)
+	}
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {
 		return resource, handlers.RuleResponses(

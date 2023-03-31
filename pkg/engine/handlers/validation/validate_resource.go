@@ -21,16 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type validateResourceHandler struct {
-	contextLoader engineapi.EngineContextLoaderFactory
-}
+type validateResourceHandler struct{}
 
-func NewValidateResourceHandler(
-	contextLoader engineapi.EngineContextLoaderFactory,
-) handlers.Handler {
-	return validateResourceHandler{
-		contextLoader: contextLoader,
-	}
+func NewValidateResourceHandler() handlers.Handler {
+	return validateResourceHandler{}
 }
 
 func (h validateResourceHandler) Process(
@@ -39,9 +33,8 @@ func (h validateResourceHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	policy := policyContext.Policy()
-	contextLoader := h.contextLoader(policy, rule)
 	v := newValidator(logger, contextLoader, policyContext, rule)
 	return resource, handlers.RuleResponses(v.validate(ctx))
 }
