@@ -62,17 +62,17 @@ func (h mutateExistingHandler) Process(
 		var mutateResp *mutate.Response
 		if rule.Mutation.ForEachMutation != nil {
 			m := &forEachMutator{
-				rule:          &rule,
+				rule:          rule,
 				foreach:       rule.Mutation.ForEachMutation,
 				policyContext: policyContext,
 				resource:      patchedResource.resourceInfo,
-				log:           logger,
+				logger:        logger,
 				contextLoader: contextLoader,
 				nesting:       0,
 			}
 			mutateResp = m.mutateForEach(ctx)
 		} else {
-			mutateResp = mutateResource(&rule, policyContext, patchedResource.unstructured, logger)
+			mutateResp = mutate.Mutate(&rule, policyContext.JSONContext(), patchedResource.unstructured, logger)
 		}
 		if ruleResponse := buildRuleResponse(&rule, mutateResp, patchedResource.resourceInfo); ruleResponse != nil {
 			responses = append(responses, *ruleResponse)

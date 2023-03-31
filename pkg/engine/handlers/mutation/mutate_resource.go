@@ -48,17 +48,18 @@ func (h mutateResourceHandler) Process(
 	var mutateResp *mutate.Response
 	if rule.Mutation.ForEachMutation != nil {
 		m := &forEachMutator{
-			rule:          &rule,
+			rule:          rule,
 			foreach:       rule.Mutation.ForEachMutation,
 			policyContext: policyContext,
 			resource:      resourceInfo,
-			log:           logger,
+			logger:        logger,
 			contextLoader: contextLoader,
 			nesting:       0,
 		}
 		mutateResp = m.mutateForEach(ctx)
 	} else {
-		mutateResp = mutateResource(&rule, policyContext, resourceInfo.unstructured, logger)
+		mutateResp = mutate.Mutate(&rule, policyContext.JSONContext(), resource, logger)
+		// mutateResp = mutateResource(&rule, policyContext, resourceInfo.unstructured, logger)
 	}
 	if mutateResp == nil {
 		return resource, nil
