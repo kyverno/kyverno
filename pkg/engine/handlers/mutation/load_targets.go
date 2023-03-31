@@ -12,6 +12,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.uber.org/multierr"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -24,10 +25,17 @@ type resourceInfo struct {
 	parentResourceGVR metav1.GroupVersionResource
 }
 
-func loadTargets(client dclient.Interface, targets []kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) ([]resourceInfo, error) {
-	var targetObjects []resourceInfo
+type target struct {
+	resourceInfo
+	context       []kyvernov1.ContextEntry
+	preconditions apiextensions.JSON
+}
+
+func loadTargets(client dclient.Interface, targets []kyvernov1.TargetResourceSpec, ctx engineapi.PolicyContext, logger logr.Logger) ([]target, error) {
+	var targetObjects []target
 	var errors []error
 	for i := range targets {
+		preconditions := targets[i].GetAnyAllConditions()
 		spec, err := resolveSpec(i, targets[i], ctx, logger)
 		if err != nil {
 			errors = append(errors, err)
@@ -38,7 +46,13 @@ func loadTargets(client dclient.Interface, targets []kyvernov1.TargetResourceSpe
 			errors = append(errors, err)
 			continue
 		}
-		targetObjects = append(targetObjects, objs...)
+		for _, obj := range objs {
+			targetObjects = append(targetObjects, target{
+				resourceInfo:  obj,
+				context:       targets[i].Context,
+				preconditions: preconditions,
+			})
+		}
 	}
 	return targetObjects, multierr.Combine(errors...)
 }

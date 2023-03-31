@@ -3,6 +3,7 @@ package v1
 import (
 	"strings"
 
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -45,4 +46,8 @@ type TargetResourceSpec struct {
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
 	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+}
+
+func (r *TargetResourceSpec) GetAnyAllConditions() apiextensions.JSON {
+	return FromJSON(r.RawAnyAllConditions)
 }

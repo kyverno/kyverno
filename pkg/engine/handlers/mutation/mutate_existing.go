@@ -39,7 +39,7 @@ func (h mutateExistingHandler) Process(
 	contextLoader := h.contextLoader(policy, rule)
 	var responses []engineapi.RuleResponse
 	logger.V(3).Info("processing mutate rule")
-	var patchedResources []resourceInfo
+	var patchedResources []target
 	targets, err := loadTargets(h.client, rule.Mutation.Targets, policyContext, logger)
 	if err != nil {
 		rr := internal.RuleError(rule, engineapi.Mutation, "", err)
@@ -65,7 +65,7 @@ func (h mutateExistingHandler) Process(
 				rule:          &rule,
 				foreach:       rule.Mutation.ForEachMutation,
 				policyContext: policyContext,
-				resource:      patchedResource,
+				resource:      patchedResource.resourceInfo,
 				log:           logger,
 				contextLoader: contextLoader,
 				nesting:       0,
@@ -74,7 +74,7 @@ func (h mutateExistingHandler) Process(
 		} else {
 			mutateResp = mutateResource(&rule, policyContext, patchedResource.unstructured, logger)
 		}
-		if ruleResponse := buildRuleResponse(&rule, mutateResp, patchedResource); ruleResponse != nil {
+		if ruleResponse := buildRuleResponse(&rule, mutateResp, patchedResource.resourceInfo); ruleResponse != nil {
 			responses = append(responses, *ruleResponse)
 		}
 	}
