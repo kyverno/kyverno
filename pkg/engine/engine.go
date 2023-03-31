@@ -32,7 +32,6 @@ type engine struct {
 	engineContextLoaderFactory engineapi.EngineContextLoaderFactory
 	exceptionSelector          engineapi.PolicyExceptionSelector
 	validateResourceHandler    handlers.Handler
-	validateImageHandler       handlers.Handler
 	validateManifestHandler    handlers.Handler
 	validatePssHandler         handlers.Handler
 	mutateResourceHandler      handlers.Handler
@@ -65,7 +64,6 @@ func NewEngine(
 		engineContextLoaderFactory: engineContextLoaderFactory,
 		exceptionSelector:          exceptionSelector,
 		validateResourceHandler:    validation.NewValidateResourceHandler(engineContextLoaderFactory),
-		validateImageHandler:       validation.NewValidateImageHandler(configuration),
 		validateManifestHandler:    validation.NewValidateManifestHandler(client),
 		validatePssHandler:         validation.NewValidatePssHandler(),
 		mutateResourceHandler:      mutation.NewMutateResourceHandler(engineContextLoaderFactory),
@@ -191,7 +189,7 @@ func matches(
 func (e *engine) invokeRuleHandler(
 	ctx context.Context,
 	logger logr.Logger,
-	handler handlers.Handler,
+	handlerFactory handlers.HandlerFactory,
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
@@ -211,26 +209,32 @@ func (e *engine) invokeRuleHandler(
 			if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
 				return resource, handlers.RuleResponses(ruleResp)
 			}
-			// load rule context
-			if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
-				if _, ok := err.(gojmespath.NotFoundError); ok {
-					logger.V(3).Info("failed to load context", "reason", err.Error())
-				} else {
-					logger.Error(err, "failed to load context")
+			if handlerFactory == nil {
+				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", nil))
+			} else if handler, err := handlerFactory(); err != nil {
+				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", err))
+			} else if handler != nil {
+				// load rule context
+				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
+					if _, ok := err.(gojmespath.NotFoundError); ok {
+						logger.V(3).Info("failed to load context", "reason", err.Error())
+					} else {
+						logger.Error(err, "failed to load context")
+					}
+					return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to load context", err))
 				}
-				// TODO: return error ?
-				return resource, nil
+				// check preconditions
+				preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
+				if err != nil {
+					return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to evaluate preconditions", err))
+				}
+				if !preconditionsPassed {
+					return resource, handlers.RuleResponses(internal.RuleSkip(rule, ruleType, "preconditions not met"))
+				}
+				// process handler
+				return handler.Process(ctx, logger, policyContext, resource, rule)
 			}
-			// check preconditions
-			preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext, rule.GetAnyAllConditions())
-			if err != nil {
-				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to evaluate preconditions", err))
-			}
-			if !preconditionsPassed {
-				return resource, handlers.RuleResponses(internal.RuleSkip(rule, ruleType, "preconditions not met"))
-			}
-			// process handler
-			return handler.Process(ctx, logger, policyContext, resource, rule)
+			return resource, nil
 		},
 	)
 }
