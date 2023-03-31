@@ -647,6 +647,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(cfg config.Config
 			webhookCfg = webhookCfgs[0]
 		}
 		if !ignore.isEmpty() {
+			timeout := capTimeout(ignore.maxWebhookTimeout)
 			result.Webhooks = append(
 				result.Webhooks,
 				admissionregistrationv1.MutatingWebhook{
@@ -658,12 +659,13 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(cfg config.Config
 					AdmissionReviewVersions: []string{"v1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
-					TimeoutSeconds:          &ignore.maxWebhookTimeout,
+					TimeoutSeconds:          &timeout,
 					ReinvocationPolicy:      &ifNeeded,
 				},
 			)
 		}
 		if !fail.isEmpty() {
+			timeout := capTimeout(fail.maxWebhookTimeout)
 			result.Webhooks = append(
 				result.Webhooks,
 				admissionregistrationv1.MutatingWebhook{
@@ -675,7 +677,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(cfg config.Config
 					AdmissionReviewVersions: []string{"v1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
-					TimeoutSeconds:          &fail.maxWebhookTimeout,
+					TimeoutSeconds:          &timeout,
 					ReinvocationPolicy:      &ifNeeded,
 				},
 			)
@@ -733,7 +735,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
 		for _, p := range policies {
 			spec := p.GetSpec()
-			if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() || spec.HasYAMLSignatureVerify() {
+			if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
 				if spec.GetFailurePolicy() == kyvernov1.Ignore {
 					c.mergeWebhook(ignore, p, true)
 				} else {
@@ -751,6 +753,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 			sideEffects = &noneOnDryRun
 		}
 		if !ignore.isEmpty() {
+			timeout := capTimeout(ignore.maxWebhookTimeout)
 			result.Webhooks = append(
 				result.Webhooks,
 				admissionregistrationv1.ValidatingWebhook{
@@ -762,11 +765,12 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 					AdmissionReviewVersions: []string{"v1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
-					TimeoutSeconds:          &ignore.maxWebhookTimeout,
+					TimeoutSeconds:          &timeout,
 				},
 			)
 		}
 		if !fail.isEmpty() {
+			timeout := capTimeout(fail.maxWebhookTimeout)
 			result.Webhooks = append(
 				result.Webhooks,
 				admissionregistrationv1.ValidatingWebhook{
@@ -778,7 +782,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 					AdmissionReviewVersions: []string{"v1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
-					TimeoutSeconds:          &fail.maxWebhookTimeout,
+					TimeoutSeconds:          &timeout,
 				},
 			)
 		}
@@ -822,10 +826,10 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 			matchedGVK = append(matchedGVK, rule.Generation.CloneList.Kinds...)
 			continue
 		}
-		if (updateValidate && rule.HasValidate() || rule.HasImagesValidationChecks()) ||
+		if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
 			(updateValidate && rule.HasMutate() && rule.IsMutateExisting()) ||
 			(!updateValidate && rule.HasMutate()) && !rule.IsMutateExisting() ||
-			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasYAMLSignatureVerify()) {
+			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
 	}

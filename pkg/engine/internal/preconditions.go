@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
 
-func CheckPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
-	preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx.JSONContext(), anyAllConditions)
+func CheckPreconditions(logger logr.Logger, jsonContext enginecontext.Interface, anyAllConditions apiextensions.JSON) (bool, error) {
+	preconditions, err := variables.SubstituteAllInPreconditions(logger, jsonContext, anyAllConditions)
 	if err != nil {
 		return false, fmt.Errorf("failed to substitute variables in preconditions: %w", err)
 	}
@@ -19,11 +19,11 @@ func CheckPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllC
 	if err != nil {
 		return false, fmt.Errorf("failed to parse preconditions: %w", err)
 	}
-	return variables.EvaluateConditions(logger, ctx.JSONContext(), typeConditions), nil
+	return variables.EvaluateConditions(logger, jsonContext, typeConditions), nil
 }
 
-func CheckDenyPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, anyAllConditions apiextensions.JSON) (bool, error) {
-	preconditions, err := variables.SubstituteAll(logger, ctx.JSONContext(), anyAllConditions)
+func CheckDenyPreconditions(logger logr.Logger, jsonContext enginecontext.Interface, anyAllConditions apiextensions.JSON) (bool, error) {
+	preconditions, err := variables.SubstituteAll(logger, jsonContext, anyAllConditions)
 	if err != nil {
 		return false, fmt.Errorf("failed to substitute variables in deny conditions: %w", err)
 	}
@@ -31,5 +31,5 @@ func CheckDenyPreconditions(logger logr.Logger, ctx engineapi.PolicyContext, any
 	if err != nil {
 		return false, fmt.Errorf("failed to parse deny conditions: %w", err)
 	}
-	return variables.EvaluateConditions(logger, ctx.JSONContext(), typeConditions), nil
+	return variables.EvaluateConditions(logger, jsonContext, typeConditions), nil
 }

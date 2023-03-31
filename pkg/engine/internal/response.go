@@ -8,16 +8,16 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
-func RuleError(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) *engineapi.RuleResponse {
-	return RuleResponse(*rule, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), engineapi.RuleStatusError)
+func RuleError(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) *engineapi.RuleResponse {
+	return RuleResponse(rule, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), engineapi.RuleStatusError)
 }
 
-func RuleSkip(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string) *engineapi.RuleResponse {
-	return RuleResponse(*rule, ruleType, msg, engineapi.RuleStatusSkip)
+func RuleSkip(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) *engineapi.RuleResponse {
+	return RuleResponse(rule, ruleType, msg, engineapi.RuleStatusSkip)
 }
 
-func RulePass(rule *kyvernov1.Rule, ruleType engineapi.RuleType, msg string) *engineapi.RuleResponse {
-	return RuleResponse(*rule, ruleType, msg, engineapi.RuleStatusPass)
+func RulePass(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) *engineapi.RuleResponse {
+	return RuleResponse(rule, ruleType, msg, engineapi.RuleStatusPass)
 }
 
 func RuleResponse(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, status engineapi.RuleStatus) *engineapi.RuleResponse {
@@ -50,7 +50,7 @@ func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 		}
 		resp.PatchedResource = resource
 	}
-	resp.PolicyResponse.Stats.ProcessingTime = time.Since(startTime)
-	resp.PolicyResponse.Stats.Timestamp = startTime.Unix()
+	resp.Stats.ProcessingTime = time.Since(startTime)
+	resp.Stats.Timestamp = startTime.Unix()
 	return resp
 }

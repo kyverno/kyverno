@@ -118,3 +118,10 @@ func setRuleCount(rules []kyvernov1.Rule, status *kyvernov1.PolicyStatus) {
 	status.RuleCount.Mutate = mutateCount
 	status.RuleCount.VerifyImages = verifyImagesCount
 }
+
+func capTimeout(maxWebhookTimeout int32) int32 {
+	if maxWebhookTimeout > 30 {
+		return 30
+	}
+	return maxWebhookTimeout
+}

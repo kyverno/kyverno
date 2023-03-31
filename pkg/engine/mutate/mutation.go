@@ -42,7 +42,7 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	}
 
 	m := updatedRule.Mutation
-	patcher := NewPatcher(updatedRule.Name, m.GetPatchStrategicMerge(), m.PatchesJSON6902, resource, ctx, logger)
+	patcher := NewPatcher(updatedRule.Name, m.GetPatchStrategicMerge(), m.PatchesJSON6902, resource, logger)
 	if patcher == nil {
 		return NewResponse(engineapi.RuleStatusError, resource, nil, "empty mutate rule")
 	}
@@ -69,13 +69,14 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
 }
 
-func ForEach(name string, foreach kyvernov1.ForEachMutation, ctx context.Interface, resource unstructured.Unstructured, logger logr.Logger) *Response {
+func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engineapi.PolicyContext, resource unstructured.Unstructured, element interface{}, logger logr.Logger) *Response {
+	ctx := policyContext.JSONContext()
 	fe, err := substituteAllInForEach(foreach, ctx, logger)
 	if err != nil {
 		return NewErrorResponse("variable substitution failed", err)
 	}
 
-	patcher := NewPatcher(name, fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, resource, ctx, logger)
+	patcher := NewPatcher(name, fe.GetPatchStrategicMerge(), fe.PatchesJSON6902, resource, logger)
 	if patcher == nil {
 		return NewResponse(engineapi.RuleStatusError, unstructured.Unstructured{}, nil, "no patches found")
 	}
@@ -120,9 +121,9 @@ func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface,
 	return &updatedForEach, nil
 }
 
-func NewPatcher(name string, strategicMergePatch apiextensions.JSON, jsonPatch string, r unstructured.Unstructured, ctx context.Interface, logger logr.Logger) patch.Patcher {
+func NewPatcher(name string, strategicMergePatch apiextensions.JSON, jsonPatch string, r unstructured.Unstructured, logger logr.Logger) patch.Patcher {
 	if strategicMergePatch != nil {
-		return patch.NewPatchStrategicMerge(name, strategicMergePatch, r, ctx, logger)
+		return patch.NewPatchStrategicMerge(name, strategicMergePatch, r, logger)
 	}
 
 	if len(jsonPatch) > 0 {

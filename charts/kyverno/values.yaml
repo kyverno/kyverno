@@ -14,6 +14,12 @@ fullnameOverride: ~
 # -- (string) Override the namespace the chart deploys to
 namespaceOverride: ~
 
+apiVersionOverride:
+  # -- (string) Override api version used to create `PodDisruptionBudget`` resources.
+  # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to
+  # determine the api version automatically.
+  podDisruptionBudget: ~
+
 # CRDs configuration
 crds:
 
@@ -994,6 +1000,13 @@ reportsController:
     # -- Configures the maximum unavailable pods for disruptions.
     # Cannot be used if `minAvailable` is set.
     maxUnavailable:
+
+  # -- A writable volume to use for the TUF root initialization.
+  tufRootMountPath: /.sigstore
+
+  # -- Volume to be mounted in pods for TUF/cosign work.
+  sigstoreVolume:
+    emptyDir: {}
 
   metricsService:
     # -- Create service.

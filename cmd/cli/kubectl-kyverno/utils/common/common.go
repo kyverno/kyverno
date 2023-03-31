@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -27,6 +26,7 @@ import (
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -453,9 +453,7 @@ OuterLoop:
 
 	cfg := config.NewDefaultConfiguration()
 	if err := ctx.AddImageInfos(c.Resource, cfg); err != nil {
-		if err != nil {
-			log.Log.Error(err, "failed to add image variables to context")
-		}
+		log.Log.Error(err, "failed to add image variables to context")
 	}
 
 	gvk, subresource := updatedResource.GroupVersionKind(), ""
@@ -485,7 +483,7 @@ OuterLoop:
 		store.ContextLoaderFactory(nil),
 		nil,
 	)
-	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
+	policyContext := engine.NewPolicyContextWithJsonContext(kyvernov1.Create, ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).
@@ -504,7 +502,7 @@ OuterLoop:
 
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(c.Policy) {
-		if rule.HasValidate() || rule.HasImagesValidationChecks() {
+		if rule.HasValidate() || rule.HasVerifyImageChecks() {
 			policyHasValidate = true
 		}
 	}
@@ -704,7 +702,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
-		if !policyRule.HasValidate() && !policyRule.HasImagesValidationChecks() && !policyRule.HasVerifyImages() {
+		if !policyRule.HasValidate() && !policyRule.HasVerifyImageChecks() && !policyRule.HasVerifyImages() {
 			continue
 		}
 
@@ -945,7 +943,7 @@ func PrintMutatedPolicy(mutatedPolicies []kyvernov1.PolicyInterface) error {
 func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
 	// get values from file for this policy resource combination
 	thisPolicyResourceValues := make(map[string]interface{})
-	if len(valuesMap[policyName]) != 0 && !reflect.DeepEqual(valuesMap[policyName][resourceName], Resource{}) {
+	if len(valuesMap[policyName]) != 0 && !datautils.DeepEqual(valuesMap[policyName][resourceName], Resource{}) {
 		thisPolicyResourceValues = valuesMap[policyName][resourceName].Values
 	}
 
