@@ -72,7 +72,7 @@ func (h mutateExistingHandler) Process(
 			}
 			mutateResp = m.mutateForEach(ctx)
 		} else {
-			mutateResp = mutateResource(&rule, policyContext, patchedResource.unstructured, logger)
+			mutateResp = mutateResource(ctx, contextLoader, rule, policyContext, patchedResource.unstructured, logger)
 		}
 		if ruleResponse := buildRuleResponse(&rule, mutateResp, patchedResource); ruleResponse != nil {
 			responses = append(responses, *ruleResponse)

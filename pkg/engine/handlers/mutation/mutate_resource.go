@@ -58,7 +58,7 @@ func (h mutateResourceHandler) Process(
 		}
 		mutateResp = m.mutateForEach(ctx)
 	} else {
-		mutateResp = mutateResource(&rule, policyContext, resourceInfo.unstructured, logger)
+		mutateResp = mutateResource(ctx, contextLoader, rule, policyContext, resourceInfo.unstructured, logger)
 	}
 	if mutateResp == nil {
 		return resource, nil
