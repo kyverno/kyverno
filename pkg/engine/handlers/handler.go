@@ -19,14 +19,6 @@ type Handler interface {
 	) (unstructured.Unstructured, []engineapi.RuleResponse)
 }
 
-type HandlerFactory = func() (Handler, error)
-
-func WithHandler(handler Handler) HandlerFactory {
-	return func() (Handler, error) {
-		return handler, nil
-	}
-}
-
 func RuleResponses(rrs ...*engineapi.RuleResponse) []engineapi.RuleResponse {
 	var out []engineapi.RuleResponse
 	for _, rr := range rrs {

@@ -37,6 +37,8 @@ type engine struct {
 	mutateExistingHandler      handlers.Handler
 }
 
+type handlerFactory = func() (handlers.Handler, error)
+
 func NewEngine(
 	configuration config.Configuration,
 	client dclient.Interface,
@@ -187,7 +189,7 @@ func matches(
 func (e *engine) invokeRuleHandler(
 	ctx context.Context,
 	logger logr.Logger,
-	handlerFactory handlers.HandlerFactory,
+	handlerFactory handlerFactory,
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
