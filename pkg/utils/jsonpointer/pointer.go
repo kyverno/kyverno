@@ -102,7 +102,7 @@ func ParsePath(rawPath string) Pointer {
 
 	for i := 0; i <= len(rawPath); i += width {
 		var r rune
-		r, width := utf8.DecodeRuneInString(rawPath[i:])
+		r, width = utf8.DecodeRuneInString(rawPath[i:])
 		if r == utf8.RuneError && width == 1 {
 			break
 		}
