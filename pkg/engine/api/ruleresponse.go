@@ -83,6 +83,11 @@ func (r RuleResponse) DoneNow() RuleResponse {
 	return r.Done(time.Now())
 }
 
+func (r RuleResponse) WithException(exception *kyvernov2alpha1.PolicyException) RuleResponse {
+	r.Exception = exception
+	return r
+}
+
 func (r RuleResponse) Done(timestamp time.Time) RuleResponse {
 	r.Stats.Done(timestamp)
 	return r
