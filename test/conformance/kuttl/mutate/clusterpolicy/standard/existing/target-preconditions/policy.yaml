@@ -5,26 +5,27 @@ metadata:
 spec:
   background: false
   rules:
-    - name: update-targets
-      match:
-        resources:
+  - name: update-targets
+    match:
+      any:
+      - resources:
           kinds:
-            - ConfigMap
-      preconditions:
-        all:
-          - key: "{{ request.object.name }}"
-            operator: Equals
-            value: trigger
-      mutate:
-        targets:
-          - apiVersion: v1
-            kind: ConfigMap
-            namespace: "{{ request.object.namespace }}"
-            preconditions:
-              all:
-                - key: "{{ target.labels.foo || '' }}"
-                  operator: Equals
-                  value: bar
-        patchStrategicMerge:
-          data:
-            content: "{{ request.object.data.content }}"
+          - ConfigMap
+    preconditions:
+      all:
+      - key: "{{ request.object.metadata.name }}"
+        operator: Equals
+        value: trigger
+    mutate:
+      targets:
+        - apiVersion: v1
+          kind: ConfigMap
+          namespace: "{{ request.object.metadata.namespace }}"
+          preconditions:
+            all:
+            - key: "{{ target.metadata.labels.foo || '' }}"
+              operator: Equals
+              value: bar
+      patchStrategicMerge:
+        data:
+          content: "{{ request.object.data.content }}"
