@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+  name: kyverno:generate-events
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-event-upon-edit
+status:
+  conditions:
+  - reason: Succeeded
+    status: "True"
+    type: Ready
