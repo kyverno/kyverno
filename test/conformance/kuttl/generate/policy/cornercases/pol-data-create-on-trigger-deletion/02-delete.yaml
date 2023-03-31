@@ -4,5 +4,5 @@ kind: TestStep
 delete:
 - apiVersion: v1
   kind: ConfigMap
-  name: test-org
+  name: pol-create-on-trigger-deletion-ns-trigger
   namespace: pol-create-on-trigger-deletion-ns
