@@ -3,6 +3,7 @@ package notaryv2
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -192,29 +193,52 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 			return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
 		}
 
-		ref := parsedRef.String()
+		refer := parsedRef.String()
 		remoteVerifyOptions := notation.RemoteVerifyOptions{
-			ArtifactReference:    ref,
+			ArtifactReference:    refer,
 			MaxSignatureAttempts: 10,
 		}
 
 		targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, repo, remoteVerifyOptions)
+
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to verify %s", ref)
+			logger.V(4).Info(err, "failed to verify %s", refer)
+			continue
 		}
-
 		if err := v.verifyOutcomes(outcomes); err != nil {
-			return nil, err
+			logger.V(4).Info(err)
+			continue
+		}
+		if targetDesc.Digest != referrer.Digest {
+			logger.V(4).Info("digest mismatch")
+			continue
 		}
 
-		if targetDesc.Digest != referrer.Digest {
-			return nil, errors.Errorf("digest mismatch")
+		rcRefer, err := ref.New(rcRepoReference.Registry + "/" + rcRepoReference.Repository + "@" + targetDesc.Digest.String())
+		if err != nil {
+			logger.V(4).Info(err, "failed to create statements %s", targetDesc.Digest.String())
+			continue
 		}
+		referrerManifest, err := rcClient.ManifestGet(ctx, rcRefer)
+		if err != nil {
+			logger.V(4).Info(err, "failed to create statements %s", rcRefer)
+			continue
+		}
+
+		refManifestBody, err := referrerManifest.RawBody()
+		if err != nil {
+			logger.V(4).Info(err, "failed to create statements %s", rcRefer)
+			continue
+		}
+		data := make(map[string]interface{})
+		if err := json.Unmarshal(refManifestBody, &data); err != nil {
+			logger.V(4).Info(err, "failed to create statements %s", rcRefer)
+			continue
+		}
+		statements = append(statements, data)
 
 		logger.V(3).Info("verified images", "digest", len(targetDesc.Digest))
 	}
-
-	// TODO: GET STATEMENTS
 
 	return &images.Response{Digest: rcRepoReference.Digest, Statements: statements}, nil
 }
