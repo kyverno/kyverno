@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -59,22 +60,22 @@ func (h mutateImageHandler) Process(
 		return resource, nil
 	}
 	jsonContext := policyContext.JSONContext()
+	// load context
 	if err := contextLoader(ctx, rule.Context, jsonContext); err != nil {
-		logger.Error(err, "failed to load context")
-		return resource, handlers.RuleResponses(
-			internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err),
-		)
+		if _, ok := err.(gojmespath.NotFoundError); ok {
+			logger.V(3).Info("failed to load context", "reason", err.Error())
+		} else {
+			logger.Error(err, "failed to load context")
+		}
+		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err))
 	}
+	// check preconditions
 	preconditionsPassed, err := internal.CheckPreconditions(logger, jsonContext, rule.GetAnyAllConditions())
 	if err != nil {
-		return resource, handlers.RuleResponses(
-			internal.RuleError(rule, engineapi.ImageVerify, "failed to evaluate preconditions", err),
-		)
+		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.ImageVerify, "failed to evaluate preconditions", err))
 	}
 	if !preconditionsPassed {
-		return resource, handlers.RuleResponses(
-			internal.RuleSkip(rule, engineapi.ImageVerify, "preconditions not met"),
-		)
+		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.ImageVerify, "preconditions not met"))
 	}
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {
