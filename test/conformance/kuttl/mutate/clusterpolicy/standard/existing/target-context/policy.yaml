@@ -15,7 +15,6 @@ spec:
     - name: triggerContent
       variable:
         jmesPath: request.object.data.content
-        default: ''
     preconditions:
       all:
       - key: "{{ request.object.metadata.name }}"
@@ -31,7 +30,6 @@ spec:
           - name: targetContent
             variable:
               jmesPath: target.data.content
-              default: ''
       patchStrategicMerge:
         data:
           content: "{{ triggerContent }}"
