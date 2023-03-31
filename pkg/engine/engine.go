@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -99,6 +98,19 @@ func (e *engine) Mutate(
 	return response.Done(time.Now())
 }
 
+func (e *engine) Generate(
+	ctx context.Context,
+	policyContext engineapi.PolicyContext,
+) engineapi.EngineResponse {
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
+	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		policyResponse := e.generateResponse(ctx, logger, policyContext)
+		response = response.WithPolicyResponse(policyResponse)
+	}
+	return response.Done(time.Now())
+}
+
 func (e *engine) VerifyAndPatchImages(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
@@ -121,20 +133,6 @@ func (e *engine) ApplyBackgroundChecks(
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
 	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse := e.applyBackgroundChecks(ctx, logger, policyContext)
-		response = response.WithPolicyResponse(policyResponse)
-	}
-	return response.Done(time.Now())
-}
-
-func (e *engine) GenerateResponse(
-	ctx context.Context,
-	policyContext engineapi.PolicyContext,
-	gr kyvernov1beta1.UpdateRequest,
-) engineapi.EngineResponse {
-	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
-	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
-	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		policyResponse := e.generateResponse(ctx, logger, policyContext, gr)
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	return response.Done(time.Now())
@@ -205,15 +203,15 @@ func (e *engine) invokeRuleHandler(
 				logger.V(4).Info("rule not matched", "reason", err.Error())
 				return resource, nil
 			}
-			// check if there's an exception
-			if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
-				return resource, handlers.RuleResponses(ruleResp)
-			}
 			if handlerFactory == nil {
 				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", nil))
 			} else if handler, err := handlerFactory(); err != nil {
 				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", err))
 			} else if handler != nil {
+				// check if there's an exception
+				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
+					return resource, handlers.RuleResponses(ruleResp)
+				}
 				// load rule context
 				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
 					if _, ok := err.(gojmespath.NotFoundError); ok {
