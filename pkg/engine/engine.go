@@ -213,23 +213,6 @@ func (e *engine) invokeRuleHandler(
 				if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
 					return resource, handlers.RuleResponses(ruleResp)
 				}
-				// // load rule context
-				// if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
-				// 	if _, ok := err.(gojmespath.NotFoundError); ok {
-				// 		logger.V(3).Info("failed to load context", "reason", err.Error())
-				// 	} else {
-				// 		logger.Error(err, "failed to load context")
-				// 	}
-				// 	return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to load context", err))
-				// }
-				// // check preconditions
-				// preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
-				// if err != nil {
-				// 	return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to evaluate preconditions", err))
-				// }
-				// if !preconditionsPassed {
-				// 	return resource, handlers.RuleResponses(internal.RuleSkip(rule, ruleType, "preconditions not met"))
-				// }
 				// process handler
 				return handler.Process(ctx, logger, policyContext, resource, rule, e.ContextLoader(policyContext.Policy(), rule))
 			}

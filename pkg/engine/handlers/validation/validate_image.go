@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -44,7 +45,17 @@ func (h validateImageHandler) Process(
 	if engineutils.IsDeleteRequest(policyContext) {
 		return resource, nil
 	}
-	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.RawAnyAllConditions)
+	// load context
+	if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
+		if _, ok := err.(gojmespath.NotFoundError); ok {
+			logger.V(3).Info("failed to load context", "reason", err.Error())
+		} else {
+			logger.Error(err, "failed to load context")
+		}
+		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to load context", err))
+	}
+	// check preconditions
+	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
 	if err != nil {
 		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to evaluate preconditions", err))
 	}
