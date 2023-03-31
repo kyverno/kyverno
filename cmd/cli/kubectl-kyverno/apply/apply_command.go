@@ -23,6 +23,7 @@ import (
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/spf13/cobra"
+	"k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -254,6 +255,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 	}
 
 	var policies []kyvernov1.PolicyInterface
+	var validatingAdmissionPolicies []v1alpha1.ValidatingAdmissionPolicy
 
 	isGit := common.IsGitSourcePath(c.PolicyPaths)
 
@@ -288,7 +290,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		sort.Strings(policyYamls)
 		c.PolicyPaths = policyYamls
 	}
-	policies, err = common.GetPoliciesFromPaths(fs, c.PolicyPaths, isGit, "")
+	policies, validatingAdmissionPolicies, err = common.GetPoliciesFromPaths(fs, c.PolicyPaths, isGit, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		osExit(1)
@@ -325,7 +327,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, responses, sanitizederror.NewWithError("failed to marshal mutated policy", err)
 	}
 
-	resources, err = common.GetResourceAccordingToResourcePath(fs, c.ResourcePaths, c.Cluster, policies, dClient, c.Namespace, c.PolicyReport, false, "")
+	resources, err = common.GetResourceAccordingToResourcePath(fs, c.ResourcePaths, c.Cluster, policies, validatingAdmissionPolicies, dClient, c.Namespace, c.PolicyReport, false, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		osExit(1)

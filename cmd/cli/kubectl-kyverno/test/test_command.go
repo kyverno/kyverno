@@ -839,7 +839,7 @@ func applyPoliciesFromPath(
 		values.Results[i].CloneSourceResource = CloneSourceResourceFullPath[0]
 	}
 
-	policies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
+	policies, validatingAdmissionPolicies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
@@ -893,7 +893,7 @@ func applyPoliciesFromPath(
 		return sanitizederror.NewWithError("failed to print mutated policy", err)
 	}
 
-	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, dClient, "", false, isGit, policyResourcePath)
+	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, validatingAdmissionPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
