@@ -12,5 +12,5 @@ status:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: pol-create-on-trigger-deletion-ns-trigger
+  name: test-org
   namespace: pol-create-on-trigger-deletion-ns
