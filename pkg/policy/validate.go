@@ -563,6 +563,10 @@ func buildContext(rule *kyvernov1.Rule, background bool) *enginecontext.MockCont
 		addContextVariables(fe.Context, ctx)
 	}
 
+	for _, fe := range rule.Mutation.Targets {
+		addContextVariables(fe.Context, ctx)
+	}
+
 	return ctx
 }
 
