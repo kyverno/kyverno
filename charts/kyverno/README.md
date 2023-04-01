@@ -165,12 +165,15 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `generatecontrollerExtraResources` has been replaced with `admissionController.rbac.clusterRole.extraResources`
 - `networkPolicy` has been replaced with `admissionController.networkPolicy`
 - all `extraArgs` now use objects instead of arrays
+- logging, tracing and metering are now configured using `*Controller.logging`, `*Controller.tracing` and `*Controller.metering`
 
 - Labels and selectors have been reworked and due to immutability, upgrading from `v2` to `v3` is going to be rejected. The easiest solution is to uninstall `v2` and reinstall `v3` once values have been adapted to the changes described above.
 
 - Image tags are now validated and must be strings, if you use image tags in the `1.35` form please add quotes around the tag value.
 
 - Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
+
+- Admission controller `Deployment` name changed from `kyverno` to `kyverno-admission-controller`.
 
 ## Uninstalling the Chart
 
@@ -189,6 +192,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
+| apiVersionOverride.podDisruptionBudget | string | `nil` | Override api version used to create `PodDisruptionBudget`` resources. When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to determine the api version automatically. |
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
 | crds.annotations | object | `{}` | Additional CRDs annotations |
 | config.create | bool | `true` | Create the configmap. |
@@ -252,13 +256,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.podSecurityContext | object | `{}` | Security context for the pod |
 | admissionController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
 | admissionController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
-| admissionController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
-| admissionController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
-| admissionController.serviceMonitor.namespace | string | `nil` | Override namespace |
-| admissionController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
-| admissionController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
-| admissionController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
-| admissionController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
 | admissionController.tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
 | admissionController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
 | admissionController.pullSecrets | list | `[]` | Image pull secrets |
@@ -269,7 +266,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.initContainer.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | admissionController.initContainer.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | admissionController.initContainer.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
-| admissionController.initContainer.extraArgs | object | `{"loggingFormat":"text"}` | Additional container args. |
+| admissionController.initContainer.extraArgs | object | `{}` | Additional container args. |
 | admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.container.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.container.image.repository | string | `"kyverno/kyverno"` | Image repository |
@@ -278,7 +275,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | admissionController.container.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
-| admissionController.container.extraArgs | object | `{"loggingFormat":"text"}` | Additional container args. |
+| admissionController.container.extraArgs | object | `{}` | Additional container args. |
 | admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.extraInitContainers | list | `[]` | Array of extra init containers |
 | admissionController.extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
@@ -293,6 +290,23 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.metricsService.annotations | object | `{}` | Service annotations. |
 | admissionController.networkPolicy.enabled | bool | `false` | When true, use a NetworkPolicy to allow ingress to the webhook This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup. |
 | admissionController.networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
+| admissionController.serviceMonitor.enabled | bool | `false` | Create a `ServiceMonitor` to collect Prometheus metrics. |
+| admissionController.serviceMonitor.additionalLabels | object | `{}` | Additional labels |
+| admissionController.serviceMonitor.namespace | string | `nil` | Override namespace |
+| admissionController.serviceMonitor.interval | string | `"30s"` | Interval to scrape metrics |
+| admissionController.serviceMonitor.scrapeTimeout | string | `"25s"` | Timeout if metrics can't be retrieved in given time interval |
+| admissionController.serviceMonitor.secure | bool | `false` | Is TLS required for endpoint |
+| admissionController.serviceMonitor.tlsConfig | object | `{}` | TLS Configuration for endpoint |
+| admissionController.tracing.enabled | bool | `false` | Enable tracing |
+| admissionController.tracing.address | string | `nil` | Traces receiver address |
+| admissionController.tracing.port | string | `nil` | Traces receiver port |
+| admissionController.tracing.creds | string | `""` | Traces receiver credentials |
+| admissionController.logging.format | string | `"text"` | Logging format |
+| admissionController.metering.disabled | bool | `false` | Disable metrics export |
+| admissionController.metering.config | string | `"prometheus"` | Otel configuration, can be `prometheus` or `grpc` |
+| admissionController.metering.port | int | `8000` | Prometheus endpoint port |
+| admissionController.metering.collector | string | `""` | Otel collector endpoint |
+| admissionController.metering.creds | string | `""` | Otel collector credentials |
 | cleanupController.enabled | bool | `true` | Enable cleanup controller. |
 | cleanupController.rbac.create | bool | `true` | Create RBAC resources |
 | cleanupController.rbac.serviceAccount.name | string | `nil` | Service account name |
@@ -383,6 +397,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
 | reportsController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
 | reportsController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
+| reportsController.tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
+| reportsController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
 | reportsController.metricsService.create | bool | `true` | Create service. |
 | reportsController.metricsService.port | int | `8000` | Service port. Metrics server will be exposed at this port. |
 | reportsController.metricsService.type | string | `"ClusterIP"` | Service type. |

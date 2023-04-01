@@ -15,7 +15,9 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
+	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"gotest.tools/assert"
@@ -167,7 +169,7 @@ func testVerifyAndPatchImages(
 	cmResolver engineapi.ConfigmapResolver,
 	pContext engineapi.PolicyContext,
 	cfg config.Configuration,
-) (*engineapi.EngineResponse, *engineapi.ImageVerificationMetadata) {
+) (engineapi.EngineResponse, engineapi.ImageVerificationMetadata) {
 	e := NewEngine(
 		cfg,
 		nil,
@@ -217,11 +219,9 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 	err = enginecontext.AddResource(ctx, []byte(resource))
 	assert.NilError(t, err)
 
-	policyContext := &PolicyContext{
-		policy:      &cpol,
-		jsonContext: ctx,
-		newResource: *resourceUnstructured,
-	}
+	policyContext := policycontext.NewPolicyContextWithJsonContext(kyverno.Create, ctx).
+		WithPolicy(&cpol).
+		WithNewResource(*resourceUnstructured)
 
 	if oldResource != "" {
 		oldResourceUnstructured, err := kubeutils.BytesToUnstructured([]byte(oldResource))
@@ -230,7 +230,7 @@ func buildContext(t *testing.T, policy, resource string, oldResource string) *Po
 		err = enginecontext.AddOldResource(ctx, []byte(oldResource))
 		assert.NilError(t, err)
 
-		policyContext.oldResource = *oldResourceUnstructured
+		policyContext = policyContext.WithOldResource(*oldResourceUnstructured)
 	}
 
 	if err := ctx.AddImageInfos(resourceUnstructured, cfg); err != nil {
@@ -446,12 +446,11 @@ var (
 	testOtherKey       = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpNlOGZ323zMlhs4bcKSpAKQvbcWi5ZLRmijm6SqXDy0Fp0z0Eal+BekFnLzs8rUXUaXlhZ3hNudlgFJH+nFNMw==\n-----END PUBLIC KEY-----\n`
 )
 
-func Test_ConfigMapMissingSuccess(t *testing.T) {
+func Test_NoMatch(t *testing.T) {
 	policyContext := buildContext(t, testConfigMapMissing, testConfigMapMissingResource, "")
 	cosign.ClearMock()
 	err, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, engineapi.RuleStatusSkip, err.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, len(err.PolicyResponse.Rules), 0)
 }
 
 func Test_ConfigMapMissingFailure(t *testing.T) {
@@ -467,7 +466,7 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
-	policyContext.policy.GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
+	policyContext.Policy().GetSpec().Rules[0].VerifyImages[0].MutateDigest = true
 	cosign.ClearMock()
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
@@ -543,7 +542,7 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	rule := newStaticKeyRule("match-all", "*", testOtherKey)
-	spec := policyContext.policy.GetSpec()
+	spec := policyContext.Policy().GetSpec()
 	spec.Rules = append(spec.Rules, *rule)
 
 	applyAll := kyverno.ApplyAll
@@ -769,11 +768,9 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.NilError(t, err)
 
 	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	assert.Assert(t, engineResponse != nil)
 	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
-	assert.Assert(t, verifiedImages != nil)
 	assert.Assert(t, verifiedImages.Data != nil)
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.IsVerified(image), true)
@@ -789,7 +786,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	json := patchedAnnotations[engineapi.ImageVerifyAnnotationKey]
 	assert.Assert(t, json != "")
 
-	verified, err := isImageVerified(resource, image, logr.Discard())
+	verified, err := engineutils.IsImageVerified(resource, image, logr.Discard())
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }
@@ -862,11 +859,9 @@ func Test_ParsePEMDelimited(t *testing.T) {
 	assert.NilError(t, err)
 
 	engineResponse, verifiedImages := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
-	assert.Assert(t, engineResponse != nil)
 	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
 
-	assert.Assert(t, verifiedImages != nil)
 	assert.Assert(t, verifiedImages.Data != nil)
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.IsVerified(image), true)

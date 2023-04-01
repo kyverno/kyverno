@@ -166,12 +166,12 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 						resource,
 						spec.MatchResources,
 						nsLabels,
-						nil,
-						"",
 						// TODO(eddycharly): we don't have user info here, we should check that
 						// we don't have user conditions in the policy rule
 						kyvernov1beta1.RequestInfo{},
 						nil,
+						resource.GroupVersionKind(),
+						"",
 					)
 					if matched != nil {
 						debug.Info("resource/match didn't match", "result", matched)
@@ -182,12 +182,12 @@ func (h *handlers) executePolicy(ctx context.Context, logger logr.Logger, policy
 							resource,
 							*spec.ExcludeResources,
 							nsLabels,
-							nil,
-							"",
 							// TODO(eddycharly): we don't have user info here, we should check that
 							// we don't have user conditions in the policy rule
 							kyvernov1beta1.RequestInfo{},
 							nil,
+							resource.GroupVersionKind(),
+							"",
 						)
 						if excluded == nil {
 							debug.Info("resource/exclude matched")

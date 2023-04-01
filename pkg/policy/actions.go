@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -14,7 +15,7 @@ import (
 
 // Validation provides methods to validate a rule
 type Validation interface {
-	Validate() (string, error)
+	Validate(ctx context.Context) (string, error)
 }
 
 // validateAction performs validation on the rule actions
@@ -27,11 +28,10 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	}
 
 	var checker Validation
-
 	// Mutate
 	if rule.HasMutate() {
-		checker = mutate.NewMutateFactory(rule.Mutation)
-		if path, err := checker.Validate(); err != nil {
+		checker = mutate.NewMutateFactory(rule.Mutation, client)
+		if path, err := checker.Validate(context.TODO()); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].mutate.%s.: %v", idx, path, err)
 		}
 	}
@@ -39,7 +39,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	// Validate
 	if rule.HasValidate() {
 		checker = validate.NewValidateFactory(&rule.Validation)
-		if path, err := checker.Validate(); err != nil {
+		if path, err := checker.Validate(context.TODO()); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].validate.%s.: %v", idx, path, err)
 		}
 	}
@@ -51,12 +51,12 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 		// this need to modified to use different implementation for online and offline mode
 		if mock {
 			checker = generate.NewFakeGenerate(rule.Generation)
-			if path, err := checker.Validate(); err != nil {
+			if path, err := checker.Validate(context.TODO()); err != nil {
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			}
 		} else {
 			checker = generate.NewGenerateFactory(client, rule.Generation, logging.GlobalLogger())
-			if path, err := checker.Validate(); err != nil {
+			if path, err := checker.Validate(context.TODO()); err != nil {
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			}
 		}

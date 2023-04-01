@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -27,12 +26,14 @@ import (
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -452,22 +453,27 @@ OuterLoop:
 
 	cfg := config.NewDefaultConfiguration()
 	if err := ctx.AddImageInfos(c.Resource, cfg); err != nil {
-		if err != nil {
-			log.Log.Error(err, "failed to add image variables to context")
-		}
+		log.Log.Error(err, "failed to add image variables to context")
 	}
 
-	subresources := make([]engineapi.SubResource, 0)
-
-	// If --cluster flag is not set, then we need to add subresources to the context
+	gvk, subresource := updatedResource.GroupVersionKind(), ""
+	// If --cluster flag is not set, then we need to find the top level resource GVK and subresource
 	if c.Client == nil {
-		for _, subresource := range c.Subresources {
-			subresources = append(subresources, struct {
-				APIResource    metav1.APIResource
-				ParentResource metav1.APIResource
-			}{
-				APIResource: subresource.APIResource, ParentResource: subresource.ParentResource,
-			})
+		for _, s := range c.Subresources {
+			subgvk := schema.GroupVersionKind{
+				Group:   s.APIResource.Group,
+				Version: s.APIResource.Version,
+				Kind:    s.APIResource.Kind,
+			}
+			if gvk == subgvk {
+				gvk = schema.GroupVersionKind{
+					Group:   s.ParentResource.Group,
+					Version: s.ParentResource.Version,
+					Kind:    s.ParentResource.Kind,
+				}
+				parts := strings.Split(s.APIResource.Name, "/")
+				subresource = parts[1]
+			}
 		}
 	}
 	eng := engine.NewEngine(
@@ -477,22 +483,17 @@ OuterLoop:
 		store.ContextLoaderFactory(nil),
 		nil,
 	)
-	policyContext := engine.NewPolicyContextWithJsonContext(ctx).
+	policyContext := engine.NewPolicyContextWithJsonContext(kyvernov1.Create, ctx).
 		WithPolicy(c.Policy).
 		WithNewResource(*updatedResource).
 		WithNamespaceLabels(namespaceLabels).
 		WithAdmissionInfo(c.UserInfo).
-		WithSubresourcesInPolicy(subresources)
+		WithResourceKind(gvk, subresource)
 
-	mutateResponse := eng.Mutate(
-		context.Background(),
-		policyContext,
-	)
-	if mutateResponse != nil {
-		engineResponses = append(engineResponses, mutateResponse)
-	}
+	mutateResponse := eng.Mutate(context.Background(), policyContext)
+	engineResponses = append(engineResponses, &mutateResponse)
 
-	err = processMutateEngineResponse(c, mutateResponse, resPath)
+	err = processMutateEngineResponse(c, &mutateResponse, resPath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return engineResponses, Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
@@ -501,7 +502,7 @@ OuterLoop:
 
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(c.Policy) {
-		if rule.HasValidate() || rule.HasImagesValidationChecks() {
+		if rule.HasValidate() || rule.HasVerifyImageChecks() {
 			policyHasValidate = true
 		}
 	}
@@ -509,23 +510,20 @@ OuterLoop:
 	policyContext = policyContext.WithNewResource(mutateResponse.PatchedResource)
 
 	var info Info
-	var validateResponse *engineapi.EngineResponse
+	var validateResponse engineapi.EngineResponse
 	if policyHasValidate {
-		validateResponse = eng.Validate(
-			context.Background(),
-			policyContext,
-		)
-		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
+		validateResponse = eng.Validate(context.Background(), policyContext)
+		info = ProcessValidateEngineResponse(c.Policy, &validateResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
-	if validateResponse != nil && !validateResponse.IsEmpty() {
-		engineResponses = append(engineResponses, validateResponse)
+	if !validateResponse.IsEmpty() {
+		engineResponses = append(engineResponses, &validateResponse)
 	}
 
 	verifyImageResponse, _ := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
-		engineResponses = append(engineResponses, verifyImageResponse)
-		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
+	if !verifyImageResponse.IsEmpty() {
+		engineResponses = append(engineResponses, &verifyImageResponse)
+		info = ProcessValidateEngineResponse(c.Policy, &verifyImageResponse, resPath, c.Rc, c.PolicyReport, c.AuditWarn)
 	}
 
 	var policyHasGenerate bool
@@ -537,16 +535,16 @@ OuterLoop:
 
 	if policyHasGenerate {
 		generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
-		if generateResponse != nil && !generateResponse.IsEmpty() {
-			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
+		if !generateResponse.IsEmpty() {
+			newRuleResponse, err := handleGeneratePolicy(&generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
 				log.Log.Error(err, "failed to apply generate policy")
 			} else {
 				generateResponse.PolicyResponse.Rules = newRuleResponse
 			}
-			engineResponses = append(engineResponses, generateResponse)
+			engineResponses = append(engineResponses, &generateResponse)
 		}
-		updateResultCounts(c.Policy, generateResponse, resPath, c.Rc, c.AuditWarn)
+		updateResultCounts(c.Policy, &generateResponse, resPath, c.Rc, c.AuditWarn)
 	}
 
 	return engineResponses, info, nil
@@ -704,7 +702,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
-		if !policyRule.HasValidate() && !policyRule.HasImagesValidationChecks() && !policyRule.HasVerifyImages() {
+		if !policyRule.HasValidate() && !policyRule.HasVerifyImageChecks() && !policyRule.HasVerifyImages() {
 			continue
 		}
 
@@ -945,7 +943,7 @@ func PrintMutatedPolicy(mutatedPolicies []kyvernov1.PolicyInterface) error {
 func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
 	// get values from file for this policy resource combination
 	thisPolicyResourceValues := make(map[string]interface{})
-	if len(valuesMap[policyName]) != 0 && !reflect.DeepEqual(valuesMap[policyName][resourceName], Resource{}) {
+	if len(valuesMap[policyName]) != 0 && !datautils.DeepEqual(valuesMap[policyName][resourceName], Resource{}) {
 		thisPolicyResourceValues = valuesMap[policyName][resourceName].Values
 	}
 
@@ -996,21 +994,25 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface, subresources []Subreso
 }
 
 func getKind(kind string, subresources []Subresource, dClient dclient.Interface) (string, error) {
-	gv, k := kubeutils.GetKindFromGVK(kind)
-	parentKind, subresource := kubeutils.SplitSubresource(k)
-	var err error
-	if subresource != "" {
-		if dClient != nil {
-			var apiResource *metav1.APIResource
-			apiResource, _, _, err = dClient.Discovery().FindResource(gv, k)
-			if err == nil {
-				k = apiResource.Kind
-			}
-		} else {
-			k, err = getSubresourceKind(gv, parentKind, subresource, subresources)
-		}
+	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+	if subresource == "" {
+		return kind, nil
 	}
-	return k, err
+	if dClient == nil {
+		gv := schema.GroupVersion{Group: group, Version: version}
+		return getSubresourceKind(gv.String(), kind, subresource, subresources)
+	}
+	gvrss, err := dClient.Discovery().FindResources(group, version, kind, subresource)
+	if err != nil {
+		return kind, err
+	}
+	if len(gvrss) != 1 {
+		return kind, fmt.Errorf("no unique match for kind %s", kind)
+	}
+	for _, api := range gvrss {
+		return api.Kind, nil
+	}
+	return kind, nil
 }
 
 func getSubresourceKind(groupVersion, parentKind, subresourceName string, subresources []Subresource) (string, error) {

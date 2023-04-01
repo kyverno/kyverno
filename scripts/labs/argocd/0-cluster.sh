@@ -8,7 +8,7 @@ kind delete cluster --name ${KIND_NAME:-argo} || true
 
 # CREATE CLUSTER
 
-kind create cluster --name ${KIND_NAME:-argo} --image ${KIND_IMAGE:-kindest/node:v1.24.4} --config - <<EOF
+kind create cluster --name ${KIND_NAME:-argo} --image ${KIND_IMAGE:-kindest/node:v1.26.2} --config - <<EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 kubeadmConfigPatches:

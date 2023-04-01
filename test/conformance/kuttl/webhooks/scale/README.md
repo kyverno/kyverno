@@ -1,10 +1,4 @@
 ## Description
 
-This test verifies the resource validation webhook is configured correctly when a policy targets all `Scale` resource.
-It should be equivalent to using `*/scale`
-
-## Steps
-
-1.  - Create a policy targeting `Scale`
-    - Assert policy gets ready
-1.  - Assert that the resource validation webhook is configured correctly
+This test tries to create a policy targeting the `Scale` kind.
+The `Scale` kind doesn't map to a top level resource and therefore the policy is expected to be rejected.
