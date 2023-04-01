@@ -14,8 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func mutateResource(rule *kyvernov1.Rule, ctx engineapi.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
-	preconditionsPassed, err := internal.CheckPreconditions(logger, ctx, rule.GetAnyAllConditions())
+func mutateResource(rule *kyvernov1.Rule, policyContext engineapi.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
+	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
 	if err != nil {
 		return mutate.NewErrorResponse("failed to evaluate preconditions", err)
 	}
@@ -24,7 +24,7 @@ func mutateResource(rule *kyvernov1.Rule, ctx engineapi.PolicyContext, resource 
 		return mutate.NewResponse(engineapi.RuleStatusSkip, resource, nil, "preconditions not met")
 	}
 
-	return mutate.Mutate(rule, ctx.JSONContext(), resource, logger)
+	return mutate.Mutate(rule, policyContext.JSONContext(), resource, logger)
 }
 
 type forEachMutator struct {
@@ -47,7 +47,7 @@ func (f *forEachMutator) mutateForEach(ctx context.Context) *mutate.Response {
 			return mutate.NewErrorResponse("failed to load context", err)
 		}
 
-		preconditionsPassed, err := internal.CheckPreconditions(f.log, f.policyContext, f.rule.GetAnyAllConditions())
+		preconditionsPassed, err := internal.CheckPreconditions(f.log, f.policyContext.JSONContext(), f.rule.GetAnyAllConditions())
 		if err != nil {
 			return mutate.NewErrorResponse("failed to evaluate preconditions", err)
 		}
@@ -115,7 +115,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to load to mutate.foreach[%d].context", index), err)
 		}
 
-		preconditionsPassed, err := internal.CheckPreconditions(f.log, policyContext, foreach.AnyAllConditions)
+		preconditionsPassed, err := internal.CheckPreconditions(f.log, policyContext.JSONContext(), foreach.AnyAllConditions)
 		if err != nil {
 			return mutate.NewErrorResponse(fmt.Sprintf("failed to evaluate mutate.foreach[%d].preconditions", index), err)
 		}
