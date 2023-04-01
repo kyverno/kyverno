@@ -20,43 +20,51 @@ var (
 	replicasetsGVR            = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
 	replicationcontrollersGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "replicationcontrollers"}
 
-	podsGVRS                   = dclient.GroupVersionResourceSubresource{GroupVersionResource: podsGVR}
-	namespacesGVRS             = dclient.GroupVersionResourceSubresource{GroupVersionResource: namespacesGVR}
-	clusterrolesGVRS           = dclient.GroupVersionResourceSubresource{GroupVersionResource: clusterrolesGVR}
-	deploymentsGVRS            = dclient.GroupVersionResourceSubresource{GroupVersionResource: deploymentsGVR}
-	statefulsetsGVRS           = dclient.GroupVersionResourceSubresource{GroupVersionResource: statefulsetsGVR}
-	daemonsetsGVRS             = dclient.GroupVersionResourceSubresource{GroupVersionResource: daemonsetsGVR}
-	jobsGVRS                   = dclient.GroupVersionResourceSubresource{GroupVersionResource: jobsGVR}
-	cronjobsGVRS               = dclient.GroupVersionResourceSubresource{GroupVersionResource: cronjobsGVR}
-	replicasetsGVRS            = dclient.GroupVersionResourceSubresource{GroupVersionResource: replicasetsGVR}
-	replicationcontrollersGVRS = dclient.GroupVersionResourceSubresource{GroupVersionResource: replicationcontrollersGVR}
+	podsGVRS                   = mapGVR(podsGVR, "Pod")
+	namespacesGVRS             = mapGVR(namespacesGVR, "Namespace")
+	clusterrolesGVRS           = mapGVR(clusterrolesGVR, "ClusterRole")
+	deploymentsGVRS            = mapGVR(deploymentsGVR, "Deployment")
+	statefulsetsGVRS           = mapGVR(statefulsetsGVR, "StatefulSet")
+	daemonsetsGVRS             = mapGVR(daemonsetsGVR, "DaemonSet")
+	jobsGVRS                   = mapGVR(jobsGVR, "Jon")
+	cronjobsGVRS               = mapGVR(cronjobsGVR, "CronJob")
+	replicasetsGVRS            = mapGVR(replicasetsGVR, "ReplicaSet")
+	replicationcontrollersGVRS = mapGVR(replicationcontrollersGVR, "ReplicationController")
 )
+
+func mapGVR(gvr schema.GroupVersionResource, kind string) dclient.TopLevelApiDescription {
+	return dclient.TopLevelApiDescription{
+		GroupVersion: gvr.GroupVersion(),
+		Kind:         kind,
+		Resource:     gvr.Resource,
+	}
+}
 
 type TestResourceFinder struct{}
 
-func (TestResourceFinder) FindResources(group, version, kind, subresource string) (map[dclient.GroupVersionResourceSubresource]metav1.APIResource, error) {
+func (TestResourceFinder) FindResources(group, version, kind, subresource string) (map[dclient.TopLevelApiDescription]metav1.APIResource, error) {
 	var dummy metav1.APIResource
 	switch kind {
 	case "Pod":
-		return map[dclient.GroupVersionResourceSubresource]metav1.APIResource{podsGVRS: dummy}, nil
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{podsGVRS: dummy}, nil
 	case "Namespace":
-		return map[dclient.GroupVersionResourceSubresource]metav1.APIResource{namespacesGVRS: dummy}, nil
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{namespacesGVRS: dummy}, nil
 	case "ClusterRole":
-		return map[dclient.GroupVersionResourceSubresource]metav1.APIResource{clusterrolesGVRS: dummy}, nil
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{clusterrolesGVRS: dummy}, nil
 	case "Deployment":
-		return map[dclient.GroupVersionResourceSubresource]metav1.APIResource{deploymentsGVRS: dummy}, nil
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{deploymentsGVRS: dummy}, nil
 	case "StatefulSet":
-		return map[dclient.GroupVersionResourceSubresource]metav1.APIResource{statefulsetsGVRS: dummy}, nil
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{statefulsetsGVRS: dummy}, nil
 	case "DaemonSet":
-		return map[dclient.GroupVersionResourceSubresource]metav1.APIResource{daemonsetsGVRS: dummy}, nil
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{daemonsetsGVRS: dummy}, nil
 	case "ReplicaSet":
-		return map[dclient.GroupVersionResourceSubresource]metav1.APIResource{replicasetsGVRS: dummy}, nil
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{replicasetsGVRS: dummy}, nil
 	case "Job":
-		return map[dclient.GroupVersionResourceSubresource]metav1.APIResource{jobsGVRS: dummy}, nil
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{jobsGVRS: dummy}, nil
 	case "ReplicationController":
-		return map[dclient.GroupVersionResourceSubresource]metav1.APIResource{replicationcontrollersGVRS: dummy}, nil
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{replicationcontrollersGVRS: dummy}, nil
 	case "CronJob":
-		return map[dclient.GroupVersionResourceSubresource]metav1.APIResource{cronjobsGVRS: dummy}, nil
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{cronjobsGVRS: dummy}, nil
 	}
 	return nil, fmt.Errorf("not found: %s", kind)
 }

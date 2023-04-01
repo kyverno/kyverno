@@ -3,13 +3,13 @@ package generate
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/policy/common"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/opentracing/opentracing-go/log"
@@ -37,7 +37,7 @@ func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, log
 }
 
 // Validate validates the 'generate' rule
-func (g *Generate) Validate() (string, error) {
+func (g *Generate) Validate(ctx context.Context) (string, error) {
 	rule := g.rule
 
 	if rule.ForEachGeneration != nil && (rule.Kind != "" || rule.Name != "" || rule.Namespace != "") {
@@ -81,7 +81,7 @@ func (g *Generate) Validate() (string, error) {
 		}
 	}
 
-	if !reflect.DeepEqual(rule.Clone, kyvernov1.CloneFrom{}) {
+	if !datautils.DeepEqual(rule.Clone, kyvernov1.CloneFrom{}) {
 		if path, err := g.validateClone(rule.Clone, rule.CloneList, kind); err != nil {
 			return fmt.Sprintf("clone.%s", path), err
 		}
@@ -102,12 +102,12 @@ func (g *Generate) Validate() (string, error) {
 	if len(rule.CloneList.Kinds) != 0 {
 		for _, kind = range rule.CloneList.Kinds {
 			_, kind = kubeutils.GetKindFromGVK(kind)
-			if err := g.canIGenerate(kind, namespace); err != nil {
+			if err := g.canIGenerate(ctx, kind, namespace); err != nil {
 				return "", err
 			}
 		}
 	} else {
-		if err := g.canIGenerate(kind, namespace); err != nil {
+		if err := g.canIGenerate(ctx, kind, namespace); err != nil {
 			return "", err
 		}
 	}
@@ -130,7 +130,7 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 			return "", err
 		}
 		if !ok {
-			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
+			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
 		}
 	} else {
 		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
@@ -139,46 +139,46 @@ func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, 
 }
 
 // canIGenerate returns a error if kyverno cannot perform operations
-func (g *Generate) canIGenerate(kind, namespace string) error {
+func (g *Generate) canIGenerate(ctx context.Context, kind, namespace string) error {
 	// Skip if there is variable defined
 	authCheck := g.authCheck
 	if !regex.IsVariable(kind) && !regex.IsVariable(namespace) {
 		// CREATE
-		ok, err := authCheck.CanICreate(context.TODO(), kind, namespace)
+		ok, err := authCheck.CanICreate(ctx, kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'create' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'create' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
 		}
 		// UPDATE
-		ok, err = authCheck.CanIUpdate(context.TODO(), kind, namespace)
+		ok, err = authCheck.CanIUpdate(ctx, kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'update' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'update' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
 		}
 		// GET
-		ok, err = authCheck.CanIGet(context.TODO(), kind, namespace)
+		ok, err = authCheck.CanIGet(ctx, kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
 		}
 
 		// DELETE
-		ok, err = authCheck.CanIDelete(context.TODO(), kind, namespace)
+		ok, err = authCheck.CanIDelete(ctx, kind, namespace)
 		if err != nil {
 			// machinery error
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Update permissions in ClusterRole 'kyverno:background-controller:additional'", kind, namespace)
 		}
 	} else {
 		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")

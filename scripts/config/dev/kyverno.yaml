@@ -2,20 +2,20 @@ grafana:
   enabled: true
 
 admissionController:
+  container:
+    extraArgs:
+      enablePolicyException: true
+
   serviceMonitor:
     enabled: true
 
-  initContainer:
-    extraArgs:
-      loggingFormat: json
+  tracing:
+    enabled: true
+    address: tempo.monitoring
+    port: 4317
 
-  container:
-    extraArgs:
-      loggingFormat: json
-      enableTracing: true
-      tracingAddress: tempo.monitoring
-      tracingPort: 4317
-      enablePolicyException: true
+  logging:
+    format: json
 
 backgroundController:
   serviceMonitor:

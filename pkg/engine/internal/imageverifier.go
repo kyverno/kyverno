@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -30,7 +29,7 @@ type ImageVerifier struct {
 	logger        logr.Logger
 	rclient       registryclient.Client
 	policyContext engineapi.PolicyContext
-	rule          *kyvernov1.Rule
+	rule          kyvernov1.Rule
 	ivm           *engineapi.ImageVerificationMetadata
 }
 
@@ -38,7 +37,7 @@ func NewImageVerifier(
 	logger logr.Logger,
 	rclient registryclient.Client,
 	policyContext engineapi.PolicyContext,
-	rule *kyvernov1.Rule,
+	rule kyvernov1.Rule,
 	ivm *engineapi.ImageVerificationMetadata,
 ) *ImageVerifier {
 	return &ImageVerifier{
@@ -53,8 +52,7 @@ func NewImageVerifier(
 func HasImageVerifiedAnnotationChanged(ctx engineapi.PolicyContext, log logr.Logger) bool {
 	newResource := ctx.NewResource()
 	oldResource := ctx.OldResource()
-	if reflect.DeepEqual(newResource, unstructured.Unstructured{}) ||
-		reflect.DeepEqual(oldResource, unstructured.Unstructured{}) {
+	if newResource.Object == nil || oldResource.Object == nil {
 		return false
 	}
 	newValue := newResource.GetAnnotations()[engineapi.ImageVerifyAnnotationKey]
@@ -76,7 +74,7 @@ func matchImageReferences(imageReferences []string, image string) bool {
 }
 
 func isImageVerified(resource unstructured.Unstructured, image string, log logr.Logger) (bool, error) {
-	if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
+	if resource.Object == nil {
 		return false, fmt.Errorf("nil resource")
 	}
 	annotations := resource.GetAnnotations()
@@ -199,7 +197,7 @@ func (iv *ImageVerifier) Verify(
 		if HasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
 			msg := engineapi.ImageVerifyAnnotationKey + " annotation cannot be changed"
 			iv.logger.Info("image verification error", "reason", msg)
-			responses = append(responses, RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail))
+			responses = append(responses, RuleResponse(iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail))
 			continue
 		}
 
@@ -314,7 +312,7 @@ func (iv *ImageVerifier) handleRegistryErrors(image string, err error) *engineap
 	if errors.As(err, &netErr) {
 		return RuleError(iv.rule, engineapi.ImageVerify, fmt.Sprintf("failed to verify image %s", image), err)
 	}
-	return RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail)
+	return RuleResponse(iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail)
 }
 
 func (iv *ImageVerifier) verifyAttestations(
@@ -328,7 +326,7 @@ func (iv *ImageVerifier) verifyAttestations(
 		path := fmt.Sprintf(".attestations[%d]", i)
 
 		if attestation.PredicateType == "" {
-			return RuleResponse(*iv.rule, engineapi.ImageVerify, path+": missing predicateType", engineapi.RuleStatusFail), ""
+			return RuleResponse(iv.rule, engineapi.ImageVerify, path+": missing predicateType", engineapi.RuleStatusFail), ""
 		}
 
 		if len(attestation.Attestors) == 0 {
@@ -358,7 +356,7 @@ func (iv *ImageVerifier) verifyAttestations(
 				attestationError = iv.verifyAttestation(cosignResp.Statements, attestation, imageInfo)
 				if attestationError != nil {
 					attestationError = fmt.Errorf("%s: %w", entryPath+subPath, attestationError)
-					return RuleResponse(*iv.rule, engineapi.ImageVerify, attestationError.Error(), engineapi.RuleStatusFail), ""
+					return RuleResponse(iv.rule, engineapi.ImageVerify, attestationError.Error(), engineapi.RuleStatusFail), ""
 				}
 
 				verifiedCount++
@@ -370,7 +368,7 @@ func (iv *ImageVerifier) verifyAttestations(
 
 			if verifiedCount < requiredCount {
 				msg := fmt.Sprintf("image attestations verification failed, verifiedCount: %v, requiredCount: %v", verifiedCount, requiredCount)
-				return RuleResponse(*iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail), ""
+				return RuleResponse(iv.rule, engineapi.ImageVerify, msg, engineapi.RuleStatusFail), ""
 			}
 		}
 

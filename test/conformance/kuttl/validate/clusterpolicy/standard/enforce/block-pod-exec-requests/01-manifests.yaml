@@ -24,7 +24,7 @@ spec:
       match:
         resources:
           kinds:
-            - PodExecOptions
+            - Pod/exec
       context:
         - name: podexeclabel
           apiCall:

@@ -6,7 +6,7 @@ import (
 )
 
 // GenerateEvents generates event info for the engine responses
-func GenerateEvents(engineResponses []*engineapi.EngineResponse, blocked bool) []event.Info {
+func GenerateEvents(engineResponses []engineapi.EngineResponse, blocked bool) []event.Info {
 	var events []event.Info
 	//   - Some/All policies fail or error
 	//     - report failure events on policy
@@ -34,7 +34,7 @@ func GenerateEvents(engineResponses []*engineapi.EngineResponse, blocked bool) [
 			for i, ruleResp := range er.PolicyResponse.Rules {
 				isException := ruleResp.Exception != nil
 				if ruleResp.Status == engineapi.RuleStatusSkip && !blocked && isException {
-					events = append(events, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i])...)
+					events = append(events, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i], event.AdmissionController)...)
 				}
 			}
 		} else if !er.IsSkipped() {

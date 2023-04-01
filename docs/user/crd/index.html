@@ -238,6 +238,18 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
+<code>generateExistingOnPolicyUpdate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>generateExisting</code><br/>
 <em>
 bool
@@ -464,6 +476,18 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
+<code>generateExistingOnPolicyUpdate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>generateExisting</code><br/>
 <em>
 bool
@@ -557,6 +581,16 @@ of deployments across all namespaces.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.AdmissionOperation">AdmissionOperation
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ResourceDescription">ResourceDescription</a>, 
+<a href="#kyverno.io/v2beta1.ResourceDescription">ResourceDescription</a>)
+</p>
+<p>
+<p>AdmissionOperation can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.</p>
+</p>
 <h3 id="kyverno.io/v1.AnyAllConditions">AnyAllConditions
 </h3>
 <p>
@@ -2894,6 +2928,20 @@ and <code>?</code> (matches one character).Wildcards allows writing label select
 does not match an empty label set.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>operations</code><br/>
+<em>
+<a href="#kyverno.io/v1.AdmissionOperation">
+[]AdmissionOperation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Operations can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3513,6 +3561,18 @@ bool
 <em>(Optional)</em>
 <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
 Default value is &ldquo;false&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExistingOnPolicyUpdate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deprecated, use generateExisting instead</p>
 </td>
 </tr>
 <tr>
@@ -5823,6 +5883,18 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
+<code>generateExistingOnPolicyUpdate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>generateExisting</code><br/>
 <em>
 bool
@@ -6044,6 +6116,18 @@ bool
 <em>(Optional)</em>
 <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
 Default value is &ldquo;false&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExistingOnPolicyUpdate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deprecated, use generateExisting instead</p>
 </td>
 </tr>
 <tr>
@@ -6531,6 +6615,20 @@ and <code>?</code> (matches one character).Wildcards allows writing label select
 does not match an empty label set.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>operations</code><br/>
+<em>
+<a href="#kyverno.io/v1.AdmissionOperation">
+[]AdmissionOperation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Operations can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -6897,6 +6995,18 @@ bool
 <em>(Optional)</em>
 <p>MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
 Default value is &ldquo;false&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExistingOnPolicyUpdate</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Deprecated, use generateExisting instead</p>
 </td>
 </tr>
 <tr>

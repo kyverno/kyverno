@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -72,7 +73,6 @@ func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap m
 	if err != nil {
 		return nil, err
 	}
-
 	if len(resourcePaths) == 0 {
 		for _, rr := range resourceMap {
 			resources = append(resources, rr)
@@ -86,7 +86,6 @@ func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap m
 					resources = append(resources, rr)
 				}
 			}
-
 			if lenOfResource >= len(resources) {
 				if policyReport {
 					log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
@@ -195,13 +194,11 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 
 func getResourcesOfTypeFromCluster(resourceTypes []schema.GroupVersionKind, subresourceMap map[schema.GroupVersionKind]Subresource, dClient dclient.Interface, namespace string) (map[string]*unstructured.Unstructured, error) {
 	r := make(map[string]*unstructured.Unstructured)
-
 	for _, kind := range resourceTypes {
 		resourceList, err := dClient.ListResource(context.TODO(), kind.GroupVersion().String(), kind.Kind, namespace, nil)
 		if err != nil {
 			continue
 		}
-
 		gvk := resourceList.GroupVersionKind()
 		for _, resource := range resourceList.Items {
 			key := kind.Kind + "-" + resource.GetNamespace() + "-" + resource.GetName()
@@ -213,19 +210,16 @@ func getResourcesOfTypeFromCluster(resourceTypes []schema.GroupVersionKind, subr
 			r[key] = resource.DeepCopy()
 		}
 	}
-
 	for _, subresource := range subresourceMap {
 		parentGV := schema.GroupVersion{Group: subresource.ParentResource.Group, Version: subresource.ParentResource.Version}
 		resourceList, err := dClient.ListResource(context.TODO(), parentGV.String(), subresource.ParentResource.Kind, namespace, nil)
 		if err != nil {
 			continue
 		}
-
 		parentResourceNames := make([]string, 0)
 		for _, resource := range resourceList.Items {
 			parentResourceNames = append(parentResourceNames, resource.GetName())
 		}
-
 		for _, parentResourceName := range parentResourceNames {
 			subresourceName := strings.Split(subresource.APIResource.Name, "/")[1]
 			resource, err := dClient.GetResource(context.TODO(), parentGV.String(), subresource.ParentResource.Kind, namespace, parentResourceName, subresourceName)
@@ -330,7 +324,6 @@ func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema
 	for _, kind := range rule.MatchResources.Kinds {
 		addGVKToResourceTypesMap(kind, resourceTypesMap, subresourceMap, client)
 	}
-
 	if rule.MatchResources.Any != nil {
 		for _, resFilter := range rule.MatchResources.Any {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
@@ -338,7 +331,6 @@ func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema
 			}
 		}
 	}
-
 	if rule.MatchResources.All != nil {
 		for _, resFilter := range rule.MatchResources.All {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
@@ -350,28 +342,29 @@ func GetKindsFromRule(rule kyvernov1.Rule, client dclient.Interface) (map[schema
 }
 
 func addGVKToResourceTypesMap(kind string, resourceTypesMap map[schema.GroupVersionKind]bool, subresourceMap map[schema.GroupVersionKind]Subresource, client dclient.Interface) {
-	gvString, k := kubeutils.GetKindFromGVK(kind)
-	apiResource, parentApiResource, _, err := client.Discovery().FindResource(gvString, k)
+	group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+	gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 	if err != nil {
 		log.Log.Info("failed to find resource", "kind", kind, "error", err)
 		return
 	}
-
-	// The resource is not a subresource
-	if parentApiResource == nil {
-		gvk := schema.GroupVersionKind{
-			Group:   apiResource.Group,
-			Version: apiResource.Version,
-			Kind:    apiResource.Kind,
-		}
-		resourceTypesMap[gvk] = true
-	} else {
-		gvk := schema.GroupVersionKind{
-			Group: apiResource.Group, Version: apiResource.Version, Kind: apiResource.Kind,
-		}
-		subresourceMap[gvk] = Subresource{
-			APIResource:    *apiResource,
-			ParentResource: *parentApiResource,
+	for parent, child := range gvrss {
+		// The resource is not a subresource
+		if parent.SubResource == "" {
+			resourceTypesMap[parent.GroupVersionKind()] = true
+		} else {
+			gvk := schema.GroupVersionKind{
+				Group: child.Group, Version: child.Version, Kind: child.Kind,
+			}
+			subresourceMap[gvk] = Subresource{
+				APIResource: child,
+				ParentResource: metav1.APIResource{
+					Group:   parent.Group,
+					Version: parent.Version,
+					Kind:    parent.Kind,
+					Name:    parent.Resource,
+				},
+			}
 		}
 	}
 }

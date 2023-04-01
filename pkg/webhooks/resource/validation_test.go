@@ -1064,7 +1064,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
-			ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
+			ctx := engine.NewPolicyContext(kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
 			er := eng.Validate(
 				context.TODO(),
 				ctx,
@@ -1077,7 +1077,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			}
 
 			failurePolicy := kyvernov1.Fail
-			blocked := webhookutils.BlockRequest([]*engineapi.EngineResponse{er}, failurePolicy, log.WithName("WebhookServer"))
+			blocked := webhookutils.BlockRequest([]engineapi.EngineResponse{er}, failurePolicy, log.WithName("WebhookServer"))
 			assert.Assert(t, tc.blocked == blocked)
 		})
 	}
@@ -1126,7 +1126,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, resourceUnstructured != nil)
 
-	ctx := engine.NewPolicyContext().WithPolicy(&policy).WithNewResource(*resourceUnstructured)
+	ctx := engine.NewPolicyContext(kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
 	eng := engine.NewEngine(
 		config.NewDefaultConfiguration(),
@@ -1143,7 +1143,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.Assert(t, resp.PolicyResponse.Stats.RulesErrorCount == 0)
 
 	log := log.WithName("Test_RuleSelector")
-	blocked := webhookutils.BlockRequest([]*engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
+	blocked := webhookutils.BlockRequest([]engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == true)
 
 	applyOne := kyvernov1.ApplyOne
@@ -1155,6 +1155,6 @@ func Test_RuleSelector(t *testing.T) {
 	assert.Assert(t, resp.PolicyResponse.Stats.RulesAppliedCount == 1)
 	assert.Assert(t, resp.PolicyResponse.Stats.RulesErrorCount == 0)
 
-	blocked = webhookutils.BlockRequest([]*engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
+	blocked = webhookutils.BlockRequest([]engineapi.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == false)
 }

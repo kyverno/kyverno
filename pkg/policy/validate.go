@@ -27,6 +27,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"golang.org/x/exp/slices"
@@ -190,6 +191,80 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 	rules := autogen.ComputeRules(policy)
 	rulesPath := specPath.Child("rules")
+
+	for _, rule := range rules {
+		// Validate Kind with match resource kinds
+		match := rule.MatchResources
+		exclude := rule.ExcludeResources
+		for _, value := range match.Any {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
+				if err != nil {
+					return warnings, fmt.Errorf("the kind defined in the any match resource is invalid: %w", err)
+				}
+			}
+		}
+		for _, value := range match.All {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
+				if err != nil {
+					return warnings, fmt.Errorf("the kind defined in the all match resource is invalid: %w", err)
+				}
+			}
+		}
+		for _, value := range exclude.Any {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
+				if err != nil {
+					return warnings, fmt.Errorf("the kind defined in the any exclude resource is invalid: %w", err)
+				}
+			}
+		}
+		for _, value := range exclude.All {
+			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
+				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
+				if err != nil {
+					return warnings, fmt.Errorf("the kind defined in the all exclude resource is invalid: %w", err)
+				}
+			}
+		}
+		if !slices.Contains(rule.MatchResources.Kinds, "*") {
+			err := validateKinds(rule.MatchResources.Kinds, mock, background, rule.HasValidate(), client)
+			if err != nil {
+				return warnings, fmt.Errorf("match resource kind is invalid: %w", err)
+			}
+			err = validateKinds(rule.ExcludeResources.Kinds, mock, background, rule.HasValidate(), client)
+			if err != nil {
+				return warnings, fmt.Errorf("exclude resource kind is invalid: %w", err)
+			}
+		} else {
+			wildcardErr := validateWildcard(rule.MatchResources.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+			wildcardErr = validateWildcard(rule.ExcludeResources.Kinds, spec, rule)
+			if wildcardErr != nil {
+				return warnings, wildcardErr
+			}
+		}
+	}
+
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
 		// check for forward slash
@@ -252,7 +327,9 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
 		if namespaced {
-			return warnings, checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res)
+			if err := checkClusterResourceInMatchAndExclude(rule, clusterResources, policy.GetNamespace(), mock, res); err != nil {
+				return warnings, err
+			}
 		}
 
 		if err := validateActions(i, &rules[i], client, mock); err != nil {
@@ -288,83 +365,13 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		// Validate Kind with match resource kinds
-		match := rule.MatchResources
-		exclude := rule.ExcludeResources
-		for _, value := range match.Any {
-			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
-				if err != nil {
-					return warnings, fmt.Errorf("the kind defined in the any match resource is invalid: %w", err)
-				}
-			}
-		}
-		for _, value := range match.All {
-			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
-				if err != nil {
-					return warnings, fmt.Errorf("the kind defined in the all match resource is invalid: %w", err)
-				}
-			}
-		}
-		for _, value := range exclude.Any {
-			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
-				if err != nil {
-					return warnings, fmt.Errorf("the kind defined in the any exclude resource is invalid: %w", err)
-				}
-			}
-		}
-		for _, value := range exclude.All {
-			wildcardErr := validateWildcard(value.ResourceDescription.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-			if !slices.Contains(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, background, rule.HasValidate(), client)
-				if err != nil {
-					return warnings, fmt.Errorf("the kind defined in the all exclude resource is invalid: %w", err)
-				}
-			}
-		}
-
-		if !slices.Contains(rule.MatchResources.Kinds, "*") {
-			err := validateKinds(rule.MatchResources.Kinds, mock, background, rule.HasValidate(), client)
-			if err != nil {
-				return warnings, fmt.Errorf("match resource kind is invalid: %w", err)
-			}
-			err = validateKinds(rule.ExcludeResources.Kinds, mock, background, rule.HasValidate(), client)
-			if err != nil {
-				return warnings, fmt.Errorf("exclude resource kind is invalid: %w", err)
-			}
-		} else {
-			wildcardErr := validateWildcard(rule.MatchResources.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-			wildcardErr = validateWildcard(rule.ExcludeResources.Kinds, spec, rule)
-			if wildcardErr != nil {
-				return warnings, wildcardErr
-			}
-		}
-
 		// Validate string values in labels
 		if !isLabelAndAnnotationsString(rule) {
 			return warnings, fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
 
+		match := rule.MatchResources
+		exclude := rule.ExcludeResources
 		matchKinds := match.GetKinds()
 		excludeKinds := exclude.GetKinds()
 		allKinds := make([]string, 0, len(matchKinds)+len(excludeKinds))
@@ -754,11 +761,11 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 		return "exclude", errs.ToAggregate()
 	}
 
-	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
+	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !datautils.DeepEqual(rule.MatchResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
 		return "match.", fmt.Errorf("can't specify any/all together with match resources")
 	}
 
-	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
+	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !datautils.DeepEqual(rule.ExcludeResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
 		return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
 	}
 
@@ -825,7 +832,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 	switch typedConditions := kyvernoConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		// validating the conditions under 'any', if there are any
-		if !reflect.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
+		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
 			for i, condition := range typedConditions.AnyConditions {
 				if path, err := validateConditionValues(condition); err != nil {
 					return fmt.Sprintf("%s.any[%d].%s", schemaKey, i, path), err
@@ -833,7 +840,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 			}
 		}
 		// validating the conditions under 'all', if there are any
-		if !reflect.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AllConditions != nil {
+		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AllConditions != nil {
 			for i, condition := range typedConditions.AllConditions {
 				if path, err := validateConditionValues(condition); err != nil {
 					return fmt.Sprintf("%s.all[%d].%s", schemaKey, i, path), err
@@ -1068,7 +1075,7 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 // - kinds is empty array in matched resource block, i.e. kinds: []
 // - selector is invalid
 func validateMatchedResourceDescription(rd kyvernov1.ResourceDescription) (string, error) {
-	if reflect.DeepEqual(rd, kyvernov1.ResourceDescription{}) {
+	if datautils.DeepEqual(rd, kyvernov1.ResourceDescription{}) {
 		return "", fmt.Errorf("match resources not specified")
 	}
 
@@ -1154,7 +1161,7 @@ func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
-	if ok && !reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) {
+	if ok && !datautils.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) {
 		return true
 	}
 	return false
@@ -1210,8 +1217,8 @@ func validateWildcard(kinds []string, spec *kyvernov1.Spec, rule kyvernov1.Rule)
 // and found in the cache, returns error if not found. It also returns an error if background scanning
 // is enabled for a subresource.
 func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidationPolicy bool, client dclient.Interface) error {
-	for _, k := range kinds {
-		if !mock {
+	if !mock {
+		for _, k := range kinds {
 			group, version, kind, subresource := kubeutils.ParseKindSelector(k)
 			gvrss, err := client.Discovery().FindResources(group, version, kind, subresource)
 			if err != nil {
@@ -1222,8 +1229,8 @@ func validateKinds(kinds []string, mock, backgroundScanningEnabled, isValidation
 			}
 			if backgroundScanningEnabled {
 				for gvrs := range gvrss {
-					if strings.Contains(gvrs.Resource, "/") {
-						return fmt.Errorf("background scan enabled with subresource %s", subresource)
+					if gvrs.SubResource != "" {
+						return fmt.Errorf("background scan enabled with subresource %s", k)
 					}
 				}
 			}
