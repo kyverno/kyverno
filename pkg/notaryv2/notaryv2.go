@@ -22,7 +22,6 @@ import (
 	"github.com/regclient/regclient/types/ref"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"go.uber.org/multierr"
-	"gorm.io/gorm/logger"
 )
 
 func NewVerifier() images.ImageVerifier {
@@ -136,7 +135,7 @@ func (v *notaryV2Verifier) verifyOutcomes(outcomes []*notation.VerificationOutco
 }
 
 func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Options) (*images.Response, error) {
-	v.log.V(2).Info("fetching attestations", "reference", opts.ImageRef)
+	v.log.V(3).Info("fetching attestations", "reference", opts.ImageRef)
 
 	rcRepoReference, err := ref.New(opts.ImageRef)
 	if err != nil {
@@ -153,7 +152,7 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 	rcRepoReferrers, err := rcClient.ReferrerList(ctx, rcRepoReference)
 	if err != nil {
 		msg := err.Error()
-		logger.Info("failed to fetch attestations", "error", msg)
+		v.log.V(3).Info("failed to fetch attestations", "error", msg)
 		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
 			return nil, fmt.Errorf("not found")
 		}
@@ -183,7 +182,7 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 		}
 
 		if !match {
-			logger.V(4).Info("predicateType doesn't match, continue", "expected", opts.PredicateType, "received", predicateType)
+			v.log.V(3).V(4).Info("predicateType doesn't match, continue", "expected", opts.PredicateType, "received", predicateType)
 			continue
 		}
 
@@ -202,42 +201,48 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 		targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, repo, remoteVerifyOptions)
 
 		if err != nil {
-			logger.V(4).Info(err, "failed to verify %s", refer)
+			msg := err.Error()
+			v.log.V(3).V(4).Info(msg, "failed to verify %s", refer)
 			continue
 		}
 		if err := v.verifyOutcomes(outcomes); err != nil {
-			logger.V(4).Info(err)
+			msg := err.Error()
+			v.log.V(3).V(4).Info(msg)
 			continue
 		}
 		if targetDesc.Digest != referrer.Digest {
-			logger.V(4).Info("digest mismatch")
+			v.log.V(3).V(4).Info("digest mismatch")
 			continue
 		}
 
 		rcRefer, err := ref.New(rcRepoReference.Registry + "/" + rcRepoReference.Repository + "@" + targetDesc.Digest.String())
 		if err != nil {
-			logger.V(4).Info(err, "failed to create statements %s", targetDesc.Digest.String())
+			msg := err.Error()
+			v.log.V(3).Info(msg, "failed to create statements %s", targetDesc.Digest.String())
 			continue
 		}
 		referrerManifest, err := rcClient.ManifestGet(ctx, rcRefer)
 		if err != nil {
-			logger.V(4).Info(err, "failed to create statements %s", rcRefer)
+			msg := err.Error()
+			v.log.V(3).Info(msg, "failed to create statements %s", rcRefer)
 			continue
 		}
 
 		refManifestBody, err := referrerManifest.RawBody()
 		if err != nil {
-			logger.V(4).Info(err, "failed to create statements %s", rcRefer)
+			msg := err.Error()
+			v.log.V(3).Info(msg, "failed to create statements %s", rcRefer)
 			continue
 		}
 		data := make(map[string]interface{})
 		if err := json.Unmarshal(refManifestBody, &data); err != nil {
-			logger.V(4).Info(err, "failed to create statements %s", rcRefer)
+			msg := err.Error()
+			v.log.V(3).Info(msg, "failed to create statements %s", rcRefer)
 			continue
 		}
 		statements = append(statements, data)
 
-		logger.V(3).Info("verified images", "digest", len(targetDesc.Digest))
+		v.log.V(3).V(3).Info("verified images", "digest", len(targetDesc.Digest))
 	}
 
 	return &images.Response{Digest: rcRepoReference.Digest, Statements: statements}, nil
