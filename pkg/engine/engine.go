@@ -22,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/otel/trace"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -237,4 +238,9 @@ func (e *engine) invokeRuleHandler(
 			return resource, nil
 		},
 	)
+}
+
+// It calls internal.CheckPreconditions()
+func InternalCheckPrecondition(logger logr.Logger, jsonContext enginecontext.Interface, anyAllConditions apiextensions.JSON) (bool, error) {
+	return internal.CheckPreconditions(logger, jsonContext, anyAllConditions)
 }

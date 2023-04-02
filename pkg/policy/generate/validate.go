@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -46,7 +47,7 @@ func (g *Generate) Validate(ctx context.Context) (string, error) {
 	}
 
 	if g.hasForEach() {
-		return g.validateForeach()
+		return g.validateForeach(ctx)
 	}
 
 	if rule.GetData() != nil && rule.Clone != (kyvernov1.CloneFrom{}) {
@@ -191,7 +192,7 @@ func (g *Generate) hasForEach() bool {
 	return len(g.rule.ForEachGeneration) > 0
 }
 
-func (g *Generate) validateForeach() (string, error) {
+func (g *Generate) validateForeach(ctx context.Context) (string, error) {
 	rule := g.rule
 	for _, fe := range rule.ForEachGeneration {
 		for _, sr := range fe.GenerateSubResources {
@@ -223,7 +224,7 @@ func (g *Generate) validateForeach() (string, error) {
 			// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 			// - operations required: create/update/delete/get
 			// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
-			if err := g.canIGenerate(kind, namespace); err != nil {
+			if err := g.canIGenerate(ctx, kind, namespace); err != nil {
 				return "", err
 			}
 		}

@@ -21,11 +21,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	utilsengine "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
@@ -117,7 +118,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 		return nil
 	}
 
-	namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
+	namespaceLabels := utilsengine.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
 	genResources, err = c.applyGenerate(*trigger, *ur, namespaceLabels)
 	if err != nil {
 		// Need not update the status when policy doesn't apply on resource, because all the update requests are removed by the cleanup controller
@@ -317,7 +318,7 @@ func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.Res
 	log := f.log
 	var newGenResources []kyvernov1.ResourceSpec
 
-	preconditionsPassed, err := engine.InternalCheckPrecondition(f.log, f.policyContext, f.rule.GetAnyAllConditions())
+	preconditionsPassed, err := engine.InternalCheckPrecondition(f.log, f.policyContext.JSONContext(), f.rule.GetAnyAllConditions())
 	if err != nil {
 		return newGenResources, err
 	}
@@ -329,7 +330,7 @@ func (f *forEachGenerator) generateForEach(ctx context.Context) ([]kyvernov1.Res
 
 	for _, fe := range f.foreach {
 		var elements []interface{}
-		elements, err = engine.EvaluateList(fe.List, f.policyContext.JSONContext())
+		elements, err = engineutils.EvaluateList(fe.List, f.policyContext.JSONContext())
 		if err != nil {
 			err = fmt.Errorf("%v failed to evaluate list %s", err, fe.List)
 			return newGenResources, err
@@ -361,7 +362,7 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 		f.policyContext.JSONContext().Reset()
 		falseVar := false
 		policyContext := f.policyContext.Copy()
-		if err := engine.AddElementToContext(policyContext, element, i, f.nesting, &falseVar); err != nil {
+		if err := engineutils.AddElementToContext(policyContext, element, i, f.nesting, &falseVar); err != nil {
 			err = fmt.Errorf("%v failed to add element to context", err)
 			return newGenResources, err
 		}
@@ -371,7 +372,7 @@ func (f *forEachGenerator) generateElements(ctx context.Context, foreach kyverno
 				return newGenResources, err
 			}
 
-			preconditionsPassed, err := engine.InternalCheckPrecondition(f.log, policyContext, subResource.AnyAllConditions)
+			preconditionsPassed, err := engine.InternalCheckPrecondition(f.log, policyContext.JSONContext(), subResource.AnyAllConditions)
 			if err != nil {
 				return newGenResources, err
 			}
