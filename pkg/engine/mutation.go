@@ -30,18 +30,19 @@ func (e *engine) mutate(
 	for _, rule := range autogen.ComputeRules(policy) {
 		startTime := time.Now()
 		logger := internal.LoggerWithRule(logger, rule)
-		if !rule.HasMutate() {
-			continue
-		}
-		var handler handlers.Handler
-		handler = e.mutateResourceHandler
-		if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
-			handler = e.mutateExistingHandler
+		handlerFactory := func() (handlers.Handler, error) {
+			if !rule.HasMutate() {
+				return nil, nil
+			}
+			if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
+				return e.mutateExistingHandler, nil
+			}
+			return e.mutateResourceHandler, nil
 		}
 		resource, ruleResp := e.invokeRuleHandler(
 			ctx,
 			logger,
-			handler,
+			handlerFactory,
 			policyContext,
 			matchedResource,
 			rule,
