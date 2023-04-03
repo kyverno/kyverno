@@ -16,15 +16,8 @@ type Handler interface {
 		engineapi.PolicyContext,
 		unstructured.Unstructured,
 		kyvernov1.Rule,
+		engineapi.EngineContextLoader,
 	) (unstructured.Unstructured, []engineapi.RuleResponse)
-}
-
-type HandlerFactory = func() (Handler, error)
-
-func WithHandler(handler Handler) HandlerFactory {
-	return func() (Handler, error) {
-		return handler, nil
-	}
 }
 
 func RuleResponses(rrs ...*engineapi.RuleResponse) []engineapi.RuleResponse {

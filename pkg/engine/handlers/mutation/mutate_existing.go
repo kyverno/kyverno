@@ -14,17 +14,14 @@ import (
 )
 
 type mutateExistingHandler struct {
-	client        dclient.Interface
-	contextLoader engineapi.EngineContextLoaderFactory
+	client dclient.Interface
 }
 
 func NewMutateExistingHandler(
 	client dclient.Interface,
-	contextLoader engineapi.EngineContextLoaderFactory,
 ) handlers.Handler {
 	return mutateExistingHandler{
-		client:        client,
-		contextLoader: contextLoader,
+		client: client,
 	}
 }
 
@@ -34,9 +31,8 @@ func (h mutateExistingHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	policy := policyContext.Policy()
-	contextLoader := h.contextLoader(policy, rule)
 	var responses []engineapi.RuleResponse
 	logger.V(3).Info("processing mutate rule")
 	targets, err := loadTargets(h.client, rule.Mutation.Targets, policyContext, logger)
