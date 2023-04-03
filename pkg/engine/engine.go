@@ -23,16 +23,11 @@ import (
 )
 
 type engine struct {
-	configuration              config.Configuration
-	client                     dclient.Interface
-	rclient                    registryclient.Client
-	engineContextLoaderFactory engineapi.EngineContextLoaderFactory
-	exceptionSelector          engineapi.PolicyExceptionSelector
-	// validateResourceHandler    handlers.Handler
-	// // validateManifestHandler    handlers.Handler
-	// // validatePssHandler         handlers.Handler
-	// mutateResourceHandler handlers.Handler
-	// mutateExistingHandler handlers.Handler
+	configuration     config.Configuration
+	client            dclient.Interface
+	rclient           registryclient.Client
+	contextLoader     engineapi.ContextLoaderFactory
+	exceptionSelector engineapi.PolicyExceptionSelector
 }
 
 type handlerFactory = func() (handlers.Handler, error)
@@ -44,29 +39,12 @@ func NewEngine(
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 ) engineapi.Engine {
-	engineContextLoaderFactory := func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.EngineContextLoader {
-		loader := contextLoader(policy, rule)
-		return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
-			return loader.Load(
-				ctx,
-				client,
-				rclient,
-				contextEntries,
-				jsonContext,
-			)
-		}
-	}
 	return &engine{
-		configuration:              configuration,
-		client:                     client,
-		rclient:                    rclient,
-		engineContextLoaderFactory: engineContextLoaderFactory,
-		exceptionSelector:          exceptionSelector,
-		// validateResourceHandler:    validation.NewValidateResourceHandler(),
-		// // validateManifestHandler:    validation.NewValidateManifestHandler(client),
-		// // validatePssHandler:         validation.NewValidatePssHandler(),
-		// mutateResourceHandler: mutation.NewMutateResourceHandler(),
-		// mutateExistingHandler: mutation.NewMutateExistingHandler(client),
+		configuration:     configuration,
+		client:            client,
+		rclient:           rclient,
+		contextLoader:     contextLoader,
+		exceptionSelector: exceptionSelector,
 	}
 }
 
@@ -142,7 +120,16 @@ func (e *engine) ContextLoader(
 	policy kyvernov1.PolicyInterface,
 	rule kyvernov1.Rule,
 ) engineapi.EngineContextLoader {
-	return e.engineContextLoaderFactory(policy, rule)
+	loader := e.contextLoader(policy, rule)
+	return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+		return loader.Load(
+			ctx,
+			e.client,
+			e.rclient,
+			contextEntries,
+			jsonContext,
+		)
+	}
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule

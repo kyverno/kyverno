@@ -439,7 +439,9 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 
 		// skip variable checks on mutate.targets, they will be validated separately
 		withoutTargets := ruleCopy.DeepCopy()
-		withoutTargets.Mutation.Targets = nil
+		for i := range withoutTargets.Mutation.Targets {
+			withoutTargets.Mutation.Targets[i].RawAnyAllConditions = nil
+		}
 		ctx := buildContext(withoutTargets, background, false, nil)
 		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *withoutTargets); !variables.CheckNotFoundErr(err) {
 			return fmt.Errorf("variable substitution failed for rule %s: %s", withoutTargets.Name, err.Error())
@@ -571,8 +573,8 @@ func buildContext(rule *kyvernov1.Rule, background bool, target bool, targetCont
 	for _, fe := range rule.Mutation.ForEachMutation {
 		addContextVariables(fe.Context, ctx)
 	}
-	if target {
-		addContextVariables(targetContext, ctx)
+	for _, fe := range rule.Mutation.Targets {
+		addContextVariables(fe.Context, ctx)
 	}
 	return ctx
 }
