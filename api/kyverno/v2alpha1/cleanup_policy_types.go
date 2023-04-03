@@ -199,13 +199,11 @@ func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set
 }
 
 func ValidateContext(path *field.Path, context []kyvernov1.ContextEntry) (errs field.ErrorList) {
-	if context != nil {
-		for _, entry := range context {
-			if entry.ImageRegistry != nil {
-				errs = append(errs, field.Invalid(path, context, "ImageRegistry is not allowed in CleanUp Policy"))
-			} else if entry.ConfigMap != nil {
-				errs = append(errs, field.Invalid(path, context, "ConfigMap is not allowed in CleanUp Policy"))
-			}
+	for _, entry := range context {
+		if entry.ImageRegistry != nil {
+			errs = append(errs, field.Invalid(path, context, "ImageRegistry is not allowed in CleanUp Policy"))
+		} else if entry.ConfigMap != nil {
+			errs = append(errs, field.Invalid(path, context, "ConfigMap is not allowed in CleanUp Policy"))
 		}
 	}
 	return errs
