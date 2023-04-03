@@ -19,10 +19,10 @@ type mutateExistingHandler struct {
 
 func NewMutateExistingHandler(
 	client dclient.Interface,
-) handlers.Handler {
+) (handlers.Handler, error) {
 	return mutateExistingHandler{
 		client: client,
-	}
+	}, nil
 }
 
 func (h mutateExistingHandler) Process(

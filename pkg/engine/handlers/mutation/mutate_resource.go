@@ -14,8 +14,8 @@ import (
 
 type mutateResourceHandler struct{}
 
-func NewMutateResourceHandler() handlers.Handler {
-	return mutateResourceHandler{}
+func NewMutateResourceHandler() (handlers.Handler, error) {
+	return mutateResourceHandler{}, nil
 }
 
 func (h mutateResourceHandler) Process(

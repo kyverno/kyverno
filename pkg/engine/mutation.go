@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -35,9 +36,9 @@ func (e *engine) mutate(
 				return nil, nil
 			}
 			if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
-				return e.mutateExistingHandler, nil
+				return mutation.NewMutateExistingHandler(e.client)
 			}
-			return e.mutateResourceHandler, nil
+			return mutation.NewMutateResourceHandler()
 		}
 		resource, ruleResp := e.invokeRuleHandler(
 			ctx,

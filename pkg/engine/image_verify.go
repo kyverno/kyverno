@@ -62,6 +62,6 @@ func (e *engine) verifyAndPatchImages(
 			break
 		}
 	}
-	// TODO: i doesn't make sense to not return the patched resource here
+	// TODO: it doesn't make sense to not return the patched resource here
 	return resp, ivm
 }

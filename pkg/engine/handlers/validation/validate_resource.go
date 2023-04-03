@@ -23,8 +23,8 @@ import (
 
 type validateResourceHandler struct{}
 
-func NewValidateResourceHandler() handlers.Handler {
-	return validateResourceHandler{}
+func NewValidateResourceHandler() (handlers.Handler, error) {
+	return validateResourceHandler{}, nil
 }
 
 func (h validateResourceHandler) Process(

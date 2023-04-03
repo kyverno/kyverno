@@ -46,7 +46,7 @@ func (e *engine) validate(
 				} else if hasValidatePss {
 					return validation.NewValidatePssHandler()
 				} else {
-					return e.validateResourceHandler, nil
+					return validation.NewValidateResourceHandler()
 				}
 			} else if hasVerifyImageChecks {
 				return validation.NewValidateImageHandler(

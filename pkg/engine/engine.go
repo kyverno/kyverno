@@ -13,8 +13,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
-	"github.com/kyverno/kyverno/pkg/engine/handlers/validation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -30,11 +28,11 @@ type engine struct {
 	rclient                    registryclient.Client
 	engineContextLoaderFactory engineapi.EngineContextLoaderFactory
 	exceptionSelector          engineapi.PolicyExceptionSelector
-	validateResourceHandler    handlers.Handler
-	// validateManifestHandler    handlers.Handler
-	// validatePssHandler         handlers.Handler
-	mutateResourceHandler handlers.Handler
-	mutateExistingHandler handlers.Handler
+	// validateResourceHandler    handlers.Handler
+	// // validateManifestHandler    handlers.Handler
+	// // validatePssHandler         handlers.Handler
+	// mutateResourceHandler handlers.Handler
+	// mutateExistingHandler handlers.Handler
 }
 
 type handlerFactory = func() (handlers.Handler, error)
@@ -64,11 +62,11 @@ func NewEngine(
 		rclient:                    rclient,
 		engineContextLoaderFactory: engineContextLoaderFactory,
 		exceptionSelector:          exceptionSelector,
-		validateResourceHandler:    validation.NewValidateResourceHandler(),
-		// validateManifestHandler:    validation.NewValidateManifestHandler(client),
-		// validatePssHandler:         validation.NewValidatePssHandler(),
-		mutateResourceHandler: mutation.NewMutateResourceHandler(),
-		mutateExistingHandler: mutation.NewMutateExistingHandler(client),
+		// validateResourceHandler:    validation.NewValidateResourceHandler(),
+		// // validateManifestHandler:    validation.NewValidateManifestHandler(client),
+		// // validatePssHandler:         validation.NewValidatePssHandler(),
+		// mutateResourceHandler: mutation.NewMutateResourceHandler(),
+		// mutateExistingHandler: mutation.NewMutateExistingHandler(client),
 	}
 }
 
