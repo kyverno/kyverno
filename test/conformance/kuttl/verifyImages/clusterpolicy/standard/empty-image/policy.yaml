@@ -1,11 +1,12 @@
 apiVersion: kyverno.io/v1
-kind: Policy
+kind: ClusterPolicy
 metadata:
   name: keyed-basic-policy
 spec:
-  validationFailureAction: Audit
-  background: true
+  validationFailureAction: enforce
+  background: false
   webhookTimeoutSeconds: 30
+  failurePolicy: Fail
   rules:
   - name: keyed-basic-rule
     match:
@@ -15,10 +16,7 @@ spec:
           - Pod
     verifyImages:
     - imageReferences:
-      - ghcr.io/kyverno/test-verify-image:*
-      verifyDigest: false
-      mutateDigest: false
-      required: false
+      - '*'
       attestors:
       - entries:
         - keys:
