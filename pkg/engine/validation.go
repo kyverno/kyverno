@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
-	"github.com/kyverno/kyverno/pkg/engine/handlers/validation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 )
 
@@ -19,56 +18,49 @@ func (e *engine) validate(
 	policyContext engineapi.PolicyContext,
 ) engineapi.PolicyResponse {
 	resp := engineapi.NewPolicyResponse()
+	policy := policyContext.Policy()
+	matchedResource := policyContext.NewResource()
+	applyRules := policy.GetSpec().GetApplyRules()
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	applyRules := policyContext.Policy().GetSpec().GetApplyRules()
-
-	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
-		logger := internal.LoggerWithRule(logger, rule)
+	for _, rule := range autogen.ComputeRules(policy) {
 		startTime := time.Now()
+		logger := internal.LoggerWithRule(logger, rule)
 		hasValidate := rule.HasValidate()
 		hasVerifyImageChecks := rule.HasVerifyImageChecks()
 		if !hasValidate && !hasVerifyImageChecks {
 			continue
 		}
-		var handlerFactory handlers.HandlerFactory
+		var handler handlers.Handler
 		if hasValidate {
 			hasVerifyManifest := rule.HasVerifyManifests()
 			hasValidatePss := rule.HasValidatePodSecurity()
 			if hasVerifyManifest {
-				handlerFactory = handlers.WithHandler(e.validateManifestHandler)
+				handler = e.validateManifestHandler
 			} else if hasValidatePss {
-				handlerFactory = handlers.WithHandler(e.validatePssHandler)
+				handler = e.validatePssHandler
 			} else {
-				handlerFactory = handlers.WithHandler(e.validateResourceHandler)
+				handler = e.validateResourceHandler
 			}
 		} else if hasVerifyImageChecks {
-			handlerFactory = func() (handlers.Handler, error) {
-				return validation.NewValidateImageHandler(
-					policyContext,
-					policyContext.NewResource(),
-					rule,
-					e.configuration,
-				)
-			}
+			handler = e.validateImageHandler
 		}
-		if handlerFactory != nil {
-			_, ruleResp := e.invokeRuleHandler(
-				ctx,
-				logger,
-				handlerFactory,
-				policyContext,
-				policyContext.NewResource(),
-				rule,
-				engineapi.Validation,
-			)
-			for _, ruleResp := range ruleResp {
-				ruleResp := ruleResp
-				internal.AddRuleResponse(&resp, &ruleResp, startTime)
-				logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
-			}
+		resource, ruleResp := e.invokeRuleHandler(
+			ctx,
+			logger,
+			handler,
+			policyContext,
+			matchedResource,
+			rule,
+			engineapi.Validation,
+		)
+		matchedResource = resource
+		for _, ruleResp := range ruleResp {
+			ruleResp := ruleResp
+			internal.AddRuleResponse(&resp, &ruleResp, startTime)
+			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
 		}
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
