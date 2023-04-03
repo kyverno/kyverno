@@ -1,0 +1,6 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-org
+  namespace: pol-clone-sync-delete-trigger-ns
