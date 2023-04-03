@@ -35,7 +35,7 @@ metadata:
       key in a ConfigMap called `key` in the `default` Namespace
       and also a Namespace key in the same ConfigMap.
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   background: true
   rules:
     - name: check-image-with-two-keys

@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: mutatedigest-policy
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   webhookTimeoutSeconds: 30
   rules:
     - name: mutatedigest-rule
