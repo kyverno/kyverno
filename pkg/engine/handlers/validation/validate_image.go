@@ -23,6 +23,9 @@ func NewValidateImageHandler(
 	rule kyvernov1.Rule,
 	configuration config.Configuration,
 ) (handlers.Handler, error) {
+	if engineutils.IsDeleteRequest(policyContext) {
+		return nil, nil
+	}
 	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
 	if err != nil {
 		return nil, err
@@ -41,9 +44,6 @@ func (h validateImageHandler) Process(
 	rule kyvernov1.Rule,
 	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	if engineutils.IsDeleteRequest(policyContext) {
-		return resource, nil
-	}
 	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.RawAnyAllConditions)
 	if err != nil {
 		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to evaluate preconditions", err))

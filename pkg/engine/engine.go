@@ -31,11 +31,10 @@ type engine struct {
 	engineContextLoaderFactory engineapi.EngineContextLoaderFactory
 	exceptionSelector          engineapi.PolicyExceptionSelector
 	validateResourceHandler    handlers.Handler
-	validateManifestHandler    handlers.Handler
-	validatePssHandler         handlers.Handler
-	validateImageHandler       handlers.Handler
-	mutateResourceHandler      handlers.Handler
-	mutateExistingHandler      handlers.Handler
+	// validateManifestHandler    handlers.Handler
+	// validatePssHandler         handlers.Handler
+	mutateResourceHandler handlers.Handler
+	mutateExistingHandler handlers.Handler
 }
 
 type handlerFactory = func() (handlers.Handler, error)
@@ -66,10 +65,10 @@ func NewEngine(
 		engineContextLoaderFactory: engineContextLoaderFactory,
 		exceptionSelector:          exceptionSelector,
 		validateResourceHandler:    validation.NewValidateResourceHandler(),
-		validateManifestHandler:    validation.NewValidateManifestHandler(client),
-		validatePssHandler:         validation.NewValidatePssHandler(),
-		mutateResourceHandler:      mutation.NewMutateResourceHandler(),
-		mutateExistingHandler:      mutation.NewMutateExistingHandler(client),
+		// validateManifestHandler:    validation.NewValidateManifestHandler(client),
+		// validatePssHandler:         validation.NewValidatePssHandler(),
+		mutateResourceHandler: mutation.NewMutateResourceHandler(),
+		mutateExistingHandler: mutation.NewMutateExistingHandler(client),
 	}
 }
 
@@ -216,7 +215,8 @@ func (e *engine) invokeRuleHandler(
 					return resource, handlers.RuleResponses(ruleResp)
 				}
 				// load rule context
-				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
+				contextLoader := e.ContextLoader(policyContext.Policy(), rule)
+				if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
 					if _, ok := err.(gojmespath.NotFoundError); ok {
 						logger.V(3).Info("failed to load context", "reason", err.Error())
 					} else {
@@ -233,7 +233,7 @@ func (e *engine) invokeRuleHandler(
 					return resource, handlers.RuleResponses(internal.RuleSkip(rule, ruleType, "preconditions not met"))
 				}
 				// process handler
-				return handler.Process(ctx, logger, policyContext, resource, rule, e.ContextLoader(policyContext.Policy(), rule))
+				return handler.Process(ctx, logger, policyContext, resource, rule, contextLoader)
 			}
 			return resource, nil
 		},

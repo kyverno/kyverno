@@ -39,9 +39,12 @@ func (e *engine) validate(
 				hasVerifyManifest := rule.HasVerifyManifests()
 				hasValidatePss := rule.HasValidatePodSecurity()
 				if hasVerifyManifest {
-					return e.validateManifestHandler, nil
+					return validation.NewValidateManifestHandler(
+						policyContext,
+						e.client,
+					)
 				} else if hasValidatePss {
-					return e.validatePssHandler, nil
+					return validation.NewValidatePssHandler()
 				} else {
 					return e.validateResourceHandler, nil
 				}
