@@ -15,6 +15,7 @@ import (
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/verifier"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	oci_desc_v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/regclient/regclient"
 	"github.com/regclient/regclient/config"
@@ -139,7 +140,7 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 
 	rcRepoReference, err := ref.New(opts.ImageRef)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	rcConfigHost := config.Host{
@@ -160,20 +161,8 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 		return nil, err
 	}
 	rcReferrersDescs := rcRepoReferrers.Descriptors
-	statements := make([]map[string]interface{}, 0)
 
-	certsPEM := combineCerts(opts)
-	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to parse certificates")
-	}
-
-	trustStore := NewTrustStore("kyverno", certs)
-	policyDoc := v.buildPolicy()
-	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to created verifier")
-	}
+	var statements []map[string]interface{}
 
 	for _, referrer := range rcReferrersDescs {
 		match, predicateType, err := matchArtifactType(referrer, opts.PredicateType)
@@ -182,70 +171,111 @@ func (v *notaryV2Verifier) FetchAttestations(ctx context.Context, opts images.Op
 		}
 
 		if !match {
-			v.log.V(3).V(4).Info("predicateType doesn't match, continue", "expected", opts.PredicateType, "received", predicateType)
+			v.log.V(3).Info("predicateType doesn't match, continue", "expected", opts.PredicateType, "received", predicateType)
 			continue
 		}
 
-		reference := rcRepoReferrers.Subject.Registry + "/" + rcRepoReference.Repository + "@" + referrer.Digest.String()
-		repo, parsedRef, err := parseReference(ctx, reference, opts.RegistryClient)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
-		}
-
-		refer := parsedRef.String()
-		remoteVerifyOptions := notation.RemoteVerifyOptions{
-			ArtifactReference:    refer,
-			MaxSignatureAttempts: 10,
-		}
-
-		targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, repo, remoteVerifyOptions)
-
+		targetDesc, err := verifyAttestators(ctx, v, opts, referrer)
 		if err != nil {
 			msg := err.Error()
-			v.log.V(3).V(4).Info(msg, "failed to verify %s", refer)
-			continue
-		}
-		if err := v.verifyOutcomes(outcomes); err != nil {
-			msg := err.Error()
-			v.log.V(3).V(4).Info(msg)
-			continue
-		}
-		if targetDesc.Digest != referrer.Digest {
-			v.log.V(3).V(4).Info("digest mismatch")
+			v.log.V(3).Info(msg, "failed to verify referrer %s", targetDesc.Digest.String())
 			continue
 		}
 
-		rcRefer, err := ref.New(rcRepoReference.Registry + "/" + rcRepoReference.Repository + "@" + targetDesc.Digest.String())
+		statements, err = extractStatements(ctx, rcClient, opts, targetDesc)
 		if err != nil {
 			msg := err.Error()
-			v.log.V(3).Info(msg, "failed to create statements %s", targetDesc.Digest.String())
-			continue
-		}
-		referrerManifest, err := rcClient.ManifestGet(ctx, rcRefer)
-		if err != nil {
-			msg := err.Error()
-			v.log.V(3).Info(msg, "failed to create statements %s", rcRefer)
+			v.log.V(3).Info(msg, "failed to extract statements %s", targetDesc.Digest.String())
 			continue
 		}
 
-		refManifestBody, err := referrerManifest.RawBody()
-		if err != nil {
-			msg := err.Error()
-			v.log.V(3).Info(msg, "failed to create statements %s", rcRefer)
-			continue
-		}
-		data := make(map[string]interface{})
-		if err := json.Unmarshal(refManifestBody, &data); err != nil {
-			msg := err.Error()
-			v.log.V(3).Info(msg, "failed to create statements %s", rcRefer)
-			continue
-		}
-		statements = append(statements, data)
-
-		v.log.V(3).V(3).Info("verified images", "digest", len(targetDesc.Digest))
+		v.log.V(3).Info("verified images", "digest", len(targetDesc.Digest))
+		break
 	}
 
 	return &images.Response{Digest: rcRepoReference.Digest, Statements: statements}, nil
+}
+
+func verifyAttestators(ctx context.Context, v *notaryV2Verifier, opts images.Options, desc types.Descriptor) (oci_desc_v1.Descriptor, error) {
+	rcRepoReference, err := ref.New(opts.ImageRef)
+	if err != nil {
+		return oci_desc_v1.Descriptor{}, err
+	}
+
+	certsPEM := combineCerts(opts)
+	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
+	if err != nil {
+		return oci_desc_v1.Descriptor{}, errors.Wrapf(err, "failed to parse certificates")
+	}
+
+	trustStore := NewTrustStore("kyverno", certs)
+	policyDoc := v.buildPolicy()
+	notationVerifier, err := verifier.New(policyDoc, trustStore, nil)
+	if err != nil {
+		return oci_desc_v1.Descriptor{}, errors.Wrapf(err, "failed to created verifier")
+	}
+
+	reference := rcRepoReference.Registry + "/" + rcRepoReference.Repository + "@" + desc.Digest.String()
+	repo, parsedRef, err := parseReference(ctx, reference, opts.RegistryClient)
+	if err != nil {
+		return oci_desc_v1.Descriptor{}, errors.Wrapf(err, "failed to parse image reference: %s", opts.ImageRef)
+	}
+
+	refer := parsedRef.String()
+	remoteVerifyOptions := notation.RemoteVerifyOptions{
+		ArtifactReference:    refer,
+		MaxSignatureAttempts: 10,
+	}
+
+	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, repo, remoteVerifyOptions)
+
+	if err != nil {
+		return targetDesc, err
+	}
+	if err := v.verifyOutcomes(outcomes); err != nil {
+		return targetDesc, err
+	}
+	if targetDesc.Digest != desc.Digest {
+		return targetDesc, errors.Errorf("digest mismatch")
+	}
+
+	return targetDesc, nil
+}
+
+func extractStatements(ctx context.Context, rcClient *regclient.RegClient, opts images.Options, targetDesc oci_desc_v1.Descriptor) ([]map[string]interface{}, error) {
+	statements := make([]map[string]interface{}, 0)
+	data, err := extractStatement(ctx, rcClient, opts, targetDesc)
+	if err != nil {
+		return nil, err
+	}
+	statements = append(statements, data)
+	return statements, nil
+}
+
+func extractStatement(ctx context.Context, rcClient *regclient.RegClient, opts images.Options, targetDesc oci_desc_v1.Descriptor) (map[string]interface{}, error) {
+	rcRepoReference, err := ref.New(opts.ImageRef)
+	if err != nil {
+		return nil, err
+	}
+	rcRefer, err := ref.New(rcRepoReference.Registry + "/" + rcRepoReference.Repository + "@" + targetDesc.Digest.String())
+	if err != nil {
+		return nil, err
+	}
+	referrerManifest, err := rcClient.ManifestGet(ctx, rcRefer)
+	if err != nil {
+		return nil, err
+	}
+
+	refManifestBody, err := referrerManifest.RawBody()
+	if err != nil {
+		return nil, err
+	}
+
+	data := make(map[string]interface{})
+	if err := json.Unmarshal(refManifestBody, &data); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func matchArtifactType(ref types.Descriptor, expectedArtifactType string) (bool, string, error) {
