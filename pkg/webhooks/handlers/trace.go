@@ -35,32 +35,30 @@ func (inner HttpHandler) WithTrace(name string) HttpHandler {
 }
 
 func (inner AdmissionHandler) WithTrace(name string) AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
 		return tracing.Span1(
 			ctx,
 			"webhooks/handlers",
 			fmt.Sprintf("%s %s %s", name, request.Operation, request.Kind),
-			func(ctx context.Context, span trace.Span) *admissionv1.AdmissionResponse {
+			func(ctx context.Context, span trace.Span) admissionv1.AdmissionResponse {
 				response := inner(ctx, logger, request, startTime)
-				if response != nil {
+				span.SetAttributes(
+					tracing.ResponseUidKey.String(tracing.StringValue(string(response.UID))),
+					tracing.ResponseAllowedKey.Bool(response.Allowed),
+					tracing.ResponseWarningsKey.StringSlice(response.Warnings),
+				)
+				if response.Result != nil {
 					span.SetAttributes(
-						tracing.ResponseUidKey.String(tracing.StringValue(string(response.UID))),
-						tracing.ResponseAllowedKey.Bool(response.Allowed),
-						tracing.ResponseWarningsKey.StringSlice(response.Warnings),
+						tracing.ResponseResultStatusKey.String(tracing.StringValue(response.Result.Status)),
+						tracing.ResponseResultMessageKey.String(tracing.StringValue(response.Result.Message)),
+						tracing.ResponseResultReasonKey.String(tracing.StringValue(string(response.Result.Reason))),
+						tracing.ResponseResultCodeKey.Int(int(response.Result.Code)),
 					)
-					if response.Result != nil {
-						span.SetAttributes(
-							tracing.ResponseResultStatusKey.String(tracing.StringValue(response.Result.Status)),
-							tracing.ResponseResultMessageKey.String(tracing.StringValue(response.Result.Message)),
-							tracing.ResponseResultReasonKey.String(tracing.StringValue(string(response.Result.Reason))),
-							tracing.ResponseResultCodeKey.Int(int(response.Result.Code)),
-						)
-					}
-					if response.PatchType != nil {
-						span.SetAttributes(
-							tracing.ResponsePatchTypeKey.String(tracing.StringValue(string(*response.PatchType))),
-						)
-					}
+				}
+				if response.PatchType != nil {
+					span.SetAttributes(
+						tracing.ResponsePatchTypeKey.String(tracing.StringValue(string(*response.PatchType))),
+					)
 				}
 				return response
 			},
@@ -69,7 +67,7 @@ func (inner AdmissionHandler) WithTrace(name string) AdmissionHandler {
 				tracing.RequestNamespaceKey.String(tracing.StringValue(request.Namespace)),
 				tracing.RequestUidKey.String(tracing.StringValue(string(request.UID))),
 				tracing.RequestOperationKey.String(tracing.StringValue(string(request.Operation))),
-				tracing.RequestDryRunKey.Bool(admissionutils.IsDryRun(request)),
+				tracing.RequestDryRunKey.Bool(admissionutils.IsDryRun(&request)),
 				tracing.RequestKindGroupKey.String(tracing.StringValue(request.Kind.Group)),
 				tracing.RequestKindVersionKey.String(tracing.StringValue(request.Kind.Version)),
 				tracing.RequestKindKindKey.String(tracing.StringValue(request.Kind.Kind)),
