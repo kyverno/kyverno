@@ -309,13 +309,6 @@ func main() {
 		controller.Run(signalCtx, logger.WithName("controllers"), &wg)
 	}
 	// start leader election
-	for {
-		select {
-		case <-signalCtx.Done():
-			wg.Wait()
-			return
-		default:
-			le.Run(signalCtx)
-		}
-	}
+	le.Run(signalCtx)
+	wg.Wait()
 }

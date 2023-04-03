@@ -17,16 +17,17 @@ func (e *engine) validate(
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 ) engineapi.PolicyResponse {
-	resp := &engineapi.PolicyResponse{}
+	resp := engineapi.NewPolicyResponse()
+	policy := policyContext.Policy()
+	matchedResource := policyContext.NewResource()
+	applyRules := policy.GetSpec().GetApplyRules()
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
 
-	applyRules := policyContext.Policy().GetSpec().GetApplyRules()
-
-	for _, rule := range autogen.ComputeRules(policyContext.Policy()) {
-		logger := internal.LoggerWithRule(logger, rule)
+	for _, rule := range autogen.ComputeRules(policy) {
 		startTime := time.Now()
+		logger := internal.LoggerWithRule(logger, rule)
 		hasValidate := rule.HasValidate()
 		hasVerifyImageChecks := rule.HasVerifyImageChecks()
 		if !hasValidate && !hasVerifyImageChecks {
@@ -46,17 +47,24 @@ func (e *engine) validate(
 		} else if hasVerifyImageChecks {
 			handler = e.validateImageHandler
 		}
-		if handler != nil {
-			_, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, policyContext.NewResource(), rule, engineapi.Validation)
-			for _, ruleResp := range ruleResp {
-				ruleResp := ruleResp
-				internal.AddRuleResponse(resp, &ruleResp, startTime)
-				logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
-			}
+		resource, ruleResp := e.invokeRuleHandler(
+			ctx,
+			logger,
+			handler,
+			policyContext,
+			matchedResource,
+			rule,
+			engineapi.Validation,
+		)
+		matchedResource = resource
+		for _, ruleResp := range ruleResp {
+			ruleResp := ruleResp
+			internal.AddRuleResponse(&resp, &ruleResp, startTime)
+			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
 		}
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break
 		}
 	}
-	return *resp
+	return resp
 }

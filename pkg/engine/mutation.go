@@ -8,6 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -21,11 +22,10 @@ func (e *engine) mutate(
 	resp := engineapi.NewPolicyResponse()
 	policy := policyContext.Policy()
 	matchedResource := policyContext.NewResource()
+	applyRules := policy.GetSpec().GetApplyRules()
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
-
-	applyRules := policy.GetSpec().GetApplyRules()
 
 	for _, rule := range autogen.ComputeRules(policy) {
 		startTime := time.Now()
@@ -33,11 +33,20 @@ func (e *engine) mutate(
 		if !rule.HasMutate() {
 			continue
 		}
-		handler := e.mutateResourceHandler
+		var handler handlers.Handler
+		handler = e.mutateResourceHandler
 		if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
 			handler = e.mutateExistingHandler
 		}
-		resource, ruleResp := e.invokeRuleHandler(ctx, logger, handler, policyContext, matchedResource, rule, engineapi.Mutation)
+		resource, ruleResp := e.invokeRuleHandler(
+			ctx,
+			logger,
+			handler,
+			policyContext,
+			matchedResource,
+			rule,
+			engineapi.Mutation,
+		)
 		matchedResource = resource
 		for _, ruleResp := range ruleResp {
 			ruleResp := ruleResp

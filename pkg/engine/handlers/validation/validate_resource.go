@@ -21,16 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type validateResourceHandler struct {
-	contextLoader engineapi.EngineContextLoaderFactory
-}
+type validateResourceHandler struct{}
 
-func NewValidateResourceHandler(
-	contextLoader engineapi.EngineContextLoaderFactory,
-) handlers.Handler {
-	return validateResourceHandler{
-		contextLoader: contextLoader,
-	}
+func NewValidateResourceHandler() handlers.Handler {
+	return validateResourceHandler{}
 }
 
 func (h validateResourceHandler) Process(
@@ -39,9 +33,8 @@ func (h validateResourceHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	policy := policyContext.Policy()
-	contextLoader := h.contextLoader(policy, rule)
 	v := newValidator(logger, contextLoader, policyContext, rule)
 	return resource, handlers.RuleResponses(v.validate(ctx))
 }
@@ -87,12 +80,10 @@ func newForEachValidator(
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
 	}
-
 	nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](foreach.ForEachValidation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
 	}
-
 	return &validator{
 		log:              log,
 		policyContext:    ctx,
@@ -112,12 +103,10 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	if err := v.loadContext(ctx); err != nil {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to load context", err)
 	}
-
-	preconditionsPassed, err := internal.CheckPreconditions(v.log, v.policyContext, v.anyAllConditions)
+	preconditionsPassed, err := internal.CheckPreconditions(v.log, v.policyContext.JSONContext(), v.anyAllConditions)
 	if err != nil {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}
-
 	if !preconditionsPassed {
 		return internal.RuleSkip(v.rule, engineapi.Validation, "preconditions not met")
 	}
@@ -222,15 +211,13 @@ func (v *validator) loadContext(ctx context.Context) error {
 		} else {
 			v.log.Error(err, "failed to load context")
 		}
-
 		return err
 	}
-
 	return nil
 }
 
 func (v *validator) validateDeny() *engineapi.RuleResponse {
-	if deny, err := internal.CheckDenyPreconditions(v.log, v.policyContext, v.deny.GetAnyAllConditions()); err != nil {
+	if deny, err := internal.CheckDenyPreconditions(v.log, v.policyContext.JSONContext(), v.deny.GetAnyAllConditions()); err != nil {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to check deny preconditions", err)
 	} else {
 		if deny {

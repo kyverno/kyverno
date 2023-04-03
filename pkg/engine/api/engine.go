@@ -4,7 +4,6 @@ import (
 	"context"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 )
 
@@ -28,6 +27,12 @@ type Engine interface {
 		policyContext PolicyContext,
 	) EngineResponse
 
+	// Generate checks for validity of generate rule on the resource
+	Generate(
+		ctx context.Context,
+		policyContext PolicyContext,
+	) EngineResponse
+
 	// VerifyAndPatchImages ...
 	VerifyAndPatchImages(
 		ctx context.Context,
@@ -42,13 +47,6 @@ type Engine interface {
 	ApplyBackgroundChecks(
 		ctx context.Context,
 		policyContext PolicyContext,
-	) EngineResponse
-
-	// GenerateResponse checks for validity of generate rule on the resource
-	GenerateResponse(
-		ctx context.Context,
-		policyContext PolicyContext,
-		gr kyvernov1beta1.UpdateRequest,
 	) EngineResponse
 
 	ContextLoader(
