@@ -31,7 +31,7 @@ type server struct {
 
 type (
 	TlsProvider       = func() ([]byte, []byte, error)
-	ValidationHandler = func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	ValidationHandler = func(context.Context, logr.Logger, admissionv1.AdmissionRequest, time.Time) admissionv1.AdmissionResponse
 	CleanupHandler    = func(context.Context, logr.Logger, string, time.Time, config.Configuration) error
 )
 

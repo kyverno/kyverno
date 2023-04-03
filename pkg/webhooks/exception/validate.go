@@ -22,8 +22,8 @@ func NewHandlers(validationOptions validation.ValidationOptions) webhooks.Except
 }
 
 // Validate performs the validation check on policy exception resources
-func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-	polex, _, err := admissionutils.GetPolicyExceptions(request)
+func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
+	polex, _, err := admissionutils.GetPolicyExceptions(&request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policy exceptions from admission request")
 		return admissionutils.Response(request.UID, err)

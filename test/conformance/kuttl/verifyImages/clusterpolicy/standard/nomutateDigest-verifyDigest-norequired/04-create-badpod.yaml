@@ -2,13 +2,6 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-commands:
-- script: |
-    if kubectl apply -f badpod.yaml
-    then 
-      echo "Tested failed. Bad pod was created when it shouldn't have been."
-      exit 1 
-    else 
-      echo "Test succeeded. Bad pod was not created as intended."
-      exit 0
-    fi
+apply:
+- file: badpod.yaml
+  shouldFail: true
