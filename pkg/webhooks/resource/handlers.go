@@ -120,7 +120,7 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request adm
 
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
-	policyContext, err := h.pcBuilder.Build(&request)
+	policyContext, err := h.pcBuilder.Build(request)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed create policy context")
 	}
@@ -132,12 +132,12 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request adm
 	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration)
 
-	ok, msg, warnings := vh.HandleValidation(ctx, &request, policies, policyContext, startTime)
+	ok, msg, warnings := vh.HandleValidation(ctx, request, policies, policyContext, startTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
 	}
-	if !admissionutils.IsDryRun(&request) {
+	if !admissionutils.IsDryRun(request) {
 		go h.handleBackgroundApplies(ctx, logger, &request, policyContext, generatePolicies, mutatePolicies, startTime)
 	}
 	return admissionutils.ResponseSuccess(request.UID, warnings...)
@@ -155,7 +155,7 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request admis
 		return admissionutils.ResponseSuccess(request.UID)
 	}
 	logger.V(4).Info("processing policies for mutate admission request", "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
-	policyContext, err := h.pcBuilder.Build(&request)
+	policyContext, err := h.pcBuilder.Build(request)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
@@ -168,13 +168,13 @@ func (h *handlers) Mutate(ctx context.Context, logger logr.Logger, request admis
 	}
 	newRequest := patchRequest(mutatePatches, request, logger)
 	// rebuild context to process images updated via mutate policies
-	policyContext, err = h.pcBuilder.Build(&newRequest)
+	policyContext, err = h.pcBuilder.Build(newRequest)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
 	ivh := imageverification.NewImageVerificationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.admissionReports, h.configuration)
-	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, &newRequest, verifyImagesPolicies, policyContext)
+	imagePatches, imageVerifyWarnings, err := ivh.Handle(ctx, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")
 		return admissionutils.Response(request.UID, err)

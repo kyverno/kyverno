@@ -29,7 +29,7 @@ func (inner AdmissionHandler) withProtection() AdmissionHandler {
 		if request.Operation == admissionv1.Delete && request.UserInfo.Username == namespaceControllerUsername {
 			return inner(ctx, logger, request, startTime)
 		}
-		newResource, oldResource, err := admissionutils.ExtractResources(nil, &request)
+		newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
 		if err != nil {
 			logger.Error(err, "Failed to extract resources")
 			return admissionutils.Response(request.UID, err)
