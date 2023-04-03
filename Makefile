@@ -515,21 +515,6 @@ codegen-helm-crds: codegen-crds-all ## Generate helm CRDs
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
 
-.PHONY: codegen-manifest-install
-codegen-manifest-install: $(HELM) ## Create install manifest
-	@echo Generate install manifest... >&2
-	@mkdir -p ./.manifest
-	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
-		--set templating.enabled=true \
-		--set templating.version=latest \
-		--set admissionController.container.image.tag=latest \
-		--set admissionController.initContainer.image.tag=latest \
-		--set cleanupController.image.tag=latest \
-		--set reportsController.image.tag=latest \
-		--set backgroundController.image.tag=latest \
- 		| $(SED) -e '/^#.*/d' \
-		> ./.manifest/install-latest-testing.yaml
-
 .PHONY: codegen-manifest-install-latest
 codegen-manifest-install-latest: $(HELM) ## Create install_latest manifest
 	@echo Generate latest install manifest... >&2
@@ -575,7 +560,7 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 		> ./.manifest/release.yaml
 
 .PHONY: codegen-manifest-all
-codegen-manifest-all: codegen-manifest-install codegen-manifest-install-latest codegen-manifest-debug codegen-manifest-release ## Create all manifests
+codegen-manifest-all: codegen-manifest-install-latest codegen-manifest-debug codegen-manifest-release ## Create all manifests
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
