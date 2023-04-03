@@ -55,16 +55,14 @@ type validator struct {
 
 func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
 	return &validator{
-		log:              log,
-		rule:             rule,
-		policyContext:    ctx,
-		contextLoader:    contextLoader,
-		contextEntries:   rule.Context,
-		anyAllConditions: rule.GetAnyAllConditions(),
-		pattern:          rule.Validation.GetPattern(),
-		anyPattern:       rule.Validation.GetAnyPattern(),
-		deny:             rule.Validation.Deny,
-		forEach:          rule.Validation.ForEachValidation,
+		log:           log,
+		rule:          rule,
+		policyContext: ctx,
+		contextLoader: contextLoader,
+		pattern:       rule.Validation.GetPattern(),
+		anyPattern:    rule.Validation.GetAnyPattern(),
+		deny:          rule.Validation.Deny,
+		forEach:       rule.Validation.ForEachValidation,
 	}
 }
 

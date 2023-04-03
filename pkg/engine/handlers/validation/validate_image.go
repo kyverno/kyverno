@@ -42,18 +42,8 @@ func (h validateImageHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-	contextLoader engineapi.EngineContextLoader,
+	_ engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.RawAnyAllConditions)
-	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to evaluate preconditions", err))
-	}
-	if !preconditionsPassed {
-		if policyContext.Policy().GetSpec().ValidationFailureAction.Audit() {
-			return resource, nil
-		}
-		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.Validation, "preconditions not met"))
-	}
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
 		for _, infoMap := range policyContext.JSONContext().ImageInfo() {

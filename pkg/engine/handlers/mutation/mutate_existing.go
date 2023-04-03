@@ -50,7 +50,6 @@ func (h mutateExistingHandler) Process(
 			logger.Error(err, "failed to add target resource to the context")
 			continue
 		}
-
 		// load target specific context
 		if err := contextLoader(ctx, target.context, policyContext.JSONContext()); err != nil {
 			rr := internal.RuleError(rule, engineapi.Mutation, "failed to load context", err)

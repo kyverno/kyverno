@@ -32,6 +32,9 @@ func NewMutateImageHandler(
 	rclient registryclient.Client,
 	ivm *engineapi.ImageVerificationMetadata,
 ) (handlers.Handler, error) {
+	if len(rule.VerifyImages) == 0 {
+		return nil, nil
+	}
 	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
 	if err != nil {
 		return nil, err
@@ -55,9 +58,6 @@ func (h mutateImageHandler) Process(
 	rule kyvernov1.Rule,
 	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	if len(rule.VerifyImages) == 0 {
-		return resource, nil
-	}
 	jsonContext := policyContext.JSONContext()
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {

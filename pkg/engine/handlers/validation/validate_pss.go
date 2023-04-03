@@ -30,7 +30,7 @@ func (h validatePssHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-	contextLoader engineapi.EngineContextLoader,
+	_ engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// Marshal pod metadata and spec
 	podSecurity := rule.Validation.PodSecurity
