@@ -14,17 +14,26 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func mutateResource(rule *kyvernov1.Rule, policyContext engineapi.PolicyContext, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
+func mutateResource(
+	ctx context.Context,
+	contextLoader engineapi.EngineContextLoader,
+	rule kyvernov1.Rule,
+	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
+	logger logr.Logger,
+) *mutate.Response {
+	if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
+		logger.Error(err, "failed to load context")
+		return mutate.NewErrorResponse("failed to load context", err)
+	}
 	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
 	if err != nil {
 		return mutate.NewErrorResponse("failed to evaluate preconditions", err)
 	}
-
 	if !preconditionsPassed {
 		return mutate.NewResponse(engineapi.RuleStatusSkip, resource, nil, "preconditions not met")
 	}
-
-	return mutate.Mutate(rule, policyContext.JSONContext(), resource, logger)
+	return mutate.Mutate(&rule, policyContext.JSONContext(), resource, logger)
 }
 
 type forEachMutator struct {
