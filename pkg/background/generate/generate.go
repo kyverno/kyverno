@@ -162,7 +162,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	}
 
 	// check if the policy still applies to the resource
-	engineResponse := c.engine.GenerateResponse(context.Background(), policyContext, ur)
+	engineResponse := c.engine.Generate(context.Background(), policyContext)
 	if len(engineResponse.PolicyResponse.Rules) == 0 {
 		logger.V(4).Info(doesNotApply)
 		return nil, errors.New(doesNotApply)

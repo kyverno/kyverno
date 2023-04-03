@@ -8,21 +8,20 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// mutate performs mutation. Overlay first and then mutation patches
-func (e *engine) mutate(
+func (e *engine) verifyAndPatchImages(
 	ctx context.Context,
 	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
-) (engineapi.PolicyResponse, unstructured.Unstructured) {
+) (engineapi.PolicyResponse, engineapi.ImageVerificationMetadata) {
 	resp := engineapi.NewPolicyResponse()
 	policy := policyContext.Policy()
 	matchedResource := policyContext.NewResource()
 	applyRules := policy.GetSpec().GetApplyRules()
+	ivm := engineapi.ImageVerificationMetadata{}
 
 	policyContext.JSONContext().Checkpoint()
 	defer policyContext.JSONContext().Restore()
@@ -30,14 +29,14 @@ func (e *engine) mutate(
 	for _, rule := range autogen.ComputeRules(policy) {
 		startTime := time.Now()
 		logger := internal.LoggerWithRule(logger, rule)
-		if !rule.HasMutate() {
+		if !rule.HasVerifyImages() {
 			continue
 		}
-		var handler handlers.Handler
-		handler = e.mutateResourceHandler
-		if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
-			handler = e.mutateExistingHandler
-		}
+		handler := mutation.NewMutateImageHandler(
+			e.configuration,
+			e.rclient,
+			&ivm,
+		)
 		resource, ruleResp := e.invokeRuleHandler(
 			ctx,
 			logger,
@@ -45,7 +44,7 @@ func (e *engine) mutate(
 			policyContext,
 			matchedResource,
 			rule,
-			engineapi.Mutation,
+			engineapi.ImageVerify,
 		)
 		matchedResource = resource
 		for _, ruleResp := range ruleResp {
@@ -57,5 +56,6 @@ func (e *engine) mutate(
 			break
 		}
 	}
-	return resp, matchedResource
+	// TODO: i doesn't make sense to not return the patched resource here
+	return resp, ivm
 }
