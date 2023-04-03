@@ -33,7 +33,7 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			HttpError(request.Context(), writer, request, logger, errors.New("invalid Content-Type"), http.StatusUnsupportedMediaType)
 			return
 		}
-		admissionReview := &admissionv1.AdmissionReview{}
+		var admissionReview admissionv1.AdmissionReview
 		if err := json.Unmarshal(body, &admissionReview); err != nil {
 			HttpError(request.Context(), writer, request, logger, err, http.StatusExpectationFailed)
 			return
@@ -51,8 +51,11 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			Allowed: true,
 			UID:     admissionReview.Request.UID,
 		}
-		// TODO: check request is not nil ?
-		admissionResponse := inner(request.Context(), logger, *admissionReview.Request, startTime)
+		admissionRequest := AdmissionRequest{
+			AdmissionRequest: *admissionReview.Request,
+			// TODO: roles/clusterroles
+		}
+		admissionResponse := inner(request.Context(), logger, admissionRequest, startTime)
 		admissionReview.Response = &admissionResponse
 		responseJSON, err := json.Marshal(admissionReview)
 		if err != nil {

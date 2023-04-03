@@ -19,11 +19,11 @@ func buildURSpec(requestType kyvernov1beta1.RequestType, policyKey, ruleName str
 	}
 }
 
-func buildURContext(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) kyvernov1beta1.UpdateRequestSpecContext {
+func buildURContext(request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) kyvernov1beta1.UpdateRequestSpecContext {
 	return kyvernov1beta1.UpdateRequestSpecContext{
 		UserRequestInfo: policyContext.AdmissionInfo(),
 		AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
-			AdmissionRequest: request,
+			AdmissionRequest: &request,
 			Operation:        request.Operation,
 		},
 	}

@@ -25,7 +25,7 @@ import (
 )
 
 type GenerationHandler interface {
-	Handle(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext)
+	Handle(context.Context, admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext)
 }
 
 func NewGenerationHandler(
@@ -72,7 +72,7 @@ type generationHandler struct {
 
 func (h *generationHandler) Handle(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) {
@@ -101,7 +101,7 @@ func getAppliedRules(policy kyvernov1.PolicyInterface, applied []engineapi.RuleR
 
 func (h *generationHandler) handleTrigger(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 ) {
@@ -132,7 +132,7 @@ func (h *generationHandler) handleTrigger(
 func (h *generationHandler) handleNonTrigger(
 	ctx context.Context,
 	policyContext *engine.PolicyContext,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 ) {
 	resource := policyContext.OldResource()
 	labels := resource.GetLabels()
@@ -146,7 +146,7 @@ func (h *generationHandler) handleNonTrigger(
 
 func (h *generationHandler) applyGeneration(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policy kyvernov1.PolicyInterface,
 	appliedRules []engineapi.RuleResponse,
 	policyContext *engine.PolicyContext,
@@ -182,7 +182,7 @@ func (h *generationHandler) applyGeneration(
 // it can be 1. trigger deletion; 2. trigger no longer matches, when a rule fails
 func (h *generationHandler) syncTriggerAction(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policy kyvernov1.PolicyInterface,
 	failedRules []engineapi.RuleResponse,
 	policyContext *engine.PolicyContext,
@@ -231,7 +231,7 @@ func (h *generationHandler) syncTriggerAction(
 	}
 }
 
-func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.PolicyContext, request *admissionv1.AdmissionRequest) (err error) {
+func (h *generationHandler) createUR(ctx context.Context, policyContext *engine.PolicyContext, request admissionv1.AdmissionRequest) (err error) {
 	var policy kyvernov1.PolicyInterface
 	new := policyContext.NewResource()
 	labels := new.GetLabels()
