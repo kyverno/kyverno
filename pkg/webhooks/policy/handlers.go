@@ -25,8 +25,8 @@ func NewHandlers(client dclient.Interface, openApiManager openapi.Manager) webho
 	}
 }
 
-func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	policy, oldPolicy, err := admissionutils.GetPolicies(request)
+func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, _ time.Time) admissionv1.AdmissionResponse {
+	policy, oldPolicy, err := admissionutils.GetPolicies(&request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
@@ -38,6 +38,6 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 	return admissionutils.Response(request.UID, err, warnings...)
 }
 
-func (h *handlers) Mutate(_ context.Context, _ logr.Logger, _ *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	return nil
+func (h *handlers) Mutate(_ context.Context, _ logr.Logger, request admissionv1.AdmissionRequest, _ time.Time) admissionv1.AdmissionResponse {
+	return admissionutils.ResponseSuccess(request.UID)
 }
