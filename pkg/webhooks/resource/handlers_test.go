@@ -11,9 +11,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var policyCheckLabel = `{
