@@ -96,10 +96,10 @@ func NewServer(
 			return handler.
 				WithFilter(configuration).
 				WithProtection(toggle.ProtectManagedResources.Enabled()).
-				WithDump(debugModeOpts.DumpPayload, rbLister, crbLister).
+				WithDump(debugModeOpts.DumpPayload).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
-				WithAdmission(resourceLogger.WithName("mutate"))
+				WithAdmission(resourceLogger.WithName("mutate"), rbLister, crbLister)
 		},
 	)
 	registerWebhookHandlers(
@@ -111,45 +111,45 @@ func NewServer(
 			return handler.
 				WithFilter(configuration).
 				WithProtection(toggle.ProtectManagedResources.Enabled()).
-				WithDump(debugModeOpts.DumpPayload, rbLister, crbLister).
+				WithDump(debugModeOpts.DumpPayload).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
-				WithAdmission(resourceLogger.WithName("validate"))
+				WithAdmission(resourceLogger.WithName("validate"), rbLister, crbLister)
 		},
 	)
 	mux.HandlerFunc(
 		"POST",
 		config.PolicyMutatingWebhookServicePath,
 		handlers.FromAdmissionFunc("MUTATE", policyHandlers.Mutate).
-			WithDump(debugModeOpts.DumpPayload, rbLister, crbLister).
+			WithDump(debugModeOpts.DumpPayload).
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookMutating).
-			WithAdmission(policyLogger.WithName("mutate")).
+			WithAdmission(policyLogger.WithName("mutate"), rbLister, crbLister).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
 		"POST",
 		config.PolicyValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", policyHandlers.Validate).
-			WithDump(debugModeOpts.DumpPayload, rbLister, crbLister).
+			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
-			WithAdmission(policyLogger.WithName("validate")).
+			WithAdmission(policyLogger.WithName("validate"), rbLister, crbLister).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
 		"POST",
 		config.ExceptionValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", exceptionHandlers.Validate).
-			WithDump(debugModeOpts.DumpPayload, rbLister, crbLister).
+			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
-			WithAdmission(exceptionLogger.WithName("validate")).
+			WithAdmission(exceptionLogger.WithName("validate"), rbLister, crbLister).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
 		"POST",
 		config.VerifyMutatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VERIFY", handlers.Verify).
-			WithAdmission(verifyLogger.WithName("mutate")).
+			WithAdmission(verifyLogger.WithName("mutate"), rbLister, crbLister).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))

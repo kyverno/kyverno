@@ -96,7 +96,7 @@ func NewHandlers(
 		urGenerator:      urGenerator,
 		eventGen:         eventGen,
 		openApiManager:   openApiManager,
-		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
+		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client),
 		admissionReports: admissionReports,
 	}
 }
@@ -120,7 +120,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
-	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest)
+	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles)
 	if err != nil {
 		return errorResponse(logger, request.UID, err, "failed create policy context")
 	}
@@ -132,7 +132,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 	policyContext = policyContext.WithNamespaceLabels(namespaceLabels)
 	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.engine, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports, h.metricsConfig, h.configuration)
 
-	ok, msg, warnings := vh.HandleValidation(ctx, request.AdmissionRequest, policies, policyContext, startTime)
+	ok, msg, warnings := vh.HandleValidation(ctx, request, policies, policyContext, startTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.Response(request.UID, errors.New(msg), warnings...)
@@ -155,7 +155,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		return admissionutils.ResponseSuccess(request.UID)
 	}
 	logger.V(4).Info("processing policies for mutate admission request", "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
-	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest)
+	policyContext, err := h.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
@@ -168,7 +168,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 	}
 	newRequest := patchRequest(mutatePatches, request.AdmissionRequest, logger)
 	// rebuild context to process images updated via mutate policies
-	policyContext, err = h.pcBuilder.Build(newRequest)
+	policyContext, err = h.pcBuilder.Build(newRequest, request.Roles, request.ClusterRoles)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)

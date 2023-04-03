@@ -12,6 +12,12 @@ import (
 type AdmissionRequest struct {
 	// AdmissionRequest is the original admission request.
 	admissionv1.AdmissionRequest
+
+	// Roles is a list of possible role send the request.
+	Roles []string
+
+	// ClusterRoles is a list of possible clusterRoles send the request.
+	ClusterRoles []string
 }
 
 type AdmissionResponse = admissionv1.AdmissionResponse
