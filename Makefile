@@ -660,7 +660,7 @@ test: test-clean test-unit ## Clean tests cache then run unit tests
 .PHONY: test-clean
 test-clean: ## Clean tests cache
 	@echo Clean test cache... >&2
-	@go clean -testcache ./...
+	@go clean -testcache
 
 .PHONY: test-unit
 test-unit: test-clean $(GO_ACC) ## Run unit tests
