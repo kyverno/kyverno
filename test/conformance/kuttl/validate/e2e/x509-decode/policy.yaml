@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: test-x509-decode
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   rules:
   - name: test-x509-decode
     match:
