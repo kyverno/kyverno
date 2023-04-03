@@ -14,7 +14,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -39,10 +38,16 @@ type validateManifestHandler struct {
 	client dclient.Interface
 }
 
-func NewValidateManifestHandler(client dclient.Interface) handlers.Handler {
+func NewValidateManifestHandler(
+	policyContext engineapi.PolicyContext,
+	client dclient.Interface,
+) (handlers.Handler, error) {
+	if engineutils.IsDeleteRequest(policyContext) {
+		return nil, nil
+	}
 	return validateManifestHandler{
 		client: client,
-	}
+	}, nil
 }
 
 func (h validateManifestHandler) Process(
@@ -51,28 +56,8 @@ func (h validateManifestHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-	contextLoader engineapi.EngineContextLoader,
+	_ engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	if engineutils.IsDeleteRequest(policyContext) {
-		return resource, nil
-	}
-	// load context
-	if err := contextLoader(ctx, rule.Context, policyContext.JSONContext()); err != nil {
-		if _, ok := err.(gojmespath.NotFoundError); ok {
-			logger.V(3).Info("failed to load context", "reason", err.Error())
-		} else {
-			logger.Error(err, "failed to load context")
-		}
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to load context", err))
-	}
-	// check preconditions
-	preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
-	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "failed to evaluate preconditions", err))
-	}
-	if !preconditionsPassed {
-		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.Validation, "preconditions not met"))
-	}
 	// verify manifest
 	verified, reason, err := h.verifyManifest(ctx, logger, policyContext, *rule.Validation.Manifests)
 	if err != nil {

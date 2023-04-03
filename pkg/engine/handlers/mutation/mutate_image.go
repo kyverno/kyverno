@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -14,6 +13,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -21,18 +21,33 @@ type mutateImageHandler struct {
 	configuration config.Configuration
 	rclient       registryclient.Client
 	ivm           *engineapi.ImageVerificationMetadata
+	images        []apiutils.ImageInfo
 }
 
 func NewMutateImageHandler(
+	policyContext engineapi.PolicyContext,
+	resource unstructured.Unstructured,
+	rule kyvernov1.Rule,
 	configuration config.Configuration,
 	rclient registryclient.Client,
 	ivm *engineapi.ImageVerificationMetadata,
-) handlers.Handler {
+) (handlers.Handler, error) {
+	if len(rule.VerifyImages) == 0 {
+		return nil, nil
+	}
+	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
+	if err != nil {
+		return nil, err
+	}
+	if len(ruleImages) == 0 {
+		return nil, nil
+	}
 	return mutateImageHandler{
 		configuration: configuration,
 		rclient:       rclient,
 		ivm:           ivm,
-	}
+		images:        ruleImages,
+	}, nil
 }
 
 func (h mutateImageHandler) Process(
@@ -43,37 +58,7 @@ func (h mutateImageHandler) Process(
 	rule kyvernov1.Rule,
 	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	if engineutils.IsDeleteRequest(policyContext) {
-		return resource, nil
-	}
-	if len(rule.VerifyImages) == 0 {
-		return resource, nil
-	}
-	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, h.configuration)
-	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.ImageVerify, "failed to extract images", err))
-	}
-	if len(ruleImages) == 0 {
-		return resource, nil
-	}
 	jsonContext := policyContext.JSONContext()
-	// load context
-	if err := contextLoader(ctx, rule.Context, jsonContext); err != nil {
-		if _, ok := err.(gojmespath.NotFoundError); ok {
-			logger.V(3).Info("failed to load context", "reason", err.Error())
-		} else {
-			logger.Error(err, "failed to load context")
-		}
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.ImageVerify, "failed to load context", err))
-	}
-	// check preconditions
-	preconditionsPassed, err := internal.CheckPreconditions(logger, jsonContext, rule.GetAnyAllConditions())
-	if err != nil {
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.ImageVerify, "failed to evaluate preconditions", err))
-	}
-	if !preconditionsPassed {
-		return resource, handlers.RuleResponses(internal.RuleSkip(rule, engineapi.ImageVerify, "preconditions not met"))
-	}
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {
 		return resource, handlers.RuleResponses(
@@ -83,7 +68,7 @@ func (h mutateImageHandler) Process(
 	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm)
 	var engineResponses []*engineapi.RuleResponse
 	for _, imageVerify := range ruleCopy.VerifyImages {
-		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, ruleImages, h.configuration)...)
+		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)
 	}
 	return resource, handlers.RuleResponses(engineResponses...)
 }

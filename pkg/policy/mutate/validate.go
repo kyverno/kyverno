@@ -90,7 +90,7 @@ func (m *Mutate) hasPatchesJSON6902() bool {
 	return m.mutation.PatchesJSON6902 != ""
 }
 
-func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.ResourceSpec) error {
+func (m *Mutate) validateAuth(ctx context.Context, targets []kyvernov1.TargetResourceSpec) error {
 	var errs []error
 	for _, target := range targets {
 		if !regex.IsVariable(target.Namespace) {
