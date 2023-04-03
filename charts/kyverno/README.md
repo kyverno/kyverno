@@ -148,7 +148,7 @@ In `v3` chart values changed significantly, please read the instructions below t
 - `initImage` has been replaced with `admissionController.initContainer.image`
 - `initResources` has been replaced with `admissionController.initContainer.resources`
 - `image` has been replaced with `admissionController.container.image`
-- `image.pullSecrets` has been replaced with `admissionController.pullSecrets`
+- `image.pullSecrets` has been replaced with `admissionController.imagePullSecrets`
 - `resources` has been replaced with `admissionController.container.resources`
 - `service` has been replaced with `admissionController.service`
 - `metricsService` has been replaced with `admissionController.metricsService`
@@ -227,6 +227,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | customLabels | object | `{}` | Additional labels |
 | webhooksCleanup.enabled | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
+| webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
 | grafana.configMapName | string | `"{{ include \"kyverno.fullname\" . }}-grafana"` | Configmap name template. |
 | grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
@@ -258,7 +259,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | admissionController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
 | admissionController.tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
 | admissionController.sigstoreVolume | object | `{"emptyDir":{}}` | Volume to be mounted in pods for TUF/cosign work. |
-| admissionController.pullSecrets | list | `[]` | Image pull secrets |
+| admissionController.imagePullSecrets | list | `[]` | Image pull secrets |
 | admissionController.initContainer.image.registry | string | `"ghcr.io"` | Image registry |
 | admissionController.initContainer.image.repository | string | `"kyverno/kyvernopre"` | Image repository |
 | admissionController.initContainer.image.tag | string | `nil` | Image tag If missing, defaults to image.tag |
@@ -317,7 +318,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | cleanupController.image.repository | string | `"kyverno/cleanup-controller"` | Image repository |
 | cleanupController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | cleanupController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| cleanupController.image.pullSecrets | list | `[]` | Image pull secrets |
+| cleanupController.imagePullSecrets | list | `[]` | Image pull secrets |
 | cleanupController.replicas | int | `nil` | Desired number of pods |
 | cleanupController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | cleanupController.priorityClassName | string | `""` | Optional priority class |
@@ -377,7 +378,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.image.repository | string | `"kyverno/reports-controller"` | Image repository |
 | reportsController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | reportsController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| reportsController.image.pullSecrets | list | `[]` | Image pull secrets |
+| reportsController.imagePullSecrets | list | `[]` | Image pull secrets |
 | reportsController.replicas | int | `nil` | Desired number of pods |
 | reportsController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | reportsController.priorityClassName | string | `""` | Optional priority class |
@@ -432,7 +433,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | backgroundController.image.repository | string | `"ghcr.io/kyverno/background-controller"` | Image repository |
 | backgroundController.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | backgroundController.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| backgroundController.image.pullSecrets | list | `[]` | Image pull secrets |
+| backgroundController.imagePullSecrets | list | `[]` | Image pull secrets |
 | backgroundController.replicas | int | `nil` | Desired number of pods |
 | backgroundController.updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | backgroundController.priorityClassName | string | `""` | Optional priority class |
