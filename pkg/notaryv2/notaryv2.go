@@ -202,6 +202,18 @@ func verifyAttestators(ctx context.Context, v *notaryV2Verifier, opts images.Opt
 		return oci_desc_v1.Descriptor{}, err
 	}
 
+	if opts.Cert == "" && opts.CertChain == "" {
+		// skips the checks when no attestor is provided
+		return oci_desc_v1.Descriptor{
+			MediaType:    desc.MediaType,
+			Digest:       desc.Digest,
+			Size:         desc.Size,
+			Data:         desc.Data,
+			URLs:         desc.URLs,
+			Annotations:  desc.Annotations,
+			ArtifactType: desc.ArtifactType,
+		}, nil
+	}
 	certsPEM := combineCerts(opts)
 	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader([]byte(certsPEM)))
 	if err != nil {
