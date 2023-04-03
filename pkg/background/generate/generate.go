@@ -494,17 +494,7 @@ func (f *forEachGenerator) forEach(subResource kyvernov1.GenerateSubResource) ([
 
 		label["policy.kyverno.io/gr-name"] = ur.Name
 		if rdata.Action == Create {
-			if subResource.Synchronize {
-				label["policy.kyverno.io/synchronize"] = "enable"
-			} else {
-				label["policy.kyverno.io/synchronize"] = "disable"
-			}
-
-			// Reset resource version
 			newResource.SetResourceVersion("")
-			newResource.SetLabels(label)
-
-			// Create the resource
 			_, err = client.CreateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 			if err != nil {
 				if !apierrors.IsAlreadyExists(err) {
@@ -532,9 +522,6 @@ func (f *forEachGenerator) forEach(subResource kyvernov1.GenerateSubResource) ([
 				// if synchronize is true - update the label and generated resource with generate policy data
 				if subResource.Synchronize {
 					logger.V(4).Info("updating existing resource")
-					label["policy.kyverno.io/synchronize"] = "enable"
-					newResource.SetLabels(label)
-
 					if rdata.GenAPIVersion == "" {
 						generatedResourceAPIVersion := generatedObj.GetAPIVersion()
 						newResource.SetAPIVersion(generatedResourceAPIVersion)
@@ -547,24 +534,6 @@ func (f *forEachGenerator) forEach(subResource kyvernov1.GenerateSubResource) ([
 						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 						if err != nil {
 							logger.Error(err, "failed to update resource")
-							newGenResources = append(newGenResources, noGenResource)
-							break
-						}
-					}
-				} else {
-					currentGeneratedResourcelabel := generatedObj.GetLabels()
-					currentSynclabel := currentGeneratedResourcelabel["policy.kyverno.io/synchronize"]
-
-					// update only if the labels mismatches
-					if (!subResource.Synchronize && currentSynclabel == "enable") ||
-						(subResource.Synchronize && currentSynclabel == "disable") {
-						logger.V(4).Info("updating label in existing resource")
-						currentGeneratedResourcelabel["policy.kyverno.io/synchronize"] = "disable"
-						generatedObj.SetLabels(currentGeneratedResourcelabel)
-
-						_, err = client.UpdateResource(context.TODO(), rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, generatedObj, false)
-						if err != nil {
-							logger.Error(err, "failed to update label in existing resource")
 							newGenResources = append(newGenResources, noGenResource)
 							break
 						}
