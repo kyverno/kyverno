@@ -33,7 +33,7 @@ func buildPolicyEventMessage(resp *engineapi.RuleResponse, resource engineapi.Re
 		fmt.Fprintf(&b, " (blocked)")
 	}
 
-	if resp.Status == engineapi.RuleStatusError && resp.Message != "" {
+	if resp.Message != "" {
 		fmt.Fprintf(&b, "; %s", resp.Message)
 	}
 
@@ -123,7 +123,7 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 	return events
 }
 
-func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) []Info {
+func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, source Source) []Info {
 	exceptionName, exceptionNamespace := ruleResp.Exception.GetName(), ruleResp.Exception.GetNamespace()
 	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", resourceKey(engineResponse.PatchedResource), ruleResp.Name, exceptionNamespace, exceptionName)
 	var exceptionMessage string
@@ -138,6 +138,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 		Namespace: engineResponse.Policy.GetNamespace(),
 		Reason:    PolicySkipped,
 		Message:   policyMessage,
+		Source:    source,
 	}
 	exceptionEvent := Info{
 		Kind:      "PolicyException",
@@ -145,6 +146,7 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 		Namespace: exceptionNamespace,
 		Reason:    PolicySkipped,
 		Message:   exceptionMessage,
+		Source:    source,
 	}
 	return []Info{policyEvent, exceptionEvent}
 }

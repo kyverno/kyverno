@@ -50,7 +50,7 @@ func BuildResponse(ctx engineapi.PolicyContext, resp *engineapi.EngineResponse, 
 		}
 		resp.PatchedResource = resource
 	}
-	resp.PolicyResponse.Stats.ProcessingTime = time.Since(startTime)
-	resp.PolicyResponse.Stats.Timestamp = startTime.Unix()
+	resp.Stats.ProcessingTime = time.Since(startTime)
+	resp.Stats.Timestamp = startTime.Unix()
 	return resp
 }

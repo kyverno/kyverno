@@ -413,14 +413,15 @@ image-build-all: $(BUILD_WITH)-build-all
 # CODEGEN #
 ###########
 
-GOPATH_SHIM        := ${PWD}/.gopath
-PACKAGE_SHIM       := $(GOPATH_SHIM)/src/$(PACKAGE)
-OUT_PACKAGE        := $(PACKAGE)/pkg/client
-INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/policyreport/v1alpha2
-CLIENTSET_PACKAGE  := $(OUT_PACKAGE)/clientset
-LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
-INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
-CRDS_PATH          := ${PWD}/config/crds
+GOPATH_SHIM           := ${PWD}/.gopath
+PACKAGE_SHIM          := $(GOPATH_SHIM)/src/$(PACKAGE)
+OUT_PACKAGE           := $(PACKAGE)/pkg/client
+INPUT_DIRS            := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/policyreport/v1alpha2
+CLIENTSET_PACKAGE     := $(OUT_PACKAGE)/clientset
+LISTERS_PACKAGE       := $(OUT_PACKAGE)/listers
+INFORMERS_PACKAGE     := $(OUT_PACKAGE)/informers
+CRDS_PATH             := ${PWD}/config/crds
+INSTALL_MANIFEST_PATH := ${PWD}/config/install-latest-testing.yaml
 
 $(GOPATH_SHIM):
 	@echo Create gopath shim... >&2
@@ -527,7 +528,7 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 		--set reportsController.image.tag=latest \
 		--set backgroundController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
-		> ./.manifest/install-latest-testing.yaml.yaml
+		> ./.manifest/install-latest-testing.yaml
 
 .PHONY: codegen-manifest-install-latest
 codegen-manifest-install-latest: $(HELM) ## Create install_latest manifest
@@ -633,8 +634,17 @@ verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
+.PHONY: verify-manifests
+verify-manifests: codegen-manifest-all ## Check manifests are up to date
+	@echo Checking manifests are up to date... >&2
+	@git --no-pager diff ${INSTALL_MANIFEST_PATH}
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-manifest-all".' >&2
+	@echo 'To correct this, locally run "make codegen-manifest-all", commit the changes, and re-run tests.' >&2
+	@git diff --quiet --exit-code ${INSTALL_MANIFEST_PATH}
+
+
 .PHONY: verify-codegen
-verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm codegen-manifest-all ## Verify all generated code and docs are up to date
+verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm verify-manifests ## Verify all generated code and docs are up to date
 
 ##############
 # UNIT TESTS #
@@ -650,7 +660,7 @@ test: test-clean test-unit ## Clean tests cache then run unit tests
 .PHONY: test-clean
 test-clean: ## Clean tests cache
 	@echo Clean test cache... >&2
-	@go clean -testcache ./...
+	@go clean -testcache
 
 .PHONY: test-unit
 test-unit: test-clean $(GO_ACC) ## Run unit tests
