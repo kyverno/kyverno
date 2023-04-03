@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: check-trustable-images
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   rules:
   - name: only-allow-trusted-images
     match:
