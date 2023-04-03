@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: tasks-simple
 spec:
-  validationFailureAction: enforce
+  validationFailureAction: Enforce
   rules:
   - name: verify-images
     match:

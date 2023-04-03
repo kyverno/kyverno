@@ -5,7 +5,7 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: Deployment
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - match:
       resources:

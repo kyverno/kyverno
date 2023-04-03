@@ -24,12 +24,12 @@ func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 }
 
 func (inner AdmissionHandler) withProtection() AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
 		// Allows deletion of namespace containing managed resources
 		if request.Operation == admissionv1.Delete && request.UserInfo.Username == namespaceControllerUsername {
 			return inner(ctx, logger, request, startTime)
 		}
-		newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
+		newResource, oldResource, err := admissionutils.ExtractResources(nil, &request)
 		if err != nil {
 			logger.Error(err, "Failed to extract resources")
 			return admissionutils.Response(request.UID, err)

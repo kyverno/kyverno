@@ -21,8 +21,8 @@ func New(client dclient.Interface) *handlers {
 	}
 }
 
-func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
-	policy, _, err := admissionutils.GetCleanupPolicies(request)
+func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, _ time.Time) admissionv1.AdmissionResponse {
+	policy, _, err := admissionutils.GetCleanupPolicies(&request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
@@ -31,5 +31,5 @@ func (h *handlers) Validate(ctx context.Context, logger logr.Logger, request *ad
 		logger.Error(err, "policy validation errors")
 		return admissionutils.Response(request.UID, err)
 	}
-	return nil
+	return admissionutils.ResponseSuccess(request.UID)
 }

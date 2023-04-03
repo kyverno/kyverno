@@ -261,6 +261,8 @@ webhooksCleanup:
   enabled: false
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
+  # -- Image pull secrets
+  imagePullSecrets: []
 
 grafana:
   # -- Enable grafana dashboard creation.
@@ -436,7 +438,7 @@ admissionController:
     emptyDir: {}
 
   # -- Image pull secrets
-  pullSecrets: []
+  imagePullSecrets: []
     # - secretName
 
   initContainer:
@@ -647,8 +649,9 @@ cleanupController:
     tag: ~
     # -- Image pull policy
     pullPolicy: IfNotPresent
-    # -- Image pull secrets
-    pullSecrets: []
+
+  # -- Image pull secrets
+  imagePullSecrets: []
     # - secretName
 
   # -- (int) Desired number of pods
@@ -900,8 +903,9 @@ reportsController:
     tag: ~
     # -- Image pull policy
     pullPolicy: IfNotPresent
-    # -- Image pull secrets
-    pullSecrets: []
+
+  # -- Image pull secrets
+  imagePullSecrets: []
     # - secretName
 
   # -- (int) Desired number of pods
@@ -1155,8 +1159,9 @@ backgroundController:
     tag:  # replaced in e2e tests
     # -- Image pull policy
     pullPolicy: IfNotPresent
-    # -- Image pull secrets
-    pullSecrets: []
+
+  # -- Image pull secrets
+  imagePullSecrets: []
     # - secretName
 
   # -- (int) Desired number of pods

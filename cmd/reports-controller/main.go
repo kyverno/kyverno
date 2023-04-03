@@ -415,13 +415,6 @@ func main() {
 	for _, controller := range nonLeaderControllers {
 		controller.Run(ctx, logger.WithName("controllers"), &wg)
 	}
-	for {
-		select {
-		case <-ctx.Done():
-			wg.Wait()
-			return
-		default:
-			le.Run(ctx)
-		}
-	}
+	le.Run(ctx)
+	wg.Wait()
 }
