@@ -1,5 +1,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 apply:
-- file: badtask.yaml
-  shouldFail: true
+- file: resource.yaml
