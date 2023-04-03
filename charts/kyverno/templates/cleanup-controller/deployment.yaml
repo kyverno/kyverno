@@ -21,7 +21,7 @@ spec:
       labels:
         {{- include "kyverno.cleanup-controller.labels" . | nindent 8 }}
     spec:
-      {{- with .Values.cleanupController.image.pullSecrets }}
+      {{- with .Values.cleanupController.imagePullSecrets }}
       imagePullSecrets: 
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
