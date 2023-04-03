@@ -53,6 +53,7 @@ func (h mutateImageHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	if len(rule.VerifyImages) == 0 {
 		return resource, nil

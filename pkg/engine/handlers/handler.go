@@ -16,6 +16,7 @@ type Handler interface {
 		engineapi.PolicyContext,
 		unstructured.Unstructured,
 		kyvernov1.Rule,
+		engineapi.EngineContextLoader,
 	) (unstructured.Unstructured, []engineapi.RuleResponse)
 }
 
