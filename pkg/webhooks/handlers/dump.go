@@ -32,9 +32,9 @@ func (inner AdmissionHandler) withDump(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 ) AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
 		response := inner(ctx, logger, request, startTime)
-		dumpPayload(logger, rbLister, crbLister, request, response)
+		dumpPayload(logger, rbLister, crbLister, &request, &response)
 		return response
 	}
 }

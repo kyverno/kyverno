@@ -11,7 +11,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func Verify(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+func Verify(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
 	if request.Name != "kyverno-health" || request.Namespace != config.KyvernoNamespace() {
 		return admissionutils.ResponseSuccess(request.UID)
 	}
