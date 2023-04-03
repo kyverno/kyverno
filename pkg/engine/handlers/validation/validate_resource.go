@@ -15,27 +15,16 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type validateResourceHandler struct {
-	contextLoader engineapi.EngineContextLoaderFactory
-}
+type validateResourceHandler struct{}
 
-func NewValidateResourceHandler(
-	contextLoader engineapi.EngineContextLoaderFactory,
-) handlers.Handler {
-	return validateResourceHandler{
-		contextLoader: contextLoader,
-	}
+func NewValidateResourceHandler() handlers.Handler {
+	return validateResourceHandler{}
 }
 
 func (h validateResourceHandler) Process(
@@ -44,9 +33,8 @@ func (h validateResourceHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	policy := policyContext.Policy()
-	contextLoader := h.contextLoader(policy, rule)
 	v := newValidator(logger, contextLoader, policyContext, rule)
 	return resource, handlers.RuleResponses(v.validate(ctx))
 }
@@ -60,7 +48,6 @@ type validator struct {
 	pattern          apiextensions.JSON
 	anyPattern       apiextensions.JSON
 	deny             *kyvernov1.Deny
-	podSecurity      *kyvernov1.PodSecurity
 	forEach          []kyvernov1.ForEachValidation
 	contextLoader    engineapi.EngineContextLoader
 	nesting          int
@@ -77,7 +64,6 @@ func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, 
 		pattern:          rule.Validation.GetPattern(),
 		anyPattern:       rule.Validation.GetAnyPattern(),
 		deny:             rule.Validation.Deny,
-		podSecurity:      rule.Validation.PodSecurity,
 		forEach:          rule.Validation.ForEachValidation,
 	}
 }
@@ -94,12 +80,10 @@ func newForEachValidator(
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
 	}
-
 	nestedForEach, err := api.DeserializeJSONArray[kyvernov1.ForEachValidation](foreach.ForEachValidation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ruleCopy.Validation.ForEachValidation.AnyAllConditions: %w", err)
 	}
-
 	return &validator{
 		log:              log,
 		policyContext:    ctx,
@@ -119,12 +103,10 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 	if err := v.loadContext(ctx); err != nil {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to load context", err)
 	}
-
-	preconditionsPassed, err := internal.CheckPreconditions(v.log, v.policyContext, v.anyAllConditions)
+	preconditionsPassed, err := internal.CheckPreconditions(v.log, v.policyContext.JSONContext(), v.anyAllConditions)
 	if err != nil {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to evaluate preconditions", err)
 	}
-
 	if !preconditionsPassed {
 		return internal.RuleSkip(v.rule, engineapi.Validation, "preconditions not met")
 	}
@@ -140,13 +122,6 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 
 		ruleResponse := v.validateResourceWithRule()
 		return ruleResponse
-	}
-
-	if v.podSecurity != nil {
-		if !engineutils.IsDeleteRequest(v.policyContext) {
-			ruleResponse := v.validatePodSecurity()
-			return ruleResponse
-		}
 	}
 
 	if v.forEach != nil {
@@ -236,15 +211,13 @@ func (v *validator) loadContext(ctx context.Context) error {
 		} else {
 			v.log.Error(err, "failed to load context")
 		}
-
 		return err
 	}
-
 	return nil
 }
 
 func (v *validator) validateDeny() *engineapi.RuleResponse {
-	if deny, err := internal.CheckDenyPreconditions(v.log, v.policyContext, v.deny.GetAnyAllConditions()); err != nil {
+	if deny, err := internal.CheckDenyPreconditions(v.log, v.policyContext.JSONContext(), v.deny.GetAnyAllConditions()); err != nil {
 		return internal.RuleError(v.rule, engineapi.Validation, "failed to check deny preconditions", err)
 	} else {
 		if deny {
@@ -271,93 +244,6 @@ func (v *validator) getDenyMessage(deny bool) string {
 		return typed
 	default:
 		return "the produced message didn't resolve to a string, check your policy definition."
-	}
-}
-
-func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
-	newResource := v.policyContext.NewResource()
-	kind := newResource.GetKind()
-
-	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" || kind == "ReplicaSet" || kind == "ReplicationController" {
-		var deployment appsv1.Deployment
-
-		resourceBytes, err := newResource.MarshalJSON()
-		if err != nil {
-			return nil, nil, err
-		}
-		err = json.Unmarshal(resourceBytes, &deployment)
-		if err != nil {
-			return nil, nil, err
-		}
-		podSpec = &deployment.Spec.Template.Spec
-		metadata = &deployment.Spec.Template.ObjectMeta
-		return podSpec, metadata, nil
-	} else if kind == "CronJob" {
-		var cronJob batchv1.CronJob
-
-		resourceBytes, err := newResource.MarshalJSON()
-		if err != nil {
-			return nil, nil, err
-		}
-		err = json.Unmarshal(resourceBytes, &cronJob)
-		if err != nil {
-			return nil, nil, err
-		}
-		podSpec = &cronJob.Spec.JobTemplate.Spec.Template.Spec
-		metadata = &cronJob.Spec.JobTemplate.ObjectMeta
-	} else if kind == "Pod" {
-		var pod corev1.Pod
-
-		resourceBytes, err := newResource.MarshalJSON()
-		if err != nil {
-			return nil, nil, err
-		}
-		err = json.Unmarshal(resourceBytes, &pod)
-		if err != nil {
-			return nil, nil, err
-		}
-		podSpec = &pod.Spec
-		metadata = &pod.ObjectMeta
-		return podSpec, metadata, nil
-	}
-
-	if err != nil {
-		return nil, nil, err
-	}
-	return podSpec, metadata, err
-}
-
-// Unstructured
-func (v *validator) validatePodSecurity() *engineapi.RuleResponse {
-	// Marshal pod metadata and spec
-	podSpec, metadata, err := getSpec(v)
-	if err != nil {
-		return internal.RuleError(v.rule, engineapi.Validation, "Error while getting new resource", err)
-	}
-
-	pod := &corev1.Pod{
-		Spec:       *podSpec,
-		ObjectMeta: *metadata,
-	}
-	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod)
-	if err != nil {
-		return internal.RuleError(v.rule, engineapi.Validation, "failed to parse pod security api version", err)
-	}
-	podSecurityChecks := &engineapi.PodSecurityChecks{
-		Level:   v.podSecurity.Level,
-		Version: v.podSecurity.Version,
-		Checks:  pssChecks,
-	}
-	if allowed {
-		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
-		rspn := internal.RulePass(v.rule, engineapi.Validation, msg)
-		rspn.PodSecurityChecks = podSecurityChecks
-		return rspn
-	} else {
-		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, v.podSecurity.Level, v.podSecurity.Version, pss.FormatChecksPrint(pssChecks))
-		rspn := internal.RuleResponse(v.rule, engineapi.Validation, msg, engineapi.RuleStatusFail)
-		rspn.PodSecurityChecks = podSecurityChecks
-		return rspn
 	}
 }
 

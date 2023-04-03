@@ -77,31 +77,24 @@ func (r *Rule) HasVerifyImages() bool {
 	return false
 }
 
-// HasYAMLSignatureVerify checks for validate.manifests rule
-func (r Rule) HasYAMLSignatureVerify() bool {
-	return r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
-}
-
-// HasImagesValidationChecks checks whether the verifyImages rule has validation checks
-func (r *Rule) HasImagesValidationChecks() bool {
+// HasVerifyImageChecks checks whether the verifyImages rule has validation checks
+func (r *Rule) HasVerifyImageChecks() bool {
 	for _, v := range r.VerifyImages {
 		if v.VerifyDigest || v.Required {
 			return true
 		}
 	}
-
 	return false
 }
 
-// HasYAMLSignatureVerify checks for validate rule
-func (p *ClusterPolicy) HasYAMLSignatureVerify() bool {
-	for _, rule := range p.Spec.Rules {
-		if rule.HasYAMLSignatureVerify() {
-			return true
-		}
-	}
+// HasVerifyManifests checks for validate.manifests rule
+func (r Rule) HasVerifyManifests() bool {
+	return r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
+}
 
-	return false
+// HasValidatePodSecurity checks for validate.podSecurity rule
+func (r Rule) HasValidatePodSecurity() bool {
+	return r.Validation.PodSecurity != nil && !datautils.DeepEqual(r.Validation.PodSecurity, &kyvernov1.PodSecurity{})
 }
 
 // HasValidate checks for validate rule

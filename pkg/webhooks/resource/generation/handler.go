@@ -203,11 +203,7 @@ func (h *generationHandler) syncTriggerAction(
 	rules := getAppliedRules(policy, failedRules)
 	for _, rule := range rules {
 		// fire generation on trigger deletion
-		if (request.Operation == admissionv1.Delete) && precondition(rule, kyvernov1.Condition{
-			RawKey:   kyvernov1.ToJSON("request.operation"),
-			Operator: "Equals",
-			RawValue: kyvernov1.ToJSON("DELETE"),
-		}) {
+		if (request.Operation == admissionv1.Delete) && matchDeleteOperation(rule) {
 			h.log.V(4).Info("creating the UR to generate downstream on trigger's deletion", "operation", request.Operation, "rule", rule.Name)
 			ur := buildURSpec(kyvernov1beta1.Generate, pKey, rule.Name, urSpec, false)
 			ur.Context = buildURContext(request, policyContext)
