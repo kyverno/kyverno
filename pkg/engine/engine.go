@@ -6,9 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -34,6 +32,7 @@ type engine struct {
 	validateResourceHandler    handlers.Handler
 	validateManifestHandler    handlers.Handler
 	validatePssHandler         handlers.Handler
+	validateImageHandler       handlers.Handler
 	mutateResourceHandler      handlers.Handler
 	mutateExistingHandler      handlers.Handler
 }
@@ -63,11 +62,12 @@ func NewEngine(
 		rclient:                    rclient,
 		engineContextLoaderFactory: engineContextLoaderFactory,
 		exceptionSelector:          exceptionSelector,
-		validateResourceHandler:    validation.NewValidateResourceHandler(engineContextLoaderFactory),
+		validateResourceHandler:    validation.NewValidateResourceHandler(),
 		validateManifestHandler:    validation.NewValidateManifestHandler(client),
 		validatePssHandler:         validation.NewValidatePssHandler(),
-		mutateResourceHandler:      mutation.NewMutateResourceHandler(engineContextLoaderFactory),
-		mutateExistingHandler:      mutation.NewMutateExistingHandler(client, engineContextLoaderFactory),
+		validateImageHandler:       validation.NewValidateImageHandler(configuration),
+		mutateResourceHandler:      mutation.NewMutateResourceHandler(),
+		mutateExistingHandler:      mutation.NewMutateExistingHandler(client),
 	}
 }
 
@@ -99,6 +99,19 @@ func (e *engine) Mutate(
 	return response.Done(time.Now())
 }
 
+func (e *engine) Generate(
+	ctx context.Context,
+	policyContext engineapi.PolicyContext,
+) engineapi.EngineResponse {
+	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
+	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
+	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
+		policyResponse := e.generateResponse(ctx, logger, policyContext)
+		response = response.WithPolicyResponse(policyResponse)
+	}
+	return response.Done(time.Now())
+}
+
 func (e *engine) VerifyAndPatchImages(
 	ctx context.Context,
 	policyContext engineapi.PolicyContext,
@@ -121,20 +134,6 @@ func (e *engine) ApplyBackgroundChecks(
 	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.background"), policyContext)
 	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
 		policyResponse := e.applyBackgroundChecks(ctx, logger, policyContext)
-		response = response.WithPolicyResponse(policyResponse)
-	}
-	return response.Done(time.Now())
-}
-
-func (e *engine) GenerateResponse(
-	ctx context.Context,
-	policyContext engineapi.PolicyContext,
-	gr kyvernov1beta1.UpdateRequest,
-) engineapi.EngineResponse {
-	response := engineapi.NewEngineResponseFromPolicyContext(policyContext, time.Now())
-	logger := internal.LoggerWithPolicyContext(logging.WithName("engine.generate"), policyContext)
-	if internal.MatchPolicyContext(logger, policyContext, e.configuration) {
-		policyResponse := e.generateResponse(ctx, logger, policyContext, gr)
 		response = response.WithPolicyResponse(policyResponse)
 	}
 	return response.Done(time.Now())
@@ -189,7 +188,7 @@ func matches(
 func (e *engine) invokeRuleHandler(
 	ctx context.Context,
 	logger logr.Logger,
-	handlerFactory handlers.HandlerFactory,
+	handler handlers.Handler,
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
@@ -209,32 +208,8 @@ func (e *engine) invokeRuleHandler(
 			if ruleResp := e.hasPolicyExceptions(logger, ruleType, policyContext, rule); ruleResp != nil {
 				return resource, handlers.RuleResponses(ruleResp)
 			}
-			if handlerFactory == nil {
-				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", nil))
-			} else if handler, err := handlerFactory(); err != nil {
-				return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to instantiate handler", err))
-			} else if handler != nil {
-				// load rule context
-				if err := internal.LoadContext(ctx, e, policyContext, rule); err != nil {
-					if _, ok := err.(gojmespath.NotFoundError); ok {
-						logger.V(3).Info("failed to load context", "reason", err.Error())
-					} else {
-						logger.Error(err, "failed to load context")
-					}
-					return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to load context", err))
-				}
-				// check preconditions
-				preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), rule.GetAnyAllConditions())
-				if err != nil {
-					return resource, handlers.RuleResponses(internal.RuleError(rule, ruleType, "failed to evaluate preconditions", err))
-				}
-				if !preconditionsPassed {
-					return resource, handlers.RuleResponses(internal.RuleSkip(rule, ruleType, "preconditions not met"))
-				}
-				// process handler
-				return handler.Process(ctx, logger, policyContext, resource, rule)
-			}
-			return resource, nil
+			// process handler
+			return handler.Process(ctx, logger, policyContext, resource, rule, e.ContextLoader(policyContext.Policy(), rule))
 		},
 	)
 }
