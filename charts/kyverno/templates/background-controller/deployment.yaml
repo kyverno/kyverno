@@ -21,7 +21,7 @@ spec:
       labels:
         {{- include "kyverno.background-controller.labels" . | nindent 8 }}
     spec:
-      {{- with .Values.backgroundController.image.pullSecrets }}
+      {{- with .Values.backgroundController.imagePullSecrets }}
       imagePullSecrets: 
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
