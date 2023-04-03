@@ -65,20 +65,21 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
-	k8s.io/api v0.26.3
-	k8s.io/apiextensions-apiserver v0.26.3
-	k8s.io/apimachinery v0.26.3
-	k8s.io/cli-runtime v0.26.3
-	k8s.io/client-go v0.26.3
+	k8s.io/api v0.27.0-rc.0
+	k8s.io/apiextensions-apiserver v0.27.0-rc.0
+	k8s.io/apimachinery v0.27.0-rc.0
+	k8s.io/apiserver v0.27.0-rc.0
+	k8s.io/cli-runtime v0.27.0-rc.0
+	k8s.io/client-go v0.27.0-rc.0
 	k8s.io/klog/v2 v2.90.1
-	k8s.io/kube-aggregator v0.26.3
-	k8s.io/kube-openapi v0.0.0-20230327201221-f5883ff37f0c
-	k8s.io/pod-security-admission v0.26.3
+	k8s.io/kube-aggregator v0.27.0-rc.0
+	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a
+	k8s.io/pod-security-admission v0.27.0-rc.0
 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
 	oras.land/oras-go/v2 v2.0.2
-	sigs.k8s.io/controller-runtime v0.14.6
-	sigs.k8s.io/kustomize/api v0.12.1
-	sigs.k8s.io/kustomize/kyaml v0.13.9
+	sigs.k8s.io/controller-runtime v0.14.5
+	sigs.k8s.io/kustomize/api v0.13.2
+	sigs.k8s.io/kustomize/kyaml v0.14.1
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -118,6 +119,7 @@ require (
 	github.com/alibabacloud-go/tea-utils v1.4.5 // indirect
 	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
 	github.com/aliyun/credentials-go v1.2.7 // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.17.7 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.18.19 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.18 // indirect
@@ -189,6 +191,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
+	github.com/google/cel-go v0.12.6 // indirect
 	github.com/google/certificate-transparency-go v1.1.4 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-github/v45 v45.2.0 // indirect
@@ -276,6 +279,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.15.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.1.3 // indirect
+	github.com/stoewer/go-strcase v1.2.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
@@ -321,8 +325,8 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	k8s.io/component-base v0.26.3 // indirect
-	k8s.io/kubectl v0.26.3 // indirect
+	k8s.io/component-base v0.27.0-rc.0 // indirect
+	k8s.io/kubectl v0.27.0-rc.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/release-utils v0.7.3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
