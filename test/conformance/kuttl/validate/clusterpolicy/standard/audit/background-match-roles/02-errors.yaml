@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: background-match-roles
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   background: true
   rules:
   - name: ns-roles
