@@ -240,7 +240,6 @@ func verifyAttestators(ctx context.Context, v *notaryV2Verifier, opts images.Opt
 	}
 
 	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, repo, remoteVerifyOptions)
-
 	if err != nil {
 		return targetDesc, err
 	}
