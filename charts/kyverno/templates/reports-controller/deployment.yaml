@@ -21,7 +21,7 @@ spec:
       labels:
         {{- include "kyverno.reports-controller.labels" . | nindent 8 }}
     spec:
-      {{- with .Values.reportsController.image.pullSecrets }}
+      {{- with .Values.reportsController.imagePullSecrets }}
       imagePullSecrets: 
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
