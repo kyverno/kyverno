@@ -141,7 +141,7 @@ func Test_RedactPayload(t *testing.T) {
 			req := new(admissionv1.AdmissionRequest)
 			err := json.Unmarshal(c.requestPayload, req)
 			assert.NilError(t, err)
-			payload, err := newAdmissionRequestPayload(req)
+			payload, err := newAdmissionRequestPayload(req, nil, nil)
 			assert.NilError(t, err)
 			if payload.Object.Object != nil {
 				data, err := datautils.ToMap(payload.Object.Object["data"])

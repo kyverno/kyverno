@@ -4,4 +4,4 @@ delete:
 - apiVersion: v1
   kind: ConfigMap
   name: zk-kafka-address
-  namespace: bar
+  namespace: cpol-data-nosync-delete-downstream-ns

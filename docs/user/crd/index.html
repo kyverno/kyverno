@@ -245,7 +245,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -471,7 +483,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -557,6 +581,16 @@ of deployments across all namespaces.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.AdmissionOperation">AdmissionOperation
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ResourceDescription">ResourceDescription</a>, 
+<a href="#kyverno.io/v2beta1.ResourceDescription">ResourceDescription</a>)
+</p>
+<p>
+<p>AdmissionOperation can have one of the values CREATE, UPDATE, CONNECT, DELETE, which are used to match a specific action.</p>
+</p>
 <h3 id="kyverno.io/v1.AnyAllConditions">AnyAllConditions
 </h3>
 <p>
@@ -1530,6 +1564,10 @@ Kubernetes apiextensions/v1.JSON
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.GenerateType">GenerateType
+(<code>string</code> alias)</p></h3>
+<p>
+</p>
 <h3 id="kyverno.io/v1.Generation">Generation
 </h3>
 <p>
@@ -1784,6 +1822,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
+<code>type</code><br/>
+<em>
+<a href="#kyverno.io/v1.ImageVerificationType">
+ImageVerificationType
+</a>
+</em>
+</td>
+<td>
+<p>Type specifies the method of signature validation. The allowed options
+are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>image</code><br/>
 <em>
 string
@@ -1961,6 +2013,15 @@ bool
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ImageVerificationType">ImageVerificationType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+<p>ImageVerificationType selects the type of verification algorithm</p>
+</p>
 <h3 id="kyverno.io/v1.KeylessAttestor">KeylessAttestor
 </h3>
 <p>
@@ -2683,6 +2744,20 @@ and <code>?</code> (matches one character).Wildcards allows writing label select
 does not match an empty label set.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>operations</code><br/>
+<em>
+<a href="#kyverno.io/v1.AdmissionOperation">
+[]AdmissionOperation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Operations can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3312,7 +3387,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -4356,7 +4443,7 @@ UpdateRequestSpec
 </em>
 </td>
 <td>
-<p>Spec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 <br/>
 <br/>
 <table class="table table-striped">
@@ -4386,6 +4473,40 @@ string
 </tr>
 <tr>
 <td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Rule is the associate rule name of the current UR.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>resource</code><br/>
 <em>
 <a href="#kyverno.io/v1.ResourceSpec">
@@ -4394,7 +4515,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ResourceSpec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 </td>
 </tr>
 <tr>
@@ -4585,6 +4706,40 @@ string
 </tr>
 <tr>
 <td>
+<code>rule</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Rule is the associate rule name of the current UR.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deleteDownstream</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>DeleteDownstream represents whether the downstream needs to be deleted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>synchronize</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Synchronize represents the sync behavior of the corresponding rule
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>resource</code><br/>
 <em>
 <a href="#kyverno.io/v1.ResourceSpec">
@@ -4593,7 +4748,7 @@ ResourceSpec
 </em>
 </td>
 <td>
-<p>ResourceSpec is the information to identify the update request.</p>
+<p>ResourceSpec is the information to identify the trigger resource.</p>
 </td>
 </tr>
 <tr>
@@ -5550,7 +5705,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -5775,7 +5942,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -5983,6 +6162,20 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
+<code>type</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.ImageVerificationType">
+ImageVerificationType
+</a>
+</em>
+</td>
+<td>
+<p>Type specifies the method of signature validation. The allowed options
+are Cosign and NotaryV2. By default Cosign is used if a type is not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>imageReferences</code><br/>
 <em>
 []string
@@ -6073,6 +6266,15 @@ bool
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2beta1.ImageVerificationType">ImageVerificationType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
+<p>ImageVerificationType selects the type of verification algorithm</p>
+</p>
 <h3 id="kyverno.io/v2beta1.MatchResources">MatchResources
 </h3>
 <p>
@@ -6226,6 +6428,20 @@ in <code>matchLabels</code> support the wildcard characters <code>*</code> (matc
 and <code>?</code> (matches one character).Wildcards allows writing label selectors like
 [&ldquo;storage.k8s.io/<em>&rdquo;: &ldquo;</em>&rdquo;]. Note that using [&rdquo;<em>&rdquo; : &ldquo;</em>&rdquo;] matches any key and value but
 does not match an empty label set.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>operations</code><br/>
+<em>
+<a href="#kyverno.io/v1.AdmissionOperation">
+[]AdmissionOperation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Operations can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
 </td>
 </tr>
 </tbody>
@@ -6605,7 +6821,19 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+<p>Deprecated, use generateExisting instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generateExisting</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>GenerateExisting controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>

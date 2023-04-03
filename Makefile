@@ -20,7 +20,7 @@ endif
 IMAGE_TAG_DEV         = $(GIT_VERSION_DEV)
 IMAGE_TAG            ?= $(GIT_VERSION)
 K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
-KIND_IMAGE           ?= kindest/node:v1.25.3
+KIND_IMAGE           ?= kindest/node:v1.26.2
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
@@ -48,12 +48,12 @@ TOOLS_DIR                          := $(PWD)/.tools
 KIND                               := $(TOOLS_DIR)/kind
 KIND_VERSION                       := v0.17.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION             := v0.11.1
+CONTROLLER_GEN_VERSION             := v0.11.3
 CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
 LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
 OPENAPI_GEN                        := $(TOOLS_DIR)/openapi-gen
-CODE_GEN_VERSION                   := v0.26.0
+CODE_GEN_VERSION                   := v0.26.3
 GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
 GO_ACC                             := $(TOOLS_DIR)/go-acc
@@ -256,6 +256,7 @@ KO_KYVERNOPRE_REPO  := $(PACKAGE)/$(KYVERNOPRE_DIR)
 KO_KYVERNO_REPO     := $(PACKAGE)/$(KYVERNO_DIR)
 KO_CLEANUP_REPO     := $(PACKAGE)/$(CLEANUP_DIR)
 KO_REPORTS_REPO     := $(PACKAGE)/$(REPORTS_DIR)
+KO_BACKGROUND_REPO  := $(PACKAGE)/$(BACKGROUND_DIR)
 
 .PHONY: ko-build-kyverno-init
 ko-build-kyverno-init: $(KO) ## Build kyvernopre local image (with ko)
@@ -290,7 +291,7 @@ ko-build-reports-controller: $(KO) ## Build reports controller local image (with
 .PHONY: ko-build-background-controller
 ko-build-background-controller: $(KO) ## Build background controller local image (with ko)
 	@echo Build background controller local image with ko... >&2
-	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local \
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(KO_REGISTRY) \
 		$(KO) build ./$(BACKGROUND_DIR) --preserve-import-paths --tags=$(IMAGE_TAG_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
@@ -301,12 +302,7 @@ ko-build-all: ko-build-kyverno-init ko-build-kyverno ko-build-cli ko-build-clean
 ################
 
 REGISTRY_USERNAME   ?= dummy
-KO_KYVERNOPRE_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/kyverno-init
-KO_KYVERNO_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/kyverno
-KO_CLEANUP_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/cleanup-controller
-KO_REPORTS_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/reports-controller
-KO_BACKGROUND_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/background-controller
-PLATFORMS           := linux/amd64,linux/arm64,linux/s390x
+PLATFORMS           := all
 KO_TAGS             := $(IMAGE_TAG_LATEST),$(IMAGE_TAG)
 KO_TAGS_DEV         := $(IMAGE_TAG_LATEST),$(IMAGE_TAG_DEV)
 
@@ -390,7 +386,7 @@ LOCAL_KYVERNOPRE_REPO  := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper
 LOCAL_KYVERNO_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_KYVERNO_REPO)
 LOCAL_CLEANUP_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_CLEANUP_REPO)
 LOCAL_REPORTS_REPO     := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_REPORTS_REPO)
-LOCAL_BACKGROUND_IMAGE := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_BACKGROUND_IMAGE)
+LOCAL_BACKGROUND_REPO  := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_BACKGROUND_REPO)
 
 .PHONY: image-build-kyverno-init
 image-build-kyverno-init: $(BUILD_WITH)-build-kyverno-init
@@ -417,14 +413,15 @@ image-build-all: $(BUILD_WITH)-build-all
 # CODEGEN #
 ###########
 
-GOPATH_SHIM        := ${PWD}/.gopath
-PACKAGE_SHIM       := $(GOPATH_SHIM)/src/$(PACKAGE)
-OUT_PACKAGE        := $(PACKAGE)/pkg/client
-INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/policyreport/v1alpha2
-CLIENTSET_PACKAGE  := $(OUT_PACKAGE)/clientset
-LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
-INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
-CRDS_PATH          := ${PWD}/config/crds
+GOPATH_SHIM           := ${PWD}/.gopath
+PACKAGE_SHIM          := $(GOPATH_SHIM)/src/$(PACKAGE)
+OUT_PACKAGE           := $(PACKAGE)/pkg/client
+INPUT_DIRS            := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v2alpha1,$(PACKAGE)/api/policyreport/v1alpha2
+CLIENTSET_PACKAGE     := $(OUT_PACKAGE)/clientset
+LISTERS_PACKAGE       := $(OUT_PACKAGE)/listers
+INFORMERS_PACKAGE     := $(OUT_PACKAGE)/informers
+CRDS_PATH             := ${PWD}/config/crds
+INSTALL_MANIFEST_PATH := ${PWD}/config/install-latest-testing.yaml
 
 $(GOPATH_SHIM):
 	@echo Create gopath shim... >&2
@@ -525,13 +522,27 @@ codegen-manifest-install: $(HELM) ## Create install manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=latest \
-		--set image.tag=latest \
-		--set initImage.tag=latest \
+		--set admissionController.container.image.tag=latest \
+		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
 		--set reportsController.image.tag=latest \
 		--set backgroundController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
-		> ./.manifest/install.yaml
+		> ./.manifest/install-latest-testing.yaml
+
+.PHONY: codegen-manifest-install-latest
+codegen-manifest-install-latest: $(HELM) ## Create install_latest manifest
+	@echo Generate latest install manifest... >&2
+	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
+		--set templating.enabled=true \
+		--set templating.version=latest \
+		--set admissionController.container.image.tag=latest \
+		--set admissionController.initContainer.image.tag=latest \
+		--set cleanupController.image.tag=latest \
+		--set reportsController.image.tag=latest \
+		--set backgroundController.image.tag=latest \
+ 		| $(SED) -e '/^#.*/d' \
+		> ./config/install-latest-testing.yaml
 
 .PHONY: codegen-manifest-debug
 codegen-manifest-debug: $(HELM) ## Create debug manifest
@@ -541,8 +552,8 @@ codegen-manifest-debug: $(HELM) ## Create debug manifest
 		--set templating.enabled=true \
 		--set templating.version=latest \
 		--set templating.debug=true \
-		--set image.tag=latest \
-		--set initImage.tag=latest \
+		--set admissionController.container.image.tag=latest \
+		--set admissionController.initContainer.image.tag=latest \
 		--set cleanupController.image.tag=latest \
 		--set reportsController.image.tag=latest \
  		| $(SED) -e '/^#.*/d' \
@@ -556,15 +567,15 @@ codegen-manifest-release: $(HELM) ## Create release manifest
 	@$(HELM) template kyverno --namespace kyverno --skip-tests ./charts/kyverno \
 		--set templating.enabled=true \
 		--set templating.version=$(GIT_VERSION) \
-		--set image.tag=$(GIT_VERSION) \
-		--set initImage.tag=$(GIT_VERSION) \
+		--set admissionController.container.image.tag=$(GIT_VERSION) \
+		--set admissionController.initContainer.image.tag=$(GIT_VERSION) \
 		--set cleanupController.image.tag=$(GIT_VERSION) \
 		--set reportsController.image.tag=$(GIT_VERSION) \
  		| $(SED) -e '/^#.*/d' \
 		> ./.manifest/release.yaml
 
 .PHONY: codegen-manifest-all
-codegen-manifest-all: codegen-manifest-install codegen-manifest-debug codegen-manifest-release ## Create all manifests
+codegen-manifest-all: codegen-manifest-install codegen-manifest-install-latest codegen-manifest-debug codegen-manifest-release ## Create all manifests
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-manifest-all ## Generate all generated code except client
@@ -623,8 +634,17 @@ verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@echo 'To correct this, locally run "make codegen-helm-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
+.PHONY: verify-manifests
+verify-manifests: codegen-manifest-all ## Check manifests are up to date
+	@echo Checking manifests are up to date... >&2
+	@git --no-pager diff ${INSTALL_MANIFEST_PATH}
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-manifest-all".' >&2
+	@echo 'To correct this, locally run "make codegen-manifest-all", commit the changes, and re-run tests.' >&2
+	@git diff --quiet --exit-code ${INSTALL_MANIFEST_PATH}
+
+
 .PHONY: verify-codegen
-verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm codegen-manifest-all ## Verify all generated code and docs are up to date
+verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm verify-manifests ## Verify all generated code and docs are up to date
 
 ##############
 # UNIT TESTS #
@@ -755,6 +775,20 @@ test-perf: $(PACKAGE_SHIM) ## Run perf tests
 		--v=2 \
 		--report-dir=.
 
+##########
+# DOCKER #
+##########
+
+.PHONY: docker-save-image-all
+docker-save-image-all: $(KIND) image-build-all ## Save docker images in archive
+	docker save 														\
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNOPRE_REPO):$(IMAGE_TAG_DEV) 	\
+		$(LOCAL_REGISTRY)/$(LOCAL_KYVERNO_REPO):$(IMAGE_TAG_DEV) 		\
+		$(LOCAL_REGISTRY)/$(LOCAL_CLEANUP_REPO):$(IMAGE_TAG_DEV) 		\
+		$(LOCAL_REGISTRY)/$(LOCAL_REPORTS_REPO):$(IMAGE_TAG_DEV) 		\
+		$(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(IMAGE_TAG_DEV) 	\
+	> kyverno.tar
+
 ########
 # KIND #
 ########
@@ -792,30 +826,40 @@ kind-load-reports-controller: $(KIND) image-build-reports-controller ## Build re
 .PHONY: kind-load-background-controller
 kind-load-background-controller: $(KIND) image-build-background-controller ## Build background controller image and load it in kind cluster
 	@echo Load background controller image... >&2
-	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_BACKGROUND_IMAGE):$(IMAGE_TAG_DEV)
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_REGISTRY)/$(LOCAL_BACKGROUND_REPO):$(IMAGE_TAG_DEV)
 
 .PHONY: kind-load-all
 kind-load-all: kind-load-kyverno-init kind-load-kyverno kind-load-cleanup-controller kind-load-reports-controller kind-load-background-controller ## Build images and load them in kind cluster
 
-.PHONY: kind-deploy-kyverno
-kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
+.PHONY: kind-load-image-archive
+kind-load-image-archive: $(KIND) ## Load docker images from archive
+	@echo Load image archive in kind cluster... >&2
+	@$(KIND) load image-archive kyverno.tar --name $(KIND_NAME)
+
+.PHONY: kind-install-kyverno
+kind-install-kyverno: $(HELM) ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
 	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
-		--set image.registry=$(LOCAL_REGISTRY) \
-		--set image.repository=$(LOCAL_KYVERNO_REPO) \
-		--set image.tag=$(IMAGE_TAG_DEV) \
-		--set initImage.registry=$(LOCAL_REGISTRY) \
-		--set initImage.repository=$(LOCAL_KYVERNOPRE_REPO) \
-		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
+		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
+		--set admissionController.container.image.tag=$(IMAGE_TAG_DEV) \
+		--set admissionController.initContainer.image.registry=$(LOCAL_REGISTRY) \
+		--set admissionController.initContainer.image.repository=$(LOCAL_KYVERNOPRE_REPO) \
+		--set admissionController.initContainer.image.tag=$(IMAGE_TAG_DEV) \
 		--set cleanupController.image.registry=$(LOCAL_REGISTRY) \
 		--set cleanupController.image.repository=$(LOCAL_CLEANUP_REPO) \
 		--set cleanupController.image.tag=$(IMAGE_TAG_DEV) \
 		--set reportsController.image.registry=$(LOCAL_REGISTRY) \
 		--set reportsController.image.repository=$(LOCAL_REPORTS_REPO) \
 		--set reportsController.image.tag=$(IMAGE_TAG_DEV) \
-		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_IMAGE) \
+		--set backgroundController.image.registry=$(LOCAL_REGISTRY) \
+		--set backgroundController.image.repository=$(LOCAL_BACKGROUND_REPO) \
 		--set backgroundController.image.tag=$(IMAGE_TAG_DEV) \
 		--values ./scripts/config/$(USE_CONFIG)/kyverno.yaml
+
+.PHONY: kind-deploy-kyverno
+kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
+	$(MAKE) kind-install-kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart

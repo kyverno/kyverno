@@ -3,10 +3,10 @@ package context
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
 
 // Query the JSON context with JMESPATH search path
@@ -50,5 +50,5 @@ func (ctx *context) HasChanged(jmespath string) (bool, error) {
 	if oldObjData == nil {
 		return false, fmt.Errorf("request.oldObject.%s not found", jmespath)
 	}
-	return !reflect.DeepEqual(objData, oldObjData), nil
+	return !datautils.DeepEqual(objData, oldObjData), nil
 }

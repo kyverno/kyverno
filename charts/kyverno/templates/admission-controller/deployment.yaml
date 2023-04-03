@@ -2,89 +2,96 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "kyverno.fullname" . }}
+  name: {{ template "kyverno.admission-controller.name" . }}
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 spec:
-  replicas: {{ template "kyverno.deployment.replicas" .Values.replicaCount }}
+  replicas: {{ template "kyverno.deployment.replicas" .Values.admissionController.replicas }}
+  {{- with .Values.admissionController.updateStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "kyverno.admission-controller.matchLabels" . | nindent 6 }}
-  {{- if .Values.updateStrategy }}
-  strategy:
-    {{ toYaml .Values.updateStrategy | nindent 4 | trim }}
-  {{- end }}
   template:
     metadata:
       labels:
         {{- include "kyverno.admission-controller.labels" . | nindent 8 }}
-        {{- range $key, $value := .Values.podLabels }}
+        {{- range $key, $value := .Values.admissionController.podLabels }}
         {{ $key }}: {{ $value }}
         {{- end }}
-      {{- with .Values.podAnnotations }}
+      {{- with .Values.admissionController.podAnnotations }}
       annotations: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
-      {{- with .Values.image.pullSecrets }}
+      {{- with .Values.admissionController.container.image.pullSecrets }}
       imagePullSecrets:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.podSecurityContext }}
+      {{- with .Values.admissionController.podSecurityContext }}
       securityContext:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- if or .Values.antiAffinity.enable .Values.podAffinity .Values.nodeAffinity }}
+      {{- with .Values.admissionController.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.admissionController.tolerations }}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.admissionController.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.admissionController.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.admissionController.hostNetwork }}
+      hostNetwork: {{ . }}
+      {{- end }}
+      {{- with .Values.admissionController.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- if or .Values.admissionController.antiAffinity.enable .Values.admissionController.podAffinity .Values.admissionController.nodeAffinity }}
       affinity:
-        {{- if .Values.antiAffinity.enable }}
-        {{- with .Values.podAntiAffinity }}
+        {{- if .Values.admissionController.antiAffinity.enabled }}
+        {{- with .Values.admissionController.podAntiAffinity }}
         podAntiAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
         {{- end }}
-        {{- with .Values.podAffinity }}
+        {{- with .Values.admissionController.podAffinity }}
         podAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
-        {{- with .Values.nodeAffinity }}
+        {{- with .Values.admissionController.nodeAffinity }}
         nodeAffinity:
           {{- tpl (toYaml .) $ | nindent 10 }}
         {{- end }}
       {{- end }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector: {{ tpl (toYaml .) $ | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations: {{ tpl (toYaml .) $ | nindent 8 }}
-      {{- end }}
-      {{- with .Values.topologySpreadConstraints }}
-      topologySpreadConstraints: {{ tpl (toYaml .) $ | nindent 8 }}
-      {{- end }}
       serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
-      {{- if .Values.priorityClassName }}
-      priorityClassName: {{ .Values.priorityClassName | quote }}
-      {{- end }}
-      {{- if .Values.hostNetwork }}
-      hostNetwork: {{ .Values.hostNetwork }}
-      {{- end }}
-      {{- if .Values.dnsPolicy }}
-      dnsPolicy: {{ .Values.dnsPolicy }}
-      {{- end }}
       initContainers:
-      {{- if .Values.extraInitContainers }}
-        {{- toYaml .Values.extraInitContainers | nindent 8 }}
-      {{- end }}
+        {{- with .Values.admissionController.extraInitContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         - name: kyverno-pre
-          image: {{ include "kyverno.image" (dict "image" .Values.initImage "defaultTag" (default .Chart.AppVersion .Values.image.tag)) | quote }}
-          imagePullPolicy: {{ default .Values.image.pullPolicy .Values.initImage.pullPolicy }}
-          {{- if .Values.initContainer.extraArgs }}
+          image: {{ include "kyverno.image" (dict "image" .Values.admissionController.initContainer.image "defaultTag" (default .Chart.AppVersion .Values.admissionController.container.image.tag)) | quote }}
+          imagePullPolicy: {{ default .Values.admissionController.container.image.pullPolicy .Values.admissionController.initContainer.image.pullPolicy }}
           args:
-              {{- tpl (toYaml .Values.initContainer.extraArgs) . | nindent 12 }}
+            - --loggingFormat={{ .Values.admissionController.logging.format }}
+            {{- range $key, $value := .Values.admissionController.initContainer.extraArgs }}
+            {{- if $value }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
+            {{- end }}
+          {{- with .Values.admissionController.initContainer.resources }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- with .Values.initResources }}
-          resources: {{ tpl (toYaml .) $ | nindent 12 }}
-          {{- end }}
-          {{- with .Values.securityContext }}
+          {{- with .Values.admissionController.initContainer.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -101,30 +108,50 @@ spec:
                 fieldPath: metadata.name
           - name: KYVERNO_DEPLOYMENT
             value: {{ template "kyverno.fullname" . }}
-          {{- with .Values.envVarsInit }}
+          {{- with .Values.admissionController.initContainer.extraEnvVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
       containers:
-      {{- if .Values.extraContainers }}
-        {{- toYaml .Values.extraContainers | nindent 8 }}
-      {{- end }}
+        {{- with .Values.admissionController.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         - name: kyverno
-          image: {{ include "kyverno.image" (dict "image" .Values.image "defaultTag" .Chart.AppVersion) | quote }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if or .Values.extraArgs .Values.imagePullSecrets }}
+          image: {{ include "kyverno.image" (dict "image" .Values.admissionController.container.image "defaultTag" .Chart.AppVersion) | quote }}
+          imagePullPolicy: {{ .Values.admissionController.container.image.pullPolicy }}
           args:
-            - --servicePort={{ .Values.service.port }}
-            {{- if .Values.extraArgs -}}
-              {{ tpl (toYaml .Values.extraArgs) . | nindent 12 }}
+            - --servicePort={{ .Values.admissionController.service.port }}
+            - --loggingFormat={{ .Values.admissionController.logging.format }}
+            {{- if .Values.admissionController.tracing.enabled }}
+            - --enableTracing
+            - --tracingAddress={{ .Values.admissionController.tracing.address }}
+            - --tracingPort={{ .Values.admissionController.tracing.port }}
+            {{- with .Values.admissionController.tracing.creds }}
+            - --tracingCreds={{ . }}
+            {{- end }}
+            {{- end }}
+            - --disableMetrics={{ .Values.admissionController.metering.disabled }}
+            {{- if not .Values.admissionController.metering.disabled }}
+            - --otelConfig={{ .Values.admissionController.metering.config }}
+            - --metricsPort={{ .Values.admissionController.metering.port }}
+            {{- with .Values.admissionController.metering.collector }}
+            - --otelCollector={{ . }}
+            {{- end }}
+            {{- with .Values.admissionController.metering.creds }}
+            - --transportCreds={{ . }}
+            {{- end }}
             {{- end }}
             {{- if or .Values.imagePullSecrets .Values.existingImagePullSecrets }}
             - --imagePullSecrets={{- join "," (concat (keys .Values.imagePullSecrets) .Values.existingImagePullSecrets) }}
             {{- end }}
-          {{- end }}
-          {{- with .Values.resources }}
+            {{- range $key, $value := .Values.admissionController.container.extraArgs }}
+            {{- if $value }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
+            {{- end }}
+          {{- with .Values.admissionController.container.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          {{- with .Values.securityContext }}
+          {{- with .Values.admissionController.container.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -153,29 +180,32 @@ spec:
           - name: KYVERNO_SVC
             value: {{ template "kyverno.admission-controller.serviceName" . }}
           - name: TUF_ROOT
-            value: {{ .Values.tufRootMountPath }}
-          {{- with .Values.envVars }}
+            value: {{ .Values.admissionController.tufRootMountPath }}
+          {{- with .Values.admissionController.container.extraEnvVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
           - name: KYVERNO_DEPLOYMENT
-            value: {{ template "kyverno.fullname" . }}
-        {{- with .Values.startupProbe }}
-          startupProbe: {{ tpl (toYaml .) $ | nindent 12 }}
-        {{- end }}
-        {{- with .Values.livenessProbe }}
-          livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
-        {{- end }}
-        {{- with .Values.readinessProbe }}
-          readinessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
-        {{- end }}
+            value: {{ template "kyverno.admission-controller.name" . }}
+          {{- with .Values.admissionController.startupProbe }}
+          startupProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.admissionController.livenessProbe }}
+          livenessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.admissionController.readinessProbe }}
+          readinessProbe:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
           volumeMounts:
-            - mountPath: {{ .Values.tufRootMountPath }}
+            - mountPath: {{ .Values.admissionController.tufRootMountPath }}
               name: sigstore
             - mountPath: /var/run/secrets/tokens
               name: api-token
       volumes:
       - name: sigstore
-        {{- toYaml (required "A valid .Values.sigstoreVolume entry is required" .Values.sigstoreVolume) | nindent 8 }}
+        {{- toYaml (required "A valid .Values.admissionController.sigstoreVolume entry is required" .Values.admissionController.sigstoreVolume) | nindent 8 }}
       - name: api-token
         projected:
           sources:

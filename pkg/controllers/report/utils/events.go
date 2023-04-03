@@ -1,15 +1,13 @@
 package utils
 
 import (
-	"strings"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 )
 
-func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.Configuration, results ...*engineapi.EngineResponse) {
+func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.Configuration, results ...engineapi.EngineResponse) {
 	for _, result := range results {
 		var eventInfos []event.Info
 		eventInfos = append(eventInfos, generateFailEvents(logger, result)...)
@@ -21,9 +19,9 @@ func GenerateEvents(logger logr.Logger, eventGen event.Interface, config config.
 	}
 }
 
-func generateSuccessEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (eventInfos []event.Info) {
+func generateSuccessEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
-		logger := log.WithValues("policy", er.PolicyResponse.Policy, "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)
+		logger := log.WithValues("policy", er.Policy.GetName(), "kind", er.Resource.GetKind(), "namespace", er.Resource.GetNamespace(), "name", er.Resource.GetName())
 		if !er.IsFailed() {
 			logger.V(4).Info("generating event on policy for success rules")
 			e := event.NewPolicyAppliedEvent(event.PolicyController, er)
@@ -33,32 +31,32 @@ func generateSuccessEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (e
 	return eventInfos
 }
 
-func generateExceptionEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (eventInfos []event.Info) {
+func generateExceptionEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		for i, ruleResp := range er.PolicyResponse.Rules {
-			isException := strings.Contains(ruleResp.Message, "rule skipped due to policy exception")
+			isException := ruleResp.Exception != nil
 			if ruleResp.Status == engineapi.RuleStatusSkip && isException {
-				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i])...)
+				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i], event.PolicyController)...)
 			}
 		}
 	}
 	return eventInfos
 }
 
-func generateFailEvents(log logr.Logger, ers ...*engineapi.EngineResponse) (eventInfos []event.Info) {
+func generateFailEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		eventInfos = append(eventInfos, generateFailEventsPerEr(log, er)...)
 	}
 	return eventInfos
 }
 
-func generateFailEventsPerEr(log logr.Logger, er *engineapi.EngineResponse) []event.Info {
+func generateFailEventsPerEr(log logr.Logger, er engineapi.EngineResponse) []event.Info {
 	var eventInfos []event.Info
 	logger := log.WithValues(
-		"policy", er.PolicyResponse.Policy.Name,
-		"kind", er.PolicyResponse.Resource.Kind,
-		"namespace", er.PolicyResponse.Resource.Namespace,
-		"name", er.PolicyResponse.Resource.Name,
+		"policy", er.Policy.GetName(),
+		"kind", er.Resource.GetKind(),
+		"namespace", er.Resource.GetNamespace(),
+		"name", er.Resource.GetName(),
 	)
 	for i, rule := range er.PolicyResponse.Rules {
 		if rule.Status != engineapi.RuleStatusPass && rule.Status != engineapi.RuleStatusSkip {

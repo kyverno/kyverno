@@ -1,28 +1,22 @@
 package api
 
-import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-type ValidationFailureActionOverride struct {
-	Action            kyvernov1.ValidationFailureAction
-	Namespaces        []string
-	NamespaceSelector *metav1.LabelSelector
-}
-
 // PolicyResponse policy application response
 type PolicyResponse struct {
-	// Policy contains policy details
-	Policy PolicySpec
-	// Resource contains resource details
-	Resource ResourceSpec
-	// PolicyStats contains policy statistics
-	PolicyStats
+	// Stats contains policy statistics
+	Stats PolicyStats
 	// Rules contains policy rules responses
 	Rules []RuleResponse
-	// ValidationFailureAction audit (default) or enforce
-	ValidationFailureAction kyvernov1.ValidationFailureAction
-	// ValidationFailureActionOverrides overrides
-	ValidationFailureActionOverrides []ValidationFailureActionOverride
+}
+
+func (pr *PolicyResponse) Add(rr RuleResponse) {
+	pr.Rules = append(pr.Rules, rr)
+	if rr.Status == RuleStatusPass || rr.Status == RuleStatusFail {
+		pr.Stats.RulesAppliedCount++
+	} else if rr.Status == RuleStatusError {
+		pr.Stats.RulesErrorCount++
+	}
+}
+
+func NewPolicyResponse() PolicyResponse {
+	return PolicyResponse{}
 }

@@ -9,11 +9,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func NewPolicyFailEvent(source Source, reason Reason, engineResponse *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, blocked bool) Info {
+func NewPolicyFailEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, blocked bool) Info {
 	return Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
-		Name:      engineResponse.PolicyResponse.Policy.Name,
-		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
+		Name:      engineResponse.Policy.GetName(),
+		Namespace: engineResponse.Policy.GetNamespace(),
 		Reason:    reason,
 		Source:    source,
 		Message:   buildPolicyEventMessage(ruleResp, engineResponse.GetResourceSpec(), blocked),
@@ -33,7 +33,7 @@ func buildPolicyEventMessage(resp *engineapi.RuleResponse, resource engineapi.Re
 		fmt.Fprintf(&b, " (blocked)")
 	}
 
-	if resp.Status == engineapi.RuleStatusError && resp.Message != "" {
+	if resp.Message != "" {
 		fmt.Fprintf(&b, "; %s", resp.Message)
 	}
 
@@ -47,28 +47,28 @@ func getPolicyKind(policy kyvernov1.PolicyInterface) string {
 	return "ClusterPolicy"
 }
 
-func NewPolicyAppliedEvent(source Source, engineResponse *engineapi.EngineResponse) Info {
-	resource := engineResponse.PolicyResponse.Resource
+func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineResponse) Info {
+	resource := engineResponse.Resource
 	var bldr strings.Builder
 	defer bldr.Reset()
 
-	if resource.Namespace != "" {
-		fmt.Fprintf(&bldr, "%s %s/%s: pass", resource.Kind, resource.Namespace, resource.Name)
+	if resource.GetNamespace() != "" {
+		fmt.Fprintf(&bldr, "%s %s/%s: pass", resource.GetKind(), resource.GetNamespace(), resource.GetName())
 	} else {
-		fmt.Fprintf(&bldr, "%s %s: pass", resource.Kind, resource.Name)
+		fmt.Fprintf(&bldr, "%s %s: pass", resource.GetKind(), resource.GetName())
 	}
 
 	return Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
-		Name:      engineResponse.PolicyResponse.Policy.Name,
-		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
+		Name:      engineResponse.Policy.GetName(),
+		Namespace: engineResponse.Policy.GetNamespace(),
 		Reason:    PolicyApplied,
 		Source:    source,
 		Message:   bldr.String(),
 	}
 }
 
-func NewResourceViolationEvent(source Source, reason Reason, engineResponse *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) Info {
+func NewResourceViolationEvent(source Source, reason Reason, engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) Info {
 	var bldr strings.Builder
 	defer bldr.Reset()
 
@@ -123,21 +123,22 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 	return events
 }
 
-func NewPolicyExceptionEvents(engineResponse *engineapi.EngineResponse, ruleResp *engineapi.RuleResponse) []Info {
-	exceptionName, exceptionNamespace := getExceptionEventInfoFromRuleResponseMsg(ruleResp.Message)
-	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", engineResponse.PatchedResource.GetName(), ruleResp.Name, exceptionNamespace, exceptionName)
+func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, source Source) []Info {
+	exceptionName, exceptionNamespace := ruleResp.Exception.GetName(), ruleResp.Exception.GetNamespace()
+	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", resourceKey(engineResponse.PatchedResource), ruleResp.Name, exceptionNamespace, exceptionName)
 	var exceptionMessage string
-	if engineResponse.PolicyResponse.Policy.Namespace == "" {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", engineResponse.PatchedResource.GetName(), engineResponse.PolicyResponse.Policy.Name, ruleResp.Name)
+	if engineResponse.Policy.GetNamespace() == "" {
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy.GetName(), ruleResp.Name)
 	} else {
-		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", engineResponse.PatchedResource.GetName(), engineResponse.PolicyResponse.Policy.Namespace, engineResponse.PolicyResponse.Policy.Name, ruleResp.Name)
+		exceptionMessage = fmt.Sprintf("resource %s was skipped from policy rule %s/%s/%s", resourceKey(engineResponse.PatchedResource), engineResponse.Policy.GetNamespace(), engineResponse.Policy.GetName(), ruleResp.Name)
 	}
 	policyEvent := Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
-		Name:      engineResponse.PolicyResponse.Policy.Name,
-		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
+		Name:      engineResponse.Policy.GetName(),
+		Namespace: engineResponse.Policy.GetNamespace(),
 		Reason:    PolicySkipped,
 		Message:   policyMessage,
+		Source:    source,
 	}
 	exceptionEvent := Info{
 		Kind:      "PolicyException",
@@ -145,21 +146,26 @@ func NewPolicyExceptionEvents(engineResponse *engineapi.EngineResponse, ruleResp
 		Namespace: exceptionNamespace,
 		Reason:    PolicySkipped,
 		Message:   exceptionMessage,
+		Source:    source,
 	}
 	return []Info{policyEvent, exceptionEvent}
 }
 
-func getExceptionEventInfoFromRuleResponseMsg(message string) (name string, namespace string) {
-	key := message[strings.LastIndex(message, " ")+1:]
-	arr := strings.Split(key, "/")
+func NewFailedEvent(err error, policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
+	return Info{
+		Kind:      resource.GetKind(),
+		Namespace: resource.GetNamespace(),
+		Name:      resource.GetName(),
+		Source:    source,
+		Reason:    PolicyError,
+		Message:   fmt.Sprintf("policy %s/%s error: %v", policy, rule, err),
+	}
+}
 
-	if len(arr) > 1 {
-		namespace = arr[0]
-		name = arr[1]
-	} else {
-		namespace = ""
-		name = arr[0]
+func resourceKey(resource unstructured.Unstructured) string {
+	if resource.GetNamespace() != "" {
+		return strings.Join([]string{resource.GetKind(), resource.GetNamespace(), resource.GetName()}, "/")
 	}
 
-	return name, namespace
+	return strings.Join([]string{resource.GetKind(), resource.GetName()}, "/")
 }

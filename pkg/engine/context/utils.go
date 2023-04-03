@@ -22,24 +22,10 @@ func AddResource(ctx Interface, dataRaw []byte) error {
 	return ctx.AddResource(data)
 }
 
-func ReplaceResource(ctx Interface, data map[string]interface{}) error {
-	if err := ctx.AddResource(nil); err != nil {
-		return err
-	}
-	return ctx.AddResource(data)
-}
-
 func AddOldResource(ctx Interface, dataRaw []byte) error {
 	var data map[string]interface{}
 	if err := json.Unmarshal(dataRaw, &data); err != nil {
 		logger.Error(err, "failed to unmarshal the resource")
-		return err
-	}
-	return ctx.AddOldResource(data)
-}
-
-func ReplaceOldResource(ctx Interface, data map[string]interface{}) error {
-	if err := ctx.AddOldResource(nil); err != nil {
 		return err
 	}
 	return ctx.AddOldResource(data)

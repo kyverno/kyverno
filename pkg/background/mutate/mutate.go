@@ -18,6 +18,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -70,7 +71,7 @@ func NewMutateExistingController(
 }
 
 func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
-	logger := c.log.WithValues("name", ur.Name, "policy", ur.Spec.Policy, "kind", ur.Spec.Resource.Kind, "apiVersion", ur.Spec.Resource.APIVersion, "namespace", ur.Spec.Resource.Namespace, "name", ur.Spec.Resource.Name)
+	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey(), "resource", ur.Spec.GetResource().String())
 	var errs []error
 
 	policy, err := c.getPolicy(ur.Spec.Policy)
@@ -84,19 +85,64 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			continue
 		}
 
-		trigger, err := common.GetResource(c.client, ur.Spec, c.log)
-		if err != nil || trigger == nil {
-			logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
-			errs = append(errs, err)
-			continue
+		var trigger *unstructured.Unstructured
+		admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+		if admissionRequest == nil {
+			trigger, err = common.GetResource(c.client, ur.Spec, c.log)
+			if err != nil || trigger == nil {
+				logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
+				errs = append(errs, err)
+				continue
+			}
+		} else {
+			if admissionRequest.Operation == admissionv1.Create {
+				trigger, err = common.GetResource(c.client, ur.Spec, c.log)
+				if err != nil || trigger == nil {
+					if admissionRequest.SubResource == "" {
+						logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
+						errs = append(errs, err)
+						continue
+					} else {
+						logger.WithName(rule.Name).Info("trigger resource not found for subresource, reverting to resource in AdmissionReviewRequest", "subresource", admissionRequest.SubResource)
+						triggerBytes := admissionRequest.Object.Raw
+						trigger = &unstructured.Unstructured{}
+						if err := trigger.UnmarshalJSON(triggerBytes); err != nil {
+							logger.WithName(rule.Name).Error(err, "failed to convert trigger resource")
+							errs = append(errs, err)
+							continue
+						}
+					}
+				}
+			} else {
+				triggerBytes := admissionRequest.Object.Raw
+				if triggerBytes == nil {
+					triggerBytes = admissionRequest.OldObject.Raw
+				}
+				trigger = &unstructured.Unstructured{}
+				if err := trigger.UnmarshalJSON(triggerBytes); err != nil {
+					logger.WithName(rule.Name).Error(err, "failed to convert trigger resource")
+					errs = append(errs, err)
+					continue
+				}
+			}
 		}
 
 		namespaceLabels := engineutils.GetNamespaceSelectorsFromNamespaceLister(trigger.GetKind(), trigger.GetNamespace(), c.nsLister, logger)
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, namespaceLabels, logger)
+		policyContext, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, namespaceLabels, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
 			continue
+		}
+		if admissionRequest != nil {
+			var gvk schema.GroupVersionKind
+			gvk, err = c.client.Discovery().GetGVKFromGVR(schema.GroupVersionResource(admissionRequest.Resource))
+			if err != nil {
+				logger.WithName(rule.Name).Error(err, "failed to get GVK from GVR", "GVR", admissionRequest.Resource)
+				errs = append(errs, err)
+				continue
+			}
+			policyContext = policyContext.WithResourceKind(gvk, admissionRequest.SubResource)
 		}
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
@@ -136,7 +182,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 					} else if patchedTargetSubresourceName != "" {
 						parentResourceGVR := r.PatchedTargetParentResourceGVR
 						parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
-						parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.String(), parentResourceGVR.Resource)
+						parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
 						if err != nil {
 							logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR)
 							errs = append(errs, err)

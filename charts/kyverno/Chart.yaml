@@ -32,3 +32,9 @@ annotations:
       description: no deployments can run with 0 replicas
     - kind: changed
       description: change dashboard title of kyverno grafana dashboard
+    - kind: added
+      description: view aggregated cluster role support
+    - kind: added
+      description: support for webhook annotations in config map
+    - kind: added
+      description: allow overriding PDB api version

@@ -19,10 +19,10 @@ jobs:
     name: Nancy
     steps:
       - name: Checkout
-        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3 # v3.5.0
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: WriteGoList
         run: go list -json -m all > go.list
       - name: Nancy SAST Scan
-        uses: sonatype-nexus-community/nancy-github-action@aae196481b961d446f4bff9012e4e3b63d7921a4 # v1.0.2
+        uses: sonatype-nexus-community/nancy-github-action@726e338312e68ecdd4b4195765f174d3b3ce1533 # v1.0.3
