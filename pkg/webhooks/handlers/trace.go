@@ -11,7 +11,6 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
-	admissionv1 "k8s.io/api/admission/v1"
 )
 
 func (inner HttpHandler) WithTrace(name string) HttpHandler {
@@ -35,12 +34,12 @@ func (inner HttpHandler) WithTrace(name string) HttpHandler {
 }
 
 func (inner AdmissionHandler) WithTrace(name string) AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		return tracing.Span1(
 			ctx,
 			"webhooks/handlers",
 			fmt.Sprintf("%s %s %s", name, request.Operation, request.Kind),
-			func(ctx context.Context, span trace.Span) admissionv1.AdmissionResponse {
+			func(ctx context.Context, span trace.Span) AdmissionResponse {
 				response := inner(ctx, logger, request, startTime)
 				span.SetAttributes(
 					tracing.ResponseUidKey.String(tracing.StringValue(string(response.UID))),
@@ -67,7 +66,7 @@ func (inner AdmissionHandler) WithTrace(name string) AdmissionHandler {
 				tracing.RequestNamespaceKey.String(tracing.StringValue(request.Namespace)),
 				tracing.RequestUidKey.String(tracing.StringValue(string(request.UID))),
 				tracing.RequestOperationKey.String(tracing.StringValue(string(request.Operation))),
-				tracing.RequestDryRunKey.Bool(admissionutils.IsDryRun(&request)),
+				tracing.RequestDryRunKey.Bool(admissionutils.IsDryRun(request.AdmissionRequest)),
 				tracing.RequestKindGroupKey.String(tracing.StringValue(request.Kind.Group)),
 				tracing.RequestKindVersionKey.String(tracing.StringValue(request.Kind.Version)),
 				tracing.RequestKindKindKey.String(tracing.StringValue(request.Kind.Kind)),
