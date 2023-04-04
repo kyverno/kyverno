@@ -36,8 +36,8 @@ type RuleResponse struct {
 	GeneratedResource unstructured.Unstructured
 	// Status rule status
 	Status RuleStatus
-	// Stats contains rule statistics
-	Stats ExecutionStats
+	// stats contains rule statistics
+	stats ExecutionStats
 	// PatchedTarget is the patched resource for mutate.targets
 	PatchedTarget *unstructured.Unstructured
 	// PatchedTargetSubresourceName is the name of the subresource which is patched, empty if the resource patched is not a subresource.
@@ -45,9 +45,9 @@ type RuleResponse struct {
 	// PatchedTargetParentResourceGVR is the GVR of the parent resource of the PatchedTarget. This is only populated when PatchedTarget is a subresource.
 	PatchedTargetParentResourceGVR metav1.GroupVersionResource
 	// PodSecurityChecks contains pod security checks (only if this is a pod security rule)
-	PodSecurityChecks *PodSecurityChecks
-	// Exception is the exception applied (if any)
-	Exception *kyvernov2alpha1.PolicyException
+	podSecurityChecks *PodSecurityChecks
+	// exception is the exception applied (if any)
+	exception *kyvernov2alpha1.PolicyException
 }
 
 func NewRuleResponse(rule kyvernov1.Rule, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
@@ -78,30 +78,37 @@ func RuleFail(rule kyvernov1.Rule, ruleType RuleType, msg string) *RuleResponse 
 	return NewRuleResponse(rule, ruleType, msg, RuleStatusFail)
 }
 
-// func (r RuleResponse) DoneNow() RuleResponse {
-// 	return r.Done(time.Now())
-// }
-
 func (r RuleResponse) WithException(exception *kyvernov2alpha1.PolicyException) *RuleResponse {
-	r.Exception = exception
+	r.exception = exception
 	return &r
 }
 
 func (r RuleResponse) WithPodSecurityChecks(checks PodSecurityChecks) *RuleResponse {
-	r.PodSecurityChecks = &checks
+	r.podSecurityChecks = &checks
 	return &r
 }
 
 func (r RuleResponse) WithStats(startTime, endTime time.Time) RuleResponse {
-	r.Stats = NewExecutionStats(startTime)
-	r.Stats.Done(endTime)
+	r.stats = NewExecutionStats(startTime)
+	r.stats.Done(endTime)
 	return r
 }
 
-// func (r RuleResponse) Done(timestamp time.Time) RuleResponse {
-// 	r.Stats.Done(timestamp)
-// 	return r
-// }
+func (r RuleResponse) Stats() ExecutionStats {
+	return r.stats
+}
+
+func (r RuleResponse) Exception() *kyvernov2alpha1.PolicyException {
+	return r.exception
+}
+
+func (r RuleResponse) IsException() bool {
+	return r.exception != nil
+}
+
+func (r RuleResponse) PodSecurityChecks() *PodSecurityChecks {
+	return r.podSecurityChecks
+}
 
 // HasStatus checks if rule status is in a given list
 func (r RuleResponse) HasStatus(status ...RuleStatus) bool {

@@ -15,11 +15,9 @@ func TestRuleResponse_String(t *testing.T) {
 		Patches                        [][]byte
 		GeneratedResource              unstructured.Unstructured
 		Status                         RuleStatus
-		Stats                          ExecutionStats
 		PatchedTarget                  *unstructured.Unstructured
 		PatchedTargetSubresourceName   string
 		PatchedTargetParentResourceGVR metav1.GroupVersionResource
-		PodSecurityChecks              *PodSecurityChecks
 	}
 	tests := []struct {
 		name   string
@@ -63,11 +61,9 @@ func TestRuleResponse_String(t *testing.T) {
 				Patches:                        tt.fields.Patches,
 				GeneratedResource:              tt.fields.GeneratedResource,
 				Status:                         tt.fields.Status,
-				Stats:                          tt.fields.Stats,
 				PatchedTarget:                  tt.fields.PatchedTarget,
 				PatchedTargetSubresourceName:   tt.fields.PatchedTargetSubresourceName,
 				PatchedTargetParentResourceGVR: tt.fields.PatchedTargetParentResourceGVR,
-				PodSecurityChecks:              tt.fields.PodSecurityChecks,
 			}
 			if got := rr.String(); got != tt.want {
 				t.Errorf("RuleResponse.ToString() = %v, want %v", got, tt.want)
@@ -84,11 +80,9 @@ func TestRuleResponse_HasStatus(t *testing.T) {
 		Patches                        [][]byte
 		GeneratedResource              unstructured.Unstructured
 		Status                         RuleStatus
-		Stats                          ExecutionStats
 		PatchedTarget                  *unstructured.Unstructured
 		PatchedTargetSubresourceName   string
 		PatchedTargetParentResourceGVR metav1.GroupVersionResource
-		PodSecurityChecks              *PodSecurityChecks
 	}
 	type args struct {
 		status []RuleStatus
@@ -145,11 +139,9 @@ func TestRuleResponse_HasStatus(t *testing.T) {
 				Patches:                        tt.fields.Patches,
 				GeneratedResource:              tt.fields.GeneratedResource,
 				Status:                         tt.fields.Status,
-				Stats:                          tt.fields.Stats,
 				PatchedTarget:                  tt.fields.PatchedTarget,
 				PatchedTargetSubresourceName:   tt.fields.PatchedTargetSubresourceName,
 				PatchedTargetParentResourceGVR: tt.fields.PatchedTargetParentResourceGVR,
-				PodSecurityChecks:              tt.fields.PodSecurityChecks,
 			}
 			if got := r.HasStatus(tt.args.status...); got != tt.want {
 				t.Errorf("RuleResponse.HasStatus() = %v, want %v", got, tt.want)

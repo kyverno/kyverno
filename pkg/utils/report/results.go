@@ -99,9 +99,10 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 			Category: annotations[kyvernov1.AnnotationPolicyCategory],
 			Severity: severityFromString(annotations[kyvernov1.AnnotationPolicySeverity]),
 		}
-		if ruleResult.PodSecurityChecks != nil {
+		pss := ruleResult.PodSecurityChecks()
+		if pss != nil {
 			var controls []string
-			for _, check := range ruleResult.PodSecurityChecks.Checks {
+			for _, check := range pss.Checks {
 				if !check.CheckResult.Allowed {
 					controls = append(controls, check.ID)
 				}
@@ -109,8 +110,8 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 			if len(controls) > 0 {
 				sort.Strings(controls)
 				result.Properties = map[string]string{
-					"standard": string(ruleResult.PodSecurityChecks.Level),
-					"version":  ruleResult.PodSecurityChecks.Version,
+					"standard": string(pss.Level),
+					"version":  pss.Version,
 					"controls": strings.Join(controls, ","),
 				}
 			}

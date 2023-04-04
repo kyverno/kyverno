@@ -67,8 +67,6 @@ func (e *engine) filterRule(
 		return ruleResp
 	}
 
-	startTime := time.Now()
-
 	newResource := policyContext.NewResource()
 	oldResource := policyContext.OldResource()
 	admissionInfo := policyContext.AdmissionInfo()
@@ -81,15 +79,7 @@ func (e *engine) filterRule(
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
 			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err == nil {
-				return &engineapi.RuleResponse{
-					Name:   rule.Name,
-					Type:   ruleType,
-					Status: engineapi.RuleStatusFail,
-					Stats: engineapi.ExecutionStats{
-						ProcessingTime: time.Since(startTime),
-						Timestamp:      startTime.Unix(),
-					},
-				}
+				return engineapi.RuleFail(rule, ruleType, "")
 			}
 		}
 		logger.V(4).Info("rule not matched", "reason", err.Error())
@@ -126,13 +116,5 @@ func (e *engine) filterRule(
 	}
 
 	// build rule Response
-	return &engineapi.RuleResponse{
-		Name:   ruleCopy.Name,
-		Type:   ruleType,
-		Status: engineapi.RuleStatusPass,
-		Stats: engineapi.ExecutionStats{
-			ProcessingTime: time.Since(startTime),
-			Timestamp:      startTime.Unix(),
-		},
-	}
+	return engineapi.RulePass(*ruleCopy, ruleType, "")
 }

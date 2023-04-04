@@ -34,8 +34,7 @@ func generateSuccessEvents(log logr.Logger, ers ...engineapi.EngineResponse) (ev
 func generateExceptionEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		for i, ruleResp := range er.PolicyResponse.Rules {
-			isException := ruleResp.Exception != nil
-			if ruleResp.Status == engineapi.RuleStatusSkip && isException {
+			if ruleResp.Status == engineapi.RuleStatusSkip && ruleResp.IsException() {
 				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i], event.PolicyController)...)
 			}
 		}

@@ -23,9 +23,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 	resp.Type = engineapi.Mutation
 
 	defer func() {
-		resp.Stats.ProcessingTime = time.Since(startTime)
-		resp.Stats.Timestamp = startTime.Unix()
-		logger.V(4).Info("finished applying strategicMerge patch", "processingTime", resp.Stats.ProcessingTime.String())
+		logger.V(4).Info("finished applying strategicMerge patch", "processingTime", time.Since(startTime))
 	}()
 
 	overlayBytes, err := json.Marshal(overlay)
