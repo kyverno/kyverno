@@ -34969,6 +34969,7 @@ spec:
             - --metricsPort=8000
             - --clientRateLimitBurst=300
             - --clientRateLimitQPS=300
+            - --skipResourceFilters=true
           env:
           - name: METRICS_CONFIG
             value: kyverno-metrics
