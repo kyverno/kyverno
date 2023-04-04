@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
-	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -60,9 +59,6 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 			engineResponse.PolicyResponse.Rules = rules
 			engineResponses = append(engineResponses, &engineResponse)
 		}
-
-		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), logger, h.metricsConfig, string(request.Operation), policy, engineResponse)
 	}
 
 	if failedResponse := applyUpdateRequest(ctx, request, kyvernov1beta1.Mutate, h.urGenerator, policyContext.AdmissionInfo(), request.Operation, engineResponses...); failedResponse != nil {

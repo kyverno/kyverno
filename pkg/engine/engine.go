@@ -33,7 +33,8 @@ type engine struct {
 	contextLoader        engineapi.ContextLoaderFactory
 	exceptionSelector    engineapi.PolicyExceptionSelector
 	// metrics
-	resultCounter instrument.Int64Counter
+	resultCounter     instrument.Int64Counter
+	durationHistogram instrument.Float64Histogram
 }
 
 type handlerFactory = func() (handlers.Handler, error)
@@ -54,6 +55,13 @@ func NewEngine(
 	if err != nil {
 		logging.Error(err, "failed to register metric kyverno_policy_results")
 	}
+	durationHistogram, err := meter.Float64Histogram(
+		"kyverno_policy_execution_duration_seconds",
+		instrument.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"),
+	)
+	if err != nil {
+		logging.Error(err, "failed to register metric kyverno_policy_execution_duration_seconds")
+	}
 	return &engine{
 		configuration:        configuration,
 		metricsConfiguration: metricsConfiguration,
@@ -62,6 +70,7 @@ func NewEngine(
 		contextLoader:        contextLoader,
 		exceptionSelector:    exceptionSelector,
 		resultCounter:        resultCounter,
+		durationHistogram:    durationHistogram,
 	}
 }
 
