@@ -56,7 +56,7 @@ func (h validateImageHandler) Process(
 
 				logger.V(4).Info("validating image", "image", image)
 				if err := validateImage(policyContext, imageVerify, name, imageInfo, logger); err != nil {
-					return resource, handlers.WithResponses(engineapi.NewRuleResponse(rule, engineapi.ImageVerify, err.Error(), engineapi.RuleStatusFail))
+					return resource, handlers.WithFail(rule, engineapi.ImageVerify, err.Error())
 				}
 			}
 		}

@@ -79,7 +79,7 @@ func (e *engine) filterRule(
 		if ruleType == engineapi.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
 			if err = engineutils.MatchesResourceDescription(oldResource, rule, admissionInfo, namespaceLabels, policy.GetNamespace(), gvk, subresource, policyContext.Operation()); err == nil {
-				return engineapi.RuleFail(rule, ruleType, "")
+				return engineapi.RuleFail(rule.Name, ruleType, "")
 			}
 		}
 		logger.V(4).Info("rule not matched", "reason", err.Error())
@@ -112,9 +112,9 @@ func (e *engine) filterRule(
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return engineapi.RuleSkip(*ruleCopy, ruleType, "")
+		return engineapi.RuleSkip(ruleCopy.Name, ruleType, "")
 	}
 
 	// build rule Response
-	return engineapi.RulePass(*ruleCopy, ruleType, "")
+	return engineapi.RulePass(ruleCopy.Name, ruleType, "")
 }

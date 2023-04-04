@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,31 +49,31 @@ type RuleResponse struct {
 	exception *kyvernov2alpha1.PolicyException
 }
 
-func NewRuleResponse(rule kyvernov1.Rule, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
+func NewRuleResponse(rule string, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
 	return &RuleResponse{
-		Name:    rule.Name,
+		Name:    rule,
 		Type:    ruleType,
 		Message: msg,
 		Status:  status,
 	}
 }
 
-func RuleError(rule kyvernov1.Rule, ruleType RuleType, msg string, err error) *RuleResponse {
+func RuleError(rule string, ruleType RuleType, msg string, err error) *RuleResponse {
 	if err != nil {
 		return NewRuleResponse(rule, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), RuleStatusError)
 	}
 	return NewRuleResponse(rule, ruleType, msg, RuleStatusError)
 }
 
-func RuleSkip(rule kyvernov1.Rule, ruleType RuleType, msg string) *RuleResponse {
+func RuleSkip(rule string, ruleType RuleType, msg string) *RuleResponse {
 	return NewRuleResponse(rule, ruleType, msg, RuleStatusSkip)
 }
 
-func RulePass(rule kyvernov1.Rule, ruleType RuleType, msg string) *RuleResponse {
+func RulePass(rule string, ruleType RuleType, msg string) *RuleResponse {
 	return NewRuleResponse(rule, ruleType, msg, RuleStatusPass)
 }
 
-func RuleFail(rule kyvernov1.Rule, ruleType RuleType, msg string) *RuleResponse {
+func RuleFail(rule string, ruleType RuleType, msg string) *RuleResponse {
 	return NewRuleResponse(rule, ruleType, msg, RuleStatusFail)
 }
 

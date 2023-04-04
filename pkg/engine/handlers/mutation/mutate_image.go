@@ -62,7 +62,7 @@ func (h mutateImageHandler) Process(
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {
 		return resource, handlers.WithResponses(
-			engineapi.RuleError(rule, engineapi.ImageVerify, "failed to substitute variables", err),
+			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
 		)
 	}
 	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm)

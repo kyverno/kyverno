@@ -53,12 +53,12 @@ func (h validatePssHandler) Process(
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
 		return resource, handlers.WithResponses(
-			engineapi.RulePass(rule, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
+			engineapi.RulePass(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
 		)
 	} else {
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		return resource, handlers.WithResponses(
-			engineapi.RuleFail(rule, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
+			engineapi.RuleFail(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks),
 		)
 	}
 }
