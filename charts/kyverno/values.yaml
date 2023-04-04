@@ -49,11 +49,11 @@ config:
   # -- The registry hostname used for the image mutation.
   defaultRegistry: docker.io
 
-  # -- Exclude group role
-  excludeGroupRole: []
+  # -- Exclude groups
+  excludeGroups: []
 
-  # -- Exclude username
-  excludeUsername: []
+  # -- Exclude usernames
+  excludeUsernames: []
 
   # -- Exclude usernames for mutateExisting and generate policies
   excludeBackgroundUsernames: []
@@ -937,6 +937,7 @@ reportsController:
   extraArgs:
     clientRateLimitQPS: 300
     clientRateLimitBurst: 300
+    skipResourceFilters: true
 
   resources:
     # -- Pod resource limits

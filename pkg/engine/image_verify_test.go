@@ -162,7 +162,7 @@ var signaturePayloads = [][]byte{
 }
 
 var (
-	cfg        = config.NewDefaultConfiguration()
+	cfg        = config.NewDefaultConfiguration(false)
 	metricsCfg = config.NewDefaultMetricsConfiguration()
 )
 
