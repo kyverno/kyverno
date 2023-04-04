@@ -195,7 +195,7 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:     []string{"https://github.com/kyverno/policies/other/require_unique_uid_per_workload/require_unique_uid_per_workload.yaml"},
+				PolicyPaths:     []string{"https://github.com/kyverno/policies/other/require_unique_uid_per_workload/"},
 				ResourcePaths:   []string{"../../../../test/cli/apply/resources-set-test/resources-two.yaml"},
 				GitBranch:       "main",
 				PolicyReport:    true,
