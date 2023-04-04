@@ -35,7 +35,7 @@ func (e *engine) reportMetrics(
 		resourceKind := resourceSpec.GetKind()
 		resourceNamespace := resourceSpec.GetNamespace()
 		for _, rule := range response.PolicyResponse.Rules {
-			ruleName := rule.Name
+			ruleName := rule.ZName()
 			ruleType := metrics.ParseRuleTypeFromEngineRuleResponse(rule)
 			var ruleResult metrics.RuleResult
 			switch rule.Status {

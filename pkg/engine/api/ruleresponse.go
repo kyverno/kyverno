@@ -23,8 +23,8 @@ type PodSecurityChecks struct {
 
 // RuleResponse details for each rule application
 type RuleResponse struct {
-	// Name is the rule name specified in policy
-	Name string
+	// name is the rule name specified in policy
+	name string
 	// Type is the rule type (Mutation,Generation,Validation) for Kyverno Policy
 	Type RuleType
 	// message is the message response from the rule application
@@ -49,32 +49,36 @@ type RuleResponse struct {
 	exception *kyvernov2alpha1.PolicyException
 }
 
-func NewRuleResponse(rule string, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
+func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
 	return &RuleResponse{
-		Name:    rule,
+		name:    name,
 		Type:    ruleType,
 		message: msg,
 		Status:  status,
 	}
 }
 
-func RuleError(rule string, ruleType RuleType, msg string, err error) *RuleResponse {
+func RuleError(name string, ruleType RuleType, msg string, err error) *RuleResponse {
 	if err != nil {
-		return NewRuleResponse(rule, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), RuleStatusError)
+		return NewRuleResponse(name, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), RuleStatusError)
 	}
-	return NewRuleResponse(rule, ruleType, msg, RuleStatusError)
+	return NewRuleResponse(name, ruleType, msg, RuleStatusError)
 }
 
-func RuleSkip(rule string, ruleType RuleType, msg string) *RuleResponse {
-	return NewRuleResponse(rule, ruleType, msg, RuleStatusSkip)
+func RuleSkip(name string, ruleType RuleType, msg string) *RuleResponse {
+	return NewRuleResponse(name, ruleType, msg, RuleStatusSkip)
 }
 
-func RulePass(rule string, ruleType RuleType, msg string) *RuleResponse {
-	return NewRuleResponse(rule, ruleType, msg, RuleStatusPass)
+func RuleWarn(name string, ruleType RuleType, msg string) *RuleResponse {
+	return NewRuleResponse(name, ruleType, msg, RuleStatusWarn)
 }
 
-func RuleFail(rule string, ruleType RuleType, msg string) *RuleResponse {
-	return NewRuleResponse(rule, ruleType, msg, RuleStatusFail)
+func RulePass(name string, ruleType RuleType, msg string) *RuleResponse {
+	return NewRuleResponse(name, ruleType, msg, RuleStatusPass)
+}
+
+func RuleFail(name string, ruleType RuleType, msg string) *RuleResponse {
+	return NewRuleResponse(name, ruleType, msg, RuleStatusFail)
 }
 
 func (r RuleResponse) WithException(exception *kyvernov2alpha1.PolicyException) *RuleResponse {
@@ -142,6 +146,10 @@ func (r RuleResponse) Message() string {
 	return r.message
 }
 
+func (r RuleResponse) ZName() string {
+	return r.message
+}
+
 // HasStatus checks if rule status is in a given list
 func (r RuleResponse) HasStatus(status ...RuleStatus) bool {
 	for _, s := range status {
@@ -154,5 +162,5 @@ func (r RuleResponse) HasStatus(status ...RuleStatus) bool {
 
 // String implements Stringer interface
 func (r RuleResponse) String() string {
-	return fmt.Sprintf("rule %s (%s): %v", r.Name, r.Type, r.message)
+	return fmt.Sprintf("rule %s (%s): %v", r.name, r.Type, r.message)
 }

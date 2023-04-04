@@ -440,7 +440,7 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
-			rules = append(rules, rule.Name)
+			rules = append(rules, rule.ZName())
 		}
 
 		result := policyreportv1alpha2.PolicyReportResult{
@@ -542,14 +542,14 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 			}
 
 			for _, rule := range resp.PolicyResponse.Rules {
-				if rule.Type != engineapi.Generation || test.Rule != rule.Name {
+				if rule.Type != engineapi.Generation || test.Rule != rule.ZName() {
 					continue
 				}
 
 				var resultsKey []string
 				var resultKey string
 				var result policyreportv1alpha2.PolicyReportResult
-				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name, resourceNamespace, resourceKind, resourceName)
+				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.ZName(), resourceNamespace, resourceKind, resourceName)
 				for _, key := range resultsKey {
 					if val, ok := results[key]; ok {
 						result = val
@@ -583,7 +583,7 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 			var resultsKey []string
 			var resultKey string
 			var result policyreportv1alpha2.PolicyReportResult
-			resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name, resourceNamespace, resourceKind, resourceName)
+			resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.ZName(), resourceNamespace, resourceKind, resourceName)
 			for _, key := range resultsKey {
 				if val, ok := results[key]; ok {
 					result = val
@@ -710,8 +710,8 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 func buildMessage(resp *engineapi.EngineResponse) string {
 	var bldr strings.Builder
 	for _, ruleResp := range resp.PolicyResponse.Rules {
-		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name, ruleResp.Status)
-		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message)
+		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.ZName(), ruleResp.Status)
+		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message())
 	}
 
 	return bldr.String()

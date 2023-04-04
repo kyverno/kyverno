@@ -129,7 +129,7 @@ func annotationFromPolicyResponse(policyResponse engineapi.PolicyResponse, log l
 				continue
 			}
 			rp := RulePatch{
-				RuleName: ruleInfo.Name,
+				RuleName: ruleInfo.ZName(),
 				Op:       patchmap["op"].(string),
 				Path:     patchmap["path"].(string),
 			}

@@ -244,7 +244,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 				}
 			}
 		} else {
-			applicableRules = append(applicableRules, r.Name)
+			applicableRules = append(applicableRules, r.ZName())
 		}
 	}
 

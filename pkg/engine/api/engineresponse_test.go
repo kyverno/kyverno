@@ -493,76 +493,63 @@ func TestEngineResponse_GetFailedRules(t *testing.T) {
 	}{{
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "skip",
-					Status: RuleStatusSkip,
-				}},
+				Rules: []RuleResponse{
+					*RuleSkip("skip", Validation, ""),
+				},
 			},
 		},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "warn",
-					Status: RuleStatusWarn,
-				}},
+				Rules: []RuleResponse{
+					*RuleWarn("warn", Validation, ""),
+				},
 			},
 		},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "pass",
-					Status: RuleStatusPass,
-				}},
+				Rules: []RuleResponse{
+					*RulePass("pass", Validation, ""),
+				},
 			},
 		},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "fail",
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("fail", Validation, ""),
+				},
 			},
 		},
 		want: []string{"fail"},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "fail-1",
-					Status: RuleStatusFail,
-				}, {
-					Name:   "fail-2",
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("fail-1", Validation, ""),
+					*RuleFail("fail-2", Validation, ""),
+				},
 			},
 		},
 		want: []string{"fail-1", "fail-2"},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "fail-1",
-					Status: RuleStatusFail,
-				}, {
-					Name:   "error-1",
-					Status: RuleStatusError,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("fail-1", Validation, ""),
+					*RuleError("error-2", Validation, "", nil),
+				},
 			},
 		},
 		want: []string{"fail-1", "error-1"},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "error-1",
-					Status: RuleStatusError,
-				}, {
-					Name:   "error-2",
-					Status: RuleStatusError,
-				}},
+				Rules: []RuleResponse{
+					*RuleError("error-1", Validation, "", nil),
+					*RuleError("error-2", Validation, "", nil),
+				},
 			},
 		},
 		want: []string{"error-1", "error-2"},
@@ -596,113 +583,91 @@ func TestEngineResponse_GetSuccessRules(t *testing.T) {
 	}{{
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "skip",
-					Status: RuleStatusSkip,
-				}},
+				Rules: []RuleResponse{
+					*RuleSkip("skip", Validation, ""),
+				},
 			},
 		},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "warn",
-					Status: RuleStatusWarn,
-				}},
+				Rules: []RuleResponse{
+					*RuleWarn("warn", Validation, ""),
+				},
 			},
 		},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "pass-1",
-					Status: RuleStatusPass,
-				}, {
-					Name:   "pass-2",
-					Status: RuleStatusPass,
-				}},
+				Rules: []RuleResponse{
+					*RulePass("pass-1", Validation, ""),
+					*RulePass("pass-2", Validation, ""),
+				},
 			},
 		},
 		want: []string{"pass-1", "pass-2"},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "pass",
-					Status: RuleStatusPass,
-				}},
+				Rules: []RuleResponse{
+					*RulePass("pass", Validation, ""),
+				},
 			},
 		},
 		want: []string{"pass"},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "pass",
-					Status: RuleStatusPass,
-				}, {
-					Name:   "fail",
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RulePass("pass", Validation, ""),
+					*RuleFail("fail", Validation, ""),
+				},
 			},
 		},
 		want: []string{"pass"},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "pass",
-					Status: RuleStatusPass,
-				}, {
-					Name:   "skip",
-					Status: RuleStatusSkip,
-				}},
+				Rules: []RuleResponse{
+					*RulePass("pass", Validation, ""),
+					*RuleSkip("skip", Validation, ""),
+				},
 			},
 		},
 		want: []string{"pass"},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "fail",
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("fail", Validation, ""),
+				},
 			},
 		},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "fail-1",
-					Status: RuleStatusFail,
-				}, {
-					Name:   "fail-2",
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("fail-1", Validation, ""),
+					*RuleFail("fail-2", Validation, ""),
+				},
 			},
 		},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "fail-1",
-					Status: RuleStatusFail,
-				}, {
-					Name:   "error-1",
-					Status: RuleStatusError,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("fail-1", Validation, ""),
+					*RuleError("error-1", Validation, "", nil),
+				},
 			},
 		},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Name:   "error-1",
-					Status: RuleStatusError,
-				}, {
-					Name:   "error-2",
-					Status: RuleStatusError,
-				}},
+				Rules: []RuleResponse{
+					*RuleError("error-1", Validation, "", nil),
+					*RuleError("error-2", Validation, "", nil),
+				},
 			},
 		},
 	}}

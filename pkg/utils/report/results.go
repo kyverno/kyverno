@@ -89,7 +89,7 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 		result := policyreportv1alpha2.PolicyReportResult{
 			Source:  kyvernov1.ValueKyvernoApp,
 			Policy:  key,
-			Rule:    ruleResult.Name,
+			Rule:    ruleResult.ZName(),
 			Message: ruleResult.Message(),
 			Result:  toPolicyResult(ruleResult.Status),
 			Scored:  annotations[kyvernov1.AnnotationPolicyScored] != "false",

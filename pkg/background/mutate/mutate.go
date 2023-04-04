@@ -152,13 +152,13 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			patched, parentGVR, patchedSubresource := r.PatchedTarget()
 			switch r.Status {
 			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
-				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status, r.Message)
+				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status, r.Message())
 				logger.Error(err, "")
 				errs = append(errs, err)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
 			case engineapi.RuleStatusSkip:
-				logger.Info("mutate existing rule skipped", "rule", r.Name, "message", r.Message)
+				logger.Info("mutate existing rule skipped", "rule", r.ZName(), "message", r.Message)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
 			case engineapi.RuleStatusPass:
@@ -170,7 +170,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				}
 
 				if patchedNew == nil {
-					logger.Error(ErrEmptyPatch, "", "rule", r.Name, "message", r.Message)
+					logger.Error(ErrEmptyPatch, "", "rule", r.ZName(), "message", r.Message)
 					errs = append(errs, err)
 					continue
 				}
@@ -271,7 +271,7 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 			Op       string `json:"op"`
 			Path     string `json:"path"`
 		}{
-			RuleName: r.Name,
+			RuleName: r.ZName(),
 			Op:       patchmap["op"].(string),
 			Path:     patchmap["path"].(string),
 		}

@@ -708,10 +708,10 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 		}
 
 		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
-			if policyRule.Name == valResponseRule.Name {
+			if policyRule.Name == valResponseRule.ZName() {
 				ruleFoundInEngineResponse = true
 				vrule := kyvernov1.ViolatedRule{
-					Name:    valResponseRule.Name,
+					Name:    valResponseRule.ZName(),
 					Type:    string(valResponseRule.Type),
 					Message: valResponseRule.Message(),
 				}
@@ -747,7 +747,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 							printCount++
 						}
 
-						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message())
+						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.ZName(), valResponseRule.Message())
 					}
 
 				case engineapi.RuleStatusError:
@@ -801,7 +801,7 @@ func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *engine
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
 		for i, ruleResponse := range engineResponse.PolicyResponse.Rules {
-			if policyRule.Name == ruleResponse.Name {
+			if policyRule.Name == ruleResponse.ZName() {
 				ruleFoundInEngineResponse = true
 
 				if ruleResponse.Status == engineapi.RuleStatusPass {
@@ -811,7 +811,7 @@ func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *engine
 						fmt.Println("\ninvalid resource", "policy", policy.GetName(), "resource", resPath)
 						printCount++
 					}
-					fmt.Printf("%d. %s - %s\n", i+1, ruleResponse.Name, ruleResponse.Message())
+					fmt.Printf("%d. %s - %s\n", i+1, ruleResponse.ZName(), ruleResponse.Message())
 
 					if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
 						rc.Warn++
@@ -877,7 +877,7 @@ func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.
 	for _, policyRule := range autogen.ComputeRules(c.Policy) {
 		ruleFoundInEngineResponse := false
 		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
-			if policyRule.Name == mutateResponseRule.Name {
+			if policyRule.Name == mutateResponseRule.ZName() {
 				ruleFoundInEngineResponse = true
 				if mutateResponseRule.Status == engineapi.RuleStatusPass {
 					c.Rc.Pass++
@@ -893,7 +893,7 @@ func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.
 						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", c.Policy.GetName(), resPath)
 						printCount++
 					}
-					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name, mutateResponseRule.Message())
+					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.ZName(), mutateResponseRule.Message())
 					c.Rc.Fail++
 				}
 				continue
@@ -1089,7 +1089,7 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	objects := []runtime.Object{&resource}
 	resources := []*unstructured.Unstructured{}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		if path, ok := ruleToCloneSourceResource[rule.Name]; ok {
+		if path, ok := ruleToCloneSourceResource[rule.ZName()]; ok {
 			resourceBytes, err := getFileBytes(path)
 			if err != nil {
 				fmt.Printf("failed to get resource bytes\n")
@@ -1128,7 +1128,7 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	var newRuleResponse []engineapi.RuleResponse
 
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		genResource, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.Name})
+		genResource, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.ZName()})
 		if err != nil {
 			rule.Status = engineapi.RuleStatusError
 			return nil, err
