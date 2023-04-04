@@ -35,7 +35,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	kyvernoInformers.Start(ctx.Done())
 
 	dclient := dclient.NewEmptyFakeClient()
-	configuration := config.NewDefaultConfiguration()
+	configuration := config.NewDefaultConfiguration(false)
 	rbLister := informers.Rbac().V1().RoleBindings().Lister()
 	crbLister := informers.Rbac().V1().ClusterRoleBindings().Lister()
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())

@@ -8,6 +8,7 @@
 - Refactored `kyverno` chart, migration instructions are available in chart `README.md`.
 - Image references in the json context are not mutated to canonical form anymore, do not assume a registry domain is always present.
 - Added support for configuring webhook annotations in the config map through `webhookAnnotations` stanza.
+- Added new flag `skipResourceFilters` to reports controller to enable/disable considering resource filters in the background (default value is `true`)
 
 ## v1.9.0-rc.1
 

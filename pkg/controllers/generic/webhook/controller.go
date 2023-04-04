@@ -140,7 +140,7 @@ func (c *controller) enqueue() {
 }
 
 func (c *controller) loadConfig() config.Configuration {
-	cfg := config.NewDefaultConfiguration()
+	cfg := config.NewDefaultConfiguration(false)
 	cm, err := c.configMapLister.ConfigMaps(config.KyvernoNamespace()).Get(config.KyvernoConfigMapName())
 	if err == nil {
 		cfg.Load(cm)
