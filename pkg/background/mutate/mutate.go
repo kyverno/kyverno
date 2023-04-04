@@ -150,9 +150,9 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		er := c.engine.Mutate(context.TODO(), policyContext)
 		for _, r := range er.PolicyResponse.Rules {
 			patched, parentGVR, patchedSubresource := r.PatchedTarget()
-			switch r.Status {
+			switch r.ZStatus() {
 			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
-				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status, r.Message())
+				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.ZStatus(), r.Message())
 				logger.Error(err, "")
 				errs = append(errs, err)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
@@ -175,7 +175,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 					continue
 				}
 
-				if r.Status == engineapi.RuleStatusPass {
+				if r.ZStatus() == engineapi.RuleStatusPass {
 					patchedNew.SetResourceVersion(patched.GetResourceVersion())
 					var updateErr error
 					if patchedSubresource == "status" {

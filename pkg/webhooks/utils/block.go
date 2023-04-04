@@ -44,9 +44,9 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 	for _, er := range engineResponses {
 		ruleToReason := make(map[string]string)
 		for _, rule := range er.PolicyResponse.Rules {
-			if rule.Status != engineapi.RuleStatusPass {
+			if rule.ZStatus() != engineapi.RuleStatusPass {
 				ruleToReason[rule.ZName()] = rule.Message()
-				if rule.Status == engineapi.RuleStatusFail {
+				if rule.ZStatus() == engineapi.RuleStatusFail {
 					hasViolations = true
 				}
 			}

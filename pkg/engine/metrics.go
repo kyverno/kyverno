@@ -38,7 +38,7 @@ func (e *engine) reportMetrics(
 			ruleName := rule.ZName()
 			ruleType := metrics.ParseRuleTypeFromEngineRuleResponse(rule)
 			var ruleResult metrics.RuleResult
-			switch rule.Status {
+			switch rule.ZStatus() {
 			case engineapi.RuleStatusPass:
 				ruleResult = metrics.Pass
 			case engineapi.RuleStatusFail:

@@ -716,7 +716,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 					Message: valResponseRule.Message(),
 				}
 
-				switch valResponseRule.Status {
+				switch valResponseRule.ZStatus() {
 				case engineapi.RuleStatusPass:
 					rc.Pass++
 					vrule.Status = policyreportv1alpha2.StatusPass
@@ -804,7 +804,7 @@ func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *engine
 			if policyRule.Name == ruleResponse.ZName() {
 				ruleFoundInEngineResponse = true
 
-				if ruleResponse.Status == engineapi.RuleStatusPass {
+				if ruleResponse.ZStatus() == engineapi.RuleStatusPass {
 					rc.Pass++
 				} else {
 					if printCount < 1 {
@@ -879,13 +879,13 @@ func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.
 		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.ZName() {
 				ruleFoundInEngineResponse = true
-				if mutateResponseRule.Status == engineapi.RuleStatusPass {
+				if mutateResponseRule.ZStatus() == engineapi.RuleStatusPass {
 					c.Rc.Pass++
 					printMutatedRes = true
-				} else if mutateResponseRule.Status == engineapi.RuleStatusSkip {
+				} else if mutateResponseRule.ZStatus() == engineapi.RuleStatusSkip {
 					fmt.Printf("\nskipped mutate policy %s -> resource %s", c.Policy.GetName(), resPath)
 					c.Rc.Skip++
-				} else if mutateResponseRule.Status == engineapi.RuleStatusError {
+				} else if mutateResponseRule.ZStatus() == engineapi.RuleStatusError {
 					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", c.Policy.GetName(), resPath, mutateResponseRule.Message())
 					c.Rc.Error++
 				} else {
@@ -1130,13 +1130,11 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		genResource, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.ZName()})
 		if err != nil {
-			rule.Status = engineapi.RuleStatusError
 			return nil, err
 		}
 
 		unstrGenResource, err := c.GetUnstrResource(genResource[0])
 		if err != nil {
-			rule.Status = engineapi.RuleStatusError
 			return nil, err
 		}
 

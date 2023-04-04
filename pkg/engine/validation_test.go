@@ -1483,7 +1483,7 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusError)
+	assert.Equal(t, er.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusError)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "Unknown key \"name1\" in path"))
 }
 
@@ -1573,7 +1573,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusError)
+	assert.Equal(t, er.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusError)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "Unknown key \"name1\" in path"))
 }
 
@@ -1629,7 +1629,7 @@ func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
 
 	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
+	assert.Equal(t, er.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation error: rule not-operator-with-variable-should-alway-fail-validation failed at path /spec/content/")
 }
 
@@ -1719,7 +1719,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusError)
+	assert.Equal(t, er.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusError)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "Unknown key \"name1\" in path"))
 }
 
@@ -1808,7 +1808,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
+	assert.Equal(t, er.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
 		"validation error: rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/ rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/")
 }
@@ -1909,7 +1909,7 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 
 	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
+	assert.Equal(t, er.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "The animal cow is not in the allowed list of animals.")
 }
 
@@ -1961,7 +1961,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 		er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
 		for i, rule := range er.PolicyResponse.Rules {
-			assert.Equal(t, er.PolicyResponse.Rules[i].Status, test.expectedResults[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedResults[i], er.PolicyResponse.Rules[i].Status)
+			assert.Equal(t, er.PolicyResponse.Rules[i].ZStatus(), test.expectedResults[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedResults[i], er.PolicyResponse.Rules[i].ZStatus())
 			assert.Equal(t, er.PolicyResponse.Rules[i].Message, test.expectedMessages[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedMessages[i], rule.Message)
 		}
 	}
@@ -3088,7 +3088,7 @@ func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string,
 		WithNewResource(*resourceUnstructured)
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, contextLoader)
 
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, status)
+	assert.Equal(t, er.PolicyResponse.Rules[0].ZStatus(), status)
 	if msg != "" {
 		assert.Equal(t, er.PolicyResponse.Rules[0].Message, msg)
 	}
@@ -3151,7 +3151,7 @@ func Test_delete_ignore_pattern(t *testing.T) {
 
 	engineResponseCreate := testValidate(context.TODO(), registryclient.NewOrDie(), policyContextCreate, cfg, nil)
 	assert.Equal(t, len(engineResponseCreate.PolicyResponse.Rules), 1)
-	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
+	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail)
 
 	policyContextDelete := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).

@@ -113,9 +113,9 @@ func (h *generationHandler) handleTrigger(
 		}
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {
-			if rule.Status == engineapi.RuleStatusPass {
+			if rule.ZStatus() == engineapi.RuleStatusPass {
 				appliedRules = append(appliedRules, rule)
-			} else if rule.Status == engineapi.RuleStatusFail {
+			} else if rule.ZStatus() == engineapi.RuleStatusFail {
 				failedRules = append(failedRules, rule)
 			}
 		}

@@ -558,9 +558,9 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 						continue
 					}
 
-					if rule.Status == engineapi.RuleStatusSkip {
+					if rule.ZStatus() == engineapi.RuleStatusSkip {
 						result.Result = policyreportv1alpha2.StatusSkip
-					} else if rule.Status == engineapi.RuleStatusError {
+					} else if rule.ZStatus() == engineapi.RuleStatusError {
 						result.Result = policyreportv1alpha2.StatusError
 					} else {
 						var x string
@@ -592,9 +592,9 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 					continue
 				}
 
-				if rule.Status == engineapi.RuleStatusSkip {
+				if rule.ZStatus() == engineapi.RuleStatusSkip {
 					result.Result = policyreportv1alpha2.StatusSkip
-				} else if rule.Status == engineapi.RuleStatusError {
+				} else if rule.ZStatus() == engineapi.RuleStatusError {
 					result.Result = policyreportv1alpha2.StatusError
 				} else {
 					var x string
@@ -710,7 +710,7 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 func buildMessage(resp *engineapi.EngineResponse) string {
 	var bldr strings.Builder
 	for _, ruleResp := range resp.PolicyResponse.Rules {
-		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.ZName(), ruleResp.Status)
+		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.ZName(), ruleResp.ZStatus())
 		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message())
 	}
 

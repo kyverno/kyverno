@@ -223,7 +223,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	var applicableRules []string
 	// Removing UR if rule is failed. Used when the generate condition failed but ur exist
 	for _, r := range engineResponse.PolicyResponse.Rules {
-		if r.Status != engineapi.RuleStatusPass {
+		if r.ZStatus() != engineapi.RuleStatusPass {
 			logger.V(4).Info("querying all update requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
 				kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.Policy.GetName(),

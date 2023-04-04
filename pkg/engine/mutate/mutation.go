@@ -48,8 +48,8 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 	}
 
 	resp, patchedResource := patcher.Patch()
-	if resp.Status != engineapi.RuleStatusPass {
-		return NewResponse(resp.Status, resource, nil, resp.Message())
+	if resp.ZStatus() != engineapi.RuleStatusPass {
+		return NewResponse(resp.ZStatus(), resource, nil, resp.Message())
 	}
 
 	if resp.Patches() == nil {
@@ -82,8 +82,8 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 	}
 
 	resp, patchedResource := patcher.Patch()
-	if resp.Status != engineapi.RuleStatusPass {
-		return NewResponse(resp.Status, unstructured.Unstructured{}, nil, resp.Message())
+	if resp.ZStatus() != engineapi.RuleStatusPass {
+		return NewResponse(resp.ZStatus(), unstructured.Unstructured{}, nil, resp.Message())
 	}
 
 	if resp.Patches() == nil {

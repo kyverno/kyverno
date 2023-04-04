@@ -39,7 +39,7 @@ func (e *engine) filterRules(
 		logger := internal.LoggerWithRule(logger, rule)
 		if ruleResp := e.filterRule(rule, logger, policyContext); ruleResp != nil {
 			resp.Rules = append(resp.Rules, *ruleResp)
-			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != engineapi.RuleStatusSkip {
+			if applyRules == kyvernov1.ApplyOne && ruleResp.ZStatus() != engineapi.RuleStatusSkip {
 				break
 			}
 		}

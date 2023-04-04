@@ -140,7 +140,7 @@ func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse
 			continue
 		}
 		resp, count := v.validateElements(ctx, foreach, elements, foreach.ElementScope)
-		if resp.Status != engineapi.RuleStatusPass {
+		if resp.ZStatus() != engineapi.RuleStatusPass {
 			return resp
 		}
 		applyCount += count
@@ -181,19 +181,21 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 		if r == nil {
 			v.log.V(2).Info("skip rule due to empty result")
 			continue
-		} else if r.Status == engineapi.RuleStatusSkip {
+		}
+		status := r.ZStatus()
+		if status == engineapi.RuleStatusSkip {
 			v.log.V(2).Info("skip rule", "reason", r.Message)
 			continue
-		} else if r.Status != engineapi.RuleStatusPass {
-			if r.Status == engineapi.RuleStatusError {
+		} else if status != engineapi.RuleStatusPass {
+			if status == engineapi.RuleStatusError {
 				if index < len(elements)-1 {
 					continue
 				}
 				msg := fmt.Sprintf("validation failure: %v", r.Message())
-				return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, r.Status), applyCount
+				return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, status), applyCount
 			}
 			msg := fmt.Sprintf("validation failure: %v", r.Message())
-			return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, r.Status), applyCount
+			return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, status), applyCount
 		}
 
 		applyCount++

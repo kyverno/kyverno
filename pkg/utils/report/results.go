@@ -91,7 +91,7 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 			Policy:  key,
 			Rule:    ruleResult.ZName(),
 			Message: ruleResult.Message(),
-			Result:  toPolicyResult(ruleResult.Status),
+			Result:  toPolicyResult(ruleResult.ZStatus()),
 			Scored:  annotations[kyvernov1.AnnotationPolicyScored] != "false",
 			Timestamp: metav1.Timestamp{
 				Seconds: time.Now().Unix(),

@@ -113,18 +113,18 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 	}{{
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("", Validation, ""),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("", Validation, ""),
+				},
 			},
 		},
 		args: args{
@@ -134,9 +134,9 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("", Validation, ""),
+				},
 			},
 		},
 		args: args{
@@ -146,9 +146,9 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("", Validation, ""),
+				},
 			},
 		},
 		args: args{
@@ -158,9 +158,9 @@ func TestEngineResponse_IsOneOf(t *testing.T) {
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("", Validation, ""),
+				},
 			},
 		},
 		args: args{
@@ -199,45 +199,45 @@ func TestEngineResponse_IsSuccessful(t *testing.T) {
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusPass,
-				}},
+				Rules: []RuleResponse{
+					*RulePass("", Validation, ""),
+				},
 			},
 		},
 		want: true,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("", Validation, ""),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusWarn,
-				}},
+				Rules: []RuleResponse{
+					*RuleWarn("", Validation, ""),
+				},
 			},
 		},
 		want: true,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusError,
-				}},
+				Rules: []RuleResponse{
+					*RuleError("", Validation, "", nil),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusSkip,
-				}},
+				Rules: []RuleResponse{
+					*RuleSkip("", Validation, ""),
+				},
 			},
 		},
 		want: true,
@@ -273,45 +273,45 @@ func TestEngineResponse_IsSkipped(t *testing.T) {
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusPass,
-				}},
+				Rules: []RuleResponse{
+					*RulePass("", Validation, ""),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("", Validation, ""),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusWarn,
-				}},
+				Rules: []RuleResponse{
+					*RuleWarn("", Validation, ""),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusError,
-				}},
+				Rules: []RuleResponse{
+					*RuleError("", Validation, "", nil),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusSkip,
-				}},
+				Rules: []RuleResponse{
+					*RuleSkip("", Validation, ""),
+				},
 			},
 		},
 		want: true,
@@ -347,45 +347,45 @@ func TestEngineResponse_IsFailed(t *testing.T) {
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusPass,
-				}},
+				Rules: []RuleResponse{
+					*RulePass("", Validation, ""),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("", Validation, ""),
+				},
 			},
 		},
 		want: true,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusWarn,
-				}},
+				Rules: []RuleResponse{
+					*RuleWarn("", Validation, ""),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusError,
-				}},
+				Rules: []RuleResponse{
+					*RuleError("", Validation, "", nil),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusSkip,
-				}},
+				Rules: []RuleResponse{
+					*RuleSkip("", Validation, ""),
+				},
 			},
 		},
 		want: false,
@@ -421,45 +421,45 @@ func TestEngineResponse_IsError(t *testing.T) {
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusPass,
-				}},
+				Rules: []RuleResponse{
+					*RulePass("", Validation, ""),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusFail,
-				}},
+				Rules: []RuleResponse{
+					*RuleFail("", Validation, ""),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusWarn,
-				}},
+				Rules: []RuleResponse{
+					*RuleWarn("", Validation, ""),
+				},
 			},
 		},
 		want: false,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusError,
-				}},
+				Rules: []RuleResponse{
+					*RuleError("", Validation, "", nil),
+				},
 			},
 		},
 		want: true,
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{
-					Status: RuleStatusSkip,
-				}},
+				Rules: []RuleResponse{
+					*RuleSkip("", Validation, ""),
+				},
 			},
 		},
 		want: false,
