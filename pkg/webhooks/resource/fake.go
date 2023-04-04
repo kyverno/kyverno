@@ -42,7 +42,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	peLister := kyvernoInformers.Kyverno().V2alpha1().PolicyExceptions().Lister()
 	rclient := registryclient.NewOrDie()
 
-	return &handlers{
+	return &resourceHandlers{
 		client:         dclient,
 		rclient:        rclient,
 		configuration:  configuration,

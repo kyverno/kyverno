@@ -29,7 +29,7 @@ type ValidationHandler interface {
 	// HandleValidation handles validating webhook admission request
 	// If there are no errors in validating rule we apply generation rules
 	// patchedResource is the (resource + patches) after applying mutation rules
-	HandleValidation(context.Context, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time) (bool, string, []string)
+	HandleValidation(context.Context, admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, time.Time) (bool, string, []string)
 }
 
 func NewValidationHandler(
@@ -70,7 +70,7 @@ type validationHandler struct {
 
 func (v *validationHandler) HandleValidation(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	admissionRequestTimestamp time.Time,
@@ -145,7 +145,7 @@ func (v *validationHandler) HandleValidation(
 func (v *validationHandler) buildAuditResponses(
 	ctx context.Context,
 	resource unstructured.Unstructured,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
 ) ([]engineapi.EngineResponse, error) {
 	gvr := schema.GroupVersionResource(request.Resource)
@@ -175,7 +175,7 @@ func (v *validationHandler) buildAuditResponses(
 func (v *validationHandler) handleAudit(
 	ctx context.Context,
 	resource unstructured.Unstructured,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	namespaceLabels map[string]string,
 	engineResponses ...engineapi.EngineResponse,
 ) {

@@ -18,7 +18,7 @@ import (
 )
 
 // handleBackgroundApplies applies generate and mutateExisting policies, and creates update requests for background reconcile
-func (h *handlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
+func (h *resourceHandlers) handleBackgroundApplies(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
 	for _, username := range h.configuration.GetExcludedBackgroundUsernames() {
 		if wildcard.Match(username, policyContext.AdmissionInfo().AdmissionUserInfo.Username) {
 			return
@@ -28,7 +28,7 @@ func (h *handlers) handleBackgroundApplies(ctx context.Context, logger logr.Logg
 	h.handleGenerate(ctx, logger, request, generatePolicies, policyContext, ts)
 }
 
-func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp time.Time) {
+func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp time.Time) {
 	if request.Operation == admissionv1.Delete {
 		policyContext = policyContext.WithNewResource(policyContext.OldResource())
 	}
@@ -77,7 +77,7 @@ func (h *handlers) handleMutateExisting(ctx context.Context, logger logr.Logger,
 	}
 }
 
-func (h *handlers) handleGenerate(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, ts time.Time) {
+func (h *resourceHandlers) handleGenerate(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, generatePolicies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, ts time.Time) {
 	gh := generation.NewGenerationHandler(logger, h.engine, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.cpolLister, h.polLister, h.urGenerator, h.eventGen, h.metricsConfig)
 	go gh.Handle(ctx, request, generatePolicies, policyContext)
 }

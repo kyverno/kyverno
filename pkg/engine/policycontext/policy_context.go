@@ -191,7 +191,7 @@ func NewPolicyContext(operation kyvernov1.AdmissionOperation) *PolicyContext {
 
 func NewPolicyContextFromAdmissionRequest(
 	client dclient.IDiscovery,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	admissionInfo kyvernov1beta1.RequestInfo,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
@@ -220,7 +220,7 @@ func NewPolicyContextFromAdmissionRequest(
 	return policyContext, nil
 }
 
-func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyvernov1beta1.RequestInfo) (enginectx.Interface, error) {
+func newVariablesContext(request admissionv1.AdmissionRequest, userRequestInfo *kyvernov1beta1.RequestInfo) (enginectx.Interface, error) {
 	ctx := enginectx.NewContext()
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)

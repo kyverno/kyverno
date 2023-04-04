@@ -26,7 +26,7 @@ func (inner AdmissionHandler) WithSubResourceFilter(subresources ...string) Admi
 }
 
 func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		// filter by username
 		for _, username := range c.GetExcludedUsernames() {
 			if wildcard.Match(username, request.UserInfo.Username) {
@@ -58,7 +58,7 @@ func (inner AdmissionHandler) withOperationFilter(operations ...admissionv1.Oper
 	for _, operation := range operations {
 		allowed.Insert(string(operation))
 	}
-	return func(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		if allowed.Has(string(request.Operation)) {
 			return inner(ctx, logger, request, startTime)
 		}
@@ -68,7 +68,7 @@ func (inner AdmissionHandler) withOperationFilter(operations ...admissionv1.Oper
 
 func (inner AdmissionHandler) withSubResourceFilter(subresources ...string) AdmissionHandler {
 	allowed := sets.New(subresources...)
-	return func(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		if request.SubResource == "" || allowed.Has(request.SubResource) {
 			return inner(ctx, logger, request, startTime)
 		}
