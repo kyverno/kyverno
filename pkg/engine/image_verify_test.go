@@ -196,7 +196,7 @@ func Test_CosignMockAttest(t *testing.T) {
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
-			engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].ZStatus(), er.PolicyResponse.Rules[0].Message()))
+			engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].ZStatus(), er.PolicyResponse.Rules[0].ZMessage()))
 	assert.Equal(t, ivm.IsEmpty(), false)
 	assert.Equal(t, ivm.IsVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 }
@@ -465,7 +465,7 @@ func Test_ConfigMapMissingFailure(t *testing.T) {
 	cosign.ClearMock()
 	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), resolver, policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
-	assert.Equal(t, resp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusError, resp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, resp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusError, resp.PolicyResponse.Rules[0].ZMessage())
 }
 
 func Test_SignatureGoodSigned(t *testing.T) {
@@ -474,7 +474,7 @@ func Test_SignatureGoodSigned(t *testing.T) {
 	cosign.ClearMock()
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
-	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].ZMessage())
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules[0].Patches()), 1)
 	patch := engineResp.PolicyResponse.Rules[0].Patches()[0]
 	assert.Equal(t, string(patch), "{\"op\":\"replace\",\"path\":\"/spec/containers/0/image\",\"value\":\"ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105\"}")
@@ -486,7 +486,7 @@ func Test_SignatureUnsigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, unsigned, "")
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
-	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail, engineResp.PolicyResponse.Rules[0].ZMessage())
 }
 
 func Test_SignatureWrongKey(t *testing.T) {
@@ -495,7 +495,7 @@ func Test_SignatureWrongKey(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, otherKey, "")
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
-	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail, engineResp.PolicyResponse.Rules[0].ZMessage())
 }
 
 func Test_SignaturesMultiKey(t *testing.T) {
@@ -506,7 +506,7 @@ func Test_SignaturesMultiKey(t *testing.T) {
 	policyContext := buildContext(t, policy, testSampleResource, "")
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
-	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].ZMessage())
 }
 
 func Test_SignaturesMultiKeyFail(t *testing.T) {
@@ -516,7 +516,7 @@ func Test_SignaturesMultiKeyFail(t *testing.T) {
 	policyContext := buildContext(t, policy, testSampleResource, "")
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
-	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail, engineResp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail, engineResp.PolicyResponse.Rules[0].ZMessage())
 }
 
 func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
@@ -527,7 +527,7 @@ func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
 	policyContext := buildContext(t, policy, testSampleResource, "")
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
-	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].ZMessage())
 }
 
 func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
@@ -538,7 +538,7 @@ func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
 	policyContext := buildContext(t, policy, testSampleResource, "")
 	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
-	assert.Equal(t, resp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail, resp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, resp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusFail, resp.PolicyResponse.Rules[0].ZMessage())
 }
 
 func Test_RuleSelectorImageVerify(t *testing.T) {
@@ -554,14 +554,14 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 
 	resp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 2)
-	assert.Equal(t, resp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].Message)
-	assert.Equal(t, resp.PolicyResponse.Rules[1].ZStatus(), engineapi.RuleStatusFail, resp.PolicyResponse.Rules[1].Message)
+	assert.Equal(t, resp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].ZMessage())
+	assert.Equal(t, resp.PolicyResponse.Rules[1].ZStatus(), engineapi.RuleStatusFail, resp.PolicyResponse.Rules[1].ZMessage())
 
 	applyOne := kyverno.ApplyOne
 	spec.ApplyRules = &applyOne
 	resp, _ = testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
-	assert.Equal(t, resp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, resp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, resp.PolicyResponse.Rules[0].ZMessage())
 }
 
 func newStaticKeyRule(name, imageReference, key string) *kyverno.Rule {

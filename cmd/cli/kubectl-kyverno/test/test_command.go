@@ -711,7 +711,7 @@ func buildMessage(resp *engineapi.EngineResponse) string {
 	var bldr strings.Builder
 	for _, ruleResp := range resp.PolicyResponse.Rules {
 		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.ZName(), ruleResp.ZStatus())
-		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message())
+		fmt.Fprintf(&bldr, "    %s \n", ruleResp.ZMessage())
 	}
 
 	return bldr.String()

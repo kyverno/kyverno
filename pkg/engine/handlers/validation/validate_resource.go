@@ -184,17 +184,17 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 		}
 		status := r.ZStatus()
 		if status == engineapi.RuleStatusSkip {
-			v.log.V(2).Info("skip rule", "reason", r.Message)
+			v.log.V(2).Info("skip rule", "reason", r.ZMessage())
 			continue
 		} else if status != engineapi.RuleStatusPass {
 			if status == engineapi.RuleStatusError {
 				if index < len(elements)-1 {
 					continue
 				}
-				msg := fmt.Sprintf("validation failure: %v", r.Message())
+				msg := fmt.Sprintf("validation failure: %v", r.ZMessage())
 				return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, status), applyCount
 			}
-			msg := fmt.Sprintf("validation failure: %v", r.Message())
+			msg := fmt.Sprintf("validation failure: %v", r.ZMessage())
 			return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, status), applyCount
 		}
 

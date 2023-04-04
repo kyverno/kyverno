@@ -49,7 +49,7 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 
 	resp, patchedResource := patcher.Patch()
 	if resp.ZStatus() != engineapi.RuleStatusPass {
-		return NewResponse(resp.ZStatus(), resource, nil, resp.Message())
+		return NewResponse(resp.ZStatus(), resource, nil, resp.ZMessage())
 	}
 
 	if resp.Patches() == nil {
@@ -66,7 +66,7 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 		}
 	}
 
-	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches(), resp.Message())
+	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches(), resp.ZMessage())
 }
 
 func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engineapi.PolicyContext, resource unstructured.Unstructured, element interface{}, logger logr.Logger) *Response {
@@ -83,7 +83,7 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 
 	resp, patchedResource := patcher.Patch()
 	if resp.ZStatus() != engineapi.RuleStatusPass {
-		return NewResponse(resp.ZStatus(), unstructured.Unstructured{}, nil, resp.Message())
+		return NewResponse(resp.ZStatus(), unstructured.Unstructured{}, nil, resp.ZMessage())
 	}
 
 	if resp.Patches() == nil {
@@ -94,7 +94,7 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 		return NewErrorResponse("failed to update patched resource in the JSON context", err)
 	}
 
-	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches(), resp.Message())
+	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches(), resp.ZMessage())
 }
 
 func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyvernov1.ForEachMutation, error) {

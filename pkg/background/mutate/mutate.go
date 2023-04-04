@@ -152,13 +152,13 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			patched, parentGVR, patchedSubresource := r.PatchedTarget()
 			switch r.ZStatus() {
 			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
-				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.ZStatus(), r.Message())
+				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.ZStatus(), r.ZMessage())
 				logger.Error(err, "")
 				errs = append(errs, err)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
 			case engineapi.RuleStatusSkip:
-				logger.Info("mutate existing rule skipped", "rule", r.ZName(), "message", r.Message)
+				logger.Info("mutate existing rule skipped", "rule", r.ZName(), "message", r.ZMessage())
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
 			case engineapi.RuleStatusPass:
@@ -170,7 +170,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				}
 
 				if patchedNew == nil {
-					logger.Error(ErrEmptyPatch, "", "rule", r.ZName(), "message", r.Message)
+					logger.Error(ErrEmptyPatch, "", "rule", r.ZName(), "message", r.ZMessage())
 					errs = append(errs, err)
 					continue
 				}

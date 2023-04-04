@@ -142,7 +142,7 @@ func (r *RuleResponse) Patches() [][]byte {
 	return r.patches
 }
 
-func (r *RuleResponse) Message() string {
+func (r *RuleResponse) ZMessage() string {
 	return r.message
 }
 

@@ -169,7 +169,7 @@ func (er EngineResponse) getRulesWithErrors(predicate func(RuleResponse) bool) [
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
 		if predicate(r) {
-			rules = append(rules, fmt.Sprintf("%s: %s", r.ZName(), r.Message()))
+			rules = append(rules, fmt.Sprintf("%s: %s", r.ZName(), r.ZMessage()))
 		}
 	}
 	return rules

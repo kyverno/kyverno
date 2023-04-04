@@ -90,7 +90,7 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 			Source:  kyvernov1.ValueKyvernoApp,
 			Policy:  key,
 			Rule:    ruleResult.ZName(),
-			Message: ruleResult.Message(),
+			Message: ruleResult.ZMessage(),
 			Result:  toPolicyResult(ruleResult.ZStatus()),
 			Scored:  annotations[kyvernov1.AnnotationPolicyScored] != "false",
 			Timestamp: metav1.Timestamp{

@@ -11,7 +11,7 @@ func GetWarningMessages(engineResponses []engineapi.EngineResponse) []string {
 	for _, er := range engineResponses {
 		for _, rule := range er.PolicyResponse.Rules {
 			if rule.ZStatus() != engineapi.RuleStatusPass && rule.ZStatus() != engineapi.RuleStatusSkip {
-				msg := fmt.Sprintf("policy %s.%s: %s", er.Policy.GetName(), rule.ZName(), rule.Message())
+				msg := fmt.Sprintf("policy %s.%s: %s", er.Policy.GetName(), rule.ZName(), rule.ZMessage())
 				warnings = append(warnings, msg)
 			}
 		}

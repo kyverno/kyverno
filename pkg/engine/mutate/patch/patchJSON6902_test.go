@@ -52,7 +52,7 @@ func TestTypeConversion(t *testing.T) {
 	// apply patches
 	resp, _ := ProcessPatchJSON6902("type-conversion", jsonPatches, resource, logr.Discard())
 	if !assert.Equal(t, engineapi.RuleStatusPass, resp.ZStatus()) {
-		t.Fatal(resp.Message())
+		t.Fatal(resp.ZMessage())
 	}
 
 	assert.Equal(t, expectedPatches, resp.Patches(),
