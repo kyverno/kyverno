@@ -5,7 +5,7 @@ metadata:
 ---
 apiVersion: v1
 data:
-  foo: bar
+  foo: YmFy
 kind: Secret
 metadata:
   name: regcred
