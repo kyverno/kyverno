@@ -30,7 +30,8 @@ data:
   excludeUsername: {{ join "," . | quote }}
   {{- end -}}
   {{- if .Values.config.resourceFilters }}
-  resourceFilters: {{ include "kyverno.config.resourceFilters" . | quote }}
+  resourceFilters: >-
+    {{- include "kyverno.config.resourceFilters" . | trim | nindent 4 }}
   {{- end -}}
   {{- if and .Values.config.webhooks .Values.config.excludeKyvernoNamespace }}
   webhooks: {{ include "kyverno.config.webhooks" . | quote }}
