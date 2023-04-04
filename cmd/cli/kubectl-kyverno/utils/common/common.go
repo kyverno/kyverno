@@ -1140,8 +1140,7 @@ func handleGeneratePolicy(generateResponse *engineapi.EngineResponse, policyCont
 			return nil, err
 		}
 
-		rule.GeneratedResource = *unstrGenResource
-		newRuleResponse = append(newRuleResponse, rule)
+		newRuleResponse = append(newRuleResponse, *rule.WithGeneratedResource(*unstrGenResource))
 	}
 
 	return newRuleResponse, nil
