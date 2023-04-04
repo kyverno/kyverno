@@ -30,7 +30,6 @@ const (
 type MetricsConfig struct {
 	// instruments
 	policyChangesMetric           instrument.Int64Counter
-	policyResultsMetric           instrument.Int64Counter
 	policyExecutionDurationMetric instrument.Float64Histogram
 	clientQueriesMetric           instrument.Int64Counter
 
@@ -41,7 +40,6 @@ type MetricsConfig struct {
 
 type MetricsConfigManager interface {
 	Config() kconfig.MetricsConfiguration
-	RecordPolicyResults(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause)
 	RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
 	RecordPolicyExecutionDuration(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64)
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
@@ -54,11 +52,6 @@ func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
-	m.policyResultsMetric, err = meter.Int64Counter("kyverno_policy_results", instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"))
-	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_policy_results")
-		return err
-	}
 	m.policyChangesMetric, err = meter.Int64Counter("kyverno_policy_changes", instrument.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_policy_changes")
@@ -167,27 +160,6 @@ func NewPrometheusConfig(
 	metricsServerMux := http.NewServeMux()
 	metricsServerMux.Handle(config.MetricsPath, promhttp.Handler())
 	return provider, metricsServerMux, nil
-}
-
-func (m *MetricsConfig) RecordPolicyResults(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
-	resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType,
-	ruleExecutionCause RuleExecutionCause,
-) {
-	commonLabels := []attribute.KeyValue{
-		attribute.String("policy_validation_mode", string(policyValidationMode)),
-		attribute.String("policy_type", string(policyType)),
-		attribute.String("policy_background_mode", string(policyBackgroundMode)),
-		attribute.String("policy_namespace", policyNamespace),
-		attribute.String("policy_name", policyName),
-		attribute.String("resource_kind", resourceKind),
-		attribute.String("resource_namespace", resourceNamespace),
-		attribute.String("resource_request_operation", string(resourceRequestOperation)),
-		attribute.String("rule_name", ruleName),
-		attribute.String("rule_result", string(ruleResult)),
-		attribute.String("rule_type", string(ruleType)),
-		attribute.String("rule_execution_cause", string(ruleExecutionCause)),
-	}
-	m.policyResultsMetric.Add(ctx, 1, commonLabels...)
 }
 
 func (m *MetricsConfig) RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string) {

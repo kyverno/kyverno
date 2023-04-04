@@ -54,6 +54,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration),
 		engine: engine.NewEngine(
 			configuration,
+			config.NewDefaultMetricsConfiguration(),
 			dclient,
 			rclient,
 			engineapi.DefaultContextLoaderFactory(configMapResolver),

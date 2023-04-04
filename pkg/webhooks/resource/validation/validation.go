@@ -110,7 +110,6 @@ func (v *validationHandler) HandleValidation(
 					return
 				}
 
-				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
 				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
 
 				engineResponses = append(engineResponses, engineResponse)
@@ -165,7 +164,6 @@ func (v *validationHandler) buildAuditResponses(
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
 				response := v.engine.Validate(ctx, policyContext)
 				responses = append(responses, response)
-				go webhookutils.RegisterPolicyResultsMetricValidation(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
 				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
 			},
 		)

@@ -386,6 +386,7 @@ func main() {
 	}
 	eng := engine.NewEngine(
 		configuration,
+		metricsConfig.Config(),
 		dClient,
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
