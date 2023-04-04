@@ -146,7 +146,7 @@ func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info r
 	if len(rule.Mutation.Targets) != 0 {
 		resp = resp.WithPatchedTarget(&mutateResp.PatchedResource, info.parentResourceGVR, info.subresource)
 	}
-	return engineapi.NewRuleResponse(rule.Name, engineapi.Mutation, mutateResp.Message, mutateResp.Status)
+	return resp
 }
 
 func buildSuccessMessage(r unstructured.Unstructured) string {
