@@ -122,7 +122,7 @@ func (e *engine) filterRule(
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return internal.RuleSkip(*ruleCopy, ruleType, "")
+		return engineapi.RuleSkip(*ruleCopy, ruleType, "")
 	}
 
 	// build rule Response

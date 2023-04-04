@@ -2,7 +2,9 @@ package api
 
 import (
 	"fmt"
+	"time"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +49,59 @@ type RuleResponse struct {
 	// Exception is the exception applied (if any)
 	Exception *kyvernov2alpha1.PolicyException
 }
+
+func NewRuleResponse(rule kyvernov1.Rule, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
+	return &RuleResponse{
+		Name:    rule.Name,
+		Type:    ruleType,
+		Message: msg,
+		Status:  status,
+	}
+}
+
+func RuleError(rule kyvernov1.Rule, ruleType RuleType, msg string, err error) *RuleResponse {
+	if err != nil {
+		return NewRuleResponse(rule, ruleType, fmt.Sprintf("%s: %s", msg, err.Error()), RuleStatusError)
+	}
+	return NewRuleResponse(rule, ruleType, msg, RuleStatusError)
+}
+
+func RuleSkip(rule kyvernov1.Rule, ruleType RuleType, msg string) *RuleResponse {
+	return NewRuleResponse(rule, ruleType, msg, RuleStatusSkip)
+}
+
+func RulePass(rule kyvernov1.Rule, ruleType RuleType, msg string) *RuleResponse {
+	return NewRuleResponse(rule, ruleType, msg, RuleStatusPass)
+}
+
+func RuleFail(rule kyvernov1.Rule, ruleType RuleType, msg string) *RuleResponse {
+	return NewRuleResponse(rule, ruleType, msg, RuleStatusFail)
+}
+
+// func (r RuleResponse) DoneNow() RuleResponse {
+// 	return r.Done(time.Now())
+// }
+
+func (r RuleResponse) WithException(exception *kyvernov2alpha1.PolicyException) *RuleResponse {
+	r.Exception = exception
+	return &r
+}
+
+func (r RuleResponse) WithPodSecurityChecks(checks PodSecurityChecks) *RuleResponse {
+	r.PodSecurityChecks = &checks
+	return &r
+}
+
+func (r RuleResponse) WithStats(startTime, endTime time.Time) RuleResponse {
+	r.Stats = NewExecutionStats(startTime)
+	r.Stats.Done(endTime)
+	return r
+}
+
+// func (r RuleResponse) Done(timestamp time.Time) RuleResponse {
+// 	r.Stats.Done(timestamp)
+// 	return r
+// }
 
 // HasStatus checks if rule status is in a given list
 func (r RuleResponse) HasStatus(status ...RuleStatus) bool {

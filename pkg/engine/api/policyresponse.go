@@ -1,5 +1,7 @@
 package api
 
+import "time"
+
 // PolicyResponse policy application response
 type PolicyResponse struct {
 	// Stats contains policy statistics
@@ -8,11 +10,11 @@ type PolicyResponse struct {
 	Rules []RuleResponse
 }
 
-func (pr *PolicyResponse) Add(rr RuleResponse) {
-	pr.Rules = append(pr.Rules, rr)
-	if rr.Status == RuleStatusPass || rr.Status == RuleStatusFail {
+func (pr *PolicyResponse) Add(startTime, endTime time.Time, response RuleResponse) {
+	pr.Rules = append(pr.Rules, response.WithStats(startTime, endTime))
+	if response.Status == RuleStatusPass || response.Status == RuleStatusFail {
 		pr.Stats.RulesAppliedCount++
-	} else if rr.Status == RuleStatusError {
+	} else if response.Status == RuleStatusError {
 		pr.Stats.RulesErrorCount++
 	}
 }
