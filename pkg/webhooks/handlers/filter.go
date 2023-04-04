@@ -41,6 +41,22 @@ func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandle
 				}
 			}
 		}
+		// filter by roles
+		for _, role := range c.GetExcludedRoles() {
+			for _, candidate := range request.Roles {
+				if wildcard.Match(role, candidate) {
+					return admissionutils.ResponseSuccess(request.UID)
+				}
+			}
+		}
+		// filter by cluster roles
+		for _, clusterRole := range c.GetExcludedClusterRoles() {
+			for _, candidate := range request.ClusterRoles {
+				if wildcard.Match(clusterRole, candidate) {
+					return admissionutils.ResponseSuccess(request.UID)
+				}
+			}
+		}
 		// filter by resource filters
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			return admissionutils.ResponseSuccess(request.UID)
