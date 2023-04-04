@@ -125,7 +125,7 @@ const doesNotApply = "policy does not apply to resource"
 func (c *GenerateController) getTrigger(spec kyvernov1beta1.UpdateRequestSpec) (*unstructured.Unstructured, error) {
 	if spec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
 		request := spec.Context.AdmissionRequestInfo.AdmissionRequest
-		_, oldResource, err := admissionutils.ExtractResources(nil, request)
+		_, oldResource, err := admissionutils.ExtractResources(nil, *request)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load resource from context: %w", err)
 		}

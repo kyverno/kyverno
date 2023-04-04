@@ -266,7 +266,7 @@ func (r ResourceFilter) IsEmpty() bool {
 type Mutation struct {
 	// Targets defines the target resources to be mutated.
 	// +optional
-	Targets []ResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
+	Targets []TargetResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
