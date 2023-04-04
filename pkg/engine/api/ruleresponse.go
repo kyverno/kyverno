@@ -114,11 +114,11 @@ func (r RuleResponse) WithStats(startTime, endTime time.Time) RuleResponse {
 	return r
 }
 
-func (r *RuleResponse) ZStats() ExecutionStats {
+func (r *RuleResponse) Stats() ExecutionStats {
 	return r.stats
 }
 
-func (r *RuleResponse) ZException() *kyvernov2alpha1.PolicyException {
+func (r *RuleResponse) Exception() *kyvernov2alpha1.PolicyException {
 	return r.exception
 }
 
@@ -126,27 +126,27 @@ func (r *RuleResponse) IsException() bool {
 	return r.exception != nil
 }
 
-func (r *RuleResponse) ZPodSecurityChecks() *PodSecurityChecks {
+func (r *RuleResponse) PodSecurityChecks() *PodSecurityChecks {
 	return r.podSecurityChecks
 }
 
-func (r *RuleResponse) ZPatchedTarget() (*unstructured.Unstructured, metav1.GroupVersionResource, string) {
+func (r *RuleResponse) PatchedTarget() (*unstructured.Unstructured, metav1.GroupVersionResource, string) {
 	return r.patchedTarget, r.patchedTargetParentResourceGVR, r.patchedTargetSubresourceName
 }
 
-func (r *RuleResponse) ZGeneratedResource() unstructured.Unstructured {
+func (r *RuleResponse) GeneratedResource() unstructured.Unstructured {
 	return r.generatedResource
 }
 
-func (r *RuleResponse) ZPatches() [][]byte {
+func (r *RuleResponse) Patches() [][]byte {
 	return r.patches
 }
 
-func (r *RuleResponse) ZMessage() string {
+func (r *RuleResponse) Message() string {
 	return r.message
 }
 
-func (r *RuleResponse) ZName() string {
+func (r *RuleResponse) Name() string {
 	return r.message
 }
 
@@ -154,7 +154,7 @@ func (r *RuleResponse) RuleType() RuleType {
 	return r.ruleType
 }
 
-func (r *RuleResponse) ZStatus() RuleStatus {
+func (r *RuleResponse) Status() RuleStatus {
 	return r.status
 }
 

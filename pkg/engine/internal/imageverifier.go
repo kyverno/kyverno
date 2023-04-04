@@ -232,7 +232,7 @@ func (iv *ImageVerifier) Verify(
 
 		if ruleResp != nil {
 			if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
-				iv.ivm.Add(image, ruleResp.ZStatus() == engineapi.RuleStatusPass)
+				iv.ivm.Add(image, ruleResp.Status() == engineapi.RuleStatusPass)
 			}
 			responses = append(responses, ruleResp)
 		}
@@ -260,7 +260,7 @@ func (iv *ImageVerifier) verifyImage(
 			return nil, ""
 		}
 		ruleResp, cosignResp := iv.verifyAttestors(ctx, imageVerify.Attestors, imageVerify, imageInfo, "")
-		if ruleResp.ZStatus() != engineapi.RuleStatusPass {
+		if ruleResp.Status() != engineapi.RuleStatusPass {
 			return ruleResp, ""
 		}
 		if len(imageVerify.Attestations) == 0 {

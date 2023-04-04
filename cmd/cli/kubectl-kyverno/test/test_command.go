@@ -440,7 +440,7 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 
 		var rules []string
 		for _, rule := range resp.PolicyResponse.Rules {
-			rules = append(rules, rule.ZName())
+			rules = append(rules, rule.Name())
 		}
 
 		result := policyreportv1alpha2.PolicyReportResult{
@@ -542,14 +542,14 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 			}
 
 			for _, rule := range resp.PolicyResponse.Rules {
-				if rule.RuleType() != engineapi.Generation || test.Rule != rule.ZName() {
+				if rule.RuleType() != engineapi.Generation || test.Rule != rule.Name() {
 					continue
 				}
 
 				var resultsKey []string
 				var resultKey string
 				var result policyreportv1alpha2.PolicyReportResult
-				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.ZName(), resourceNamespace, resourceKind, resourceName)
+				resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName)
 				for _, key := range resultsKey {
 					if val, ok := results[key]; ok {
 						result = val
@@ -558,14 +558,14 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 						continue
 					}
 
-					if rule.ZStatus() == engineapi.RuleStatusSkip {
+					if rule.Status() == engineapi.RuleStatusSkip {
 						result.Result = policyreportv1alpha2.StatusSkip
-					} else if rule.ZStatus() == engineapi.RuleStatusError {
+					} else if rule.Status() == engineapi.RuleStatusError {
 						result.Result = policyreportv1alpha2.StatusError
 					} else {
 						var x string
 						result.Result = policyreportv1alpha2.StatusFail
-						x = getAndCompareResource(test.GeneratedResource, rule.ZGeneratedResource(), isGit, policyResourcePath, fs, true)
+						x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), isGit, policyResourcePath, fs, true)
 						if x == "pass" {
 							result.Result = policyreportv1alpha2.StatusPass
 						}
@@ -583,7 +583,7 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 			var resultsKey []string
 			var resultKey string
 			var result policyreportv1alpha2.PolicyReportResult
-			resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.ZName(), resourceNamespace, resourceKind, resourceName)
+			resultsKey = GetAllPossibleResultsKey(policyNamespace, policyName, rule.Name(), resourceNamespace, resourceKind, resourceName)
 			for _, key := range resultsKey {
 				if val, ok := results[key]; ok {
 					result = val
@@ -592,9 +592,9 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 					continue
 				}
 
-				if rule.ZStatus() == engineapi.RuleStatusSkip {
+				if rule.Status() == engineapi.RuleStatusSkip {
 					result.Result = policyreportv1alpha2.StatusSkip
-				} else if rule.ZStatus() == engineapi.RuleStatusError {
+				} else if rule.Status() == engineapi.RuleStatusError {
 					result.Result = policyreportv1alpha2.StatusError
 				} else {
 					var x string
@@ -710,8 +710,8 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 func buildMessage(resp *engineapi.EngineResponse) string {
 	var bldr strings.Builder
 	for _, ruleResp := range resp.PolicyResponse.Rules {
-		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.ZName(), ruleResp.ZStatus())
-		fmt.Fprintf(&bldr, "    %s \n", ruleResp.ZMessage())
+		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name(), ruleResp.Status())
+		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message())
 	}
 
 	return bldr.String()

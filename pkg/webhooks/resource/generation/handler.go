@@ -90,7 +90,7 @@ func getAppliedRules(policy kyvernov1.PolicyInterface, applied []engineapi.RuleR
 			continue
 		}
 		for _, applied := range applied {
-			if applied.ZName() == rule.Name && applied.RuleType() == engineapi.Generation {
+			if applied.Name() == rule.Name && applied.RuleType() == engineapi.Generation {
 				rules = append(rules, rule)
 			}
 		}
@@ -113,9 +113,9 @@ func (h *generationHandler) handleTrigger(
 		}
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 		for _, rule := range engineResponse.PolicyResponse.Rules {
-			if rule.ZStatus() == engineapi.RuleStatusPass {
+			if rule.Status() == engineapi.RuleStatusPass {
 				appliedRules = append(appliedRules, rule)
-			} else if rule.ZStatus() == engineapi.RuleStatusFail {
+			} else if rule.Status() == engineapi.RuleStatusFail {
 				failedRules = append(failedRules, rule)
 			}
 		}

@@ -122,14 +122,14 @@ func annotationFromEngineResponses(engineResponses []engineapi.EngineResponse, l
 func annotationFromPolicyResponse(policyResponse engineapi.PolicyResponse, log logr.Logger) []RulePatch {
 	var RulePatches []RulePatch
 	for _, ruleInfo := range policyResponse.Rules {
-		for _, patch := range ruleInfo.ZPatches() {
+		for _, patch := range ruleInfo.Patches() {
 			var patchmap map[string]interface{}
 			if err := json.Unmarshal(patch, &patchmap); err != nil {
 				log.Error(err, "Failed to parse JSON patch bytes")
 				continue
 			}
 			rp := RulePatch{
-				RuleName: ruleInfo.ZName(),
+				RuleName: ruleInfo.Name(),
 				Op:       patchmap["op"].(string),
 				Path:     patchmap["path"].(string),
 			}

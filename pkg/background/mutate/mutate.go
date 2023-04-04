@@ -149,16 +149,16 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
 		for _, r := range er.PolicyResponse.Rules {
-			patched, parentGVR, patchedSubresource := r.ZPatchedTarget()
-			switch r.ZStatus() {
+			patched, parentGVR, patchedSubresource := r.PatchedTarget()
+			switch r.Status() {
 			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
-				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.ZStatus(), r.ZMessage())
+				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status(), r.Message())
 				logger.Error(err, "")
 				errs = append(errs, err)
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
 			case engineapi.RuleStatusSkip:
-				logger.Info("mutate existing rule skipped", "rule", r.ZName(), "message", r.ZMessage())
+				logger.Info("mutate existing rule skipped", "rule", r.Name(), "message", r.Message())
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
 			case engineapi.RuleStatusPass:
@@ -170,12 +170,12 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				}
 
 				if patchedNew == nil {
-					logger.Error(ErrEmptyPatch, "", "rule", r.ZName(), "message", r.ZMessage())
+					logger.Error(ErrEmptyPatch, "", "rule", r.Name(), "message", r.Message())
 					errs = append(errs, err)
 					continue
 				}
 
-				if r.ZStatus() == engineapi.RuleStatusPass {
+				if r.Status() == engineapi.RuleStatusPass {
 					patchedNew.SetResourceVersion(patched.GetResourceVersion())
 					var updateErr error
 					if patchedSubresource == "status" {
@@ -260,7 +260,7 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 	patchedNew = patched
 	var rulePatches []utils.RulePatch
 
-	for _, patch := range r.ZPatches() {
+	for _, patch := range r.Patches() {
 		var patchmap map[string]interface{}
 		if err := json.Unmarshal(patch, &patchmap); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON patch bytes: %v", err)
@@ -271,7 +271,7 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 			Op       string `json:"op"`
 			Path     string `json:"path"`
 		}{
-			RuleName: r.ZName(),
+			RuleName: r.Name(),
 			Op:       patchmap["op"].(string),
 			Path:     patchmap["path"].(string),
 		}

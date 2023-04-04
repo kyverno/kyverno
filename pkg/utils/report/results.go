@@ -89,9 +89,9 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 		result := policyreportv1alpha2.PolicyReportResult{
 			Source:  kyvernov1.ValueKyvernoApp,
 			Policy:  key,
-			Rule:    ruleResult.ZName(),
-			Message: ruleResult.ZMessage(),
-			Result:  toPolicyResult(ruleResult.ZStatus()),
+			Rule:    ruleResult.Name(),
+			Message: ruleResult.Message(),
+			Result:  toPolicyResult(ruleResult.Status()),
 			Scored:  annotations[kyvernov1.AnnotationPolicyScored] != "false",
 			Timestamp: metav1.Timestamp{
 				Seconds: time.Now().Unix(),
@@ -99,7 +99,7 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 			Category: annotations[kyvernov1.AnnotationPolicyCategory],
 			Severity: severityFromString(annotations[kyvernov1.AnnotationPolicySeverity]),
 		}
-		pss := ruleResult.ZPodSecurityChecks()
+		pss := ruleResult.PodSecurityChecks()
 		if pss != nil {
 			var controls []string
 			for _, check := range pss.Checks {

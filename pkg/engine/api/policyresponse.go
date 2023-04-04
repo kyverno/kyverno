@@ -12,7 +12,7 @@ type PolicyResponse struct {
 
 func (pr *PolicyResponse) Add(startTime, endTime time.Time, response RuleResponse) {
 	pr.Rules = append(pr.Rules, response.WithStats(startTime, endTime))
-	status := response.ZStatus()
+	status := response.Status()
 	if status == RuleStatusPass || status == RuleStatusFail {
 		pr.Stats.RulesAppliedCount++
 	} else if status == RuleStatusError {

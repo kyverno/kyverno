@@ -51,12 +51,12 @@ func TestTypeConversion(t *testing.T) {
 	assert.Nil(t, err)
 	// apply patches
 	resp, _ := ProcessPatchJSON6902("type-conversion", jsonPatches, resource, logr.Discard())
-	if !assert.Equal(t, engineapi.RuleStatusPass, resp.ZStatus()) {
-		t.Fatal(resp.ZMessage())
+	if !assert.Equal(t, engineapi.RuleStatusPass, resp.Status()) {
+		t.Fatal(resp.Message())
 	}
 
-	assert.Equal(t, expectedPatches, resp.ZPatches(),
-		fmt.Sprintf("expectedPatches: %s\ngeneratedPatches: %s", string(expectedPatches[0]), string(resp.ZPatches()[0])))
+	assert.Equal(t, expectedPatches, resp.Patches(),
+		fmt.Sprintf("expectedPatches: %s\ngeneratedPatches: %s", string(expectedPatches[0]), string(resp.Patches()[0])))
 }
 
 func TestJsonPatch(t *testing.T) {

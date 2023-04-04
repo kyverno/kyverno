@@ -35,10 +35,10 @@ func (e *engine) reportMetrics(
 		resourceKind := resourceSpec.GetKind()
 		resourceNamespace := resourceSpec.GetNamespace()
 		for _, rule := range response.PolicyResponse.Rules {
-			ruleName := rule.ZName()
+			ruleName := rule.Name()
 			ruleType := metrics.ParseRuleTypeFromEngineRuleResponse(rule)
 			var ruleResult metrics.RuleResult
-			switch rule.ZStatus() {
+			switch rule.Status() {
 			case engineapi.RuleStatusPass:
 				ruleResult = metrics.Pass
 			case engineapi.RuleStatusFail:
@@ -88,7 +88,7 @@ func (e *engine) reportMetrics(
 					attribute.String("rule_type", string(ruleType)),
 					attribute.String("rule_execution_cause", string(executionCause)),
 				}
-				e.durationHistogram.Record(ctx, rule.ZStats().ProcessingTime.Seconds(), commonLabels...)
+				e.durationHistogram.Record(ctx, rule.Stats().ProcessingTime.Seconds(), commonLabels...)
 			}
 		}
 	}
