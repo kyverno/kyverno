@@ -9,7 +9,6 @@ func TestRuleResponse_String(t *testing.T) {
 		Name    string
 		Type    RuleType
 		Message string
-		Patches [][]byte
 		Status  RuleStatus
 	}
 	tests := []struct {
@@ -51,7 +50,6 @@ func TestRuleResponse_String(t *testing.T) {
 				Name:    tt.fields.Name,
 				Type:    tt.fields.Type,
 				Message: tt.fields.Message,
-				Patches: tt.fields.Patches,
 				Status:  tt.fields.Status,
 			}
 			if got := rr.String(); got != tt.want {
@@ -66,7 +64,6 @@ func TestRuleResponse_HasStatus(t *testing.T) {
 		Name    string
 		Type    RuleType
 		Message string
-		Patches [][]byte
 		Status  RuleStatus
 	}
 	type args struct {
@@ -121,7 +118,6 @@ func TestRuleResponse_HasStatus(t *testing.T) {
 				Name:    tt.fields.Name,
 				Type:    tt.fields.Type,
 				Message: tt.fields.Message,
-				Patches: tt.fields.Patches,
 				Status:  tt.fields.Status,
 			}
 			if got := r.HasStatus(tt.args.status...); got != tt.want {

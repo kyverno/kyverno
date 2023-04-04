@@ -74,9 +74,8 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 	}
 
 	resp.Status = engineapi.RuleStatusPass
-	resp.Patches = jsonPatches
 	resp.Message = "applied strategic merge patch"
-	return resp, patchedResource
+	return *resp.WithPatches(jsonPatches...), patchedResource
 }
 
 func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, error) {

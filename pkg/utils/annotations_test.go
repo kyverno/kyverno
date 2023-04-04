@@ -20,11 +20,10 @@ func newPolicyResponse(rule string, patchesStr []string, status engineapi.RuleSt
 
 	return engineapi.PolicyResponse{
 		Rules: []engineapi.RuleResponse{
-			{
-				Name:    rule,
-				Patches: patches,
-				Status:  status,
-			},
+			*engineapi.RuleResponse{
+				Name:   rule,
+				Status: status,
+			}.WithPatches(patches...),
 		},
 	}
 }

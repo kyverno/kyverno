@@ -66,7 +66,7 @@ func Mutate(rule *kyvernov1.Rule, ctx context.Interface, resource unstructured.U
 		}
 	}
 
-	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
+	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches(), resp.Message)
 }
 
 func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engineapi.PolicyContext, resource unstructured.Unstructured, element interface{}, logger logr.Logger) *Response {
@@ -94,7 +94,7 @@ func ForEach(name string, foreach kyvernov1.ForEachMutation, policyContext engin
 		return NewErrorResponse("failed to update patched resource in the JSON context", err)
 	}
 
-	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
+	return NewResponse(engineapi.RuleStatusPass, patchedResource, resp.Patches(), resp.Message)
 }
 
 func substituteAllInForEach(fe kyvernov1.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyvernov1.ForEachMutation, error) {

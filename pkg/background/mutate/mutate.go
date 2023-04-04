@@ -260,7 +260,7 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 	patchedNew = patched
 	var rulePatches []utils.RulePatch
 
-	for _, patch := range r.Patches {
+	for _, patch := range r.Patches() {
 		var patchmap map[string]interface{}
 		if err := json.Unmarshal(patch, &patchmap); err != nil {
 			return nil, fmt.Errorf("failed to parse JSON patch bytes: %v", err)

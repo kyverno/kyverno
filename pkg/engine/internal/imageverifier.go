@@ -224,7 +224,7 @@ func (iv *ImageVerifier) Verify(
 				if ruleResp == nil {
 					ruleResp = engineapi.RulePass(iv.rule, engineapi.ImageVerify, "mutated image digest")
 				}
-				ruleResp.Patches = append(ruleResp.Patches, patch)
+				ruleResp = ruleResp.WithPatches(patch)
 				imageInfo.Digest = retrievedDigest
 				image = imageInfo.String()
 			}

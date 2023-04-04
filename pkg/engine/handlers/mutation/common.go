@@ -136,7 +136,7 @@ func (f *forEachMutator) mutateElements(ctx context.Context, foreach kyvernov1.F
 func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, info resourceInfo) *engineapi.RuleResponse {
 	resp := engineapi.NewRuleResponse(*rule, engineapi.Mutation, mutateResp.Message, mutateResp.Status)
 	if resp.Status == engineapi.RuleStatusPass {
-		resp.Patches = mutateResp.Patches
+		resp = resp.WithPatches(mutateResp.Patches...)
 		resp.Message = buildSuccessMessage(mutateResp.PatchedResource)
 	}
 	if len(rule.Mutation.Targets) != 0 {

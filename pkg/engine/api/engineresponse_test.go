@@ -984,20 +984,21 @@ func TestEngineResponse_GetPatches(t *testing.T) {
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{}, {
-					Patches: [][]byte{{0, 1, 2}, {3, 4, 5}},
-				}},
+				Rules: []RuleResponse{
+					{},
+					*RuleResponse{}.WithPatches([][]byte{{0, 1, 2}, {3, 4, 5}}...),
+				},
 			},
 		},
 		want: [][]byte{{0, 1, 2}, {3, 4, 5}},
 	}, {
 		fields: fields{
 			PolicyResponse: PolicyResponse{
-				Rules: []RuleResponse{{}, {
-					Patches: [][]byte{{0, 1, 2}, {3, 4, 5}},
-				}, {
-					Patches: [][]byte{{7, 8, 9}},
-				}},
+				Rules: []RuleResponse{
+					{},
+					*RuleResponse{}.WithPatches([][]byte{{0, 1, 2}, {3, 4, 5}}...),
+					*RuleResponse{}.WithPatches([][]byte{{7, 8, 9}}...),
+				},
 			},
 		},
 		want: [][]byte{{0, 1, 2}, {3, 4, 5}, {7, 8, 9}},

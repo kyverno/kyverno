@@ -57,11 +57,10 @@ func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engine
 		}, resource
 	}
 
-	return &engineapi.RuleResponse{
-		Type:    engineapi.Mutation,
-		Status:  engineapi.RuleStatusPass,
-		Patches: mutateResp.Patches,
-	}, mutateResp.PatchedResource
+	return engineapi.RuleResponse{
+		Type:   engineapi.Mutation,
+		Status: engineapi.RuleStatusPass,
+	}.WithPatches(mutateResp.Patches...), mutateResp.PatchedResource
 }
 
 func TestProcessPatches_EmptyPatches(t *testing.T) {
@@ -73,7 +72,7 @@ func TestProcessPatches_EmptyPatches(t *testing.T) {
 
 	rr, _ := applyPatches(emptyRule, *resourceUnstructured)
 	assert.Equal(t, rr.Status, engineapi.RuleStatusError)
-	assert.Assert(t, len(rr.Patches) == 0)
+	assert.Assert(t, len(rr.Patches()) == 0)
 }
 
 func makeAddIsMutatedLabelPatch() jsonPatch {
@@ -107,14 +106,14 @@ func TestProcessPatches_EmptyDocument(t *testing.T) {
 	rule := makeRuleWithPatch(t, makeAddIsMutatedLabelPatch())
 	rr, _ := applyPatches(rule, unstructured.Unstructured{})
 	assert.Equal(t, rr.Status, engineapi.RuleStatusFail)
-	assert.Assert(t, len(rr.Patches) == 0)
+	assert.Assert(t, len(rr.Patches()) == 0)
 }
 
 func TestProcessPatches_AllEmpty(t *testing.T) {
 	emptyRule := &types.Rule{}
 	rr, _ := applyPatches(emptyRule, unstructured.Unstructured{})
 	assert.Equal(t, rr.Status, engineapi.RuleStatusError)
-	assert.Assert(t, len(rr.Patches) == 0)
+	assert.Assert(t, len(rr.Patches()) == 0)
 }
 
 func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
@@ -127,7 +126,7 @@ func TestProcessPatches_AddPathDoesntExist(t *testing.T) {
 	}
 	rr, _ := applyPatches(rule, *resourceUnstructured)
 	assert.Equal(t, rr.Status, engineapi.RuleStatusSkip)
-	assert.Assert(t, len(rr.Patches) == 0)
+	assert.Assert(t, len(rr.Patches()) == 0)
 }
 
 func TestProcessPatches_RemovePathDoesntExist(t *testing.T) {
@@ -139,7 +138,7 @@ func TestProcessPatches_RemovePathDoesntExist(t *testing.T) {
 	}
 	rr, _ := applyPatches(rule, *resourceUnstructured)
 	assert.Equal(t, rr.Status, engineapi.RuleStatusSkip)
-	assert.Assert(t, len(rr.Patches) == 0)
+	assert.Assert(t, len(rr.Patches()) == 0)
 }
 
 func TestProcessPatches_AddAndRemovePathsDontExist_EmptyResult(t *testing.T) {
@@ -152,7 +151,7 @@ func TestProcessPatches_AddAndRemovePathsDontExist_EmptyResult(t *testing.T) {
 	}
 	rr, _ := applyPatches(rule, *resourceUnstructured)
 	assert.Equal(t, rr.Status, engineapi.RuleStatusPass)
-	assert.Equal(t, len(rr.Patches), 1)
+	assert.Equal(t, len(rr.Patches()), 1)
 }
 
 func TestProcessPatches_AddAndRemovePathsDontExist_ContinueOnError_NotEmptyResult(t *testing.T) {
@@ -167,8 +166,8 @@ func TestProcessPatches_AddAndRemovePathsDontExist_ContinueOnError_NotEmptyResul
 
 	rr, _ := applyPatches(rule, *resourceUnstructured)
 	assert.Equal(t, rr.Status, engineapi.RuleStatusPass)
-	assert.Assert(t, len(rr.Patches) != 0)
-	assertEqStringAndData(t, `{"path":"/metadata/labels/label3","op":"add","value":"label3Value"}`, rr.Patches[0])
+	assert.Assert(t, len(rr.Patches()) != 0)
+	assertEqStringAndData(t, `{"path":"/metadata/labels/label3","op":"add","value":"label3Value"}`, rr.Patches()[0])
 }
 
 func TestProcessPatches_RemovePathDoesntExist_EmptyResult(t *testing.T) {
@@ -180,7 +179,7 @@ func TestProcessPatches_RemovePathDoesntExist_EmptyResult(t *testing.T) {
 	}
 	rr, _ := applyPatches(rule, *resourceUnstructured)
 	assert.Equal(t, rr.Status, engineapi.RuleStatusSkip)
-	assert.Assert(t, len(rr.Patches) == 0)
+	assert.Assert(t, len(rr.Patches()) == 0)
 }
 
 func TestProcessPatches_RemovePathDoesntExist_NotEmptyResult(t *testing.T) {
@@ -193,8 +192,8 @@ func TestProcessPatches_RemovePathDoesntExist_NotEmptyResult(t *testing.T) {
 	}
 	rr, _ := applyPatches(rule, *resourceUnstructured)
 	assert.Equal(t, rr.Status, engineapi.RuleStatusPass)
-	assert.Assert(t, len(rr.Patches) == 1)
-	assertEqStringAndData(t, `{"path":"/metadata/labels/label2","op":"add","value":"label2Value"}`, rr.Patches[0])
+	assert.Assert(t, len(rr.Patches()) == 1)
+	assertEqStringAndData(t, `{"path":"/metadata/labels/label2","op":"add","value":"label2Value"}`, rr.Patches()[0])
 }
 
 func assertEqStringAndData(t *testing.T, str string, data []byte) {

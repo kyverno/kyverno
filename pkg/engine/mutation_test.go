@@ -124,9 +124,9 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	t.Log(string(expectedPatch))
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
-	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
-	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
+	t.Log(string(er.PolicyResponse.Rules[0].Patches()[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("patches dont match")
 	}
 }
@@ -291,10 +291,10 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 		),
 	)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
 	t.Log(string(expectedPatch))
-	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
-	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+	t.Log(string(er.PolicyResponse.Rules[0].Patches()[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("patches don't match")
 	}
 }
@@ -399,11 +399,11 @@ func Test_chained_rules(t *testing.T) {
 	assert.Equal(t, containers[0].(map[string]interface{})["image"], "otherregistry.corp.com/foo/bash:5.0")
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 2)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
-	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches()), 1)
 
-	assert.Equal(t, string(er.PolicyResponse.Rules[0].Patches[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"myregistry.corp.com/foo/bash:5.0"}`)
-	assert.Equal(t, string(er.PolicyResponse.Rules[1].Patches[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"otherregistry.corp.com/foo/bash:5.0"}`)
+	assert.Equal(t, string(er.PolicyResponse.Rules[0].Patches()[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"myregistry.corp.com/foo/bash:5.0"}`)
+	assert.Equal(t, string(er.PolicyResponse.Rules[1].Patches()[0]), `{"op":"replace","path":"/spec/containers/0/image","value":"otherregistry.corp.com/foo/bash:5.0"}`)
 }
 
 func Test_precondition(t *testing.T) {
@@ -480,8 +480,8 @@ func Test_precondition(t *testing.T) {
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, enginetest.ContextLoaderFactory(nil, nil))
 	t.Log(string(expectedPatch))
-	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
-	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+	t.Log(string(er.PolicyResponse.Rules[0].Patches()[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("patches don't match")
 	}
 }
@@ -574,8 +574,8 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, enginetest.ContextLoaderFactory(nil, nil))
 	t.Log(string(expectedPatch))
-	t.Log(string(er.PolicyResponse.Rules[0].Patches[0]))
-	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches[0]) {
+	t.Log(string(er.PolicyResponse.Rules[0].Patches()[0]))
+	if !reflect.DeepEqual(expectedPatch, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("patches don't match")
 	}
 }
@@ -1141,7 +1141,7 @@ func Test_mutate_nested_foreach(t *testing.T) {
 	er := testApplyPolicyToResource(t, policyRaw, resourceRaw)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusPass)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 2)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 2)
 
 	tlsArr, _, err := unstructured.NestedSlice(er.PatchedResource.Object, "spec", "tls")
 	assert.NilError(t, err)
@@ -1580,8 +1580,8 @@ func Test_mutate_existing_resources(t *testing.T) {
 			er := testMutate(context.TODO(), dclient, registryclient.NewOrDie(), policyContext, nil)
 
 			for _, rr := range er.PolicyResponse.Rules {
-				for i, p := range rr.Patches {
-					assert.Equal(t, test.patches[i], string(p), "test %s failed:\nGot %s\nExpected: %s", test.name, rr.Patches[i], test.patches[i])
+				for i, p := range rr.Patches() {
+					assert.Equal(t, test.patches[i], string(p), "test %s failed:\nGot %s\nExpected: %s", test.name, rr.Patches()[i], test.patches[i])
 					assert.Equal(t, rr.Status, engineapi.RuleStatusPass, rr.Status)
 				}
 			}
@@ -1686,13 +1686,13 @@ func Test_RuleSelectorMutate(t *testing.T) {
 
 	er := testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 2)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
-	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches()), 1)
 
-	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches[0]) {
+	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("rule 1 patches dont match")
 	}
-	if !reflect.DeepEqual(expectedPatch2, er.PolicyResponse.Rules[1].Patches[0]) {
+	if !reflect.DeepEqual(expectedPatch2, er.PolicyResponse.Rules[1].Patches()[0]) {
 		t.Errorf("rule 2 patches dont match")
 	}
 
@@ -1701,9 +1701,9 @@ func Test_RuleSelectorMutate(t *testing.T) {
 
 	er = testMutate(context.TODO(), nil, registryclient.NewOrDie(), policyContext, nil)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches()), 1)
 
-	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches[0]) {
+	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches()[0]) {
 		t.Error("rule 1 patches dont match")
 	}
 }

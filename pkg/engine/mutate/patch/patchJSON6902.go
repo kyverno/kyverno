@@ -60,8 +60,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 
 	resp.Status = engineapi.RuleStatusPass
 	resp.Message = string("applied JSON Patch")
-	resp.Patches = patchesBytes
-	return resp, patchedResource
+	return *resp.WithPatches(patchesBytes...), patchedResource
 }
 
 func applyPatchesWithOptions(resource, patch []byte) ([]byte, error) {
