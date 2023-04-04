@@ -15,6 +15,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/utils"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -104,25 +105,26 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 						continue
 					} else {
 						logger.WithName(rule.Name).Info("trigger resource not found for subresource, reverting to resource in AdmissionReviewRequest", "subresource", admissionRequest.SubResource)
-						triggerBytes := admissionRequest.Object.Raw
-						trigger = &unstructured.Unstructured{}
-						if err := trigger.UnmarshalJSON(triggerBytes); err != nil {
-							logger.WithName(rule.Name).Error(err, "failed to convert trigger resource")
+						newResource, _, err := admissionutils.ExtractResources(nil, *admissionRequest)
+						if err != nil {
+							logger.WithName(rule.Name).Error(err, "failed to extract resources from admission review request")
 							errs = append(errs, err)
 							continue
 						}
+						trigger = &newResource
 					}
 				}
 			} else {
-				triggerBytes := admissionRequest.Object.Raw
-				if triggerBytes == nil {
-					triggerBytes = admissionRequest.OldObject.Raw
-				}
-				trigger = &unstructured.Unstructured{}
-				if err := trigger.UnmarshalJSON(triggerBytes); err != nil {
-					logger.WithName(rule.Name).Error(err, "failed to convert trigger resource")
+				newResource, oldResource, err := admissionutils.ExtractResources(nil, *admissionRequest)
+				if err != nil {
+					logger.WithName(rule.Name).Error(err, "failed to extract resources from admission review request")
 					errs = append(errs, err)
 					continue
+				}
+
+				trigger = &newResource
+				if newResource.Object == nil {
+					trigger = &oldResource
 				}
 			}
 		}
