@@ -14,8 +14,8 @@ import (
 
 type mutateResourceHandler struct{}
 
-func NewMutateResourceHandler() handlers.Handler {
-	return mutateResourceHandler{}
+func NewMutateResourceHandler() (handlers.Handler, error) {
+	return mutateResourceHandler{}, nil
 }
 
 func (h mutateResourceHandler) Process(
@@ -41,17 +41,17 @@ func (h mutateResourceHandler) Process(
 	var mutateResp *mutate.Response
 	if rule.Mutation.ForEachMutation != nil {
 		m := &forEachMutator{
-			rule:          &rule,
+			rule:          rule,
 			foreach:       rule.Mutation.ForEachMutation,
 			policyContext: policyContext,
 			resource:      resourceInfo,
-			log:           logger,
+			logger:        logger,
 			contextLoader: contextLoader,
 			nesting:       0,
 		}
 		mutateResp = m.mutateForEach(ctx)
 	} else {
-		mutateResp = mutateResource(ctx, contextLoader, rule, policyContext, resourceInfo.unstructured, logger)
+		mutateResp = mutate.Mutate(&rule, policyContext.JSONContext(), resource, logger)
 	}
 	if mutateResp == nil {
 		return resource, nil

@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -30,18 +31,19 @@ func (e *engine) mutate(
 	for _, rule := range autogen.ComputeRules(policy) {
 		startTime := time.Now()
 		logger := internal.LoggerWithRule(logger, rule)
-		if !rule.HasMutate() {
-			continue
-		}
-		var handler handlers.Handler
-		handler = e.mutateResourceHandler
-		if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
-			handler = e.mutateExistingHandler
+		handlerFactory := func() (handlers.Handler, error) {
+			if !rule.HasMutate() {
+				return nil, nil
+			}
+			if !policyContext.AdmissionOperation() && rule.IsMutateExisting() {
+				return mutation.NewMutateExistingHandler(e.client)
+			}
+			return mutation.NewMutateResourceHandler()
 		}
 		resource, ruleResp := e.invokeRuleHandler(
 			ctx,
 			logger,
-			handler,
+			handlerFactory,
 			policyContext,
 			matchedResource,
 			rule,
