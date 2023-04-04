@@ -28,7 +28,7 @@ func (e *engine) reportMetrics(
 		if policyType == metrics.Cluster {
 			namespace = "-"
 		}
-		if e.metricsConfiguration.CheckNamespace(namespace) {
+		if !e.metricsConfiguration.CheckNamespace(namespace) {
 			return
 		}
 		resourceSpec := response.Resource
