@@ -37,7 +37,7 @@ func Test_parseRbac(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := parseRbac(tt.args.in); !reflect.DeepEqual(got, tt.want) {
+			if got := parseStrings(tt.args.in); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("parseRbac() = %v, want %v", got, tt.want)
 			}
 		})

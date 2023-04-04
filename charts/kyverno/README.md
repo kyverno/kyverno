@@ -174,6 +174,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 - Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
 
 - Admission controller `Deployment` name changed from `kyverno` to `kyverno-admission-controller`.
+- `config.excludeUsername` was renamed to `config.excludeUsernames`
+- `config.excludeGroupRole` was renamed to `config.excludeGroups`
 
 ## Uninstalling the Chart
 
@@ -200,8 +202,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
 | config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
-| config.excludeGroupRole | list | `[]` | Exclude group role |
-| config.excludeUsername | list | `[]` | Exclude username |
+| config.excludeGroups | list | `[]` | Exclude groups |
+| config.excludeUsernames | list | `[]` | Exclude usernames |
 | config.excludeBackgroundUsernames | list | `[]` | Exclude usernames for mutateExisting and generate policies |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
