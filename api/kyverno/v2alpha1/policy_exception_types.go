@@ -20,7 +20,7 @@ import (
 
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
-	"golang.org/x/exp/slices"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -126,7 +126,14 @@ func (p *Exception) Validate(path *field.Path) (errs field.ErrorList) {
 
 // Contains returns true if it contains an exception for the given policy/rule pair
 func (p *Exception) Contains(policy string, rule string) bool {
-	return p.PolicyName == policy && slices.Contains(p.RuleNames, rule)
+	if p.PolicyName == policy {
+		for _, ruleName := range p.RuleNames {
+			if wildcard.Match(ruleName, rule) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // +kubebuilder:object:root=true
