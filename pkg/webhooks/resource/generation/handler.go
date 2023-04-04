@@ -90,7 +90,7 @@ func getAppliedRules(policy kyvernov1.PolicyInterface, applied []engineapi.RuleR
 			continue
 		}
 		for _, applied := range applied {
-			if applied.ZName() == rule.Name && applied.Type == engineapi.Generation {
+			if applied.ZName() == rule.Name && applied.RuleType() == engineapi.Generation {
 				rules = append(rules, rule)
 			}
 		}

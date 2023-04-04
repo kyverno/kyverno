@@ -542,7 +542,7 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 			}
 
 			for _, rule := range resp.PolicyResponse.Rules {
-				if rule.Type != engineapi.Generation || test.Rule != rule.ZName() {
+				if rule.RuleType() != engineapi.Generation || test.Rule != rule.ZName() {
 					continue
 				}
 
@@ -576,7 +576,7 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 		}
 
 		for _, rule := range resp.PolicyResponse.Rules {
-			if rule.Type != engineapi.Mutation {
+			if rule.RuleType() != engineapi.Mutation {
 				continue
 			}
 

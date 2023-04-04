@@ -25,8 +25,8 @@ type PodSecurityChecks struct {
 type RuleResponse struct {
 	// name is the rule name specified in policy
 	name string
-	// Type is the rule type (Mutation,Generation,Validation) for Kyverno Policy
-	Type RuleType
+	// ruleType is the rule type (Mutation,Generation,Validation) for Kyverno Policy
+	ruleType RuleType
 	// message is the message response from the rule application
 	message string
 	// Status rule status
@@ -51,10 +51,10 @@ type RuleResponse struct {
 
 func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStatus) *RuleResponse {
 	return &RuleResponse{
-		name:    name,
-		Type:    ruleType,
-		message: msg,
-		Status:  status,
+		name:     name,
+		ruleType: ruleType,
+		message:  msg,
+		Status:   status,
 	}
 }
 
@@ -150,6 +150,10 @@ func (r RuleResponse) ZName() string {
 	return r.message
 }
 
+func (r RuleResponse) RuleType() RuleType {
+	return r.ruleType
+}
+
 // HasStatus checks if rule status is in a given list
 func (r RuleResponse) HasStatus(status ...RuleStatus) bool {
 	for _, s := range status {
@@ -162,5 +166,5 @@ func (r RuleResponse) HasStatus(status ...RuleStatus) bool {
 
 // String implements Stringer interface
 func (r RuleResponse) String() string {
-	return fmt.Sprintf("rule %s (%s): %v", r.name, r.Type, r.message)
+	return fmt.Sprintf("rule %s (%s): %v", r.name, r.ruleType, r.message)
 }

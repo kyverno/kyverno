@@ -48,20 +48,10 @@ const endpointsDocument string = `{
 
 func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engineapi.RuleResponse, unstructured.Unstructured) {
 	mutateResp := Mutate(rule, context.NewContext(), resource, logr.Discard())
-
 	if mutateResp.Status != engineapi.RuleStatusPass {
-		return engineapi.NewRuleResponse(
-			"",
-			engineapi.Mutation,
-			mutateResp.Message,
-			mutateResp.Status,
-		), resource
+		return engineapi.NewRuleResponse("", engineapi.Mutation, mutateResp.Message, mutateResp.Status), resource
 	}
-
-	return engineapi.RuleResponse{
-		Type:   engineapi.Mutation,
-		Status: engineapi.RuleStatusPass,
-	}.WithPatches(mutateResp.Patches...), mutateResp.PatchedResource
+	return engineapi.RulePass("", engineapi.Mutation, mutateResp.Message).WithPatches(mutateResp.Patches...), mutateResp.PatchedResource
 }
 
 func TestProcessPatches_EmptyPatches(t *testing.T) {

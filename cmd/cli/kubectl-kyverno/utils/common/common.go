@@ -712,7 +712,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 				ruleFoundInEngineResponse = true
 				vrule := kyvernov1.ViolatedRule{
 					Name:    valResponseRule.ZName(),
-					Type:    string(valResponseRule.Type),
+					Type:    string(valResponseRule.RuleType()),
 					Message: valResponseRule.Message(),
 				}
 
