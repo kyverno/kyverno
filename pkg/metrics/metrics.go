@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/utils/kube"
+	tlsutils "github.com/kyverno/kyverno/pkg/utils/tls"
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
@@ -96,7 +96,7 @@ func NewOTLPGRPCConfig(
 	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint)}
 	if certs != "" {
 		// here the certificates are stored as configmaps
-		transportCreds, err := kube.FetchCert(ctx, certs, kubeClient)
+		transportCreds, err := tlsutils.FetchCert(ctx, certs, kubeClient)
 		if err != nil {
 			log.Error(err, "Error fetching certificate from secret")
 			return nil, err
