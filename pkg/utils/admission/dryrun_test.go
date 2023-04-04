@@ -10,7 +10,7 @@ func TestIsDryRun(t *testing.T) {
 	true := true
 	false := false
 	type args struct {
-		request *admissionv1.AdmissionRequest
+		request admissionv1.AdmissionRequest
 	}
 	tests := []struct {
 		name string
@@ -18,19 +18,19 @@ func TestIsDryRun(t *testing.T) {
 		want bool
 	}{{
 		args: args{
-			request: &admissionv1.AdmissionRequest{},
+			request: admissionv1.AdmissionRequest{},
 		},
 		want: false,
 	}, {
 		args: args{
-			request: &admissionv1.AdmissionRequest{
+			request: admissionv1.AdmissionRequest{
 				DryRun: &true,
 			},
 		},
 		want: true,
 	}, {
 		args: args{
-			request: &admissionv1.AdmissionRequest{
+			request: admissionv1.AdmissionRequest{
 				DryRun: &false,
 			},
 		},

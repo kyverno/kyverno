@@ -32,9 +32,9 @@ func (inner AdmissionHandler) withDump(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 ) AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request admissionv1.AdmissionRequest, startTime time.Time) admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		response := inner(ctx, logger, request, startTime)
-		dumpPayload(logger, rbLister, crbLister, &request, &response)
+		dumpPayload(logger, rbLister, crbLister, request.AdmissionRequest, response)
 		return response
 	}
 }
@@ -43,17 +43,15 @@ func dumpPayload(
 	logger logr.Logger,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
-	request *admissionv1.AdmissionRequest,
-	response *admissionv1.AdmissionResponse,
+	request admissionv1.AdmissionRequest,
+	response AdmissionResponse,
 ) {
 	reqPayload, err := newAdmissionRequestPayload(request, rbLister, crbLister)
 	if err != nil {
 		logger.Error(err, "Failed to extract resources")
 	} else {
-		if response != nil {
-			logger = logger.WithValues("AdmissionResponse", *response)
-		}
-		logger.Info("Logging admission request and response payload ", "AdmissionRequest", reqPayload)
+		logger = logger.WithValues("AdmissionResponse", response, "AdmissionRequest", reqPayload)
+		logger.Info("Logging admission request and response payload ")
 	}
 }
 
@@ -79,7 +77,7 @@ type admissionRequestPayload struct {
 }
 
 func newAdmissionRequestPayload(
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 ) (*admissionRequestPayload, error) {
