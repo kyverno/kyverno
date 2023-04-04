@@ -619,7 +619,7 @@ FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
 
 var (
 	h   = validateManifestHandler{}
-	cfg = config.NewDefaultConfiguration()
+	cfg = config.NewDefaultConfiguration(false)
 )
 
 func Test_VerifyManifest_SignedYAML(t *testing.T) {

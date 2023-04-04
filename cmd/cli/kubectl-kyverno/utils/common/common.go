@@ -451,7 +451,7 @@ OuterLoop:
 		}
 	}
 
-	cfg := config.NewDefaultConfiguration()
+	cfg := config.NewDefaultConfiguration(false)
 	if err := ctx.AddImageInfos(c.Resource, cfg); err != nil {
 		log.Log.Error(err, "failed to add image variables to context")
 	}
@@ -1072,7 +1072,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
-		config.NewDefaultConfiguration(),
+		config.NewDefaultConfiguration(false),
 		client,
 		nil,
 		store.ContextLoaderFactory(nil),

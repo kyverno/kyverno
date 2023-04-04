@@ -161,6 +161,7 @@ type Configuration interface {
 
 // configuration stores the configuration
 type configuration struct {
+	skipResourceFilters           bool
 	defaultRegistry               string
 	enableDefaultRegistryMutation bool
 	excludedGroups                []string
@@ -176,8 +177,9 @@ type configuration struct {
 }
 
 // NewDefaultConfiguration ...
-func NewDefaultConfiguration() *configuration {
+func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 	return &configuration{
+		skipResourceFilters:           skipResourceFilters,
 		defaultRegistry:               "docker.io",
 		enableDefaultRegistryMutation: true,
 		excludedGroups:                defaultExcludedGroups,
@@ -186,8 +188,8 @@ func NewDefaultConfiguration() *configuration {
 }
 
 // NewConfiguration ...
-func NewConfiguration(client kubernetes.Interface) (Configuration, error) {
-	cd := NewDefaultConfiguration()
+func NewConfiguration(client kubernetes.Interface, skipResourceFilters bool) (Configuration, error) {
+	cd := NewDefaultConfiguration(skipResourceFilters)
 	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, err
@@ -201,14 +203,16 @@ func NewConfiguration(client kubernetes.Interface) (Configuration, error) {
 func (cd *configuration) ToFilter(kind, namespace, name string) bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
-	for _, f := range cd.filters {
-		if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
-			return true
-		}
-		if kind == "Namespace" {
-			// [Namespace,kube-system,*] || [*,kube-system,*]
-			if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
+	if !cd.skipResourceFilters {
+		for _, f := range cd.filters {
+			if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
 				return true
+			}
+			if kind == "Namespace" {
+				// [Namespace,kube-system,*] || [*,kube-system,*]
+				if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
+					return true
+				}
 			}
 		}
 	}
