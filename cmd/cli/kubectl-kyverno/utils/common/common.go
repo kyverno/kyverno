@@ -478,6 +478,7 @@ OuterLoop:
 	}
 	eng := engine.NewEngine(
 		cfg,
+		config.NewDefaultMetricsConfiguration(),
 		c.Client,
 		registryclient.NewOrDie(),
 		store.ContextLoaderFactory(nil),
@@ -1073,6 +1074,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		config.NewDefaultConfiguration(false),
+		config.NewDefaultMetricsConfiguration(),
 		client,
 		nil,
 		store.ContextLoaderFactory(nil),

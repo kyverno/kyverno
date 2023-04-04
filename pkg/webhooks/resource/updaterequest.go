@@ -61,8 +61,6 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 			engineResponses = append(engineResponses, &engineResponse)
 		}
 
-		// registering the kyverno_policy_results_total metric concurrently
-		go webhookutils.RegisterPolicyResultsMetricMutation(context.TODO(), logger, h.metricsConfig, string(request.Operation), policy, engineResponse)
 		// registering the kyverno_policy_execution_duration_seconds metric concurrently
 		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(context.TODO(), logger, h.metricsConfig, string(request.Operation), policy, engineResponse)
 	}

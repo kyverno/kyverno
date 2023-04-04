@@ -31,6 +31,7 @@ func testValidate(
 	}
 	e := NewEngine(
 		cfg,
+		config.NewDefaultMetricsConfiguration(),
 		nil,
 		rclient,
 		contextLoader,
