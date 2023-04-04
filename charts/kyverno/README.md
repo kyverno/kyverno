@@ -174,6 +174,8 @@ In `v3` chart values changed significantly, please read the instructions below t
 - Image references are now using the `registry` setting, if you override the registry or repository fields please use `registry` (`--set image.registry=ghcr.io --set image.repository=kyverno/kyverno` instead of `--set image.repository=ghcr.io/kyverno/kyverno`).
 
 - Admission controller `Deployment` name changed from `kyverno` to `kyverno-admission-controller`.
+- `config.excludeUsername` was renamed to `config.excludeUsernames`
+- `config.excludeGroupRole` was renamed to `config.excludeGroups`
 
 ## Uninstalling the Chart
 
@@ -200,8 +202,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.annotations | object | `{}` | Additional annotations to add to the configmap. |
 | config.enableDefaultRegistryMutation | bool | `true` | Enable registry mutation for container images. Enabled by default. |
 | config.defaultRegistry | string | `"docker.io"` | The registry hostname used for the image mutation. |
-| config.excludeGroupRole | list | `[]` | Exclude group role |
-| config.excludeUsername | list | `[]` | Exclude username |
+| config.excludeGroups | list | `[]` | Exclude groups |
+| config.excludeUsernames | list | `[]` | Exclude usernames |
 | config.excludeBackgroundUsernames | list | `[]` | Exclude usernames for mutateExisting and generate policies |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
@@ -384,7 +386,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | reportsController.priorityClassName | string | `""` | Optional priority class |
 | reportsController.hostNetwork | bool | `false` | Change `hostNetwork` to `true` when you want the pod to share its host's network namespace. Useful for situations like when you end up dealing with a custom CNI over Amazon EKS. Update the `dnsPolicy` accordingly as well to suit the host network mode. |
 | reportsController.dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
-| reportsController.extraArgs | object | `{"clientRateLimitBurst":300,"clientRateLimitQPS":300}` | Extra arguments passed to the container on the command line |
+| reportsController.extraArgs | object | `{"clientRateLimitBurst":300,"clientRateLimitQPS":300,"skipResourceFilters":true}` | Extra arguments passed to the container on the command line |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
 | reportsController.nodeSelector | object | `{}` | Node labels for pod assignment |

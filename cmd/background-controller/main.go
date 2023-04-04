@@ -207,7 +207,7 @@ func main() {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)
 	}
-	configuration, err := config.NewConfiguration(kubeClient)
+	configuration, err := config.NewConfiguration(kubeClient, false)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
@@ -229,6 +229,7 @@ func main() {
 	)
 	engine := engine.NewEngine(
 		configuration,
+		metricsConfig.Config(),
 		dClient,
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),

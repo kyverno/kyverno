@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: target
+data:
+  content: trigger
+  targetContent: target

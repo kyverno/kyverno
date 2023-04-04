@@ -31,6 +31,7 @@ func testValidate(
 	}
 	e := NewEngine(
 		cfg,
+		config.NewDefaultMetricsConfiguration(),
 		nil,
 		rclient,
 		contextLoader,
@@ -2082,7 +2083,7 @@ func executeTest(t *testing.T, test testCase) {
 		t.Fatal(err)
 	}
 
-	var request *admissionv1.AdmissionRequest
+	var request admissionv1.AdmissionRequest
 	err = json.Unmarshal(test.request, &request)
 	if err != nil {
 		t.Fatal(err)

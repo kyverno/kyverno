@@ -322,7 +322,7 @@ func main() {
 		logger.Error(err, "failed to create config map resolver")
 		os.Exit(1)
 	}
-	configuration, err := config.NewConfiguration(kubeClient)
+	configuration, err := config.NewConfiguration(kubeClient, false)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
@@ -386,6 +386,7 @@ func main() {
 	}
 	eng := engine.NewEngine(
 		configuration,
+		metricsConfig.Config(),
 		dClient,
 		rclient,
 		engineapi.DefaultContextLoaderFactory(configMapResolver),
@@ -544,6 +545,7 @@ func main() {
 		runtime,
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
+		dClient.Discovery(),
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers

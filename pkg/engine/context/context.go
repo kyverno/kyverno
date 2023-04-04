@@ -33,7 +33,7 @@ type EvalInterface interface {
 // Interface to manage context operations
 type Interface interface {
 	// AddRequest marshals and adds the admission request to the context
-	AddRequest(request *admissionv1.AdmissionRequest) error
+	AddRequest(request admissionv1.AdmissionRequest) error
 
 	// AddVariable adds a variable to the context
 	AddVariable(key string, value interface{}) error
@@ -131,7 +131,7 @@ func (ctx *context) addJSON(dataRaw []byte) error {
 }
 
 // AddRequest adds an admission request to context
-func (ctx *context) AddRequest(request *admissionv1.AdmissionRequest) error {
+func (ctx *context) AddRequest(request admissionv1.AdmissionRequest) error {
 	return addToContext(ctx, request, "request")
 }
 

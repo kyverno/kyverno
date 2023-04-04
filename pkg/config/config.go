@@ -139,10 +139,14 @@ type Configuration interface {
 	GetEnableDefaultRegistryMutation() bool
 	// ToFilter checks if the given resource is set to be filtered in the configuration
 	ToFilter(kind, namespace, name string) bool
-	// GetExcludedGroups return exclude groups
+	// GetExcludedGroups return excluded groups
 	GetExcludedGroups() []string
-	// GetExcludedUsernames return exclude usernames
+	// GetExcludedUsernames return excluded usernames
 	GetExcludedUsernames() []string
+	// GetExcludedRoles return excluded roles
+	GetExcludedRoles() []string
+	// GetExcludedClusterRoles return excluded roles
+	GetExcludedClusterRoles() []string
 	// GetExcludedBackgroundUsernames return exclude usernames for mutateExisting and generate policies
 	GetExcludedBackgroundUsernames() []string
 	// GetGenerateSuccessEvents return if should generate success events
@@ -157,10 +161,13 @@ type Configuration interface {
 
 // configuration stores the configuration
 type configuration struct {
+	skipResourceFilters           bool
 	defaultRegistry               string
 	enableDefaultRegistryMutation bool
 	excludedGroups                []string
 	excludedUsernames             []string
+	excludedRoles                 []string
+	excludedClusterRoles          []string
 	excludeBackgroundUsernames    []string
 	filters                       []filter
 	generateSuccessEvents         bool
@@ -170,8 +177,9 @@ type configuration struct {
 }
 
 // NewDefaultConfiguration ...
-func NewDefaultConfiguration() *configuration {
+func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 	return &configuration{
+		skipResourceFilters:           skipResourceFilters,
 		defaultRegistry:               "docker.io",
 		enableDefaultRegistryMutation: true,
 		excludedGroups:                defaultExcludedGroups,
@@ -180,8 +188,8 @@ func NewDefaultConfiguration() *configuration {
 }
 
 // NewConfiguration ...
-func NewConfiguration(client kubernetes.Interface) (Configuration, error) {
-	cd := NewDefaultConfiguration()
+func NewConfiguration(client kubernetes.Interface, skipResourceFilters bool) (Configuration, error) {
+	cd := NewDefaultConfiguration(skipResourceFilters)
 	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, err
@@ -195,14 +203,16 @@ func NewConfiguration(client kubernetes.Interface) (Configuration, error) {
 func (cd *configuration) ToFilter(kind, namespace, name string) bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
-	for _, f := range cd.filters {
-		if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
-			return true
-		}
-		if kind == "Namespace" {
-			// [Namespace,kube-system,*] || [*,kube-system,*]
-			if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
+	if !cd.skipResourceFilters {
+		for _, f := range cd.filters {
+			if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
 				return true
+			}
+			if kind == "Namespace" {
+				// [Namespace,kube-system,*] || [*,kube-system,*]
+				if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
+					return true
+				}
 			}
 		}
 	}
@@ -225,6 +235,18 @@ func (cd *configuration) GetExcludedUsernames() []string {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.excludedUsernames
+}
+
+func (cd *configuration) GetExcludedRoles() []string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.excludedRoles
+}
+
+func (cd *configuration) GetExcludedClusterRoles() []string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.excludedClusterRoles
 }
 
 func (cd *configuration) GetExcludedBackgroundUsernames() []string {
@@ -276,6 +298,8 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.filters = []filter{}
 	cd.excludedUsernames = []string{}
 	cd.excludedGroups = []string{}
+	cd.excludedRoles = []string{}
+	cd.excludedClusterRoles = []string{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.excludedGroups = append(cd.excludedGroups, defaultExcludedGroups...)
@@ -305,25 +329,39 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		cd.enableDefaultRegistryMutation = newEnableDefaultRegistryMutation
 	}
 	// load excludeGroupRole
-	excludedGroups, ok := cm.Data["excludeGroupRole"]
+	excludedGroups, ok := cm.Data["excludeGroups"]
 	if !ok {
-		logger.V(6).Info("configuration: No excludeGroupRole defined in ConfigMap")
+		logger.V(6).Info("configuration: No excludeGroups defined in ConfigMap")
 	} else {
-		cd.excludedGroups = parseRbac(excludedGroups)
+		cd.excludedGroups = parseStrings(excludedGroups)
 	}
 	// load excludeUsername
-	excludedUsernames, ok := cm.Data["excludeUsername"]
+	excludedUsernames, ok := cm.Data["excludeUsernames"]
 	if !ok {
-		logger.V(6).Info("configuration: No excludeUsername defined in ConfigMap")
+		logger.V(6).Info("configuration: No excludeUsernames defined in ConfigMap")
 	} else {
-		cd.excludedUsernames = parseRbac(excludedUsernames)
+		cd.excludedUsernames = parseStrings(excludedUsernames)
+	}
+	// load excludeRoles
+	excludedRoles, ok := cm.Data["excludeRoles"]
+	if !ok {
+		logger.V(6).Info("configuration: No excludeRoles defined in ConfigMap")
+	} else {
+		cd.excludedRoles = parseStrings(excludedRoles)
+	}
+	// load excludeClusterRoles
+	excludedClusterRoles, ok := cm.Data["excludeClusterRoles"]
+	if !ok {
+		logger.V(6).Info("configuration: No excludeClusterRoles defined in ConfigMap")
+	} else {
+		cd.excludedClusterRoles = parseStrings(excludedClusterRoles)
 	}
 	// load excludeBackgroundUsernames
 	excludeBackgroundUsernames, ok := cm.Data["excludeBackgroundUsernames"]
 	if !ok {
 		logger.V(6).Info("configuration: No excludeBackgroundUsernames defined in ConfigMap")
 	} else {
-		cd.excludeBackgroundUsernames = parseRbac(excludeBackgroundUsernames)
+		cd.excludeBackgroundUsernames = parseStrings(excludeBackgroundUsernames)
 	}
 	// load generateSuccessEvents
 	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]
@@ -365,6 +403,8 @@ func (cd *configuration) unload() {
 	cd.enableDefaultRegistryMutation = true
 	cd.excludedUsernames = []string{}
 	cd.excludedGroups = []string{}
+	cd.excludedRoles = []string{}
+	cd.excludedClusterRoles = []string{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil

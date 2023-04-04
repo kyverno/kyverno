@@ -5,7 +5,6 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -190,9 +189,9 @@ func NewPolicyContext(operation kyvernov1.AdmissionOperation) *PolicyContext {
 }
 
 func NewPolicyContextFromAdmissionRequest(
-	client dclient.IDiscovery,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	admissionInfo kyvernov1beta1.RequestInfo,
+	gvk schema.GroupVersionKind,
 	configuration config.Configuration,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
@@ -206,10 +205,6 @@ func NewPolicyContextFromAdmissionRequest(
 	if err := ctx.AddImageInfos(&newResource, configuration); err != nil {
 		return nil, fmt.Errorf("failed to add image information to the policy rule context: %w", err)
 	}
-	gvk, err := client.GetGVKFromGVR(schema.GroupVersionResource(request.Resource))
-	if err != nil {
-		return nil, err
-	}
 	policyContext := NewPolicyContextWithJsonContext(kyvernov1.AdmissionOperation(request.Operation), ctx).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
@@ -220,7 +215,7 @@ func NewPolicyContextFromAdmissionRequest(
 	return policyContext, nil
 }
 
-func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyvernov1beta1.RequestInfo) (enginectx.Interface, error) {
+func newVariablesContext(request admissionv1.AdmissionRequest, userRequestInfo *kyvernov1beta1.RequestInfo) (enginectx.Interface, error) {
 	ctx := enginectx.NewContext()
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, fmt.Errorf("failed to load incoming request in context: %w", err)
