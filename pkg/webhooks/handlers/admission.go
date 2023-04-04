@@ -39,21 +39,16 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			return
 		}
 		logger := logger.WithValues(
-			"kind", admissionReview.Request.Kind.Kind,
 			"gvk", admissionReview.Request.Kind,
+			"gvr", admissionReview.Request.Resource,
 			"namespace", admissionReview.Request.Namespace,
 			"name", admissionReview.Request.Name,
 			"operation", admissionReview.Request.Operation,
 			"uid", admissionReview.Request.UID,
 			"user", admissionReview.Request.UserInfo,
 		)
-		admissionReview.Response = &admissionv1.AdmissionResponse{
-			Allowed: true,
-			UID:     admissionReview.Request.UID,
-		}
 		admissionRequest := AdmissionRequest{
 			AdmissionRequest: *admissionReview.Request,
-			// TODO: roles/clusterroles
 		}
 		admissionResponse := inner(request.Context(), logger, admissionRequest, startTime)
 		admissionReview.Response = &admissionResponse
