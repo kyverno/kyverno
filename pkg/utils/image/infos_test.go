@@ -21,7 +21,7 @@ func initializeMockConfig(defaultRegistry string, enableDefaultRegistryMutation 
 		Data:       configMapData,
 	}
 	cs := fake.NewSimpleClientset(&cm)
-	dynamicConfig, err := config.NewConfiguration(cs)
+	dynamicConfig, err := config.NewConfiguration(cs, false)
 	if err != nil {
 		return nil, err
 	}

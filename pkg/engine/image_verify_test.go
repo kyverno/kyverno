@@ -161,7 +161,7 @@ var signaturePayloads = [][]byte{
 	[]byte(`{"critical":{"identity":{"docker-reference":"ghcr.io/kyverno/test-verify-image"},"image":{"docker-manifest-digest":"sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"},"type":"cosign container image signature"},"optional":null}`),
 }
 
-var cfg = config.NewDefaultConfiguration()
+var cfg = config.NewDefaultConfiguration(false)
 
 func testVerifyAndPatchImages(
 	ctx context.Context,

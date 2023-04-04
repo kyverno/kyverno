@@ -10,7 +10,7 @@ import (
 	"gotest.tools/assert"
 )
 
-var cfg = config.NewDefaultConfiguration()
+var cfg = config.NewDefaultConfiguration(false)
 
 func Test_extractImageInfo(t *testing.T) {
 	tests := []struct {
