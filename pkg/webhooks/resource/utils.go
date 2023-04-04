@@ -46,7 +46,7 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 
 func applyUpdateRequest(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	ruleType kyvernov1beta1.RequestType,
 	urGenerator updaterequest.Generator,
 	userRequestInfo kyvernov1beta1.RequestInfo,
@@ -54,7 +54,7 @@ func applyUpdateRequest(
 	engineResponses ...*engineapi.EngineResponse,
 ) (failedUpdateRequest []updateRequestResponse) {
 	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
-		AdmissionRequest: request,
+		AdmissionRequest: &request,
 		Operation:        action,
 	}
 

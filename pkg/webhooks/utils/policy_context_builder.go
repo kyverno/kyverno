@@ -13,7 +13,7 @@ import (
 )
 
 type PolicyContextBuilder interface {
-	Build(*admissionv1.AdmissionRequest) (*engine.PolicyContext, error)
+	Build(admissionv1.AdmissionRequest) (*engine.PolicyContext, error)
 }
 
 type policyContextBuilder struct {
@@ -37,7 +37,7 @@ func NewPolicyContextBuilder(
 	}
 }
 
-func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest) (*engine.PolicyContext, error) {
+func (b *policyContextBuilder) Build(request admissionv1.AdmissionRequest) (*engine.PolicyContext, error) {
 	userRequestInfo := kyvernov1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}

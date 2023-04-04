@@ -19,10 +19,10 @@ type mutateExistingHandler struct {
 
 func NewMutateExistingHandler(
 	client dclient.Interface,
-) handlers.Handler {
+) (handlers.Handler, error) {
 	return mutateExistingHandler{
 		client: client,
-	}
+	}, nil
 }
 
 func (h mutateExistingHandler) Process(
@@ -35,22 +35,37 @@ func (h mutateExistingHandler) Process(
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	var responses []engineapi.RuleResponse
 	logger.V(3).Info("processing mutate rule")
-	var patchedResources []resourceInfo
 	targets, err := loadTargets(h.client, rule.Mutation.Targets, policyContext, logger)
 	if err != nil {
 		rr := internal.RuleError(rule, engineapi.Mutation, "", err)
 		responses = append(responses, *rr)
-	} else {
-		patchedResources = append(patchedResources, targets...)
 	}
 
-	for _, patchedResource := range patchedResources {
-		if patchedResource.unstructured.Object == nil {
+	for _, target := range targets {
+		if target.unstructured.Object == nil {
 			continue
 		}
 		policyContext := policyContext.Copy()
-		if err := policyContext.JSONContext().AddTargetResource(patchedResource.unstructured.Object); err != nil {
+		if err := policyContext.JSONContext().AddTargetResource(target.unstructured.Object); err != nil {
 			logger.Error(err, "failed to add target resource to the context")
+			continue
+		}
+		// load target specific context
+		if err := contextLoader(ctx, target.context, policyContext.JSONContext()); err != nil {
+			rr := internal.RuleError(rule, engineapi.Mutation, "failed to load context", err)
+			responses = append(responses, *rr)
+			continue
+		}
+		// load target specific preconditions
+		preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), target.preconditions)
+		if err != nil {
+			rr := internal.RuleError(rule, engineapi.Mutation, "failed to evaluate preconditions", err)
+			responses = append(responses, *rr)
+			continue
+		}
+		if !preconditionsPassed {
+			rr := internal.RuleSkip(rule, engineapi.Mutation, "preconditions not met")
+			responses = append(responses, *rr)
 			continue
 		}
 
@@ -58,19 +73,19 @@ func (h mutateExistingHandler) Process(
 		var mutateResp *mutate.Response
 		if rule.Mutation.ForEachMutation != nil {
 			m := &forEachMutator{
-				rule:          &rule,
+				rule:          rule,
 				foreach:       rule.Mutation.ForEachMutation,
 				policyContext: policyContext,
-				resource:      patchedResource,
-				log:           logger,
+				resource:      target.resourceInfo,
+				logger:        logger,
 				contextLoader: contextLoader,
 				nesting:       0,
 			}
 			mutateResp = m.mutateForEach(ctx)
 		} else {
-			mutateResp = mutateResource(ctx, contextLoader, rule, policyContext, patchedResource.unstructured, logger)
+			mutateResp = mutate.Mutate(&rule, policyContext.JSONContext(), target.unstructured, logger)
 		}
-		if ruleResponse := buildRuleResponse(&rule, mutateResp, patchedResource); ruleResponse != nil {
+		if ruleResponse := buildRuleResponse(&rule, mutateResp, target.resourceInfo); ruleResponse != nil {
 			responses = append(responses, *ruleResponse)
 		}
 	}
