@@ -3,7 +3,6 @@ package dclient
 import (
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 )
 
@@ -25,11 +24,4 @@ func logDiscoveryErrors(err error) {
 // the underlying service, this is typically due to kyverno blocking `TokenReview` admission requests.
 func isServerCurrentlyUnableToHandleRequest(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "the server is currently unable to handle the request")
-}
-
-func isMetricsServerUnavailable(gv schema.GroupVersion, err error) bool {
-	// error message is defined at:
-	// https://github.com/kubernetes/apimachinery/blob/2456ebdaba229616fab2161a615148884b46644b/pkg/api/errors/errors.go#L432
-	return (gv.Group == "metrics.k8s.io" || gv.Group == "custom.metrics.k8s.io" || gv.Group == "external.metrics.k8s.io") &&
-		isServerCurrentlyUnableToHandleRequest(err)
 }

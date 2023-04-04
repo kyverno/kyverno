@@ -12,16 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type mutateResourceHandler struct {
-	contextLoader engineapi.EngineContextLoaderFactory
-}
+type mutateResourceHandler struct{}
 
-func NewMutateResourceHandler(
-	contextLoader engineapi.EngineContextLoaderFactory,
-) handlers.Handler {
-	return mutateResourceHandler{
-		contextLoader: contextLoader,
-	}
+func NewMutateResourceHandler() (handlers.Handler, error) {
+	return mutateResourceHandler{}, nil
 }
 
 func (h mutateResourceHandler) Process(
@@ -30,9 +24,8 @@ func (h mutateResourceHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	contextLoader engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	policy := policyContext.Policy()
-	contextLoader := h.contextLoader(policy, rule)
 	_, subresource := policyContext.ResourceKind()
 	logger.V(3).Info("processing mutate rule")
 	var parentResourceGVR metav1.GroupVersionResource
@@ -48,17 +41,17 @@ func (h mutateResourceHandler) Process(
 	var mutateResp *mutate.Response
 	if rule.Mutation.ForEachMutation != nil {
 		m := &forEachMutator{
-			rule:          &rule,
+			rule:          rule,
 			foreach:       rule.Mutation.ForEachMutation,
 			policyContext: policyContext,
 			resource:      resourceInfo,
-			log:           logger,
+			logger:        logger,
 			contextLoader: contextLoader,
 			nesting:       0,
 		}
 		mutateResp = m.mutateForEach(ctx)
 	} else {
-		mutateResp = mutateResource(&rule, policyContext, resourceInfo.unstructured, logger)
+		mutateResp = mutate.Mutate(&rule, policyContext.JSONContext(), resource, logger)
 	}
 	if mutateResp == nil {
 		return resource, nil

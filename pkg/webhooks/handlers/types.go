@@ -10,7 +10,7 @@ import (
 )
 
 type (
-	AdmissionHandler func(context.Context, logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+	AdmissionHandler func(context.Context, logr.Logger, admissionv1.AdmissionRequest, time.Time) admissionv1.AdmissionResponse
 	HttpHandler      func(http.ResponseWriter, *http.Request)
 )
 

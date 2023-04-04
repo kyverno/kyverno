@@ -39,14 +39,15 @@ import (
 	"k8s.io/client-go/discovery"
 )
 
-var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
-
-var allowedVariablesBackground = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
-
-// wildCardAllowedVariables represents regex for the allowed fields in wildcards
-var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
-
-var errOperationForbidden = errors.New("variables are forbidden in the path of a JSONPatch")
+var (
+	allowedVariables                   = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackground         = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesInTarget           = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	allowedVariablesBackgroundInTarget = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|image\.|target\.|([a-z_0-9]+\()[^{}]`)
+	// wildCardAllowedVariables represents regex for the allowed fields in wildcards
+	wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
+	errOperationForbidden    = errors.New("variables are forbidden in the path of a JSONPatch")
+)
 
 // validateJSONPatchPathForForwardSlash checks for forward slash
 func validateJSONPatchPathForForwardSlash(patch string) error {
@@ -337,9 +338,14 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 
 		if rule.HasVerifyImages() {
+			isAuditFailureAction := false
+			if spec.ValidationFailureAction == kyvernov1.Audit {
+				isAuditFailureAction = true
+			}
+
 			verifyImagePath := rulePath.Child("verifyImages")
 			for index, i := range rule.VerifyImages {
-				errs = append(errs, i.Validate(verifyImagePath.Index(index))...)
+				errs = append(errs, i.Validate(isAuditFailureAction, verifyImagePath.Index(index))...)
 			}
 			if len(errs) != 0 {
 				return warnings, errs.ToAggregate()
@@ -436,9 +442,22 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 			}
 		}
 
-		ctx := buildContext(ruleCopy, background)
-		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
-			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
+		// skip variable checks on mutate.targets, they will be validated separately
+		withoutTargets := ruleCopy.DeepCopy()
+		for i := range withoutTargets.Mutation.Targets {
+			withoutTargets.Mutation.Targets[i].RawAnyAllConditions = nil
+		}
+		ctx := buildContext(withoutTargets, background, false, nil)
+		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *withoutTargets); !variables.CheckNotFoundErr(err) {
+			return fmt.Errorf("variable substitution failed for rule %s: %s", withoutTargets.Name, err.Error())
+		}
+
+		// perform variable checks with mutate.targets
+		for _, target := range r.Mutation.Targets {
+			ctx := buildContext(ruleCopy, background, true, target.Context)
+			if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !variables.CheckNotFoundErr(err) {
+				return fmt.Errorf("variable substitution failed for rule target %s: %s", ruleCopy.Name, err.Error())
+			}
 		}
 	}
 
@@ -549,29 +568,34 @@ func imageRefHasVariables(verifyImages []kyvernov1.ImageVerification) error {
 	return nil
 }
 
-func buildContext(rule *kyvernov1.Rule, background bool) *enginecontext.MockContext {
-	re := getAllowedVariables(background)
+func buildContext(rule *kyvernov1.Rule, background bool, target bool, targetContext []kyvernov1.ContextEntry) *enginecontext.MockContext {
+	re := getAllowedVariables(background, target)
 	ctx := enginecontext.NewMockContext(re)
-
 	addContextVariables(rule.Context, ctx)
-
 	for _, fe := range rule.Validation.ForEachValidation {
 		addContextVariables(fe.Context, ctx)
 	}
-
 	for _, fe := range rule.Mutation.ForEachMutation {
 		addContextVariables(fe.Context, ctx)
 	}
-
+	for _, fe := range rule.Mutation.Targets {
+		addContextVariables(fe.Context, ctx)
+	}
 	return ctx
 }
 
-func getAllowedVariables(background bool) *regexp.Regexp {
-	if background {
-		return allowedVariablesBackground
+func getAllowedVariables(background bool, target bool) *regexp.Regexp {
+	if target {
+		if background {
+			return allowedVariablesBackgroundInTarget
+		}
+		return allowedVariablesInTarget
+	} else {
+		if background {
+			return allowedVariablesBackground
+		}
+		return allowedVariables
 	}
-
-	return allowedVariables
 }
 
 func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.MockContext) {

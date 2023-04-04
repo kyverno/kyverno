@@ -38,10 +38,16 @@ type validateManifestHandler struct {
 	client dclient.Interface
 }
 
-func NewValidateManifestHandler(client dclient.Interface) handlers.Handler {
+func NewValidateManifestHandler(
+	policyContext engineapi.PolicyContext,
+	client dclient.Interface,
+) (handlers.Handler, error) {
+	if engineutils.IsDeleteRequest(policyContext) {
+		return nil, nil
+	}
 	return validateManifestHandler{
 		client: client,
-	}
+	}, nil
 }
 
 func (h validateManifestHandler) Process(
@@ -50,10 +56,9 @@ func (h validateManifestHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	_ engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	if engineutils.IsDeleteRequest(policyContext) {
-		return resource, nil
-	}
+	// verify manifest
 	verified, reason, err := h.verifyManifest(ctx, logger, policyContext, *rule.Validation.Manifests)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())

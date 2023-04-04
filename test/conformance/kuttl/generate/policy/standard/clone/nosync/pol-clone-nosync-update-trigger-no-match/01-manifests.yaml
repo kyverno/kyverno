@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pol-clone-nosync-update-trigger-no-match-ns
+---
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: source-secret
+  namespace: pol-clone-nosync-update-trigger-no-match-ns
+type: Opaque
+---
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: pol-clone-nosync-update-trigger-no-match-policy
+  namespace: pol-clone-nosync-update-trigger-no-match-ns
+spec:
+  rules:
+  - name: clone-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          selector:
+            matchLabels:
+              create-secret: "true"
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: downstream-secret
+      namespace: pol-clone-nosync-update-trigger-no-match-ns
+      synchronize: false
+      clone:
+        namespace: pol-clone-nosync-update-trigger-no-match-ns
+        name: source-secret

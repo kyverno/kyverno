@@ -51,10 +51,9 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			Allowed: true,
 			UID:     admissionReview.Request.UID,
 		}
-		admissionResponse := inner(request.Context(), logger, admissionReview.Request, startTime)
-		if admissionResponse != nil {
-			admissionReview.Response = admissionResponse
-		}
+		// TODO: check request is not nil ?
+		admissionResponse := inner(request.Context(), logger, *admissionReview.Request, startTime)
+		admissionReview.Response = &admissionResponse
 		responseJSON, err := json.Marshal(admissionReview)
 		if err != nil {
 			HttpError(request.Context(), writer, request, logger, err, http.StatusInternalServerError)
