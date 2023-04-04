@@ -147,7 +147,7 @@ func (r *RuleResponse) Message() string {
 }
 
 func (r *RuleResponse) Name() string {
-	return r.message
+	return r.name
 }
 
 func (r *RuleResponse) RuleType() RuleType {
