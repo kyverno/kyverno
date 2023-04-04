@@ -50,11 +50,12 @@ func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*engine
 	mutateResp := Mutate(rule, context.NewContext(), resource, logr.Discard())
 
 	if mutateResp.Status != engineapi.RuleStatusPass {
-		return &engineapi.RuleResponse{
-			Type:    engineapi.Mutation,
-			Status:  mutateResp.Status,
-			Message: mutateResp.Message,
-		}, resource
+		return engineapi.NewRuleResponse(
+			"",
+			engineapi.Mutation,
+			mutateResp.Message,
+			mutateResp.Status,
+		), resource
 	}
 
 	return engineapi.RuleResponse{

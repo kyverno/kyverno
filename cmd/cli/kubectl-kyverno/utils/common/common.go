@@ -713,7 +713,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 				vrule := kyvernov1.ViolatedRule{
 					Name:    valResponseRule.Name,
 					Type:    string(valResponseRule.Type),
-					Message: valResponseRule.Message,
+					Message: valResponseRule.Message(),
 				}
 
 				switch valResponseRule.Status {
@@ -747,7 +747,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 							printCount++
 						}
 
-						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message)
+						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message())
 					}
 
 				case engineapi.RuleStatusError:
@@ -811,7 +811,7 @@ func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *engine
 						fmt.Println("\ninvalid resource", "policy", policy.GetName(), "resource", resPath)
 						printCount++
 					}
-					fmt.Printf("%d. %s - %s\n", i+1, ruleResponse.Name, ruleResponse.Message)
+					fmt.Printf("%d. %s - %s\n", i+1, ruleResponse.Name, ruleResponse.Message())
 
 					if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
 						rc.Warn++
@@ -886,14 +886,14 @@ func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *engineapi.
 					fmt.Printf("\nskipped mutate policy %s -> resource %s", c.Policy.GetName(), resPath)
 					c.Rc.Skip++
 				} else if mutateResponseRule.Status == engineapi.RuleStatusError {
-					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", c.Policy.GetName(), resPath, mutateResponseRule.Message)
+					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", c.Policy.GetName(), resPath, mutateResponseRule.Message())
 					c.Rc.Error++
 				} else {
 					if printCount < 1 {
 						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", c.Policy.GetName(), resPath)
 						printCount++
 					}
-					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name, mutateResponseRule.Message)
+					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name, mutateResponseRule.Message())
 					c.Rc.Fail++
 				}
 				continue

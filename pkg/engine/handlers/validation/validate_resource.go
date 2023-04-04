@@ -189,10 +189,10 @@ func (v *validator) validateElements(ctx context.Context, foreach kyvernov1.ForE
 				if index < len(elements)-1 {
 					continue
 				}
-				msg := fmt.Sprintf("validation failure: %v", r.Message)
+				msg := fmt.Sprintf("validation failure: %v", r.Message())
 				return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, r.Status), applyCount
 			}
-			msg := fmt.Sprintf("validation failure: %v", r.Message)
+			msg := fmt.Sprintf("validation failure: %v", r.Message())
 			return engineapi.NewRuleResponse(v.rule.Name, engineapi.Validation, msg, r.Status), applyCount
 		}
 

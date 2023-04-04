@@ -12,55 +12,42 @@ import (
 )
 
 // ProcessPatchJSON6902 ...
-func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unstructured.Unstructured, log logr.Logger) (resp engineapi.RuleResponse, patchedResource unstructured.Unstructured) {
+func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unstructured.Unstructured, log logr.Logger) (engineapi.RuleResponse, unstructured.Unstructured) {
 	logger := log.WithValues("rule", ruleName)
 	startTime := time.Now()
 	logger.V(4).Info("started JSON6902 patch", "startTime", startTime)
-	resp.Name = ruleName
-	resp.Type = engineapi.Mutation
 	defer func() {
 		logger.V(4).Info("applied JSON6902 patch", "processingTime", time.Since(startTime))
 	}()
-
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
-		resp.Status = engineapi.RuleStatusFail
 		logger.Error(err, "failed to marshal resource")
-		resp.Message = fmt.Sprintf("failed to marshal resource: %v", err)
-		return resp, resource
+		return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to marshal resource: %v", err)), resource
 	}
-
 	patchedResourceRaw, err := applyPatchesWithOptions(resourceRaw, patchesJSON6902)
 	if err != nil {
-		resp.Status = engineapi.RuleStatusFail
 		logger.Error(err, "failed to apply JSON Patch")
-		resp.Message = fmt.Sprintf("failed to apply JSON Patch: %v", err)
-		return resp, resource
+		return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to apply JSON Patch: %v", err)), resource
 	}
-
 	patchesBytes, err := generatePatches(resourceRaw, patchedResourceRaw)
 	if err != nil {
-		resp.Status = engineapi.RuleStatusFail
 		logger.Error(err, "unable generate patch bytes from base and patched document, apply patchesJSON6902 directly")
-		resp.Message = fmt.Sprintf("unable generate patch bytes from base and patched document, apply patchesJSON6902 directly: %v", err)
-		return resp, resource
+		return *engineapi.RuleFail(
+			ruleName,
+			engineapi.Mutation,
+			fmt.Sprintf("unable generate patch bytes from base and patched document, apply patchesJSON6902 directly: %v", err),
+		), resource
 	}
-
 	for _, p := range patchesBytes {
 		log.V(4).Info("generated JSON Patch (RFC 6902)", "patch", string(p))
 	}
-
+	var patchedResource unstructured.Unstructured
 	err = patchedResource.UnmarshalJSON(patchedResourceRaw)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal resource")
-		resp.Status = engineapi.RuleStatusFail
-		resp.Message = fmt.Sprintf("failed to unmarshal resource: %v", err)
-		return resp, resource
+		return *engineapi.RuleFail(ruleName, engineapi.Mutation, fmt.Sprintf("failed to unmarshal resource: %v", err)), resource
 	}
-
-	resp.Status = engineapi.RuleStatusPass
-	resp.Message = string("applied JSON Patch")
-	return *resp.WithPatches(patchesBytes...), patchedResource
+	return *engineapi.RulePass(ruleName, engineapi.Mutation, "applied JSON Patch").WithPatches(patchesBytes...), patchedResource
 }
 
 func applyPatchesWithOptions(resource, patch []byte) ([]byte, error) {

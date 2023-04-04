@@ -27,8 +27,8 @@ type RuleResponse struct {
 	Name string
 	// Type is the rule type (Mutation,Generation,Validation) for Kyverno Policy
 	Type RuleType
-	// Message is the message response from the rule application
-	Message string
+	// message is the message response from the rule application
+	message string
 	// Status rule status
 	Status RuleStatus
 	// patches are JSON patches, for mutation rules
@@ -53,7 +53,7 @@ func NewRuleResponse(rule string, ruleType RuleType, msg string, status RuleStat
 	return &RuleResponse{
 		Name:    rule,
 		Type:    ruleType,
-		Message: msg,
+		message: msg,
 		Status:  status,
 	}
 }
@@ -138,6 +138,10 @@ func (r RuleResponse) Patches() [][]byte {
 	return r.patches
 }
 
+func (r RuleResponse) Message() string {
+	return r.message
+}
+
 // HasStatus checks if rule status is in a given list
 func (r RuleResponse) HasStatus(status ...RuleStatus) bool {
 	for _, s := range status {
@@ -150,5 +154,5 @@ func (r RuleResponse) HasStatus(status ...RuleStatus) bool {
 
 // String implements Stringer interface
 func (r RuleResponse) String() string {
-	return fmt.Sprintf("rule %s (%s): %v", r.Name, r.Type, r.Message)
+	return fmt.Sprintf("rule %s (%s): %v", r.Name, r.Type, r.message)
 }
