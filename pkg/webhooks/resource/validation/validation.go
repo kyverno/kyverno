@@ -110,8 +110,6 @@ func (v *validationHandler) HandleValidation(
 					return
 				}
 
-				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, logger, v.metrics, string(request.Operation), policyContext.Policy(), engineResponse)
-
 				engineResponses = append(engineResponses, engineResponse)
 				if !engineResponse.IsSuccessful() {
 					logger.V(2).Info("validation failed", "action", policy.GetSpec().ValidationFailureAction, "policy", policy.GetName(), "failed rules", engineResponse.GetFailedRules())
@@ -164,7 +162,6 @@ func (v *validationHandler) buildAuditResponses(
 				policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)
 				response := v.engine.Validate(ctx, policyContext)
 				responses = append(responses, response)
-				go webhookutils.RegisterPolicyExecutionDurationMetricValidate(ctx, v.log, v.metrics, string(request.Operation), policyContext.Policy(), response)
 			},
 		)
 	}
