@@ -29,9 +29,8 @@ const (
 
 type MetricsConfig struct {
 	// instruments
-	policyChangesMetric           instrument.Int64Counter
-	policyExecutionDurationMetric instrument.Float64Histogram
-	clientQueriesMetric           instrument.Int64Counter
+	policyChangesMetric instrument.Int64Counter
+	clientQueriesMetric instrument.Int64Counter
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -41,7 +40,6 @@ type MetricsConfig struct {
 type MetricsConfigManager interface {
 	Config() kconfig.MetricsConfiguration
 	RecordPolicyChanges(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
-	RecordPolicyExecutionDuration(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64)
 	RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 }
 
@@ -55,11 +53,6 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.policyChangesMetric, err = meter.Int64Counter("kyverno_policy_changes", instrument.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_policy_changes")
-		return err
-	}
-	m.policyExecutionDurationMetric, err = meter.Float64Histogram("kyverno_policy_execution_duration_seconds", instrument.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"))
-	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_policy_execution_duration_seconds")
 		return err
 	}
 	m.clientQueriesMetric, err = meter.Int64Counter("kyverno_client_queries", instrument.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
@@ -172,23 +165,6 @@ func (m *MetricsConfig) RecordPolicyChanges(ctx context.Context, policyValidatio
 		attribute.String("policy_change_type", policyChangeType),
 	}
 	m.policyChangesMetric.Add(ctx, 1, commonLabels...)
-}
-
-func (m *MetricsConfig) RecordPolicyExecutionDuration(ctx context.Context, policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
-	ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64,
-) {
-	commonLabels := []attribute.KeyValue{
-		attribute.String("policy_validation_mode", string(policyValidationMode)),
-		attribute.String("policy_type", string(policyType)),
-		attribute.String("policy_background_mode", string(policyBackgroundMode)),
-		attribute.String("policy_namespace", policyNamespace),
-		attribute.String("policy_name", policyName),
-		attribute.String("rule_name", ruleName),
-		attribute.String("rule_result", string(ruleResult)),
-		attribute.String("rule_type", string(ruleType)),
-		attribute.String("rule_execution_cause", string(ruleExecutionCause)),
-	}
-	m.policyExecutionDurationMetric.Record(ctx, ruleExecutionLatency, commonLabels...)
 }
 
 func (m *MetricsConfig) RecordClientQueries(ctx context.Context, clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string) {
