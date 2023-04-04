@@ -99,7 +99,7 @@ func NewServer(
 				WithDump(debugModeOpts.DumpPayload).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookMutating).
-				WithAdmission(resourceLogger.WithName("mutate"), rbLister, crbLister)
+				WithAdmission(resourceLogger.WithName("mutate"))
 		},
 	)
 	registerWebhookHandlers(
@@ -113,7 +113,7 @@ func NewServer(
 				WithProtection(toggle.ProtectManagedResources.Enabled()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithMetrics(resourceLogger, metricsConfig.Config(), metrics.WebhookValidating).
-				WithAdmission(resourceLogger.WithName("validate"), rbLister, crbLister)
+				WithAdmission(resourceLogger.WithName("validate"))
 		},
 	)
 	mux.HandlerFunc(
@@ -122,7 +122,7 @@ func NewServer(
 		handlers.FromAdmissionFunc("MUTATE", policyHandlers.Mutate).
 			WithDump(debugModeOpts.DumpPayload).
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookMutating).
-			WithAdmission(policyLogger.WithName("mutate"), rbLister, crbLister).
+			WithAdmission(policyLogger.WithName("mutate")).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
@@ -132,7 +132,7 @@ func NewServer(
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
-			WithAdmission(policyLogger.WithName("validate"), rbLister, crbLister).
+			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
@@ -142,14 +142,14 @@ func NewServer(
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(exceptionLogger, metricsConfig.Config(), metrics.WebhookValidating).
-			WithAdmission(exceptionLogger.WithName("validate"), rbLister, crbLister).
+			WithAdmission(exceptionLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(
 		"POST",
 		config.VerifyMutatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VERIFY", handlers.Verify).
-			WithAdmission(verifyLogger.WithName("mutate"), rbLister, crbLister).
+			WithAdmission(verifyLogger.WithName("mutate")).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))

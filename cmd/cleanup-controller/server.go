@@ -73,7 +73,7 @@ func NewServer(
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
-			WithAdmission(policyLogger.WithName("validate"), nil, nil).
+			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc(),
 	)
 	mux.HandlerFunc(

@@ -8,24 +8,14 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/userinfo"
 	admissionv1 "k8s.io/api/admission/v1"
-	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
 
-func (inner AdmissionHandler) WithAdmission(
-	logger logr.Logger,
-	rbLister rbacv1listers.RoleBindingLister,
-	crbLister rbacv1listers.ClusterRoleBindingLister,
-) HttpHandler {
-	return inner.withAdmission(logger, rbLister, crbLister).WithTrace("ADMISSION")
+func (inner AdmissionHandler) WithAdmission(logger logr.Logger) HttpHandler {
+	return inner.withAdmission(logger).WithTrace("ADMISSION")
 }
 
-func (inner AdmissionHandler) withAdmission(
-	logger logr.Logger,
-	rbLister rbacv1listers.RoleBindingLister,
-	crbLister rbacv1listers.ClusterRoleBindingLister,
-) HttpHandler {
+func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		startTime := time.Now()
 		if request.Body == nil {
@@ -59,19 +49,6 @@ func (inner AdmissionHandler) withAdmission(
 		)
 		admissionRequest := AdmissionRequest{
 			AdmissionRequest: *admissionReview.Request,
-		}
-		if rbLister != nil && crbLister != nil {
-			if roles, clusterRoles, err := userinfo.GetRoleRef(rbLister, crbLister, admissionReview.Request.UserInfo); err != nil {
-				HttpError(request.Context(), writer, request, logger, err, http.StatusInternalServerError)
-				return
-			} else {
-				admissionRequest.Roles = roles
-				admissionRequest.ClusterRoles = clusterRoles
-				logger = logger.WithValues(
-					"roles", roles,
-					"clusterroles", clusterRoles,
-				)
-			}
 		}
 		admissionResponse := inner(request.Context(), logger, admissionRequest, startTime)
 		admissionReview.Response = &admissionResponse
