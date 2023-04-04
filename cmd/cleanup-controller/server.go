@@ -70,7 +70,7 @@ func NewServer(
 		"POST",
 		config.CleanupValidatingWebhookServicePath,
 		handlers.FromAdmissionFunc("VALIDATE", validationHandler).
-			WithDump(debugModeOpts.DumpPayload, nil, nil).
+			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metricsConfig.Config(), metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).

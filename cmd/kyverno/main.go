@@ -544,6 +544,7 @@ func main() {
 		runtime,
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
+		dClient.Discovery(),
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers
