@@ -22,7 +22,7 @@ func parseWebhooks(in string) ([]WebhookConfig, error) {
 	return webhookCfgs, nil
 }
 
-func parseRbac(in string) []string {
+func parseStrings(in string) []string {
 	var out []string
 	for _, in := range strings.Split(in, ",") {
 		in := strings.TrimSpace(in)
