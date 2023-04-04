@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type AdmissionRequest struct {
@@ -18,6 +19,9 @@ type AdmissionRequest struct {
 
 	// ClusterRoles is a list of possible clusterRoles send the request.
 	ClusterRoles []string
+
+	// GroupVersionKind is the top level GVK.
+	GroupVersionKind schema.GroupVersionKind
 }
 
 type AdmissionResponse = admissionv1.AdmissionResponse

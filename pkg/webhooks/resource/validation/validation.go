@@ -151,7 +151,7 @@ func (v *validationHandler) buildAuditResponses(
 ) ([]engineapi.EngineResponse, error) {
 	gvr := schema.GroupVersionResource(request.Resource)
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, gvr, request.SubResource, request.Namespace)
-	policyContext, err := v.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles)
+	policyContext, err := v.pcBuilder.Build(request.AdmissionRequest, request.Roles, request.ClusterRoles, request.GroupVersionKind)
 	if err != nil {
 		return nil, err
 	}
