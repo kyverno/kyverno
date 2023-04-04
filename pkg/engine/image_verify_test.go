@@ -475,8 +475,8 @@ func Test_SignatureGoodSigned(t *testing.T) {
 	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.NewOrDie(), nil, policyContext, cfg)
 	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
 	assert.Equal(t, engineResp.PolicyResponse.Rules[0].ZStatus(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].ZMessage())
-	assert.Equal(t, len(engineResp.PolicyResponse.Rules[0].Patches()), 1)
-	patch := engineResp.PolicyResponse.Rules[0].Patches()[0]
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules[0].ZPatches()), 1)
+	patch := engineResp.PolicyResponse.Rules[0].ZPatches()[0]
 	assert.Equal(t, string(patch), "{\"op\":\"replace\",\"path\":\"/spec/containers/0/image\",\"value\":\"ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105\"}")
 }
 

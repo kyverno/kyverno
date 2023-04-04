@@ -124,7 +124,7 @@ func (er EngineResponse) IsNil() bool {
 func (er EngineResponse) GetPatches() [][]byte {
 	var patches [][]byte
 	for _, r := range er.PolicyResponse.Rules {
-		patches = append(patches, r.Patches()...)
+		patches = append(patches, r.ZPatches()...)
 	}
 	return patches
 }

@@ -138,7 +138,7 @@ func (r *RuleResponse) GeneratedResource() unstructured.Unstructured {
 	return r.generatedResource
 }
 
-func (r *RuleResponse) Patches() [][]byte {
+func (r *RuleResponse) ZPatches() [][]byte {
 	return r.patches
 }
 

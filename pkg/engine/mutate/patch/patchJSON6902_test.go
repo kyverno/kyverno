@@ -55,8 +55,8 @@ func TestTypeConversion(t *testing.T) {
 		t.Fatal(resp.ZMessage())
 	}
 
-	assert.Equal(t, expectedPatches, resp.Patches(),
-		fmt.Sprintf("expectedPatches: %s\ngeneratedPatches: %s", string(expectedPatches[0]), string(resp.Patches()[0])))
+	assert.Equal(t, expectedPatches, resp.ZPatches(),
+		fmt.Sprintf("expectedPatches: %s\ngeneratedPatches: %s", string(expectedPatches[0]), string(resp.ZPatches()[0])))
 }
 
 func TestJsonPatch(t *testing.T) {
