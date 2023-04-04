@@ -16,35 +16,52 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
+	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/metric/instrument"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type engine struct {
-	configuration     config.Configuration
-	client            dclient.Interface
-	rclient           registryclient.Client
-	contextLoader     engineapi.ContextLoaderFactory
-	exceptionSelector engineapi.PolicyExceptionSelector
+	configuration        config.Configuration
+	metricsConfiguration config.MetricsConfiguration
+	client               dclient.Interface
+	rclient              registryclient.Client
+	contextLoader        engineapi.ContextLoaderFactory
+	exceptionSelector    engineapi.PolicyExceptionSelector
+	// metrics
+	resultCounter instrument.Int64Counter
 }
 
 type handlerFactory = func() (handlers.Handler, error)
 
 func NewEngine(
 	configuration config.Configuration,
+	metricsConfiguration config.MetricsConfiguration,
 	client dclient.Interface,
 	rclient registryclient.Client,
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 ) engineapi.Engine {
+	meter := global.MeterProvider().Meter(metrics.MeterName)
+	resultCounter, err := meter.Int64Counter(
+		"kyverno_policy_results",
+		instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"),
+	)
+	if err != nil {
+		logging.Error(err, "failed to register metric kyverno_policy_results")
+	}
 	return &engine{
-		configuration:     configuration,
-		client:            client,
-		rclient:           rclient,
-		contextLoader:     contextLoader,
-		exceptionSelector: exceptionSelector,
+		configuration:        configuration,
+		metricsConfiguration: metricsConfiguration,
+		client:               client,
+		rclient:              rclient,
+		contextLoader:        contextLoader,
+		exceptionSelector:    exceptionSelector,
+		resultCounter:        resultCounter,
 	}
 }
 
@@ -58,7 +75,9 @@ func (e *engine) Validate(
 		policyResponse := e.validate(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
-	return response.Done(time.Now())
+	response = response.Done(time.Now())
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	return response
 }
 
 func (e *engine) Mutate(
@@ -73,7 +92,9 @@ func (e *engine) Mutate(
 			WithPolicyResponse(policyResponse).
 			WithPatchedResource(patchedResource)
 	}
-	return response.Done(time.Now())
+	response = response.Done(time.Now())
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	return response
 }
 
 func (e *engine) Generate(
@@ -86,7 +107,9 @@ func (e *engine) Generate(
 		policyResponse := e.generateResponse(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
-	return response.Done(time.Now())
+	response = response.Done(time.Now())
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	return response
 }
 
 func (e *engine) VerifyAndPatchImages(
@@ -100,7 +123,9 @@ func (e *engine) VerifyAndPatchImages(
 		policyResponse, innerIvm := e.verifyAndPatchImages(ctx, logger, policyContext)
 		response, ivm = response.WithPolicyResponse(policyResponse), innerIvm
 	}
-	return response.Done(time.Now()), ivm
+	response = response.Done(time.Now())
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	return response, ivm
 }
 
 func (e *engine) ApplyBackgroundChecks(
@@ -113,7 +138,9 @@ func (e *engine) ApplyBackgroundChecks(
 		policyResponse := e.applyBackgroundChecks(ctx, logger, policyContext)
 		response = response.WithPolicyResponse(policyResponse)
 	}
-	return response.Done(time.Now())
+	response = response.Done(time.Now())
+	e.reportMetrics(ctx, logger, policyContext.Operation(), policyContext.AdmissionOperation(), response)
+	return response
 }
 
 func (e *engine) ContextLoader(

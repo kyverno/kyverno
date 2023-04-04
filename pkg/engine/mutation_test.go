@@ -9,6 +9,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	enginetest "github.com/kyverno/kyverno/pkg/engine/test"
@@ -32,6 +33,7 @@ func testMutate(
 	}
 	e := NewEngine(
 		cfg,
+		config.NewDefaultMetricsConfiguration(),
 		client,
 		rclient,
 		contextLoader,

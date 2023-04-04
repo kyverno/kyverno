@@ -1051,6 +1051,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 
 	eng := engine.NewEngine(
 		config.NewDefaultConfiguration(false),
+		config.NewDefaultMetricsConfiguration(),
 		nil,
 		registryclient.NewOrDie(),
 		engineapi.DefaultContextLoaderFactory(nil),
@@ -1130,6 +1131,7 @@ func Test_RuleSelector(t *testing.T) {
 
 	eng := engine.NewEngine(
 		config.NewDefaultConfiguration(false),
+		config.NewDefaultMetricsConfiguration(),
 		nil,
 		registryclient.NewOrDie(),
 		engineapi.DefaultContextLoaderFactory(nil),
