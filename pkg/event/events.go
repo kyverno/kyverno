@@ -124,7 +124,7 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 }
 
 func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp *engineapi.RuleResponse, source Source) []Info {
-	exception := ruleResp.Exception()
+	exception := ruleResp.ZException()
 	exceptionName, exceptionNamespace := exception.GetName(), exception.GetNamespace()
 	policyMessage := fmt.Sprintf("resource %s was skipped from rule %s due to policy exception %s/%s", resourceKey(engineResponse.PatchedResource), ruleResp.ZName(), exceptionNamespace, exceptionName)
 	var exceptionMessage string

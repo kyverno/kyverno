@@ -88,7 +88,7 @@ func (e *engine) reportMetrics(
 					attribute.String("rule_type", string(ruleType)),
 					attribute.String("rule_execution_cause", string(executionCause)),
 				}
-				e.durationHistogram.Record(ctx, rule.Stats().ProcessingTime.Seconds(), commonLabels...)
+				e.durationHistogram.Record(ctx, rule.ZStats().ProcessingTime.Seconds(), commonLabels...)
 			}
 		}
 	}

@@ -149,7 +149,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 		er := c.engine.Mutate(context.TODO(), policyContext)
 		for _, r := range er.PolicyResponse.Rules {
-			patched, parentGVR, patchedSubresource := r.PatchedTarget()
+			patched, parentGVR, patchedSubresource := r.ZPatchedTarget()
 			switch r.ZStatus() {
 			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
 				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.ZStatus(), r.ZMessage())

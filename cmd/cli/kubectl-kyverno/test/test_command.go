@@ -565,7 +565,7 @@ func buildPolicyResults(engineResponses []*engineapi.EngineResponse, testResults
 					} else {
 						var x string
 						result.Result = policyreportv1alpha2.StatusFail
-						x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource(), isGit, policyResourcePath, fs, true)
+						x = getAndCompareResource(test.GeneratedResource, rule.ZGeneratedResource(), isGit, policyResourcePath, fs, true)
 						if x == "pass" {
 							result.Result = policyreportv1alpha2.StatusPass
 						}

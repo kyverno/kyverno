@@ -99,7 +99,7 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 			Category: annotations[kyvernov1.AnnotationPolicyCategory],
 			Severity: severityFromString(annotations[kyvernov1.AnnotationPolicySeverity]),
 		}
-		pss := ruleResult.PodSecurityChecks()
+		pss := ruleResult.ZPodSecurityChecks()
 		if pss != nil {
 			var controls []string
 			for _, check := range pss.Checks {
