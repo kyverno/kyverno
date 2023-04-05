@@ -37,7 +37,7 @@ func (h mutateExistingHandler) Process(
 	logger.V(3).Info("processing mutate rule")
 	targets, err := loadTargets(h.client, rule.Mutation.Targets, policyContext, logger)
 	if err != nil {
-		rr := internal.RuleError(rule, engineapi.Mutation, "", err)
+		rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "", err)
 		responses = append(responses, *rr)
 	}
 
@@ -52,19 +52,19 @@ func (h mutateExistingHandler) Process(
 		}
 		// load target specific context
 		if err := contextLoader(ctx, target.context, policyContext.JSONContext()); err != nil {
-			rr := internal.RuleError(rule, engineapi.Mutation, "failed to load context", err)
+			rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to load context", err)
 			responses = append(responses, *rr)
 			continue
 		}
 		// load target specific preconditions
 		preconditionsPassed, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), target.preconditions)
 		if err != nil {
-			rr := internal.RuleError(rule, engineapi.Mutation, "failed to evaluate preconditions", err)
+			rr := engineapi.RuleError(rule.Name, engineapi.Mutation, "failed to evaluate preconditions", err)
 			responses = append(responses, *rr)
 			continue
 		}
 		if !preconditionsPassed {
-			rr := internal.RuleSkip(rule, engineapi.Mutation, "preconditions not met")
+			rr := engineapi.RuleSkip(rule.Name, engineapi.Mutation, "preconditions not met")
 			responses = append(responses, *rr)
 			continue
 		}

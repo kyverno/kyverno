@@ -20,7 +20,23 @@ type Handler interface {
 	) (unstructured.Unstructured, []engineapi.RuleResponse)
 }
 
-func RuleResponses(rrs ...*engineapi.RuleResponse) []engineapi.RuleResponse {
+func WithError(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string, err error) []engineapi.RuleResponse {
+	return WithResponses(engineapi.RuleError(rule.Name, ruleType, msg, err))
+}
+
+func WithSkip(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
+	return WithResponses(engineapi.RuleSkip(rule.Name, ruleType, msg))
+}
+
+func WithPass(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
+	return WithResponses(engineapi.RulePass(rule.Name, ruleType, msg))
+}
+
+func WithFail(rule kyvernov1.Rule, ruleType engineapi.RuleType, msg string) []engineapi.RuleResponse {
+	return WithResponses(engineapi.RuleFail(rule.Name, ruleType, msg))
+}
+
+func WithResponses(rrs ...*engineapi.RuleResponse) []engineapi.RuleResponse {
 	var out []engineapi.RuleResponse
 	for _, rr := range rrs {
 		if rr != nil {
