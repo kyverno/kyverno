@@ -213,14 +213,6 @@ func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, name
 					wildcard.Match(f.Namespace, name) {
 					return true
 				}
-				if gvk.Group == "" && gvk.Version == "v1" && gvk.Kind == "Namespace" {
-					if wildcard.Match(f.Group, gvk.Group) &&
-						wildcard.Match(f.Version, gvk.Version) &&
-						wildcard.Match(f.Kind, gvk.Kind) &&
-						wildcard.Match(f.Namespace, name) {
-						return true
-					}
-				}
 			}
 		}
 	}
