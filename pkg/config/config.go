@@ -197,21 +197,15 @@ func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, name
 	defer cd.mux.RUnlock()
 	if !cd.skipResourceFilters {
 		for _, f := range cd.filters {
-			if wildcard.Match(f.Group, gvk.Group) &&
-				wildcard.Match(f.Version, gvk.Version) &&
-				wildcard.Match(f.Kind, gvk.Kind) &&
-				wildcard.Match(f.Subresource, subresource) &&
-				wildcard.Match(f.Namespace, namespace) &&
-				wildcard.Match(f.Name, name) {
-				return true
-			}
-			// [Namespace,kube-system,*] || [*,kube-system,*]
-			if gvk.Group == "" && gvk.Version == "v1" && gvk.Kind == "Namespace" {
-				if wildcard.Match(f.Group, gvk.Group) &&
-					wildcard.Match(f.Version, gvk.Version) &&
-					wildcard.Match(f.Kind, gvk.Kind) &&
-					wildcard.Match(f.Namespace, name) {
+			if wildcard.Match(f.Group, gvk.Group) && wildcard.Match(f.Version, gvk.Version) && wildcard.Match(f.Kind, gvk.Kind) && wildcard.Match(f.Subresource, subresource) {
+				if wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
 					return true
+				}
+				// [Namespace,kube-system,*] || [*,kube-system,*]
+				if gvk.Group == "" && gvk.Version == "v1" && gvk.Kind == "Namespace" {
+					if wildcard.Match(f.Namespace, name) {
+						return true
+					}
 				}
 			}
 		}
