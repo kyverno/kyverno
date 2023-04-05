@@ -50,9 +50,9 @@ func (e *engine) mutate(
 			engineapi.Mutation,
 		)
 		matchedResource = resource
-		endTime := time.Now()
+		stats := engineapi.NewExecutionStatsFull(startTime, time.Now())
 		for _, ruleResp := range ruleResp {
-			resp.Add(startTime, endTime, ruleResp)
+			resp.Add(stats, ruleResp)
 		}
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break

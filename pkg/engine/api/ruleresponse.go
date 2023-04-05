@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"time"
 
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	pssutils "github.com/kyverno/kyverno/pkg/pss/utils"
@@ -108,9 +107,9 @@ func (r RuleResponse) WithPatches(patches ...[]byte) *RuleResponse {
 	return &r
 }
 
-func (r RuleResponse) WithStats(startTime, endTime time.Time) RuleResponse {
-	r.stats = NewExecutionStats(startTime)
-	r.stats.Done(endTime)
+func (r RuleResponse) WithStats(stats ExecutionStats) RuleResponse {
+	r.stats = stats
+
 	return r
 }
 
