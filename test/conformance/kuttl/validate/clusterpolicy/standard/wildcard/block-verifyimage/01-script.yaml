@@ -2,13 +2,6 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-commands:
-- script: |
-    if kubectl apply -f policy.yaml
-    then 
-      echo "Tested failed. policy was allowed."
-      exit 1 
-    else 
-      echo "Test succeeded. policy was blocked."
-      exit 0
-    fi
+apply:
+- file: policy.yaml
+  shouldFail: true
