@@ -15,7 +15,7 @@ func UnmarshalPolicyException(raw []byte) (*kyvernov2alpha1.PolicyException, err
 	return exception, nil
 }
 
-func GetPolicyExceptions(request *admissionv1.AdmissionRequest) (*kyvernov2alpha1.PolicyException, *kyvernov2alpha1.PolicyException, error) {
+func GetPolicyExceptions(request admissionv1.AdmissionRequest) (*kyvernov2alpha1.PolicyException, *kyvernov2alpha1.PolicyException, error) {
 	var empty *kyvernov2alpha1.PolicyException
 	exception, err := UnmarshalPolicyException(request.Object.Raw)
 	if err != nil {

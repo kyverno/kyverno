@@ -31,6 +31,7 @@ func testValidate(
 	}
 	e := NewEngine(
 		cfg,
+		config.NewDefaultMetricsConfiguration(),
 		nil,
 		rclient,
 		contextLoader,
@@ -137,7 +138,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 
 	assert.Assert(t, !er.IsSuccessful())
@@ -237,7 +238,7 @@ func TestValidate_image_tag_pass(t *testing.T) {
 	}
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), NewPolicyContextWithJsonContext(kyverno.Create, enginecontext.NewContext()).WithPolicy(&policy).WithNewResource(*resourceUnstructured), cfg, nil)
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -314,7 +315,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 
 	msgs := []string{"validation error: A namespace is required. rule check-default-namespace[0] failed at path /metadata/namespace/ rule check-default-namespace[1] failed at path /metadata/namespace/"}
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 }
 
@@ -396,7 +397,7 @@ func TestValidate_host_network_port(t *testing.T) {
 	msgs := []string{"validation error: Host network and port are not allowed. rule validate-host-network-port failed at path /spec/containers/0/ports/0/hostPort/"}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, !er.IsSuccessful())
 }
@@ -486,7 +487,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 	msgs := []string{"validation rule 'validate-host-path' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -574,7 +575,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	msgs := []string{"validation error: Host path '/var/lib/' is not allowed. rule validate-host-path failed at path /spec/volumes/0/hostPath/path/"}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, !er.IsSuccessful())
 }
@@ -644,7 +645,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -717,7 +718,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 
 	assert.Assert(t, er.IsSuccessful())
@@ -791,7 +792,7 @@ func TestValidate_inequality_List_Processing(t *testing.T) {
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 
 	assert.Assert(t, er.IsSuccessful())
@@ -871,7 +872,7 @@ func TestValidate_inequality_List_ProcessingBrackets(t *testing.T) {
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 
 	assert.Assert(t, er.IsSuccessful())
@@ -945,7 +946,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 	msgs := []string{"validation error: pod: validate run as non root user. rule pod rule 2 failed at path /spec/securityContext/runAsNonRoot/"}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, !er.IsSuccessful())
 }
@@ -1020,8 +1021,8 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 	msgs := []string{"validation rule 'pod image rule' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
-		t.Log(r.Message)
-		assert.Equal(t, r.Message, msgs[index])
+		t.Log(r.Message())
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -1235,7 +1236,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 	msgs := []string{"validation rule 'pod image rule' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -1323,7 +1324,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 	msgs := []string{"validation error: Host path is not allowed. rule validate-host-path failed at path /spec/volumes/0/hostPath/"}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, !er.IsSuccessful())
 }
@@ -1410,7 +1411,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 	msgs := []string{"validation rule 'validate-host-path' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -1482,8 +1483,8 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusError)
-	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "Unknown key \"name1\" in path"))
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSubstitutionFails(t *testing.T) {
@@ -1572,8 +1573,8 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusError)
-	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "Unknown key \"name1\" in path"))
 }
 
 func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
@@ -1628,8 +1629,8 @@ func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
 
 	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "validation error: rule not-operator-with-variable-should-alway-fail-validation failed at path /spec/content/")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message(), "validation error: rule not-operator-with-variable-should-alway-fail-validation failed at path /spec/content/")
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *testing.T) {
@@ -1718,8 +1719,8 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusError)
-	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusError)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "Unknown key \"name1\" in path"))
 }
 
 func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatternSatisfy(t *testing.T) {
@@ -1807,8 +1808,8 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message(),
 		"validation error: rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/ rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/")
 }
 
@@ -1908,8 +1909,8 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 
 	policyContext := NewPolicyContextWithJsonContext(kyverno.Create, ctx).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Message, "The animal cow is not in the allowed list of animals.")
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Message(), "The animal cow is not in the allowed list of animals.")
 }
 
 func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
@@ -1960,8 +1961,8 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 		er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, nil)
 
 		for i, rule := range er.PolicyResponse.Rules {
-			assert.Equal(t, er.PolicyResponse.Rules[i].Status, test.expectedResults[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedResults[i], er.PolicyResponse.Rules[i].Status)
-			assert.Equal(t, er.PolicyResponse.Rules[i].Message, test.expectedMessages[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedMessages[i], rule.Message)
+			assert.Equal(t, er.PolicyResponse.Rules[i].Status(), test.expectedResults[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedResults[i], er.PolicyResponse.Rules[i].Status())
+			assert.Equal(t, er.PolicyResponse.Rules[i].Message(), test.expectedMessages[i], "\ntest %s failed\nexpected: %s\nactual: %s", test.name, test.expectedMessages[i], rule.Message())
 		}
 	}
 }
@@ -2082,7 +2083,7 @@ func executeTest(t *testing.T, test testCase) {
 		t.Fatal(err)
 	}
 
-	var request *admissionv1.AdmissionRequest
+	var request admissionv1.AdmissionRequest
 	err = json.Unmarshal(test.request, &request)
 	if err != nil {
 		t.Fatal(err)
@@ -2222,7 +2223,7 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 		),
 	)
 	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+		assert.Equal(t, r.Message(), msgs[index])
 	}
 	assert.Assert(t, !er.IsSuccessful())
 }
@@ -3087,9 +3088,9 @@ func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string,
 		WithNewResource(*resourceUnstructured)
 	er := testValidate(context.TODO(), registryclient.NewOrDie(), policyContext, cfg, contextLoader)
 
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, status)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), status)
 	if msg != "" {
-		assert.Equal(t, er.PolicyResponse.Rules[0].Message, msg)
+		assert.Equal(t, er.PolicyResponse.Rules[0].Message(), msg)
 	}
 }
 
@@ -3150,7 +3151,7 @@ func Test_delete_ignore_pattern(t *testing.T) {
 
 	engineResponseCreate := testValidate(context.TODO(), registryclient.NewOrDie(), policyContextCreate, cfg, nil)
 	assert.Equal(t, len(engineResponseCreate.PolicyResponse.Rules), 1)
-	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status, engineapi.RuleStatusFail)
+	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
 
 	policyContextDelete := NewPolicyContextWithJsonContext(kyverno.Create, ctx).
 		WithPolicy(&policy).

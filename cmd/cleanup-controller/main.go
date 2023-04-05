@@ -225,17 +225,10 @@ func main() {
 			DumpPayload: dumpPayload,
 		},
 		probes{},
-		config.NewDefaultConfiguration(),
+		config.NewDefaultConfiguration(false),
 	)
 	// start server
 	server.Run(ctx.Done())
-	// wait for termination signal and run leader election loop
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			le.Run(ctx)
-		}
-	}
+	// start leader election
+	le.Run(ctx)
 }

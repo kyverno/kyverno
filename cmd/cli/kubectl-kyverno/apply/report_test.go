@@ -83,8 +83,6 @@ var rawPolicy = []byte(`
   }
 `)
 
-var rawEngRes = []byte(`{"PatchedResource":{"apiVersion":"v1","kind":"Pod","metadata":{"name":"nginx1","namespace":"default"},"spec":{"containers":[{"image":"nginx","imagePullPolicy":"IfNotPresent","name":"nginx","resources":{"limits":{"cpu":"200m","memory":"100Mi"},"requests":{"cpu":"100m","memory":"50Mi"}}}]}},"PolicyResponse":{"policy":{"name":"pod-requirements","namespace":""},"resource":{"kind":"Pod","apiVersion":"v1","namespace":"default","name":"nginx1","uid":""},"processingTime":974958,"rulesAppliedCount":2,"policyExecutionTimestamp":1630527712,"rules":[{"name":"pods-require-account","type":"Validation","message":"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/","status":"fail","processingTime":28833,"ruleExecutionTimestamp":1630527712},{"name":"pods-require-limits","type":"Validation","message":"validation rule 'pods-require-limits' passed.","status":"pass","processingTime":578625,"ruleExecutionTimestamp":1630527712}],"ValidationFailureAction":"audit"}}`)
-
 func Test_buildPolicyReports(t *testing.T) {
 	rc := &kyvCommon.ResultCounts{}
 	var pvInfos []common.Info
@@ -92,10 +90,18 @@ func Test_buildPolicyReports(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	var er engineapi.EngineResponse
-	err = json.Unmarshal(rawEngRes, &er)
+	er := engineapi.EngineResponse{}
 	er.Policy = &policy
-	assert.NilError(t, err)
+	er.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RuleFail(
+		"pods-require-account",
+		engineapi.Validation,
+		"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/"),
+	)
+	er.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RulePass(
+		"pods-require-limits",
+		engineapi.Validation,
+		"validation rule 'pods-require-limits' passed."),
+	)
 
 	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
 	pvInfos = append(pvInfos, info)
@@ -129,10 +135,18 @@ func Test_buildPolicyResults(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	var er engineapi.EngineResponse
-	err = json.Unmarshal(rawEngRes, &er)
+	er := engineapi.EngineResponse{}
 	er.Policy = &policy
-	assert.NilError(t, err)
+	er.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RuleFail(
+		"pods-require-account",
+		engineapi.Validation,
+		"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/"),
+	)
+	er.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RulePass(
+		"pods-require-limits",
+		engineapi.Validation,
+		"validation rule 'pods-require-limits' passed."),
+	)
 
 	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
 	pvInfos = append(pvInfos, info)

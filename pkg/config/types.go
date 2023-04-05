@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -21,7 +22,7 @@ func parseWebhooks(in string) ([]WebhookConfig, error) {
 	return webhookCfgs, nil
 }
 
-func parseRbac(in string) []string {
+func parseStrings(in string) []string {
 	var out []string
 	for _, in := range strings.Split(in, ",") {
 		in := strings.TrimSpace(in)
@@ -52,9 +53,27 @@ func parseIncludeExcludeNamespacesFromNamespacesConfig(in string) (namespacesCon
 }
 
 type filter struct {
-	Kind      string // TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added
-	Namespace string
-	Name      string
+	Group       string
+	Version     string
+	Kind        string
+	Subresource string
+	Namespace   string
+	Name        string
+}
+
+func newFilter(kind, namespace, name string) filter {
+	if kind == "" {
+		return filter{}
+	}
+	g, v, k, s := kubeutils.ParseKindSelector(kind)
+	return filter{
+		Group:       g,
+		Version:     v,
+		Kind:        k,
+		Subresource: s,
+		Namespace:   namespace,
+		Name:        name,
+	}
 }
 
 // ParseKinds parses the kinds if a single string contains comma separated kinds
@@ -72,13 +91,13 @@ func parseKinds(in string) []filter {
 			continue
 		}
 		if len(elements) == 3 {
-			resource = filter{Kind: elements[0], Namespace: elements[1], Name: elements[2]}
+			resource = newFilter(elements[0], elements[1], elements[2])
 		}
 		if len(elements) == 2 {
-			resource = filter{Kind: elements[0], Namespace: elements[1]}
+			resource = newFilter(elements[0], elements[1], "")
 		}
 		if len(elements) == 1 {
-			resource = filter{Kind: elements[0]}
+			resource = newFilter(elements[0], "", "")
 		}
 		resources = append(resources, resource)
 	}

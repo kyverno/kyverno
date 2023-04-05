@@ -21,7 +21,7 @@ func GenerateEvents(engineResponses []engineapi.EngineResponse, blocked bool) []
 		}
 		if !er.IsSuccessful() {
 			for i, ruleResp := range er.PolicyResponse.Rules {
-				if ruleResp.Status == engineapi.RuleStatusFail || ruleResp.Status == engineapi.RuleStatusError {
+				if ruleResp.Status() == engineapi.RuleStatusFail || ruleResp.Status() == engineapi.RuleStatusError {
 					e := event.NewPolicyFailEvent(event.AdmissionController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], blocked)
 					events = append(events, e)
 				}
@@ -32,9 +32,8 @@ func GenerateEvents(engineResponses []engineapi.EngineResponse, blocked bool) []
 			}
 		} else if er.IsSkipped() { // Handle PolicyException Event
 			for i, ruleResp := range er.PolicyResponse.Rules {
-				isException := ruleResp.Exception != nil
-				if ruleResp.Status == engineapi.RuleStatusSkip && !blocked && isException {
-					events = append(events, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i])...)
+				if ruleResp.Status() == engineapi.RuleStatusSkip && !blocked && ruleResp.IsException() {
+					events = append(events, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i], event.AdmissionController)...)
 				}
 			}
 		} else if !er.IsSkipped() {

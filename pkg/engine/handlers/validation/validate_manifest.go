@@ -38,10 +38,16 @@ type validateManifestHandler struct {
 	client dclient.Interface
 }
 
-func NewValidateManifestHandler(client dclient.Interface) handlers.Handler {
+func NewValidateManifestHandler(
+	policyContext engineapi.PolicyContext,
+	client dclient.Interface,
+) (handlers.Handler, error) {
+	if engineutils.IsDeleteRequest(policyContext) {
+		return nil, nil
+	}
 	return validateManifestHandler{
 		client: client,
-	}
+	}, nil
 }
 
 func (h validateManifestHandler) Process(
@@ -50,20 +56,19 @@ func (h validateManifestHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
+	_ engineapi.EngineContextLoader,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	if engineutils.IsDeleteRequest(policyContext) {
-		return resource, nil
-	}
+	// verify manifest
 	verified, reason, err := h.verifyManifest(ctx, logger, policyContext, *rule.Validation.Manifests)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
-		return resource, handlers.RuleResponses(internal.RuleError(rule, engineapi.Validation, "error occurred during manifest verification", err))
+		return resource, handlers.WithError(rule, engineapi.Validation, "error occurred during manifest verification", err)
 	}
 	logger.V(3).Info("verifyManifest result", "verified", strconv.FormatBool(verified), "reason", reason)
 	if !verified {
-		return resource, handlers.RuleResponses(internal.RuleResponse(rule, engineapi.Validation, reason, engineapi.RuleStatusFail))
+		return resource, handlers.WithFail(rule, engineapi.Validation, reason)
 	}
-	return resource, handlers.RuleResponses(internal.RulePass(rule, engineapi.Validation, reason))
+	return resource, handlers.WithPass(rule, engineapi.Validation, reason)
 }
 
 func (h validateManifestHandler) verifyManifest(
