@@ -92,15 +92,18 @@ func Test_buildPolicyReports(t *testing.T) {
 
 	er := engineapi.EngineResponse{}
 	er.Policy = &policy
-	er.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RuleFail(
-		"pods-require-account",
-		engineapi.Validation,
-		"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/"),
-	)
-	er.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RulePass(
-		"pods-require-limits",
-		engineapi.Validation,
-		"validation rule 'pods-require-limits' passed."),
+	er.PolicyResponse.Add(
+		engineapi.ExecutionStats{},
+		*engineapi.RuleFail(
+			"pods-require-account",
+			engineapi.Validation,
+			"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/",
+		),
+		*engineapi.RulePass(
+			"pods-require-limits",
+			engineapi.Validation,
+			"validation rule 'pods-require-limits' passed.",
+		),
 	)
 
 	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
@@ -137,15 +140,17 @@ func Test_buildPolicyResults(t *testing.T) {
 
 	er := engineapi.EngineResponse{}
 	er.Policy = &policy
-	er.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RuleFail(
-		"pods-require-account",
-		engineapi.Validation,
-		"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/"),
-	)
-	er.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RulePass(
-		"pods-require-limits",
-		engineapi.Validation,
-		"validation rule 'pods-require-limits' passed."),
+	er.PolicyResponse.Add(
+		engineapi.ExecutionStats{}, *engineapi.RuleFail(
+			"pods-require-account",
+			engineapi.Validation,
+			"validation error: User pods must include an account for charging. Rule pods-require-account failed at path /metadata/labels/",
+		),
+		*engineapi.RulePass(
+			"pods-require-limits",
+			engineapi.Validation,
+			"validation rule 'pods-require-limits' passed.",
+		),
 	)
 
 	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)

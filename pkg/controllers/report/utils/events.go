@@ -33,9 +33,9 @@ func generateSuccessEvents(log logr.Logger, ers ...engineapi.EngineResponse) (ev
 
 func generateExceptionEvents(log logr.Logger, ers ...engineapi.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
-		for i, ruleResp := range er.PolicyResponse.Rules {
+		for _, ruleResp := range er.PolicyResponse.Rules {
 			if ruleResp.Status() == engineapi.RuleStatusSkip && ruleResp.IsException() {
-				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(er, &er.PolicyResponse.Rules[i], event.PolicyController)...)
+				eventInfos = append(eventInfos, event.NewPolicyExceptionEvents(er, ruleResp, event.PolicyController)...)
 			}
 		}
 	}
@@ -57,11 +57,11 @@ func generateFailEventsPerEr(log logr.Logger, er engineapi.EngineResponse) []eve
 		"namespace", er.Resource.GetNamespace(),
 		"name", er.Resource.GetName(),
 	)
-	for i, rule := range er.PolicyResponse.Rules {
+	for _, rule := range er.PolicyResponse.Rules {
 		if rule.Status() != engineapi.RuleStatusPass && rule.Status() != engineapi.RuleStatusSkip {
-			eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
+			eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, rule)
 			eventInfos = append(eventInfos, eventResource)
-			eventPolicy := event.NewPolicyFailEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], false)
+			eventPolicy := event.NewPolicyFailEvent(event.PolicyController, event.PolicyViolation, er, rule, false)
 			eventInfos = append(eventInfos, eventPolicy)
 		}
 	}
