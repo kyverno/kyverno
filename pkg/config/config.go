@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -134,7 +135,7 @@ type Configuration interface {
 	// GetEnableDefaultRegistryMutation return if should mutate image registry
 	GetEnableDefaultRegistryMutation() bool
 	// ToFilter checks if the given resource is set to be filtered in the configuration
-	ToFilter(kind, namespace, name string) bool
+	ToFilter(kind schema.GroupVersionKind, subresource, namespace, name string) bool
 	// GetExcludedGroups return excluded groups
 	GetExcludedGroups() []string
 	// GetExcludedUsernames return excluded usernames
@@ -191,18 +192,34 @@ func NewConfiguration(client kubernetes.Interface, skipResourceFilters bool) (Co
 	return cd, nil
 }
 
-func (cd *configuration) ToFilter(kind, namespace, name string) bool {
+func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, namespace, name string) bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	if !cd.skipResourceFilters {
 		for _, f := range cd.filters {
-			if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
+			if wildcard.Match(f.Group, gvk.Group) &&
+				wildcard.Match(f.Version, gvk.Version) &&
+				wildcard.Match(f.Kind, gvk.Kind) &&
+				wildcard.Match(f.Subresource, subresource) &&
+				wildcard.Match(f.Namespace, namespace) &&
+				wildcard.Match(f.Name, name) {
 				return true
 			}
-			if kind == "Namespace" {
-				// [Namespace,kube-system,*] || [*,kube-system,*]
-				if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
+			// [Namespace,kube-system,*] || [*,kube-system,*]
+			if gvk.Group == "" && gvk.Version == "v1" && gvk.Kind == "Namespace" {
+				if wildcard.Match(f.Group, gvk.Group) &&
+					wildcard.Match(f.Version, gvk.Version) &&
+					wildcard.Match(f.Kind, gvk.Kind) &&
+					wildcard.Match(f.Namespace, name) {
 					return true
+				}
+				if gvk.Group == "" && gvk.Version == "v1" && gvk.Kind == "Namespace" {
+					if wildcard.Match(f.Group, gvk.Group) &&
+						wildcard.Match(f.Version, gvk.Version) &&
+						wildcard.Match(f.Kind, gvk.Kind) &&
+						wildcard.Match(f.Namespace, name) {
+						return true
+					}
 				}
 			}
 		}
