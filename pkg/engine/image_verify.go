@@ -53,10 +53,9 @@ func (e *engine) verifyAndPatchImages(
 			engineapi.ImageVerify,
 		)
 		matchedResource = resource
+		stats := engineapi.NewExecutionStats(startTime, time.Now())
 		for _, ruleResp := range ruleResp {
-			ruleResp := ruleResp
-			internal.AddRuleResponse(&resp, &ruleResp, startTime)
-			logger.V(4).Info("finished processing rule", "processingTime", ruleResp.Stats.ProcessingTime.String())
+			resp.Add(stats, ruleResp)
 		}
 		if applyRules == kyvernov1.ApplyOne && resp.Stats.RulesAppliedCount > 0 {
 			break

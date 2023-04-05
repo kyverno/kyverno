@@ -58,7 +58,7 @@ func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandle
 			}
 		}
 		// filter by resource filters
-		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
+		if c.ToFilter(request.GroupVersionKind, request.SubResource, request.Namespace, request.Name) {
 			return admissionutils.ResponseSuccess(request.UID)
 		}
 		// filter kyverno resources

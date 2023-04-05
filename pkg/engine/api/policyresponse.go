@@ -8,11 +8,12 @@ type PolicyResponse struct {
 	Rules []RuleResponse
 }
 
-func (pr *PolicyResponse) Add(rr RuleResponse) {
-	pr.Rules = append(pr.Rules, rr)
-	if rr.Status == RuleStatusPass || rr.Status == RuleStatusFail {
+func (pr *PolicyResponse) Add(stats ExecutionStats, response RuleResponse) {
+	pr.Rules = append(pr.Rules, response.WithStats(stats))
+	status := response.Status()
+	if status == RuleStatusPass || status == RuleStatusFail {
 		pr.Stats.RulesAppliedCount++
-	} else if rr.Status == RuleStatusError {
+	} else if status == RuleStatusError {
 		pr.Stats.RulesErrorCount++
 	}
 }

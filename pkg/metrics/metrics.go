@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/utils/kube"
+	tlsutils "github.com/kyverno/kyverno/pkg/utils/tls"
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
@@ -18,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/instrument"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/aggregation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"k8s.io/client-go/kubernetes"
@@ -72,6 +73,34 @@ func ShutDownController(ctx context.Context, pusher *sdkmetric.MeterProvider) {
 	}
 }
 
+func aggregationSelector(ik sdkmetric.InstrumentKind) aggregation.Aggregation {
+	switch ik {
+	case sdkmetric.InstrumentKindHistogram:
+		return aggregation.ExplicitBucketHistogram{
+			Boundaries: []float64{
+				0.005,
+				0.01,
+				0.025,
+				0.05,
+				0.1,
+				0.25,
+				0.5,
+				1,
+				2.5,
+				5,
+				10,
+				15,
+				20,
+				25,
+				30,
+			},
+			NoMinMax: false,
+		}
+	default:
+		return sdkmetric.DefaultAggregationSelector(ik)
+	}
+}
+
 func NewOTLPGRPCConfig(
 	ctx context.Context,
 	endpoint string,
@@ -79,10 +108,10 @@ func NewOTLPGRPCConfig(
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
 ) (metric.MeterProvider, error) {
-	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint)}
+	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint), otlpmetricgrpc.WithAggregationSelector(aggregationSelector)}
 	if certs != "" {
 		// here the certificates are stored as configmaps
-		transportCreds, err := kube.FetchCert(ctx, certs, kubeClient)
+		transportCreds, err := tlsutils.FetchCert(ctx, certs, kubeClient)
 		if err != nil {
 			log.Error(err, "Error fetching certificate from secret")
 			return nil, err
@@ -141,6 +170,7 @@ func NewPrometheusConfig(
 	exporter, err := prometheus.New(
 		prometheus.WithoutUnits(),
 		prometheus.WithoutTargetInfo(),
+		prometheus.WithAggregationSelector(aggregationSelector),
 	)
 	if err != nil {
 		log.Error(err, "failed to initialize prometheus exporter")

@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -95,10 +96,6 @@ var (
 	kyvernoPodName = osutils.GetEnvWithFallback("KYVERNO_POD_NAME", "kyverno")
 	// kyvernoConfigMapName is the Kyverno configmap name
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
-	// defaultExcludedUsernames are the usernames excluded by default when matching an incoming admission request
-	defaultExcludedUsernames []string
-	// defaultExcludedGroups are the groups excluded by default when matching an incoming admission request
-	defaultExcludedGroups []string = []string{"system:serviceaccounts:kube-system", "system:nodes"}
 	// kyvernoDryRunNamespace is the namespace for DryRun option of YAML verification
 	kyvernoDryrunNamespace = osutils.GetEnvWithFallback("KYVERNO_DRYRUN_NAMESPACE", "kyverno-dryrun")
 )
@@ -138,7 +135,7 @@ type Configuration interface {
 	// GetEnableDefaultRegistryMutation return if should mutate image registry
 	GetEnableDefaultRegistryMutation() bool
 	// ToFilter checks if the given resource is set to be filtered in the configuration
-	ToFilter(kind, namespace, name string) bool
+	ToFilter(kind schema.GroupVersionKind, subresource, namespace, name string) bool
 	// GetExcludedGroups return excluded groups
 	GetExcludedGroups() []string
 	// GetExcludedUsernames return excluded usernames
@@ -147,8 +144,6 @@ type Configuration interface {
 	GetExcludedRoles() []string
 	// GetExcludedClusterRoles return excluded roles
 	GetExcludedClusterRoles() []string
-	// GetExcludedBackgroundUsernames return exclude usernames for mutateExisting and generate policies
-	GetExcludedBackgroundUsernames() []string
 	// GetGenerateSuccessEvents return if should generate success events
 	GetGenerateSuccessEvents() bool
 	// GetWebhooks returns the webhook configs
@@ -168,7 +163,6 @@ type configuration struct {
 	excludedUsernames             []string
 	excludedRoles                 []string
 	excludedClusterRoles          []string
-	excludeBackgroundUsernames    []string
 	filters                       []filter
 	generateSuccessEvents         bool
 	webhooks                      []WebhookConfig
@@ -182,8 +176,6 @@ func NewDefaultConfiguration(skipResourceFilters bool) *configuration {
 		skipResourceFilters:           skipResourceFilters,
 		defaultRegistry:               "docker.io",
 		enableDefaultRegistryMutation: true,
-		excludedGroups:                defaultExcludedGroups,
-		excludedUsernames:             defaultExcludedUsernames,
 	}
 }
 
@@ -200,18 +192,34 @@ func NewConfiguration(client kubernetes.Interface, skipResourceFilters bool) (Co
 	return cd, nil
 }
 
-func (cd *configuration) ToFilter(kind, namespace, name string) bool {
+func (cd *configuration) ToFilter(gvk schema.GroupVersionKind, subresource, namespace, name string) bool {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	if !cd.skipResourceFilters {
 		for _, f := range cd.filters {
-			if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
+			if wildcard.Match(f.Group, gvk.Group) &&
+				wildcard.Match(f.Version, gvk.Version) &&
+				wildcard.Match(f.Kind, gvk.Kind) &&
+				wildcard.Match(f.Subresource, subresource) &&
+				wildcard.Match(f.Namespace, namespace) &&
+				wildcard.Match(f.Name, name) {
 				return true
 			}
-			if kind == "Namespace" {
-				// [Namespace,kube-system,*] || [*,kube-system,*]
-				if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
+			// [Namespace,kube-system,*] || [*,kube-system,*]
+			if gvk.Group == "" && gvk.Version == "v1" && gvk.Kind == "Namespace" {
+				if wildcard.Match(f.Group, gvk.Group) &&
+					wildcard.Match(f.Version, gvk.Version) &&
+					wildcard.Match(f.Kind, gvk.Kind) &&
+					wildcard.Match(f.Namespace, name) {
 					return true
+				}
+				if gvk.Group == "" && gvk.Version == "v1" && gvk.Kind == "Namespace" {
+					if wildcard.Match(f.Group, gvk.Group) &&
+						wildcard.Match(f.Version, gvk.Version) &&
+						wildcard.Match(f.Kind, gvk.Kind) &&
+						wildcard.Match(f.Namespace, name) {
+						return true
+					}
 				}
 			}
 		}
@@ -247,12 +255,6 @@ func (cd *configuration) GetExcludedClusterRoles() []string {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.excludedClusterRoles
-}
-
-func (cd *configuration) GetExcludedBackgroundUsernames() []string {
-	cd.mux.RLock()
-	defer cd.mux.RUnlock()
-	return cd.excludeBackgroundUsernames
 }
 
 func (cd *configuration) GetExcludedGroups() []string {
@@ -302,8 +304,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.excludedClusterRoles = []string{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
-	cd.excludedGroups = append(cd.excludedGroups, defaultExcludedGroups...)
-	cd.excludedUsernames = append(cd.excludedUsernames, defaultExcludedUsernames...)
 	// load filters
 	cd.filters = parseKinds(cm.Data["resourceFilters"])
 	newDefaultRegistry, ok := cm.Data["defaultRegistry"]
@@ -356,13 +356,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	} else {
 		cd.excludedClusterRoles = parseStrings(excludedClusterRoles)
 	}
-	// load excludeBackgroundUsernames
-	excludeBackgroundUsernames, ok := cm.Data["excludeBackgroundUsernames"]
-	if !ok {
-		logger.V(6).Info("configuration: No excludeBackgroundUsernames defined in ConfigMap")
-	} else {
-		cd.excludeBackgroundUsernames = parseStrings(excludeBackgroundUsernames)
-	}
 	// load generateSuccessEvents
 	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]
 	if ok {
@@ -408,6 +401,4 @@ func (cd *configuration) unload() {
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil
-	cd.excludedGroups = append(cd.excludedGroups, defaultExcludedGroups...)
-	cd.excludedUsernames = append(cd.excludedUsernames, defaultExcludedUsernames...)
 }
