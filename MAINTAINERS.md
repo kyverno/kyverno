@@ -9,6 +9,7 @@ Maintainers are approvers who have shown good technical judgement in guiding fea
 | Chip Zoller              | [@chipzoller](https://github.com/chipzoller)           | Nirmata                   |
 | Marcel Müller            | [@MarcelMue](https://github.com/MarcelMue)             | Giant Swarm GmbH          |
 | Trey Dockendorf          | [@treydock](https://github.com/treydock)               | Ohio Supercomputer Center |
+| Sambhav Kothari          | [@samj1912](https://github.com/samj1912)               | Bloomberg                 |
 | Charles-Edouard Brétéché | [@eddycharly](https://github.com/eddycharly)           | Nirmata                   |
 
 
@@ -20,4 +21,3 @@ Maintainers are approvers who have shown good technical judgement in guiding fea
 |--------------------------|--------------------------------------------------------|---------------------------|
 | Vyankatesh Kudtarkar     | [@vyankyGH](https://github.com/vyankyGH)               |                           |
 | Prateek Pandey           | [@prateekpandey14](https://github.com/prateekpandey14) |                           |
-| Sambhav Kothari          | [@samj1912](https://github.com/samj1912)               | Bloomberg                 |
