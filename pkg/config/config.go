@@ -285,7 +285,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	cd.excludedGroups = []string{}
 	cd.excludedRoles = []string{}
 	cd.excludedClusterRoles = []string{}
-	cd.excludeBackgroundUsernames = []string{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	// load filters
@@ -382,7 +381,6 @@ func (cd *configuration) unload() {
 	cd.excludedGroups = []string{}
 	cd.excludedRoles = []string{}
 	cd.excludedClusterRoles = []string{}
-	cd.excludeBackgroundUsernames = []string{}
 	cd.generateSuccessEvents = false
 	cd.webhooks = nil
 	cd.webhookAnnotations = nil
