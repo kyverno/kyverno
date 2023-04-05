@@ -20,16 +20,15 @@ type updateRequestResponse struct {
 	err error
 }
 
-func errorResponse(logger logr.Logger, uid types.UID, err error, message string) *admissionv1.AdmissionResponse {
+func errorResponse(logger logr.Logger, uid types.UID, err error, message string) admissionv1.AdmissionResponse {
 	logger.Error(err, message)
 	return admissionutils.Response(uid, errors.New(message+": "+err.Error()))
 }
 
-func patchRequest(patches []byte, request *admissionv1.AdmissionRequest, logger logr.Logger) *admissionv1.AdmissionRequest {
+func patchRequest(patches []byte, request admissionv1.AdmissionRequest, logger logr.Logger) admissionv1.AdmissionRequest {
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
-	newRequest := request.DeepCopy()
-	newRequest.Object.Raw = patchedResource
-	return newRequest
+	request.Object.Raw = patchedResource
+	return request
 }
 
 func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) []byte {
@@ -47,7 +46,7 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 
 func applyUpdateRequest(
 	ctx context.Context,
-	request *admissionv1.AdmissionRequest,
+	request admissionv1.AdmissionRequest,
 	ruleType kyvernov1beta1.RequestType,
 	urGenerator updaterequest.Generator,
 	userRequestInfo kyvernov1beta1.RequestInfo,
@@ -55,7 +54,7 @@ func applyUpdateRequest(
 	engineResponses ...*engineapi.EngineResponse,
 ) (failedUpdateRequest []updateRequestResponse) {
 	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
-		AdmissionRequest: request,
+		AdmissionRequest: &request,
 		Operation:        action,
 	}
 

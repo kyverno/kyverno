@@ -16,6 +16,8 @@ import (
 
 const namespaceControllerUsername = "system:serviceaccount:kube-system:namespace-controller"
 
+var kyvernoUsername = fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
+
 func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 	if !enabled {
 		return inner
@@ -24,12 +26,12 @@ func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 }
 
 func (inner AdmissionHandler) withProtection() AdmissionHandler {
-	return func(ctx context.Context, logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		// Allows deletion of namespace containing managed resources
 		if request.Operation == admissionv1.Delete && request.UserInfo.Username == namespaceControllerUsername {
 			return inner(ctx, logger, request, startTime)
 		}
-		newResource, oldResource, err := admissionutils.ExtractResources(nil, request)
+		newResource, oldResource, err := admissionutils.ExtractResources(nil, request.AdmissionRequest)
 		if err != nil {
 			logger.Error(err, "Failed to extract resources")
 			return admissionutils.Response(request.UID, err)
@@ -37,7 +39,7 @@ func (inner AdmissionHandler) withProtection() AdmissionHandler {
 		for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
 			resLabels := resource.GetLabels()
 			if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
-				if request.UserInfo.Username != fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName()) {
+				if request.UserInfo.Username != kyvernoUsername {
 					logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
 					return admissionutils.Response(request.UID, errors.New("A kyverno managed resource can only be modified by kyverno"))
 				}
