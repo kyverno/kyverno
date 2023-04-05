@@ -56,5 +56,5 @@ func (h mutateResourceHandler) Process(
 	if mutateResp == nil {
 		return resource, nil
 	}
-	return mutateResp.PatchedResource, handlers.RuleResponses(buildRuleResponse(&rule, mutateResp, resourceInfo))
+	return mutateResp.PatchedResource, handlers.WithResponses(buildRuleResponse(&rule, mutateResp, resourceInfo))
 }
