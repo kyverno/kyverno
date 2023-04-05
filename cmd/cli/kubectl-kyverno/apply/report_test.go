@@ -6,7 +6,6 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	preport "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	kyvCommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"gotest.tools/assert"
@@ -85,7 +84,6 @@ var rawPolicy = []byte(`
 
 func Test_buildPolicyReports(t *testing.T) {
 	rc := &kyvCommon.ResultCounts{}
-	var pvInfos []common.Info
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
@@ -130,7 +128,6 @@ func Test_buildPolicyReports(t *testing.T) {
 
 func Test_buildPolicyResults(t *testing.T) {
 	rc := &kyvCommon.ResultCounts{}
-	var pvInfos []common.Info
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
