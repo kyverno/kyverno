@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: image-verify-polset
+  name: image-verify-polset-failurepolicy-ignore
 status:
   conditions:
   - reason: Succeeded
