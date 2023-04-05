@@ -10,6 +10,7 @@
 - Added support for configuring webhook annotations in the config map through `webhookAnnotations` stanza.
 - Added `excludeRoles` and `excludeClusterRoles` support in configuration.
 - Added new flag `skipResourceFilters` to reports controller to enable/disable considering resource filters in the background (default value is `true`)
+- Removed hardcoded defaults for `excludeGroups` and `excludeUsernames`. They are always read from the config map.
 
 ## v1.9.0-rc.1
 
