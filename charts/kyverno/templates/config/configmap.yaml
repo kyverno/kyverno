@@ -28,13 +28,6 @@ data:
   {{- with .Values.config.excludeClusterRoles }}
   excludeClusterRoles: {{ join "," . | quote }}
   {{- end -}}
-  {{- $backgroundUsernames := (printf "system:serviceaccount:%s:%s" (include "kyverno.namespace" .) (include "kyverno.background-controller.serviceAccountName" .)) }}
-  {{- if .Values.config.excludeBackgroundUsernames }}
-  {{- $backgroundUsernames = prepend .Values.config.excludeBackgroundUsernames $backgroundUsernames}}
-  excludeBackgroundUsernames: {{ join "," $backgroundUsernames | quote }}
-  {{- else }}
-  excludeBackgroundUsernames: {{ $backgroundUsernames }}
-  {{- end -}} 
   {{- if .Values.config.resourceFilters }}
   resourceFilters: {{ include "kyverno.config.resourceFilters" . | quote }}
   {{- end -}}

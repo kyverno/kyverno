@@ -59,7 +59,8 @@ type resourceHandlers struct {
 	openApiManager openapi.ValidateInterface
 	pcBuilder      webhookutils.PolicyContextBuilder
 
-	admissionReports bool
+	admissionReports             bool
+	backgroungServiceAccountName string
 }
 
 func NewHandlers(
@@ -80,24 +81,26 @@ func NewHandlers(
 	eventGen event.Interface,
 	openApiManager openapi.ValidateInterface,
 	admissionReports bool,
+	backgroungServiceAccountName string,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
-		engine:           engine,
-		client:           client,
-		kyvernoClient:    kyvernoClient,
-		rclient:          rclient,
-		configuration:    configuration,
-		metricsConfig:    metricsConfig,
-		pCache:           pCache,
-		nsLister:         nsLister,
-		urLister:         urLister,
-		cpolLister:       cpolInformer.Lister(),
-		polLister:        polInformer.Lister(),
-		urGenerator:      urGenerator,
-		eventGen:         eventGen,
-		openApiManager:   openApiManager,
-		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration),
-		admissionReports: admissionReports,
+		engine:                       engine,
+		client:                       client,
+		kyvernoClient:                kyvernoClient,
+		rclient:                      rclient,
+		configuration:                configuration,
+		metricsConfig:                metricsConfig,
+		pCache:                       pCache,
+		nsLister:                     nsLister,
+		urLister:                     urLister,
+		cpolLister:                   cpolInformer.Lister(),
+		polLister:                    polInformer.Lister(),
+		urGenerator:                  urGenerator,
+		eventGen:                     eventGen,
+		openApiManager:               openApiManager,
+		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration),
+		admissionReports:             admissionReports,
+		backgroungServiceAccountName: backgroungServiceAccountName,
 	}
 }
 

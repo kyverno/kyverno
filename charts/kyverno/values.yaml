@@ -64,9 +64,6 @@ config:
   # -- Exclude roles
   excludeClusterRoles: []
 
-  # -- Exclude usernames for mutateExisting and generate policies
-  excludeBackgroundUsernames: []
-
   # -- Generate success events.
   generateSuccessEvents: false
 

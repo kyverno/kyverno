@@ -208,7 +208,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.excludeUsernames | list | `[]` | Exclude usernames |
 | config.excludeRoles | list | `[]` | Exclude roles |
 | config.excludeClusterRoles | list | `[]` | Exclude roles |
-| config.excludeBackgroundUsernames | list | `[]` | Exclude usernames for mutateExisting and generate policies |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
 | config.webhooks | list | `[]` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
