@@ -66,7 +66,6 @@ data:
   enableDefaultRegistryMutation: "true"
   defaultRegistry: "docker.io"
   generateSuccessEvents: "false"
-  excludeBackgroundUsernames: system:serviceaccount:kyverno:kyverno-background-controller
   resourceFilters: >-
     [*/*,kyverno,*]
     [Event,*,*]
@@ -34720,6 +34719,7 @@ spec:
           image: "ghcr.io/kyverno/kyverno:latest"
           imagePullPolicy: IfNotPresent
           args:
+            - --backgroundServiceAccountName='system:serviceaccount:kyverno:kyverno-background-controller'
             - --servicePort=443
             - --loggingFormat=text
             - --disableMetrics=false

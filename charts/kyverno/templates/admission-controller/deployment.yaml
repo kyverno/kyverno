@@ -119,6 +119,7 @@ spec:
           image: {{ include "kyverno.image" (dict "image" .Values.admissionController.container.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.admissionController.container.image.pullPolicy }}
           args:
+            - --backgroundServiceAccountName='system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.background-controller.serviceAccountName" . }}'
             - --servicePort={{ .Values.admissionController.service.port }}
             - --loggingFormat={{ .Values.admissionController.logging.format }}
             {{- if .Values.admissionController.tracing.enabled }}
