@@ -6,7 +6,7 @@ import (
 
 // ExecutionStats stores the statistics for the single policy/rule application
 type ExecutionStats struct {
-	// ProcessingTime is the time required to apply the policy/rule on the resource
+	// processingTime is the time required to apply the policy/rule on the resource
 	processingTime time.Duration
 	// timestamp of the instant the policy/rule got triggered
 	timestamp time.Time
