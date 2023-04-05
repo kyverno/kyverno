@@ -124,9 +124,7 @@ func (er EngineResponse) IsNil() bool {
 func (er EngineResponse) GetPatches() [][]byte {
 	var patches [][]byte
 	for _, r := range er.PolicyResponse.Rules {
-		if r.Patches != nil {
-			patches = append(patches, r.Patches...)
-		}
+		patches = append(patches, r.Patches()...)
 	}
 	return patches
 }
@@ -161,7 +159,7 @@ func (er EngineResponse) getRules(predicate func(RuleResponse) bool) []string {
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
 		if predicate(r) {
-			rules = append(rules, r.Name)
+			rules = append(rules, r.Name())
 		}
 	}
 	return rules
@@ -171,7 +169,7 @@ func (er EngineResponse) getRulesWithErrors(predicate func(RuleResponse) bool) [
 	var rules []string
 	for _, r := range er.PolicyResponse.Rules {
 		if predicate(r) {
-			rules = append(rules, fmt.Sprintf("%s: %s", r.Name, r.Message))
+			rules = append(rules, fmt.Sprintf("%s: %s", r.Name(), r.Message()))
 		}
 	}
 	return rules

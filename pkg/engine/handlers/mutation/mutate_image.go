@@ -61,8 +61,8 @@ func (h mutateImageHandler) Process(
 	jsonContext := policyContext.JSONContext()
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
 	if err != nil {
-		return resource, handlers.RuleResponses(
-			internal.RuleError(rule, engineapi.ImageVerify, "failed to substitute variables", err),
+		return resource, handlers.WithResponses(
+			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err),
 		)
 	}
 	iv := internal.NewImageVerifier(logger, h.rclient, policyContext, *ruleCopy, h.ivm)
@@ -70,7 +70,7 @@ func (h mutateImageHandler) Process(
 	for _, imageVerify := range ruleCopy.VerifyImages {
 		engineResponses = append(engineResponses, iv.Verify(ctx, imageVerify, h.images, h.configuration)...)
 	}
-	return resource, handlers.RuleResponses(engineResponses...)
+	return resource, handlers.WithResponses(engineResponses...)
 }
 
 func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, logger logr.Logger) (*kyvernov1.Rule, error) {

@@ -47,7 +47,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 		engineResponse := h.engine.ApplyBackgroundChecks(ctx, policyContext)
 
 		for _, rule := range engineResponse.PolicyResponse.Rules {
-			if rule.Status == engineapi.RuleStatusPass {
+			if rule.Status() == engineapi.RuleStatusPass {
 				rules = append(rules, rule)
 			}
 		}
