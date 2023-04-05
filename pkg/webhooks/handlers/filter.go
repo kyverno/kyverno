@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
@@ -25,14 +26,19 @@ func (inner AdmissionHandler) WithSubResourceFilter(subresources ...string) Admi
 	return inner.withSubResourceFilter(subresources...).WithTrace("SUBRESOURCE")
 }
 
+func filtered(ctx context.Context, logger logr.Logger, request AdmissionRequest, message string, keysAndValues ...interface{}) AdmissionResponse {
+	logger.V(2).Info("admission request filtered because user is excluded", keysAndValues...)
+	tracing.SetAttributes(ctx, tracing.RequestFilteredKey.Bool(true))
+	return admissionutils.ResponseSuccess(request.UID)
+}
+
 func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		// filter by username
 		excludeUsernames := c.GetExcludedUsernames()
 		for _, username := range excludeUsernames {
 			if wildcard.Match(username, request.UserInfo.Username) {
-				logger.V(2).Info("admission request filtered because user is excluded", "config.exlude.usernames", excludeUsernames)
-				return admissionutils.ResponseSuccess(request.UID)
+				return filtered(ctx, logger, request, "admission request filtered because user is excluded", "config.exlude.usernames", excludeUsernames)
 			}
 		}
 		// filter by groups
@@ -40,8 +46,7 @@ func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandle
 		for _, group := range excludeGroups {
 			for _, candidate := range request.UserInfo.Groups {
 				if wildcard.Match(group, candidate) {
-					logger.V(2).Info("admission request filtered because group is excluded", "config.exlude.groups", excludeGroups)
-					return admissionutils.ResponseSuccess(request.UID)
+					return filtered(ctx, logger, request, "admission request filtered because group is excluded", "config.exlude.groups", excludeGroups)
 				}
 			}
 		}
@@ -50,8 +55,7 @@ func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandle
 		for _, role := range excludeRoles {
 			for _, candidate := range request.Roles {
 				if wildcard.Match(role, candidate) {
-					logger.V(2).Info("admission request filtered because role is excluded", "config.exlude.roles", excludeRoles)
-					return admissionutils.ResponseSuccess(request.UID)
+					return filtered(ctx, logger, request, "admission request filtered because role is excluded", "config.exlude.roles", excludeRoles)
 				}
 			}
 		}
@@ -60,20 +64,17 @@ func (inner AdmissionHandler) withFilter(c config.Configuration) AdmissionHandle
 		for _, clusterRole := range excludeClusterRoles {
 			for _, candidate := range request.ClusterRoles {
 				if wildcard.Match(clusterRole, candidate) {
-					logger.V(2).Info("admission request filtered because role is excluded", "config.exlude.cluster-roles", excludeClusterRoles)
-					return admissionutils.ResponseSuccess(request.UID)
+					return filtered(ctx, logger, request, "admission request filtered because role is excluded", "config.exlude.cluster-roles", excludeClusterRoles)
 				}
 			}
 		}
 		// filter by resource filters
 		if c.ToFilter(request.GroupVersionKind, request.SubResource, request.Namespace, request.Name) {
-			logger.V(2).Info("admission request filtered because it apears in configmap resource filters")
-			return admissionutils.ResponseSuccess(request.UID)
+			return filtered(ctx, logger, request, "admission request filtered because it apears in configmap resource filters")
 		}
 		// filter kyverno resources
 		if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
-			logger.V(2).Info("admission request filtered because it is for a kyverno resource")
-			return admissionutils.ResponseSuccess(request.UID)
+			return filtered(ctx, logger, request, "admission request filtered because it is for a kyverno resource")
 		}
 		return inner(ctx, logger, request, startTime)
 	}
@@ -86,10 +87,9 @@ func (inner AdmissionHandler) withOperationFilter(operations ...admissionv1.Oper
 	}
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		if allowed.Has(string(request.Operation)) {
-			logger.V(2).Info("admission request filtered because operation is excluded")
 			return inner(ctx, logger, request, startTime)
 		}
-		return admissionutils.ResponseSuccess(request.UID)
+		return filtered(ctx, logger, request, "admission request filtered because operation is excluded")
 	}
 }
 
@@ -99,7 +99,6 @@ func (inner AdmissionHandler) withSubResourceFilter(subresources ...string) Admi
 		if request.SubResource == "" || allowed.Has(request.SubResource) {
 			return inner(ctx, logger, request, startTime)
 		}
-		logger.V(2).Info("admission request filtered because subresource is excluded")
-		return admissionutils.ResponseSuccess(request.UID)
+		return filtered(ctx, logger, request, "admission request filtered because subresource is excluded")
 	}
 }
